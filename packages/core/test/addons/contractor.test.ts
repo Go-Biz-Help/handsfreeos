@@ -27,6 +27,16 @@ import {
   priceFromMarkup,
   type CostedLine,
 } from '../../src/addons/contractor/estimating';
+import {
+  costJob,
+  groupProfit,
+  headsUnderMargin,
+  periodOf,
+  profitTotal,
+  type CostingActual,
+  type CostingBudget,
+  type ProfitJob,
+} from '../../src/addons/contractor/job-costing';
 import { contractorAddon } from '../../src/addons/contractor/manifest';
 import {
   amountWords,
@@ -49,6 +59,18 @@ import {
 } from '../../src/addons/contractor/materials';
 import { ContractorSettingsSchema } from '../../src/addons/contractor/schemas';
 import { contractorAddonServer } from '../../src/addons/contractor/server';
+import {
+  clockFor,
+  durationWords,
+  fixProblem,
+  hoursOf,
+  isPaid,
+  limitOf,
+  MAX_RUNNING_HOURS,
+  secondsOf,
+  stretchCostCents,
+  totalsOf,
+} from '../../src/addons/contractor/time';
 import { TRADES } from '../../src/addons/contractor/trades';
 import {
   alertHoursWords,
@@ -58,7 +80,11 @@ import {
   namesWords,
   okNeededWords,
   REFUSALS,
+  FIX_PROBLEM_WORDS,
+  stretchWords,
   subTextWords,
+  timeAmountWords,
+  timeStoppedAlertWords,
 } from '../../src/addons/contractor/words';
 
 describe('Contractor Operations', () => {
@@ -415,7 +441,7 @@ describe('materials (the owner’s decision 9)', () => {
 
   it('keeps its tables, its job and its events in the manifest', () => {
     expect(contractorAddon.tables).toEqual(expect.arrayContaining(['materials', 'material_costs']));
-    expect(contractorAddon.jobs).toEqual(['contractor.materials_check']);
+    expect(contractorAddon.jobs).toEqual(expect.arrayContaining(['contractor.materials_check']));
     expect(contractorAddon.events?.consumes).toEqual(
       expect.arrayContaining([
         'appointment.rescheduled',
@@ -442,5 +468,361 @@ describe('materials (the owner’s decision 9)', () => {
     expect(tool('contractor.material.update')?.autonomy).toBeUndefined();
     // The worker's own command is no tool of the AI's.
     expect(tool('contractor.material.stamp_cost')).toBeUndefined();
+  });
+});
+
+describe('time on a job (the owner’s decision 10)', () => {
+  const at = (hhmm: string) => Date.parse(`2026-11-10T${hhmm}:00Z`);
+
+  it('starts travel at On the way and work at Started, and stops at anything else', () => {
+    expect(clockFor('on_the_way')).toBe('travel');
+    expect(clockFor('in_progress')).toBe('work');
+    for (const s of ['scheduled', 'waiting_on_parts', 'done', 'cancelled', 'anything'])
+      expect(clockFor(s)).toBeNull();
+    expect(isPaid('work')).toBe(true);
+    expect(isPaid('travel')).toBe(true);
+    expect(isPaid('break')).toBe(false);
+  });
+
+  it('measures a stretch up to now while it runs, never below nothing', () => {
+    expect(secondsOf({ startedAt: at('09:00'), endedAt: at('11:30') }, at('15:00'))).toBe(9000);
+    expect(secondsOf({ startedAt: at('09:00'), endedAt: null }, at('09:45'))).toBe(2700);
+    expect(secondsOf({ startedAt: at('09:00'), endedAt: at('08:00') }, at('09:45'))).toBe(0);
+    expect(hoursOf(9000)).toBe(2.5);
+    expect(hoursOf(100)).toBe(0.03);
+    expect(limitOf(at('09:00'))).toBe(at('09:00') + MAX_RUNNING_HOURS * 3_600_000);
+  });
+
+  it('adds up work, travel and breaks, and counts only work and travel as labor', () => {
+    const t = totalsOf(
+      [
+        { kind: 'travel', startedAt: at('08:30'), endedAt: at('09:00') },
+        { kind: 'work', startedAt: at('09:00'), endedAt: at('12:00') },
+        { kind: 'break', startedAt: at('12:00'), endedAt: at('12:30') },
+        { kind: 'work', startedAt: at('12:30'), endedAt: null },
+      ],
+      at('13:00'),
+    );
+    expect(t).toEqual({
+      workSeconds: 3 * 3600 + 1800,
+      travelSeconds: 1800,
+      breakSeconds: 1800,
+      paidSeconds: 4 * 3600,
+      running: 1,
+    });
+  });
+
+  it('says how long in plain words', () => {
+    expect(durationWords(0)).toBe('under a minute');
+    expect(durationWords(59)).toBe('under a minute');
+    expect(durationWords(45 * 60)).toBe('45 min');
+    expect(durationWords(3 * 3600)).toBe('3 h');
+    expect(durationWords(2 * 3600 + 15 * 60 + 40)).toBe('2 h 15 min');
+    expect(timeAmountWords('work', 8100)).toBe('2 h 15 min of work');
+    expect(timeAmountWords('break', 1800)).toBe('30 min of break');
+    expect(stretchWords('travel', '8:30 AM', '9:00 AM')).toBe('travel from 8:30 AM to 9:00 AM');
+    expect(stretchWords('work', '9:00 AM', null)).toBe('work from 9:00 AM, still running');
+  });
+
+  it('costs a stretch at what its hour cost: nothing for a break or with no cost', () => {
+    expect(stretchCostCents('work', 9000, 4000)).toBe(10_000);
+    expect(stretchCostCents('travel', 1800, 4000)).toBe(2000);
+    expect(stretchCostCents('work', 100, 4000)).toBe(111);
+    expect(stretchCostCents('break', 1800, 4000)).toBe(0);
+    expect(stretchCostCents('work', 9000, null)).toBe(0);
+  });
+
+  it('refuses a fixed time that ends first, runs over a day, or is still to come', () => {
+    const now = at('15:00');
+    expect(fixProblem(at('09:00'), at('11:00'), now)).toBeNull();
+    expect(fixProblem(at('09:00'), at('09:00'), now)).toBe('ends_first');
+    expect(fixProblem(at('11:00'), at('09:00'), now)).toBe('ends_first');
+    expect(fixProblem(at('09:00') - 25 * 3_600_000, at('09:00'), now)).toBe('too_long');
+    expect(fixProblem(at('14:00'), at('15:30'), now)).toBe('in_future');
+    // A minute's grace for a clock that runs a little ahead.
+    expect(fixProblem(at('14:00'), now + 30_000, now)).toBeNull();
+    for (const k of ['ends_first', 'too_long', 'in_future'] as const)
+      expect(FIX_PROBLEM_WORDS[k].length).toBeGreaterThan(20);
+  });
+
+  it('tells the people who fix time whose ran over, in a title and detail that fit, with no money', () => {
+    const words = timeStoppedAlertWords({
+      job: 'Kitchen remodel',
+      names: ['Dana Reyes', 'Sam Lee'],
+    });
+    expect(words.title).toBe('Time on “Kitchen remodel” ran 12 hours and was stopped');
+    expect(words.detail).toContain('Dana Reyes and Sam Lee’s time');
+    expect(words.detail).toContain('press Fix');
+    expect(`${words.title} ${words.detail}`).not.toMatch(/\$|cost/i);
+    const long = timeStoppedAlertWords({
+      job: 'J'.repeat(400),
+      names: Array.from({ length: 60 }, (_, i) => `Person ${i} ${'x'.repeat(80)}`),
+    });
+    expect(long.title.length).toBeLessThanOrEqual(200);
+    expect(long.detail.length).toBeLessThanOrEqual(1000);
+  });
+
+  it('keeps its tables, job, events and permission in the manifest', () => {
+    expect(contractorAddon.tables).toEqual(
+      expect.arrayContaining(['time_entries', 'time_costs', 'labor_rates', 'other_costs']),
+    );
+    expect(contractorAddon.jobs).toEqual(expect.arrayContaining(['contractor.time_check']));
+    expect(contractorAddon.events?.consumes).toEqual(
+      expect.arrayContaining([
+        'job.status_changed',
+        'appointment.cancelled',
+        'contractor.time.tracked',
+        'contractor.time.break_set',
+        'contractor.time.fixed',
+        'contractor.time.added',
+        'contractor.time.removed',
+        'contractor.labor_rate.set',
+        'contractor.estimating.saved',
+      ]),
+    );
+    const fix = contractorAddon.permissions.find((p) => p.key === 'contractor.fix_time');
+    expect(fix?.defaultRoles).toEqual(['admin']);
+    expect(fix?.requires).toEqual(['contractor.use']);
+    expect(contractorAddon.ui?.nav?.find((n) => n.key === 'profit')?.permission).toBe(
+      'contractor.costs',
+    );
+  });
+
+  it('lets the AI start a break on its own, asks before it fixes time, and keeps costs to people who may see them', () => {
+    const all = [
+      ...(contractorAddonServer.commands ?? []),
+      ...(contractorAddonServer.queries ?? []),
+    ];
+    const op = (name: string) => all.find((c) => c.name === name);
+    const tool = (name: string) => op(name)?.ai as { autonomy?: string } | undefined;
+    expect(tool('contractor.time.set_break')).toBeDefined();
+    expect(tool('contractor.time.set_break')?.autonomy).toBeUndefined();
+    for (const name of [
+      'contractor.time.fix',
+      'contractor.time.add',
+      'contractor.time.remove',
+      'contractor.labor_rate.set',
+      'contractor.other_cost.add',
+      'contractor.other_cost.remove',
+    ])
+      expect(tool(name)?.autonomy, name).toBe('confirm');
+    for (const name of ['contractor.time.fix', 'contractor.time.add', 'contractor.time.remove'])
+      expect(op(name)?.permission, name).toBe('contractor.fix_time');
+    expect(op('contractor.labor_rate.set')?.permission).toBe('contractor.approve');
+    for (const name of [
+      'contractor.labor_rate.list',
+      'contractor.job.costing',
+      'contractor.profit',
+      'contractor.other_cost.add',
+      'contractor.other_cost.remove',
+    ])
+      expect(op(name)?.permission, name).toBe('contractor.costs');
+    // Time itself is everyone's who uses the add-on, and never carries what it cost.
+    expect(op('contractor.time.list')?.permission).toBe('contractor.use');
+    // The worker's own commands are no tools of the AI's.
+    for (const name of [
+      'contractor.time.follow_status',
+      'contractor.time.stamp_costs',
+      'contractor.time.stop_overrun',
+    ])
+      expect(tool(name), name).toBeUndefined();
+  });
+});
+
+describe('job costing and profit (the owner’s decisions 10 and 11)', () => {
+  const budget = (b: Partial<CostingBudget> = {}): CostingBudget => ({
+    priceCents: 500_000,
+    laborCents: 120_000,
+    materialsCents: 80_000,
+    otherCents: null,
+    laborHours: 30,
+    ...b,
+  });
+  const actual = (a: Partial<CostingActual> = {}): CostingActual => ({
+    laborCents: 0,
+    laborSeconds: 0,
+    uncostedSeconds: 0,
+    materialsCents: 0,
+    materialsPlannedCents: 0,
+    uncostedMaterials: 0,
+    otherCents: 0,
+    ...a,
+  });
+
+  it('heads for the plan until there’s something to go on', () => {
+    const c = costJob({ status: 'scheduled', percentDone: 0 }, budget(), actual());
+    expect(c.total).toEqual({ budgetCents: 200_000, actualCents: 0, headingCents: 200_000 });
+    expect(c.profit.plannedCents).toBe(300_000);
+    expect(c.profit.plannedMarginBp).toBe(6000);
+    expect(c.profit.soFarCents).toBe(500_000);
+    expect(c.profit.headingCents).toBe(300_000);
+    expect(c.overCents).toBe(0);
+    expect(c.finished).toBe(false);
+    expect(c.hours).toEqual({ budget: 30, actual: 0, heading: 30 });
+  });
+
+  it('paces labor by the job’s % done, and materials and other costs by the larger of plan and spent', () => {
+    const c = costJob(
+      { status: 'in_progress', percentDone: 40 },
+      budget(),
+      actual({
+        laborCents: 80_000,
+        laborSeconds: 20 * 3600,
+        materialsCents: 50_000,
+        materialsPlannedCents: 90_000,
+        otherCents: 15_000,
+      }),
+    );
+    // 40% done for $800 of labor heads for $2,000; 20 hours heads for 50.
+    expect(c.labor).toEqual({ budgetCents: 120_000, actualCents: 80_000, headingCents: 200_000 });
+    expect(c.hours).toEqual({ budget: 30, actual: 20, heading: 50 });
+    // The list would cost more than the budget, so that's where materials are heading.
+    expect(c.materials.headingCents).toBe(90_000);
+    // No budget for other costs: they head for what's spent.
+    expect(c.other).toEqual({ budgetCents: null, actualCents: 15_000, headingCents: 15_000 });
+    expect(c.total).toEqual({ budgetCents: 200_000, actualCents: 145_000, headingCents: 305_000 });
+    expect(c.overCents).toBe(105_000);
+    expect(c.profit.headingCents).toBe(195_000);
+    expect(c.profit.headingMarginBp).toBe(3900);
+    expect(headsUnderMargin(c, 4000)).toBe(true);
+    expect(headsUnderMargin(c, 2000)).toBe(false);
+  });
+
+  it('doesn’t trust a pace from a job that has barely started', () => {
+    const c = costJob(
+      { status: 'in_progress', percentDone: 5 },
+      budget(),
+      actual({ laborCents: 30_000, laborSeconds: 8 * 3600 }),
+    );
+    // 5% done says nothing yet: labor heads for the plan, or what's spent when that's more.
+    expect(c.labor.headingCents).toBe(120_000);
+    const over = costJob(
+      { status: 'in_progress', percentDone: 5 },
+      budget(),
+      actual({ laborCents: 150_000, laborSeconds: 40 * 3600 }),
+    );
+    expect(over.labor.headingCents).toBe(150_000);
+  });
+
+  it('counts a finished job at exactly what it cost', () => {
+    const c = costJob(
+      { status: 'done', percentDone: 100 },
+      budget(),
+      actual({
+        laborCents: 100_000,
+        laborSeconds: 26 * 3600,
+        uncostedSeconds: 3600,
+        materialsCents: 60_000,
+        materialsPlannedCents: 90_000,
+        uncostedMaterials: 2,
+        otherCents: 5000,
+      }),
+    );
+    expect(c.finished).toBe(true);
+    expect(c.total).toEqual({ budgetCents: 200_000, actualCents: 165_000, headingCents: 165_000 });
+    expect(c.profit.headingCents).toBe(335_000);
+    expect(c.overCents).toBe(0);
+    expect(c.uncostedHours).toBe(1);
+    expect(c.uncostedMaterials).toBe(2);
+    // A cancelled job is finished too.
+    expect(costJob({ status: 'cancelled', percentDone: 30 }, budget(), actual()).finished).toBe(
+      true,
+    );
+  });
+
+  it('says nothing about profit or going over when no price or cost was planned', () => {
+    const c = costJob(
+      { status: 'in_progress', percentDone: 50 },
+      {
+        priceCents: null,
+        laborCents: null,
+        materialsCents: null,
+        otherCents: null,
+        laborHours: null,
+      },
+      actual({ laborCents: 40_000, laborSeconds: 10 * 3600 }),
+    );
+    expect(c.total.budgetCents).toBeNull();
+    expect(c.overCents).toBeNull();
+    expect(c.profit).toEqual({
+      plannedCents: null,
+      plannedMarginBp: null,
+      soFarCents: null,
+      headingCents: null,
+      headingMarginBp: null,
+    });
+    expect(c.labor.headingCents).toBe(80_000);
+    expect(c.hours).toEqual({ budget: null, actual: 10, heading: 20 });
+    expect(headsUnderMargin(c, 2000)).toBe(false);
+  });
+
+  it('covers whole calendar months, quarters and years in the business’s today', () => {
+    expect(periodOf('month', '2026-11-10')).toEqual({ from: '2026-11-01', to: '2026-11-30' });
+    expect(periodOf('month', '2028-02-29')).toEqual({ from: '2028-02-01', to: '2028-02-29' });
+    expect(periodOf('last_month', '2026-11-10')).toEqual({ from: '2026-10-01', to: '2026-10-31' });
+    expect(periodOf('last_month', '2026-01-05')).toEqual({ from: '2025-12-01', to: '2025-12-31' });
+    expect(periodOf('quarter', '2026-11-10')).toEqual({ from: '2026-10-01', to: '2026-12-31' });
+    expect(periodOf('quarter', '2026-02-10')).toEqual({ from: '2026-01-01', to: '2026-03-31' });
+    expect(periodOf('year', '2026-11-10')).toEqual({ from: '2026-01-01', to: '2026-12-31' });
+    expect(periodOf('all', '2026-11-10')).toBeNull();
+    expect(periodOf('open', '2026-11-10')).toBeNull();
+  });
+
+  it('splits profit by job, customer, crew or service, each job counted once, the most profit first', () => {
+    const job = (j: Partial<ProfitJob> & Pick<ProfitJob, 'jobId'>): ProfitJob => ({
+      name: `Job ${j.jobId}`,
+      priceCents: 100_000,
+      costCents: 60_000,
+      laborSeconds: 3600,
+      customer: null,
+      crew: null,
+      trade: null,
+      ...j,
+    });
+    const dana = { id: 'c1', name: 'Dana Reyes' };
+    const crewA = { id: 'k1', name: 'Crew A' };
+    const list = [
+      job({ jobId: 'a', customer: dana, crew: crewA, trade: 'electrical' }),
+      job({
+        jobId: 'b',
+        customer: dana,
+        trade: 'electrical',
+        priceCents: 50_000,
+        costCents: 70_000,
+      }),
+      job({ jobId: 'c', crew: crewA, trade: 'plumbing', priceCents: 300_000, costCents: 100_000 }),
+    ];
+    const total = profitTotal(list);
+    expect(total).toMatchObject({
+      jobs: 3,
+      priceCents: 450_000,
+      costCents: 230_000,
+      profitCents: 220_000,
+      marginBp: 4889,
+      laborHours: 3,
+    });
+    const byJob = groupProfit(list, 'job');
+    expect(byJob.map((r) => r.key)).toEqual(['c', 'a', 'b']);
+    expect(byJob[2]).toMatchObject({ profitCents: -20_000, marginBp: -4000 });
+    const byCustomer = groupProfit(list, 'customer');
+    expect(byCustomer.map((r) => [r.name, r.jobs, r.profitCents])).toEqual([
+      [null, 1, 200_000],
+      ['Dana Reyes', 2, 20_000],
+    ]);
+    const byCrew = groupProfit(list, 'crew');
+    expect(byCrew.map((r) => [r.name, r.jobs, r.profitCents])).toEqual([
+      ['Crew A', 2, 240_000],
+      [null, 1, -20_000],
+    ]);
+    const byTrade = groupProfit(list, 'trade');
+    expect(byTrade.map((r) => [r.key, r.jobs, r.profitCents])).toEqual([
+      ['plumbing', 1, 200_000],
+      ['electrical', 2, 20_000],
+    ]);
+    // Every split adds up to the same total.
+    for (const rows of [byJob, byCustomer, byCrew, byTrade])
+      expect(rows.reduce((n, r) => n + r.profitCents, 0)).toBe(total.profitCents);
+    expect(groupProfit([], 'job')).toEqual([]);
+    expect(profitTotal([])).toMatchObject({ jobs: 0, profitCents: 0, marginBp: null });
   });
 });

@@ -13,7 +13,9 @@ import {
   type MaterialCounts,
   type MaterialState,
 } from './materials';
+import type { ProfitGroup, ProfitPeriod } from './job-costing';
 import type { JobKind, JobStatus, PhaseStatus } from './progress';
+import { durationWords, MAX_FIXED_HOURS, MAX_RUNNING_HOURS, type TimeKind } from './time';
 
 export const CONTRACTOR_NAME = 'Contractor Operations';
 
@@ -23,6 +25,7 @@ export const CONTRACTOR_PAGES = {
   dispatch: 'Dispatch',
   estimates: 'Estimates',
   costs: 'Item costs',
+  profit: 'Profit',
   gear: 'Settings',
 } as const;
 
@@ -237,6 +240,60 @@ export function materialsAlertWords(a: {
   };
 }
 
+export const TIME_KIND_WORDS: Readonly<Record<TimeKind, string>> = {
+  travel: 'Travel',
+  work: 'Work',
+  break: 'Break',
+};
+
+/** "Travel 9:05 AM to 9:40 AM", for a timeline line or a Confirm card: a stretch said plainly. */
+export const stretchWords = (kind: TimeKind, from: string, to: string | null) =>
+  `${TIME_KIND_WORDS[kind].toLowerCase()} from ${from}${to ? ` to ${to}` : ', still running'}`;
+
+/**
+ * The alert when time was left running on a visit and stopped on its own (decision 10): whose, on which job, and
+ * what to do. Never an amount of money.
+ */
+export function timeStoppedAlertWords(a: {
+  readonly job: string;
+  readonly names: readonly string[];
+}): { title: string; detail: string } {
+  const clip = (text: string, max: number) =>
+    text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+  const who = namesWords(a.names.map((n) => clip(n, 60)));
+  return {
+    title: clip(`Time on “${clip(a.job, 80)}” ran ${MAX_RUNNING_HOURS} hours and was stopped`, 200),
+    detail: clip(
+      `${who ? `${who}’s time` : 'Someone’s time'} on a visit was still running after ${MAX_RUNNING_HOURS} hours, so it was stopped there. Open the job, and under Time press Fix to set when it really ended. If ${MAX_RUNNING_HOURS} hours is right, save it as it is.`,
+      1000,
+    ),
+  };
+}
+
+export const PROFIT_PERIOD_WORDS: Readonly<Record<ProfitPeriod, string>> = {
+  month: 'Done this month',
+  last_month: 'Done last month',
+  quarter: 'Done this quarter',
+  year: 'Done this year',
+  all: 'Done, all time',
+  open: 'Open jobs',
+};
+
+export const PROFIT_GROUP_WORDS: Readonly<Record<ProfitGroup, string>> = {
+  job: 'By job',
+  customer: 'By customer',
+  crew: 'By crew',
+  trade: 'By service',
+};
+
+/** What the jobs with no customer, crew or trade are called on the profit page. */
+export const PROFIT_NONE_WORDS: Readonly<Record<ProfitGroup, string>> = {
+  job: 'Job',
+  customer: 'No customer',
+  crew: 'No crew',
+  trade: 'No trade picked',
+};
+
 /** "3 days late" · "1 day late". */
 export const lateWords = (days: number) => `${days} ${days === 1 ? 'day' : 'days'} late`;
 
@@ -256,6 +313,144 @@ export const hoursWords = (h: number) =>
   `${Number.isInteger(h) ? h : h.toFixed(1).replace(/\.0$/, '')} ${h === 1 ? 'hour' : 'hours'}`;
 
 export const CONTRACTOR_WORDS = {
+  time: {
+    title: 'Time',
+    visitTitle: 'Time on this visit',
+    hint: 'Time starts when a visit is marked On the way (travel) or Started (work), and stops at Waiting on parts or Done.',
+    none: 'No time yet. It starts when a visit is marked On the way or Started.',
+    noneForVisit:
+      'No time on this visit yet. It starts when the visit is marked On the way or Started.',
+    work: 'Work',
+    travel: 'Travel',
+    breaks: 'Breaks',
+    running: 'Running',
+    since: (when: string) => `since ${when}`,
+    onClock: (n: number) => `${n} on the clock now`,
+    autoStopped: `Stopped on its own after ${MAX_RUNNING_HOURS} hours.`,
+    autoStoppedFix: 'Press Fix to set when it really ended.',
+    fixedBy: (by: string | null, reason: string) => `Fixed${by ? ` by ${by}` : ''}: ${reason}`,
+    takeBreak: 'Take a break',
+    backToWork: 'Back to work',
+    onBreak: 'You’re on a break.',
+    breakStarted: 'Your break has started. Press Back to work when you’re back.',
+    breakEnded: 'You’re back on the clock.',
+    menu: (name: string) => `More for ${name}’s time`,
+    fix: 'Fix',
+    fixTitle: (name: string) => `Fix ${name}’s time`,
+    add: 'Add time',
+    addTitle: 'Add time',
+    addHint:
+      'For time that wasn’t tracked: someone forgot to press Started, or worked without a visit.',
+    remove: 'Remove',
+    removeTitle: (name: string) => `Remove ${name}’s time?`,
+    removeAsk:
+      'It comes off the job’s hours and its labor cost. The job’s history keeps what it was and why you removed it.',
+    person: 'Who',
+    kind: 'What',
+    visit: 'Visit',
+    noVisit: 'No visit',
+    started: 'Started',
+    ended: 'Ended',
+    reason: 'Why',
+    reasonHint: 'Kept with the time, so the next person knows.',
+    reasonPlaceholder: 'Forgot to press Done',
+    save: 'Save',
+    cancel: 'Cancel',
+    fixed: 'Time fixed.',
+    added: (name: string) => `Time added for ${name}.`,
+    removed: (name: string) => `${name}’s time is removed.`,
+    gone: 'Someone who’s left',
+    truncated: (n: number) => `Showing the newest ${n} stretches.`,
+    showAll: (n: number) => `Show all ${n}`,
+    showFewer: 'Show fewer',
+    needPerson: 'Pick whose time it is.',
+    needStart: 'Set when it started.',
+    needEnd: 'Set when it ended.',
+    seeAll: 'See all the job’s time',
+    onlyFixers: 'Only an owner or admin fixes time.',
+  },
+  costing: {
+    title: 'Costs so far',
+    hint: 'What this job was planned to cost, what it has cost so far, and where it’s heading.',
+    planned: 'Planned',
+    soFar: 'So far',
+    heading: 'Heading for',
+    labor: 'Labor',
+    materials: 'Materials',
+    other: 'Other costs',
+    total: 'Total cost',
+    hours: 'Labor hours',
+    price: 'Price',
+    profit: 'Profit',
+    margin: 'Margin',
+    notSet: 'Not set',
+    over: (amount: string) => `Heading ${amount} over what was planned.`,
+    underMargin: (margin: string, lowest: string) =>
+      `Heading for a ${margin} margin, under your lowest of ${lowest}.`,
+    onTrack: 'On track for what was planned.',
+    finished: 'This job is finished, so what it’s heading for is what it cost.',
+    noPrice: 'Set the job’s price under Budget and price to see its profit.',
+    uncostedHours: (hours: string) =>
+      `${hours} of time has no cost yet. Set what an hour costs in Settings → What an hour costs you.`,
+    uncostedMaterials: (n: number) =>
+      `${n} ${n === 1 ? 'material has' : 'materials have'} no cost yet. Set ${n === 1 ? 'it' : 'them'} under Materials.`,
+    pace: 'Labor is paced by the job’s % done. Materials and other costs head for the larger of the plan and what’s spent.',
+    byPerson: 'Labor by person',
+    otherTitle: 'Other costs',
+    otherHint: 'What else the job cost: a permit, a dump fee, a subcontractor’s bill.',
+    otherNone: 'None yet.',
+    otherAdd: 'Add a cost',
+    otherAddTitle: 'Add a cost',
+    otherName: 'What it was for',
+    otherNamePlaceholder: 'Electrical permit',
+    otherAmount: 'Amount',
+    otherDay: 'Day',
+    otherNote: 'Note',
+    otherAdded: (name: string) => `${name} is added to the job’s costs.`,
+    otherRemove: 'Remove',
+    otherRemoveTitle: (name: string) => `Remove “${name}”?`,
+    otherRemoveAsk: 'It comes off the job’s costs. Add it again if that was a mistake.',
+    otherRemoved: (name: string) => `${name} is off the job’s costs.`,
+    save: 'Save',
+    cancel: 'Cancel',
+  },
+  laborCosts: {
+    title: 'What an hour costs you',
+    hint: 'What an hour of each person costs the business: their pay, taxes and whatever else you count. It turns the time tracked on a job into its labor cost. Only people who may see job costs see it.',
+    cost: 'Cost per hour',
+    notSet: 'Not set',
+    fallback: (amount: string) =>
+      `Someone with no cost of their own counts at ${amount} an hour, the labor cost in Estimating.`,
+    noFallback:
+      'Someone with no cost of their own counts for nothing until you set one here, or a labor cost per hour in Estimating.',
+    fromNow: 'A change counts from now on. Time already tracked keeps what it cost then.',
+    save: 'Save',
+    saved: (name: string) => `${name}’s cost per hour is saved.`,
+    cleared: (name: string) => `${name}’s cost per hour is taken off.`,
+    readOnly: 'Only an owner or admin changes these.',
+  },
+  profit: {
+    title: CONTRACTOR_PAGES.profit,
+    lede: 'What your jobs made: the price, what each cost in labor, materials and everything else, and what’s left.',
+    which: 'Which jobs',
+    split: 'Split',
+    name: 'Name',
+    jobs: 'Jobs',
+    price: 'Price',
+    cost: 'Cost',
+    profit: 'Profit',
+    margin: 'Margin',
+    hours: 'Labor hours',
+    total: 'All of them',
+    none: 'No jobs to count here yet. A job counts once it’s marked Done.',
+    noneOpen: 'No open jobs right now.',
+    openNote: 'Open jobs count at what they’re heading for, not what they’ve cost so far.',
+    doneNote:
+      'A done job counts at its price and what it really cost. Cancelled jobs aren’t counted.',
+    crewNote: 'A job counts for the crew that was on most of its visits.',
+    truncated: (n: number) =>
+      `Showing the first ${n} jobs. Pick a shorter stretch of time to see them all.`,
+  },
   title: CONTRACTOR_NAME,
   jobs: {
     title: CONTRACTOR_PAGES.jobs,
@@ -836,4 +1031,36 @@ export const REFUSALS = {
     'You can’t see the price list in this business, so you can’t pick from it. Type the material’s name instead.',
   materialCostNotAllowed:
     'Only people who may see job costs set what a material costs. Leave the cost out, or ask an owner or admin for “See job costs and profit” in Settings → Team.',
+  timeGone:
+    'That time isn’t on the job anymore. Someone may have removed it. Refresh and try again.',
+  timeNotWorking: (name: string | null) =>
+    `${name ? `${name} isn’t` : 'You’re not'} on the clock for this visit, so there’s no break to take. Work time starts when the visit is marked Started.`,
+  timeNotOnBreak: (name: string | null) =>
+    `${name ? `${name} isn’t` : 'You’re not'} on a break on this visit.`,
+  timeSomeoneElse:
+    'Only an owner or admin changes someone else’s time. Ask one of them, or ask for “Fix time on jobs” in Settings → Team.',
+  timeEndsFirst: 'That time ends before it starts. Set the end after the start.',
+  timeTooLong: `That’s more than ${MAX_FIXED_HOURS} hours in one stretch. Add each day’s time on its own.`,
+  timeInFuture: 'That time hasn’t happened yet. Set an end that’s now or earlier.',
+  timeStillRunning:
+    'That time is still running. Set when it ended to fix it, or let the visit’s Done button stop it.',
+  timeOverlaps: (name: string, other: string) =>
+    `${name} already has ${other} then, and nobody is in two places. Change the times so they don’t overlap, or fix that one first.`,
+  timeVisitElsewhere: (job: string) =>
+    `That visit isn’t on “${job}”. Pick one of this job’s visits, or leave the visit out.`,
+  otherCostGone:
+    'That cost isn’t on the job anymore. Someone may have removed it. Refresh and try again.',
+  tooManyOtherCosts: (max: number) =>
+    `A job has ${max} other costs at most. Add smaller ones together as one.`,
 } as const;
+
+/** Why a fixed time can't be kept, in words: each says what to change. */
+export const FIX_PROBLEM_WORDS = {
+  ends_first: REFUSALS.timeEndsFirst,
+  too_long: REFUSALS.timeTooLong,
+  in_future: REFUSALS.timeInFuture,
+} as const;
+
+/** "2 h 15 min of work", for a timeline line. */
+export const timeAmountWords = (kind: TimeKind, seconds: number) =>
+  `${durationWords(seconds)} of ${kind === 'break' ? 'break' : TIME_KIND_WORDS[kind].toLowerCase()}`;

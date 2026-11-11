@@ -7,8 +7,8 @@ export const metadata: Metadata = { title: 'Contractor settings' };
 
 /**
  * Contractor Operations' settings: the trades the business does, a new project's phases, a new visit's checklist, its
- * crews, and how it estimates (its lowest margin, starting markup and labor's hourly price and cost). Owners and
- * admins.
+ * crews, how it estimates (its lowest margin, starting markup and labor's hourly price and cost), and what an hour of
+ * each person costs. Owners and admins.
  */
 export default async function ContractorSettingsRoute({
   params,
@@ -24,6 +24,12 @@ export default async function ContractorSettingsRoute({
         .POST('/v1/queries/contractor.crew.list', { body: { workspaceId, includeArchived: true } })
         .then(unwrapPage),
     ]);
+    // Costs are for people who may see them: nobody else is even asked.
+    const laborRates = overview.may.costs
+      ? await api
+          .POST('/v1/queries/contractor.labor_rate.list', { body: { workspaceId } })
+          .then(unwrapPage)
+      : null;
     return (
       <ContractorSettingsPage
         workspaceId={workspaceId}
@@ -31,6 +37,7 @@ export default async function ContractorSettingsRoute({
         crews={crews.crews}
         people={overview.people}
         estimating={overview.estimating}
+        laborRates={laborRates}
         mayApprove={overview.may.approve}
       />
     );

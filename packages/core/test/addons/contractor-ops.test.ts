@@ -9,7 +9,10 @@
  * visit books its people and brings its subcontractors (decision 7), and a job isn't Done while a required item is
  * left unless an owner or admin says why (decision 8); a job's materials are kept by everyone on it, what one costs
  * stays with people who may see job costs, an approved estimate fills them once, and each visit says what it's
- * still missing (decision 9); and none of it works while the add-on is off.
+ * still missing (decision 9); a visit's buttons start and stop the time of the people on it, a break pauses one
+ * person, fixing time takes someone who may and a reason, what an hour cost is kept as it was and seen only by
+ * people who may see job costs, a job's costs are set against its plan with what it's heading for, and the profit
+ * page adds the jobs up (decisions 10 and 11); and none of it works while the add-on is off.
  */
 import { randomUUID } from 'node:crypto';
 import { getTableColumns, getTableName } from 'drizzle-orm';
@@ -1425,6 +1428,745 @@ describe('materials (the owner’s decision 9)', () => {
         as(estimator, 'contractor.material.set_cost', { materialId, unitCostCents: 1 }),
       ),
     ).toBe('contractor_job_closed');
+  });
+});
+
+describe('time and job costing (the owner’s decisions 10 and 11)', () => {
+  let calendarId: string;
+  /** A visit on a job, some days out: nobody's two visits ever overlap. */
+  async function visit(jobId: string, daysOut: number): Promise<string> {
+    const [a] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.appointments (workspace_id, calendar_id, calendar_revision, title, starts_at, ends_at,
+            custom_record_id, owner_user_id)
+          values (${ws}, ${calendarId}, 1, 'Site visit', now() + make_interval(days => ${daysOut}),
+            now() + make_interval(days => ${daysOut}, hours => 1), ${jobId}, ${owner.id})
+          returning id`,
+    );
+    return a!.id;
+  }
+  /** Puts people on a visit, as booking them does. */
+  async function onVisit(appointmentId: string, ...people: TestUser[]): Promise<void> {
+    for (const p of people)
+      await rows(
+        admin(),
+        sql`insert into app.appointment_staff (workspace_id, appointment_id, user_id)
+            values (${ws}, ${appointmentId}, ${p.id})`,
+      );
+  }
+  const job = (name: string) =>
+    as(owner, 'contractor.job.open', {
+      name,
+      customerPersonId: customerId,
+      newPropertyAddress: `${name}, 6 Cedar Ct`,
+      trade: 'electrical',
+    }).then((o) => o.jobId as string);
+  /**
+   * A clock for one test: moments so many minutes before now (to the second), some days back, so each test's
+   * time is on a day of its own and the sums come out exact.
+   */
+  const clock = (daysBack = 0) => {
+    const base = Math.floor(Date.now() / 1000) * 1000 - daysBack * 86_400_000;
+    return (minutesAgo: number) => new Date(base - minutesAgo * 60_000).toISOString();
+  };
+  /** The worker passing on a visit's button, pressed at a moment, by someone or by nobody. */
+  const press = (appointmentId: string, status: string, at: string, by?: TestUser) =>
+    worker('contractor.time.follow_status', {
+      appointmentId,
+      status,
+      at,
+      byUserId: by?.id ?? null,
+    });
+  const time = (u: TestUser, jobId: string, more: Record<string, unknown> = {}) =>
+    as(u, 'contractor.time.list', { jobId, ...more });
+  const costing = (jobId: string) => as(estimator, 'contractor.job.costing', { jobId });
+  /** How many rows of one of part 5's tables a person can read, whatever asks. */
+  const seen = (
+    u: TestUser,
+    table: 'time_entries' | 'time_costs' | 'labor_rates' | 'other_costs',
+  ) =>
+    asUser(api(), u.claims, (tx) =>
+      rows<{ n: number }>(
+        tx,
+        sql`select count(*)::int as n from ${sql.raw(`addon_contractor.${table}`)}`,
+      ),
+    ).then((r) => r[0]!.n);
+
+  beforeAll(async () => {
+    const [c] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.calendars (workspace_id, name, slug)
+          values (${ws}, 'Time', ${`time-${randomUUID().slice(0, 8)}`}) returning id`,
+    );
+    calendarId = c!.id;
+  });
+
+  it('starts and stops everyone’s time from the visit’s buttons, safely twice and for old news', async () => {
+    const jobId = await job('Panel swap');
+    const v = await visit(jobId, 20);
+    await onVisit(v, member, estimator);
+    const t = clock();
+
+    // On the way: travel time for everyone on the visit, from the moment it was pressed.
+    expect(await press(v, 'on_the_way', t(180))).toEqual({
+      jobId,
+      appointmentId: v,
+      started: 2,
+      stopped: 0,
+    });
+    // The same news again changes nothing.
+    expect(await press(v, 'on_the_way', t(180))).toMatchObject({ started: 0, stopped: 0 });
+    // Started: travel stops and work starts.
+    expect(await press(v, 'in_progress', t(150))).toMatchObject({ started: 2, stopped: 2 });
+    // News that arrives late, from before what's already known, changes nothing either.
+    expect(await press(v, 'on_the_way', t(170))).toMatchObject({ started: 0, stopped: 0 });
+
+    let list = await time(member, jobId);
+    expect(list.totals).toMatchObject({ travelSeconds: 2 * 30 * 60, running: 2 });
+    expect(list.mine).toMatchObject({ appointmentId: v, kind: 'work' });
+    // A tech sees the hours, and can't fix them.
+    expect(list.may.fix).toBe(false);
+
+    // A break pauses one person's work. Taking it twice is taking it once.
+    expect(
+      await as(member, 'contractor.time.set_break', { appointmentId: v, onBreak: true }),
+    ).toMatchObject({ jobId, userId: member.id, onBreak: true, changed: true });
+    expect(
+      await as(member, 'contractor.time.set_break', { appointmentId: v, onBreak: true }),
+    ).toMatchObject({ changed: false });
+    list = await time(member, jobId, { appointmentId: v });
+    expect(list.mine).toMatchObject({ kind: 'break' });
+    expect(list.totals.running).toBe(2);
+    // Someone else's break takes “Fix time on jobs”.
+    expect(
+      await refused(
+        as(member, 'contractor.time.set_break', {
+          appointmentId: v,
+          onBreak: true,
+          userId: estimator.id,
+        }),
+      ),
+    ).toBe('contractor_time_someone_else');
+    expect(
+      await as(owner, 'contractor.time.set_break', {
+        appointmentId: v,
+        onBreak: true,
+        userId: estimator.id,
+      }),
+    ).toMatchObject({ name: 'Eli Estimator', onBreak: true, changed: true });
+    await as(owner, 'contractor.time.set_break', {
+      appointmentId: v,
+      onBreak: false,
+      userId: estimator.id,
+    });
+    expect(
+      await as(member, 'contractor.time.set_break', { appointmentId: v, onBreak: false }),
+    ).toMatchObject({ onBreak: false, changed: true });
+    // The owner isn't on the clock here: no break to take, and none to come back from.
+    expect(
+      await refused(as(owner, 'contractor.time.set_break', { appointmentId: v, onBreak: true })),
+    ).toBe('contractor_time_not_working');
+    expect(
+      await refused(as(owner, 'contractor.time.set_break', { appointmentId: v, onBreak: false })),
+    ).toBe('contractor_time_not_on_break');
+
+    // Done stops everything.
+    expect(await press(v, 'done', new Date().toISOString())).toMatchObject({
+      started: 0,
+      stopped: 2,
+    });
+    list = await time(owner, jobId);
+    expect(list.totals.running).toBe(0);
+    expect(list.mine).toBeNull();
+    expect(list.may.fix).toBe(true);
+    // Each of the two: travel, work, a break, work again.
+    expect(list.entries).toHaveLength(8);
+    expect(list.entries.filter((e: Any) => e.kind === 'break')).toHaveLength(2);
+    expect(list.entries.every((e: Any) => e.endedAt !== null)).toBe(true);
+    expect(new Set(list.entries.map((e: Any) => e.name))).toEqual(
+      new Set(['Eli Estimator', member.fullName]),
+    );
+    // The time never says what it cost, and neither does its news.
+    expect(JSON.stringify(list)).not.toMatch(/cents/i);
+    const events = await rows<{ type: string; payload: Any }>(
+      admin(),
+      sql`select event_type as type, payload from app.events
+          where workspace_id = ${ws} and entity_id = ${jobId} and event_type like 'contractor.time.%'
+          order by created_at, id`,
+    );
+    expect(events.map((e) => e.type)).toEqual([
+      'contractor.time.tracked',
+      'contractor.time.tracked',
+      'contractor.time.break_set',
+      'contractor.time.break_set',
+      'contractor.time.break_set',
+      'contractor.time.break_set',
+      'contractor.time.tracked',
+    ]);
+    expect(JSON.stringify(events)).not.toMatch(/cents/i);
+  });
+
+  it('gives the time to whoever pressed the button when nobody is on the visit, one clock each', async () => {
+    const first = await job('Leak check');
+    const second = await job('Second stop');
+    const a = await visit(first, 21);
+    const b = await visit(second, 22);
+    const t = clock(2);
+
+    // Nobody is on the visit and nobody pressed it: there's no one to track.
+    expect(await press(a, 'in_progress', t(120))).toMatchObject({ started: 0, stopped: 0 });
+    expect(await press(a, 'in_progress', t(110), member)).toMatchObject({
+      started: 1,
+      stopped: 0,
+    });
+    // Nobody is in two places: starting on another visit stops their time on the first.
+    expect(await press(b, 'on_the_way', t(50), member)).toMatchObject({ started: 1 });
+    expect((await time(owner, first)).totals).toMatchObject({ workSeconds: 3600, running: 0 });
+    // A cancelled visit stops its time.
+    expect(await press(b, 'cancelled', t(20))).toMatchObject({ started: 0, stopped: 1 });
+    expect((await time(owner, second)).totals).toMatchObject({
+      travelSeconds: 1800,
+      workSeconds: 0,
+      paidSeconds: 1800,
+      running: 0,
+    });
+    // Someone who isn't on the team gets no time, and a visit that isn't on a job is none of its business.
+    expect(
+      await worker('contractor.time.follow_status', {
+        appointmentId: a,
+        status: 'in_progress',
+        at: t(10),
+        byUserId: randomUUID(),
+      }),
+    ).toMatchObject({ started: 0, stopped: 0 });
+    expect(
+      await worker('contractor.time.follow_status', {
+        appointmentId: randomUUID(),
+        status: 'in_progress',
+        at: t(5),
+      }),
+    ).toBeNull();
+  });
+
+  it('lets only people who may fix time change, add or remove it, with a reason that’s kept', async () => {
+    const jobId = await job('Rewire');
+    const v = await visit(jobId, 23);
+    const t = clock(3);
+    await press(v, 'in_progress', t(240), member);
+    await press(v, 'done', t(120), member);
+    const [entry] = (await time(owner, jobId)).entries;
+    expect(entry).toMatchObject({
+      userId: member.id,
+      appointmentId: v,
+      kind: 'work',
+      seconds: 7200,
+      source: 'status',
+      autoStopped: false,
+      fixed: null,
+    });
+
+    // A tech can't, and neither can someone who only sees job costs.
+    const tries: [string, Record<string, unknown>][] = [
+      ['contractor.time.fix', { entryId: entry.id, endedAt: t(60), reason: 'Stayed late' }],
+      [
+        'contractor.time.add',
+        { jobId, userId: member.id, startedAt: t(60), endedAt: t(30), reason: 'Forgot' },
+      ],
+      ['contractor.time.remove', { entryId: entry.id, reason: 'Wrong job' }],
+    ];
+    for (const who of [member, estimator])
+      for (const [name, input] of tries)
+        expect(await refused(as(who, name, input))).toBe('forbidden');
+
+    // An owner fixes it: it ran an hour longer. Who, when and why stay on it.
+    expect(
+      await as(owner, 'contractor.time.fix', {
+        entryId: entry.id,
+        endedAt: t(60),
+        reason: 'Stayed to clean up',
+      }),
+    ).toMatchObject({ entryId: entry.id, jobId, name: member.fullName, changed: true });
+    expect((await time(member, jobId)).entries[0]).toMatchObject({
+      seconds: 3 * 3600,
+      fixed: { by: 'Olive Owner', reason: 'Stayed to clean up' },
+    });
+    // A reason is needed.
+    expect(
+      await refused(
+        as(owner, 'contractor.time.fix', { entryId: entry.id, endedAt: t(90), reason: ' ' }),
+      ),
+    ).not.toBe('went through');
+
+    // What can't be: it ends before it starts, runs over a day, or hasn't happened yet.
+    expect(
+      await refused(
+        as(owner, 'contractor.time.fix', { entryId: entry.id, endedAt: t(300), reason: 'Typo' }),
+      ),
+    ).toBe('contractor_time_ends_first');
+    expect(
+      await refused(
+        as(owner, 'contractor.time.fix', {
+          entryId: entry.id,
+          startedAt: t(240 + 24 * 60),
+          reason: 'Typo',
+        }),
+      ),
+    ).toBe('contractor_time_too_long');
+    expect(
+      await refused(
+        as(owner, 'contractor.time.add', {
+          jobId,
+          userId: member.id,
+          startedAt: new Date(Date.now() - 600_000).toISOString(),
+          endedAt: new Date(Date.now() + 600_000).toISOString(),
+          reason: 'Later today',
+        }),
+      ),
+    ).toBe('contractor_time_in_future');
+
+    // Time the buttons didn't track is added, on one of the job's own visits.
+    const added = await as(owner, 'contractor.time.add', {
+      jobId,
+      appointmentId: v,
+      userId: member.id,
+      kind: 'travel',
+      startedAt: t(270),
+      endedAt: t(240),
+      reason: 'Drove from the shop',
+    });
+    expect(added).toMatchObject({ jobId, name: member.fullName, changed: true });
+    expect((await time(owner, jobId)).totals).toMatchObject({
+      workSeconds: 3 * 3600,
+      travelSeconds: 1800,
+      paidSeconds: 3 * 3600 + 1800,
+    });
+    // Never over the same person's other time, on a visit of another job, or for someone who isn't on the team.
+    expect(
+      await refused(
+        as(owner, 'contractor.time.add', {
+          jobId,
+          userId: member.id,
+          startedAt: t(250),
+          endedAt: t(200),
+          reason: 'Twice',
+        }),
+      ),
+    ).toBe('contractor_time_overlaps');
+    const elsewhere = await visit(await job('Elsewhere'), 24);
+    expect(
+      await refused(
+        as(owner, 'contractor.time.add', {
+          jobId,
+          appointmentId: elsewhere,
+          userId: member.id,
+          startedAt: t(30),
+          endedAt: t(20),
+          reason: 'Wrong visit',
+        }),
+      ),
+    ).toBe('contractor_time_visit_elsewhere');
+    expect(
+      await refused(
+        as(owner, 'contractor.time.add', {
+          jobId,
+          userId: randomUUID(),
+          startedAt: t(30),
+          endedAt: t(20),
+          reason: 'Nobody',
+        }),
+      ),
+    ).toBe('contractor_not_on_team');
+
+    // Time still running needs an end to be fixed; with one, it stops there.
+    await press(v, 'in_progress', t(50), estimator);
+    const running = (await time(owner, jobId)).entries.find((e: Any) => e.endedAt === null);
+    expect(running).toMatchObject({ userId: estimator.id, kind: 'work' });
+    expect(
+      await refused(
+        as(owner, 'contractor.time.fix', { entryId: running.id, kind: 'travel', reason: 'Drive' }),
+      ),
+    ).toBe('contractor_time_still_running');
+    await as(owner, 'contractor.time.fix', {
+      entryId: running.id,
+      endedAt: t(20),
+      kind: 'travel',
+      reason: 'He was driving back',
+    });
+
+    // Removed, it's off the job's hours, and gone.
+    expect(
+      await as(owner, 'contractor.time.remove', {
+        entryId: added.entryId,
+        reason: 'He rode with Eli',
+      }),
+    ).toMatchObject({ entryId: added.entryId, jobId, changed: true });
+    expect(
+      await refused(
+        as(owner, 'contractor.time.remove', { entryId: added.entryId, reason: 'Again' }),
+      ),
+    ).toBe('not_found');
+    const list = await time(owner, jobId);
+    expect(list.entries).toHaveLength(2);
+    expect(list.totals).toMatchObject({
+      workSeconds: 3 * 3600,
+      travelSeconds: 1800,
+      breakSeconds: 0,
+      running: 0,
+    });
+    // Each reason is on the job's timeline, in words.
+    const lines = await rows<{ body: string | null }>(
+      admin(),
+      sql`select body from app.activities where custom_record_id = ${jobId} and body is not null`,
+    );
+    expect(lines.map((l) => l.body)).toEqual(
+      expect.arrayContaining([
+        'Stayed to clean up',
+        'Drove from the shop',
+        'He was driving back',
+        'He rode with Eli',
+      ]),
+    );
+  });
+
+  it('turns hours into labor cost at what each hour cost then, seen only by people who may see job costs', async () => {
+    // Nobody has a cost per hour and Estimating has no labor cost: time has no cost yet.
+    await as(owner, 'contractor.estimating.save', { laborCostCents: 0 });
+    await as(owner, 'contractor.labor_rate.set', { userId: member.id, costCents: null });
+    const rates = await as(estimator, 'contractor.labor_rate.list');
+    expect(rates).toMatchObject({ fallbackCents: 0, canChange: false });
+    expect(rates.people.find((p: Any) => p.userId === member.id)).toMatchObject({
+      name: member.fullName,
+      costCents: null,
+    });
+    // Seeing costs isn't setting them, and a tech does neither.
+    expect(
+      await refused(
+        as(estimator, 'contractor.labor_rate.set', { userId: member.id, costCents: 40_00 }),
+      ),
+    ).toBe('forbidden');
+    expect(await refused(as(member, 'contractor.labor_rate.list'))).toBe('forbidden');
+
+    const jobId = await job('Meter base');
+    const v = await visit(jobId, 25);
+    await onVisit(v, member, estimator);
+    const t = clock(4);
+    await press(v, 'in_progress', t(300));
+    await press(v, 'done', t(180));
+    let c = await costing(jobId);
+    expect(c.hours.actual).toBe(4);
+    expect(c.labor.actualCents).toBe(0);
+    expect(c.uncostedHours).toBe(4);
+
+    // An owner says what an hour of one of them costs. Their time that had no cost gets it; saying it twice is once.
+    expect(
+      await as(owner, 'contractor.labor_rate.set', { userId: member.id, costCents: 40_00 }),
+    ).toMatchObject({ userId: member.id, name: member.fullName, changed: true });
+    expect(
+      await as(owner, 'contractor.labor_rate.set', { userId: member.id, costCents: 40_00 }),
+    ).toMatchObject({ changed: false });
+    expect(
+      (await worker('contractor.time.stamp_costs', { userId: member.id })).stamped,
+    ).toBeGreaterThanOrEqual(1);
+    expect(await worker('contractor.time.stamp_costs', { userId: member.id })).toEqual({
+      stamped: 0,
+    });
+    c = await costing(jobId);
+    expect(c.labor.actualCents).toBe(2 * 40_00);
+    expect(c.uncostedHours).toBe(2);
+    expect(c.people).toHaveLength(2);
+    expect(c.people).toEqual(
+      expect.arrayContaining([
+        { userId: member.id, name: member.fullName, hours: 2, costCents: 80_00 },
+        { userId: estimator.id, name: 'Eli Estimator', hours: 2, costCents: 0 },
+      ]),
+    );
+
+    // Estimating's labor cost counts for anyone with no cost of their own.
+    await as(owner, 'contractor.estimating.save', { laborCostCents: 30_00 });
+    expect((await as(owner, 'contractor.labor_rate.list')).fallbackCents).toBe(30_00);
+    await worker('contractor.time.stamp_costs', {});
+    c = await costing(jobId);
+    expect(c.labor.actualCents).toBe(2 * 40_00 + 2 * 30_00);
+    expect(c.uncostedHours).toBe(0);
+
+    // A raise later never changes what past time cost. New time costs the new amount, from when it's tracked.
+    await as(owner, 'contractor.labor_rate.set', { userId: member.id, costCents: 55_00 });
+    await worker('contractor.time.stamp_costs', { userId: member.id });
+    expect((await costing(jobId)).labor.actualCents).toBe(140_00);
+    await press(v, 'in_progress', t(120));
+    await press(v, 'done', t(60));
+    c = await costing(jobId);
+    expect(c.hours.actual).toBe(6);
+    expect(c.labor.actualCents).toBe(140_00 + 55_00 + 30_00);
+
+    // Row security, not only the commands: the hours are everyone's, what they cost isn't.
+    expect(await seen(member, 'time_entries')).toBeGreaterThan(0);
+    for (const table of ['time_costs', 'labor_rates'] as const) {
+      expect(await seen(owner, table)).toBeGreaterThan(0);
+      expect(await seen(estimator, table)).toBeGreaterThan(0);
+      expect(await seen(member, table)).toBe(0);
+    }
+    // Seeing what an hour costs isn't setting it, whatever asks.
+    await asUser(api(), estimator.claims, (tx) =>
+      rows(
+        tx,
+        sql`update addon_contractor.labor_rates set cost_cents = 1 where user_id = ${member.id}`,
+      ),
+    ).catch(() => undefined);
+    const kept = (await as(owner, 'contractor.labor_rate.list')).people;
+    expect(kept.find((p: Any) => p.userId === member.id)).toMatchObject({ costCents: 55_00 });
+    expect(await refused(as(member, 'contractor.job.costing', { jobId }))).toBe('forbidden');
+    expect(await refused(as(member, 'contractor.profit'))).toBe('forbidden');
+    expect(JSON.stringify(await time(member, jobId))).not.toMatch(/cents/i);
+    // What an hour costs stays off the news of it.
+    const events = await rows<{ payload: Any }>(
+      admin(),
+      sql`select payload from app.events
+          where workspace_id = ${ws} and event_type = 'contractor.labor_rate.set' and entity_id = ${member.id}`,
+    );
+    expect(events.length).toBeGreaterThanOrEqual(2);
+    expect(events.every((e) => e.payload.userId === member.id)).toBe(true);
+    expect(JSON.stringify(events)).not.toMatch(/cents|cost/i);
+  });
+
+  it('says what a job has cost against its plan and where it’s heading, and what the jobs made', async () => {
+    await as(owner, 'contractor.labor_rate.set', { userId: member.id, costCents: 50_00 });
+    const jobId = await job('Kitchen circuits');
+    const v = await visit(jobId, 26);
+    await as(owner, 'contractor.job.set_money', {
+      jobId,
+      priceCents: 1_000_00,
+      laborCents: 200_00,
+      materialsCents: 100_00,
+      laborHours: 5,
+    });
+    const t = clock(5);
+    // Two hours of work at $50 an hour.
+    await press(v, 'in_progress', t(240), member);
+    await press(v, 'done', t(120), member);
+    // Ten feet of wire at $3 a foot, six of them here so far.
+    await as(owner, 'contractor.material.add', {
+      jobId,
+      name: '12/2 wire',
+      unitLabel: 'ft',
+      needed: 10,
+      delivered: 6,
+      unitCostCents: 3_00,
+    });
+    // And a permit. A tech doesn't add costs.
+    const permit = await as(estimator, 'contractor.other_cost.add', {
+      jobId,
+      name: 'Permit',
+      amountCents: 25_00,
+    });
+    expect(permit).toMatchObject({ jobId, name: 'Permit' });
+    expect(await seen(estimator, 'other_costs')).toBeGreaterThan(0);
+    expect(await seen(member, 'other_costs')).toBe(0);
+    expect(
+      await refused(
+        as(member, 'contractor.other_cost.add', { jobId, name: 'Lunch', amountCents: 1 }),
+      ),
+    ).toBe('forbidden');
+    await as(member, 'contractor.job.set_percent', { jobId, percentDone: 50 });
+
+    // Half done with 2 of its 5 hours spent, labor heads for its plan; the permit nobody planned puts it over.
+    const c = await costing(jobId);
+    expect(c).toMatchObject({
+      jobId,
+      name: 'Kitchen circuits',
+      percentDone: 50,
+      finished: false,
+      labor: { budgetCents: 200_00, actualCents: 100_00, headingCents: 200_00 },
+      materials: { budgetCents: 100_00, actualCents: 18_00, headingCents: 100_00 },
+      other: { budgetCents: null, actualCents: 25_00, headingCents: 25_00 },
+      total: { budgetCents: 300_00, actualCents: 143_00, headingCents: 325_00 },
+      hours: { budget: 5, actual: 2, heading: 4 },
+      priceCents: 1_000_00,
+      profit: {
+        plannedCents: 700_00,
+        plannedMarginBp: 7000,
+        soFarCents: 857_00,
+        headingCents: 675_00,
+        headingMarginBp: 6750,
+      },
+      overCents: 25_00,
+      uncostedHours: 0,
+      uncostedMaterials: 0,
+      underMargin: false,
+    });
+    expect(c.people).toEqual([
+      { userId: member.id, name: member.fullName, hours: 2, costCents: 100_00 },
+    ]);
+    expect(c.otherCosts).toEqual([
+      expect.objectContaining({
+        id: permit.costId,
+        name: 'Permit',
+        amountCents: 25_00,
+        note: null,
+      }),
+    ]);
+
+    // Open jobs count at what they're heading for.
+    const open = await as(estimator, 'contractor.profit', { period: 'open' });
+    expect(open).toMatchObject({
+      period: 'open',
+      by: 'job',
+      from: null,
+      to: null,
+      truncated: false,
+    });
+    const row = (p: Any, key: string) => p.rows.find((r: Any) => r.key === key);
+    expect(row(open, jobId)).toEqual({
+      key: jobId,
+      name: 'Kitchen circuits',
+      jobs: 1,
+      priceCents: 1_000_00,
+      costCents: 325_00,
+      profitCents: 675_00,
+      marginBp: 6750,
+      laborHours: 4,
+    });
+    expect(row(await as(estimator, 'contractor.profit'), jobId)).toBeUndefined();
+
+    // Done, it cost what it cost, and it's among the jobs done this month.
+    await as(owner, 'contractor.job.set_status', { jobId, status: 'done' });
+    expect(await costing(jobId)).toMatchObject({
+      finished: true,
+      total: { budgetCents: 300_00, actualCents: 143_00, headingCents: 143_00 },
+      hours: { actual: 2, heading: 2 },
+      profit: { headingCents: 857_00, headingMarginBp: 8570 },
+      overCents: 0,
+    });
+    const month = await as(estimator, 'contractor.profit');
+    expect(month).toMatchObject({ period: 'month', by: 'job', truncated: false });
+    expect(month.from <= month.to).toBe(true);
+    expect(row(month, jobId)).toEqual({
+      key: jobId,
+      name: 'Kitchen circuits',
+      jobs: 1,
+      priceCents: 1_000_00,
+      costCents: 143_00,
+      profitCents: 857_00,
+      marginBp: 8570,
+      laborHours: 2,
+    });
+    expect(
+      row(await as(estimator, 'contractor.profit', { period: 'open' }), jobId),
+    ).toBeUndefined();
+    expect(row(await as(estimator, 'contractor.profit', { period: 'year' }), jobId)).toBeDefined();
+    expect(row(await as(estimator, 'contractor.profit', { period: 'all' }), jobId)).toBeDefined();
+    const last = await as(estimator, 'contractor.profit', { period: 'last_month' });
+    expect(row(last, jobId)).toBeUndefined();
+    expect(last.to < month.from).toBe(true);
+
+    // Split by customer, crew or service, every job counts once: the rows add up to the same total.
+    for (const by of ['customer', 'crew', 'trade'] as const) {
+      const split = await as(estimator, 'contractor.profit', { by });
+      expect(split.total).toEqual(month.total);
+      for (const k of ['jobs', 'priceCents', 'costCents', 'profitCents'] as const)
+        expect(split.rows.reduce((n: number, r: Any) => n + r[k], 0)).toBe(month.total[k]);
+      if (by === 'customer') expect(row(split, customerId)).toMatchObject({ name: 'Dana Reyes' });
+      if (by === 'trade') expect(row(split, 'electrical')).toMatchObject({ name: 'Electrical' });
+    }
+
+    // A cost comes off a finished job too: that's when the numbers get checked. Gone is gone.
+    expect(await as(estimator, 'contractor.other_cost.remove', { costId: permit.costId })).toEqual({
+      costId: permit.costId,
+      jobId,
+      name: 'Permit',
+    });
+    expect(
+      await refused(as(estimator, 'contractor.other_cost.remove', { costId: permit.costId })),
+    ).toBe('not_found');
+    expect((await costing(jobId)).total.actualCents).toBe(118_00);
+    // What it came to stays off the news of it.
+    const events = await rows<{ type: string; payload: Any }>(
+      admin(),
+      sql`select event_type as type, payload from app.events
+          where workspace_id = ${ws} and entity_id = ${jobId} and event_type like 'contractor.other_cost.%'
+          order by created_at, id`,
+    );
+    expect(events.map((e) => e.type)).toEqual([
+      'contractor.other_cost.added',
+      'contractor.other_cost.removed',
+    ]);
+    expect(events.every((e) => e.payload.costId === permit.costId)).toBe(true);
+    expect(JSON.stringify(events)).not.toMatch(/cents|amount/i);
+  });
+
+  it('stops time left running for 12 hours, and says so until someone has looked', async () => {
+    const jobId = await job('Forgotten Done');
+    const v = await visit(jobId, 27);
+    await onVisit(v, member);
+    const base = Math.floor(Date.now() / 1000) * 1000;
+    const hoursAgo = (h: number) => new Date(base - h * 3_600_000).toISOString();
+    await press(v, 'in_progress', hoursAgo(13));
+
+    const out = await worker('contractor.time.stop_overrun', { appointmentId: v });
+    expect(out).toEqual({
+      jobId,
+      job: 'Forgotten Done',
+      stopped: [member.fullName],
+      flagged: [member.fullName],
+      nextAt: null,
+    });
+    const [entry] = (await time(owner, jobId)).entries;
+    expect(entry).toMatchObject({
+      endedAt: hoursAgo(1),
+      seconds: 12 * 3600,
+      autoStopped: true,
+      fixed: null,
+    });
+    // Looked at again, there's nothing more to stop, and it still waits for someone.
+    expect(await worker('contractor.time.stop_overrun', { appointmentId: v })).toMatchObject({
+      stopped: [],
+      flagged: [member.fullName],
+    });
+    // Fixed, it's been looked at.
+    await as(owner, 'contractor.time.fix', {
+      entryId: entry.id,
+      endedAt: hoursAgo(9),
+      reason: 'Left at noon',
+    });
+    expect((await time(owner, jobId)).entries[0]).toMatchObject({
+      seconds: 4 * 3600,
+      autoStopped: false,
+    });
+    expect(await worker('contractor.time.stop_overrun', { appointmentId: v })).toMatchObject({
+      stopped: [],
+      flagged: [],
+      nextAt: null,
+    });
+
+    // Time still inside the limit: when to look again. Time on a visit deleted for good stops at the limit too.
+    await press(v, 'in_progress', hoursAgo(0.5));
+    await rows(
+      admin(),
+      sql`insert into addon_contractor.time_entries (workspace_id, record_id, user_id, kind, started_at)
+          values (${ws}, ${jobId}, ${estimator.id}, 'work', now() - interval '13 hours')`,
+    );
+    expect(await worker('contractor.time.stop_overrun', { appointmentId: v })).toMatchObject({
+      stopped: [],
+      flagged: [],
+      nextAt: new Date(base + 11.5 * 3_600_000).toISOString(),
+    });
+    const list = await time(owner, jobId);
+    expect(list.entries.find((e: Any) => e.userId === estimator.id)).toMatchObject({
+      appointmentId: null,
+      seconds: 12 * 3600,
+      autoStopped: true,
+    });
+    expect(list.totals.running).toBe(1);
+    await press(v, 'done', new Date(base).toISOString());
+    expect((await time(owner, jobId)).totals.running).toBe(0);
+    // A visit that isn't on a job is none of its business.
+    expect(await worker('contractor.time.stop_overrun', { appointmentId: randomUUID() })).toEqual({
+      jobId: null,
+      job: null,
+      stopped: [],
+      flagged: [],
+      nextAt: null,
+    });
   });
 });
 

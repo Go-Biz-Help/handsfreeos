@@ -52,6 +52,7 @@ import {
 import {
   Calculator as contractorCostsIcon,
   CalendarClock as contractorDispatchIcon,
+  CircleDollarSign as contractorProfitIcon,
   FileText as contractorEstimatesIcon,
   HardHat as contractorAddonIcon,
   Settings2 as contractorSettingsIcon,
@@ -297,6 +298,7 @@ export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
       dispatch: contractorDispatchIcon,
       estimates: contractorEstimatesIcon,
       costs: contractorCostsIcon,
+      profit: contractorProfitIcon,
       gear: contractorSettingsIcon,
     },
     slots: { 'estimate.panels': () => import('./contractor/estimate-panel') },

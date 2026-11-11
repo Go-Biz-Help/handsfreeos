@@ -15,6 +15,8 @@
  *   and their phones, until it's OK'd, changed so it needs none, sent, or voided.
  * - **A visit that's still missing materials is an alert** (the owner's decision 9) for the job's lead and the
  *   people going, before the visit: ./materials.ts.
+ * - **Time follows the visit's buttons** (the owner's decision 10): On the way and Started start the clocks of the
+ *   people on it, anything else stops them, and time left running half a day is stopped and flagged: ./time.ts.
  */
 import { estimateFillJob } from '@hfos/core/addons/contractor/ops/estimates';
 import { jobFollowVisit } from '@hfos/core/addons/contractor/ops/jobs';
@@ -31,6 +33,16 @@ import {
   visitCancelled,
   visitMoved,
 } from './materials';
+import {
+  estimatingSaved,
+  jobTimeChanged,
+  laborRateSet,
+  TIME_CHECK,
+  timeCheckJob,
+  visitCancelledTime,
+  visitStatusMoved,
+  visitTimeChanged,
+} from './time';
 
 const follow = (what: 'booked' | 'started') => async (ctx: AddonEventContext) => {
   const appointmentId = ctx.event.entityId;
@@ -117,17 +129,30 @@ export const contractorAddonWorker: AddonWorkerModule = {
   subscribers: {
     'appointment.booked': booked,
     'appointment.rescheduled': visitMoved,
-    'appointment.cancelled': visitCancelled,
+    // Nobody needs to be ready for it, and whatever time was running on it stops.
+    'appointment.cancelled': async (ctx) => {
+      await visitCancelled(ctx);
+      await visitCancelledTime(ctx);
+    },
     'contractor.material.added': materialAdded,
     'contractor.material.updated': materialsChanged,
     'contractor.material.removed': materialsChanged,
     'contractor.materials.filled': materialsChanged,
-    // A visit's crew pressing Started (core's job.status_changed, its entity the appointment).
+    // A visit's crew pressing one of its status buttons (core's job.status_changed, its entity the appointment):
+    // the clocks follow every one of them, and Started moves the job along too.
     'job.status_changed': async (ctx) => {
       const payload = (ctx.event.payload ?? {}) as Record<string, unknown>;
-      if (payload['status'] !== 'in_progress' || payload['statusChanged'] === false) return;
-      await visitStarted(ctx);
+      if (payload['statusChanged'] === false) return;
+      await visitStatusMoved(ctx);
+      if (payload['status'] === 'in_progress') await visitStarted(ctx);
     },
+    'contractor.time.tracked': visitTimeChanged,
+    'contractor.time.break_set': jobTimeChanged,
+    'contractor.time.fixed': jobTimeChanged,
+    'contractor.time.added': jobTimeChanged,
+    'contractor.time.removed': visitTimeChanged,
+    'contractor.labor_rate.set': laborRateSet,
+    'contractor.estimating.saved': estimatingSaved,
     'estimate.accepted': async (ctx) => {
       const estimateId = estimateIdOf(ctx);
       if (!estimateId) return;
@@ -148,5 +173,5 @@ export const contractorAddonWorker: AddonWorkerModule = {
       if (payloadOf(ctx)['waitingOk'] === false) await okDone('changed')(ctx);
     },
   },
-  jobs: { [MATERIALS_CHECK]: materialsCheckJob },
+  jobs: { [MATERIALS_CHECK]: materialsCheckJob, [TIME_CHECK]: timeCheckJob },
 };

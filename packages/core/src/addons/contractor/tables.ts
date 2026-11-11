@@ -1,6 +1,6 @@
 /**
  * Contractor Operations' own tables, in its schema `addon_contractor` (supabase/migrations/20261027024000, 024200,
- * 024300 and 024400): the Drizzle mirror its server code reads and writes through. Server-only.
+ * 024300, 024400 and 024500): the Drizzle mirror its server code reads and writes through. Server-only.
  * test/addons/contractor-ops.test.ts holds the mirror to the live columns.
  */
 import {
@@ -28,6 +28,7 @@ import {
 import type { ItemKind } from './checklists';
 import type { CostKind } from './estimating';
 import type { JobKind, JobStatus, PhaseStatus } from './progress';
+import type { TimeKind, TimeSource } from './time';
 import type { Trade } from './trades';
 
 export const addonContractor = pgSchema('addon_contractor');
@@ -295,6 +296,68 @@ export const materialCosts = addonContractor.table('material_costs', {
   updatedAt: ts('updated_at').notNull().defaultNow(),
 });
 
+/** One stretch of one person's time on a job (the owner's decision 10): travel, work or a break. */
+export const timeEntries = addonContractor.table('time_entries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: workspaceRef(),
+  recordId: uuid('record_id').notNull(),
+  /** The visit it was on; kept on the job when the visit is deleted for good. */
+  appointmentId: uuid('appointment_id').references(() => appointments.id, { onDelete: 'set null' }),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  kind: text('kind').$type<TimeKind>().notNull(),
+  startedAt: ts('started_at').notNull(),
+  /** Null while it's running. */
+  endedAt: ts('ended_at'),
+  source: text('source').$type<TimeSource>().notNull().default('status'),
+  /** Left running past the limit and stopped on its own. */
+  autoStopped: boolean('auto_stopped').notNull().default(false),
+  fixedBy: userRef('fixed_by'),
+  fixedAt: ts('fixed_at'),
+  fixReason: text('fix_reason'),
+  createdBy: userRef('created_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/** What an hour of a stretch cost the business then: read only by people who may see job costs (decision 11). */
+export const timeCosts = addonContractor.table('time_costs', {
+  entryId: uuid('entry_id').primaryKey(),
+  workspaceId: workspaceRef(),
+  recordId: uuid('record_id').notNull(),
+  rateCents: bigint('rate_cents', { mode: 'number' }).notNull(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/** What an hour of each person costs the business. */
+export const laborRates = addonContractor.table(
+  'labor_rates',
+  {
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    costCents: bigint('cost_cents', { mode: 'number' }).notNull(),
+    updatedBy: userRef('updated_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.userId] })],
+);
+
+/** What else a job cost: a permit, a dump fee, a subcontractor's bill. */
+export const otherCosts = addonContractor.table('other_costs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: workspaceRef(),
+  recordId: uuid('record_id').notNull(),
+  name: text('name').notNull(),
+  amountCents: bigint('amount_cents', { mode: 'number' }).notNull(),
+  spentOn: day('spent_on').notNull(),
+  note: text('note'),
+  createdBy: userRef('created_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
 export const CONTRACTOR_TABLES = {
   jobs,
   phases,
@@ -312,4 +375,8 @@ export const CONTRACTOR_TABLES = {
   workOrderSubs,
   materials,
   materialCosts,
+  timeEntries,
+  timeCosts,
+  laborRates,
+  otherCosts,
 } as const;

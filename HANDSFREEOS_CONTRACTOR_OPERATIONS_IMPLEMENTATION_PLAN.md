@@ -56,8 +56,9 @@ How it works, and the rules worth knowing before changing anything: `docs/contra
    screen.
 4. **Materials.** _Built, on the web; the phone's pages come with part 6._ Per job (decision 9), with what's
    missing for each upcoming visit and an alert before it.
-5. **Time and job costing.** Time from the status buttons (decision 10), each person's cost per hour, estimate
-   against actual, the profit it's heading for, and a profit dashboard by job, crew, service and customer.
+5. **Time and job costing.** _Built, on the web; the phone's pages come with part 6._ Time from the status buttons
+   (decision 10), each person's cost per hour, estimate against actual, the profit it's heading for, and a profit
+   dashboard by job, crew, service and customer.
 6. **The phone field app.** Jobs, work orders, checklists, photos, materials used, time and voice notes, all with no
    signal.
 7. **AI helpers.** Draft an estimate from notes, photos and measurements; warn when a job heads over budget, with the
@@ -174,3 +175,47 @@ How it works, and the rules worth knowing before changing anything: `docs/contra
   - The alert goes to the job's lead and the people on the visit, a day before to start. A business picks 2 hours,
     1, 2 or 3 days, a week, or never.
   - An approved estimate's material lines are added once each, so a retry never doubles the list.
+
+## Part 5 as built
+
+- **Data.** `supabase/migrations/20261027024500_contractor_time.sql`: `time_entries` (one stretch of one person's
+  travel, work or break on a job, with the visit it was on and who fixed it and why), `time_costs` (what an hour of
+  a stretch cost), `labor_rates` (what an hour of each person costs) and `other_costs` (a permit, a fee, a
+  subcontractor's bill). The last three are readable only with `contractor.costs`. One new permission,
+  `contractor.fix_time`, for owners and admins.
+- **Operations.** 10 commands and 4 queries in `ops/time.ts` and `ops/costing.ts`: the time on a job, taking a
+  break, fixing, adding and removing time, what an hour of each person costs, a job's costing, its other costs, and
+  profit across jobs; plus the system's own three (follow a visit's status, stamp costs, stop time left running).
+  The rules are pure, in `time.ts` and `job-costing.ts`.
+- **Worker.** Core's `job.status_changed` and `appointment.cancelled` on a visit start and stop time. A queued job
+  per visit, `contractor.time_check`, stops time left running 12 hours and raises the alert for people who may fix
+  time. Costs are stamped after a break, a fix, added time, and a change to someone's cost per hour or to
+  Estimating's labor cost.
+- **Web.** A Time card on the job's page and on each visit's work order, a Costs so far card on the job's page, a
+  Profit page in the menu, and What an hour costs you in Settings. The last three show only to people who may see
+  job costs.
+- **Left for later parts.** The Break button and time on the phone's own pages (part 6). A warning sent when a job
+  heads over budget (part 7). Payroll, pay rates and overtime (Phase 2).
+- **Choices made while building.**
+  - Time is per person, in stretches of travel, work and break. The buttons start it for everyone on the visit, at
+    the moment pressed, or for whoever pressed it when nobody is on the visit.
+  - One clock per person in a business. Starting on another visit stops the first.
+  - News heard twice or late changes nothing. Only the buttons' own stretches count as proof it's old, and a stop
+    never lands before its stretch started.
+  - Break pauses only work time, for oneself. Someone else's takes the fix permission.
+  - A stretch left running 12 hours is stopped there, marked, and the people who may fix time are told. The alert
+    stays until someone has looked.
+  - Fixing, adding and removing need a reason, kept on the stretch and the timeline. They're allowed on a done job
+    and can't overlap the same person's other time.
+  - What an hour cost is stamped for each stretch by the system when the time is tracked: the person's own cost
+    per hour, else Estimating's labor cost. A later raise never changes past jobs. Seeing costs takes
+    `contractor.costs`; setting one takes `contractor.approve`.
+  - Other costs are added and removed, never edited.
+  - Heading for: labor is paced by the job's % done from 10% along; materials and other costs head for the larger
+    of the plan and what's spent; a finished job heads for what it cost.
+  - Profit counts done jobs by the day they were marked Done in the business's time zone, in whole calendar
+    months, quarters and years, or open jobs at what they're heading for. The price is the job's budget price; none
+    counts as $0. Service is the job's trade, and a job counts for the crew on most of its visits.
+  - For the AI, a break runs on its own. Every other change to time, a cost per hour or a job's other costs waits
+    on a Confirm card.
+  - Costs stay off events, timelines and AI outcomes.

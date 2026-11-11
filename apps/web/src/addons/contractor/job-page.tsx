@@ -1,8 +1,9 @@
 'use client';
 /**
  * One job (docs/contractor.md, "A job's page"): its status, customer and property, the work to do, its phases and %
- * done, its lead and team, its visits, its materials, and (for people who may see job costs, the owner's decision
- * 11) its price and budget. Notes, files and tasks are on core's page for its record, linked from here.
+ * done, its lead and team, its visits, its materials, the time tracked on it, and (for people who may see job
+ * costs, the owner's decision 11) its price and budget and what it's costing against them. Notes, files and tasks
+ * are on core's page for its record, linked from here.
  *
  * Each visit opens its work order, and booking one starts it and opens it, to put a crew on. Marking the job Done
  * waits on the required checklist items and photos on its work orders (the owner's decision 8): the server says
@@ -51,10 +52,19 @@ import {
   workOrderHref,
 } from './bits';
 import { EstimateLine } from './estimates-home';
+import { JobCostsCard } from './job-costs-card';
 import { EditJobDialog, MoneyDialog, ReasonDialog } from './job-dialogs';
 import { MaterialsCard, type MaterialProduct } from './materials-card';
 import { PercentInput, PhasesCard } from './phases-card';
-import type { EstimateList, JobDetail, MaterialList, Overview } from './types';
+import { TimeCard } from './time-card';
+import type {
+  EstimateList,
+  JobCosting,
+  JobDetail,
+  MaterialList,
+  Overview,
+  TimeList,
+} from './types';
 import { useAct } from './use-act';
 
 const J = CONTRACTOR_WORDS.job;
@@ -76,6 +86,8 @@ export function JobPage({
   overview,
   estimates,
   materials,
+  time,
+  costing,
   products,
   myUserId,
   timeZone,
@@ -88,6 +100,10 @@ export function JobPage({
   estimates: EstimateList['estimates'];
   /** The job's materials, with what they cost when this person may see job costs. */
   materials: MaterialList;
+  /** The time tracked on the job: never with what it cost. */
+  time: TimeList;
+  /** What the job is costing against its plan; null for someone who may not see job costs. */
+  costing: JobCosting | null;
   /** The price list to pick a material from; empty for someone who can't see it. */
   products: readonly MaterialProduct[];
   myUserId: string;
@@ -95,6 +111,7 @@ export function JobPage({
   /** The team, as the visit booking dialog picks who goes. */
   staff: readonly { userId: string; fullName: string }[];
 }) {
+  // Time that starts or stops arrives as the add-on's own news about the job's record.
   useLiveRefresh(['custom_record', 'appointment', 'estimate']);
   const router = useRouter();
   const { busy, act } = useAct();
@@ -345,6 +362,22 @@ export function JobPage({
             mayCost={overview.may.costs}
             readOnly={!materials.canChange}
           />
+
+          <TimeCard
+            workspaceId={workspaceId}
+            jobId={job.id}
+            time={time}
+            visits={job.visits.map((v) => ({
+              appointmentId: v.appointmentId,
+              label: formatDate(v.startsAt, { time: true, timeZone }),
+            }))}
+            people={overview.people}
+            timeZone={timeZone}
+          />
+
+          {costing ? (
+            <JobCostsCard workspaceId={workspaceId} costing={costing} today={overview.today} />
+          ) : null}
 
           {overview.may.costs || estimates.length ? (
             <Card className="p-0" data-testid="job-estimates">

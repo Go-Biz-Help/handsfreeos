@@ -2837,6 +2837,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/contractor.labor_rate.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set what an hour of someone on the team costs the business; null takes it off. It counts for time tracked from then on. For owners and admins.
+         * @description Risk level 2. Requires contractor.approve. Emits contractor.labor_rate.set.
+         */
+        post: operations["command_contractor_labor_rate_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/contractor.material.add": {
         parameters: {
             query?: never;
@@ -2911,6 +2931,46 @@ export interface paths {
          * @description Risk level 1. Requires contractor.use. Emits contractor.material.updated.
          */
         post: operations["command_contractor_material_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.other_cost.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add something else a job cost: a permit, a dump fee, a subcontractor’s bill. It counts in the job’s costs and profit. For people who may see job costs and profit.
+         * @description Risk level 2. Requires contractor.costs. Emits contractor.other_cost.added.
+         */
+        post: operations["command_contractor_other_cost_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.other_cost.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take one of a job’s other costs off it. It stops counting in the job’s costs and profit. For people who may see job costs and profit.
+         * @description Risk level 2. Requires contractor.costs. Emits contractor.other_cost.removed.
+         */
+        post: operations["command_contractor_other_cost_remove"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3011,6 +3071,86 @@ export interface paths {
          * @description Risk level 1. Requires contractor.use. Emits contractor.property.added.
          */
         post: operations["command_contractor_property_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.time.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add time to a job that wasn’t tracked: whose, travel or work, from when to when, and why. For owners, admins and anyone given “Fix time on jobs”.
+         * @description Risk level 2. Requires contractor.fix_time. Emits contractor.time.added.
+         */
+        post: operations["command_contractor_time_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.time.fix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fix a stretch of time on a job: when it started, when it ended, or whether it was travel, work or a break, with a reason. For owners, admins and anyone given “Fix time on jobs” (the owner’s decision 10).
+         * @description Risk level 2. Requires contractor.fix_time. Emits contractor.time.fixed.
+         */
+        post: operations["command_contractor_time_fix"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.time.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove a stretch of time from a job, with a reason. It comes off the job’s hours and its labor cost. For owners, admins and anyone given “Fix time on jobs”.
+         * @description Risk level 2. Requires contractor.fix_time. Emits contractor.time.removed.
+         */
+        post: operations["command_contractor_time_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.time.set_break": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a break on a visit, or come back from one: work time pauses for that one person while everyone else’s runs on. Someone else’s break takes “Fix time on jobs”.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.time.break_set.
+         */
+        post: operations["command_contractor_time_set_break"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19437,6 +19577,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/contractor.job.costing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What a job is costing: what was planned, what it has cost so far and what it’s heading for, in labor, materials and other costs, with its hours, the profit that leaves, labor by person and its other costs. For people who may see job costs and profit.
+         * @description Requires contractor.costs.
+         */
+        post: operations["query_contractor_job_costing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/contractor.job.get": {
         parameters: {
             query?: never;
@@ -19471,6 +19631,26 @@ export interface paths {
          * @description Requires contractor.use.
          */
         post: operations["query_contractor_job_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/contractor.labor_rate.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What an hour of each person on the team costs the business, which turns time on a job into its labor cost. For people who may see job costs.
+         * @description Requires contractor.costs.
+         */
+        post: operations["query_contractor_labor_rate_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19517,6 +19697,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/contractor.profit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the jobs made: price, cost, profit and margin for the jobs done in a stretch of time (or the open jobs, at what they’re heading for), split by job, customer, crew or service. For people who may see job costs and profit.
+         * @description Requires contractor.costs.
+         */
+        post: operations["query_contractor_profit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/contractor.property.list": {
         parameters: {
             query?: never;
@@ -19531,6 +19731,26 @@ export interface paths {
          * @description Requires contractor.use.
          */
         post: operations["query_contractor_property_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/contractor.time.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The time tracked on a job, or on one of its visits: each stretch of travel, work or break, whose it is and how long, with the totals. Never what it cost.
+         * @description Requires contractor.use.
+         */
+        post: operations["query_contractor_time_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -32606,6 +32826,41 @@ export interface operations {
             };
         };
     };
+    command_contractor_labor_rate_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    costCents: number | null;
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        name: string;
+                        /** Format: uuid */
+                        userId: string;
+                    };
+                };
+            };
+        };
+    };
     command_contractor_material_add: {
         parameters: {
             query?: never;
@@ -32773,6 +33028,81 @@ export interface operations {
                         /** Format: uuid */
                         materialId: string;
                         state: ("to_order" | "ordered" | "here" | "used") | null;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_other_cost_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    amountCents: number;
+                    /** Format: uuid */
+                    jobId: string;
+                    name: string;
+                    note?: string;
+                    /** Format: date */
+                    spentOn?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        costId: string;
+                        /** Format: uuid */
+                        jobId: string;
+                        name: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_other_cost_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    costId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        costId: string;
+                        /** Format: uuid */
+                        jobId: string;
+                        name: string;
                     };
                 };
             };
@@ -32954,6 +33284,178 @@ export interface operations {
                         name: string;
                         /** Format: uuid */
                         propertyId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_time_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId?: string;
+                    /** Format: date-time */
+                    endedAt: string;
+                    /** Format: uuid */
+                    jobId: string;
+                    /**
+                     * @default work
+                     * @enum {string}
+                     */
+                    kind?: "travel" | "work" | "break";
+                    reason: string;
+                    /** Format: date-time */
+                    startedAt: string;
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        entryId: string;
+                        /** Format: uuid */
+                        jobId: string;
+                        name: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_time_fix: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    endedAt?: string;
+                    /** Format: uuid */
+                    entryId: string;
+                    /** @enum {string} */
+                    kind?: "travel" | "work" | "break";
+                    reason: string;
+                    /** Format: date-time */
+                    startedAt?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        entryId: string;
+                        /** Format: uuid */
+                        jobId: string;
+                        name: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_time_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    entryId: string;
+                    reason: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        entryId: string;
+                        /** Format: uuid */
+                        jobId: string;
+                        name: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_time_set_break: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    onBreak: boolean;
+                    /** Format: uuid */
+                    userId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        changed: boolean;
+                        /** Format: uuid */
+                        jobId: string;
+                        name: string;
+                        onBreak: boolean;
+                        /** Format: uuid */
+                        userId: string;
                     };
                 };
             };
@@ -74799,6 +75301,97 @@ export interface operations {
             };
         };
     };
+    query_contractor_job_costing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    jobId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        canChange: boolean;
+                        finished: boolean;
+                        hours: {
+                            actual: number;
+                            budget: number | null;
+                            heading: number;
+                        };
+                        /** Format: uuid */
+                        jobId: string;
+                        labor: {
+                            actualCents: number;
+                            budgetCents: number | null;
+                            headingCents: number;
+                        };
+                        materials: {
+                            actualCents: number;
+                            budgetCents: number | null;
+                            headingCents: number;
+                        };
+                        minMarginBp: number;
+                        name: string;
+                        other: {
+                            actualCents: number;
+                            budgetCents: number | null;
+                            headingCents: number;
+                        };
+                        otherCosts: {
+                            amountCents: number;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            note: string | null;
+                            /** Format: date */
+                            spentOn: string;
+                        }[];
+                        overCents: number | null;
+                        people: {
+                            costCents: number;
+                            hours: number;
+                            name: string;
+                            userId: string | null;
+                        }[];
+                        percentDone: number;
+                        priceCents: number | null;
+                        profit: {
+                            headingCents: number | null;
+                            headingMarginBp: number | null;
+                            plannedCents: number | null;
+                            plannedMarginBp: number | null;
+                            soFarCents: number | null;
+                        };
+                        /** @enum {string} */
+                        status: "new" | "scheduled" | "in_progress" | "on_hold" | "done" | "cancelled";
+                        total: {
+                            actualCents: number;
+                            budgetCents: number | null;
+                            headingCents: number;
+                        };
+                        uncostedHours: number;
+                        uncostedMaterials: number;
+                        underMargin: boolean;
+                    };
+                };
+            };
+        };
+    };
     query_contractor_job_get: {
         parameters: {
             query?: never;
@@ -74993,6 +75586,42 @@ export interface operations {
             };
         };
     };
+    query_contractor_labor_rate_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        canChange: boolean;
+                        fallbackCents: number;
+                        people: {
+                            costCents: number | null;
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_contractor_material_list: {
         parameters: {
             query?: never;
@@ -75105,6 +75734,7 @@ export interface operations {
                             approve: boolean;
                             assign: boolean;
                             costs: boolean;
+                            fixTime: boolean;
                             manage: boolean;
                             skipChecks: boolean;
                         };
@@ -75135,6 +75765,72 @@ export interface operations {
                         };
                         /** Format: date */
                         today: string;
+                    };
+                };
+            };
+        };
+    };
+    query_contractor_profit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default job
+                     * @enum {string}
+                     */
+                    by?: "job" | "customer" | "crew" | "trade";
+                    /**
+                     * @default month
+                     * @enum {string}
+                     */
+                    period?: "month" | "last_month" | "quarter" | "year" | "all" | "open";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        by: "job" | "customer" | "crew" | "trade";
+                        from: string | null;
+                        minMarginBp: number;
+                        /** @enum {string} */
+                        period: "month" | "last_month" | "quarter" | "year" | "all" | "open";
+                        rows: {
+                            costCents: number;
+                            jobs: number;
+                            key: string | null;
+                            laborHours: number;
+                            marginBp: number | null;
+                            name: string | null;
+                            priceCents: number;
+                            profitCents: number;
+                        }[];
+                        to: string | null;
+                        total: {
+                            costCents: number;
+                            jobs: number;
+                            key: string | null;
+                            laborHours: number;
+                            marginBp: number | null;
+                            name: string | null;
+                            priceCents: number;
+                            profitCents: number;
+                        };
+                        truncated: boolean;
                     };
                 };
             };
@@ -75179,6 +75875,78 @@ export interface operations {
                             /** Format: uuid */
                             recordId: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_contractor_time_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId?: string;
+                    /** Format: uuid */
+                    jobId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        entries: {
+                            appointmentId: string | null;
+                            autoStopped: boolean;
+                            endedAt: string | null;
+                            fixed: {
+                                at: string;
+                                by: string | null;
+                                reason: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "travel" | "work" | "break";
+                            name: string;
+                            seconds: number;
+                            /** @enum {string} */
+                            source: "status" | "break" | "added";
+                            startedAt: string;
+                            userId: string | null;
+                        }[];
+                        /** Format: uuid */
+                        jobId: string;
+                        may: {
+                            fix: boolean;
+                        };
+                        mine: {
+                            appointmentId: string | null;
+                            /** Format: uuid */
+                            entryId: string;
+                            /** @enum {string} */
+                            kind: "travel" | "work" | "break";
+                        } | null;
+                        totals: {
+                            breakSeconds: number;
+                            paidSeconds: number;
+                            running: number;
+                            travelSeconds: number;
+                            workSeconds: number;
+                        };
+                        truncated: boolean;
                     };
                 };
             };

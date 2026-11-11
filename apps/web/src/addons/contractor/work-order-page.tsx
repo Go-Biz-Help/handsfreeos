@@ -51,7 +51,8 @@ import { cn } from '@/lib/utils';
 import { ChecklistLine, jobHref, jobRecordHref, StageBadge, StatusBadge } from './bits';
 import { ConfirmDialog } from './job-dialogs';
 import { MaterialsCard, type MaterialProduct } from './materials-card';
-import type { ChecklistItem, Crew, VisitSub, WorkOrder } from './types';
+import { TimeCard } from './time-card';
+import type { ChecklistItem, Crew, Teammate, TimeList, VisitSub, WorkOrder } from './types';
 import { useAct } from './use-act';
 
 const W = CONTRACTOR_WORDS.workOrder;
@@ -61,6 +62,8 @@ export function WorkOrderPage({
   workspaceId,
   order,
   crews,
+  time,
+  people,
   products,
   timeZone,
 }: {
@@ -68,10 +71,15 @@ export function WorkOrderPage({
   order: WorkOrder;
   /** The business's crews in use, to put one on the visit. */
   crews: readonly Crew[];
+  /** The time tracked on this visit: never with what it cost. */
+  time: TimeList;
+  /** The people time can be added for, by someone who may fix time. */
+  people: readonly Teammate[];
   /** The price list to pick a material from; empty for someone who can't see it. */
   products: readonly MaterialProduct[];
   timeZone: string;
 }) {
+  // Time that starts or stops arrives as the add-on's own news about the job's record.
   useLiveRefresh(['custom_record', 'appointment']);
   const { busy, act } = useAct();
   const { job, visit } = order;
@@ -210,6 +218,20 @@ export function WorkOrderPage({
             // A work order never carries costs: they're on the job's page, for people who may see them.
             mayCost={false}
             readOnly={readOnly}
+            forVisit={order.appointmentId}
+          />
+          <TimeCard
+            workspaceId={workspaceId}
+            jobId={job.id}
+            time={time}
+            visits={[
+              {
+                appointmentId: order.appointmentId,
+                label: formatDate(visit.startsAt, { time: true, timeZone }),
+              },
+            ]}
+            people={people}
+            timeZone={timeZone}
             forVisit={order.appointmentId}
           />
           <ChecklistCard workspaceId={workspaceId} order={order} readOnly={readOnly} />

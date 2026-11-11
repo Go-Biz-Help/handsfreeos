@@ -5,6 +5,7 @@
  */
 import type { AppPlace } from '../../assistant/places-map';
 import { DEFAULT_MATERIALS_ALERT_HOURS, MATERIALS_ALERT_HOURS } from './materials';
+import { MAX_RUNNING_HOURS } from './time';
 import {
   alertHoursWords,
   CONTRACTOR_PAGES as P,
@@ -12,6 +13,8 @@ import {
   JOB_STATUS_WORDS as S,
   MATERIAL_COUNT_WORDS,
   MATERIAL_STATE_WORDS,
+  PROFIT_GROUP_WORDS,
+  PROFIT_PERIOD_WORDS,
 } from './words';
 
 const NAME = W.title;
@@ -29,10 +32,16 @@ const R = W.crews;
 const K = W.checklistSettings;
 const M = W.materials;
 const A = W.materialsSettings;
+const H = W.time;
+const Q = W.costing;
+const L = W.laborCosts;
+const F = W.profit;
 
 const statuses = Object.values(S).join(', ');
 const materialCounts = Object.values(MATERIAL_COUNT_WORDS).join(', ');
 const materialStates = Object.values(MATERIAL_STATE_WORDS).join(', ');
+const profitPeriods = Object.values(PROFIT_PERIOD_WORDS).join(', ');
+const profitSplits = Object.values(PROFIT_GROUP_WORDS).join(', ');
 
 export const CONTRACTOR_PLACES: readonly AppPlace[] = [
   {
@@ -54,7 +63,7 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
   },
   {
     label: 'A job',
-    what: 'one job or project: its status, customer, property, phases, deadlines, team, visits, materials and budget',
+    what: 'one job or project: its status, customer, property, phases, deadlines, team, visits, materials, time, costs so far and budget',
     where: [NAME, P.jobs],
     then: 'press the job',
     onScreen: [
@@ -64,6 +73,8 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
       `${D.phases.title}: each phase with its status, % done, ${D.phases.startsOn} and ${D.phases.dueOn}, ${D.phases.rename}, ${D.phases.moveUp}, ${D.phases.moveDown} and ${D.phases.remove}; ${D.phases.add}; on a service call ${D.phases.makeProject}`,
       `${D.visits}: the visits booked on it, each with where it stands (Scheduled, On the way, Started, Done), its crew, its checklist’s progress and how many materials it’s still missing, and ${D.bookVisit}; pressing a visit opens its work order`,
       `${M.title}: what the job needs, each with where it stands (${materialStates}), how much of what’s needed is here, what’s short, its supplier, the day it’s expected and the visit it’s for; one button moves it along (${M.markOrdered}, ${M.markDelivered}, ${M.markUsed}); ${M.add}, and ${M.edit} or ${M.remove} under each one’s menu. People who may see job costs also see what one costs, ${M.planned.toLowerCase()} and ${M.taken.toLowerCase()}`,
+      `${H.title}: the hours tracked on the job (${H.work}, ${H.travel} and ${H.breaks}, and how many people are on the clock now), then each stretch with whose it is, what it was, from when to when and how long; one that was ${H.autoStopped.toLowerCase().replace(/\.$/, '')} says so, and a fixed one says who fixed it and why. ${H.takeBreak} or ${H.backToWork} while you’re on the clock; for people who may fix time, ${H.add}, and ${H.fix} or ${H.remove} under each one’s menu`,
+      `${Q.title} (only for people who may see job costs and profit): ${Q.labor}, ${Q.materials}, ${Q.other}, ${Q.total}, ${Q.hours}, ${Q.price}, ${Q.profit} and ${Q.margin}, each ${Q.planned}, ${Q.soFar} and ${Q.heading}; a warning when it’s heading over its plan or under the lowest margin, or when time or materials have no cost yet; ${Q.byPerson}; and ${Q.otherTitle} with ${Q.otherAdd} and ${Q.otherRemove}`,
       `${D.money.title} (only for people who may see job costs and profit): ${D.money.price}, ${D.money.labor}, ${D.money.materials}, ${D.money.other}, ${D.money.hours}, ${D.money.total}, ${D.money.profit} and ${D.money.margin}`,
       `${E.title}: the estimates written for it, each with its status, total and whether it’s ${E.waitingOk.toLowerCase()}, and ${E.add} (for people who may see job costs)`,
       `${D.openRecord}: the job’s own record page, with its timeline, notes, files and tasks`,
@@ -79,20 +90,27 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
       `Add a material: its page, ${M.title} → ${M.add}. Pick it from your price list or type what it is, how much is needed, and (if it’s for one visit) ${M.forVisit}`,
       `Say a material was ordered, arrived or was used: its page, ${M.title}, then ${M.markOrdered}, ${M.markDelivered} or ${M.markUsed}; for part of it, or what was wasted or returned, the material’s menu → ${M.edit} (${materialCounts})`,
       `See what a visit is still missing: the job’s ${M.title} shows what’s short in red, and each visit under ${D.visits} says how many it’s missing. The job’s lead and the people going are also told before the visit (set when in ${NAME} → ${P.gear} → ${A.title})`,
+      `See the hours on a job: its page, ${H.title}. Time starts on its own when a visit is marked On the way (travel) or Started (work), for everyone on the visit, and stops at Waiting on parts or Done`,
+      `Take a break: on the job’s page or the visit’s work order, ${H.title} → ${H.takeBreak}, then ${H.backToWork}. Only your own time pauses`,
+      `Fix someone’s time: the job’s page, ${H.title}, the stretch’s menu → ${H.fix}. Set when it started and ended and say why (owners and admins, and anyone given “Fix time on jobs”). Time left running ${MAX_RUNNING_HOURS} hours is stopped on its own and waits for this`,
+      `Add time nobody tracked: the job’s page, ${H.title} → ${H.add}. Pick who, what it was, from when to when, and say why`,
+      `See whether a job is making money: its page, ${Q.title}. ${Q.soFar} is what it has really cost; ${Q.heading} is where it ends up if it goes on as it has (labor is paced by the job’s % done)`,
+      `Add a permit, a fee or a subcontractor’s bill to a job’s costs: its page, ${Q.title} → ${Q.otherTitle} → ${Q.otherAdd}`,
     ],
     canChange: [
-      'change its status, details, dates, customer, property, lead and team, set a service call’s % done, make it a project, add, rename, reorder, move along and remove phases, add, change and remove materials and say how much is ordered, delivered, used, wasted and returned, and set its price and budget and what a material costs (with job-cost access)',
+      'change its status, details, dates, customer, property, lead and team, set a service call’s % done, make it a project, add, rename, reorder, move along and remove phases, add, change and remove materials and say how much is ordered, delivered, used, wasted and returned, take a break or come back from one, fix, add and remove time (with “Fix time on jobs”), and set its price and budget and what a material costs and add and remove its other costs (with job-cost access)',
     ],
     notHere: [
       'ordering from a supplier, and stock in a warehouse or a van: the materials list records what a job needs and what’s happened; it places no order (supplier orders and stock come later)',
-      'time on jobs and job profit dashboards: coming in the next parts of Contractor Operations',
+      'starting or stopping work time by hand: it follows the visit’s buttons (On the way, Started, Waiting on parts, Done), on the visit’s sheet in Calendar or on the crew’s phones. Someone who may fix time adds or fixes it afterwards',
+      'paying people: the time here is for what jobs cost, and nothing here runs payroll',
       'deleting a job: archive its record instead, and everything on it is kept',
     ],
     path: 'jobs/[jobId]',
   },
   {
     label: 'A work order',
-    what: 'one visit on a job: what to do and bring, the materials it needs, its crew, the people and subcontractors going, and its checklist',
+    what: 'one visit on a job: what to do and bring, the materials it needs, the time on it, its crew, the people and subcontractors going, and its checklist',
     where: [NAME, P.jobs],
     then: `press the job, then the visit under ${D.visits} (or press a visit on ${P.dispatch})`,
     onScreen: [
@@ -100,6 +118,7 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
       `${O.job}: the job, its customer, its property and the ${O.workToDo.toLowerCase()}`,
       `${O.instructions} and ${O.bring}, with ${O.edit}`,
       `${M.visitTitle}: the job’s materials this visit needs (the ones for it, and the ones for any visit), each with how much is here and what’s short, ${M.markDelivered} or ${M.markUsed}, ${M.add}, and ${M.seeAll}`,
+      `${H.visitTitle}: the hours tracked on this visit and each stretch of them, with ${H.takeBreak} or ${H.backToWork} while you’re on the clock, and ${H.seeAll}`,
       `${O.checklist}: each item a box to tick or a photo to add, some marked ${O.required}; ${O.addPhoto}, ${O.seePhoto}, ${O.makeRequired} or ${O.makeOptional}, ${O.removeItem}, and ${O.addItem} (Checkbox or Photo, ${O.required} or not)`,
       `${O.whoGoes}: ${O.crew} (pick one of your crews, or ${O.noCrew}) and the ${O.people.toLowerCase()} members on the visit`,
       `${O.subs}: each with whether they were texted and whether their work is done; ${O.addSub}, ${O.tellSubs}, ${O.subWorkDone} and ${O.removeSub.toLowerCase()}`,
@@ -111,9 +130,10 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
       `Add a required photo: its work order → ${O.checklist} → type what it’s of, pick Photo, tick ${O.required}, then ${O.addItem}`,
       `Change who on the team is going without a crew: ${O.openInCalendar}, then Who’s going on the visit’s sheet`,
       `Say what was used on a visit: its work order → ${M.visitTitle} → ${M.markUsed}, or the material’s menu → ${M.edit} to type how much was used or wasted`,
+      `Take a break on a visit: its work order → ${H.visitTitle} → ${H.takeBreak}, then ${H.backToWork} when you’re back. It’s there once the visit is Started and you’re on the clock`,
     ],
     canChange: [
-      'write its instructions and what to bring, put a crew on it, add, text, mark done and take off subcontractors, add, tick, change and remove checklist items (a photo item is ticked by adding its photo, on the screen), and add materials for the visit and say what was delivered and used',
+      'write its instructions and what to bring, put a crew on it, add, text, mark done and take off subcontractors, add, tick, change and remove checklist items (a photo item is ticked by adding its photo, on the screen), add materials for the visit and say what was delivered and used, and take a break or come back from one',
     ],
     notHere: [
       'where the visit stands (On the way, Started, Done) is set by its crew on the visit’s sheet in Calendar or on their phones',
@@ -208,8 +228,32 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
     path: 'costs',
   },
   {
+    label: P.profit,
+    what: 'what the jobs made: price, cost, profit and margin, by job, customer, crew or service (only for people who may see job costs and profit)',
+    where: [NAME, P.profit],
+    onScreen: [
+      `${F.which} (${profitPeriods}) and ${F.split} (${profitSplits})`,
+      `${F.price}, ${F.cost}, ${F.profit} and ${F.margin} for all of them together`,
+      `A row for each job, customer, crew or service: ${F.jobs}, ${F.price}, ${F.cost}, ${F.profit}, ${F.margin} and ${F.hours}, the most profit first; a job’s row opens the job`,
+    ],
+    howTo: [
+      `See which jobs made the most this month: ${NAME} → ${P.profit} (it opens on ${PROFIT_PERIOD_WORDS.month}, ${PROFIT_GROUP_WORDS.job.toLowerCase()})`,
+      `See which crew or which kind of work makes the most: ${NAME} → ${P.profit} → ${F.split} → ${PROFIT_GROUP_WORDS.crew} or ${PROFIT_GROUP_WORDS.trade}. A job counts for the crew that was on most of its visits`,
+      `See where the jobs still running are heading: ${NAME} → ${P.profit} → ${F.which} → ${PROFIT_PERIOD_WORDS.open}. They count at what they’re heading for, not what they’ve cost so far`,
+      `See why one job’s number is what it is: press the job, then ${Q.title} on its page`,
+    ],
+    canChange: [
+      'nothing on this page itself: a job’s price is set under Budget and price on its page, and its costs come from its time, materials and other costs',
+    ],
+    notHere: [
+      'what was invoiced and paid: that’s in Money. This page counts a job’s price against what the job cost',
+      'cancelled jobs, and jobs whose record is archived, aren’t counted',
+    ],
+    path: 'profit',
+  },
+  {
     label: P.gear,
-    what: 'the business’s trades, its crews, the phases a new project and the checklist a new visit start with, when missing materials are told, and how it estimates',
+    what: 'the business’s trades, its crews, the phases a new project and the checklist a new visit start with, when missing materials are told, how it estimates, and what an hour of each person costs',
     where: [NAME, P.gear],
     onScreen: [
       `${G.trades} (Electrical, Plumbing, HVAC, Roofing, Remodeling and General contracting)`,
@@ -218,6 +262,7 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
       `${A.title}: ${A.when} (${MATERIALS_ALERT_HOURS.map(alertHoursWords).join(', ')})`,
       `${R.title}: each crew with who’s in it, ${R.add}, ${R.edit}, ${R.archive} and ${R.showArchived}`,
       `${T.title}: ${T.minMargin}, ${T.markup}, ${T.laborRate} and ${T.laborCost}`,
+      `${L.title} (only for people who may see job costs and profit): each person on the team with their ${L.cost.toLowerCase()} and ${L.save}`,
     ],
     howTo: [
       `Pick your trades: ${NAME} → ${P.gear} → ${G.trades} (owners and admins)`,
@@ -226,9 +271,10 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
       `Change when people are told a visit is missing materials, or turn it off: ${NAME} → ${P.gear} → ${A.title} → ${A.when}, then ${G.save}. It starts at ${alertHoursWords(DEFAULT_MATERIALS_ALERT_HOURS).toLowerCase()}; ${alertHoursWords(0)} turns it off`,
       `Make a crew: ${NAME} → ${P.gear} → ${R.title} → ${R.add}. Name it, tick its ${R.people.toLowerCase()}, and add its ${R.subs.toLowerCase()} from Contacts (for a company, the person you deal with there)`,
       `Change the lowest margin an estimate may go out at: ${NAME} → ${P.gear} → ${T.title} → ${T.minMargin} (owners and admins). It starts at 20%`,
+      `Set what an hour of someone costs you: ${NAME} → ${P.gear} → ${L.title}, type their ${L.cost.toLowerCase()} and press ${L.save} (owners and admins). It counts for time tracked from then on; time already tracked keeps what it cost. Someone with none counts at the ${T.laborCost.toLowerCase()} under ${T.title}`,
     ],
     canChange: [
-      'pick the business’s trades, the phases a new project starts with and the checklist a new visit starts with, set how long before a visit its missing materials are told, make, change, archive and bring back crews, and set the lowest margin, the starting markup and labor’s hourly price and cost',
+      'pick the business’s trades, the phases a new project starts with and the checklist a new visit starts with, set how long before a visit its missing materials are told, make, change, archive and bring back crews, set the lowest margin, the starting markup and labor’s hourly price and cost, and set what an hour of each person costs',
     ],
     path: 'settings',
   },
@@ -245,4 +291,8 @@ export const CONTRACTOR_LOOK_ALIKES: readonly string[] = [
   'Item costs (Contractor Operations → Item costs) are what things cost the business. Their prices to the customer are the price list, in Settings → Products.',
   'A job’s Materials (on the job’s page) is the list of what that one job needs and what’s been ordered, delivered and used. It isn’t the price list (Settings → Products), and it isn’t “What to bring” on a work order, which is a note for the crew.',
   'Marking a material ordered records that someone ordered it. HandsFreeOS places no order with a supplier.',
+  'Costs so far (on a job’s page) is what the job has really cost: time tracked, materials taken and its other costs. Budget and price, on the same page, is the plan it’s set against. An estimate’s costing is what was quoted.',
+  'Time on a job comes from the visit’s buttons (On the way, Started, Waiting on parts, Done) and the Break button. It’s for what jobs cost, not payroll: nothing in Contractor Operations pays anyone.',
+  'What an hour costs you (Contractor Operations → Settings) is each person’s cost to the business, and turns tracked time into labor cost. Labor’s price and cost per hour under Estimating are what a new labor line on an estimate starts at; that cost also counts for anyone with no cost of their own.',
+  'Profit (Contractor Operations → Profit) sets each job’s price against what the job cost. What was invoiced and paid is in Money.',
 ];
