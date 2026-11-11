@@ -14,8 +14,14 @@ import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { scopeCan } from '../kernel/execute';
 import type { QueryContext } from '../kernel/types';
-import { emptyKnowledgeProfile, KnowledgeProfile, profileCompleteness } from '../knowledge/profile';
+import {
+  emptyKnowledgeProfile,
+  KnowledgeProfile,
+  profileCompleteness,
+  profileWithBusinessHours,
+} from '../knowledge/profile';
 import { currentNumber, latestByKind, loadRegistrations, readiness } from '../messaging/store';
+import { openHoursOf } from '../schemas/workspace';
 import { businessOnboardingOf, personalOnboardingOf, type BusinessOnboarding } from './settings';
 import {
   isBusinessStep,
@@ -77,6 +83,7 @@ async function businessFacts(
     ai_name: string | null;
     published: number;
     profile: unknown;
+    settings: Record<string, unknown> | null;
     pending_suggestions: number;
     scan_running: boolean;
     members: number;
@@ -106,6 +113,7 @@ async function businessFacts(
         (select count(*) from app.knowledge_items k where k.workspace_id = ${workspaceId}
            and k.status = 'published')::int as published,
         (select kp.profile from app.knowledge_profiles kp where kp.workspace_id = ${workspaceId}) as profile,
+        (select w.settings from app.workspaces w where w.id = ${workspaceId}) as settings,
         (select count(*) from app.knowledge_suggestions ks where ks.workspace_id = ${workspaceId}
            and ks.status = 'pending')::int as pending_suggestions,
         exists (select 1 from app.knowledge_scans sc where sc.workspace_id = ${workspaceId}
@@ -133,8 +141,12 @@ async function businessFacts(
   const can = (p: { capabilities: unknown }, key: string) =>
     (p.capabilities as Record<string, unknown> | null)?.[key] === true;
   const profile = KnowledgeProfile.safeParse(s?.profile ?? {});
+  // Its hours are the business hours, as Knowledge shows them.
   const completeness = profileCompleteness(
-    profile.success ? profile.data : emptyKnowledgeProfile(),
+    profileWithBusinessHours(
+      profile.success ? profile.data : emptyKnowledgeProfile(),
+      openHoursOf(s?.settings),
+    ),
   );
   const migrations = s?.migration_statuses ?? [];
   return {

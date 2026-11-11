@@ -887,10 +887,10 @@ interface Profile {
   allowPrices: boolean;
 }
 
+// Not the hours: they're the business hours (update_business openHours), which Knowledge only shows.
 const FIELD_WORDS: Record<string, string> = {
   description: 'What you do',
   serviceArea: 'Area you cover',
-  hours: 'Hours',
   policies: 'Policies',
   tone: 'How it sounds',
   signature: 'Signs off',

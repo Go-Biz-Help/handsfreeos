@@ -10,10 +10,15 @@ import { loadTeammate, teammateConfigOf } from '../ai-team/load';
 import { WeeklyHours } from '../calendar/config';
 import { chatWidgetName } from '../chat/origins';
 import { HfosError } from '../errors';
-import { emptyKnowledgeProfile, KnowledgeProfile } from '../knowledge/profile';
+import {
+  emptyKnowledgeProfile,
+  KnowledgeProfile,
+  profileWithBusinessHours,
+} from '../knowledge/profile';
 import { workspaceAddresses } from '../messaging/email';
 import { defaultNumber, loadRegistrations, readiness } from '../messaging/store';
 import { businessOnboardingOf } from '../onboarding/settings';
+import { openHoursOf } from '../schemas/workspace';
 import { SETUP_KINDS, setupKindOf, type SetupKind } from './kinds';
 import { aiSetupFoundOf, aiSetupReading } from './found';
 import type { AiSetupTemplate } from './plan';
@@ -67,11 +72,15 @@ export async function loadAiSetupState(tx: Tx, workspaceId: string): Promise<AiS
     .from(knowledgeProfiles)
     .where(eq(knowledgeProfiles.workspaceId, workspaceId));
   const stored = profileRow ? KnowledgeProfile.safeParse(profileRow.profile) : null;
-  // The column is what grounding reads (commands/knowledge.ts keeps the document in step).
-  const profile: KnowledgeProfile = {
-    ...(stored?.success ? stored.data : emptyKnowledgeProfile()),
-    allowPrices: profileRow?.allowPrices ?? false,
-  };
+  // The column is what grounding reads (commands/knowledge.ts keeps the document in step). Its hours are the
+  // business hours, as everywhere else.
+  const profile = profileWithBusinessHours(
+    {
+      ...(stored?.success ? stored.data : emptyKnowledgeProfile()),
+      allowPrices: profileRow?.allowPrices ?? false,
+    },
+    openHoursOf(settings),
+  );
 
   const facts = await rows<{
     id: string;

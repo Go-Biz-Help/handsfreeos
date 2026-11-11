@@ -798,7 +798,7 @@ export const assistantTools = [
   define({
     name: 'update_knowledge_profile',
     description:
-      'Change the business profile your AI knows (Knowledge → Overview, Business profile and Tone of voice): what you do, your services with what each is and its price, the area you cover, your hours, your policies, how it should sound, words to use and to avoid, how it signs off, and whether it may quote prices. Read it with get_settings (area knowledge) first and pass only what changes: each field replaces what is there, and an empty one clears it.',
+      'Change the business profile your AI knows (Knowledge → Overview, Business profile and Tone of voice): what you do, your services with what each is and its price, the area you cover, your policies, how it should sound, words to use and to avoid, how it signs off, and whether it may quote prices. Its hours are always the business hours: change those with update_business openHours. Read it with get_settings (area knowledge) first and pass only what changes: each field replaces what is there, and an empty one clears it.',
     input: z.object({
       description: z.string().trim().max(2000).optional().describe('What the business does'),
       services: z
@@ -819,12 +819,6 @@ export const assistantTools = [
         .optional()
         .describe('The whole list of services, in order, as Business profile → Services shows it'),
       serviceArea: z.string().trim().max(500).optional(),
-      hours: z
-        .string()
-        .trim()
-        .max(500)
-        .optional()
-        .describe('In words, as a customer would be told'),
       policies: z.string().trim().max(3000).optional(),
       tone: z.string().trim().max(300).optional().describe('How messages should sound'),
       wordsToUse: z

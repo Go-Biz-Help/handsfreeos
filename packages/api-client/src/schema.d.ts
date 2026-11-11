@@ -5887,7 +5887,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Save the business profile the AI writes from: what you do, services, area, hours, policies, tone of voice, words to use and avoid, signature, and whether AI may quote prices.
+         * Save the business profile the AI writes from: what you do, services, area, policies, tone of voice, words to use and avoid, signature, and whether AI may quote prices. Its hours always come from the business hours (workspace.update’s settings.openHours, Settings → Workspace → Business hours), whatever hours are sent here.
          * @description Risk level 1. Requires knowledge.manage. Emits knowledge.profile_updated.
          */
         post: operations["command_knowledge_profile_update"];
@@ -20387,7 +20387,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The business profile the AI writes from, how complete it is, and who changed it last.
+         * The business profile the AI writes from, how complete it is, and who changed it last. Its hours are always the business hours (Settings → Workspace → Business hours).
          * @description Requires workspace.read.
          */
         post: operations["query_knowledge_profile"];

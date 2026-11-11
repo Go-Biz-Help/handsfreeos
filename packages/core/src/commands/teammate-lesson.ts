@@ -86,6 +86,12 @@ export const teammateLessonApply = defineCommand({
     if (!lesson) throw lessonGone();
     if (lesson.status !== 'open') throw lessonDecided(lesson.status);
     const conflict = lessonConflictOf(lesson.conflict);
+    // Knowledge's hours are the business hours now (2026-11-11), so there are no words there to swap.
+    if (conflict?.place === 'hours')
+      throw HfosError.conflict(
+        'This is about your hours, which come from Settings → Workspace → Business hours. Change them there, then dismiss this suggestion.',
+        'lesson_hours_in_settings',
+      );
     // Two things the AI would read that say opposite things: a person picks, it never quietly keeps both.
     if (conflict && input.replace !== true)
       throw HfosError.conflict(

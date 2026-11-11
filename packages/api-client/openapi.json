@@ -26128,7 +26128,7 @@
     "/v1/commands/knowledge.profile_update": {
       "post": {
         "operationId": "command_knowledge_profile_update",
-        "summary": "Save the business profile the AI writes from: what you do, services, area, hours, policies, tone of voice, words to use and avoid, signature, and whether AI may quote prices.",
+        "summary": "Save the business profile the AI writes from: what you do, services, area, policies, tone of voice, words to use and avoid, signature, and whether AI may quote prices. Its hours always come from the business hours (workspace.update’s settings.openHours, Settings → Workspace → Business hours), whatever hours are sent here.",
         "tags": [
           "commands"
         ],
@@ -163540,7 +163540,7 @@
     "/v1/queries/knowledge.profile": {
       "post": {
         "operationId": "query_knowledge_profile",
-        "summary": "The business profile the AI writes from, how complete it is, and who changed it last.",
+        "summary": "The business profile the AI writes from, how complete it is, and who changed it last. Its hours are always the business hours (Settings → Workspace → Business hours).",
         "tags": [
           "queries"
         ],
