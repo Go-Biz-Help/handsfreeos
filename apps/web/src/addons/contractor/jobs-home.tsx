@@ -12,7 +12,7 @@ import {
   JOB_STATUS_WORDS,
 } from '@hfos/core/addons/contractor/words';
 import { formatDate } from '@hfos/core';
-import { CalendarClock, HardHat, MapPin, Search, User } from 'lucide-react';
+import { CalendarClock, FileCheck, HardHat, MapPin, Search, User } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
@@ -93,6 +93,20 @@ export function JobsHome({
           </p>
           <ButtonLink href={contractorHref(workspaceId, 'settings')} size="sm">
             {W.setUpButton}
+          </ButtonLink>
+        </Card>
+      ) : null}
+      {overview.estimatesWaitingOk > 0 ? (
+        <Card
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 px-5 py-4"
+          data-testid="jobs-estimates-waiting"
+        >
+          <p className="flex items-center gap-2.5 text-[13.5px] text-text-2">
+            <FileCheck className="h-4 w-4 flex-none text-danger-text" />
+            {CONTRACTOR_WORDS.estimates.needOk(overview.estimatesWaitingOk)}
+          </p>
+          <ButtonLink href={contractorHref(workspaceId, 'estimates?waiting=1')} size="sm">
+            {CONTRACTOR_WORDS.estimates.review}
           </ButtonLink>
         </Card>
       ) : null}

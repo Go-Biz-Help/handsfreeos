@@ -18,3 +18,12 @@ export interface Teammate {
   readonly userId: string;
   readonly name: string;
 }
+
+export type EstimateBuilderData = Ok<'/v1/queries/contractor.estimate.get'>;
+/** Whether an estimate can go out, and what it's waiting on, as the server worked it out. */
+export type MarginCheck = NonNullable<EstimateBuilderData['check']>;
+export type Estimating = EstimateBuilderData['estimating'];
+export type EstimateList = Ok<'/v1/queries/contractor.estimate.list'>;
+export type EstimateItem = EstimateList['estimates'][number];
+export type ItemCostList = Ok<'/v1/queries/contractor.item_cost.list'>;
+export type ItemCost = ItemCostList['items'][number];

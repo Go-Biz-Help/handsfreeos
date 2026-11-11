@@ -293,14 +293,32 @@ the team's, so it now shows in one list with a mark. His picks:
 - **Which boxes.** Someone's own mail is theirs, so it's in **Mine** and **All**. It's never in
   **Unassigned**, **Needs a person** or the AI teammate's box. Their own Other mail and Spam show
   in the team's **Other mail** and **Spam**, and Archived lists theirs too.
-- **My mail stays** as a filter that shows only their own, with its own Inbox, Other mail and Spam.
-  Its way back reads **Show all**.
+- ~~**My mail stays** as a filter that shows only their own, with its own Inbox, Other mail and
+  Spam.~~ Gone the next day, below.
 - **Badges** count their own unread mail in Mine and All (and the menu's Inbox badge), on their
   screen only. Waiting, Needs a person and the AI teammate's count stay the team's.
 - **The AI teammate never reads or answers anyone's own mail**, as before.
 - A sender who writes to both someone's own address and a team one is **two rows**, never one with
   two lanes (`GROUP_KEY` and `customerKeyOf` keep own mail apart), so sharing or answering one never
   reaches the other.
+
+**One Inbox, no My mail page (Chris, 2026-11-11).** The row of My mail, Other mail and Spam buttons
+still opened a page of his own mail, and Chris wanted one Inbox. He picked design A from the
+"One Inbox" canvas:
+
+- **The three buttons and the My mail page are gone**, on the web and the phone. His own mail is
+  only ever in the one list, marked **Only you**. An old `?mail=mine` link shows everything.
+- **Other mail and Spam move into the menu beside the search**, under Open, Snoozed, Closed and
+  Archived (core's `INBOX_SHOW`, `inboxShowOf`, `inboxShowPick`). Other mail shows its unread count
+  and Spam how many it holds, and a **dot** on the menu means something unread waits in Other mail.
+  Picking a status keeps the box (Mine stays Mine); picking Archived, Other mail or Spam shows that
+  box's open conversations, and a status from there goes back to the person's usual box.
+- **On the phone it's one chip** in place of Open, Snoozed and Closed, opening a sheet with the same
+  choices less Archived, which never reaches the phone.
+- Other mail and Spam show **a line above the list** saying what's in them and how a thread gets
+  out (Move to Inbox, Not spam), with **Back to Open**.
+- At phone width on the web the menu sits beside **Unread**, since the search is in the top bar.
+- The Assistant keeps `mailbox` `mine` for "only my own mail"; only the screens lost the page.
 
 ### Step 5 — HandsFreeOS's own business (done, 2026-09-30)
 
@@ -321,7 +339,7 @@ mailbox, then send and receive from outside. `docs/operations.md` gets a short s
 
 **As done (2026-09-30):**
 
-- `chris@handsfreeos.com` receives in **Inbox → My mail**. The domain was verified and receiving by
+- `chris@handsfreeos.com` receives in **Inbox → My mail** (since 2026-11-11, the one Inbox, marked **Only you**). The domain was verified and receiving by
   00:24 UTC on 2026-09-30.
 - The first test emails didn't arrive. Postmark held them, marked **Retry**, because neither the
   support server's nor the production server's inbound stream had a webhook. Setting it, with a new

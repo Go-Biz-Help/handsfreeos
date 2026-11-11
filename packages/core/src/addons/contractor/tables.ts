@@ -14,7 +14,14 @@ import {
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { customRecords, users, workspaces } from '@hfos/db/schema';
+import {
+  customRecords,
+  estimates as coreEstimates,
+  products,
+  users,
+  workspaces,
+} from '@hfos/db/schema';
+import type { CostKind } from './estimating';
 import type { JobKind, JobStatus, PhaseStatus } from './progress';
 import type { Trade } from './trades';
 
@@ -97,4 +104,79 @@ export const money = addonContractor.table('money', {
   updatedAt: ts('updated_at').notNull().defaultNow(),
 });
 
-export const CONTRACTOR_TABLES = { jobs, phases, team, money } as const;
+/** How the business estimates: its lowest margin, starting markup and labor's price and cost per hour. */
+export const estimating = addonContractor.table('estimating', {
+  workspaceId: uuid('workspace_id')
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  minMarginBp: integer('min_margin_bp').notNull().default(2000),
+  markupBp: integer('markup_bp').notNull().default(5000),
+  laborRateCents: bigint('labor_rate_cents', { mode: 'number' }).notNull().default(0),
+  laborCostCents: bigint('labor_cost_cents', { mode: 'number' }).notNull().default(0),
+  updatedBy: userRef('updated_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/** What one of a price list item costs the business: only people with `contractor.costs` read or write it. */
+export const itemCosts = addonContractor.table('item_costs', {
+  productId: uuid('product_id')
+    .primaryKey()
+    .references(() => products.id, { onDelete: 'cascade' }),
+  workspaceId: workspaceRef(),
+  kind: text('kind').notNull().$type<CostKind>().default('material'),
+  costCents: bigint('cost_cents', { mode: 'number' }).notNull(),
+  updatedBy: userRef('updated_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/** An estimate the builder wrote: the job it's for, and who asked for an OK. No amounts. */
+export const estimates = addonContractor.table('estimates', {
+  estimateId: uuid('estimate_id')
+    .primaryKey()
+    .references(() => coreEstimates.id, { onDelete: 'cascade' }),
+  workspaceId: workspaceRef(),
+  recordId: uuid('record_id'),
+  askedAt: ts('asked_at'),
+  askedBy: userRef('asked_by'),
+  createdBy: userRef('created_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/** What each line of an estimate costs, by option and line position: costs only. */
+export const estimateCosts = addonContractor.table(
+  'estimate_costs',
+  {
+    estimateId: uuid('estimate_id').notNull(),
+    workspaceId: workspaceRef(),
+    optionPosition: integer('option_position').notNull(),
+    linePosition: integer('line_position').notNull(),
+    kind: text('kind').notNull().$type<CostKind>(),
+    unitCostCents: bigint('unit_cost_cents', { mode: 'number' }),
+  },
+  (t) => [primaryKey({ columns: [t.estimateId, t.optionPosition, t.linePosition] })],
+);
+
+/** An owner's or admin's OK to send an estimate as it stood at `revision`. */
+export const estimateOks = addonContractor.table('estimate_oks', {
+  estimateId: uuid('estimate_id').primaryKey(),
+  workspaceId: workspaceRef(),
+  revision: bigint('revision', { mode: 'number' }).notNull(),
+  okBy: userRef('ok_by'),
+  okAt: ts('ok_at').notNull().defaultNow(),
+  note: text('note'),
+});
+
+export const CONTRACTOR_TABLES = {
+  jobs,
+  phases,
+  team,
+  money,
+  estimating,
+  itemCosts,
+  estimates,
+  estimateCosts,
+  estimateOks,
+} as const;

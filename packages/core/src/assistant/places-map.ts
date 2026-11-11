@@ -115,9 +115,9 @@ export const APP_PLACES: readonly AppPlace[] = [
     onScreen: [
       'New message, at the top (it starts a text to someone already in Contacts)',
       'Mine, Unassigned, and All (Everyone when each person sees only their own); Needs a person and the AI teammate’s own box when it is on',
-      'My mail, the person’s own connected Gmail or Outlook (only they see it), with its own Inbox, and the team’s Other mail and Spam for email from people not in Contacts',
+      'The person’s own connected Gmail or Outlook mail in the same list, each thread marked Only you (only they see it)',
       'Unread, to show only conversations with something unread',
-      'Search conversations (names, numbers and words in messages; Search everything at the top of the side menu finds them too), and Open, Snoozed, Closed or Archived',
+      'Search conversations (names, numbers and words in messages; Search everything at the top of the side menu finds them too), and the menu beside it: Open, Snoozed, Closed, Archived, Other mail (email from people not in Contacts) or Spam, the person’s own beside the team’s; a dot on it means something unread in Other mail. On the phone it is one chip, without Archived',
       'Select, for whoever may delete for good (owners, unless one gives it out): tick conversations, then Delete for good…',
     ],
     howTo: [

@@ -41,6 +41,7 @@ import {
   timeZoneOf,
   type Ctx,
 } from './common';
+import { estimatingOf } from './estimates';
 
 type JobSqlRow = {
   id: string;
@@ -168,7 +169,7 @@ async function peopleOf(ctx: Ctx) {
 export const overview = defineAddonQuery(contractorAddon, {
   name: 'contractor.overview',
   description:
-    'Contractor Operations here: its settings (trades, phases for a new project), how many jobs are open, late, on hold and done this month, and who can be on a job.',
+    'Contractor Operations here: its settings (trades, phases for a new project), how many jobs are open, late, on hold and done this month, who can be on a job, how the business estimates (for people who may see job costs), and how many estimates wait for this person’s OK.',
   input: InWorkspace,
   output: OverviewOutput,
   permission: 'contractor.use',
@@ -176,7 +177,7 @@ export const overview = defineAddonQuery(contractorAddon, {
   ai: {
     tool: 'contractor_overview',
     description:
-      'Contractor Operations’ settings (the business’s trades and the phases a new project starts with), counts of open, late, on-hold and done-this-month jobs, and the team members who can be put on jobs (with their user ids).',
+      'Contractor Operations’ settings (the business’s trades and the phases a new project starts with), counts of open, late, on-hold and done-this-month jobs, the team members who can be put on jobs (with their user ids), the estimating rules (lowest margin, starting markup, labor’s hourly price and cost; only for people who may see job costs), and how many estimates are waiting for this person’s OK.',
   },
   async handler(ctx) {
     const ws = ctx.scope.workspaceId!;
@@ -195,14 +196,28 @@ export const overview = defineAddonQuery(contractorAddon, {
     );
     const stored = await settingsOf(ctx);
     const settings = ContractorSettingsSchema.safeParse(stored);
+    const costs = scopeCan(ctx.scope, 'contractor.costs' as Permission);
+    const approve = scopeCan(ctx.scope, 'contractor.approve' as Permission);
+    // Drafts someone asked an OK for: only the people who can give it are counted any.
+    const [waiting] = approve
+      ? await rows<{ n: number }>(
+          ctx.tx,
+          sql`select count(*)::int as n
+              from addon_contractor.estimates x join app.estimates e on e.id = x.estimate_id
+              where x.workspace_id = ${ws} and x.asked_at is not null and e.status = 'draft'`,
+        )
+      : [];
     return {
       name: contractorAddon.name,
       settings: settings.success ? settings.data : { trades: [], phases: [] },
       may: {
         manage: scopeCan(ctx.scope, 'contractor.manage' as Permission),
-        costs: scopeCan(ctx.scope, 'contractor.costs' as Permission),
+        costs,
         assign: scopeCan(ctx.scope, 'records.assign'),
+        approve,
       },
+      estimating: costs ? await estimatingOf(ctx) : null,
+      estimatesWaitingOk: waiting?.n ?? 0,
       counts: {
         open: c?.open ?? 0,
         late: c?.late ?? 0,

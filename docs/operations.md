@@ -5575,7 +5575,7 @@ A campaign paused with "Email campaigns aren't set up on HandsFreeOS yet" means 
 
 HandsFreeOS's own business can use `handsfreeos.com` as its email (M19): `chris@handsfreeos.com` becomes
 Chris's own mailbox inside HandsFreeOS, with no Google or Outlook. Mail to it lands in Chris's **Inbox**, marked
-**Only you** (and in **Inbox → My mail**, which shows only his own), and only Chris sees it. Nothing changes in Postmark or DNS: the support server from "Postmark Part K" already
+**Only you**, and only Chris sees it. Nothing changes in Postmark or DNS: the support server from "Postmark Part K" already
 receives the whole domain and posts it to the worker, and the production server already sends for it.
 `support@` and `help@` (everything in `SUPPORT_ADDRESSES`) stay the support desk's.
 
@@ -5597,7 +5597,7 @@ Do it once the M19 migrations are on the hosted database and M19 is on `main`:
 4. **Receive mail here too.** In the same card, click **Receive mail here**. The MX record already points at
    `inbound.postmarkapp.com`, so the badge turns to **Receiving** within 15 minutes.
 5. **Test it from outside.** From a personal email account, write to `chris@handsfreeos.com`.
-   - Within a minute it shows in the **Inbox** marked **Only you** (and in **My mail**), and Chris's phone buzzes.
+   - Within a minute it shows in the **Inbox** marked **Only you**, and Chris's phone buzzes.
    - Nobody else in the business sees it.
    - Reply from HandsFreeOS. The reply arrives from `chris@handsfreeos.com`, and answering it lands in the same
      thread.
@@ -5606,7 +5606,7 @@ Do it once the M19 migrations are on the hosted database and M19 is on `main`:
 If it goes wrong:
 
 - **"That domain is HandsFreeOS's own"** when adding the domain means step 1 wasn't done for this business.
-- **Nothing arrives in My mail.** In Postmark, open the **HandsFreeOS Support** server's inbound stream →
+- **Nothing arrives marked Only you.** In Postmark, open the **HandsFreeOS Support** server's inbound stream →
   **Activity**.
   - If every message shows **Retry**, the stream has no webhook. Its **Settings → Webhook** is empty: paste the
     address from "Postmark Part K" step 5 and save. Send one new test first. Once it lands, click **Retry** on
@@ -9927,6 +9927,21 @@ Two more things worth saying to a client in the same breath:
 
 - **The money is theirs from the first payment.** Payouts go from Stripe or Square to their bank on the provider's own schedule. HandsFreeOS is never in the path, so there is nothing for them to chase us about and nothing of theirs for us to lose.
 - **They can revoke us.** From their own Stripe or Square dashboard, without telling us. HandsFreeOS hears about it through the webhook, marks the account disconnected, and says so on the Payments page.
+
+### Estimates with options: good, better, best
+
+Any business can offer two or three options on one estimate (the owner's decision 5 in `HANDSFREEOS_CONTRACTOR_OPERATIONS_IMPLEMENTATION_PLAN.md`). The customer picks one when they approve.
+
+- **Writing one.** On a draft estimate, **Offer options** turns the lines so far into "Good" and adds "Better" as a copy; **Add an option** adds a third. Each option has its own name and lines. The discount and the deposit are the estimate's: they apply to whichever option the customer picks, and a deposit of a set amount has to fit inside the smallest option. **Take this option off** removes one; down to one, the estimate has one price again.
+- **The customer's page** lists the options with their totals. They pick one, see its lines, and approve it. The sentence they agree to names the option ("the “Better” option of this estimate for $4,800.00").
+- **A yes by phone.** **They said yes** asks **Which option they chose**.
+- **Once it's approved,** the estimate's own lines and totals are the picked option's, and the invoice is made from those. **Turn into an invoice** waits for the pick. The other options stay on the estimate's page to read.
+- **How it's kept.** The options live on the estimate (`app.estimates.options`, each with its name, lines and totals, worked out by core when the draft is saved, and frozen when it's sent). The estimate's own lines and totals are always one of them (`option_position`): the first until one is picked. So the phone, the lists and the sync streams read a whole estimate as before. `private.estimate_pick_option` is the only way a sent estimate's figures move, and only to an option frozen with it.
+- **The phone** shows and edits the first option's lines for now. A save from it keeps the other options.
+- **The Assistant** writes options with `write_estimate` (`options`), reads them with `get_money_document`, and records a yes for one with `manage_estimate` (`option`).
+- **Refusals** (`rule`): `estimate_options` (two options share a name), `estimate_pick_option` (an approval or an invoice needs the option named), `money_document_empty` (an option has no lines at send).
+
+**An estimate an add-on built.** An add-on's builder can write estimates through core's commands (Contractor Operations does, to check the margin). Core stamps `app.estimates.addon_id`, and while that add-on runs in the business, core's own editor, `estimate.update` and `estimate.send` refuse it (`estimate_built_elsewhere`) and the estimate's page says where to change it. With the add-on off, it's an estimate like any other. The add-on puts its panel on the estimate's page through the `estimate.panels` slot.
 
 ### Before a client takes a real payment
 

@@ -172,7 +172,7 @@ export function useConversations(): {
   ]);
 }
 
-/** Whether the person has an address of their own here (M19), so My mail shows before any mail has come to it. */
+/** Whether the person has an address of their own here (M19), before any mail has come to it. */
 export function useOwnAddress(): boolean {
   const { business, me } = useBusiness();
   const { data } = useQuery<{ own: number | null }>(OWN_ADDRESS_SQL, [business.id, me.user.id]);

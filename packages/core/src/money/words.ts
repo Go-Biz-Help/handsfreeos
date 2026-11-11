@@ -154,8 +154,16 @@ export const TYPED_NAME_LABEL = 'Type your full name';
  * Stored with the acceptance word for word, so the business can show later exactly what was on screen. Change
  * this wording and every acceptance already made keeps its own.
  */
-export function acceptanceWording(totalCents: number, businessName: string): string {
-  return `By typing my name I approve this estimate for ${money(totalCents)} from ${
+export function acceptanceWording(
+  totalCents: number,
+  businessName: string,
+  /** The option they're picking, for an estimate that offers more than one. */
+  optionName?: string | null,
+): string {
+  const what = optionName?.trim()
+    ? `the “${optionName.trim()}” option of this estimate`
+    : 'this estimate';
+  return `By typing my name I approve ${what} for ${money(totalCents)} from ${
     businessName.trim() || 'this business'
   }.`;
 }

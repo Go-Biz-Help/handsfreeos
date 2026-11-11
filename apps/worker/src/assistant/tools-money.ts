@@ -616,7 +616,12 @@ const confirmCard = (
 });
 
 interface EstimateGet {
-  estimate: EstimateItem & { notes: string | null; lines: unknown[] };
+  estimate: EstimateItem & {
+    notes: string | null;
+    lines: unknown[];
+    options: { name: string; lines: unknown[]; totals: Totals }[];
+    builtBy: { name: string; running: boolean } | null;
+  };
 }
 interface InvoiceGet {
   invoice: InvoiceItem;
@@ -648,6 +653,14 @@ export const noContact = (who: string, channel: string) =>
     ? `No mobile number on file for ${who}, so no text goes.`
     : `No email address on file for ${who}, so no email goes.`;
 
+/** An estimate an add-on's builder wrote is changed and sent from that add-on while it runs here. */
+export const builtElsewhere = (addonName: string, doing: 'change' | 'send'): HfosError =>
+  HfosError.rule(
+    'estimate_built_elsewhere',
+    409,
+    `This estimate was built in ${addonName}, which checks it before it goes out. To ${doing} it, use ${addonName}’s own estimate tools, or open it there.`,
+  );
+
 /** Why an estimate that isn't a draft can't be sent, and what to do instead. */
 function notADraft(e: { number: string | null; status: string }, first: string): HfosError {
   const name = e.number ?? 'That estimate';
@@ -670,11 +683,20 @@ const sendEstimate: ConfirmTool = {
     const first = firstName(person.fullName);
     // What the screen refuses is said before the card, not after the press: only a draft with a line goes out.
     if (estimate.status !== 'draft') throw notADraft(estimate, first);
+    // An add-on's builder wrote it and checks it before it goes out, so it's sent from there.
+    if (estimate.builtBy?.running) throw builtElsewhere(estimate.builtBy.name, 'send');
     if (!estimate.lines.length)
       throw HfosError.rule(
         'money_document_empty',
         409,
         'This estimate has no lines yet, so there’s nothing to quote. Add one with write_estimate, then send it.',
+      );
+    const empty = estimate.options.find((o) => !o.lines.length);
+    if (empty)
+      throw HfosError.rule(
+        'money_document_empty',
+        409,
+        `The “${empty.name}” option has no lines yet. Add at least one with write_estimate, or take the option off, then send it.`,
       );
     const asked = (args['channels'] as string[] | undefined) ?? ['email'];
     // Only the ways they can be reached, as the send dialog greys out the others; with none, Send stays off.
@@ -686,7 +708,14 @@ const sendEstimate: ConfirmTool = {
       fields: [
         { label: 'To', value: person.fullName },
         { label: 'How', value: to.words },
-        { label: 'Total', value: money(estimate.totals.totalCents) },
+        estimate.options.length
+          ? {
+              label: 'Options',
+              value: estimate.options
+                .map((o) => `${o.name} ${money(o.totals.totalCents)}`)
+                .join(' · '),
+            }
+          : { label: 'Total', value: money(estimate.totals.totalCents) },
         ...(estimate.title ? [{ label: 'For', value: estimate.title }] : []),
       ],
       body: (args['message'] as string | undefined) ?? null,

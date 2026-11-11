@@ -25,8 +25,8 @@ import type { Me } from '@/lib/businesses';
 import HfosPhone from '../../../../modules/hfos-phone';
 
 /**
- * The inbox's screens with React Native Testing Library: a row in the list, the list's boxes (email's Other mail and
- * Spam, and My mail, M19), the conversation's Details and actions (a row's action runs once the sheet is gone; moving
+ * The inbox's screens with React Native Testing Library: a row in the list, the list's boxes (and the Show chip with
+ * email's Other mail and Spam, M19), the conversation's Details and actions (a row's action runs once the sheet is gone; moving
  * email between folders, sharing one's own, and an owner's Delete for good…), the composer (offline words, the From line, photos, a note that turns
  * the box off), and My cell phone (Verify my cell, the press of 1 arriving through the copy, the contacts card with
  * Add to Contacts).
@@ -271,9 +271,8 @@ describe('the list', () => {
   it('narrows to the customers with something unread, however far down they are', async () => {
     await render(wrap(<Inbox />));
     expect(screen.getByTestId('conversation-row-c-new')).toBeTruthy();
-    // Email's folders are always there; My mail only for someone with mail of their own.
-    expect(screen.getByTestId('box-other')).toHaveTextContent('Other mail');
-    expect(screen.getByTestId('box-spam')).toHaveTextContent('Spam');
+    // One chip says what the list shows (Other mail and Spam are among its choices); no My mail of its own.
+    expect(screen.getByTestId('inbox-show')).toHaveTextContent('Open');
     expect(screen.queryByTestId('box-my-mail')).toBeNull();
     expect(screen.getByTestId('filter-unread')).toHaveTextContent('Unread · 1');
     await fireEvent.press(screen.getByTestId('filter-unread'));
@@ -291,7 +290,7 @@ describe('the list', () => {
   });
 });
 
-describe('email’s boxes and My mail (M19)', () => {
+describe('email’s Other mail and Spam, and the person’s own mail (M19)', () => {
   const base = {
     status: 'open',
     person_id: null,
@@ -344,25 +343,47 @@ describe('email’s boxes and My mail (M19)', () => {
     })) as never);
   });
 
-  it('keeps Other mail and Spam out of the Inbox, each a box of its own', async () => {
+  it('keeps Other mail and Spam out of the Inbox, each picked from the Show chip', async () => {
     await render(wrap(<Inbox />));
     expect(screen.getByTestId('box-all')).toHaveTextContent('All · 2');
     expect(screen.getByTestId('conversation-row-c-kim')).toBeTruthy();
     expect(screen.queryByTestId('conversation-row-c-deals')).toBeNull();
-    expect(screen.getByTestId('box-other')).toHaveTextContent('Other mail · 1');
-    expect(screen.getByTestId('box-spam')).toHaveTextContent('Spam · 1');
-    await fireEvent.press(screen.getByTestId('box-other'));
-    expect(screen.getByTestId('box-other')).toBeSelected();
+    // Something unread waits in Other mail: a dot on the chip.
+    expect(screen.getByTestId('inbox-show-dot')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('inbox-show'));
+    expect(screen.getByTestId('inbox-show-other-count')).toHaveTextContent('1');
+    expect(screen.getByTestId('inbox-show-spam-count')).toHaveTextContent('1');
+    // Archived conversations never reach the phone, so it isn't offered.
+    expect(screen.queryByTestId('inbox-show-archived')).toBeNull();
+    await fireEvent.press(screen.getByTestId('inbox-show-other'));
+    expect(screen.getByTestId('inbox-show')).toHaveTextContent('Other mail');
+    expect(screen.queryByTestId('inbox-show-dot')).toBeNull();
+    expect(screen.getByTestId('inbox-show-note')).toHaveTextContent(/Move to Inbox/);
     expect(screen.getByTestId('conversation-row-c-deals')).toBeTruthy();
     // The person's own Other mail is there too, beside the team's.
-    expect(screen.getByTestId('conversation-row-c-news')).toBeTruthy();
+    const news = screen.getByTestId('conversation-row-c-news');
+    expect(within(news).getByTestId('row-private')).toHaveTextContent('Only you');
     expect(screen.queryByTestId('conversation-row-c-kim')).toBeNull();
     expect(screen.getByTestId('filter-unread')).toHaveTextContent('Unread · 1');
-    await fireEvent.press(screen.getByTestId('box-spam'));
+    await fireEvent.press(screen.getByTestId('inbox-show'));
+    await fireEvent.press(screen.getByTestId('inbox-show-spam'));
     expect(screen.getByTestId('conversation-row-c-prize')).toBeTruthy();
-    // Pressed again, back to the Inbox.
-    await fireEvent.press(screen.getByTestId('box-spam'));
+    expect(screen.getByTestId('inbox-show-note')).toHaveTextContent(/Not spam/);
+    // Back to Open: the Inbox again.
+    await fireEvent.press(screen.getByTestId('inbox-show-back'));
+    expect(screen.getByTestId('inbox-show')).toHaveTextContent('Open');
+    expect(screen.queryByTestId('inbox-show-note')).toBeNull();
     expect(screen.getByTestId('conversation-row-c-kim')).toBeTruthy();
+  });
+
+  it('keeps the box when the status changes', async () => {
+    await render(wrap(<Inbox />));
+    await fireEvent.press(screen.getByTestId('box-mine'));
+    await fireEvent.press(screen.getByTestId('inbox-show'));
+    await fireEvent.press(screen.getByTestId('inbox-show-snoozed'));
+    expect(screen.getByTestId('inbox-show')).toHaveTextContent('Snoozed');
+    expect(screen.getByTestId('box-mine')).toBeSelected();
+    expect(screen.getByTestId('inbox-empty')).toHaveTextContent(/Nothing snoozed/);
   });
 
   it('shows the person’s own mail in the Inbox beside the team’s, marked Only you', async () => {
@@ -381,27 +402,13 @@ describe('email’s boxes and My mail (M19)', () => {
     expect(screen.getByTestId('conversation-row-c-mom')).toBeTruthy();
   });
 
-  it('narrows to the person’s own mail, with its own Inbox, Other mail and Spam, and goes back to everything', async () => {
+  it('has no My mail of its own: the person’s own mail is in the one list', async () => {
     await render(wrap(<Inbox />));
-    expect(screen.getByTestId('box-my-mail')).toHaveTextContent('My mail · 1');
-    await fireEvent.press(screen.getByTestId('box-my-mail'));
-    expect(screen.getByTestId('my-mail')).toHaveTextContent(/^My mail · only you see it/);
-    expect(screen.getByTestId('mail-back')).toHaveTextContent('Show all');
-    expect(screen.queryByTestId('box-mine')).toBeNull();
-    expect(screen.queryByTestId('box-other')).toBeNull();
-    expect(screen.getByTestId('mail-inbox')).toBeSelected();
+    expect(screen.queryByTestId('box-my-mail')).toBeNull();
+    expect(screen.queryByTestId('my-mail')).toBeNull();
     expect(screen.getByTestId('conversation-row-c-mom')).toBeTruthy();
-    expect(screen.queryByTestId('conversation-row-c-kim')).toBeNull();
-    expect(screen.getByTestId('filter-unread')).toHaveTextContent('Unread · 1');
-    await fireEvent.press(screen.getByTestId('mail-other'));
-    expect(screen.getByTestId('conversation-row-c-news')).toBeTruthy();
-    expect(screen.queryByTestId('conversation-row-c-deals')).toBeNull();
-    await fireEvent.press(screen.getByTestId('mail-spam'));
-    expect(screen.getByTestId('inbox-empty')).toHaveTextContent(/No spam/);
-    await fireEvent.press(screen.getByTestId('mail-back'));
-    expect(screen.getByTestId('box-mine')).toHaveTextContent('Mine · 1');
-    expect(screen.getByTestId('box-all')).toBeSelected();
     expect(screen.getByTestId('conversation-row-c-kim')).toBeTruthy();
+    expect(screen.getByTestId('filter-unread')).toHaveTextContent('Unread · 1');
   });
 });
 

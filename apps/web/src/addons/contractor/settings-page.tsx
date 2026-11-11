@@ -3,6 +3,10 @@
  * Contractor Operations' settings (docs/contractor.md, "Settings"): the trades the business does (the owner's
  * decision 1) and the phases a new project starts with. Saved by core's `addon.save_settings`, checked against the
  * manifest's settings shape. Owners and admins (`contractor.manage`).
+ *
+ * Under them, how the business estimates: its lowest margin (the owner's decision 6), the markup a new line starts
+ * with, and labor's hourly price and cost. Seen by people who may see job costs, and changed by the people who OK
+ * estimates under that margin (`contractor.approve`), with the add-on's own `contractor.estimating.save`.
  */
 import { LIMITS } from '@hfos/core/addons/contractor/schemas';
 import {
@@ -19,18 +23,25 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { MoneyInput, PercentInput } from '@/components/money/money-input';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import type { Overview } from './types';
 import { useAct } from './use-act';
 
 const S = CONTRACTOR_WORDS.settings;
+const E = CONTRACTOR_WORDS.estimating;
 
 export function ContractorSettingsPage({
   workspaceId,
   settings,
+  estimating,
+  mayApprove,
 }: {
   workspaceId: string;
   settings: Overview['settings'];
+  /** How the business estimates; null for someone who may not see job costs. */
+  estimating: Overview['estimating'];
+  mayApprove: boolean;
 }) {
   const [trades, setTrades] = useState<readonly Trade[]>(settings.trades);
   const [phases, setPhases] = useState<readonly string[]>(settings.phases);
@@ -187,6 +198,124 @@ export function ContractorSettingsPage({
           </Button>
         </div>
       </form>
+      {estimating ? (
+        <EstimatingCard workspaceId={workspaceId} estimating={estimating} mayApprove={mayApprove} />
+      ) : null}
     </div>
+  );
+}
+
+function EstimatingCard({
+  workspaceId,
+  estimating,
+  mayApprove,
+}: {
+  workspaceId: string;
+  estimating: NonNullable<Overview['estimating']>;
+  mayApprove: boolean;
+}) {
+  const [now, setNow] = useState(estimating);
+  const { busy, errors, act } = useAct();
+  const changed = JSON.stringify(now) !== JSON.stringify(estimating);
+  const field = 'flex flex-col gap-1 text-[13px]';
+  return (
+    <form
+      className="mt-6"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void act(
+          'estimating',
+          async () =>
+            unwrap(
+              await apiBrowser().POST('/v1/commands/contractor.estimating.save', {
+                body: { workspaceId, ...now },
+              }),
+            ),
+          E.saved,
+        );
+      }}
+      data-testid="contractor-estimating"
+    >
+      <Card className="p-5">
+        <h2 className="text-[15px] font-semibold">{E.title}</h2>
+        <p className="mt-0.5 text-[13px] text-text-2">{E.lede}</p>
+        <fieldset disabled={!mayApprove} className="mt-3 grid gap-4 sm:grid-cols-2">
+          <label className={field}>
+            <span className="font-medium">{E.minMargin}</span>
+            <span className="flex items-center gap-1.5">
+              <PercentInput
+                valueBp={now.minMarginBp}
+                max={9_000}
+                inputSize="sm"
+                className="w-[88px]"
+                onChange={(minMarginBp) => setNow({ ...now, minMarginBp })}
+                data-testid="estimating-min-margin"
+              />
+              %
+            </span>
+            <span className="text-[12.5px] text-text-3">{E.minMarginHint}</span>
+            {errors.minMarginBp ? (
+              <span className="text-danger-text">{errors.minMarginBp}</span>
+            ) : null}
+          </label>
+          <label className={field}>
+            <span className="font-medium">{E.markup}</span>
+            <span className="flex items-center gap-1.5">
+              <PercentInput
+                valueBp={now.markupBp}
+                max={100_000}
+                inputSize="sm"
+                className="w-[88px]"
+                onChange={(markupBp) => setNow({ ...now, markupBp })}
+                data-testid="estimating-markup"
+              />
+              %
+            </span>
+            <span className="text-[12.5px] text-text-3">{E.markupHint}</span>
+            {errors.markupBp ? <span className="text-danger-text">{errors.markupBp}</span> : null}
+          </label>
+          <label className={field}>
+            <span className="font-medium">{E.laborRate}</span>
+            <MoneyInput
+              valueCents={now.laborRateCents}
+              inputSize="sm"
+              className="w-[120px]"
+              onChange={(laborRateCents) => setNow({ ...now, laborRateCents })}
+              data-testid="estimating-labor-rate"
+            />
+            {errors.laborRateCents ? (
+              <span className="text-danger-text">{errors.laborRateCents}</span>
+            ) : null}
+          </label>
+          <label className={field}>
+            <span className="font-medium">{E.laborCost}</span>
+            <MoneyInput
+              valueCents={now.laborCostCents}
+              inputSize="sm"
+              className="w-[120px]"
+              onChange={(laborCostCents) => setNow({ ...now, laborCostCents })}
+              data-testid="estimating-labor-cost"
+            />
+            <span className="text-[12.5px] text-text-3">{E.laborHint}</span>
+            {errors.laborCostCents ? (
+              <span className="text-danger-text">{errors.laborCostCents}</span>
+            ) : null}
+          </label>
+        </fieldset>
+        {mayApprove ? null : <p className="mt-3 text-[12.5px] text-text-3">{E.readOnly}</p>}
+      </Card>
+      {mayApprove ? (
+        <div className="mt-4 flex justify-end">
+          <Button
+            type="submit"
+            loading={busy === 'estimating'}
+            disabled={!changed}
+            data-testid="estimating-save"
+          >
+            {E.save}
+          </Button>
+        </div>
+      ) : null}
+    </form>
   );
 }

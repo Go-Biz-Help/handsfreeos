@@ -914,7 +914,9 @@ async function sendMessage(
   for (const [i, part] of parts.entries()) {
     // The next text a few seconds after, as long as typing it takes.
     if (i > 0) await pause(partPauseMs(part, Math.random()));
-    let wrote = await tab.ask({ type: 'hfos-message', text: part, profile, names });
+    // After the last, the window it went in is closed, so they don't pile up from send to send.
+    const close = i === parts.length - 1 ? ({ close: true } as const) : {};
+    let wrote = await tab.ask({ type: 'hfos-message', text: part, profile, names, ...close });
     // The window their Message opened links to them by a key HandsFreeOS doesn't keep: that key, once Facebook shows
     // it's theirs, and only then is it asked again.
     if (i === 0 && wrote.ok && wrote.result === 'none' && wrote.linksTo) {
@@ -925,7 +927,7 @@ async function sendMessage(
           `${item.name}: couldn’t make sure the chat that opened was theirs, so nothing was sent`,
         );
       profile = checked.profile;
-      wrote = await tab.ask({ type: 'hfos-message', text: part, profile, names });
+      wrote = await tab.ask({ type: 'hfos-message', text: part, profile, names, ...close });
     }
     const why = !wrote.ok
       ? wrote.error

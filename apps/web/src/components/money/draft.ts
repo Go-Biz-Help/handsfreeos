@@ -52,6 +52,19 @@ export interface DraftLine {
   taxable: boolean;
   /** Money off this line, before the document discount is shared out. */
   discountCents: number;
+  /**
+   * What an add-on's own builder keeps beside the line (what it costs, say). It's copied with the line and never
+   * sent by this editor: the add-on's save reads it.
+   */
+  extra?: Readonly<Record<string, unknown>>;
+}
+
+/** One of an estimate's options (good, better, best): its name and its own lines. */
+export interface DraftOption {
+  /** Stable while the option is on screen, like a line's. */
+  readonly key: string;
+  name: string;
+  lines: DraftLine[];
 }
 
 export interface DocumentDraft {
@@ -62,6 +75,11 @@ export interface DocumentDraft {
   title: string;
   notes: string;
   lines: DraftLine[];
+  /**
+   * Estimates only: the two or three options the customer picks from. Empty for one price; with options, each
+   * keeps its own lines and `lines` is left empty.
+   */
+  options: DraftOption[];
   discountKind: TermsKind;
   discountPercentBp: number;
   discountAmountCents: number;
@@ -94,7 +112,7 @@ export function newLine(partial: Partial<DraftLine> = {}): DraftLine {
   };
 }
 
-const lineOf = (row: MoneyLineRow): DraftLine => ({
+const lineOf = (row: Omit<MoneyLineRow, 'id'>): DraftLine => ({
   key: lineKey(),
   productId: row.productId,
   name: row.name,
@@ -161,6 +179,7 @@ function base(settings: MoneySettings): DocumentDraft {
     title: '',
     notes: '',
     lines: [],
+    options: [],
     discountKind: 'none',
     discountPercentBp: 1_000,
     discountAmountCents: 0,
@@ -231,7 +250,8 @@ export function draftOfEstimate(est: EstimateDetail, settings: MoneySettings): D
     assigneeUserId: est.assignee?.id ?? null,
     title: est.title ?? '',
     notes: est.notes ?? '',
-    lines: est.lines.map(lineOf),
+    lines: est.options.length ? [] : est.lines.map(lineOf),
+    options: est.options.map((o) => ({ key: lineKey(), name: o.name, lines: o.lines.map(lineOf) })),
     ...discountOf(est.totals),
     ...depositOf(est.deposit, settings),
     expiresOn: est.expiresOn,
@@ -268,20 +288,100 @@ export const discountTerms = (d: DocumentDraft): MoneyTermsValue =>
 export const depositTerms = (d: DocumentDraft): MoneyTermsValue =>
   terms(d.depositKind, d.depositPercentBp, d.depositAmountCents);
 
-/** What the editor shows and what the server will store: the same arithmetic, from `@hfos/core`. */
-export function draftTotals(draft: DocumentDraft, settings: MoneySettings): DocumentTotals {
+/** What a new option is called: the first of Good, Better, Best the estimate isn't using yet. */
+export const OPTION_NAMES = ['Good', 'Better', 'Best'] as const;
+export const OPTIONS_MAX = OPTION_NAMES.length;
+
+function nextOptionName(taken: readonly DraftOption[]): string {
+  const used = new Set(taken.map((o) => o.name.trim().toLowerCase()));
+  return OPTION_NAMES.find((n) => !used.has(n.toLowerCase())) ?? `Option ${taken.length + 1}`;
+}
+
+const copyOf = (lines: readonly DraftLine[]): DraftLine[] =>
+  lines.map((l) => ({ ...l, key: lineKey() }));
+
+/** The lines on screen: the open option's, or the document's own when it has one price. */
+export const optionLines = (draft: DocumentDraft, active: number): DraftLine[] =>
+  draft.options.length ? (draft.options[active]?.lines ?? []) : draft.lines;
+
+/** Changes the lines on screen, wherever they are kept. */
+export function withOptionLines(
+  draft: DocumentDraft,
+  active: number,
+  change: (lines: DraftLine[]) => DraftLine[],
+): DocumentDraft {
+  if (!draft.options.length) return { ...draft, lines: change(draft.lines) };
+  return {
+    ...draft,
+    options: draft.options.map((o, i) => (i === active ? { ...o, lines: change(o.lines) } : o)),
+  };
+}
+
+/**
+ * One more option, starting as a copy of the last so only what differs is typed. The first press turns one
+ * price into two options: the lines so far become "Good".
+ */
+export function addOption(draft: DocumentDraft): DocumentDraft {
+  if (draft.options.length >= OPTIONS_MAX) return draft;
+  const options: DraftOption[] = draft.options.length
+    ? [...draft.options]
+    : [{ key: lineKey(), name: OPTION_NAMES[0], lines: draft.lines }];
+  const last = options[options.length - 1]!;
+  options.push({ key: lineKey(), name: nextOptionName(options), lines: copyOf(last.lines) });
+  return { ...draft, lines: [], options };
+}
+
+/** Takes an option off. Down to one, the estimate has one price again: that option's lines. */
+export function removeOption(draft: DocumentDraft, index: number): DocumentDraft {
+  const left = draft.options.filter((_, i) => i !== index);
+  if (left.length >= 2) return { ...draft, options: left };
+  return { ...draft, lines: left[0]?.lines ?? [], options: [] };
+}
+
+const totalsInput = (lines: readonly DraftLine[]) =>
+  lines.map((l) => ({
+    quantity: l.quantity,
+    unitPriceCents: l.unitPriceCents,
+    discountCents: l.discountCents,
+    taxable: l.taxable,
+  }));
+
+/**
+ * What the editor shows and what the server will store: the same arithmetic, from `@hfos/core`. With options,
+ * the figures are the open option's: the discount and the deposit apply to whichever the customer picks.
+ */
+export function draftTotals(
+  draft: DocumentDraft,
+  settings: MoneySettings,
+  active = 0,
+): DocumentTotals {
   return computeTotals({
-    lines: draft.lines.map((l) => ({
-      quantity: l.quantity,
-      unitPriceCents: l.unitPriceCents,
-      discountCents: l.discountCents,
-      taxable: l.taxable,
-    })),
+    lines: totalsInput(optionLines(draft, active)),
     discount: discountTerms(draft) as DocumentDiscount,
     deposit: depositTerms(draft) as DepositTerms,
     taxRateBp: settings.tax.rateBp,
   });
 }
+
+/** The smallest total among the options, which a deposit of a set amount has to fit inside. */
+export function smallestTotalCents(draft: DocumentDraft, settings: MoneySettings): number {
+  const each = (draft.options.length ? draft.options : [null]).map(
+    (_, i) => draftTotals(draft, settings, i).totalCents,
+  );
+  return Math.min(...each);
+}
+
+const lineBodies = (lines: readonly DraftLine[]): DocumentHeaderBody['lines'] =>
+  lines.map((l) => ({
+    productId: l.productId,
+    name: l.name.trim(),
+    description: l.description.trim() || null,
+    quantity: l.quantity,
+    unitLabel: l.unitLabel.trim() || 'each',
+    unitPriceCents: l.unitPriceCents,
+    taxable: l.taxable,
+    discountCents: l.discountCents,
+  }));
 
 /** The header and lines every save sends, whole: there are no partial document saves. */
 export function draftBody(draft: DocumentDraft, workspaceId: string): DocumentHeaderBody {
@@ -292,25 +392,37 @@ export function draftBody(draft: DocumentDraft, workspaceId: string): DocumentHe
     assigneeUserId: draft.assigneeUserId,
     title: draft.title.trim() || null,
     notes: draft.notes.trim() || null,
-    lines: draft.lines.map((l) => ({
-      productId: l.productId,
-      name: l.name.trim(),
-      description: l.description.trim() || null,
-      quantity: l.quantity,
-      unitLabel: l.unitLabel.trim() || 'each',
-      unitPriceCents: l.unitPriceCents,
-      taxable: l.taxable,
-      discountCents: l.discountCents,
-    })),
+    lines: lineBodies(optionLines(draft, 0)),
     discount: discountTerms(draft),
   };
+}
+
+/** An estimate's options as a save sends them, whole; null says it has one price. */
+export function optionsBody(draft: DocumentDraft): EstimateUpdateBody['options'] {
+  if (!draft.options.length) return null;
+  return draft.options.map((o) => ({ name: o.name.trim(), lines: lineBodies(o.lines) }));
 }
 
 /** What stops a draft being saved, in the order someone would fix it. */
 export function draftProblem(draft: DocumentDraft): string | null {
   if (!draft.personId) return 'Pick who this is for.';
-  if (draft.lines.length === 0) return 'Add at least one line.';
-  if (draft.lines.some((l) => !l.name.trim())) return 'Every line needs a name.';
-  if (draft.lines.some((l) => !(l.quantity > 0))) return 'Every line needs a quantity.';
+  const named = draft.options.length > 0;
+  if (named) {
+    if (draft.options.some((o) => !o.name.trim())) return 'Every option needs a name.';
+    const seen = new Set<string>();
+    for (const o of draft.options) {
+      const name = o.name.trim().toLowerCase();
+      if (seen.has(name))
+        return `Two options are called “${o.name.trim()}”. Give each its own name.`;
+      seen.add(name);
+    }
+  }
+  for (const set of named ? draft.options : [{ name: '', lines: draft.lines }]) {
+    const where = named ? ` to “${set.name.trim()}”` : '';
+    const which = named ? ` in “${set.name.trim()}”` : '';
+    if (set.lines.length === 0) return `Add at least one line${where}.`;
+    if (set.lines.some((l) => !l.name.trim())) return `Every line${which} needs a name.`;
+    if (set.lines.some((l) => !(l.quantity > 0))) return `Every line${which} needs a quantity.`;
+  }
   return null;
 }

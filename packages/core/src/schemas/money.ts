@@ -476,6 +476,26 @@ const documentHeader = {
   discount: MoneyTerms.optional(),
 };
 
+/** The most options one estimate offers: good, better, best. */
+export const ESTIMATE_OPTIONS_MAX = 3;
+/** Which of an estimate's options, counted from 1 in the order they're offered. */
+export const estimateOptionPosition = z.int().min(1).max(ESTIMATE_OPTIONS_MAX);
+
+/** One of an estimate's options (good, better, best): its name and its own lines. */
+export const EstimateOptionInput = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Name the option.')
+    .max(60, 'Keep an option’s name under 60 characters.'),
+  lines: z.array(MoneyLineInput).max(200, 'That is a lot of lines.').default([]),
+});
+export type EstimateOptionInput = z.infer<typeof EstimateOptionInput>;
+const estimateOptions = z
+  .array(EstimateOptionInput)
+  .min(2, 'Offer two or three options, or none.')
+  .max(ESTIMATE_OPTIONS_MAX, 'Three options at most.');
+
 export const EstimateCreateInput = z.object({
   ...inWorkspace,
   ...documentHeader,
@@ -483,6 +503,12 @@ export const EstimateCreateInput = z.object({
   deposit: MoneyTerms.optional(),
   /** When it stops being good. Left out, sending works it out from the business's settings. */
   expiresOn: localDate.nullable().optional(),
+  /**
+   * Two or three options for the customer to pick from (good, better, best), each with its own lines. The discount
+   * and the deposit apply to whichever they pick. Given, the options are the estimate and `lines` is not read:
+   * its own lines are the first option's until one is picked.
+   */
+  options: estimateOptions.nullable().optional(),
 });
 export const EstimateUpdateInput = z.object({
   ...inWorkspace,
@@ -490,6 +516,11 @@ export const EstimateUpdateInput = z.object({
   ...documentHeader,
   deposit: MoneyTerms.optional(),
   expiresOn: localDate.nullable().optional(),
+  /**
+   * The estimate's options, whole. Left out, the options it has stay and `lines` are its first option's; null
+   * takes them off, leaving `lines` as the estimate.
+   */
+  options: estimateOptions.nullable().optional(),
   /**
    * The revision the editor loaded. Someone else's save in between is refused rather than overwritten
    * (`document_conflict`), as the calendar builder does.
@@ -518,6 +549,8 @@ export const EstimateMarkAcceptedInput = z.object({
   /** Who said yes, as they gave it on the phone. Any non-empty name is taken. */
   name: z.string().trim().min(1, 'Who said yes?').max(120),
   note: reason500.optional(),
+  /** Which option they chose (1, 2 or 3), for an estimate that offers more than one. */
+  option: estimateOptionPosition.nullable().optional(),
 });
 export const EstimateConvertInput = z.object({
   ...inWorkspace,
@@ -547,6 +580,8 @@ export const EstimateAcceptOnlineInput = z.object({
   name: z.string().trim().min(1, 'Type your name.').max(120),
   /** The exact words shown above the Approve button, kept with the acceptance. */
   wording: z.string().trim().min(1).max(1_000),
+  /** Which option they picked on their page, for an estimate that offers more than one. */
+  option: estimateOptionPosition.nullable().optional(),
 });
 export const EstimateDeclineOnlineInput = z.object({
   ...inWorkspace,
@@ -583,6 +618,8 @@ export const EstimateAcceptedOutput = z.object({
   /** A hash of the lines and the totals exactly as they were accepted. */
   acceptedHash: z.string(),
   wording: z.string(),
+  /** The option they chose, for an estimate that offered more than one. */
+  option: z.object({ position: z.int(), name: z.string() }).nullable(),
 });
 
 export const EstimateSummaryOut = z.object({
@@ -601,6 +638,10 @@ export const EstimateSummaryOut = z.object({
   deposit: MoneyTermsOut,
   /** And what that comes to on this total, which is the figure every screen shows. */
   depositCents: z.number(),
+  /** How many options it offers (2 or 3), or 0 for an estimate with one price. */
+  optionCount: z.int(),
+  /** The option its lines and totals are: the first until the customer picks, then the one they picked. */
+  optionName: z.string().nullable(),
   expiresOn: localDate.nullable(),
   sentAt: isoDateTime.nullable(),
   firstViewedAt: isoDateTime.nullable(),
@@ -608,6 +649,20 @@ export const EstimateSummaryOut = z.object({
   declinedAt: isoDateTime.nullable(),
   voidedAt: isoDateTime.nullable(),
   createdAt: isoDateTime,
+});
+
+/** A line of one of an estimate's options: a line as it is written, with no row of its own until it's picked. */
+export const EstimateOptionLineOut = MoneyLineOut.omit({ id: true });
+/** One of an estimate's options, as it reads: its lines, its totals and what it asks for up front. */
+export const EstimateOptionOut = z.object({
+  /** Counted from 1, in the order they're offered. */
+  position: z.int(),
+  name: z.string(),
+  lines: z.array(EstimateOptionLineOut),
+  totals: MoneyTotalsOut,
+  depositCents: z.number(),
+  /** The one the estimate's own lines and totals are. */
+  picked: z.boolean(),
 });
 export const EstimateListInput = z.object({
   ...inWorkspace,
@@ -637,6 +692,13 @@ export const EstimateGetOutput = z.object({
     declinedReason: z.string().nullable(),
     voidReason: z.string().nullable(),
     lines: z.array(MoneyLineOut),
+    /** Its options, in order; empty for an estimate with one price. */
+    options: z.array(EstimateOptionOut),
+    /**
+     * The add-on whose builder wrote it. While `running`, it's changed and sent from that add-on, which checks it
+     * first; core's editor only shows it.
+     */
+    builtBy: z.object({ addonId: z.string(), name: z.string(), running: z.boolean() }).nullable(),
   }),
   /** The invoices raised from it, newest first. */
   invoices: z.array(

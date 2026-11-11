@@ -911,7 +911,8 @@ export interface MessageWrote {
  * same box. A box with writing in it already is left alone: the person may be writing there. Nothing is typed unless
  * the focus is in their box, and nothing is sent unless, once typed, it's still their chat's box and no other box took
  * the writing; else what was typed is taken out again, of every box it went in (`not_theirs`), and where it can't be,
- * that's said (`left`).
+ * that's said (`left`). With `close`, for the message's last text, its small chat window is closed once it has gone
+ * (`closeWindow`).
  */
 export async function writeMessage(
   doc: Document,
@@ -920,6 +921,7 @@ export async function writeMessage(
   them: ProfileRef,
   names: readonly string[],
   before: ChatsBefore | null = null,
+  close = false,
 ): Promise<MessageWrote> {
   // Message on their profile may move the tab to Messenger meanwhile.
   const here = () => doc.location?.href ?? href;
@@ -942,7 +944,33 @@ export async function writeMessage(
   }
   const wrote = await typeAndSend(doc, box, text, theirs);
   if (wrote.result === 'done' && before?.doc === doc) before.sentIn = box;
+  if (wrote.result === 'done' && close) await closeWindow(doc, box);
   return wrote;
+}
+
+/** How long a sent message is left to go before its window is closed. */
+const CLOSE_AFTER_MS = 1_500;
+
+/**
+ * Closes the small chat window a message just went in, by that window's own Close chat, once the message has had a
+ * moment to go: whether it went. Messenger's own chat page, and a box with no window of its own around it, are left as
+ * they are. Facebook keeps chat windows open from page to page, so each one the extension opened and left stayed over
+ * every page after (the owner's problem reports of 10 Nov 2026: 6 windows open and 5 more in the corner, a message
+ * that couldn't tell which chat was theirs, and a like with the windows in its way).
+ */
+async function closeWindow(doc: Document, box: HTMLElement): Promise<boolean> {
+  const main = mainIn(doc);
+  if (!main || main.contains(box)) return false;
+  const around = chatWindowOf(box, main);
+  if (!around) return false;
+  await pause(CLOSE_AFTER_MS);
+  if (!box.isConnected) return true;
+  (around.close as HTMLElement).click();
+  for (let wait = 0; wait < 10; wait++) {
+    await pause(200);
+    if (!box.isConnected || !shown(box)) return true;
+  }
+  return false;
 }
 
 /** Whether the focus is in a box: on it, or on something inside it. */
