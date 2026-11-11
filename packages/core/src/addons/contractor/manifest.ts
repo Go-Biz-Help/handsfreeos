@@ -15,8 +15,10 @@
  * delivered, used, wasted and returned, filled from an approved estimate, with what each visit is still missing and
  * an alert before it. Part 5 is time and job costing: travel and work time from the buttons a crew already taps on a
  * visit, with breaks, what an hour of each person costs, what each job has cost against its plan and where it's
- * heading, and a profit page by job, crew, service and customer. The phone's field screens and the AI helpers come
- * in parts 6 and 7.
+ * heading, and a profit page by job, crew, service and customer. Part 6 is the phone's field pages: its jobs, a job
+ * and a visit's work order on the phone, where ticking the checklist, adding its photos, counting what was used,
+ * taking a break and leaving a typed, spoken or photographed note all work with no signal. The AI helpers come in
+ * part 7.
  *
  * It's in `development`: offered nowhere, and installable only where HandsFreeOS staff hand it out to try.
  */
@@ -69,6 +71,9 @@ export const contractorAddon = defineAddon({
       'materials',
       'parts',
       'supplies',
+      'field notes',
+      'voice notes',
+      'works offline',
       'time tracking',
       'timesheet',
       'labor cost',
@@ -86,6 +91,7 @@ export const contractorAddon = defineAddon({
       'see who’s on which job today',
       'know what materials a job is still missing before the crew leaves',
       'track my crew’s hours on each job',
+      'let my techs work a job on their phones with no signal',
       'see which jobs made money',
     ],
     industries: [
@@ -143,6 +149,13 @@ export const contractorAddon = defineAddon({
       permission: 'contractor.use',
     },
     {
+      id: 'contractor.field',
+      label: 'The job on the phone',
+      description:
+        'Jobs, work orders, checklists and their photos, materials used, breaks and notes on the phone, with no signal.',
+      permission: 'contractor.use',
+    },
+    {
       id: 'contractor.costing',
       label: 'Job costing and profit',
       description:
@@ -163,7 +176,7 @@ export const contractorAddon = defineAddon({
       key: 'contractor.use',
       label: 'Use Contractor Operations',
       description:
-        'See every job and project, start them, and change their status, phases, dates, team and % done. Work a visit’s work order and checklist, keep a job’s materials, see dispatch, and see the time tracked on jobs and take a break.',
+        'See every job and project, start them, and change their status, phases, dates, team and % done. Work a visit’s work order and checklist, keep a job’s materials, see dispatch, see the time tracked on jobs and take a break, and leave notes from the field.',
       defaultRoles: ['admin', 'member'],
     },
     {
@@ -178,7 +191,7 @@ export const contractorAddon = defineAddon({
       key: 'contractor.manage',
       label: 'Set up Contractor Operations',
       description:
-        'Pick the business’s trades, set up its crews, set the phases a new project and the checklist a new visit start with, and when missing materials are told.',
+        'Pick the business’s trades, set up its crews, set the phases a new project and the checklist a new visit start with, and when missing materials are told. Take anyone’s note off a job.',
       defaultRoles: ['admin'],
       requires: ['contractor.use'],
     },
@@ -275,10 +288,12 @@ export const contractorAddon = defineAddon({
     'time_costs',
     'labor_rates',
     'other_costs',
+    'notes',
   ],
   // Before a visit: what it's still missing from the job's materials (apps/worker/src/addons/contractor/materials.ts).
-  // On a visit with time running: stopping what has run half a day (./time.ts there).
-  jobs: ['contractor.materials_check', 'contractor.time_check'],
+  // On a visit with time running: stopping what has run half a day (./time.ts there). A month after a job closes:
+  // taking it off phones (./phone.ts there).
+  jobs: ['contractor.materials_check', 'contractor.time_check', 'contractor.phone_check'],
   events: {
     emits: [
       'contractor.job.opened',
@@ -327,6 +342,9 @@ export const contractorAddon = defineAddon({
       'contractor.labor_rate.set',
       'contractor.other_cost.added',
       'contractor.other_cost.removed',
+      'contractor.note.added',
+      'contractor.note.removed',
+      'contractor.note.transcribed',
     ],
     // A visit booked on a job moves it to Scheduled and gets its work order, with the checklist a new visit starts
     // with; a tech tapping Started on one of its visits moves it to In
@@ -335,7 +353,8 @@ export const contractorAddon = defineAddon({
     // (apps/worker/src/addons/contractor/index.ts). A visit's missing materials are looked at before it, and again
     // whenever the visit moves or the job's materials change (./materials.ts there). Every status button on a visit
     // starts or stops the time of the people on it; time that changes gets what its hour cost, and a visit with time
-    // running is looked at when it has run half a day (./time.ts there).
+    // running is looked at when it has run half a day (./time.ts there). A voice note's recording gets its words
+    // (./notes.ts there), and a job that closes leaves phones a month later (./phone.ts there).
     consumes: [
       'appointment.booked',
       'appointment.rescheduled',
@@ -358,6 +377,137 @@ export const contractorAddon = defineAddon({
       'contractor.time.removed',
       'contractor.labor_rate.set',
       'contractor.estimating.saved',
+      'contractor.note.added',
+      'contractor.job.status_changed',
+    ],
+  },
+  // What phones keep, so the field pages work with no signal (part 6; migration 20261027025300 registers the same,
+  // and a test holds the two equal). No money: not a job's price or budget, what a material or an hour costs, nor
+  // its other costs (the owner's decision 11).
+  offline: {
+    permission: 'contractor.use',
+    tables: [
+      {
+        table: 'jobs',
+        key: 'record_id',
+        record: 'record_id',
+        columns: [
+          'kind',
+          'status',
+          'status_at',
+          'status_reason',
+          'trade',
+          'details',
+          'starts_on',
+          'due_on',
+          'done_at',
+          'percent_done',
+          'lead_user_id',
+          'updated_at',
+        ],
+      },
+      {
+        table: 'phases',
+        record: 'record_id',
+        columns: [
+          'position',
+          'name',
+          'status',
+          'percent_done',
+          'starts_on',
+          'due_on',
+          'done_at',
+          'created_at',
+        ],
+      },
+      { table: 'team', record: 'record_id', columns: ['user_id', 'created_at'] },
+      // The business's own: a work order names its crew.
+      { table: 'crews', columns: ['name', 'archived_at'] },
+      {
+        table: 'work_orders',
+        key: 'appointment_id',
+        record: 'record_id',
+        columns: ['crew_id', 'instructions', 'bring', 'updated_at'],
+      },
+      {
+        table: 'work_order_items',
+        record: 'record_id',
+        columns: [
+          'appointment_id',
+          'position',
+          'label',
+          'kind',
+          'required',
+          'done_at',
+          'done_by',
+          'file_id',
+          'skipped_at',
+          'skipped_by',
+          'skip_reason',
+          'created_at',
+        ],
+      },
+      {
+        table: 'work_order_subs',
+        record: 'record_id',
+        columns: [
+          'appointment_id',
+          'person_id',
+          'told_at',
+          'done_at',
+          'done_by',
+          'note',
+          'created_at',
+        ],
+      },
+      {
+        table: 'materials',
+        record: 'record_id',
+        columns: [
+          'position',
+          'name',
+          'unit_label',
+          'appointment_id',
+          'needed',
+          'ordered',
+          'delivered',
+          'used',
+          'wasted',
+          'returned',
+          'supplier',
+          'expected_on',
+          'note',
+          'created_at',
+        ],
+      },
+      {
+        table: 'time_entries',
+        record: 'record_id',
+        columns: [
+          'appointment_id',
+          'user_id',
+          'kind',
+          'started_at',
+          'ended_at',
+          'source',
+          'auto_stopped',
+          'fixed_at',
+        ],
+      },
+      {
+        table: 'notes',
+        record: 'record_id',
+        columns: [
+          'appointment_id',
+          'body',
+          'audio_file_id',
+          'transcript',
+          'transcript_state',
+          'photo_file_ids',
+          'created_by',
+          'noted_at',
+        ],
+      },
     ],
   },
   billing: { model: 'free' },
@@ -405,10 +555,17 @@ export const contractorAddon = defineAddon({
     settingsPath: 'settings',
     // On core's estimate page: an estimate built here shows its costs and profit, and opens in its builder.
     slots: [{ slot: 'estimate.panels', permission: 'contractor.costs' }],
+    // The pages the phone draws (part 6): its jobs, a job and a visit's work order. Dispatch, estimates, costs,
+    // profit and settings open the web there.
+    phone: [
+      { path: '', query: ['filter', 'q'] },
+      { path: 'jobs/:jobId' },
+      { path: 'visits/:appointmentId' },
+    ],
   },
   ai: {
     directory:
-      'contractor and home service jobs: every job and project with its customer, the property it’s at, its trade, status (new, scheduled, in progress, on hold, done, cancelled), deadline, job lead and team, phases with their dates and % done, its visits, and its price and budget for people who may see job costs; starting jobs, making a service call a project, moving jobs and phases along, adding properties, and its settings (the business’s trades and the phases a new project starts with); estimates with costs: an estimate builder with labor by the hour, materials at cost, markup, profit and margin, good, better and best options, what each price list item costs the business, the lowest margin an estimate may go out at, asking for and giving an owner’s or admin’s OK on one under it, and sending it; crews (named groups of team members and subcontractors), a work order on every visit (instructions, what to bring, the crew and who’s going, subcontractors and texting them the job’s details, and a checklist of boxes to tick and photos to add, some required), a job that can’t be marked done while a required item is left unless an owner or admin says why, and dispatch (a day’s visits by person, the ones nobody is on, where each stands, and jobs with nothing booked); a job’s materials (what it needs, and how much of each is ordered, delivered, used, wasted and returned, the visit each is for, its supplier and the day it’s expected, what’s still missing for a visit, materials filled in from an approved estimate, what each costs for people who may see job costs, and the alert before a visit that’s still missing something); time on jobs (travel and work time started and stopped by a visit’s On the way, Started, Waiting on parts and Done buttons, breaks, each stretch with whose it is and how long, time stopped on its own after 12 hours, and fixing, adding and removing time with a reason for people who may); job costing for people who may see job costs (what an hour of each person costs, a job’s labor, materials and other costs planned, so far and heading for, its other costs like permits and fees, the profit it’s heading for, and profit by job, customer, crew and service)',
+      'contractor and home service jobs: every job and project with its customer, the property it’s at, its trade, status (new, scheduled, in progress, on hold, done, cancelled), deadline, job lead and team, phases with their dates and % done, its visits, and its price and budget for people who may see job costs; starting jobs, making a service call a project, moving jobs and phases along, adding properties, and its settings (the business’s trades and the phases a new project starts with); estimates with costs: an estimate builder with labor by the hour, materials at cost, markup, profit and margin, good, better and best options, what each price list item costs the business, the lowest margin an estimate may go out at, asking for and giving an owner’s or admin’s OK on one under it, and sending it; crews (named groups of team members and subcontractors), a work order on every visit (instructions, what to bring, the crew and who’s going, subcontractors and texting them the job’s details, and a checklist of boxes to tick and photos to add, some required), a job that can’t be marked done while a required item is left unless an owner or admin says why, and dispatch (a day’s visits by person, the ones nobody is on, where each stands, and jobs with nothing booked); a job’s materials (what it needs, and how much of each is ordered, delivered, used, wasted and returned, the visit each is for, its supplier and the day it’s expected, what’s still missing for a visit, materials filled in from an approved estimate, what each costs for people who may see job costs, and the alert before a visit that’s still missing something); time on jobs (travel and work time started and stopped by a visit’s On the way, Started, Waiting on parts and Done buttons, breaks, each stretch with whose it is and how long, time stopped on its own after 12 hours, and fixing, adding and removing time with a reason for people who may); job costing for people who may see job costs (what an hour of each person costs, a job’s labor, materials and other costs planned, so far and heading for, its other costs like permits and fees, the profit it’s heading for, and profit by job, customer, crew and service); notes from the field on a job or one of its visits (typed, a voice note with its words, or photos), counting how much more of a material was used, wasted or sent back, and the phone’s pages (Jobs, a job and a visit’s work order), which work with no signal',
     places: CONTRACTOR_PLACES,
     lookAlikes: CONTRACTOR_LOOK_ALIKES,
   },

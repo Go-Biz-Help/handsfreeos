@@ -47,6 +47,9 @@ export type VisitMaterial = WorkOrder['materials'][number];
 export type TimeList = Ok<'/v1/queries/contractor.time.list'>;
 /** One stretch of one person's time on a job: never with what it cost. */
 export type TimeEntry = TimeList['entries'][number];
+export type NoteList = Ok<'/v1/queries/contractor.note.list'>;
+/** A note from the field: typed, a voice note with its words, or photos. */
+export type FieldNote = NoteList['notes'][number];
 export type JobCosting = Ok<'/v1/queries/contractor.job.costing'>;
 export type OtherCost = JobCosting['otherCosts'][number];
 export type LaborRateList = Ok<'/v1/queries/contractor.labor_rate.list'>;

@@ -89,6 +89,14 @@ so nothing that reads answers needs to know.
 **Ids are made by us, never by a model.** The AI builder writes labels; `formToolCallsToOps` stamps the
 ids and tells the model what they are.
 
+**What the AI builder may leave out is optional, never null** (2026-11-11). Claude takes at most 16 values that
+may be one of several types (`anyOf`, or a type like `['string', 'null']`) and 24 optional fields across a
+request's strict tools, and past either it refuses the whole request ("Schema is too complex for compilation").
+The builder's tools had 21 nullable fields, so every request failed and the Assistant said the AI that writes
+form questions had failed. `obj(required, optional)` in `ai-tools.ts` builds each tool; the worker's
+`ai-anthropic` test keeps the form and workflow builders within the limits, and the provider sends a tool past
+them without `strict` rather than have the request refused (`strictWithinLimits` in `packages/ai`).
+
 **The editor keeps the spaces being typed; what's saved is trimmed.** The editor applies an op on every
 keystroke, and the form's parse trims every text, so it calls `applyFormOps` with `keepSpaces` to put back a
 space typed at either end. Without it the space after a word was gone before the next word arrived. The server

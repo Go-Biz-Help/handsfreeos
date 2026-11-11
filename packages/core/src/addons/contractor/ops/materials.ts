@@ -37,6 +37,8 @@ import {
   MaterialAddInput,
   MaterialAddOutput,
   MaterialChangeOutput,
+  MaterialCountInput,
+  MaterialCountOutput,
   MaterialListInput,
   MaterialListOutput,
   MaterialRefInput,
@@ -55,7 +57,7 @@ import {
   materialsCountWords,
   REFUSALS,
 } from '../words';
-import { inWorkspace, jobLine, loadJob, type Ctx, type Job } from './common';
+import { inWorkspace, jobLine, loadJob, madeWhileOpen, type Ctx, type Job } from './common';
 
 const jobPath = (jobId: string) => `a/contractor/jobs/${jobId}`;
 const pathOf = (io: unknown) => {
@@ -184,11 +186,19 @@ export const materialList = defineAddonQuery(contractorAddon, {
 
 // ------------------------------------------------------------------------------------------------ what's shared
 
-/** A job whose materials may change: here, not archived, and open (a closed job is read-only until it's moved back). */
-async function jobForChange(ctx: CommandContext, jobId: string): Promise<Job> {
+/**
+ * A job whose materials may change: here, not archived, and open (a closed job is read-only until it's moved back).
+ * `late` lets through what someone counted on their phone while the job was still open, which reached HandsFreeOS
+ * after it closed.
+ */
+async function jobForChange(
+  ctx: CommandContext,
+  jobId: string,
+  opts: { readonly late?: boolean } = {},
+): Promise<Job> {
   const job = await loadJob(ctx, jobId, { lock: true });
   if (job.archived) throw HfosError.notFound(REFUSALS.jobGone);
-  if (!isOpen(job.status))
+  if (!isOpen(job.status) && !(opts.late && (await madeWhileOpen(ctx, job))))
     throw HfosError.rule(
       'contractor_job_closed',
       409,
@@ -198,13 +208,17 @@ async function jobForChange(ctx: CommandContext, jobId: string): Promise<Job> {
 }
 
 /** A material for a change, with its job locked: refused when it's gone or its job is closed. */
-async function materialForChange(ctx: CommandContext, materialId: string) {
+async function materialForChange(
+  ctx: CommandContext,
+  materialId: string,
+  opts: { readonly late?: boolean } = {},
+) {
   const [found] = await ctx.tx
     .select({ recordId: materials.recordId })
     .from(materials)
     .where(and(eq(materials.id, materialId), eq(materials.workspaceId, ctx.scope.workspaceId!)));
   if (!found) throw HfosError.notFound(REFUSALS.materialGone);
-  const job = await jobForChange(ctx, found.recordId);
+  const job = await jobForChange(ctx, found.recordId, opts);
   // Read again under the job's lock: someone may have changed or removed it meanwhile.
   const [material] = await ctx.tx.select().from(materials).where(eq(materials.id, materialId));
   if (!material) throw HfosError.notFound(REFUSALS.materialGone);
@@ -437,6 +451,77 @@ export const materialUpdate = defineAddonCommand(contractorAddon, {
     });
     if (words) await jobLine(ctx, job.recordId, `updated the materials: ${words}`, { eventId });
     return { materialId: m.id, jobId: job.recordId, changed: true, state };
+  },
+});
+
+/** A count after some more: never under nothing or over the most a count holds, to three decimal places. */
+const countAfter = (now: number, more: number | undefined): number =>
+  Math.min(LIMITS.quantity, Math.max(0, Math.round((now + (more ?? 0)) * 1000) / 1000));
+
+export const materialCount = defineAddonCommand(contractorAddon, {
+  name: 'contractor.material.count',
+  description:
+    'Count a material on the job: how much more of it was used, wasted or sent back since the last count. Each adds to what’s counted so far, so two people counting both add up.',
+  risk: 1,
+  input: MaterialCountInput,
+  output: MaterialCountOutput,
+  permission: 'contractor.use',
+  scope: inWorkspace,
+  // Counted on the job with no signal: it's kept on the phone and sent when there is some.
+  offline: 'anytime',
+  ai: {
+    tool: 'contractor_count_material',
+    description:
+      'Add to how much of a material (by material id, from contractor_list_materials) was used, wasted or returned: each is how much more since the last count, not the total, and below 0 takes some back. For a total, or for needed, ordered and delivered, use contractor_update_material. It records what happened; it orders nothing.',
+    keywords: ['used', 'wasted', 'returned', 'materials used'],
+    outcome: (output) => ({ words: W.materials.saved, path: pathOf(output) }),
+  },
+  emits: ['contractor.material.updated'],
+  async handler(ctx, input) {
+    const { job, material: m } = await materialForChange(ctx, input.materialId, { late: true });
+    const next = {
+      used: countAfter(m.used, input.used),
+      wasted: countAfter(m.wasted, input.wasted),
+      returned: countAfter(m.returned, input.returned),
+    };
+    const after = { ...countsOf(m), ...next };
+    const state = materialState(after);
+    const moved = (['used', 'wasted', 'returned'] as const).filter((k) => next[k] !== m[k]);
+    const out = (changed: boolean) => ({
+      materialId: m.id,
+      jobId: job.recordId,
+      changed,
+      state,
+      ...next,
+    });
+    if (!moved.length) return out(false);
+    await ctx.tx
+      .update(materials)
+      .set({ ...next, updatedBy: userIdOf(ctx.actor), updatedAt: new Date() })
+      .where(eq(materials.id, m.id));
+    const eventId = await ctx.emit({
+      type: 'contractor.material.updated',
+      entityType: 'custom_record',
+      entityId: job.recordId,
+      payload: {
+        materialId: m.id,
+        jobId: job.recordId,
+        changed: moved,
+        appointmentId: m.appointmentId,
+        wasAppointmentId: m.appointmentId,
+      },
+      before: {
+        material: m.name,
+        ...Object.fromEntries(moved.map((k) => [k, amountWords(m[k], m.unitLabel)])),
+      },
+      after: {
+        material: m.name,
+        ...Object.fromEntries(moved.map((k) => [k, amountWords(next[k], m.unitLabel)])),
+      },
+    });
+    const words = materialChangeWords(m.name, m.unitLabel, countsOf(m), after);
+    if (words) await jobLine(ctx, job.recordId, `updated the materials: ${words}`, { eventId });
+    return out(true);
   },
 });
 

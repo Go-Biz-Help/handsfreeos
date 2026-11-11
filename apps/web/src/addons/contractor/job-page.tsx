@@ -1,9 +1,9 @@
 'use client';
 /**
  * One job (docs/contractor.md, "A job's page"): its status, customer and property, the work to do, its phases and %
- * done, its lead and team, its visits, its materials, the time tracked on it, and (for people who may see job
- * costs, the owner's decision 11) its price and budget and what it's costing against them. Notes, files and tasks
- * are on core's page for its record, linked from here.
+ * done, its lead and team, its visits, its materials, the time tracked on it, the crew's notes from the field, and
+ * (for people who may see job costs, the owner's decision 11) its price and budget and what it's costing against
+ * them. Files, tasks and the office's own notes are on core's page for its record, linked from here.
  *
  * Each visit opens its work order, and booking one starts it and opens it, to put a crew on. Marking the job Done
  * waits on the required checklist items and photos on its work orders (the owner's decision 8): the server says
@@ -55,6 +55,7 @@ import { EstimateLine } from './estimates-home';
 import { JobCostsCard } from './job-costs-card';
 import { EditJobDialog, MoneyDialog, ReasonDialog } from './job-dialogs';
 import { MaterialsCard, type MaterialProduct } from './materials-card';
+import { FieldNotesCard } from './notes-card';
 import { PercentInput, PhasesCard } from './phases-card';
 import { TimeCard } from './time-card';
 import type {
@@ -62,6 +63,7 @@ import type {
   JobCosting,
   JobDetail,
   MaterialList,
+  NoteList,
   Overview,
   TimeList,
 } from './types';
@@ -87,6 +89,7 @@ export function JobPage({
   estimates,
   materials,
   time,
+  notes,
   costing,
   products,
   myUserId,
@@ -102,6 +105,8 @@ export function JobPage({
   materials: MaterialList;
   /** The time tracked on the job: never with what it cost. */
   time: TimeList;
+  /** The crew's notes from the field, the newest first. */
+  notes: NoteList;
   /** What the job is costing against its plan; null for someone who may not see job costs. */
   costing: JobCosting | null;
   /** The price list to pick a material from; empty for someone who can't see it. */
@@ -372,6 +377,18 @@ export function JobPage({
               label: formatDate(v.startsAt, { time: true, timeZone }),
             }))}
             people={overview.people}
+            timeZone={timeZone}
+          />
+
+          <FieldNotesCard
+            workspaceId={workspaceId}
+            jobId={job.id}
+            notes={notes}
+            visits={job.visits.map((v) => ({
+              appointmentId: v.appointmentId,
+              label: formatDate(v.startsAt, { time: true, timeZone }),
+            }))}
+            myUserId={myUserId}
             timeZone={timeZone}
           />
 

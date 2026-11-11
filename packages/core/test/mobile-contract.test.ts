@@ -219,6 +219,10 @@ const ONLINE_COMMANDS = [
   'socialcontent.content.approve_week',
   'socialcontent.content.skip',
   'socialcontent.content.post_now',
+  // Contractor Operations in the field (docs/contractor.md, "On the phone"), with signal: a job's own status, and
+  // taking a note off.
+  'contractor.job.set_status',
+  'contractor.note.remove',
 ];
 /**
  * Commands only the browser extension sends, which can wait in it as long as the browser is offline (Social

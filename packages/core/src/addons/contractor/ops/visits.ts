@@ -15,7 +15,7 @@ import { isOpen } from '../progress';
 import { LIMITS } from '../schemas';
 import { workOrderItems, workOrders } from '../tables';
 import { JOB_STATUS_WORDS, REFUSALS } from '../words';
-import { loadJob, settingsOf, type Ctx, type Job } from './common';
+import { loadJob, madeWhileOpen, settingsOf, type Ctx, type Job } from './common';
 
 /** A visit as the job's page and dispatch read it. */
 export type VisitSqlRow = {
@@ -172,11 +172,13 @@ export async function ensureWorkOrder(
 
 /**
  * A visit's work order for a change: started if it has none, and refused when the visit was cancelled or its job is
- * done, cancelled or archived (a closed job is read-only until it's moved back).
+ * done, cancelled or archived (a closed job is read-only until it's moved back). `late` lets through what someone
+ * did on their phone while the job was still open, which reached HandsFreeOS after it closed.
  */
 export async function workOrderForChange(
   ctx: CommandContext,
   appointmentId: string,
+  opts: { readonly late?: boolean } = {},
 ): Promise<StartedWorkOrder> {
   const order = await ensureWorkOrder(ctx, appointmentId);
   if (order.job.archived) throw HfosError.notFound(REFUSALS.jobGone);
@@ -186,7 +188,7 @@ export async function workOrderForChange(
       409,
       REFUSALS.visitCancelled(order.visit.title),
     );
-  if (!isOpen(order.job.status))
+  if (!isOpen(order.job.status) && !(opts.late && (await madeWhileOpen(ctx, order.job))))
     throw HfosError.rule(
       'contractor_job_closed',
       409,
@@ -199,6 +201,7 @@ export async function workOrderForChange(
 export async function workOrderOfItem(
   ctx: CommandContext,
   itemId: string,
+  opts: { readonly late?: boolean } = {},
 ): Promise<StartedWorkOrder & { readonly item: typeof workOrderItems.$inferSelect }> {
   const [found] = await ctx.tx
     .select({ appointmentId: workOrderItems.appointmentId })
@@ -207,7 +210,7 @@ export async function workOrderOfItem(
       and(eq(workOrderItems.id, itemId), eq(workOrderItems.workspaceId, ctx.scope.workspaceId!)),
     );
   if (!found) throw HfosError.notFound(REFUSALS.itemGone);
-  const order = await workOrderForChange(ctx, found.appointmentId);
+  const order = await workOrderForChange(ctx, found.appointmentId, opts);
   // Read again under the job's lock: someone may have changed or removed it meanwhile.
   const [item] = await ctx.tx.select().from(workOrderItems).where(eq(workOrderItems.id, itemId));
   if (!item) throw HfosError.notFound(REFUSALS.itemGone);

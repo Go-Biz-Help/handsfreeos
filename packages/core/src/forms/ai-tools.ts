@@ -36,18 +36,23 @@ export interface FormToolDef {
 const str = (description: string): FormJsonSchema => ({ type: 'string', description });
 const int = (description: string): FormJsonSchema => ({ type: 'integer', description });
 const bool = (description: string): FormJsonSchema => ({ type: 'boolean', description });
-const nullable = (schema: FormJsonSchema): FormJsonSchema => {
-  const { description, ...rest } = schema;
-  return { description, anyOf: [rest, { type: 'null' }] };
-};
 const oneOf = (values: readonly string[], description: string): FormJsonSchema => ({
   type: 'string',
   enum: [...values],
   description,
 });
-const obj = (properties: Record<string, FormJsonSchema>): FormJsonSchema => ({
+/**
+ * A tool's input: what it needs, then what the model may leave out. A field it can leave out is optional, never
+ * `anyOf` with null: Claude takes at most 16 of those across a request's strict tools and turns the whole request
+ * down past them, every time ("Schema is too complex for compilation"). These tools had 21, so the builder never got
+ * an answer (2026-11-11). Optional fields have a limit too (24); the worker's ai-anthropic test keeps these under both.
+ */
+const obj = (
+  properties: Record<string, FormJsonSchema>,
+  optional: Record<string, FormJsonSchema> = {},
+): FormJsonSchema => ({
   type: 'object',
-  properties,
+  properties: { ...properties, ...optional },
   required: Object.keys(properties),
   additionalProperties: false,
 });
@@ -80,31 +85,29 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
     name: 'add_question',
     description:
       'Add one question to the end of a page. Choices for a pick-one or pick-any go in json as {"choices": [{"label": "…"}]} — ids are made here. To fill in a field on the customer, set mapTo.',
-    inputSchema: obj({
-      ref: nullable(str('A short name for it (e.g. "budget") so later calls can point at it.')),
-      pageId: nullable(str('Which page; null is the last one, which is right for most forms.')),
-      index: nullable(int('Position on that page, 0 first; null adds it at the end.')),
-      type: oneOf(QUESTION_TYPES, 'What kind of question.'),
-      title: str('What the customer reads.'),
-      help: nullable(str('The smaller line underneath.')),
-      required: nullable(bool('Whether it must be answered. Default: no.')),
-      mapTo: nullable(
-        oneOf(
+    inputSchema: obj(
+      {
+        type: oneOf(QUESTION_TYPES, 'What kind of question.'),
+        title: str('What the customer reads.'),
+      },
+      {
+        ref: str('A short name for it (e.g. "budget") so later calls can point at it.'),
+        pageId: str('Which page; leave it out for the last one, which is right for most forms.'),
+        index: int('Position on that page, 0 first; leave it out to add it at the end.'),
+        help: str('The smaller line underneath.'),
+        required: bool('Whether it must be answered. Default: no.'),
+        mapTo: oneOf(
           ANSWER_TARGET_KEYS,
-          'The field on the customer or the lead this answer fills in, or null to keep it on the response.',
+          'The field on the customer or the lead this answer fills in; leave it out to keep it on the response.',
         ),
-      ),
-      json: nullable(
-        str(
-          'The question’s own settings as a JSON object (choices, min, max, statement…), or null. A video takes {"url": "a YouTube, Vimeo or Loom link", "minPercent": 80} — minPercent holds the Next button until they have watched that much, null lets them move on. One box to check (I agree to the terms, I own my home) is a yes_no with {"display": "checkbox"}, its title the words beside the box; a required one must be checked. Never add a box asking to text them: HandsFreeOS adds that one to every form itself, in the words the carriers approved.',
+        json: str(
+          'The question’s own settings as a JSON object (choices, min, max, statement…); leave it out for none. A video takes {"url": "a YouTube, Vimeo or Loom link", "minPercent": 80} — minPercent holds the Next button until they have watched that much, null lets them move on. One box to check (I agree to the terms, I own my home) is a yes_no with {"display": "checkbox"}, its title the words beside the box; a required one must be checked. Never add a box asking to text them: HandsFreeOS adds that one to every form itself, in the words the carriers approved.',
         ),
-      ),
-      showIfJson: nullable(
-        str(
-          'When to show it, as a JSON condition group: {"match":"all","conditions":[{"source":{"kind":"question","questionId":"…"},"op":"is","value":"…"}]}. Only questions asked earlier.',
+        showIfJson: str(
+          'When to show it, as a JSON condition group: {"match":"all","conditions":[{"source":{"kind":"question","questionId":"…"},"op":"is","value":"…"}]}. Only questions asked earlier. Leave it out to always show it.',
         ),
-      ),
-    }),
+      },
+    ),
     strict: true,
   },
   {
@@ -120,11 +123,13 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
   {
     name: 'move_question',
     description: 'Move a question to another place, which changes the order it is asked in.',
-    inputSchema: obj({
-      questionId: questionRef,
-      pageId: nullable(str('Which page; null keeps it on the one it is on.')),
-      index: int('Position on that page once it is taken out, 0 first.'),
-    }),
+    inputSchema: obj(
+      {
+        questionId: questionRef,
+        index: int('Position on that page once it is taken out, 0 first.'),
+      },
+      { pageId: str('Which page; leave it out to keep it on the one it is on.') },
+    ),
     strict: true,
   },
   {
@@ -137,21 +142,28 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
     name: 'add_page',
     description:
       'Add a page. Only worth it for a long form or a step-by-step funnel (a video, then their details, then more); most forms are one page, and "one question at a time" is a setting rather than a page each. For steps, also set onePageAtATime with set_settings.',
-    inputSchema: obj({
-      ref: nullable(str('A short name for it so later add_question calls can point at it.')),
-      title: nullable(str('The heading above its questions.')),
-    }),
+    inputSchema: obj(
+      {},
+      {
+        ref: str('A short name for it so later add_question calls can point at it.'),
+        title: str('The heading above its questions.'),
+      },
+    ),
     strict: true,
   },
   {
     name: 'update_page',
     description:
       'Change a page: its heading, or whether it saves their details when they leave it (savesContact), so someone who stops part way is still a customer to follow up.',
-    inputSchema: obj({
-      pageId: str('A page id (p_…) or a ref you gave a page added earlier in this reply.'),
-      title: nullable(str('The heading above its questions; null leaves it.')),
-      savesContact: nullable(bool('Save their details when they leave this page; null leaves it.')),
-    }),
+    inputSchema: obj(
+      { pageId: str('A page id (p_…) or a ref you gave a page added earlier in this reply.') },
+      {
+        title: str('The heading above its questions; leave it out to keep it.'),
+        savesContact: bool(
+          'Save their details when they leave this page; leave it out to keep it.',
+        ),
+      },
+    ),
     strict: true,
   },
   {
@@ -167,44 +179,47 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
     name: 'add_calculation',
     description:
       'Work something out from the answers: the terms are multiplied out and added up. "1200 sq ft × $3.50 plus a $75 trip fee" is two terms. json: {"name":"Quote","terms":[{"factors":[{"kind":"question","questionId":"q_…"},{"kind":"number","value":3.5}]},{"factors":[{"kind":"number","value":75}]}],"format":"money"}',
-    inputSchema: obj({
-      ref: nullable(str('A short name for it so later calls can point at it.')),
-      json: str('The calculation as a JSON object, without an id.'),
-    }),
+    inputSchema: obj(
+      { json: str('The calculation as a JSON object, without an id.') },
+      { ref: str('A short name for it so later calls can point at it.') },
+    ),
     strict: true,
   },
   {
     name: 'add_result',
     description:
       'Add somewhere for people to land. Every form already has a thank-you screen; add more only for a quiz or a recommendation, with showIfJson deciding who sees which.',
-    inputSchema: obj({
-      ref: nullable(str('A short name for it.')),
-      name: str('What the business calls it.'),
-      headline: str('What the person reads.'),
-      body: nullable(str('The paragraph under the headline.')),
-      showIfJson: nullable(str('When they land here, as a JSON condition group.')),
-    }),
+    inputSchema: obj(
+      {
+        name: str('What the business calls it.'),
+        headline: str('What the person reads.'),
+      },
+      {
+        ref: str('A short name for it.'),
+        body: str('The paragraph under the headline.'),
+        showIfJson: str('When they land here, as a JSON condition group.'),
+      },
+    ),
     strict: true,
   },
   {
     name: 'set_form',
     description:
       'The form itself: which kind it is, its heading, the words at the top, and a live poll’s follow-up.',
-    inputSchema: obj({
-      mode: nullable(
-        oneOf(
+    inputSchema: obj(
+      {},
+      {
+        mode: oneOf(
           ['form', 'survey', 'quiz', 'poll'],
           'Which kind it is. poll: a live poll, whose questions pop up one at a time during a HandsFreeOS video call or webinar.',
         ),
-      ),
-      title: nullable(str('The heading the customer reads.')),
-      intro: nullable(str('The words above the first question.')),
-      leadsJson: nullable(
-        str(
+        title: str('The heading the customer reads.'),
+        intro: str('The words above the first question.'),
+        leadsJson: str(
           'A live poll only: who to follow up with after the call, as JSON {"stayed": 10, "hot": 30, "warm": 10, "hotAction": "text"}. Points for staying to the end; Hot from and Warm from so many points (Warm below Hot); and what happens to hot ones: list (just the ranked list), home (a card on Home too) or text (the AI teammate texts them, the default).',
         ),
-      ),
-    }),
+      },
+    ),
     strict: true,
   },
   {

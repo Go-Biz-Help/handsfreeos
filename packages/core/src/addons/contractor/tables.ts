@@ -1,8 +1,9 @@
 /**
  * Contractor Operations' own tables, in its schema `addon_contractor` (supabase/migrations/20261027024000, 024200,
- * 024300, 024400 and 024500): the Drizzle mirror its server code reads and writes through. Server-only.
+ * 024300, 024400, 024500 and 025300): the Drizzle mirror its server code reads and writes through. Server-only.
  * test/addons/contractor-ops.test.ts holds the mirror to the live columns.
  */
+import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
@@ -27,6 +28,7 @@ import {
 } from '@hfos/db/schema';
 import type { ItemKind } from './checklists';
 import type { CostKind } from './estimating';
+import type { TranscriptState } from './notes';
 import type { JobKind, JobStatus, PhaseStatus } from './progress';
 import type { TimeKind, TimeSource } from './time';
 import type { Trade } from './trades';
@@ -92,6 +94,8 @@ export const team = addonContractor.table(
       .references(() => users.id, { onDelete: 'cascade' }),
     addedBy: userRef('added_by'),
     createdAt: ts('created_at').notNull().defaultNow(),
+    /** The job and the person as one name, which a phone keeps the row by (025300). The database makes it. */
+    id: text('id').generatedAlwaysAs(sql`(record_id::text || ':' || user_id::text)`),
   },
   (t) => [primaryKey({ columns: [t.recordId, t.userId] })],
 );
@@ -358,6 +362,26 @@ export const otherCosts = addonContractor.table('other_costs', {
   updatedAt: ts('updated_at').notNull().defaultNow(),
 });
 
+/** A note from the field on a job, or on one of its visits: typed, a recording or photos. Made on the phone. */
+export const notes = addonContractor.table('notes', {
+  id: uuid('id').primaryKey(),
+  workspaceId: workspaceRef(),
+  recordId: uuid('record_id').notNull(),
+  /** The visit it was taken on; kept on the job when the visit is deleted for good. */
+  appointmentId: uuid('appointment_id').references(() => appointments.id, { onDelete: 'set null' }),
+  body: text('body'),
+  /** A voice note's recording: one of the job's files. Its words come later. */
+  audioFileId: uuid('audio_file_id').references(() => files.id, { onDelete: 'set null' }),
+  transcript: text('transcript'),
+  transcriptState: text('transcript_state').notNull().$type<TranscriptState>().default('none'),
+  photoFileIds: uuid('photo_file_ids').array().notNull().default([]),
+  createdBy: userRef('created_by'),
+  /** When it was taken (the phone's moment), not when it arrived. */
+  notedAt: ts('noted_at').notNull(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
 export const CONTRACTOR_TABLES = {
   jobs,
   phases,
@@ -379,4 +403,5 @@ export const CONTRACTOR_TABLES = {
   timeCosts,
   laborRates,
   otherCosts,
+  notes,
 } as const;

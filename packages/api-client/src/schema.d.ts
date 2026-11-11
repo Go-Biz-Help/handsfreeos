@@ -2748,7 +2748,7 @@ export interface paths {
         put?: never;
         /**
          * Set how far along a service call is (0 to 100%). A project’s % done comes from its phases instead.
-         * @description Risk level 1. Requires contractor.use. Emits contractor.job.percent_set.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.job.percent_set. Can wait on a phone with no signal.
          */
         post: operations["command_contractor_job_set_percent"];
         delete?: never;
@@ -2877,6 +2877,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/contractor.material.count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Count a material on the job: how much more of it was used, wasted or sent back since the last count. Each adds to what’s counted so far, so two people counting both add up.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.material.updated. Can wait on a phone with no signal.
+         */
+        post: operations["command_contractor_material_count"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/contractor.material.remove": {
         parameters: {
             query?: never;
@@ -2931,6 +2951,46 @@ export interface paths {
          * @description Risk level 1. Requires contractor.use. Emits contractor.material.updated.
          */
         post: operations["command_contractor_material_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.note.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Leave a note on a job, or on one of its visits: typed, a recording or photos. A recording’s words follow on their own.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.note.added. Can wait on a phone with no signal.
+         */
+        post: operations["command_contractor_note_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.note.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a note off a job. Its photos and its recording stay in the job’s files. Someone else’s note takes “Set up Contractor Operations”.
+         * @description Risk level 2. Requires contractor.use. Emits contractor.note.removed.
+         */
+        post: operations["command_contractor_note_remove"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3048,7 +3108,7 @@ export interface paths {
         put?: never;
         /**
          * Change a phase: its name, start day, deadline, status (not started, started, done) or % done. Done is 100%; 100% is done.
-         * @description Risk level 1. Requires contractor.use. Emits contractor.phase.updated.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.phase.updated. Can wait on a phone with no signal.
          */
         post: operations["command_contractor_phase_update"];
         delete?: never;
@@ -3148,7 +3208,7 @@ export interface paths {
         put?: never;
         /**
          * Take a break on a visit, or come back from one: work time pauses for that one person while everyone else’s runs on. Someone else’s break takes “Fix time on jobs”.
-         * @description Risk level 1. Requires contractor.use. Emits contractor.time.break_set.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.time.break_set. Can wait on a phone with no signal.
          */
         post: operations["command_contractor_time_set_break"];
         delete?: never;
@@ -3208,7 +3268,7 @@ export interface paths {
         put?: never;
         /**
          * Mark a checklist item done, or not done after all. A photo item is done by its photo: one of the job’s files.
-         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.item_set, contractor.work_order.started.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.item_set, contractor.work_order.started. Can wait on a phone with no signal.
          */
         post: operations["command_contractor_work_order_item_set"];
         delete?: never;
@@ -19677,6 +19737,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/contractor.note.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A job’s notes from the field, the newest first: what was typed, said (with the recording’s words) or photographed, by whom, when, and on which visit.
+         * @description Requires contractor.use.
+         */
+        post: operations["query_contractor_note_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/contractor.overview": {
         parameters: {
             query?: never;
@@ -32913,6 +32993,48 @@ export interface operations {
             };
         };
     };
+    command_contractor_material_count: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    materialId: string;
+                    returned?: number;
+                    used?: number;
+                    wasted?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        jobId: string;
+                        /** Format: uuid */
+                        materialId: string;
+                        returned: number;
+                        state: ("to_order" | "ordered" | "here" | "used") | null;
+                        used: number;
+                        wasted: number;
+                    };
+                };
+            };
+        };
+    };
     command_contractor_material_remove: {
         parameters: {
             query?: never;
@@ -33028,6 +33150,85 @@ export interface operations {
                         /** Format: uuid */
                         materialId: string;
                         state: ("to_order" | "ordered" | "here" | "used") | null;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_note_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId?: string;
+                    /** Format: uuid */
+                    audioFileId?: string;
+                    body?: string;
+                    /** Format: uuid */
+                    id?: string;
+                    /** Format: uuid */
+                    jobId: string;
+                    /** @default [] */
+                    photoFileIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        appointmentId: string | null;
+                        /** Format: uuid */
+                        jobId: string;
+                        /** Format: uuid */
+                        noteId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_note_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    noteId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        jobId: string;
+                        /** Format: uuid */
+                        noteId: string;
+                        removed: boolean;
                     };
                 };
             };
@@ -75683,6 +75884,68 @@ export interface operations {
                             wasted: number;
                         }[];
                         missing: number;
+                    };
+                };
+            };
+        };
+    };
+    query_contractor_note_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId?: string;
+                    /** Format: uuid */
+                    jobId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        files: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        /** Format: uuid */
+                        jobId: string;
+                        may: {
+                            removeAny: boolean;
+                        };
+                        notes: {
+                            appointmentId: string | null;
+                            audio: {
+                                fileId: string | null;
+                                /** @enum {string} */
+                                state: "none" | "waiting" | "done" | "failed";
+                                transcript: string | null;
+                            } | null;
+                            body: string | null;
+                            by: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            notedAt: string;
+                            photoFileIds: string[];
+                        }[];
+                        truncated: boolean;
                     };
                 };
             };
