@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { structuredOutputSchema } from './json-schema';
+import { strictWithinLimits, structuredOutputSchema } from './json-schema';
 import {
   AI_EFFORTS,
   AiProviderError,
@@ -268,11 +268,16 @@ export class AnthropicProvider implements AiProvider {
   private toolsOf(request: AiRequest): Anthropic.ToolUnion[] {
     // Deferred tools reach the model only through its search; the search tool itself is never deferred.
     const searching = this.toolSearch && (request.tools ?? []).some((t) => t.deferred);
+    // Strict only as far as the API's limits go: past them it refuses the whole request, not just the extra tool.
+    const strict = strictWithinLimits(
+      request.tools ?? [],
+      request.responseFormat ? structuredOutputSchema(request.responseFormat.schema) : null,
+    );
     const tools: Anthropic.ToolUnion[] = (request.tools ?? []).map((t) => ({
       name: t.name,
       description: t.description,
       input_schema: t.inputSchema as Anthropic.Tool.InputSchema,
-      ...(t.strict ? { strict: true } : {}),
+      ...(strict.has(t.name) ? { strict: true } : {}),
       ...(t.streamInput ? { eager_input_streaming: true } : {}),
       ...(searching && t.deferred ? { defer_loading: true } : {}),
     }));

@@ -5,7 +5,13 @@
  */
 export * from './types';
 export { AiOutputError, parseStructured } from './structured';
-export { structuredOutputSchema } from './json-schema';
+export {
+  STRICT_LIMITS,
+  strictLoad,
+  strictWithinLimits,
+  structuredOutputSchema,
+  type StrictLoad,
+} from './json-schema';
 export {
   AnthropicProvider,
   changesEffortPartway,
