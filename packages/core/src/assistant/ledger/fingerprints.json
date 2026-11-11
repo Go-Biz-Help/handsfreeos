@@ -1539,7 +1539,7 @@
   "packages/core/src/addons/realestate/manifest.ts": "ac6b56db1cf6",
   "packages/core/src/assistant/coverage.ts": "cce13202dad4",
   "packages/core/src/assistant/screen-reads.ts": "2ad91914d218",
-  "packages/core/src/assistant/settings-map.ts": "abfcf6d28379",
+  "packages/core/src/assistant/settings-map.ts": "1e8bbcb88575",
   "packages/core/src/assistant/tools-content.ts": "59c81ea10785",
   "packages/core/src/assistant/tools-extra.ts": "a6a36461844a",
   "packages/core/src/assistant/tools.ts": "49b82a08dfde",

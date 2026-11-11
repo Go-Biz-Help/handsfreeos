@@ -1078,7 +1078,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     path: '/knowledge',
     permission: 'knowledge.manage',
     canChange: [
-      'what you offer, your services and their prices, your area and policies (its hours are the business hours, changed in Settings → Workspace → Business hours)',
+      'what you offer, your services and their prices, your area and policies (its hours are the business hours, changed under Business hours in Settings → Workspace)',
       'how it should sound, the words to use and to avoid, how it signs off, and whether it may quote prices',
       'add a question and answer, a fact or an article, or many FAQs typed or pasted in at once',
       'change, publish, archive or bring back an FAQ, fact, article or document',
@@ -1091,7 +1091,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'Add an FAQ: Knowledge, press Add an FAQ, then Publish; the same box switches to Article or Fact',
       'Let the AI quote prices: Knowledge → Overview, the AI may quote prices switch',
       'Change how the AI sounds: Knowledge → Overview, Edit on Tone of voice, then Save profile',
-      'Change the hours the AI knows: Settings → Workspace → Business hours, then Save changes (Knowledge’s Hours shows them and follows on its own)',
+      'Change the hours the AI knows: Settings → Workspace, then Business hours, then Save changes (Knowledge’s Hours shows them and follows on its own)',
       'Add a service and its price: Knowledge → Overview, Edit on Business profile, Add a service, then Save profile',
       'Learn from the website: Knowledge, press Scan website, then Accept what it found',
       'Import FAQs from a spreadsheet: Knowledge → Items, Import CSV',
