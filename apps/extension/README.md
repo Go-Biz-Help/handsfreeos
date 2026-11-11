@@ -1220,6 +1220,15 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Chat windows closed after a message (0.132.1)
+
+Facebook keeps every small chat window open from page to page, and the extension never closed the ones its messages
+opened, so they piled up over each profile it worked on. The problem check of 11 Nov 2026 found 6 open and 5 more in
+the corner when a message couldn't tell which chat was the person's, and nothing was sent; the AI helper on a warm-up
+the same evening found the windows in its way. Now, once a message's last text has gone, its window is closed by its
+own Close chat (`closeWindow` in `src/networks/facebook/auto.ts`, asked for with `close` on the last part's
+`hfos-message`). Windows it didn't send in, and Messenger's own chat page, are left as they are.
+
 ### Profiles with no posts, and drafts the AI answered with nothing (0.130.1)
 
 The problem check of 10 Nov 2026 (early) found two things on 0.129.0:

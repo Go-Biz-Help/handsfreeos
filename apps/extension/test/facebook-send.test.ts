@@ -205,6 +205,8 @@ function chatWindow(doc: Document, name: string, href: string | null): Element {
     .replaceAll('Riley', name.split(' ')[0]!)
     .replaceAll('/riley.quinn.7/', href ?? '');
   if (!href) chat.querySelector('a[href=""]')!.remove();
+  // Its Close chat takes it away, as Facebook's does.
+  chat.querySelector('[aria-label="Close chat"]')!.addEventListener('click', () => chat.remove());
   return chat;
 }
 
@@ -257,11 +259,11 @@ function danaProfile(
   return doc;
 }
 
-/** Sends it, with time passed for Facebook's waits. */
-async function send(item: TodayListItem) {
+/** Sends it, with time passed for Facebook's waits: as a few texts when `split`. */
+async function send(item: TodayListItem, split = false) {
   vi.useFakeTimers({ toFake: ['setTimeout'] });
   try {
-    const going = doWork({ do: 'send', item }, ME.businessId, false);
+    const going = doWork({ do: 'send', item }, ME.businessId, split);
     await vi.advanceTimersByTimeAsync(60_000);
     return await going;
   } finally {
@@ -299,6 +301,55 @@ describe('sending a message on Facebook', () => {
     expect(sent).toEqual([{ to: 'Write to Dana Reyes', text: 'Glad to help, Dana.' }]);
     // Noted with the chat HandsFreeOS keeps, which showed her name, as her replies there are matched by it.
     expect(noted()).toMatchObject({ thread: { id: THREAD_KEY } });
+  });
+
+  it('closes the chat window it sent in once the message has gone, and leaves the others open', async () => {
+    const sent: Sent[] = [];
+    let page: Document | null = null;
+    world.pages = (url) =>
+      url === CHAT
+        ? load('chat-2026.html', CHAT)
+        : url === DANA
+          ? (page = danaProfile(sent, { opens: true, rileyOpen: true }))
+          : null;
+    const outcome = await send(approved());
+    expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+    expect(sent).toEqual([{ to: 'Write to Dana Reyes', text: 'Glad to help, Dana.' }]);
+    expect(page!.querySelector('[aria-label="Write to Dana Reyes"]')).toBeNull();
+    expect(page!.querySelector('[aria-label="Write to Riley Quinn"]')).not.toBeNull();
+  });
+
+  it('keeps the window open between a message’s texts, and closes it after the last', async () => {
+    const sent: Sent[] = [];
+    let page: Document | null = null;
+    world.pages = (url) =>
+      url === CHAT
+        ? load('chat-2026.html', CHAT)
+        : url === DANA
+          ? (page = danaProfile(sent, { opens: true, rileyOpen: false }))
+          : null;
+    const text = 'Glad to help, Dana.\n\nWant me to send the link?';
+    const outcome = await send(approved({ send: { ...approved().send!, text } }), true);
+    expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+    // The second text went in her window too: it was still open.
+    expect(sent).toEqual([
+      { to: 'Write to Dana Reyes', text: 'Glad to help, Dana.' },
+      { to: 'Write to Dana Reyes', text: 'Want me to send the link?' },
+    ]);
+    expect(page!.querySelector('[aria-label="Write to Dana Reyes"]')).toBeNull();
+  });
+
+  it('leaves Messenger’s own chat page as it is after sending there', async () => {
+    const sent: Sent[] = [];
+    let page: Document | null = null;
+    world.pages = (url) => {
+      const doc = url === CHAT ? (page = load('chat-2026.html', CHAT)) : null;
+      if (doc) sends(doc, sent);
+      return doc;
+    };
+    const outcome = await send(approved({ profileUrl: `${FB}/profile.php?id=${THREAD_KEY}` }));
+    expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+    expect(page!.querySelector('[aria-label="Message Dana Reyes"]')).not.toBeNull();
   });
 
   it('sends nothing into the last person’s chat window when theirs doesn’t open, and says so', async () => {

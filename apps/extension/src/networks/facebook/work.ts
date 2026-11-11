@@ -149,7 +149,15 @@ async function autoStep(ask: AutoAsk): Promise<AutoAnswer | PostsAnswer> {
       };
     return {
       ok: true,
-      ...(await writeMessage(document, location.href, ask.text, ask.profile, names, chatsBefore)),
+      ...(await writeMessage(
+        document,
+        location.href,
+        ask.text,
+        ask.profile,
+        names,
+        chatsBefore,
+        ask.close === true,
+      )),
     };
   }
   if (kind !== 'post') return { ok: false, error: 'Facebook didn’t open the post.' };
