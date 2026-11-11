@@ -21,6 +21,7 @@
  * Everyone already waiting when it began starts a fresh wait then (`friends.warm_up_from`, set by the migration that
  * added it: the owner's 6b), so each gets all 7 visits. Browser-safe: the extension, the web and the phone read these.
  */
+import { intlTimeZone } from '../../intl/engine-zones';
 import { appVersionAtLeast } from '../../mobile';
 import { NETWORKS, type Platform } from './networks';
 
@@ -92,7 +93,7 @@ export function visitWhy(platform: Platform, until: Date | string): string[] {
   const day = new Date(until).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
-    timeZone: 'UTC',
+    timeZone: intlTimeZone('UTC'),
   });
   return [
     kit.follows
