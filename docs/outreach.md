@@ -3993,19 +3993,6 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **A run-together post is found again:** posts are compared with no spaces or line breaks at all (`foundPost`,
         LinkedIn's `startsLike`, Alignable's `linkToIt`), so one put up before 0.134.2 is found by the next daily read
         in its fortnight, and who commented and reacted become warm leads.
-159.  **Autopilot's day's list shrinks to a line at the bottom once it's answered** (Chris, 11 Nov 2026: "after ok’ing
-      the people to contact in the social outreach it should go away instead of staying at the top"; asked where it
-      goes, he picked "Shrink to a line at the bottom"). After **OK all** the list stayed first on Needs you, every row
-      marked OK'd, under "You’ve OK’d everyone on today’s list".
-      - **First only while someone waits** (`autopilotPlace` in core's `autopilot.ts`): the whole list stays first on
-        Needs you while anyone on it waits for the OK, as decision 151 has it.
-      - **Otherwise one line at the bottom** of Needs you, on the web and the phone (`autopilotLine`): "Today’s list:
-        12 OK’d, 2 not today" once it's answered, with **Show** to open the list right there and **Put back** anyone
-        left Not today (who then waits again, so the list goes back to the top). The notes that sat at the top while
-        nothing waited are this line too: when the day's list comes, that it's being made, and that nobody's new today.
-      - The OK's toast still says how many it OK'd. Nothing changes on the server: the same `outreach.autopilot`,
-        read the same way. No migration, no extension release.
-
 159.  **Never a message to someone who doesn't follow back on Instagram** (Chris, 11 Nov 2026: "the social outreach
       tool add people to message that have not followed us back on instagram", then "again we never message people
       that don't follow us because it doesn't go to their inbox and them following us is the trigger to inbox them").
@@ -4023,6 +4010,19 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         waiting for an OK is taken off, and one OK'd is skipped.
       - **Who doesn't follow back is unfollowed** after the business's wait, as before (decision 98). Warming them up
         in the meantime is the owner's next ask, in its own part.
+
+160.  **Autopilot's day's list shrinks to a line at the bottom once it's answered** (Chris, 11 Nov 2026: "after ok’ing
+      the people to contact in the social outreach it should go away instead of staying at the top"; asked where it
+      goes, he picked "Shrink to a line at the bottom"). After **OK all** the list stayed first on Needs you, every row
+      marked OK'd, under "You’ve OK’d everyone on today’s list".
+      - **First only while someone waits** (`autopilotPlace` in core's `autopilot.ts`): the whole list stays first on
+        Needs you while anyone on it waits for the OK, as decision 151 has it.
+      - **Otherwise one line at the bottom** of Needs you, on the web and the phone (`autopilotLine`): "Today’s list:
+        12 OK’d, 2 not today" once it's answered, with **Show** to open the list right there and **Put back** anyone
+        left Not today (who then waits again, so the list goes back to the top). The notes that sat at the top while
+        nothing waited are this line too: when the day's list comes, that it's being made, and that nobody's new today.
+      - The OK's toast still says how many it OK'd. Nothing changes on the server: the same `outreach.autopilot`,
+        read the same way. No migration, no extension release.
 
 ## Rules worth knowing before changing anything
 
