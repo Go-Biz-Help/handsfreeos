@@ -6,7 +6,7 @@
  * A job's customer and property are relationships on its record (`contractor_customer`, `contractor_site`), so core's
  * record pages show them; a new property's customer is its owner (`contractor_owner`).
  */
-import { and, eq, sql as dsql } from 'drizzle-orm';
+import { and, eq, inArray, sql as dsql } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { customRecordCreate, customRecordUpdate } from '../../../commands/custom-record';
 import { relationshipCreate, relationshipDelete } from '../../../commands/relationship';
@@ -14,7 +14,9 @@ import { HfosError } from '../../../errors';
 import { userIdOf } from '../../../kernel/actor';
 import { executeCommandWithin, scopeCan } from '../../../kernel/execute';
 import type { CommandContext } from '../../../kernel/types';
+import type { Permission } from '../../../permissions';
 import { defineAddonCommand } from '../../server';
+import { requiredItemsWords } from '../checklists';
 import { contractorAddon } from '../manifest';
 import { STATUSES_WITH_REASON, isOpen, type JobStatus } from '../progress';
 import {
@@ -34,7 +36,7 @@ import {
   PropertyAddInput,
   PropertyAddOutput,
 } from '../schemas';
-import { jobs, money, phases, team } from '../tables';
+import { jobs, money, phases, team, workOrderItems } from '../tables';
 import { phasesForNewProject, TRADE_NAMES } from '../trades';
 import { CONTRACTOR_WORDS as W, JOB_KIND_WORDS, JOB_STATUS_WORDS, REFUSALS } from '../words';
 import { z } from 'zod';
@@ -442,10 +444,82 @@ export async function moveJob(
   );
 }
 
+/**
+ * The owner's decision 8: a job isn't Done while a required checklist item or photo is left on one of its visits'
+ * work orders. Someone who may (`contractor.skip_checks`: owners and admins) marks it done anyway with a reason,
+ * which is kept on each item passed over and on the job's timeline. A cancelled visit's items don't count, nor a
+ * visit's in the Deleted bin (row security keeps those from everyone).
+ */
+async function requireReady(ctx: CommandContext, job: Job, skipReason: string | null) {
+  const left = await rows<{
+    id: string;
+    label: string;
+    kind: string;
+    appointment_id: string;
+    starts_at: string;
+  }>(
+    ctx.tx,
+    sql`select i.id, i.label, i.kind, i.appointment_id, a.starts_at::text
+        from addon_contractor.work_order_items i
+        join app.appointments a on a.id = i.appointment_id
+        where i.record_id = ${job.recordId} and i.workspace_id = ${ctx.scope.workspaceId!}
+          and i.required and i.done_at is null and i.skipped_at is null and a.status <> 'cancelled'
+        order by a.starts_at, i.position, i.created_at
+        for update of i`,
+  );
+  if (!left.length) return;
+  const maySkip = scopeCan(ctx.scope, 'contractor.skip_checks' as Permission);
+  if (!skipReason)
+    throw new HfosError(
+      'rule_violation',
+      409,
+      REFUSALS.jobNotReady(
+        job.name,
+        left.map((l) => l.label),
+        maySkip,
+      ),
+      {
+        maySkip,
+        left: left.map((l) => ({
+          itemId: l.id,
+          appointmentId: l.appointment_id,
+          startsAt: new Date(l.starts_at).toISOString(),
+          label: l.label,
+          kind: l.kind,
+        })),
+      },
+      'contractor_job_not_ready',
+    );
+  if (!maySkip) throw HfosError.rule('contractor_skip_not_allowed', 403, REFUSALS.skipNotAllowed);
+  const now = new Date();
+  await ctx.tx
+    .update(workOrderItems)
+    .set({ skippedAt: now, skippedBy: userIdOf(ctx.actor), skipReason, updatedAt: now })
+    .where(
+      inArray(
+        workOrderItems.id,
+        left.map((l) => l.id),
+      ),
+    );
+  const eventId = await ctx.emit({
+    type: 'contractor.job.checks_skipped',
+    entityType: 'custom_record',
+    entityId: job.recordId,
+    payload: { jobId: job.recordId, items: left.length },
+    after: { passedOver: left.map((l) => l.label).slice(0, 20), reason: skipReason },
+  });
+  await jobLine(
+    ctx,
+    job.recordId,
+    `marked the job done with ${requiredItemsWords(left.length)} left`,
+    { eventId, body: skipReason },
+  );
+}
+
 export const jobSetStatus = defineAddonCommand(contractorAddon, {
   name: 'contractor.job.set_status',
   description:
-    'Move a job along: new, scheduled, in progress, on hold, done or cancelled. On hold and cancelled need a reason.',
+    'Move a job along: new, scheduled, in progress, on hold, done or cancelled. On hold and cancelled need a reason. Done waits on the required checklist items and photos on its work orders, unless an owner or admin gives a reason to pass them over.',
   risk: 1,
   input: JobSetStatusInput,
   output: JobSetStatusOutput,
@@ -454,11 +528,14 @@ export const jobSetStatus = defineAddonCommand(contractorAddon, {
   ai: {
     tool: 'contractor_set_job_status',
     description:
-      'Move a job to new, scheduled, in_progress, on_hold, done or cancelled. on_hold and cancelled need a reason. Asks the person first.',
+      'Move a job to new, scheduled, in_progress, on_hold, done or cancelled. on_hold and cancelled need a reason. done is refused while required checklist items or photos are left on its work orders (the refusal names them): finish them on the work order, or, only when the person asks to mark it done anyway and says why, pass skipReason (owners and admins). Asks the person first.',
     autonomy: 'confirm',
     what: (input) => {
-      const s = (input as { status?: JobStatus }).status;
-      return s ? `Mark the job ${JOB_STATUS_WORDS[s].toLowerCase()}` : null;
+      const { status: s, skipReason } = input as { status?: JobStatus; skipReason?: string };
+      if (!s) return null;
+      return s === 'done' && skipReason?.trim()
+        ? `Mark the job done with required items left: ${skipReason.trim()}`
+        : `Mark the job ${JOB_STATUS_WORDS[s].toLowerCase()}`;
     },
     outcome: (output, input) => {
       const s = (output as { status?: JobStatus }).status;
@@ -468,7 +545,7 @@ export const jobSetStatus = defineAddonCommand(contractorAddon, {
       };
     },
   },
-  emits: ['contractor.job.status_changed'],
+  emits: ['contractor.job.status_changed', 'contractor.job.checks_skipped'],
   async handler(ctx, input) {
     const job = await loadJob(ctx, input.jobId, { lock: true });
     if (job.archived) throw HfosError.notFound(REFUSALS.jobGone);
@@ -481,6 +558,7 @@ export const jobSetStatus = defineAddonCommand(contractorAddon, {
       );
     if (input.status === job.status && (reason ?? null) === (job.statusReason ?? null))
       return { jobId: job.recordId, status: job.status, changed: false };
+    if (input.status === 'done') await requireReady(ctx, job, input.skipReason?.trim() || null);
     await moveJob(ctx, job, input.status, reason);
     return { jobId: job.recordId, status: input.status, changed: true };
   },

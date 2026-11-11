@@ -51,6 +51,7 @@ import {
 } from 'lucide-react';
 import {
   Calculator as contractorCostsIcon,
+  CalendarClock as contractorDispatchIcon,
   FileText as contractorEstimatesIcon,
   HardHat as contractorAddonIcon,
   Settings2 as contractorSettingsIcon,
@@ -293,6 +294,7 @@ export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
   contractor: {
     icon: contractorAddonIcon,
     navIcons: {
+      dispatch: contractorDispatchIcon,
       estimates: contractorEstimatesIcon,
       costs: contractorCostsIcon,
       gear: contractorSettingsIcon,

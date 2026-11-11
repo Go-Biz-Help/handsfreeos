@@ -27,3 +27,12 @@ export type EstimateList = Ok<'/v1/queries/contractor.estimate.list'>;
 export type EstimateItem = EstimateList['estimates'][number];
 export type ItemCostList = Ok<'/v1/queries/contractor.item_cost.list'>;
 export type ItemCost = ItemCostList['items'][number];
+
+export type CrewList = Ok<'/v1/queries/contractor.crew.list'>;
+export type Crew = CrewList['crews'][number];
+export type WorkOrder = Ok<'/v1/queries/contractor.work_order.get'>;
+export type ChecklistItem = WorkOrder['items'][number];
+export type VisitSub = WorkOrder['subs'][number];
+export type Dispatch = Ok<'/v1/queries/contractor.dispatch'>;
+export type DispatchVisit = Dispatch['visits'][number];
+export type JobVisit = JobDetail['visits'][number];

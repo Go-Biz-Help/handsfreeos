@@ -4,12 +4,15 @@
  * Server-only.
  */
 import { and, asc, eq } from 'drizzle-orm';
+import { z } from 'zod';
 import { rows, sql } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import type { CommandContext, QueryContext } from '../../../kernel/types';
 import { addonTimelineLine } from '../../server';
+import type { StarterItem } from '../checklists';
 import { contractorAddon } from '../manifest';
 import { jobPercent, type JobKind, type JobStatus, type PhaseStatus } from '../progress';
+import { ChecklistStarter } from '../schemas';
 import { jobs, phases } from '../tables';
 import type { Trade } from '../trades';
 import { REFUSALS } from '../words';
@@ -65,9 +68,11 @@ export async function timeZoneOf(ctx: Ctx): Promise<string> {
 }
 
 /** The business's settings for the add-on, as stored on its installation. */
-export async function settingsOf(
-  ctx: Ctx,
-): Promise<{ trades: readonly string[]; phases: readonly string[] }> {
+export async function settingsOf(ctx: Ctx): Promise<{
+  trades: readonly string[];
+  phases: readonly string[];
+  checklist: readonly StarterItem[];
+}> {
   const [i] = await rows<{ settings: Record<string, unknown> | null }>(
     ctx.tx,
     sql`select settings from app.addon_installations
@@ -75,7 +80,12 @@ export async function settingsOf(
   );
   const s = i?.settings ?? {};
   const list = (v: unknown) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []);
-  return { trades: list(s.trades), phases: list(s.phases) };
+  const checklist = z.array(ChecklistStarter).safeParse(s.checklist ?? []);
+  return {
+    trades: list(s.trades),
+    phases: list(s.phases),
+    checklist: checklist.success ? checklist.data : [],
+  };
 }
 
 /** A job as its commands need it: its row and its record's name. */
@@ -270,4 +280,58 @@ export async function pairsOf(
     customer: c ? { id: c.id, personId: c.a_id } : null,
     site: s ? { id: s.id, propertyId: s.b_id } : null,
   };
+}
+
+/** A subcontractor as the screens show one: a contact, the company they're at, and whether they can be texted. */
+export interface SubOut {
+  readonly personId: string;
+  readonly name: string;
+  readonly company: string | null;
+  readonly canText: boolean;
+  /** For "Hi Dana," in a text to them. */
+  readonly firstName: string | null;
+}
+
+/** A subcontractor as an operation answers one. */
+export const subOut = (s: SubOut) => ({
+  personId: s.personId,
+  name: s.name,
+  company: s.company,
+  canText: s.canText,
+});
+
+/** These contacts of this business, as subcontractors, by id. One that isn't here (or was archived) is left out. */
+export async function subsOf(
+  ctx: Ctx,
+  personIds: readonly string[],
+): Promise<ReadonlyMap<string, SubOut>> {
+  if (!personIds.length) return new Map();
+  const list = await rows<{
+    id: string;
+    name: string;
+    company: string | null;
+    can_text: boolean;
+    first_name: string | null;
+  }>(
+    ctx.tx,
+    sql`select p.id, nullif(btrim(p.first_name), '') as first_name,
+          coalesce(nullif(btrim(concat_ws(' ', p.first_name, p.last_name)), ''), p.email::text, p.phone_e164, 'Contact')
+            as name,
+          c.name as company, (p.phone_e164 is not null) as can_text
+        from app.people p left join app.companies c on c.id = p.company_id
+        where p.workspace_id = ${ctx.scope.workspaceId!} and p.archived_at is null
+          and p.id = any(${`{${personIds.join(',')}}`}::uuid[])`,
+  );
+  return new Map(
+    list.map((p) => [
+      p.id,
+      {
+        personId: p.id,
+        name: p.name,
+        company: p.company,
+        canText: p.can_text,
+        firstName: p.first_name,
+      },
+    ]),
+  );
 }

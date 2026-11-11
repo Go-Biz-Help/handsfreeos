@@ -9,6 +9,8 @@
  */
 import type { AddonServerModule } from '../server';
 import { contractorAddon } from './manifest';
+import { crewArchive, crewList, crewSave } from './ops/crews';
+import { dispatch } from './ops/dispatch';
 import {
   estimateAskOk,
   estimateBuilder,
@@ -35,6 +37,20 @@ import {
 } from './ops/jobs';
 import { phaseAdd, phaseRemove, phaseReorder, phaseUpdate } from './ops/phases';
 import { jobGet, jobList, overview, propertyList } from './ops/queries';
+import {
+  workOrderGet,
+  workOrderItemAdd,
+  workOrderItemRemove,
+  workOrderItemSet,
+  workOrderItemUpdate,
+  workOrderSetCrew,
+  workOrderStart,
+  workOrderSubAdd,
+  workOrderSubRemove,
+  workOrderSubSet,
+  workOrderTellSubs,
+  workOrderUpdate,
+} from './ops/work-orders';
 
 export const contractorAddonServer: AddonServerModule = {
   manifest: contractorAddon,
@@ -60,7 +76,31 @@ export const contractorAddonServer: AddonServerModule = {
     estimatingSave,
     itemCostSet,
     estimateFillJob,
+    crewSave,
+    crewArchive,
+    workOrderStart,
+    workOrderUpdate,
+    workOrderSetCrew,
+    workOrderSubAdd,
+    workOrderSubRemove,
+    workOrderSubSet,
+    workOrderTellSubs,
+    workOrderItemAdd,
+    workOrderItemUpdate,
+    workOrderItemRemove,
+    workOrderItemSet,
   ],
-  queries: [overview, jobList, jobGet, propertyList, estimateBuilder, estimateList, itemCostList],
+  queries: [
+    overview,
+    jobList,
+    jobGet,
+    propertyList,
+    estimateBuilder,
+    estimateList,
+    itemCostList,
+    crewList,
+    workOrderGet,
+    dispatch,
+  ],
   notForTheAssistant: {},
 };

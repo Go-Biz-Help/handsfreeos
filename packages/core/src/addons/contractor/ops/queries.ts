@@ -2,7 +2,7 @@
  * What Contractor Operations' pages read (docs/contractor.md): the overview (settings, counts, people), the jobs
  * list, one job whole, and the business's properties. Everything is read as the person asking, under row security:
  * a job's money only reaches people with `contractor.costs` (its table's own policy), and nothing here trusts the
- * screen to hide it.
+ * screen to hide it. A job's visits are read the way dispatch reads them (./visits.ts).
  */
 import { rows, sql } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
@@ -42,6 +42,7 @@ import {
   type Ctx,
 } from './common';
 import { estimatingOf } from './estimates';
+import { checklistOf, stageOf, VISIT_COLUMNS, VISIT_JOINS, type VisitSqlRow } from './visits';
 
 type JobSqlRow = {
   id: string;
@@ -70,7 +71,7 @@ type JobSqlRow = {
 };
 
 /** The select every job read shares: the job, its record, lead, customer, property, phases and next visit. */
-async function jobsSql(
+export async function jobsSql(
   ctx: Ctx,
   where: ReturnType<typeof sql>,
   limit: number,
@@ -114,7 +115,7 @@ async function jobsSql(
   );
 }
 
-function rowOut(r: JobSqlRow, today: string): JobRow {
+export function rowOut(r: JobSqlRow, today: string): JobRow {
   const open = isOpen(r.status);
   const late = open && r.due_on && r.due_on < today ? daysBetween(r.due_on, today) : null;
   return {
@@ -169,7 +170,7 @@ async function peopleOf(ctx: Ctx) {
 export const overview = defineAddonQuery(contractorAddon, {
   name: 'contractor.overview',
   description:
-    'Contractor Operations here: its settings (trades, phases for a new project), how many jobs are open, late, on hold and done this month, who can be on a job, how the business estimates (for people who may see job costs), and how many estimates wait for this person’s OK.',
+    'Contractor Operations here: its settings (trades, phases for a new project, the checklist a new visit starts with), how many jobs are open, late, on hold and done this month, who can be on a job, how the business estimates (for people who may see job costs), and how many estimates wait for this person’s OK.',
   input: InWorkspace,
   output: OverviewOutput,
   permission: 'contractor.use',
@@ -177,7 +178,7 @@ export const overview = defineAddonQuery(contractorAddon, {
   ai: {
     tool: 'contractor_overview',
     description:
-      'Contractor Operations’ settings (the business’s trades and the phases a new project starts with), counts of open, late, on-hold and done-this-month jobs, the team members who can be put on jobs (with their user ids), the estimating rules (lowest margin, starting markup, labor’s hourly price and cost; only for people who may see job costs), and how many estimates are waiting for this person’s OK.',
+      'Contractor Operations’ settings (the business’s trades, the phases a new project starts with and the checklist a new visit’s work order starts with), counts of open, late, on-hold and done-this-month jobs, the team members who can be put on jobs (with their user ids), the estimating rules (lowest margin, starting markup, labor’s hourly price and cost; only for people who may see job costs), and how many estimates are waiting for this person’s OK.',
   },
   async handler(ctx) {
     const ws = ctx.scope.workspaceId!;
@@ -209,12 +210,13 @@ export const overview = defineAddonQuery(contractorAddon, {
       : [];
     return {
       name: contractorAddon.name,
-      settings: settings.success ? settings.data : { trades: [], phases: [] },
+      settings: settings.success ? settings.data : { trades: [], phases: [], checklist: [] },
       may: {
         manage: scopeCan(ctx.scope, 'contractor.manage' as Permission),
         costs,
         assign: scopeCan(ctx.scope, 'records.assign'),
         approve,
+        skipChecks: scopeCan(ctx.scope, 'contractor.skip_checks' as Permission),
       },
       estimating: costs ? await estimatingOf(ctx) : null,
       estimatesWaitingOk: waiting?.n ?? 0,
@@ -327,11 +329,13 @@ export const jobGet = defineAddonQuery(contractorAddon, {
         sql`select id, name, position, status, percent_done, starts_on::text, due_on::text, done_at::text
             from addon_contractor.phases where record_id = ${input.jobId} order by position, created_at`,
       ),
-      rows<{ id: string; title: string; starts_at: string; ends_at: string; status: string }>(
+      rows<VisitSqlRow>(
         ctx.tx,
-        sql`select id, title, starts_at::text, ends_at::text, status::text from app.appointments
-            where custom_record_id = ${input.jobId} and workspace_id = ${ws}
-            order by starts_at desc limit 50`,
+        sql`select ${VISIT_COLUMNS}
+            from app.appointments a
+            ${VISIT_JOINS}
+            where a.custom_record_id = ${input.jobId} and a.workspace_id = ${ws}
+            order by a.starts_at desc limit 50`,
       ),
       // Row security keeps these from anyone without `contractor.costs`: they read none.
       scopeCan(ctx.scope, 'contractor.costs' as Permission)
@@ -382,6 +386,9 @@ export const jobGet = defineAddonQuery(contractorAddon, {
         startsAt: new Date(v.starts_at).toISOString(),
         endsAt: new Date(v.ends_at).toISOString(),
         status: v.status,
+        stage: stageOf(v),
+        crew: v.crew,
+        checklist: checklistOf(v),
       })),
       money:
         m === undefined

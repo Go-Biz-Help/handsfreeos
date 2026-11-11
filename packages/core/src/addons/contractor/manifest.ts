@@ -8,8 +8,11 @@
  * own kind, at a property (another kind it keeps) the customer owns, and starts as a service call; with phases it's
  * a project, with deadlines, a budget and % done. Part 2 is costs and estimates: what each price list item costs,
  * an estimate builder with labor, materials, markup, profit and margin that writes an ordinary HandsFreeOS estimate,
- * and a lowest margin under which an estimate waits for an owner's or admin's OK. Crews and work orders, materials,
- * time and job costing, the phone's field screens and the AI helpers come in parts 3 to 7.
+ * and a lowest margin under which an estimate waits for an owner's or admin's OK. Part 3 is crews, work orders and
+ * dispatch: named crews of team members and subcontractors, a work order on every visit (instructions, what to bring,
+ * who's going, a checklist of boxes and photos), a job that can't be marked Done while a required item is left, and
+ * one screen for the day's visits. Materials, time and job costing, the phone's field screens and the AI helpers come
+ * in parts 4 to 7.
  *
  * It's in `development`: offered nowhere, and installable only where HandsFreeOS staff hand it out to try.
  */
@@ -54,6 +57,11 @@ export const contractorAddon = defineAddon({
       'markup',
       'profit margin',
       'good better best',
+      'crews',
+      'subcontractors',
+      'work orders',
+      'checklists',
+      'dispatch',
     ],
     exampleNeeds: [
       'keep track of my jobs and projects',
@@ -62,6 +70,8 @@ export const contractorAddon = defineAddon({
       'track every job at a customer’s property',
       'see the profit in an estimate before I send it',
       'stop estimates going out under my margin',
+      'give my crews a checklist for every visit',
+      'see who’s on which job today',
     ],
     industries: [
       'home_services',
@@ -97,9 +107,17 @@ export const contractorAddon = defineAddon({
       permission: 'contractor.costs',
     },
     {
+      id: 'contractor.crews',
+      label: 'Crews, work orders and dispatch',
+      description:
+        'Crews of team members and subcontractors, a work order with a checklist on every visit, and the day’s visits by person.',
+      permission: 'contractor.use',
+    },
+    {
       id: 'contractor.manage',
       label: 'Contractor Operations settings',
-      description: 'The business’s trades and the phases a new project starts with.',
+      description:
+        'The business’s trades, its crews, and the phases and checklist new work starts with.',
       permission: 'contractor.manage',
     },
   ],
@@ -109,7 +127,7 @@ export const contractorAddon = defineAddon({
       key: 'contractor.use',
       label: 'Use Contractor Operations',
       description:
-        'See every job and project, start them, and change their status, phases, dates, team and % done.',
+        'See every job and project, start them, and change their status, phases, dates, team and % done. Work a visit’s work order and checklist, and see dispatch.',
       defaultRoles: ['admin', 'member'],
     },
     {
@@ -123,7 +141,8 @@ export const contractorAddon = defineAddon({
     {
       key: 'contractor.manage',
       label: 'Set up Contractor Operations',
-      description: 'Pick the business’s trades and the phases a new project starts with.',
+      description:
+        'Pick the business’s trades, set up its crews, and set the phases a new project and the checklist a new visit start with.',
       defaultRoles: ['admin'],
       requires: ['contractor.use'],
     },
@@ -134,6 +153,14 @@ export const contractorAddon = defineAddon({
         'OK an estimate that’s under the business’s lowest margin so it can be sent, and set that margin, the starting markup and labor’s hourly price and cost (the owner’s decision 6).',
       defaultRoles: ['admin'],
       requires: ['contractor.costs'],
+    },
+    {
+      key: 'contractor.skip_checks',
+      label: 'Mark a job done with required items left',
+      description:
+        'Mark a job done while required checklist items or photos are still left on its work orders, with a reason (the owner’s decision 8).',
+      defaultRoles: ['admin'],
+      requires: ['contractor.use'],
     },
   ],
   recordKinds: [
@@ -193,6 +220,11 @@ export const contractorAddon = defineAddon({
     'estimates',
     'estimate_costs',
     'estimate_oks',
+    'crews',
+    'crew_members',
+    'work_orders',
+    'work_order_items',
+    'work_order_subs',
   ],
   events: {
     emits: [
@@ -214,8 +246,23 @@ export const contractorAddon = defineAddon({
       'contractor.estimate.sent',
       'contractor.estimating.saved',
       'contractor.item_cost.set',
+      'contractor.job.checks_skipped',
+      'contractor.crew.saved',
+      'contractor.crew.archived',
+      'contractor.work_order.started',
+      'contractor.work_order.updated',
+      'contractor.work_order.crew_set',
+      'contractor.work_order.sub_added',
+      'contractor.work_order.sub_removed',
+      'contractor.work_order.sub_set',
+      'contractor.work_order.subs_told',
+      'contractor.work_order.item_added',
+      'contractor.work_order.item_updated',
+      'contractor.work_order.item_removed',
+      'contractor.work_order.item_set',
     ],
-    // A visit booked on a job moves it to Scheduled; a tech tapping Started on one of its visits moves it to In
+    // A visit booked on a job moves it to Scheduled and gets its work order, with the checklist a new visit starts
+    // with; a tech tapping Started on one of its visits moves it to In
     // progress. An estimate the customer approves fills its job's price and budget. An OK asked for on an estimate
     // is an alert for the owners and admins until it's given, the estimate changes or it goes out
     // (apps/worker/src/addons/contractor/index.ts).
@@ -236,6 +283,12 @@ export const contractorAddon = defineAddon({
     // Its pages in the side menu, which pop out from its one row (the owner's decision, 2026-10-09).
     nav: [
       { key: 'jobs', label: CONTRACTOR_PAGES.jobs, icon: 'hard-hat', path: '' },
+      {
+        key: 'dispatch',
+        label: CONTRACTOR_PAGES.dispatch,
+        icon: 'calendar-clock',
+        path: 'dispatch',
+      },
       {
         key: 'estimates',
         label: CONTRACTOR_PAGES.estimates,
@@ -265,7 +318,7 @@ export const contractorAddon = defineAddon({
   },
   ai: {
     directory:
-      'contractor and home service jobs: every job and project with its customer, the property it’s at, its trade, status (new, scheduled, in progress, on hold, done, cancelled), deadline, job lead and team, phases with their dates and % done, its visits, and its price and budget for people who may see job costs; starting jobs, making a service call a project, moving jobs and phases along, adding properties, and its settings (the business’s trades and the phases a new project starts with); estimates with costs: an estimate builder with labor by the hour, materials at cost, markup, profit and margin, good, better and best options, what each price list item costs the business, the lowest margin an estimate may go out at, asking for and giving an owner’s or admin’s OK on one under it, and sending it',
+      'contractor and home service jobs: every job and project with its customer, the property it’s at, its trade, status (new, scheduled, in progress, on hold, done, cancelled), deadline, job lead and team, phases with their dates and % done, its visits, and its price and budget for people who may see job costs; starting jobs, making a service call a project, moving jobs and phases along, adding properties, and its settings (the business’s trades and the phases a new project starts with); estimates with costs: an estimate builder with labor by the hour, materials at cost, markup, profit and margin, good, better and best options, what each price list item costs the business, the lowest margin an estimate may go out at, asking for and giving an owner’s or admin’s OK on one under it, and sending it; crews (named groups of team members and subcontractors), a work order on every visit (instructions, what to bring, the crew and who’s going, subcontractors and texting them the job’s details, and a checklist of boxes to tick and photos to add, some required), a job that can’t be marked done while a required item is left unless an owner or admin says why, and dispatch (a day’s visits by person, the ones nobody is on, where each stands, and jobs with nothing booked)',
     places: CONTRACTOR_PLACES,
     lookAlikes: CONTRACTOR_LOOK_ALIKES,
   },

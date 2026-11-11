@@ -2,6 +2,8 @@
  * Contractor Operations' words (docs/contractor.md): what its pages, its refusals and the AI say, in one place so the
  * web, the phone and the Assistant read the same. Browser-safe and pure.
  */
+import { JOB_STATUS_WORDS as CORE_VISIT_STAGE_WORDS } from '../../schemas/job';
+import { requiredItemsWords, type ItemKind } from './checklists';
 import { marginWords, type CostKind, type OkReason } from './estimating';
 import type { JobKind, JobStatus, PhaseStatus } from './progress';
 
@@ -10,6 +12,7 @@ export const CONTRACTOR_NAME = 'Contractor Operations';
 /** Its pages in the side menu, which pop out of its one row. */
 export const CONTRACTOR_PAGES = {
   jobs: 'Jobs',
+  dispatch: 'Dispatch',
   estimates: 'Estimates',
   costs: 'Item costs',
   gear: 'Settings',
@@ -88,6 +91,52 @@ export const VISIT_STATUS_WORDS: Readonly<Record<string, string>> = {
   cancelled: 'Cancelled',
   no_show: 'No-show',
 };
+
+/** Where a visit stands, as its crew sets it in Calendar or on the phone: core's own words for it. */
+export const VISIT_STAGE_WORDS = CORE_VISIT_STAGE_WORDS;
+
+export const ITEM_KIND_WORDS: Readonly<Record<ItemKind, string>> = {
+  check: 'Checkbox',
+  photo: 'Photo',
+};
+
+/** "Ana, Ben and 2 more": a few names said in a sentence. */
+export function namesWords(names: readonly string[], most = 3): string {
+  const shown = names.slice(0, most);
+  const more = names.length - shown.length;
+  if (more > 0) return `${shown.join(', ')} and ${more} more`;
+  if (shown.length <= 1) return shown[0] ?? '';
+  return `${shown.slice(0, -1).join(', ')} and ${shown[shown.length - 1]}`;
+}
+
+/**
+ * The text a subcontractor gets about a visit (the owner's decision 7): who it's from, the job, where, when, what to
+ * do and what to bring. They don't sign in, so it says everything they need and that they can reply.
+ */
+export function subTextWords(t: {
+  readonly firstName: string | null;
+  readonly business: string;
+  readonly job: string;
+  readonly address: string | null;
+  readonly when: string;
+  readonly instructions: string | null;
+  readonly bring: string | null;
+  readonly note: string | null;
+}): string {
+  const clip = (text: string, max: number) =>
+    text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+  return [
+    `${t.firstName ? `Hi ${t.firstName}, ` : ''}${t.business} has you on a job: ${t.job}${
+      t.address ? ` at ${t.address}` : ''
+    }, ${t.when}.`,
+    t.instructions ? `Work to do: ${clip(t.instructions, 500)}` : null,
+    t.bring ? `Bring: ${clip(t.bring, 200)}` : null,
+    t.note || null,
+    'Reply here with any questions.',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
 
 /** "3 days late" · "1 day late". */
 export const lateWords = (days: number) => `${days} ${days === 1 ? 'day' : 'days'} late`;
@@ -182,6 +231,21 @@ export const CONTRACTOR_WORDS = {
     visits: 'Visits',
     visitsNone: 'No visits on this job yet.',
     bookVisit: 'Book a visit',
+    openWorkOrder: 'Work order',
+    notReady: {
+      title: 'Not ready to mark done',
+      left: (n: number) => `${requiredItemsWords(n)} still left on its work orders:`,
+      onVisit: (when: string) => `Visit of ${when}`,
+      finish: 'Finish them on each visit’s work order.',
+      askAdmin: 'Or ask an owner or admin to mark the job done anyway.',
+      skipTitle: 'Or mark it done anyway',
+      skipHint: 'Say why. The reason is kept on each item passed over, and on the job’s timeline.',
+      skipReason: 'Why',
+      skipReasonPlaceholder: 'The customer wasn’t home for the walkthrough',
+      skip: 'Mark done anyway',
+      skipped: 'Marked done, with the reason kept.',
+      close: 'Close',
+    },
     openRecord: 'Notes, files and tasks',
     phases: {
       title: 'Phases',
@@ -217,12 +281,165 @@ export const CONTRACTOR_WORDS = {
       saved: 'Budget saved.',
     },
   },
+  dispatch: {
+    title: CONTRACTOR_PAGES.dispatch,
+    lede: 'The day’s visits by person, what nobody is on yet, and where each visit stands.',
+    today: 'Today',
+    previous: 'Day before',
+    next: 'Day after',
+    pickDay: 'Day',
+    nobody: 'Nobody on it yet',
+    nobodyHint: 'Open a visit’s work order to put a crew on it.',
+    noVisits: 'No visits on jobs this day.',
+    subs: (done: number, total: number) =>
+      total === 1
+        ? `1 subcontractor${done ? ', done' : ''}`
+        : `${total} subcontractors, ${done} done`,
+    noWorkOrder: 'No work order yet',
+    needsVisit: 'Needs a visit',
+    needsVisitHint: 'Open jobs with nothing booked from today on.',
+    needsVisitNone: 'Every open job has a visit booked.',
+    book: 'Book a visit',
+    openJob: 'Open the job',
+    more: 'There are more visits this day than fit here. Open Calendar to see them all.',
+  },
+  workOrder: {
+    title: 'Work order',
+    when: 'When',
+    stage: 'Where it stands',
+    stageHint: 'Its crew sets this in Calendar or on their phones.',
+    job: 'Job',
+    workToDo: 'Work to do',
+    whoGoes: 'Who’s going',
+    crew: 'Crew',
+    noCrew: 'No crew',
+    crewHint:
+      'Picking a crew puts everyone in it on the visit, and its subcontractors on this work order.',
+    crewSet: (name: string) => `${name} is on the visit.`,
+    crewCleared: 'The crew’s name is off the visit. The people on it stay.',
+    crewAnyway: 'Put them on anyway',
+    crewAnywayTitle: 'Someone in the crew isn’t free then',
+    people: 'Team',
+    peopleNone: 'Nobody on the team is on this visit yet.',
+    subs: 'Subcontractors',
+    subsHint:
+      'Contacts who don’t sign in. Text them the job’s details, and mark their work when it’s done.',
+    subsNone: 'No subcontractors on this visit.',
+    addSub: 'Add a subcontractor',
+    subAdded: (name: string) => `${name} is on the visit.`,
+    removeSub: 'Take off the visit',
+    subRemoved: (name: string) => `${name} is off the visit.`,
+    tellSubs: 'Text them the details',
+    tellOne: 'Text the details',
+    tellNote: 'Add a line of your own (optional)',
+    tellNotePlaceholder: 'Park on the street, the driveway is being poured.',
+    tellSend: 'Send the text',
+    told: (names: string) => `Texted ${names}.`,
+    notToldTitle: 'Not texted',
+    toldAt: 'Texted',
+    notTold: 'Not texted yet',
+    noMobile: 'No mobile number',
+    subDone: 'Mark their work done',
+    subNotDone: 'Not done after all',
+    subDoneSaved: (name: string) => `${name}’s work is marked done.`,
+    subUndone: (name: string) => `${name}’s work is back to not done.`,
+    subWorkDone: 'Work done',
+    instructions: 'Instructions',
+    instructionsPlaceholder: 'What to do on this visit, where to park, who to ask for.',
+    noInstructions: 'Nothing written yet.',
+    bring: 'What to bring',
+    bringPlaceholder: 'Tools, parts, a ladder.',
+    noBring: 'Nothing listed yet.',
+    edit: 'Edit',
+    save: 'Save',
+    saved: 'Saved.',
+    cancel: 'Cancel',
+    checklist: 'Checklist',
+    checklistNone: 'Nothing on the checklist yet.',
+    addItem: 'Add an item',
+    addItemPlaceholder: 'Photo of the panel',
+    itemKind: 'Kind',
+    required: 'Required',
+    requiredHint: 'The job can’t be marked done while a required item is left.',
+    makeRequired: 'Make it required',
+    makeOptional: 'Make it optional',
+    addPhoto: 'Add a photo',
+    replacePhoto: 'Replace the photo',
+    seePhoto: 'See the photo',
+    photoAdded: 'Photo added.',
+    removeItem: 'Remove',
+    removeItemAsk: (label: string) =>
+      `Remove “${label}” from this visit’s checklist? The rest of the work order stays.`,
+    itemRemoved: (label: string) => `“${label}” is removed.`,
+    doneBy: (who: string | null) => (who ? `Done by ${who}` : 'Done'),
+    skipped: (who: string | null, reason: string) =>
+      `Passed over by ${who ?? 'an owner or admin'}: ${reason}`,
+    ready: 'Every required item is done.',
+    left: (n: number) => `${requiredItemsWords(n)} left before the job can be marked done.`,
+    closed: (status: string) =>
+      `The job is ${status.toLowerCase()}, so this work order can’t be changed.`,
+    cancelled: 'This visit was cancelled, so its work order can’t be changed.',
+    notStarted: 'This visit has no work order yet.',
+    start: 'Start its work order',
+    startHint: 'It starts with your checklist for a new visit.',
+    started: 'Its work order is started.',
+    quietAgain: 'Press Send again to send it anyway.',
+    openInCalendar: 'Open in Calendar',
+    untick: (label: string) => `Not done after all: ${label}`,
+    tick: (label: string) => `Done: ${label}`,
+    itemMenu: (label: string) => `More for ${label}`,
+    uploading: 'Adding the photo…',
+  },
+  crews: {
+    title: 'Crews',
+    hint: 'Named groups of your team and subcontractors. Putting a crew on a visit books everyone in it.',
+    none: 'No crews yet. Make one to book a whole team at once.',
+    add: 'New crew',
+    name: 'Crew name',
+    namePlaceholder: 'Install crew',
+    people: 'Team members',
+    peopleNone: 'Nobody on your team can use Contractor Operations yet.',
+    subs: 'Subcontractors',
+    subsHint: 'Contacts who don’t sign in. For a company, pick the person you deal with there.',
+    addSub: 'Add a subcontractor',
+    removeSub: 'Take out of the crew',
+    save: 'Save the crew',
+    saved: (name: string) => `${name} is saved.`,
+    edit: 'Edit',
+    archive: 'Archive',
+    archiveAsk: (name: string) =>
+      `Archive ${name}? Visits it worked keep its name, and you can bring it back from Show archived.`,
+    archived: (name: string) => `${name} is archived.`,
+    restore: 'Bring back',
+    restored: (name: string) => `${name} is back.`,
+    showArchived: 'Show archived',
+    size: (people: number, subs: number) =>
+      [
+        people ? `${people} on the team` : null,
+        subs ? `${subs} ${subs === 1 ? 'subcontractor' : 'subcontractors'}` : null,
+      ]
+        .filter(Boolean)
+        .join(', ') || 'Nobody in it yet',
+  },
+  checklistSettings: {
+    title: 'Checklist for a new visit',
+    hint: 'Every new work order starts with these. Leave it empty to use your first trade’s starter checklist.',
+    startFrom: (trade: string) => `Start from ${trade}`,
+    add: 'Add',
+    addPlaceholder: 'Photo of the finished work',
+    remove: 'Remove',
+    usesTrade: (trade: string, items: string) =>
+      `New visits use ${trade}’s starter checklist: ${items}.`,
+    usesPlain: (items: string) =>
+      `New visits start with ${items} until you pick a trade or add items here.`,
+    saveFirst: 'Press Save settings to keep it.',
+  },
   settings: {
     title: 'Settings',
-    lede: 'Your trades, and the phases a new project starts with.',
+    lede: 'Your trades, your crews, and what a new project and a new visit start with.',
     trades: 'Your trades',
     tradesHint:
-      'Pick every trade you do. Each brings its starter phases, and later its checklists and materials.',
+      'Pick every trade you do. Each brings its starter phases and checklist, and later its materials.',
     phases: 'Phases for a new project',
     phasesHint:
       'Every new project starts with these. Leave it empty to use your first trade’s starter phases.',
@@ -401,4 +618,41 @@ export const REFUSALS = {
       : `${why} Ask an owner or admin with Ask for an OK on the estimate, or raise its price.`,
   productGone:
     'That price list item isn’t there anymore. It may have been archived. Pick another from Settings → Products.',
+  visitGone: 'That visit isn’t there anymore. It may have been deleted. Refresh and try again.',
+  visitNotOnJob:
+    'That visit isn’t on a job, so it has no work order. Open the job and use Book a visit, or put the job on the visit in Calendar.',
+  visitCancelled: (title: string) =>
+    `“${title}” was cancelled, so its work order can’t change. Book a new visit on the job if the work is still going ahead.`,
+  crewGone:
+    'That crew isn’t there anymore. It may have been archived. Pick another, or make one in Contractor Operations → Settings → Crews.',
+  crewNameNeeded: 'Name the crew, such as Install crew or Crew A.',
+  crewNameTaken: (name: string) =>
+    `You already have a crew called “${name}”. Give this one another name.`,
+  tooManyCrews: (max: number) =>
+    `A business has ${max} crews at most. Archive one you no longer use first.`,
+  crewTooBigForVisit: (name: string, people: number, max: number) =>
+    `${name} has ${people} people on the team, and a visit takes ${max} at most. Take someone out of the crew in Settings → Crews, or book a second visit.`,
+  subGone:
+    'That contact isn’t there anymore. They may have been deleted. Pick another contact, or add them in Contacts first.',
+  subNotOnVisit: 'That contact isn’t a subcontractor on this visit. Add them to it first.',
+  tooManySubs: (max: number) => `A visit has ${max} subcontractors at most. Take one off first.`,
+  noSubs: 'This visit has no subcontractors to text. Add one first, or pick a crew that has some.',
+  subNoMobile: (name: string) =>
+    `${name} has no mobile number. Add one on their page in Contacts, then text them.`,
+  itemGone:
+    'That checklist item isn’t there anymore. Someone may have removed it. Refresh and try again.',
+  tooManyItems: (max: number) =>
+    `A checklist has ${max} items at most. Remove ones you don’t need first.`,
+  photoNeeded: (label: string) => `“${label}” needs a photo. Add the photo, and it’s marked done.`,
+  photoNotOnJob: (job: string) =>
+    `That photo isn’t on “${job}”. Add it from the work order, or upload it to the job’s files first.`,
+  notAPhoto: 'That file isn’t a picture. Add a photo, such as a JPG, PNG or HEIC.',
+  jobNotReady: (job: string, left: readonly string[], maySkip: boolean) =>
+    `“${job}” can’t be marked done yet: ${requiredItemsWords(left.length)} still left on its work orders (${namesWords(left)}). Finish ${left.length === 1 ? 'it' : 'them'} on the visit’s work order, ${
+      maySkip
+        ? 'or mark the job done anyway with a reason.'
+        : 'or ask an owner or admin to mark the job done anyway.'
+    }`,
+  skipNotAllowed:
+    'Only an owner or admin marks a job done with required items left. Ask one of them, or finish the items on the visit’s work order.',
 } as const;
