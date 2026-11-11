@@ -6,15 +6,19 @@ import { change } from '@/changes';
 import { openWebPath } from '@/home/open';
 import { workerPost } from '@/lib/worker';
 
+import { CalendarBody } from '../calendar';
 import { CreatorsBody, creatorsActions, type CreatorsActions } from '../creators';
 import { pageDetail, SocialcontentHomeBody } from '../home';
 import { IdeasBody } from '../ideas';
 import { SocialcontentMoreRow } from '../more';
+import { draftOf, PostBody, saveInput, type PostActions, type PostDraft } from '../own-post';
 import { PlaybookBody } from '../playbook';
 import { SettingsBody, settingsActions, type SettingsActions } from '../settings';
 import { StandoutsBody } from '../standouts';
 import {
   ago,
+  calendarView,
+  content,
   creator,
   id,
   idea,
@@ -29,10 +33,10 @@ import {
 } from './mocks';
 
 /**
- * AI Social Media Content Creator on the phone (docs/socialcontent.md, part 5): its one row in More, its first screen
- * listing its pages, Creators (what it's doing, niches, the three lists and a creator's posts), Standouts with their
- * filters, the Playbook, Ideas, and Settings, where watching videos asks again before it's turned on. Each says it
- * needs signal when there's none.
+ * AI Social Media Content Creator on the phone (docs/socialcontent.md, parts 5 and 12): its one row in More, its first
+ * screen listing its pages, Creators (what it's doing, niches, the three lists and a creator's posts), Standouts with
+ * their filters, the Playbook, Ideas, the Calendar and one of its posts, and Settings, where watching videos asks again
+ * before it's turned on. Each says it needs signal when there's none.
  */
 
 jest.mock('expo-router', () => ({
@@ -50,6 +54,9 @@ jest.mock('@/changes', () => ({
 jest.mock('@/lib/worker', () => ({ workerPost: jest.fn(async () => ({ added: 2 })) }));
 jest.mock('@/home/open', () => ({ openWebPath: jest.fn() }));
 jest.mock('expo-linking', () => ({ openURL: jest.fn(async () => true) }));
+jest.mock('@/inbox/storage', () => ({
+  signedUrl: jest.fn(async () => 'https://storage.test/picture.jpg'),
+}));
 jest.mock('@/components/shell/screen', () => ({
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   Screen: require('./mocks').TestScreen,
@@ -83,16 +90,19 @@ describe('its row in More and its first screen', () => {
     expect(openWebPath).toHaveBeenCalledWith(`/app/w/${WS}/a/socialcontent`);
   });
 
-  it('lists its five pages with their counts, and opens each', async () => {
+  it('lists its six pages with their counts, and opens each', async () => {
     const onOpen = jest.fn();
     await render(<SocialcontentHomeBody overview={overview()} onOpen={onOpen} />);
-    for (const page of ['creators', 'standouts', 'playbook', 'ideas', 'settings'])
+    for (const page of ['creators', 'standouts', 'playbook', 'ideas', 'calendar', 'settings'])
       expect(screen.getByTestId(`socialcontent-open-${page}`)).toBeTruthy();
     expect(screen.getByText('1 creator studied · 2 to tick')).toBeTruthy();
     expect(screen.getByText('4 standouts')).toBeTruthy();
     expect(screen.queryByTestId('socialcontent-home-needs-reader')).toBeNull();
+    expect(screen.getByText('Your own posts, two weeks ahead, and how they did')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('socialcontent-open-standouts'));
     expect(onOpen).toHaveBeenCalledWith('standouts');
+    await fireEvent.press(screen.getByTestId('socialcontent-open-calendar'));
+    expect(onOpen).toHaveBeenCalledWith('calendar');
   });
 
   it('still lists the pages with no signal, and says when no computer reads', async () => {
@@ -558,5 +568,237 @@ describe('Settings', () => {
     // The last network on is never turned off.
     actions.setNetwork('instagram', false);
     expect(change).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('the Calendar', () => {
+  const today = new Date(NOW).toISOString().slice(0, 10);
+  const tomorrow = new Date(NOW + 24 * 60 * 60_000).toISOString().slice(0, 10);
+  const went = content(32, {
+    title: 'Three things to check',
+    state: 'posted',
+    postAt: ago(3 * 24 * 60),
+    postedAt: ago(3 * 24 * 60),
+    postedTo: [{ place: 'feed', link: 'https://www.instagram.com/p/DAbc/', at: ago(3 * 24 * 60) }],
+    numbers: {
+      feed: { d2: { at: ago(24 * 60), days: 2, views: 820, likes: 41, comments: 3, shares: 2 } },
+    },
+  });
+  const body = (props: Partial<React.ComponentProps<typeof CalendarBody>> = {}) => (
+    <CalendarBody
+      data={calendarView({
+        posts: [content(30, { title: 'Porch season' })],
+        undated: [content(31, { title: 'Moving checklist', postAt: null })],
+        open: [{ network: 'facebook', date: tomorrow, at: `${tomorrow}T12:00:00.000Z` }],
+        recent: [went],
+      })}
+      error={null}
+      online
+      busy={null}
+      now={NOW}
+      onRetry={jest.fn()}
+      onOpen={jest.fn()}
+      onFill={jest.fn()}
+      onOkWeek={jest.fn()}
+      onWrite={jest.fn()}
+      {...props}
+    />
+  );
+
+  it('shows its posts by day, the open days, posts with no day and what went up lately', async () => {
+    const onOpen = jest.fn();
+    const onWrite = jest.fn();
+    await render(body({ onOpen, onWrite }));
+    expect(screen.getByTestId('socialcontent-calendar-filled')).toHaveTextContent(
+      /^Filled .* fills again in 5 days$/,
+    );
+    const day = screen.getByTestId(`socialcontent-day-${tomorrow}`);
+    expect(within(day).getByText('Porch season')).toBeTruthy();
+    expect(within(day).getByText('Facebook at 12:00 PM')).toBeTruthy();
+    expect(screen.queryByTestId(`socialcontent-day-${today}`)).toBeNull();
+    expect(
+      within(screen.getByTestId('socialcontent-undated')).getByText('Moving checklist'),
+    ).toBeTruthy();
+    expect(screen.getByTestId(`socialcontent-post-${id(32)}-numbers`)).toHaveTextContent(
+      'After 2 days: 820 views · 41 likes · 3 comments · 2 shares',
+    );
+    await fireEvent.press(screen.getByTestId(`socialcontent-post-${id(30)}`));
+    expect(onOpen).toHaveBeenCalledWith(id(30));
+    await fireEvent.press(screen.getByTestId(`socialcontent-open-write-facebook-${tomorrow}`));
+    expect(onWrite).toHaveBeenCalledWith(
+      'facebook',
+      `${tomorrow}T12:00:00.000Z`,
+      `open:facebook:${tomorrow}`,
+    );
+  });
+
+  it('fills, OKs the week while there are drafts, and writes one', async () => {
+    const onFill = jest.fn();
+    const onOkWeek = jest.fn();
+    const onWrite = jest.fn();
+    await render(body({ onFill, onOkWeek, onWrite }));
+    await fireEvent.press(screen.getByTestId('socialcontent-calendar-fill'));
+    expect(onFill).toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('socialcontent-calendar-ok-week'));
+    expect(onOkWeek).toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('socialcontent-calendar-write'));
+    expect(onWrite).toHaveBeenCalledWith(null, null, 'write');
+    await render(body({ data: calendarView({ posts: [content(30, { state: 'ready' })] }) }));
+    expect(screen.queryByTestId('socialcontent-calendar-ok-week')).toBeNull();
+  });
+
+  it('says how to start when it’s empty, and can’t press anything with no signal', async () => {
+    await render(body({ data: calendarView(), online: false }));
+    expect(screen.getByTestId('socialcontent-calendar-empty')).toHaveTextContent(
+      /Fill the calendar/,
+    );
+    expect(screen.getByTestId('socialcontent-calendar-fill')).toBeDisabled();
+    expect(screen.getByTestId('socialcontent-calendar-write')).toBeDisabled();
+  });
+
+  it('says it needs signal with none, with Try again', async () => {
+    const onRetry = jest.fn();
+    await render(body({ data: null, error: 'The Calendar needs signal.', onRetry }));
+    expect(screen.getByTestId('socialcontent-calendar-needs-signal')).toHaveTextContent(
+      /^The Calendar needs signal\.Try again$/,
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-retry'));
+    expect(onRetry).toHaveBeenCalled();
+  });
+});
+
+describe('one of its posts', () => {
+  function actionsMock(): jest.Mocked<PostActions> {
+    return {
+      save: jest.fn(async (_d: PostDraft): Promise<unknown> => undefined),
+      approve: jest.fn(),
+      postNow: jest.fn(),
+      skip: jest.fn(),
+      rewrite: jest.fn(),
+      makePicture: jest.fn(),
+      add: jest.fn(),
+      remove: jest.fn(),
+      share: jest.fn(),
+    };
+  }
+  const body = (props: Partial<React.ComponentProps<typeof PostBody>> = {}) => (
+    <PostBody
+      post={content(40, { title: 'Porch season' })}
+      timeZone="UTC"
+      facebookPage={null}
+      error={null}
+      online
+      busy={null}
+      uploading={false}
+      onRetry={jest.fn()}
+      actions={actionsMock()}
+      {...props}
+    />
+  );
+
+  it('OKs a draft, says what it still needs, and saves what’s changed instead', async () => {
+    const actions = actionsMock();
+    await render(
+      body({ actions, post: content(40, { title: 'Porch season', stillNeeds: 'Add a picture.' }) }),
+    );
+    expect(screen.getByTestId('screen-title')).toHaveTextContent('Porch season');
+    expect(screen.getByTestId('socialcontent-post-still-needs')).toHaveTextContent(
+      'Add a picture.',
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-post-ok'));
+    expect(actions.approve).toHaveBeenCalledWith(true);
+    await fireEvent.changeText(screen.getByTestId('socialcontent-post-words'), 'New words.');
+    expect(screen.queryByTestId('socialcontent-post-ok')).toBeNull();
+    await fireEvent.press(screen.getByTestId('socialcontent-post-save'));
+    expect(actions.save).toHaveBeenCalledWith(expect.objectContaining({ words: 'New words.' }));
+  });
+
+  it('puts an OK’d post up now or takes the OK back, and skips or brings one back', async () => {
+    const actions = actionsMock();
+    await render(body({ actions, post: content(40, { state: 'ready', approvedAt: ago(5) }) }));
+    await fireEvent.press(screen.getByTestId('socialcontent-post-now'));
+    expect(actions.postNow).toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('socialcontent-post-unok'));
+    expect(actions.approve).toHaveBeenCalledWith(false);
+    await fireEvent.press(screen.getByTestId('socialcontent-post-skip'));
+    expect(actions.skip).toHaveBeenCalledWith(true);
+    await render(body({ actions, post: content(41, { state: 'skipped' }) }));
+    await fireEvent.press(screen.getByTestId('socialcontent-post-restore'));
+    expect(actions.skip).toHaveBeenCalledWith(false);
+  });
+
+  it('asks for the Facebook Page first, and takes the person’s video for a video post', async () => {
+    const actions = actionsMock();
+    await render(
+      body({
+        actions,
+        post: content(40, { network: 'facebook', format: 'video', facebookWhere: ['page'] }),
+      }),
+    );
+    expect(
+      screen.getByText('Add your Facebook Page’s link in Settings → Posting first.'),
+    ).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('socialcontent-post-add-video'));
+    expect(actions.add).toHaveBeenCalledWith(true);
+    expect(screen.getByTestId('socialcontent-post-add-video')).toHaveTextContent('Add your video');
+  });
+
+  it('makes its picture, adds the person’s photos, and has it written again', async () => {
+    const actions = actionsMock();
+    await render(body({ actions }));
+    await fireEvent.press(screen.getByTestId('socialcontent-post-make-photo'));
+    expect(actions.makePicture).toHaveBeenCalledWith('photo', '');
+    await fireEvent.press(screen.getByTestId('socialcontent-post-add-photo'));
+    expect(actions.add).toHaveBeenCalledWith(false);
+    await fireEvent.changeText(screen.getByTestId('socialcontent-post-rewrite-ask'), 'Shorter');
+    await fireEvent.press(screen.getByTestId('socialcontent-post-rewrite'));
+    expect(actions.rewrite).toHaveBeenCalledWith('Shorter');
+  });
+
+  it('shows where a post went up and how it did, with nothing left to change', async () => {
+    await render(
+      body({
+        post: content(40, {
+          state: 'posted',
+          postedAt: ago(8 * 24 * 60),
+          postedTo: [{ place: 'feed', link: 'https://www.instagram.com/p/DAbc/', at: ago(60) }],
+          numbers: {
+            feed: {
+              d2: { at: ago(60), days: 2, views: 820, likes: 41, comments: 3, shares: 2 },
+              d7: { at: ago(30), days: 7, failure: 'Instagram didn’t show the post.' },
+            },
+          },
+          doneWell: { place: 'feed', on: 'views', times: 3.2, at: ago(30) },
+        }),
+      }),
+    );
+    expect(screen.getByTestId('socialcontent-post-went')).toHaveTextContent(/Posted/);
+    expect(screen.getByTestId('socialcontent-post-numbers')).toHaveTextContent(
+      /After 2 days: 820 views.*After 7 days: couldn’t read its numbers.*It did well: 3.2 times your usual views/,
+    );
+    expect(screen.queryByTestId('socialcontent-post-actions')).toBeNull();
+  });
+
+  it('saves the day and time in the business’s time zone, and no day as none', () => {
+    const p = content(40, { postAt: '2026-11-12T15:00:00.000Z' });
+    const d = draftOf(p, 'America/Chicago');
+    expect(d).toMatchObject({ day: '2026-11-12', time: '09:00' });
+    expect(saveInput(p, { ...d, time: '10:30' }, 'America/Chicago')).toMatchObject({
+      postId: id(40),
+      postAt: '2026-11-12T16:30:00.000Z',
+      hashtags: ['homes'],
+      script: null,
+    });
+    expect(saveInput(p, { ...d, day: '' }, 'America/Chicago').postAt).toBeNull();
+  });
+
+  it('says it needs signal with none, with Try again', async () => {
+    const onRetry = jest.fn();
+    await render(body({ post: null, error: 'This post needs signal.', onRetry }));
+    expect(screen.getByTestId('socialcontent-post-needs-signal')).toHaveTextContent(
+      /^This post needs signal\.Try again$/,
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-retry'));
+    expect(onRetry).toHaveBeenCalled();
   });
 });

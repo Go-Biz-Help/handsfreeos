@@ -7,6 +7,7 @@ import type {
   Post,
   Work,
 } from '@hfos/core/addons/socialcontent/shapes';
+import type { CalendarView, Content } from '@hfos/core/addons/socialcontent/content-shapes';
 import * as React from 'react';
 import type * as ReactNative from 'react-native';
 
@@ -192,6 +193,72 @@ export function work(n: number, over: Partial<Work> = {}): Work {
     createdAt: ago(30),
     takenAt: null,
     finishedAt: null,
+    ...over,
+  };
+}
+
+/** One of the business's own posts, a draft for Instagram tomorrow unless told otherwise. */
+export function content(n: number, over: Partial<Content> = {}): Content {
+  return {
+    id: id(n),
+    title: `Post ${n}`,
+    network: 'instagram',
+    format: 'photo',
+    words: `The words of post ${n}.`,
+    hook: null,
+    hashtags: ['homes'],
+    slides: [],
+    script: null,
+    picture: 'A front porch at dusk',
+    pictureWay: 'design',
+    pictureState: 'made',
+    pictureFailure: null,
+    pictures: [],
+    facebookWhere: ['profile'],
+    state: 'draft',
+    postAt: new Date(NOW + 24 * 60 * 60_000).toISOString(),
+    approvedBy: null,
+    approvedAt: null,
+    postedAt: null,
+    postLink: null,
+    postedTo: [],
+    numbers: {},
+    doneWell: null,
+    failure: null,
+    madeBy: 'ai',
+    ideaId: null,
+    stillNeeds: null,
+    createdAt: ago(60),
+    updatedAt: ago(30),
+    ...over,
+  };
+}
+
+/** The Calendar as `socialcontent.calendar.get` answers it: two weeks from today, in UTC. */
+export function calendarView(over: Partial<CalendarView> = {}): CalendarView {
+  const today = new Date(NOW).toISOString().slice(0, 10);
+  return {
+    timeZone: 'UTC',
+    today,
+    from: today,
+    days: 15,
+    plan: {
+      instagram: { perWeek: 3, time: '09:00' },
+      facebook: { perWeek: 3, time: '12:00' },
+      linkedin: { perWeek: 2, time: '08:00' },
+    },
+    open: [],
+    posts: [],
+    undated: [],
+    recent: [],
+    filledAt: ago(120),
+    nextFillAt: new Date(NOW + 5 * 24 * 60 * 60_000).toISOString(),
+    ideasSaved: 0,
+    ready: 0,
+    poster: { name: 'Chris', mine: true, seenAt: ago(1), version: '0.134.0' },
+    postsOn: ['facebook', 'linkedin', 'instagram'],
+    facebookPage: null,
+    mayManage: true,
     ...over,
   };
 }

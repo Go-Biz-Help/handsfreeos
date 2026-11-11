@@ -16,6 +16,9 @@ const EXT_TYPES: Record<string, string> = {
   heif: 'image/heif',
   csv: 'text/csv',
   txt: 'text/plain',
+  mp4: 'video/mp4',
+  mov: 'video/quicktime',
+  webm: 'video/webm',
 };
 
 /**

@@ -3,6 +3,10 @@
  * Assistant's places (./ai-places.ts) name the screens in them. Plain words, short sentences, curly apostrophes.
  * Browser-safe and pure.
  */
+import { addDays, localDateOf, zonedParts } from '../../calendar/engine/zoned';
+import { fmtDateLong, fmtDateShort, fmtTime } from '../../calendar/when';
+import type { PostedTo, PostPlace } from './calendar';
+import { hasNumbers, OWN, type DoneWell, type OwnNumbers, type OwnNumbersRead } from './own';
 import { DONE_WELL, STANDOUT } from './standouts';
 
 /** Its pages, which pop out of its one row in the side menu. */
@@ -44,6 +48,65 @@ export function momentAgo(
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${count(hours, 'hour')} ago`;
   return daysAgo(at, now);
+}
+
+/** "9:00 AM" from "09:00". */
+export function clockShown(time: string): string {
+  const [h, m] = time.split(':').map(Number);
+  const hour = ((h! + 11) % 12) + 1;
+  return `${hour}:${String(m).padStart(2, '0')} ${h! < 12 ? 'AM' : 'PM'}`;
+}
+
+/** "Wed, Nov 12, 9:00 AM" (or just "9:00 AM") in the business's time zone, by core's calendar words. */
+export function timeShown(at: string, timeZone: string, withDay = false): string {
+  const clock = fmtTime(at, timeZone);
+  return withDay ? `${fmtDateShort(localDateOf(Date.parse(at), timeZone))}, ${clock}` : clock;
+}
+
+/** A moment's time of day in the business's zone, "HH:MM", as a post's time is picked. */
+export function clockOf(at: string, timeZone: string): string {
+  const p = zonedParts(Date.parse(at), timeZone);
+  return `${String(p.hour).padStart(2, '0')}:${String(p.minute).padStart(2, '0')}`;
+}
+
+/** A day on the Calendar: "Today", "Tomorrow", else "Wednesday, November 12". */
+export function dayShown(date: string, today: string): string {
+  const C = SOCIALCONTENT_WORDS.calendar;
+  if (date === today) return C.today;
+  if (date === addDays(today, 1)) return C.tomorrow;
+  return fmtDateLong(date);
+}
+
+/** "in 6 days", "tomorrow", "today". */
+export function daysUntil(at: string, now: number = Date.now()): string {
+  const days = Math.ceil((Date.parse(at) - now) / 86_400_000);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'tomorrow';
+  return `in ${days} days`;
+}
+
+/** When the Calendar was filled and fills again, or how to fill it the first time. */
+export function filledLine(
+  c: { readonly filledAt: string | null; readonly nextFillAt: string | null },
+  now: number = Date.now(),
+): string {
+  const C = SOCIALCONTENT_WORDS.calendar;
+  return c.filledAt
+    ? C.filled(daysAgo(c.filledAt, now), c.nextFillAt ? daysUntil(c.nextFillAt, now) : null)
+    : C.neverFilled;
+}
+
+/** The plan in a line: "Your plan: Instagram: 3 posts a week at 9:00 AM · … Change the plan in Settings." */
+export function planShown(
+  plan: Readonly<Record<string, { readonly perWeek: number; readonly time: string }>>,
+  networks: readonly string[],
+  networkNameOf: (network: string) => string,
+): string {
+  const C = SOCIALCONTENT_WORDS.calendar;
+  const lines = networks
+    .filter((n) => plan[n])
+    .map((n) => C.planLine(networkNameOf(n), plan[n]!.perWeek, clockShown(plan[n]!.time)));
+  return `${C.plan}: ${lines.join(' · ')}. ${C.planEdit}`;
 }
 
 /** The reading computer counts as there when it asked for work in the last few minutes (it asks each minute). */
@@ -97,6 +160,62 @@ export function postingLines(
   }
   if (later.length)
     out.push({ text: SOCIALCONTENT_WORDS.calendar.laterOn(later.join(' and ')), warn: false });
+  return out;
+}
+
+/** A read's numbers in a line: "1,240 views · 86 likes · 9 comments", only those the network showed. */
+export function numbersLine(r: OwnNumbersRead): string {
+  if (!hasNumbers(r)) return SOCIALCONTENT_WORDS.post.numbers.couldnt(r.failure);
+  const parts = [
+    r.views !== null ? count(r.views, 'view') : null,
+    r.likes !== null ? count(r.likes, 'like') : null,
+    r.comments !== null ? count(r.comments, 'comment') : null,
+    r.shares !== null ? count(r.shares, 'share') : null,
+  ].filter((p): p is string => p !== null);
+  return parts.length ? parts.join(' · ') : SOCIALCONTENT_WORDS.post.numbers.noneShown;
+}
+
+/**
+ * How one of the business's own posts did (part 11), in lines to show: each place it went up, its numbers after about
+ * 2 days and about 7, and whether it did well against the business's own others (`well`). Before its first read it
+ * says when they're read; nothing for a post that hasn't gone up. The web and the phone both show these.
+ */
+export function numbersLines(
+  c: {
+    readonly network: string;
+    readonly postedTo: readonly PostedTo[];
+    readonly numbers: OwnNumbers;
+    readonly doneWell: DoneWell | null;
+  },
+  networkNameOf: (network: string) => string,
+): { text: string; well: boolean }[] {
+  const W = SOCIALCONTENT_WORDS.post;
+  if (!c.postedTo.length) return [];
+  const several = c.postedTo.length > 1;
+  const where = (place: PostPlace) =>
+    place === 'feed' ? W.wentUp.feed(networkNameOf(c.network)) : W.wentUp[place];
+  const out: { text: string; well: boolean }[] = [];
+  for (const p of c.postedTo) {
+    const reads = c.numbers[p.place] ?? {};
+    for (const r of [reads.d2, reads.d7]) {
+      if (!r) continue;
+      const line = `${W.numbers.after(r.days)}: ${numbersLine(r)}`;
+      out.push({
+        text: several ? `${where(p.place)}, ${line.charAt(0).toLowerCase()}${line.slice(1)}` : line,
+        well: false,
+      });
+    }
+  }
+  if (!out.length) return [{ text: W.numbers.soon, well: false }];
+  if (c.doneWell)
+    out.push({
+      text: W.numbers.doneWell(
+        c.doneWell.times,
+        c.doneWell.on,
+        several ? where(c.doneWell.place) : null,
+      ),
+      well: true,
+    });
   return out;
 }
 
@@ -236,7 +355,7 @@ export const SOCIALCONTENT_WORDS = {
   playbook: {
     title: 'Playbook',
     intro:
-      'What works for the creators you study, written by the AI from its notes on their standouts. Use it to plan your own posts.',
+      'What works for the creators you study, and for your own posts that did best, written by the AI from its notes on their standouts. Use it to plan your own posts.',
     none: 'No Playbook yet. Once a few standouts have the AI’s notes, it writes one here.',
     write: 'Write it again',
     writing: 'Writing…',
@@ -244,6 +363,7 @@ export const SOCIALCONTENT_WORDS = {
     written: (when: string, n: number) => `Written ${when} from ${count(n, 'standout')}.`,
     newSince: (n: number) => `${count(n, 'standout')} noted since.`,
     examples: 'From',
+    yourPost: 'Your post',
     nothingToWrite:
       'There’s nothing to write a Playbook from yet: no standout has the AI’s notes. Study creators first, then their standouts get notes on their own.',
   },
@@ -401,6 +521,7 @@ export const SOCIALCONTENT_WORDS = {
     laterOn: (networks: string) =>
       `Posting on ${networks} comes in a later update: copy those and post them yourself until then.`,
     empty: 'No posts yet. Fill the calendar, or write one from an idea under Ideas.',
+    recent: 'Went up lately',
     today: 'Today',
     tomorrow: 'Tomorrow',
   },
@@ -453,8 +574,11 @@ export const SOCIALCONTENT_WORDS = {
     upload: 'Add your photo',
     uploading: 'Adding…',
     remove: 'Remove',
-    videoLater:
-      'Record the video from the script. Adding the video and posting it comes with Instagram posting, in a later update.',
+    video: 'Your video',
+    addVideo: 'Add your video',
+    otherVideo: 'Use another video',
+    videoHint:
+      'Record the video from the script, then add it here. Up to 25 MB: about a minute at 720p. Your phone can make it smaller when you share it.',
     facebookWhere: 'Where on Facebook',
     facebookWhereOptions: { profile: 'Your profile', page: 'Your Page' },
     when: 'When it goes',
@@ -481,6 +605,15 @@ export const SOCIALCONTENT_WORDS = {
       feed: (network: string) => `On ${network}`,
     },
     didntPost: 'Didn’t post',
+    numbers: {
+      title: 'How it did',
+      after: (days: number) => `After ${days === 1 ? '1 day' : `${days} days`}`,
+      soon: `Its numbers are read ${OWN.firstDays} and ${OWN.secondDays} days after it went up.`,
+      noneShown: 'no numbers shown',
+      couldnt: (why: string) => `couldn’t read its numbers. ${why}`,
+      doneWell: (times: number, on: 'views' | 'engagement' | 'both', where: string | null) =>
+        `It did well: ${times} times your usual ${on === 'views' ? 'views' : on === 'both' ? 'views, likes and comments' : 'likes and comments'}${where ? ` ${where.charAt(0).toLowerCase()}${where.slice(1)}` : ''}. It goes into the Playbook.`,
+    },
     tryAgain:
       'Fix what it says, then press Post it now. Places it already went up in are left out, so it never goes up twice there.',
     copy: 'Copy the words',
@@ -503,7 +636,7 @@ export const SOCIALCONTENT_WORDS = {
   },
   /** The phone's screens (part 5): its one row under More, its first screen's pages, and what needs signal there. */
   phone: {
-    more: 'Creators, standout posts, the Playbook and ideas',
+    more: 'Creators, standout posts, the Playbook, ideas and your Calendar',
     pages: {
       creators: (studying: number, suggested: number) =>
         [
@@ -515,6 +648,7 @@ export const SOCIALCONTENT_WORDS = {
       standouts: (n: number) => (n ? count(n, 'standout') : 'Posts that beat their normal'),
       playbook: 'What works for the creators you study',
       ideas: 'Ideas for your own posts',
+      calendar: 'Your own posts, two weeks ahead, and how they did',
       gear: 'Networks, whose computer reads, and watching videos',
     },
     needsSignal: (screen: string) => `${screen} needs signal. Try again when you’re back online.`,
@@ -529,6 +663,8 @@ export const SOCIALCONTENT_WORDS = {
     watchAsk: 'Turn on watching videos?',
     watchYes: 'Turn it on',
     watchKeep: 'Keep it off',
+    /** A post's words handed to the phone's share sheet (Copy, or the network's own app). */
+    shareWords: 'Share the words',
   },
   /** What HandsFreeOS says about a post that didn't go up (part 9), on the post and the Calendar. */
   posting: {

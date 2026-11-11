@@ -119,6 +119,8 @@ const POST_SELECT = sql`
   join app.custom_records r on r.id = c.record_id and r.archived_at is null`;
 
 type RawRow = Record<string, unknown> & { title: string };
+const isPlainObject = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
 const asDate = (v: unknown): Date | null =>
   v === null || v === undefined ? null : v instanceof Date ? v : new Date(String(v));
 
@@ -152,6 +154,11 @@ function fromRaw(r: RawRow): ContentRow {
     madeBy: r['made_by'] as ContentRow['madeBy'],
     postingAt: asDate(r['posting_at']),
     postedTo: Array.isArray(r['posted_to']) ? (r['posted_to'] as ContentRow['postedTo']) : [],
+    numbers: isPlainObject(r['numbers']) ? (r['numbers'] as ContentRow['numbers']) : {},
+    checksDueAt: asDate(r['checks_due_at']),
+    doneWell: isPlainObject(r['done_well'])
+      ? (r['done_well'] as unknown as ContentRow['doneWell'])
+      : null,
     createdBy: (r['created_by'] as string | null) ?? null,
     createdAt: asDate(r['created_at'])!,
     updatedAt: asDate(r['updated_at'])!,
@@ -235,6 +242,8 @@ export async function contentOut(ctx: Ctx, list: readonly ContentRow[]): Promise
       postedAt: c.postedAt?.toISOString() ?? null,
       postLink: c.postLink,
       postedTo: Array.isArray(c.postedTo) ? c.postedTo : [],
+      numbers: isPlainObject(c.numbers) ? c.numbers : {},
+      doneWell: c.doneWell ?? null,
       failure: c.failure,
       madeBy: c.madeBy,
       ideaId: c.ideaId,
@@ -244,6 +253,7 @@ export async function contentOut(ctx: Ctx, list: readonly ContentRow[]): Promise
         words: c.words,
         slides: Array.isArray(c.slides) ? c.slides : [],
         fileIds: pictures.map((p) => p.fileId),
+        videos: pictures.filter((p) => p.mimeType?.startsWith('video/')).length,
         postAt: c.postAt,
         facebookWhere: c.facebookWhere,
         facebookPage: s.facebookPage,
@@ -275,10 +285,13 @@ function rangeOf(from: string, days: number, timeZone: string) {
 
 // ------------------------------------------------------------------------------------------------ reading
 
+/** How far back the Calendar lists what went up (part 11). */
+const RECENT_DAYS = 30;
+
 export const calendarGet = defineAddonQuery(socialcontentAddon, {
   name: 'socialcontent.calendar.get',
   description:
-    'The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled and fills again on its own; and how many ideas are saved to write from.',
+    'The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled and fills again on its own; and how many ideas are saved to write from.',
   input: CalendarGetInput,
   output: CalendarGetOutput,
   permission: 'socialcontent.use',
@@ -301,6 +314,14 @@ export const calendarGet = defineAddonQuery(socialcontentAddon, {
       ctx,
       sql`c.post_at is null and c.state = 'draft' order by c.created_at desc limit 50`,
     );
+    // What went up in the 30 days before these days, with how each did (part 11).
+    const recent = await readPosts(
+      ctx,
+      sql`jsonb_array_length(c.posted_to) > 0
+          and (c.post_at is null or c.post_at < ${start.toISOString()}::timestamptz)
+          and coalesce(c.posted_at, c.updated_at) > ${new Date(now - RECENT_DAYS * 86_400_000).toISOString()}::timestamptz
+          order by coalesce(c.posted_at, c.updated_at) desc limit 20`,
+    );
     const ahead = Math.max(0, daysBetween(today, end) - 1);
     const open = emptySlots(slotsAhead(s.plan, timeZone, now, ahead), inRange, timeZone).filter(
       (slot) => slot.date >= from && slot.date < end,
@@ -322,6 +343,7 @@ export const calendarGet = defineAddonQuery(socialcontentAddon, {
       open: open.map((o) => ({ ...o, at: new Date(o.at).toISOString() })),
       posts: await contentOut(ctx, inRange),
       undated: await contentOut(ctx, undated),
+      recent: await contentOut(ctx, recent),
       filledAt: s.filledAt,
       nextFillAt: s.filledAt
         ? new Date(new Date(s.filledAt).getTime() + CALENDAR.everyDays * 86_400_000).toISOString()
@@ -346,7 +368,7 @@ export const calendarGet = defineAddonQuery(socialcontentAddon, {
 export const contentGet = defineAddonQuery(socialcontentAddon, {
   name: 'socialcontent.content.get',
   description:
-    'One of the business’s own posts: its network, format, title, words, hook, hashtags, a carousel’s slides or a video’s script, what its picture shows and how it’s made (designed by the AI, a photo-style picture from the AI, or the person’s own), its pictures, where on Facebook it goes, when it goes, whether it’s waiting for an OK, OK’d, posted or skipped, and what it still needs before it can be OK’d.',
+    'One of the business’s own posts: its network, format, title, words, hook, hashtags, a carousel’s slides or a video’s script, what its picture shows and how it’s made (designed by the AI, a photo-style picture from the AI, or the person’s own), its pictures, where on Facebook it goes, when it goes, whether it’s waiting for an OK, OK’d, posted or skipped, what it still needs before it can be OK’d, and once it went up: where, its links, its numbers about 2 and 7 days after (views, likes, comments, shares) and whether it did well against the business’s own other posts.',
   input: ContentGetInput,
   output: ContentShape,
   permission: 'socialcontent.use',
@@ -511,13 +533,13 @@ async function okOne(
 ): Promise<string | null> {
   if (c.state === 'ready') return null;
   if (c.state === 'skipped') return POST_REFUSALS.skipped;
-  const pictures = await rows<{ id: string }>(
+  const pictures = await rows<{ id: string; mime_type: string | null }>(
     ctx.tx,
     c.fileIds.length
-      ? sql`select id from app.files where workspace_id = ${ctx.scope.workspaceId!}
+      ? sql`select id, mime_type from app.files where workspace_id = ${ctx.scope.workspaceId!}
               and id = any(${`{${c.fileIds.join(',')}}`}::uuid[]) and record_id = ${c.recordId}::uuid
               and status = 'ready' and deleted_at is null`
-      : sql`select null::uuid as id where false`,
+      : sql`select null::uuid as id, null::text as mime_type where false`,
   );
   const needs = stillNeeds({
     network: c.network,
@@ -525,6 +547,7 @@ async function okOne(
     words: c.words,
     slides: Array.isArray(c.slides) ? c.slides : [],
     fileIds: pictures.map((p) => p.id),
+    videos: pictures.filter((p) => p.mime_type?.startsWith('video/')).length,
     postAt: c.postAt,
     facebookWhere: c.facebookWhere,
     facebookPage,
