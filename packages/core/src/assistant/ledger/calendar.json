@@ -1,14 +1,14 @@
 {
   "area": "calendar",
   "title": "Calendar, appointments, My calendar and booking links",
-  "checkedOn": "2026-11-06",
+  "checkedOn": "2026-11-11",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/calendar.tsx": "bf2926675f7a",
-    "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx": "7a7a367c0039",
+    "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx": "b914706a7c70",
     "apps/mobile/src/calendar/actions.ts": "f893cebae555",
     "apps/mobile/src/calendar/outbox.ts": "73e8c8f98bf3",
-    "apps/mobile/src/calendar/queries.ts": "10675bcf4b4f",
-    "apps/mobile/src/calendar/use-calendar.ts": "836aec94e9a7",
+    "apps/mobile/src/calendar/queries.ts": "c05679afc32a",
+    "apps/mobile/src/calendar/use-calendar.ts": "47e9ea68c779",
     "apps/mobile/src/components/calendar/agenda-row.tsx": "c76bdd395ae8",
     "apps/mobile/src/components/calendar/calendar-header.tsx": "ebc11c76fd43",
     "apps/mobile/src/components/calendar/chips.tsx": "269d98ff254a",
@@ -16,7 +16,7 @@
     "apps/mobile/src/components/calendar/meeting.tsx": "7e27ce36c5fe",
     "apps/mobile/src/components/calendar/month-grid.tsx": "ba9c859f8c55",
     "apps/mobile/src/components/calendar/new-appointment.tsx": "5ac5d024710c",
-    "apps/mobile/src/components/calendar/visit-job.tsx": "b1d467dbf225",
+    "apps/mobile/src/components/calendar/visit-job.tsx": "cf3e380beec3",
     "apps/mobile/src/components/calendar/zone-chips.tsx": "df1b3ae5b12a",
     "apps/mobile/src/components/safety/check-in-sheet.tsx": "e0da61398345",
     "apps/web/src/app/app/w/[workspaceId]/calendar/page.tsx": "6713bd1eb1f4",
@@ -41,14 +41,14 @@
     "apps/web/src/components/calendar/add-attendee-dialog.tsx": "502e321ab7da",
     "apps/web/src/components/calendar/agenda.tsx": "5a875937bc8b",
     "apps/web/src/components/calendar/appointment-dialog.tsx": "58903c5b87de",
-    "apps/web/src/components/calendar/appointment-sheet.tsx": "9e0c61e626f9",
+    "apps/web/src/components/calendar/appointment-sheet.tsx": "18d1db33c373",
     "apps/web/src/components/calendar/appt.ts": "762bf72583c0",
     "apps/web/src/components/calendar/calendar-page.tsx": "ec13031132fb",
     "apps/web/src/components/calendar/call-review.tsx": "f69afb7ea4c8",
     "apps/web/src/components/calendar/cancel-dialog.tsx": "05f18f021f01",
     "apps/web/src/components/calendar/config-cache.ts": "8e3ca8370dff",
     "apps/web/src/components/calendar/customer-picker.tsx": "54cca5817168",
-    "apps/web/src/components/calendar/job-block.tsx": "9993c8084277",
+    "apps/web/src/components/calendar/job-block.tsx": "60f5d9828e2e",
     "apps/web/src/components/calendar/month-grid.tsx": "4cc9835eca64",
     "apps/web/src/components/calendar/move-dialog.tsx": "6249cf7ee953",
     "apps/web/src/components/calendar/reassign-dialog.tsx": "b06001a23547",
@@ -1105,37 +1105,37 @@
       "by": "get_appointment alsoOnThisVisit"
     },
     {
-      "path": "Appointment → Job → status, cancelled (web, phone)",
+      "path": "Appointment → Job → status, cancelled (web, phone), only on visits the team goes to",
       "kind": "see",
-      "file": "apps/web/src/components/calendar/job-block.tsx:95",
+      "file": "apps/web/src/components/calendar/job-block.tsx:91",
       "covered": "yes",
-      "by": "get_appointment job status"
+      "by": "get_appointment job status and job.steps (empty where the job doesn’t show)"
     },
     {
-      "path": "Appointment → Job → On my way, Started, Waiting on parts, Job done",
+      "path": "Appointment → Job → On my way, Started, Waiting on parts (trades, auto and repair only), Job done: at the customer’s address, or no place set in a business that goes out",
       "kind": "do",
-      "file": "apps/mobile/src/components/calendar/visit-job.tsx:73",
+      "file": "apps/mobile/src/components/calendar/visit-job.tsx:96",
       "covered": "yes",
-      "by": "update_job_status status"
+      "by": "update_job_status status, the same steps (job.set_status refuses the rest)"
     },
     {
       "path": "Appointment → Job → arrival time (ETA)",
       "kind": "see",
-      "file": "apps/web/src/components/calendar/job-block.tsx:106",
+      "file": "apps/web/src/components/calendar/job-block.tsx:102",
       "covered": "yes",
       "by": "get_appointment job.arrivingAbout"
     },
     {
       "path": "Appointment (phone) → Job → On my way with an ETA from here",
       "kind": "do",
-      "file": "apps/mobile/src/components/calendar/visit-job.tsx:63",
+      "file": "apps/mobile/src/components/calendar/visit-job.tsx:86",
       "covered": "partly",
       "by": "update_job_status has no origin, so no ETA"
     },
     {
       "path": "Appointment → Job → note for the customer, Save note",
       "kind": "do",
-      "file": "apps/web/src/components/calendar/job-block.tsx:112",
+      "file": "apps/web/src/components/calendar/job-block.tsx:108",
       "covered": "yes",
       "by": "update_job_status note; job noteForCustomer"
     },

@@ -247,6 +247,12 @@ Decisions (Chris, 2026-09-23):
   - The visit screen has On my way, Started, Waiting on parts and Job done.
   - On my way asks for location (while in use only, `expo-location`) the first time it's tapped. It still works without it.
   - This needs a new store build, because `expo-location` is a native module.
+- **Which visits show it** (Chris, 2026-11-11: "these don't fit every industry"). `packages/core/src/calendar/job-steps.ts` decides, for the phone, the web, `job.set_status` and the Assistant:
+  - A visit at the customer's address shows its job. One at the business, online or by phone doesn't.
+  - A visit with no place set goes by the kind of business: every home service and trade, plus `JOB_ON_SITE_INDUSTRIES` (home care, pet sitting, towing and the like).
+  - Waiting on parts is only for trades, auto and repair (`JOB_PARTS_INDUSTRIES`).
+  - A job already past Scheduled keeps its steps, so it can still be finished.
+  - Every booked visit still gets a job; only what's offered changes. `job.set_status` refuses the rest with `job_not_on_site` or `job_no_parts`, and `appointment.get` gives the job's `fits` and `steps`.
 
 ### Step 5 — Live phone answering (done, 2026-09-23)
 

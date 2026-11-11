@@ -11,17 +11,13 @@ import { fmtAt, fmtTime } from '@/lib/calendar/time';
 
 type Job = NonNullable<AppointmentDetail['job']>;
 type SetStatus = Exclude<JobStatus, 'cancelled'>;
-const STEPS: readonly SetStatus[] = [
-  'scheduled',
-  'on_the_way',
-  'in_progress',
-  'waiting_on_parts',
-  'done',
-];
 
 /**
  * M18: the job a visit is part of. Its status (the customer gets a text for each change they can get), a note
  * they may see, and the visits it covers — with the customer's other upcoming visits to add, making it a project.
+ *
+ * The sheet shows it only where the job fits (`job.fits`), and the status offers the job's own steps (`job.steps`,
+ * no Waiting on parts outside trades, auto and repair): core's calendar/job-steps.ts, which the phone follows too.
  */
 export function JobBlock({
   workspaceId,
@@ -96,7 +92,7 @@ export function JobBlock({
             ariaLabel="Job status"
             value={job.status as SetStatus}
             onChange={(v) => void setStatus(v)}
-            options={STEPS.map((s) => ({
+            options={(['scheduled', ...job.steps] as const).map((s) => ({
               value: s,
               label: JOB_STATUS_WORDS[s],
               testId: `job-status-${s}`,
@@ -116,7 +112,11 @@ export function JobBlock({
               id="job-note"
               value={note}
               maxLength={500}
-              placeholder="The part is ordered and due Friday."
+              placeholder={
+                job.steps.includes('waiting_on_parts')
+                  ? 'The part is ordered and due Friday.'
+                  : 'We’re running about 15 minutes behind.'
+              }
               onChange={(e) => setNote(e.target.value)}
             />
             {note.trim() !== (job.customerNote ?? '') ? (

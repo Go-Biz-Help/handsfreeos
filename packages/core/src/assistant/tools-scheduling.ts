@@ -126,7 +126,7 @@ export const schedulingTools: readonly AssistantTool[] = [
   define({
     name: 'update_job_status',
     description:
-      'Move along the job a visit is for — on the way, started, waiting on parts, done, or back to scheduled — or change the note the customer may see about it. The customer gets a text about each change when they take texts (never in quiet hours, and none for back to scheduled) unless the person says not to; the card shows the text. Appointment ids from list_appointments, todays_schedule or get_appointment.',
+      'Move along the job a visit is for — on the way, started, waiting on parts, done, or back to scheduled — or change the note the customer may see about it. Only visits the team goes to (at the customer’s address) have these steps, and waiting on parts is only for trades, auto and repair: get_appointment’s job.steps lists the ones a visit takes. The customer gets a text about each change when they take texts (never in quiet hours, and none for back to scheduled) unless the person says not to; the card shows the text. Appointment ids from list_appointments, todays_schedule or get_appointment.',
     input: z.object({
       appointmentId: uuid,
       status: z

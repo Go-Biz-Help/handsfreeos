@@ -23,6 +23,7 @@ import {
   isLocalDate,
   JOB_STATUS_WORDS,
   jobInvoiceOf,
+  jobStepRefusal,
   joinWords,
   LABEL_NAMES,
   localDateOf,
@@ -118,6 +119,10 @@ interface Job {
   id: string;
   title: string;
   status: JobStatus;
+  /** It shows on the visit (at the customer's address, or the business's team goes out): core's job-steps. */
+  fits?: boolean;
+  /** The steps it offers, in order: no waiting_on_parts outside trades, auto and repair. */
+  steps?: JobStatus[];
   customerNote: string | null;
   etaAt?: string | null;
   visits: { appointmentId: string; title: string; startsAt: string; status: string }[];
@@ -681,6 +686,8 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
               jobId: a.job.id,
               title: a.job.title,
               status: JOB_STATUS_WORDS[a.job.status] ?? a.job.status,
+              // update_job_status takes only these (none on a visit the team doesn't go to).
+              steps: a.job.fits === false ? [] : (a.job.steps ?? []),
               noteForCustomer: quoted(a.job.customerNote),
               ...(a.job.etaAt ? { arrivingAbout: atLabel(Date.parse(a.job.etaAt), tz) } : {}),
               visits: a.job.visits.map((v) => ({
@@ -1322,6 +1329,20 @@ async function planJob(db: Db, ctx: ToolContext, args: Args): Promise<JobPlan> {
       'That job was cancelled with its visits, so its status can’t change.',
     );
   const status = (str(args['status']) as JobStatus | undefined) ?? was;
+  if (status !== was) {
+    // The same steps the visit's screens offer, which job.set_status holds too.
+    const ws = await query<{ workspace: { industry: string } }>(db, ctx, 'workspace.get').catch(
+      () => null,
+    );
+    const refused = jobStepRefusal({
+      title: a.title,
+      locationKind: a.location?.kind ?? null,
+      industry: ws?.workspace.industry ?? null,
+      status: was,
+      to: status,
+    });
+    if (refused) throw HfosError.rule(refused.rule, 409, refused.message);
+  }
   const note = args['note'] === undefined ? undefined : (str(args['note']) ?? null);
   const { calendar } = await calendarOf(db, ctx, a.calendar.id);
   return {

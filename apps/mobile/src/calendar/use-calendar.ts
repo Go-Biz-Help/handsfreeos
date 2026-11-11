@@ -42,6 +42,7 @@ import {
   PEOPLE_SQL,
   peopleByIdSql,
   VISIT_INVOICES_SQL,
+  WORKSPACE_INDUSTRY_SQL,
   WORKSPACE_SQL,
   JOB_OUTBOX_SQL,
   VISIT_JOB_SQL,
@@ -685,6 +686,13 @@ export function useCalendarServices(): readonly CalendarService[] {
       })),
     [data],
   );
+}
+
+/** The business's kind (`workspaces.industry`), or null before the phone has it. */
+export function useIndustry(): string | null {
+  const { business } = useBusiness();
+  const { data } = useQuery<{ industry: string | null }>(WORKSPACE_INDUSTRY_SQL, [business.id]);
+  return data[0]?.industry ?? null;
 }
 
 export interface VisitJob {
