@@ -1,5 +1,13 @@
 'use client';
-import { formatClock, formatPhone, money, normalizePhone, type BusinessAddress } from '@hfos/core';
+import {
+  formatClock,
+  formatPhone,
+  money,
+  normalizePhone,
+  ownSiteBoxText,
+  sendsOffers,
+  type BusinessAddress,
+} from '@hfos/core';
 import {
   Check,
   CircleAlert,
@@ -30,7 +38,7 @@ import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
 import { InboxVisibilityCard } from '@/components/settings/inbox-visibility-card';
 import { NumbersCard, type Ringable } from '@/components/settings/numbers-card';
-import { A2pWizard, type HostedSurfaces } from '@/components/settings/a2p-wizard';
+import { A2pWizard, CopyButton, type HostedSurfaces } from '@/components/settings/a2p-wizard';
 import type { LetterProfile } from '@/components/settings/port-letter';
 import {
   BringNumberStep,
@@ -1409,6 +1417,14 @@ function Rejected({
   const bad = status.registrations.find((r) => r.status === 'rejected' || r.status === 'failed');
   const reason = bad?.rejectionReason ?? null;
   const optIn = !!reason && /opt|consent|agree|permission/i.test(reason);
+  // The words for a box on their own website: core's, the same ones our forms, booking page and chat show and the
+  // ones quoted to the carriers. A line of its own here once said less ("Message rates may apply", no frequency, no
+  // HELP), and a business pasted it into a form beside our box (2026-11-11).
+  const useCase = latestSubmission(status.registrations)?.['useCase'];
+  const ownBox = ownSiteBoxText(
+    businessName,
+    sendsOffers(typeof useCase === 'string' ? useCase : null),
+  );
   const callout = (
     <Callout tone="danger" icon={CircleAlert} className="mb-[18px]">
       <div className="flex flex-col gap-1">
@@ -1437,16 +1453,19 @@ function Rejected({
       <h2 className="text-lg font-semibold tracking-tight">What to fix</h2>
       <p className="mb-4 mt-1 text-[13px] text-text-2">
         {optIn
-          ? `Add a line to your booking and contact forms, then send the details again. Nothing else changes${meanwhile}.`
+          ? `Your HandsFreeOS forms, booking page and chat already show the right words. On a form on your own website, put the words below beside a tick box, then send the details again. Nothing else changes${meanwhile}.`
           : `Change what the carriers asked about, then send the details again. Nothing else changes${meanwhile}.`}
       </p>
       {optIn ? (
-        <div className="mb-[18px] rounded-[10px] bg-card-2 p-3">
-          <div className="text-xs text-text-3">A line you can copy onto your website form</div>
-          <p className="mt-1 text-[13px]">
-            “By giving us your cell number you agree to receive texts from {businessName} about your
-            service, including automated texts about your inquiry, appointments, estimates and
-            reviews. Message rates may apply. Reply STOP to opt out.”
+        <div className="mb-[18px] rounded-[10px] bg-card-2 p-3" data-testid="own-site-box-words">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs text-text-3">For a form on your own website</div>
+            <CopyButton text={ownBox} />
+          </div>
+          <p className="mt-1 whitespace-pre-line text-[13px]">{ownBox}</p>
+          <p className="mt-1.5 text-xs text-text-3">
+            The box has to start empty and must not be required to send the form. Don’t add it to
+            your HandsFreeOS forms: they already have it.
           </p>
         </div>
       ) : null}
@@ -1590,7 +1609,7 @@ function SubmissionSheet({
             {rows.map(([k, v]) => (
               <div key={k} className="contents">
                 <dt className="text-text-2">{k}</dt>
-                <dd className="min-w-0 break-words font-medium">{v || '—'}</dd>
+                <dd className="min-w-0 whitespace-pre-line break-words font-medium">{v || '—'}</dd>
               </div>
             ))}
           </dl>

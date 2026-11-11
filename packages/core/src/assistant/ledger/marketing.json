@@ -1137,6 +1137,20 @@
       "by": "get_form toFix"
     },
     {
+      "path": "Forms → a form → Customers will see two boxes asking to text them (each question, must be checked)",
+      "kind": "see",
+      "file": "apps/web/src/components/forms/editor.tsx:395",
+      "covered": "yes",
+      "by": "get_form asksForTextsTwice"
+    },
+    {
+      "path": "Forms → a form → Customers will see two boxes asking to text them → Delete this question",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/editor.tsx:422",
+      "covered": "yes",
+      "by": "build_form delete_question"
+    },
+    {
       "path": "Forms → a form → Questions → each question: title, must-answer star, kind, only sometimes, fills a field",
       "kind": "see",
       "file": "apps/web/src/components/forms/question-list.tsx:156",
