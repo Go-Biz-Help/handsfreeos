@@ -1,6 +1,8 @@
 import {
   addDays,
   can,
+  EmailSetupGetOutput,
+  emailSetupHomeOf,
   industryLabel,
   localInstant,
   onboardingSetupHomeOf,
@@ -13,6 +15,7 @@ import { ActionCenterIntro } from '@/components/home/action-center-intro';
 import { AddonNewsCard } from '@/components/home/addon-news';
 import { AddonSuggestionCard } from '@/components/home/addon-suggestion';
 import type { MemberOption } from '@/components/home/attention-context';
+import { EmailSetupCard } from '@/components/home/email-setup-card';
 import { GettingStarted } from '@/components/home/getting-started';
 import { PageHeader } from '@/components/shell/page-header';
 import { RoleBadge } from '@/components/ui/badge';
@@ -48,7 +51,7 @@ export default async function WorkspaceHomePage({
   const workspace = api
     .POST('/v1/queries/workspace.get', { body: { workspaceId } })
     .then((r) => unwrapPage(r));
-  const [me, got, summary, list, suggested, news, onboarding] = await Promise.all([
+  const [me, got, summary, list, suggested, news, onboarding, email] = await Promise.all([
     getMe(),
     workspace,
     api.POST('/v1/queries/crm.summary', { body: { workspaceId } }).then((r) => unwrapPage(r)),
@@ -77,11 +80,27 @@ export default async function WorkspaceHomePage({
     ),
     // Getting started: the person's guide, new business or not (Chris, 2026-09-29). A nicety too.
     loadOnboarding(api, workspaceId),
+    // "Set up your business email" (the owner's 7a), for someone who can change it, outside the guided setup (which
+    // asks it as its own stop): a business still sending from the address it was made with, or a domain's records on
+    // their way. A nicety too.
+    workspace.then((w) => {
+      const s = onboardingSetupHomeOf(
+        onboardingSetupOf(w.workspace.settings as Record<string, unknown>),
+        userId,
+      );
+      return can(w.workspace.permissions, 'channels.manage') && (s.finished || !s.started)
+        ? api
+            .POST('/v1/queries/email_setup.get', { body: { workspaceId } })
+            .then((r) => emailSetupHomeOf(EmailSetupGetOutput.parse(unwrap(r)).state))
+            .catch(() => null)
+        : null;
+    }),
   ]);
   const ws = got.workspace;
   const suggestion =
-    suggested || news ? (
+    suggested || news || email ? (
       <div className="flex flex-col gap-3">
+        {email ? <EmailSetupCard workspaceId={ws.id} home={email} /> : null}
         {news ? <AddonNewsCard workspaceId={ws.id} news={news} /> : null}
         {suggested ? <AddonSuggestionCard workspaceId={ws.id} suggestion={suggested} /> : null}
       </div>

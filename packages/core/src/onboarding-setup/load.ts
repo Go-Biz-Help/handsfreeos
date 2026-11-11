@@ -10,6 +10,7 @@ import { workspaces } from '@hfos/db/schema';
 import { loadAiSetupState } from '../ai-setup/load';
 import { WeeklyHours } from '../calendar/config';
 import { lookOf } from '../look/look';
+import { loadEmailSetupState } from '../messaging/email-setup-load';
 import { loadOnboardingFacts } from '../onboarding/load';
 import { businessOnboardingOf } from '../onboarding/settings';
 import { businessAddressOf } from './address';
@@ -102,5 +103,6 @@ export async function loadOnboardingSetupState(
     forClient: !me?.member,
     phones: facts.person.phones,
     look: lookOf(settings),
+    email: await loadEmailSetupState(tx, workspaceId, userId),
   };
 }

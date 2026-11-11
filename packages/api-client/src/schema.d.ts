@@ -3737,6 +3737,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/email_domain.send_steps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email the DNS records for one of the business’s domains, with the steps for where it’s managed, to you or to whoever looks after the domain. Up to 10 a day.
+         * @description Risk level 2. Requires channels.manage. Emits email_domain.steps_requested.
+         */
+        post: operations["command_email_domain_send_steps"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/email_domain.stop_receiving": {
         parameters: {
             query?: never;
@@ -3791,6 +3811,26 @@ export interface paths {
          * @description Risk level 1. Requires inbox.use. Emits email_sender_rule.removed.
          */
         post: operations["command_email_sender_rule_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/email_setup.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set up the address the business’s emails (booking confirmations, reminders, invoices, the AI teammate’s) go out from, one screen at a time. sender: a free address on mail.handsfreeos.com, made the default now, or a team address on the business’s own domain, which is added and becomes the default on its own once its DNS records check out (mail goes from the free address until then). records: whether the domain’s mail comes to the Inbox too. own: an address on the domain just for you, which only you read and booking emails never use.
+         * @description Risk level 2. Requires channels.manage. Emits email_domain.planned, email_address.created, email_address.updated, email_domain.receiving_requested.
+         */
+        post: operations["command_email_setup_save"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7187,7 +7227,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website), and picks where the answers start from (answers the business’s agency saved, or our picks); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the simple page (for a business with no website) goes live with its open hours and business profile, or is turned off; the booking stop makes the booking page and turns it on (left to the owner when someone from their agency sets it up); and the review link is saved for thank-you texts.
+         * Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website), and picks where the answers start from (answers the business’s agency saved, or our picks); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the simple page (for a business with no website) goes live with its open hours and business profile, or is turned off; the booking stop makes the booking page and turns it on (left to the owner when someone from their agency sets it up); “Your business email” sets the address booking emails go out from, the domain’s mail and your own address (as email_setup.save does); and the review link is saved for thank-you texts.
          * @description Risk level 2. Requires workspace.update. Emits onboarding_setup.started, ai_setup.read_requested, look.find_requested.
          */
         post: operations["command_onboarding_setup_save"];
@@ -19191,6 +19231,26 @@ export interface paths {
          * @description Requires inbox.use.
          */
         post: operations["query_email_sender_rule_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/email_setup.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business email step: the address booking emails go out from now, the business’s free address and own domains (with their DNS records, where each is managed and what happens once they check out), your own address, connected mailboxes, and the answers to start from.
+         * @description Requires channels.manage.
+         */
+        post: operations["query_email_setup_get"];
         delete?: never;
         options?: never;
         head?: never;
@@ -33709,6 +33769,40 @@ export interface operations {
             };
         };
     };
+    command_email_domain_send_steps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    emailDomainId: string;
+                    to: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        emailDomainId: string;
+                        to: string;
+                    };
+                };
+            };
+        };
+    };
     command_email_domain_stop_receiving: {
         parameters: {
             query?: never;
@@ -33802,6 +33896,59 @@ export interface operations {
                     "application/json": {
                         address: string;
                         removed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_email_setup_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    email: {
+                        /** @default  */
+                        domain?: string;
+                        /** @default  */
+                        freeLocal?: string;
+                        /** @default hello */
+                        local?: string;
+                        /** @default false */
+                        mine?: boolean;
+                        /** @default  */
+                        mineLocal?: string;
+                        /** @default  */
+                        name?: string;
+                        /** @default null */
+                        receive?: boolean | null;
+                        /** @default null */
+                        with?: ("domain" | "free") | null;
+                    };
+                    /** @enum {string} */
+                    part: "sender" | "records" | "own";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changes: string[];
+                        emailDomainId: string | null;
+                        sender: string;
+                        /** Format: uuid */
+                        workspaceId: string;
                     };
                 };
             };
@@ -41340,6 +41487,36 @@ export interface operations {
                          */
                         customersIn?: "sheet" | "ghl" | "crm" | "phone" | "none";
                         /**
+                         * @default {
+                         *       "with": null,
+                         *       "domain": "",
+                         *       "local": "hello",
+                         *       "freeLocal": "",
+                         *       "name": "",
+                         *       "receive": null,
+                         *       "mine": false,
+                         *       "mineLocal": ""
+                         *     }
+                         */
+                        email?: {
+                            /** @default  */
+                            domain?: string;
+                            /** @default  */
+                            freeLocal?: string;
+                            /** @default hello */
+                            local?: string;
+                            /** @default false */
+                            mine?: boolean;
+                            /** @default  */
+                            mineLocal?: string;
+                            /** @default  */
+                            name?: string;
+                            /** @default null */
+                            receive?: boolean | null;
+                            /** @default null */
+                            with?: ("domain" | "free") | null;
+                        };
+                        /**
                          * @default leads
                          * @enum {string}
                          */
@@ -41656,6 +41833,36 @@ export interface operations {
                          */
                         customersIn?: "sheet" | "ghl" | "crm" | "phone" | "none";
                         /**
+                         * @default {
+                         *       "with": null,
+                         *       "domain": "",
+                         *       "local": "hello",
+                         *       "freeLocal": "",
+                         *       "name": "",
+                         *       "receive": null,
+                         *       "mine": false,
+                         *       "mineLocal": ""
+                         *     }
+                         */
+                        email?: {
+                            /** @default  */
+                            domain?: string;
+                            /** @default  */
+                            freeLocal?: string;
+                            /** @default hello */
+                            local?: string;
+                            /** @default false */
+                            mine?: boolean;
+                            /** @default  */
+                            mineLocal?: string;
+                            /** @default  */
+                            name?: string;
+                            /** @default null */
+                            receive?: boolean | null;
+                            /** @default null */
+                            with?: ("domain" | "free") | null;
+                        };
+                        /**
                          * @default leads
                          * @enum {string}
                          */
@@ -41700,7 +41907,7 @@ export interface operations {
                     /** @default [] */
                     invite?: string[];
                     /** @enum {string} */
-                    screen: "business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
+                    screen: "business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "email" | "email_records" | "email_own" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
                     templateId?: string | null;
                     /** Format: uuid */
                     workspaceId: string;
@@ -41723,7 +41930,7 @@ export interface operations {
                         kindChanged: boolean;
                         notes: string[];
                         /** @enum {string} */
-                        reached: "business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
+                        reached: "business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "email" | "email_records" | "email_own" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
                         scanStarted: boolean;
                         /** Format: uuid */
                         workspaceId: string;
@@ -73956,6 +74163,122 @@ export interface operations {
             };
         };
     };
+    query_email_setup_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        answers: {
+                            /** @default  */
+                            domain: string;
+                            /** @default  */
+                            freeLocal: string;
+                            /** @default hello */
+                            local: string;
+                            /** @default false */
+                            mine: boolean;
+                            /** @default  */
+                            mineLocal: string;
+                            /** @default  */
+                            name: string;
+                            /** @default null */
+                            receive: boolean | null;
+                            /** @default null */
+                            with: ("domain" | "free") | null;
+                        };
+                        state: {
+                            businessName: string;
+                            canManage: boolean;
+                            domains: {
+                                dnsHost: string | null;
+                                domain: string;
+                                /** Format: uuid */
+                                id: string;
+                                lastCheckedAt: string | null;
+                                lastError: string | null;
+                                mailHost: ("none" | "handsfreeos" | "google" | "microsoft" | "godaddy" | "zoho" | "other") | null;
+                                plan: {
+                                    own?: {
+                                        localPart: string;
+                                        /** Format: uuid */
+                                        userId: string;
+                                    };
+                                    receive?: boolean;
+                                    team?: {
+                                        displayName: string;
+                                        localPart: string;
+                                    };
+                                };
+                                /** @enum {string} */
+                                receiving: "off" | "pending" | "on" | "lapsed";
+                                records: {
+                                    found: boolean;
+                                    fullHost: string;
+                                    host: string;
+                                    priority?: number;
+                                    purpose: string;
+                                    /** @enum {string} */
+                                    type: "TXT" | "CNAME" | "MX";
+                                    value: string;
+                                }[];
+                                /** @enum {string} */
+                                status: "pending" | "verified" | "failed";
+                            }[];
+                            free: {
+                                address: string;
+                                displayName: string;
+                                /** Format: uuid */
+                                id: string;
+                                isDefault: boolean;
+                                localPart: string;
+                            } | null;
+                            inboundMxHost: string;
+                            mailboxes: {
+                                accountEmail: string | null;
+                                mine: boolean;
+                                /** @enum {string} */
+                                provider: "microsoft" | "google";
+                                /** @enum {string} */
+                                status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                            }[];
+                            mine: {
+                                address: string;
+                            } | null;
+                            myEmail: string | null;
+                            myFirstName: string | null;
+                            sender: {
+                                address: string;
+                                displayName: string;
+                                domain: string | null;
+                                localPart: string;
+                            } | null;
+                            sharedDomain: string;
+                            slug: string;
+                            websiteDomain: string | null;
+                        };
+                    };
+                };
+            };
+        };
+    };
     query_email_suppression_list: {
         parameters: {
             query?: never;
@@ -79757,6 +80080,36 @@ export interface operations {
                              */
                             customersIn: "sheet" | "ghl" | "crm" | "phone" | "none";
                             /**
+                             * @default {
+                             *       "with": null,
+                             *       "domain": "",
+                             *       "local": "hello",
+                             *       "freeLocal": "",
+                             *       "name": "",
+                             *       "receive": null,
+                             *       "mine": false,
+                             *       "mineLocal": ""
+                             *     }
+                             */
+                            email: {
+                                /** @default  */
+                                domain: string;
+                                /** @default  */
+                                freeLocal: string;
+                                /** @default hello */
+                                local: string;
+                                /** @default false */
+                                mine: boolean;
+                                /** @default  */
+                                mineLocal: string;
+                                /** @default  */
+                                name: string;
+                                /** @default null */
+                                receive: boolean | null;
+                                /** @default null */
+                                with: ("domain" | "free") | null;
+                            };
+                            /**
                              * @default leads
                              * @enum {string}
                              */
@@ -79797,7 +80150,7 @@ export interface operations {
                         } | null;
                         /** @default null */
                         handOverAs: ("owner" | "admin") | null;
-                        reached: ("business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done") | null;
+                        reached: ("business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "email" | "email_records" | "email_own" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done") | null;
                         /** @default null */
                         saveTo: {
                             name: string;
@@ -80049,6 +80402,36 @@ export interface operations {
                              */
                             customersIn: "sheet" | "ghl" | "crm" | "phone" | "none";
                             /**
+                             * @default {
+                             *       "with": null,
+                             *       "domain": "",
+                             *       "local": "hello",
+                             *       "freeLocal": "",
+                             *       "name": "",
+                             *       "receive": null,
+                             *       "mine": false,
+                             *       "mineLocal": ""
+                             *     }
+                             */
+                            email: {
+                                /** @default  */
+                                domain: string;
+                                /** @default  */
+                                freeLocal: string;
+                                /** @default hello */
+                                local: string;
+                                /** @default false */
+                                mine: boolean;
+                                /** @default  */
+                                mineLocal: string;
+                                /** @default  */
+                                name: string;
+                                /** @default null */
+                                receive: boolean | null;
+                                /** @default null */
+                                with: ("domain" | "free") | null;
+                            };
+                            /**
                              * @default leads
                              * @enum {string}
                              */
@@ -80115,6 +80498,76 @@ export interface operations {
                                 count: number;
                                 migrationNeedsYou: boolean;
                                 running: ("import" | "migration") | null;
+                            };
+                            email: {
+                                businessName: string;
+                                canManage: boolean;
+                                domains: {
+                                    dnsHost: string | null;
+                                    domain: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                    lastCheckedAt: string | null;
+                                    lastError: string | null;
+                                    mailHost: ("none" | "handsfreeos" | "google" | "microsoft" | "godaddy" | "zoho" | "other") | null;
+                                    plan: {
+                                        own?: {
+                                            localPart: string;
+                                            /** Format: uuid */
+                                            userId: string;
+                                        };
+                                        receive?: boolean;
+                                        team?: {
+                                            displayName: string;
+                                            localPart: string;
+                                        };
+                                    };
+                                    /** @enum {string} */
+                                    receiving: "off" | "pending" | "on" | "lapsed";
+                                    records: {
+                                        found: boolean;
+                                        fullHost: string;
+                                        host: string;
+                                        priority?: number;
+                                        purpose: string;
+                                        /** @enum {string} */
+                                        type: "TXT" | "CNAME" | "MX";
+                                        value: string;
+                                    }[];
+                                    /** @enum {string} */
+                                    status: "pending" | "verified" | "failed";
+                                }[];
+                                free: {
+                                    address: string;
+                                    displayName: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                    isDefault: boolean;
+                                    localPart: string;
+                                } | null;
+                                inboundMxHost: string;
+                                mailboxes: {
+                                    accountEmail: string | null;
+                                    mine: boolean;
+                                    /** @enum {string} */
+                                    provider: "microsoft" | "google";
+                                    /** @enum {string} */
+                                    status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                                }[];
+                                mine: {
+                                    address: string;
+                                } | null;
+                                myEmail: string | null;
+                                myFirstName: string | null;
+                                sender: {
+                                    address: string;
+                                    displayName: string;
+                                    domain: string | null;
+                                    localPart: string;
+                                } | null;
+                                sharedDomain: string;
+                                slug: string;
+                                websiteDomain: string | null;
                             };
                             emailAddress: {
                                 address: string;

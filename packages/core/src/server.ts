@@ -32,6 +32,7 @@ export * from './funnels/follow';
 export * from './ai-setup/load';
 export * from './onboarding/load';
 export * from './onboarding-setup/load';
+export * from './messaging/email-setup-load';
 export * from './ai-team/reach';
 export * from './messaging/handling';
 export * from './attention/load';
