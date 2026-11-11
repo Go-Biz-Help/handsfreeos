@@ -178,8 +178,8 @@ const job = (name: string, more: Record<string, unknown> = {}) =>
   }).then((o) => o.jobId as string);
 
 /**
- * A visit on a job, so many hours from now: an ordinary appointment whose record is the job, with the work order
- * the worker starts for every visit booked on one.
+ * A visit on a job at the customer's address, so many hours from now: an ordinary appointment whose record is the
+ * job, with the work order the worker starts for every visit booked on one.
  */
 async function visit(jobId: string, hoursOut: number): Promise<string> {
   const [a] = await rows<{ id: string }>(
@@ -187,7 +187,8 @@ async function visit(jobId: string, hoursOut: number): Promise<string> {
     sql`insert into app.appointments (workspace_id, calendar_id, calendar_revision, title, starts_at, ends_at,
           custom_record_id, owner_user_id, location)
         values (${ws}, ${calendarId}, 1, 'Site visit', now() + make_interval(hours => ${hoursOut}),
-          now() + make_interval(hours => ${hoursOut + 1}), ${jobId}, ${owner.id}, '4 Birch Ln')
+          now() + make_interval(hours => ${hoursOut + 1}), ${jobId}, ${owner.id},
+          jsonb_build_object('kind', 'customer_address', 'address', '4 Birch Ln'))
         returning id`,
   );
   await worker('contractor.work_order.start', { appointmentId: a!.id });

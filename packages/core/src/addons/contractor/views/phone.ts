@@ -124,6 +124,20 @@ export interface ContractorSource {
 const text = cellText;
 const ms = cellMs;
 const iso = (t: number) => new Date(t).toISOString();
+/**
+ * A visit's address, from its saved place (`appointments.location`, which a phone keeps as JSON text): null when
+ * the place has none, as a video call's or a visit with no place set.
+ */
+const addressIn = (location: unknown): string | null => {
+  const saved = text(location);
+  if (!saved) return null;
+  try {
+    const address = (JSON.parse(saved) as { address?: unknown } | null)?.address;
+    return typeof address === 'string' && address.trim() ? address.trim() : null;
+  } catch {
+    return null;
+  }
+};
 const num = (v: unknown): number => {
   const n = typeof v === 'number' ? v : Number(v ?? 0);
   return Number.isFinite(n) ? n : 0;
@@ -514,7 +528,7 @@ export function contractorCopyOf(src: ContractorSource): ContractorCopy {
       startsAt,
       endsAt,
       status: text(a.status) ?? 'scheduled',
-      location: text(a.location),
+      location: addressIn(a.location),
       coreJobId: text(a.job_id),
     });
   }
@@ -921,7 +935,7 @@ export interface PhoneWorkOrder {
     readonly endsAt: string;
     readonly status: string;
     readonly stage: VisitStage;
-    /** Where it is, as its appointment says: the phone's own, for directions. */
+    /** Its address, as its appointment's place says: the phone's own, for directions. */
     readonly location: string | null;
   };
   readonly job: {

@@ -226,7 +226,11 @@ export function seed(p: Phone): void {
     starts_at: '2026-09-16T19:00:00.000Z',
     ends_at: '2026-09-16T21:00:00.000Z',
     status: 'scheduled',
-    location: '418 Maple Ave, Houston, TX 77002',
+    // A visit's place as a phone keeps it: JSON text.
+    location: JSON.stringify({
+      kind: 'customer_address',
+      address: '418 Maple Ave, Houston, TX 77002',
+    }),
     job_id: CORE_JOB,
   });
   put('appointments', {
