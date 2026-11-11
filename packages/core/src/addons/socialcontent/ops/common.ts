@@ -3,6 +3,7 @@
  * rows are read out, and queueing work for the reading computer. Server-only.
  */
 import { rows, sql } from '@hfos/db/client';
+import { mainOffers } from '@hfos/db/schema';
 import { eq } from 'drizzle-orm';
 import { HfosError } from '../../../errors';
 import {
@@ -50,6 +51,18 @@ export const REREAD_DAYS = 60;
 export const TAKEN_FOR_MS = 2 * 60 * 60 * 1000;
 
 const iso = (d: Date | null): string | null => (d ? d.toISOString() : null);
+
+/**
+ * Whether the business's main offer is live (the owner's pick 7b, 11 Nov 2026): until it is, the AI writes no posts
+ * and no ideas, as Social Outreach writes no messages.
+ */
+export async function offerLiveOf(ctx: Ctx): Promise<boolean> {
+  const [o] = await ctx.tx
+    .select({ live: mainOffers.liveVersion })
+    .from(mainOffers)
+    .where(eq(mainOffers.workspaceId, ctx.scope.workspaceId!));
+  return o?.live != null;
+}
 
 /** The business's settings: the networks it studies (only the ones read yet), and whose computer reads. */
 export async function settingsOf(ctx: Ctx): Promise<{

@@ -268,6 +268,15 @@ export const timesWords = (t: number) => `${t.toFixed(1)} times their normal`;
 export const SOCIALCONTENT_WORDS = {
   title: 'AI Social Media Content Creator',
   count,
+  /**
+   * The main offer isn't live (the owner's pick 7b, 11 Nov 2026): like Social Outreach, the AI writes no posts and no
+   * ideas until it is. The research goes on.
+   */
+  offer: {
+    notLive:
+      'Your main offer isn’t live yet, so the AI doesn’t write posts or ideas. Put it live in Settings → Main offer, and fill in For your content there too: every post is written from them.',
+    open: 'Open Main offer',
+  },
   needsReader:
     'No computer reads the networks yet. An owner or admin picks one in Settings, with the HandsFreeOS Social extension in Chrome.',
   niches: {

@@ -29,6 +29,7 @@ import { workerPost } from '@/lib/worker';
 import {
   NeedsSignal,
   Note,
+  OfferNotLive,
   openSocialcontent,
   useAct,
   useNow,
@@ -173,8 +174,10 @@ export function CalendarBody({
   return (
     <Screen title={W.calendar.title} leading="back" testID="socialcontent-calendar">
       <Note>{W.calendar.intro}</Note>
+      {/* No posts are written until the main offer is live (pick 7b); an older API doesn't say, and means live. */}
+      {c.offerLive === false ? <OfferNotLive /> : null}
       <View className="gap-2">
-        {c.autoFill ? (
+        {c.autoFill && c.offerLive !== false ? (
           <Button
             icon={CalendarPlus}
             loading={busy === 'fill'}
@@ -199,17 +202,19 @@ export function CalendarBody({
               {W.calendar.approveWeek}
             </Button>
           ) : null}
-          <Button
-            className="flex-1"
-            variant="secondary"
-            icon={PenLine}
-            loading={busy === 'write'}
-            disabled={other('write')}
-            onPress={() => onWrite(null, null, 'write')}
-            testID="socialcontent-calendar-write"
-          >
-            {busy === 'write' ? W.calendar.writing : W.calendar.write}
-          </Button>
+          {c.offerLive !== false ? (
+            <Button
+              className="flex-1"
+              variant="secondary"
+              icon={PenLine}
+              loading={busy === 'write'}
+              disabled={other('write')}
+              onPress={() => onWrite(null, null, 'write')}
+              testID="socialcontent-calendar-write"
+            >
+              {busy === 'write' ? W.calendar.writing : W.calendar.write}
+            </Button>
+          ) : null}
         </View>
       </View>
 

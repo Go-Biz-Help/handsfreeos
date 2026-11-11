@@ -9,7 +9,14 @@ import {
   messagesLength,
   writeToolCalls,
 } from '@hfos/ai';
-import { addDays, isIndeedApplicantEmail, readIndeedApplicant, weekdayOf } from '@hfos/core/server';
+import {
+  addDays,
+  isIndeedApplicantEmail,
+  OFFER_LIST_INFO,
+  OFFER_LISTS,
+  readIndeedApplicant,
+  weekdayOf,
+} from '@hfos/core/server';
 import { DISCLOSE_NOW, REWRITE_MARKER, TEAMMATE_SYSTEM } from '../ai-team/prompt';
 import { FIRST_MESSAGE_ASK, FUNNEL_ASK, NUDGE_ASK, TASK_ASK } from '../ai-team/turns';
 
@@ -3032,7 +3039,27 @@ function scriptedOfferTry(message: string) {
   };
 }
 
+/**
+ * The main offer's lists for content (core's main-offer/lists.ts): What's missing names the lists not written yet,
+ * Improve gives the line back three ways, Examples five, and Write it for me three lines.
+ */
+function scriptedOfferLists(message: string) {
+  if (/^Say which of the lists are missing/m.test(message)) {
+    const lists = unquote(quotedBlock(message, 'lists') ?? '');
+    const gaps = OFFER_LISTS.filter((k) => !lists.includes(`${OFFER_LIST_INFO[k].label}:`))
+      .slice(0, 5)
+      .map((list) => ({ list, note: `Add one line to ${OFFER_LIST_INFO[list].label}.` }));
+    return { options: [], gaps };
+  }
+  const line = unquote(quotedBlock(message, 'line') ?? '');
+  if (line) return { options: [1, 2, 3].map((n) => `${line} (better ${n})`), gaps: [] };
+  if (/^Write \d+ example lines/m.test(message))
+    return { options: [1, 2, 3, 4, 5].map((n) => `Example line ${n}`), gaps: [] };
+  return { options: [1, 2, 3].map((n) => `A line we wrote for you ${n}`), gaps: [] };
+}
+
 export const MAIN_OFFER_RULES: readonly ScriptRule[] = [
+  { when: /Help with these lists\.$/, json: (m) => scriptedOfferLists(m) },
   { when: /Write a new try of this offer\.$/, json: (m) => scriptedOfferTry(m) },
   { when: /Suggest niches to start with\.$/, json: (m) => scriptedOfferNiche(m) },
   { when: /Help write this part of the offer\.$/, json: (m) => scriptedOfferAssist(m) },

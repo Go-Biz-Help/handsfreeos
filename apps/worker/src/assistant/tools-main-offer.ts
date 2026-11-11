@@ -18,6 +18,8 @@ import {
   missingParts,
   missingWords,
   offerExamples,
+  OFFER_LIST_INFO,
+  isOfferList,
   offerLineFrom,
   partSays,
   partWords,
@@ -31,12 +33,14 @@ import {
   type MainOfferScore,
   type MainOfferTryOut,
   type OfferAssistPath,
+  type OfferListMode,
   type ScoredPart,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import { AI_UNAVAILABLE_MESSAGE } from '../ai/ask';
 import {
   offerAssist,
+  offerListsAssist,
   offerNiche,
   offerScore,
   offerTry,
@@ -469,6 +473,35 @@ const manageMainOffer: MainOfferConfirmTool = {
           result: { waiting: true, action },
         };
       }
+      case 'set_list': {
+        const list = listOf(args);
+        const lines = strings(args['lines']) ?? [];
+        const was = offer.lists[list] ?? [];
+        if (lines.join('\n') === was.join('\n'))
+          throw HfosError.rule(
+            'main_offer_nothing_to_change',
+            400,
+            'That’s what the list says now.',
+          );
+        const label = OFFER_LIST_INFO[list].label;
+        return {
+          card: settingsCard(toolCallId, 'manage_main_offer', {
+            title: lines.length ? `Change ${label} in your main offer` : `Clear ${label}`,
+            fields: [
+              { label, value: lines.length ? lines.join('\n') : 'Nothing' },
+              { label: 'Was', value: was.join('\n') },
+            ],
+            confirmLabel: 'Save it',
+            warnings: [
+              {
+                kind: 'note',
+                text: 'The AI Social Media Content Creator writes your posts and ideas from these lists.',
+              },
+            ],
+          }),
+          result: { waiting: true, action },
+        };
+      }
       case 'take_from_try': {
         const take = (Array.isArray(args['take']) ? args['take'] : []) as ScoredPart[];
         const found = await tryOf(db, ctx, str(args['tryId']));
@@ -525,6 +558,21 @@ const manageMainOffer: MainOfferConfirmTool = {
           command: 'main_offer.save_names',
         };
       }
+      case 'set_list': {
+        const list = listOf(args);
+        const { lines } = await command<{ lines: string[] }>(db, ctx, 'main_offer.save_list', {
+          list,
+          lines: strings(args['lines']) ?? [],
+        });
+        const label = OFFER_LIST_INFO[list].label;
+        return {
+          outcome: lines.length
+            ? `${label} is saved, ${lines.length === 1 ? '1 line' : `${lines.length} lines`}`
+            : `${label} is cleared`,
+          href,
+          command: 'main_offer.save_list',
+        };
+      }
       default: {
         const take = args['take'] as ScoredPart[];
         const out = await command<{ lineFromTry: boolean }>(db, ctx, 'main_offer.try_apply', {
@@ -545,6 +593,18 @@ const manageMainOffer: MainOfferConfirmTool = {
     }
   },
 };
+
+/** Which list a set_list or the lists' help is about, or a refusal. */
+function listOf(args: Args) {
+  const list = args['list'];
+  if (!isOfferList(list))
+    throw HfosError.rule(
+      'main_offer_no_list',
+      400,
+      'Say which of the lists for content to change.',
+    );
+  return list;
+}
 
 /** One of this round's tries, or a refusal that says what to do. */
 async function tryOf(db: Db, ctx: ToolContext, id: string | undefined): Promise<MainOfferTryOut> {
@@ -702,7 +762,47 @@ const suggestMainOffer: MainOfferAutoTool = async (db, ctx, args, deps) => {
   };
 };
 
+/**
+ * The lists' own help, as For your content's buttons give it: Write it for me, Improve a line, Examples and What's
+ * missing. Nothing is saved until the person picks.
+ */
+const helpMainOfferLists: MainOfferAutoTool = async (db, ctx, args, deps) => {
+  const offer = await offerOf(db, ctx);
+  inUse(offer);
+  if (!deps?.ai.provider) throw HfosError.rule('ai_not_configured', 503, AI_UNAVAILABLE_MESSAGE);
+  const mode = String(args['mode'] ?? 'gaps') as OfferListMode;
+  const list = mode === 'gaps' ? undefined : listOf(args);
+  const line = str(args['line']);
+  if (mode === 'improve' && !line)
+    throw HfosError.rule('main_offer_no_line', 400, 'Say which line to improve.');
+  const out = await offerListsAssist(deps, ctx.actor, {
+    workspaceId: ctx.workspaceId,
+    mode,
+    ...(list ? { list } : {}),
+    ...(line ? { line } : {}),
+  });
+  if (mode === 'gaps')
+    return {
+      result: {
+        gaps: out.gaps.map((g) => ({ ...g, label: OFFER_LIST_INFO[g.list].label })),
+        next: out.gaps.length
+          ? 'Tell the person which lists would help most, and offer to write lines for them.'
+          : 'Every list has what a post needs.',
+      },
+    };
+  return {
+    result: {
+      list,
+      label: OFFER_LIST_INFO[list!].label,
+      now: offer.lists[list!] ?? [],
+      options: out.options,
+      next: `Nothing is saved yet. Show the person these lines, and save the ones they pick with manage_main_offer (set_list), passing the whole list.${mode === 'examples' ? ' The examples are to model, never to copy.' : ''}`,
+    },
+  };
+};
+
 export const mainOfferAutoTools: Record<string, MainOfferAutoTool> = {
+  help_main_offer_lists: helpMainOfferLists,
   score_main_offer: scoreMainOffer,
   suggest_main_offer: suggestMainOffer,
   try_main_offer: tryMainOffer,
@@ -711,6 +811,7 @@ export const mainOfferAutoTools: Record<string, MainOfferAutoTool> = {
 /** What the panel says while each one runs. */
 export const mainOfferStepLabels: Record<string, string> = {
   edit_main_offer: 'Changing your main offer',
+  help_main_offer_lists: 'Asking the AI about your lists',
   main_offer_go_live: 'Getting your offer ready to go live',
   manage_main_offer: 'Changing your main offer',
   score_main_offer: 'Scoring your offer',

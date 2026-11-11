@@ -25,6 +25,7 @@ import {
   mainOfferPublish,
   mainOfferSaveDirection,
   mainOfferSaveDraft,
+  mainOfferSaveList,
   mainOfferSaveNames,
   mainOfferScoreSave,
   mainOfferTryApply,
@@ -113,6 +114,8 @@ describe('the main offer’s parts', () => {
     expect(ids([])).not.toContain('sales.main_offer');
     expect(ids(['realestate'])).not.toContain('sales.main_offer');
     expect(ids(['outreach'])).toContain('sales.main_offer');
+    // The Content Creator writes from the offer and its lists for content (11 Nov 2026).
+    expect(ids(['socialcontent'])).toContain('sales.main_offer');
     const wrong = { ...outreachAddon, uses: ['main_offer', 'nope'] } as unknown as AddonManifest;
     expect(manifestIssues(wrong).map((i) => i.message)).toContain(
       'uses "nope", which isn\'t one of core\'s features',
@@ -138,7 +141,7 @@ describe('the main offer', () => {
     expect(e.message).toContain('Social Outreach');
     expect(await ask(mainOfferGet, ws(), t.member)).toMatchObject({
       inUse: false,
-      comesWith: ['Social Outreach'],
+      comesWith: ['Social Outreach', 'AI Social Media Content Creator'],
       revision: 0,
       live: null,
       draft: null,
@@ -517,5 +520,99 @@ describe('the names the business goes by (docs/outreach.md, decision 84)', () =>
     );
     expect(await run(mainOfferSaveNames, { ...ws(), names: [] }, t.owner)).toEqual({ names: [] });
     expect((await ask(mainOfferGet, ws(), t.owner)).names).toEqual([]);
+  });
+});
+
+describe('the lists for content (docs/main-offer.md, "For your content")', () => {
+  let t: Team;
+  const ws = () => ({ workspaceId: t.wsId });
+
+  beforeAll(async () => {
+    t = await setupTeam('main-offer-lists');
+    await rows(
+      admin(),
+      sql`insert into app.addon_installations (workspace_id, addon_id, state, installed_version)
+          values (${t.wsId}, 'outreach', 'enabled', ${outreachAddon.version})`,
+    );
+  });
+
+  it('save one list at a time, tidied, by owners and admins, and move no revision', async () => {
+    expect((await ask(mainOfferGet, ws(), t.member)).lists).toEqual({});
+    await expectHfos(
+      () =>
+        run(
+          mainOfferSaveList,
+          { ...ws(), list: 'different', lines: ['Same-day photos'] },
+          t.member,
+        ),
+      'forbidden',
+    );
+    expect(
+      await run(
+        mainOfferSaveList,
+        {
+          ...ws(),
+          list: 'different',
+          lines: [
+            ' We send  photos the same day ',
+            'we send photos the same day',
+            'Free drone checks',
+          ],
+        },
+        t.owner,
+      ),
+    ).toEqual({ list: 'different', lines: ['We send photos the same day', 'Free drone checks'] });
+    await run(
+      mainOfferSaveList,
+      { ...ws(), list: 'never', lines: ['No prices in posts.'] },
+      t.owner,
+    );
+    const got = await ask(mainOfferGet, ws(), t.member);
+    expect(got).toMatchObject({
+      revision: 0,
+      draft: null,
+      lists: {
+        different: ['We send photos the same day', 'Free drone checks'],
+        never: ['No prices in posts.'],
+      },
+    });
+    // Too many lines, or one too long, is refused in words; none clears the list.
+    await expectHfos(
+      () =>
+        run(
+          mainOfferSaveList,
+          { ...ws(), list: 'topics', lines: Array.from({ length: 13 }, (_, i) => `Topic ${i}`) },
+          t.owner,
+        ),
+      'validation',
+    );
+    await expectHfos(
+      () => run(mainOfferSaveList, { ...ws(), list: 'topics', lines: ['x'.repeat(301)] }, t.owner),
+      'validation',
+    );
+    expect(await run(mainOfferSaveList, { ...ws(), list: 'never', lines: [] }, t.owner)).toEqual({
+      list: 'never',
+      lines: [],
+    });
+    expect((await ask(mainOfferGet, ws(), t.owner)).lists).toEqual({
+      different: ['We send photos the same day', 'Free drone checks'],
+    });
+  });
+
+  it('are refused, and kept, while no add-on that uses the offer is on', async () => {
+    await rows(
+      admin(),
+      sql`update app.addon_installations set state = 'disabled' where workspace_id = ${t.wsId} and addon_id = 'outreach'`,
+    );
+    await expectHfos(
+      () =>
+        run(mainOfferSaveList, { ...ws(), list: 'story', lines: ['We started in 2019.'] }, t.owner),
+      'main_offer_not_in_use',
+    );
+    expect((await ask(mainOfferGet, ws(), t.owner)).lists.different).toHaveLength(2);
+    await rows(
+      admin(),
+      sql`update app.addon_installations set state = 'enabled' where workspace_id = ${t.wsId} and addon_id = 'outreach'`,
+    );
   });
 });

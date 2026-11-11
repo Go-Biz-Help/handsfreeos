@@ -148,6 +148,8 @@ export const CalendarGetOutput = z.object({
   nextFillAt: z.string().nullable(),
   /** Whether it fills on its own (the owner's switch, 11 Nov): off, it writes no posts on its own. */
   autoFill: z.boolean(),
+  /** Whether the main offer is live: until it is, the AI writes no posts (pick 7b). Defaults, for an older API. */
+  offerLive: z.boolean().default(true),
   /** Ideas saved to make, which a fill uses first. */
   ideasSaved: z.number().int(),
   /** Posts OK'd and waiting to go up at their times. */

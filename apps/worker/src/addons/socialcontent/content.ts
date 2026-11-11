@@ -71,7 +71,7 @@ import { assertInWorkspace } from '../../handlers/file-removed';
 import { chargeUsage } from '../../money/wallet';
 import { PictureError } from '../../pictures';
 import { scheduleAddonJob } from '../queue';
-import { businessText } from './business';
+import { businessText, offerIsLive, requireLiveOffer } from './business';
 import { drawDesign, PICTURE_HEIGHT, PICTURE_WIDTH } from './draw';
 import { aiRefusal } from './notes';
 import type { AddonJobHandler, AddonScopeContext, AddonWorkerAction } from '../types';
@@ -309,12 +309,13 @@ export const writePostNow: AddonWorkerAction<z.output<typeof WriteInputShape>> =
   ai: {
     tool: 'socialcontent_write_own_post',
     description:
-      'Have the AI write one of the business’s own posts for Instagram, Facebook or LinkedIn, from a content idea (ideaId), or from a few words of what it should be about (ask), using the Playbook and what HandsFreeOS knows about the business. It goes on the next open day in the plan for that network unless postAt is given, and waits for an OK; its picture is made on its own when the AI makes it.',
+      'Have the AI write one of the business’s own posts for Instagram, Facebook or LinkedIn, from a content idea (ideaId), or from a few words of what it should be about (ask), using the Playbook and what HandsFreeOS knows about the business. It goes on the next open day in the plan for that network unless postAt is given, and waits for an OK; its picture is made on its own when the AI makes it. Refused until the business’s main offer is live.',
     autonomy: 'auto',
     keywords: ['write a post', 'social post', 'caption', 'content calendar'],
   },
   input: WriteInputShape,
   async run(ctx, input) {
+    await requireLiveOffer(ctx);
     const idea = input.ideaId ? await ideaOf(ctx, input.ideaId) : null;
     const here = await hereOf(ctx);
     const network: PostingNetwork =
@@ -369,6 +370,7 @@ export const rewritePostNow: AddonWorkerAction<z.output<typeof RewriteInput>> = 
   },
   input: RewriteInput,
   async run(ctx, input) {
+    await requireLiveOffer(ctx);
     const [was] = await asWorker(ctx.db, ctx.scope, (tx) =>
       rows<{
         network: string;
@@ -442,7 +444,7 @@ export const fillCalendarNow: AddonWorkerAction<Record<string, never>> = {
   ai: {
     tool: 'socialcontent_fill_calendar',
     description:
-      'Fill the business’s content calendar: the AI writes a post for each open day in the plan over the next two weeks (saved ideas first, then new ones, then from the Playbook), each waiting for an OK, with their pictures. After that it tops up once a week on its own. Says how many open days there are; the posts show on the calendar as they’re written, over a few minutes.',
+      'Fill the business’s content calendar: the AI writes a post for each open day in the plan over the next two weeks (saved ideas first, then new ones, then from the Playbook), each waiting for an OK, with their pictures. After that it tops up once a week on its own. Says how many open days there are; the posts show on the calendar as they’re written, over a few minutes. Refused until the business’s main offer is live.',
     autonomy: 'auto',
     keywords: ['fill calendar', 'content calendar', 'plan my posts', 'next two weeks of posts'],
   },
@@ -455,6 +457,7 @@ export const fillCalendarNow: AddonWorkerAction<Record<string, never>> = {
         409,
         'Filling the calendar is off, so the AI doesn’t write posts on its own. Turn on Fill on its own on the Calendar page or in Settings → Posting, and it fills the open days right away.',
       );
+    await requireLiveOffer(ctx);
     const open = await openSlots(ctx, here);
     if (!open.length) return { open: 0 };
     await queueFill(ctx, new Date(), true);
@@ -530,13 +533,18 @@ async function rewriteVideoDrafts(
 /**
  * `socialcontent.calendar`: a post for each open day in the plan over the next two weeks, a few at a time. Once
  * every day has one, it's marked filled and runs again in a week. Turned off (Fill on its own), it stops before its
- * next post and isn't queued again: turning it back on queues it (onSettingsSaved).
+ * next post and isn't queued again: turning it back on queues it (onSettingsSaved). With no main offer live, it
+ * writes nothing and waits: putting the offer live queues it (onOfferPublished, pick 7b).
  */
 export const runCalendar: AddonJobHandler = async (ctx) => {
   try {
     const here = await hereOf(ctx);
     if (!here.autoFill) {
       ctx.log.info('the content calendar fills on its own no more: it was turned off');
+      return;
+    }
+    if (!(await offerIsLive(ctx))) {
+      ctx.log.info('the content calendar waits for the main offer to go live');
       return;
     }
     const business = await businessText(ctx);

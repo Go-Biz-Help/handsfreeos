@@ -465,6 +465,22 @@ describe('Ideas', () => {
     );
     expect(screen.queryByTestId('socialcontent-ideas-get')).toBeNull();
   });
+
+  it('gets no ideas until the main offer is live (pick 7b)', async () => {
+    await render(
+      <IdeasBody
+        data={{ ideas: [], examples: [], hasPlaybook: true, offerLive: false }}
+        error={null}
+        online
+        busy={null}
+        onRetry={jest.fn()}
+        onGet={jest.fn()}
+        onDecide={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId('socialcontent-offer-not-live')).toBeTruthy();
+    expect(screen.queryByTestId('socialcontent-ideas-get')).toBeNull();
+  });
 });
 
 describe('Settings', () => {
@@ -668,6 +684,17 @@ describe('the Calendar', () => {
     expect(screen.getByTestId('socialcontent-calendar-filled')).toHaveTextContent(
       /An owner or admin can turn filling on its own back on\.$/,
     );
+  });
+
+  it('writes nothing until the main offer is live, and says where to put it live (pick 7b)', async () => {
+    await render(body({ data: calendarView({ offerLive: false }) }));
+    expect(screen.getByTestId('socialcontent-offer-not-live')).toHaveTextContent(
+      /Your main offer isn’t live yet/,
+    );
+    expect(screen.queryByTestId('socialcontent-calendar-fill')).toBeNull();
+    expect(screen.queryByTestId('socialcontent-calendar-write')).toBeNull();
+    await render(body());
+    expect(screen.queryByTestId('socialcontent-offer-not-live')).toBeNull();
   });
 
   it('says how to start when it’s empty, and can’t press anything with no signal', async () => {

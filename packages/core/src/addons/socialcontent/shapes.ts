@@ -400,7 +400,12 @@ export const IdeaListInput = z.object({
   workspaceId: uuid,
   state: z.enum(IDEA_STATES).optional(),
 });
-export const IdeaListOutput = z.object({ ideas: z.array(Idea), examples: z.array(StandoutRef) });
+export const IdeaListOutput = z.object({
+  ideas: z.array(Idea),
+  examples: z.array(StandoutRef),
+  /** Whether the main offer is live: until it is, the AI writes no ideas (pick 7b). Defaults, for an older API. */
+  offerLive: z.boolean().default(true),
+});
 export const IdeaDecideInput = z.object({
   workspaceId: uuid,
   ideaId: uuid,

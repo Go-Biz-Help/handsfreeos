@@ -4,11 +4,11 @@
   "checkedOn": "2026-11-11",
   "files": {
     "apps/mobile/src/addons/socialcontent/activity.tsx": "9744b485ef7b",
-    "apps/mobile/src/addons/socialcontent/calendar.tsx": "806a39e5597f",
+    "apps/mobile/src/addons/socialcontent/calendar.tsx": "5dea96ba5dd9",
     "apps/mobile/src/addons/socialcontent/creators.tsx": "3979babd684b",
     "apps/mobile/src/addons/socialcontent/home.tsx": "6973e687d399",
-    "apps/mobile/src/addons/socialcontent/ideas.tsx": "6aef7d141079",
-    "apps/mobile/src/addons/socialcontent/kit.tsx": "abf51ba44ab4",
+    "apps/mobile/src/addons/socialcontent/ideas.tsx": "370c2f6d54c8",
+    "apps/mobile/src/addons/socialcontent/kit.tsx": "f3734b26ca2f",
     "apps/mobile/src/addons/socialcontent/more.tsx": "41a0e2e099f1",
     "apps/mobile/src/addons/socialcontent/own-post.tsx": "b90937b1d0e5",
     "apps/mobile/src/addons/socialcontent/playbook.tsx": "f6bbed355f8c",
@@ -25,9 +25,10 @@
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/standouts.tsx": "adbc9f8ec4fe",
     "apps/web/src/addons/registry.ts": "5ce8310d4da9",
     "apps/web/src/addons/socialcontent/activity-card.tsx": "ac129c506362",
-    "apps/web/src/addons/socialcontent/calendar-page.tsx": "741d49a83e74",
+    "apps/web/src/addons/socialcontent/calendar-page.tsx": "85efd512c08f",
     "apps/web/src/addons/socialcontent/creators-page.tsx": "534489749606",
-    "apps/web/src/addons/socialcontent/ideas-page.tsx": "920958354456",
+    "apps/web/src/addons/socialcontent/ideas-page.tsx": "c93e26d76db8",
+    "apps/web/src/addons/socialcontent/offer-notice.tsx": "bd18d03766c4",
     "apps/web/src/addons/socialcontent/playbook-page.tsx": "add4a230d665",
     "apps/web/src/addons/socialcontent/post-card.tsx": "67aaf4c54254",
     "apps/web/src/addons/socialcontent/post-sheet.tsx": "d90ca897e88d",
@@ -36,7 +37,7 @@
     "apps/web/src/addons/socialcontent/standouts-page.tsx": "432ad6ca185d",
     "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/calendar/page.tsx": "aac72a86dfcf",
     "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/creators/page.tsx": "f4ae2d8b3e77",
-    "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/ideas/page.tsx": "28b642ce96a0",
+    "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/ideas/page.tsx": "6b4e6194b80e",
     "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/page.tsx": "f6d978501d91",
     "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/playbook/page.tsx": "e8ea3f0e428f",
     "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/settings/page.tsx": "af3ff673f9d4",
@@ -375,49 +376,49 @@
     {
       "path": "Ideas → Get ideas",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:107",
+      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:112",
       "covered": "yes",
       "by": "socialcontent_suggest_ideas (worker action)"
     },
     {
       "path": "Ideas → tabs: New, Saved, Used, Skipped, with counts",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:125",
+      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:131",
       "covered": "yes",
       "by": "socialcontent_list_ideas (state)"
     },
     {
       "path": "Ideas → an idea: network, format, title, hook, outline, why, based on",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:190",
+      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:196",
       "covered": "yes",
       "by": "socialcontent_list_ideas"
     },
     {
       "path": "Ideas → an idea → Save",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:224",
+      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:230",
       "covered": "yes",
       "by": "socialcontent_decide_idea (saved)"
     },
     {
       "path": "Ideas → an idea → Mark used",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:225",
+      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:231",
       "covered": "yes",
       "by": "socialcontent_decide_idea (used)"
     },
     {
       "path": "Ideas → an idea → Skip",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:226",
+      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:232",
       "covered": "yes",
       "by": "socialcontent_decide_idea (skipped)"
     },
     {
       "path": "Ideas → an idea → Back to new",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:234",
+      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:240",
       "covered": "yes",
       "by": "socialcontent_decide_idea (new)"
     },
@@ -431,7 +432,7 @@
     {
       "path": "Ideas → none yet, or needs a Playbook",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:115",
+      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:121",
       "covered": "yes",
       "by": "socialcontent_list_ideas; socialcontent_get_playbook"
     },
@@ -480,7 +481,7 @@
     {
       "path": "Phone → any screen with no signal: needs signal, Try again",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/kit.tsx:174",
+      "file": "apps/mobile/src/addons/socialcontent/kit.tsx:179",
       "covered": "yes",
       "by": "the Assistant asks with signal itself; nothing to do"
     },
@@ -641,21 +642,21 @@
     {
       "path": "Phone → Ideas → Get ideas",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/ideas.tsx:133",
+      "file": "apps/mobile/src/addons/socialcontent/ideas.tsx:144",
       "covered": "yes",
       "by": "socialcontent_suggest_ideas (worker action)"
     },
     {
       "path": "Phone → Ideas → tabs with counts; an idea: network, format, title, hook, outline, why, based on; none yet or needs a Playbook",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/ideas.tsx:178",
+      "file": "apps/mobile/src/addons/socialcontent/ideas.tsx:189",
       "covered": "yes",
       "by": "socialcontent_list_ideas; socialcontent_get_playbook"
     },
     {
       "path": "Phone → Ideas → an idea → Save / Mark used / Skip / Back to new",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/ideas.tsx:198",
+      "file": "apps/mobile/src/addons/socialcontent/ideas.tsx:209",
       "covered": "yes",
       "by": "socialcontent_decide_idea"
     },
@@ -704,77 +705,77 @@
     {
       "path": "Phone → Calendar → Fill the calendar (while it fills on its own)",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:183",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:186",
       "covered": "yes",
       "by": "socialcontent_fill_calendar (worker action), on its own"
     },
     {
       "path": "Phone → Calendar → Fill on its own: off stops the AI filling it, on fills the open days now",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:224",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:229",
       "covered": "yes",
       "by": "socialcontent_save_settings (autoFill), on a Confirm card"
     },
     {
       "path": "Phone → Calendar → OK the week (when posts wait for an OK)",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:197",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:200",
       "covered": "yes",
       "by": "socialcontent_approve_week, on a Confirm card"
     },
     {
       "path": "Phone → Calendar → Write a post (opens it once written)",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:209",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:213",
       "covered": "yes",
       "by": "socialcontent_write_own_post (worker action)"
     },
     {
       "path": "Phone → Calendar → when it was filled and fills again, the plan per network, how many are OK’d, whose computer puts them up and the networks posted by hand",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:229",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:234",
       "covered": "yes",
       "by": "socialcontent_get_calendar (filledAt, nextFillAt, plan, ready, poster, postsOn)"
     },
     {
       "path": "Phone → Calendar → no posts yet",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:252",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:257",
       "covered": "yes",
       "by": "socialcontent_get_calendar (posts, undated and open all empty)"
     },
     {
       "path": "Phone → Calendar → a day: its posts, each with picture, network, time, format, state, title, first line, what it still needs or its latest numbers",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:260",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:265",
       "covered": "yes",
       "by": "socialcontent_get_calendar (posts with stillNeeds, numbers, doneWell)"
     },
     {
       "path": "Phone → Calendar → a day → Open day: network and time, Write one",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:283",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:288",
       "covered": "yes",
       "by": "socialcontent_get_calendar (open); socialcontent_write_own_post (network, postAt)"
     },
     {
       "path": "Phone → Calendar → No day yet, and Went up lately with how each did",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:295",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:300",
       "covered": "yes",
       "by": "socialcontent_get_calendar (undated, recent with numbers and doneWell)"
     },
     {
       "path": "Phone → Calendar → open a post (its own screen, also from a link with ?post=)",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:334",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:339",
       "covered": "yes",
       "by": "socialcontent_get_own_post; the place links the Calendar"
     },
     {
       "path": "Phone → Calendar or a post with no signal: needs signal, Try again",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:153",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:154",
       "covered": "yes",
       "by": "the Assistant needs signal too; nothing to do"
     },
@@ -956,91 +957,91 @@
     {
       "path": "Calendar → header: title and that nothing goes up without an OK",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:135",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:137",
       "covered": "yes",
       "by": "socialcontent_get_calendar; the place’s words"
     },
     {
       "path": "Calendar → Fill the calendar (while it fills on its own)",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:145",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:147",
       "covered": "yes",
       "by": "socialcontent_fill_calendar (worker action), on its own"
     },
     {
       "path": "Calendar → Fill on its own: off stops the AI filling it (a fill under way too), on fills the open days now",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:194",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:201",
       "covered": "yes",
       "by": "socialcontent_save_settings (autoFill), on a Confirm card"
     },
     {
       "path": "Calendar → OK the week (when posts wait for an OK)",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:157",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:159",
       "covered": "yes",
       "by": "socialcontent_approve_week, on a Confirm card"
     },
     {
       "path": "Calendar → Write a post",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:168",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:171",
       "covered": "yes",
       "by": "socialcontent_write_own_post (worker action)"
     },
     {
       "path": "Calendar → when it was filled and fills again, or that filling on its own is off, the plan per network",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:181",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:188",
       "covered": "yes",
       "by": "socialcontent_get_calendar (filledAt, nextFillAt, autoFill, plan, ready)"
     },
     {
       "path": "Calendar → how many are OK’d and going up, whose computer puts them up and when it last checked in (a warning when none is picked or it’s quiet), and the networks posted by hand for now",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:201",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:208",
       "covered": "yes",
       "by": "socialcontent_get_calendar (ready, poster, postsOn, posts)"
     },
     {
       "path": "Calendar → no posts yet",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:215",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:222",
       "covered": "yes",
       "by": "socialcontent_get_calendar (posts, undated and open all empty)"
     },
     {
       "path": "Calendar → a day: its posts, each with network, time, format, state, picture, title, first line and what it still needs",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:296",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:303",
       "covered": "yes",
       "by": "socialcontent_get_calendar (posts with stillNeeds); socialcontent_list_own_posts"
     },
     {
       "path": "Calendar → a day → Open day: network and time, Write one",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:236",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:243",
       "covered": "yes",
       "by": "socialcontent_get_calendar (open); socialcontent_write_own_post (network, postAt)"
     },
     {
       "path": "Calendar → No day yet: posts without a day",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:261",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:268",
       "covered": "yes",
       "by": "socialcontent_get_calendar (undated)"
     },
     {
       "path": "Calendar → Went up lately: what went up in the 30 days before, each with its latest numbers or that it did well",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:272",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:279",
       "covered": "yes",
       "by": "socialcontent_get_calendar (recent, each with numbers and doneWell)"
     },
     {
       "path": "Calendar → open a post (also from a link with ?post=)",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:76",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:78",
       "covered": "yes",
       "by": "socialcontent_get_own_post; the place links the Calendar"
     },
@@ -1236,7 +1237,7 @@
     {
       "path": "Ideas → an idea → Write the post (opens it on the Calendar)",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:164",
+      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:170",
       "covered": "yes",
       "by": "socialcontent_write_own_post (ideaId)"
     },
@@ -1274,6 +1275,41 @@
       "file": "apps/web/src/addons/socialcontent/settings-page.tsx:436",
       "covered": "yes",
       "by": "socialcontent_save_settings (facebookWhere)"
+    },
+    {
+      "path": "Calendar → main offer not live: the AI writes no posts until it is, Open Main offer (Fill the calendar and Write a post hidden)",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:182",
+      "covered": "yes",
+      "by": "socialcontent_get_calendar → offerLive; the write and fill actions refuse with the same words"
+    },
+    {
+      "path": "Ideas → main offer not live: the AI writes no ideas until it is, Open Main offer (Get ideas hidden)",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:117",
+      "covered": "yes",
+      "by": "socialcontent_list_ideas → offerLive; socialcontent_suggest_ideas refuses with the same words"
+    },
+    {
+      "path": "Calendar and Ideas → the main offer isn’t live notice → Open Main offer",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/offer-notice.tsx:19",
+      "covered": "yes",
+      "by": "get_settings main_offer; edit_main_offer / main_offer_go_live"
+    },
+    {
+      "path": "Phone → Calendar → main offer not live: the AI writes no posts until it is, Open Main offer (Fill and Write hidden)",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:178",
+      "covered": "yes",
+      "by": "socialcontent_get_calendar → offerLive"
+    },
+    {
+      "path": "Phone → Ideas → main offer not live: the AI writes no ideas until it is, Open Main offer (Get ideas hidden)",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/socialcontent/ideas.tsx:135",
+      "covered": "yes",
+      "by": "socialcontent_list_ideas → offerLive"
     }
   ],
   "gaps": []

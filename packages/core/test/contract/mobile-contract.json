@@ -5358,6 +5358,44 @@
         "required": ["workspaceId", "revision", "parts"]
       }
     },
+    "main_offer.save_list": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "list": {
+            "type": "string",
+            "enum": [
+              "different",
+              "benefits",
+              "problems",
+              "questions",
+              "beforeAfter",
+              "story",
+              "topics",
+              "myths",
+              "voice",
+              "asks",
+              "never"
+            ]
+          },
+          "lines": {
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          }
+        },
+        "required": ["workspaceId", "list", "lines"]
+      }
+    },
     "message.cancel_scheduled": {
       "offline": "anytime",
       "input": {

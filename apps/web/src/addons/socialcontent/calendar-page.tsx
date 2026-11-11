@@ -4,8 +4,9 @@
  * two weeks after, day by day, written by the AI from the Playbook and saved ideas. Each waits for an OK (decision
  * 15): open one to change it, OK it or skip it, or **OK the week** in one go. Open days in the plan show where a post
  * is still wanted; **Fill the calendar** has the AI write them all, and after the first time it tops up once a week
- * on its own (decision 18), until **Fill on its own** is turned off (the owner, 11 Nov). OK'd posts go up at their times from the reading computer (part 9): Facebook and
- * LinkedIn for now, and the card says whose computer that is and when it last checked in.
+ * on its own (decision 18), until **Fill on its own** is turned off (the owner, 11 Nov). OK'd posts go up at their
+ * times from the reading computer (part 9), and the card says whose computer that is and when it last checked in.
+ * Until the main offer is live, nothing is written, and the page says so (pick 7b, 11 Nov).
  */
 import { addDays, localDateOf } from '@hfos/core';
 import { POSTING_NETWORKS, type PostingNetwork } from '@hfos/core/addons/socialcontent/calendar';
@@ -29,6 +30,7 @@ import { Switch } from '@/components/ui/switch';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { workerPost } from '@/lib/api/worker';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
+import { OfferNotLive } from './offer-notice';
 import { PostPicture, PostSheet, STATE_BADGE, timeIn } from './post-sheet';
 import type { CalendarView, Content } from './types';
 import { useAct } from './use-act';
@@ -137,7 +139,7 @@ export function CalendarPage({
         description={W.calendar.intro}
         actions={
           <div className="flex flex-wrap gap-2">
-            {c.autoFill ? (
+            {c.autoFill && c.offerLive ? (
               <Button
                 loading={busy === 'fill'}
                 disabled={busy !== null && busy !== 'fill'}
@@ -160,19 +162,24 @@ export function CalendarPage({
                 {W.calendar.approveWeek}
               </Button>
             ) : null}
-            <Button
-              variant="secondary"
-              loading={busy === 'write'}
-              disabled={busy !== null && busy !== 'write'}
-              onClick={() => void write(null, null, 'write')}
-              data-testid="socialcontent-calendar-write"
-            >
-              <PenLine className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-              {busy === 'write' ? W.calendar.writing : W.calendar.write}
-            </Button>
+            {c.offerLive ? (
+              <Button
+                variant="secondary"
+                loading={busy === 'write'}
+                disabled={busy !== null && busy !== 'write'}
+                onClick={() => void write(null, null, 'write')}
+                data-testid="socialcontent-calendar-write"
+              >
+                <PenLine className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                {busy === 'write' ? W.calendar.writing : W.calendar.write}
+              </Button>
+            ) : null}
           </div>
         }
       />
+
+      {/* No posts are written until the main offer is live (pick 7b). */}
+      {c.offerLive ? null : <OfferNotLive workspaceId={workspaceId} />}
 
       <Card className="p-4 md:p-5">
         <div className="flex items-start gap-3">

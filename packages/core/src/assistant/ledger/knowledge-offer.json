@@ -1,16 +1,18 @@
 {
   "area": "knowledge-offer",
   "title": "Knowledge and the main offer",
-  "checkedOn": "2026-11-07",
+  "checkedOn": "2026-11-11",
   "files": {
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/main-offer-lists.tsx": "1cce8495f818",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/main-offer-part.tsx": "cfbf7ceaba83",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/main-offer.tsx": "3dfbcbbe2aaf",
     "apps/mobile/src/main-offer/anyway-sheet.tsx": "3215b7e1f61d",
     "apps/mobile/src/main-offer/edit.tsx": "c49b9b7e6c29",
+    "apps/mobile/src/main-offer/lists.tsx": "486403516f08",
     "apps/mobile/src/main-offer/live.tsx": "bb297395b473",
     "apps/mobile/src/main-offer/review.tsx": "abeb2f08542d",
     "apps/mobile/src/main-offer/row.ts": "43335ea807b5",
-    "apps/mobile/src/main-offer/screen.tsx": "799a7aef0ea1",
+    "apps/mobile/src/main-offer/screen.tsx": "5b50798e208e",
     "apps/mobile/src/main-offer/try-ready.tsx": "ea358f849ceb",
     "apps/web/src/addons/outreach/offer-panel.tsx": "9a4c91de27e6",
     "apps/web/src/app/app/w/[workspaceId]/knowledge/documents/page.tsx": "8baedd218f57",
@@ -42,8 +44,9 @@
     "apps/web/src/components/knowledge/website-scan.tsx": "779002bbbe34",
     "apps/web/src/components/main-offer/box.tsx": "955b91d0cb14",
     "apps/web/src/components/main-offer/builder.tsx": "3af6cc1d6b2e",
+    "apps/web/src/components/main-offer/content-lists.tsx": "ad7e0e8f4d5b",
     "apps/web/src/components/main-offer/names.tsx": "65fe41d75352",
-    "apps/web/src/components/main-offer/page.tsx": "05e3ec301da3",
+    "apps/web/src/components/main-offer/page.tsx": "43ce7cfbf0ce",
     "apps/web/src/components/main-offer/review.tsx": "c8a283b94f30",
     "apps/web/src/components/main-offer/score.tsx": "6fb1802044e6",
     "apps/web/src/components/main-offer/tries.tsx": "a045809c2970"
@@ -997,56 +1000,56 @@
     {
       "path": "Settings → Main offer → title and hint (who you help, result, how fast…)",
       "kind": "see",
-      "file": "apps/web/src/components/main-offer/page.tsx:70",
+      "file": "apps/web/src/components/main-offer/page.tsx:71",
       "covered": "yes",
       "by": "settings-map main_offer what, via get_settings main_offer"
     },
     {
       "path": "Settings → Main offer → only while an add-on that uses it is on (not in use notice on phone)",
       "kind": "see",
-      "file": "apps/mobile/src/main-offer/screen.tsx:98",
+      "file": "apps/mobile/src/main-offer/screen.tsx:99",
       "covered": "yes",
       "by": "get_settings main_offer → inUse, comesWith; tools refuse main_offer_not_in_use"
     },
     {
       "path": "Settings → Main offer → nothing built: Build your main offer, the 4 steps, Start building, You can stop any time",
       "kind": "do",
-      "file": "apps/web/src/components/main-offer/page.tsx:82",
+      "file": "apps/web/src/components/main-offer/page.tsx:83",
       "covered": "yes",
       "by": "edit_main_offer starts a draft from nothing"
     },
     {
       "path": "Settings → Main offer → nothing built, members: Ask an owner or admin…",
       "kind": "see",
-      "file": "apps/web/src/components/main-offer/page.tsx:85",
+      "file": "apps/web/src/components/main-offer/page.tsx:86",
       "covered": "yes",
       "by": "tools offered only with main_offer.manage; get_settings live null"
     },
     {
       "path": "Settings → Main offer → Change your offer",
       "kind": "do",
-      "file": "apps/web/src/components/main-offer/page.tsx:74",
+      "file": "apps/web/src/components/main-offer/page.tsx:75",
       "covered": "yes",
       "by": "edit_main_offer"
     },
     {
       "path": "Settings → Main offer → draft banner: who is changing it, saved time, scored or not, version N keeps running",
       "kind": "see",
-      "file": "apps/web/src/components/main-offer/page.tsx:112",
+      "file": "apps/web/src/components/main-offer/page.tsx:113",
       "covered": "yes",
       "by": "get_settings main_offer → draft.by, draft.at, draft.score, live.version"
     },
     {
       "path": "Settings → Main offer → draft banner → Open the draft",
       "kind": "do",
-      "file": "apps/web/src/components/main-offer/page.tsx:129",
+      "file": "apps/web/src/components/main-offer/page.tsx:130",
       "covered": "yes",
       "by": "get_settings main_offer → draft"
     },
     {
       "path": "Settings → Main offer → draft banner → Throw it away (confirm)",
       "kind": "do",
-      "file": "apps/web/src/components/main-offer/page.tsx:132",
+      "file": "apps/web/src/components/main-offer/page.tsx:133",
       "covered": "yes",
       "by": "manage_main_offer discard_draft"
     },
@@ -1074,63 +1077,63 @@
     {
       "path": "Settings → Main offer → tabs: Live version, Versions",
       "kind": "do",
-      "file": "apps/web/src/components/main-offer/page.tsx:149",
+      "file": "apps/web/src/components/main-offer/page.tsx:153",
       "covered": "yes",
       "by": "get_settings main_offer → mainOffer.live, versions"
     },
     {
       "path": "Settings → Main offer → Live → Live · version N · published date by who; Every part 7 or more / Under the bar",
       "kind": "see",
-      "file": "apps/web/src/components/main-offer/page.tsx:223",
+      "file": "apps/web/src/components/main-offer/page.tsx:227",
       "covered": "yes",
       "by": "get_settings main_offer → live.version, publishedAt, publishedBy, score"
     },
     {
       "path": "Settings → Main offer → Live → the one line; In messages: outcome and guarantee in a few words",
       "kind": "see",
-      "file": "apps/web/src/components/main-offer/page.tsx:230",
+      "file": "apps/web/src/components/main-offer/page.tsx:234",
       "covered": "yes",
       "by": "get_settings main_offer → live.line, parts.inAFewWords"
     },
     {
       "path": "Settings → Main offer → Live → part by part: each part’s words, working, holding back, scored with your direction, score",
       "kind": "see",
-      "file": "apps/web/src/components/main-offer/page.tsx:243",
+      "file": "apps/web/src/components/main-offer/page.tsx:247",
       "covered": "yes",
       "by": "get_settings main_offer → live.parts, live.score.parts good/holding/followedDirection"
     },
     {
       "path": "Settings → Main offer → Live → Proof (real results)",
       "kind": "see",
-      "file": "apps/web/src/components/main-offer/page.tsx:287",
+      "file": "apps/web/src/components/main-offer/page.tsx:291",
       "covered": "yes",
       "by": "get_settings main_offer → live.parts.proof"
     },
     {
       "path": "Settings → Main offer → Live → How it scored: 4 quick checks Yes / Not yet; Weakest: part and fix",
       "kind": "see",
-      "file": "apps/web/src/components/main-offer/page.tsx:296",
+      "file": "apps/web/src/components/main-offer/page.tsx:300",
       "covered": "yes",
       "by": "get_settings main_offer → live.score flags, threeSeconds, weakest, fix"
     },
     {
       "path": "Settings → Main offer → Live → direction card (kept, or where do you want it to go) and hint",
       "kind": "see",
-      "file": "apps/web/src/components/main-offer/page.tsx:307",
+      "file": "apps/web/src/components/main-offer/page.tsx:311",
       "covered": "yes",
       "by": "get_settings main_offer → direction"
     },
     {
       "path": "Settings → Main offer → Live → Edit your direction",
       "kind": "do",
-      "file": "apps/web/src/components/main-offer/page.tsx:317",
+      "file": "apps/web/src/components/main-offer/page.tsx:321",
       "covered": "yes",
       "by": "manage_main_offer set_direction"
     },
     {
       "path": "Settings → Main offer → Live → Who uses it (add-ons) and who changes it",
       "kind": "see",
-      "file": "apps/web/src/components/main-offer/page.tsx:324",
+      "file": "apps/web/src/components/main-offer/page.tsx:328",
       "covered": "yes",
       "by": "get_settings main_offer → comesWith"
     },
@@ -1151,7 +1154,7 @@
     {
       "path": "Settings → Main offer → Versions → each: Version N, line, lowest part, date, who, went live anyway reason, Live / Under the bar",
       "kind": "see",
-      "file": "apps/web/src/components/main-offer/page.tsx:166",
+      "file": "apps/web/src/components/main-offer/page.tsx:170",
       "covered": "yes",
       "by": "get_settings main_offer → versions"
     },
@@ -1564,21 +1567,21 @@
     {
       "path": "Phone → Main offer → needs signal, Try again",
       "kind": "see",
-      "file": "apps/mobile/src/main-offer/screen.tsx:134",
+      "file": "apps/mobile/src/main-offer/screen.tsx:139",
       "covered": "yes",
       "by": "get_settings main_offer reads it on the server"
     },
     {
       "path": "Phone → Main offer → nothing built: Build your main offer on a computer, Open on the web",
       "kind": "do",
-      "file": "apps/mobile/src/main-offer/screen.tsx:163",
+      "file": "apps/mobile/src/main-offer/screen.tsx:168",
       "covered": "yes",
       "by": "edit_main_offer builds it by asking"
     },
     {
       "path": "Phone → Main offer → nothing built, members: ask an owner; Nothing is live yet",
       "kind": "see",
-      "file": "apps/mobile/src/main-offer/screen.tsx:103",
+      "file": "apps/mobile/src/main-offer/screen.tsx:105",
       "covered": "yes",
       "by": "get_settings main_offer → live null"
     },
@@ -1592,21 +1595,21 @@
     {
       "path": "Phone → Main offer → Review → live only: version N is live, a change starts a draft",
       "kind": "see",
-      "file": "apps/mobile/src/main-offer/screen.tsx:357",
+      "file": "apps/mobile/src/main-offer/screen.tsx:366",
       "covered": "yes",
       "by": "get_settings → draft null, live.version; edit_main_offer card says so"
     },
     {
       "path": "Phone → Main offer → Review → Your draft line, still needs (each opens Edit or the web)",
       "kind": "see",
-      "file": "apps/mobile/src/main-offer/screen.tsx:362",
+      "file": "apps/mobile/src/main-offer/screen.tsx:371",
       "covered": "yes",
       "by": "get_settings → draft.parts.line, draft.missing"
     },
     {
       "path": "Phone → Main offer → Review → Not scored yet card",
       "kind": "see",
-      "file": "apps/mobile/src/main-offer/screen.tsx:405",
+      "file": "apps/mobile/src/main-offer/screen.tsx:414",
       "covered": "yes",
       "by": "get_settings → draft.score null"
     },
@@ -1620,7 +1623,7 @@
     {
       "path": "Phone → Main offer → Review → footer: Go to step, Score my offer, Go live, Use it anyway, Make Try N",
       "kind": "do",
-      "file": "apps/mobile/src/main-offer/screen.tsx:482",
+      "file": "apps/mobile/src/main-offer/screen.tsx:494",
       "covered": "yes",
       "by": "edit_main_offer, score_main_offer, main_offer_go_live, try_main_offer"
     },
@@ -1658,6 +1661,132 @@
       "file": "apps/mobile/src/main-offer/edit.tsx:179",
       "covered": "yes",
       "by": "edit_main_offer boxes, steps"
+    },
+    {
+      "path": "Settings → Main offer → For your content: hint, how many of the 11 lists are filled in, each list with its first line and how many lines",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/content-lists.tsx:83",
+      "covered": "yes",
+      "by": "get_settings main_offer → lists"
+    },
+    {
+      "path": "Settings → Main offer → For your content → What’s missing (the AI says which lists are thin), each note opens its list",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/content-lists.tsx:101",
+      "covered": "yes",
+      "by": "help_main_offer_lists gaps"
+    },
+    {
+      "path": "Settings → Main offer → For your content → open a list: its hint, its lines",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/content-lists.tsx:217",
+      "covered": "yes",
+      "by": "get_settings main_offer → lists"
+    },
+    {
+      "path": "Settings → Main offer → For your content → a list → Add a line, Add",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/content-lists.tsx:354",
+      "covered": "yes",
+      "by": "manage_main_offer set_list (whole list)"
+    },
+    {
+      "path": "Settings → Main offer → For your content → a list → Write it for me: lines to tick, Keep, Not now",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/content-lists.tsx:369",
+      "covered": "yes",
+      "by": "help_main_offer_lists write, then manage_main_offer set_list"
+    },
+    {
+      "path": "Settings → Main offer → For your content → a list → Examples to model: tap one to start from it",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/content-lists.tsx:380",
+      "covered": "yes",
+      "by": "help_main_offer_lists examples"
+    },
+    {
+      "path": "Settings → Main offer → For your content → a line → Improve: three rewrites, pick one or Keep mine",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/content-lists.tsx:478",
+      "covered": "yes",
+      "by": "help_main_offer_lists improve, then manage_main_offer set_list"
+    },
+    {
+      "path": "Settings → Main offer → For your content → a line → Change this line, Save, Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/content-lists.tsx:484",
+      "covered": "yes",
+      "by": "manage_main_offer set_list"
+    },
+    {
+      "path": "Settings → Main offer → For your content → a line → Remove this line",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/content-lists.tsx:492",
+      "covered": "yes",
+      "by": "manage_main_offer set_list"
+    },
+    {
+      "path": "Phone → Main offer → For your content row: how many lists are filled in, opens the lists (Review, read only, and before the offer is built)",
+      "kind": "see",
+      "file": "apps/mobile/src/main-offer/screen.tsx:108",
+      "covered": "yes",
+      "by": "get_settings main_offer → lists"
+    },
+    {
+      "path": "Phone → Main offer → For your content: hint, how many filled in, each list with its first line, only owners and admins change them",
+      "kind": "see",
+      "file": "apps/mobile/src/main-offer/lists.tsx:69",
+      "covered": "yes",
+      "by": "get_settings main_offer → lists"
+    },
+    {
+      "path": "Phone → Main offer → For your content → What’s missing, each note opens its list",
+      "kind": "do",
+      "file": "apps/mobile/src/main-offer/lists.tsx:187",
+      "covered": "yes",
+      "by": "help_main_offer_lists gaps"
+    },
+    {
+      "path": "Phone → Main offer → For your content → a list → Add a line, Add",
+      "kind": "do",
+      "file": "apps/mobile/src/main-offer/lists.tsx:425",
+      "covered": "yes",
+      "by": "manage_main_offer set_list (whole list)"
+    },
+    {
+      "path": "Phone → Main offer → For your content → a list → Write it for me: lines to tick, Keep, Not now",
+      "kind": "do",
+      "file": "apps/mobile/src/main-offer/lists.tsx:443",
+      "covered": "yes",
+      "by": "help_main_offer_lists write, then manage_main_offer set_list"
+    },
+    {
+      "path": "Phone → Main offer → For your content → a list → Examples to model: tap one to start from it",
+      "kind": "do",
+      "file": "apps/mobile/src/main-offer/lists.tsx:453",
+      "covered": "yes",
+      "by": "help_main_offer_lists examples"
+    },
+    {
+      "path": "Phone → Main offer → For your content → a line → Improve: three rewrites, pick one or Keep mine",
+      "kind": "do",
+      "file": "apps/mobile/src/main-offer/lists.tsx:549",
+      "covered": "yes",
+      "by": "help_main_offer_lists improve, then manage_main_offer set_list"
+    },
+    {
+      "path": "Phone → Main offer → For your content → a line → Change this line, Save, Cancel",
+      "kind": "do",
+      "file": "apps/mobile/src/main-offer/lists.tsx:558",
+      "covered": "yes",
+      "by": "manage_main_offer set_list"
+    },
+    {
+      "path": "Phone → Main offer → For your content → a line → Remove this line",
+      "kind": "do",
+      "file": "apps/mobile/src/main-offer/lists.tsx:567",
+      "covered": "yes",
+      "by": "manage_main_offer set_list"
     }
   ],
   "gaps": [

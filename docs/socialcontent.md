@@ -42,6 +42,8 @@ offered to nobody; staff give it to a business from Admin → Businesses.
 | The business's own posts: the table, plan and post kind  | `supabase/migrations/20261027025000_socialcontent_calendar.sql`                  |
 | The plan, its open days, and what a post still needs     | `calendar.ts` (pure)                                                             |
 | What the AI is asked to write and design, and its checks | `posts-ai.ts`; the shapes on the wire in `content-shapes.ts`                     |
+| The main offer and its lists, as the AI reads them       | `offer-ai.ts` (`offerForContent`); the worker's `socialcontent/business.ts`      |
+| The notice while the offer isn't live                    | `offer-notice.tsx` in the web's folder; `OfferNotLive` in the phone's `kit.tsx`  |
 | People's operations on posts: calendar, save, OK, skip   | `ops/content.ts`; the worker's keep in `ops/worker.ts`                           |
 | Writing, filling the calendar, and making pictures       | the worker's `socialcontent/content.ts`                                          |
 | Drawing a designed picture                               | the worker's `socialcontent/draw.ts` (Inter from `@fontsource/inter`)            |
@@ -184,8 +186,17 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   answer that still says video is kept as a picture post. A video post is only ever the person's own, when they pick
   Video on a post. Video drafts the AI wrote before, with no video added, are written again as picture posts on the
   same day by the next fill.
+- **The main offer comes first** (the owner's picks of 11 Nov, 4a and 7b; docs/main-offer.md, "For your content"):
+  the add-on declares `uses: ['main_offer']`, so Settings → Main offer comes with it. No post or idea is written until
+  the offer is live, as in Social Outreach: Write a post, Write it again, Fill the calendar and Suggest ideas are
+  refused (`socialcontent_offer_not_live`), the weekly top-up and the nightly ideas write nothing, and the Calendar and
+  Ideas hide those buttons and say why, with **Open Main offer** (`offerLive` from `socialcontent.calendar.get` and
+  `socialcontent.idea.list`). The research and the Playbook go on. When a version goes live, the worker hears
+  `main_offer.published` and fills the calendar at once, if it was filled before and Fill on its own is on.
 - **Its information** comes from the business profile from setup (what it sells and who it serves), up to 30 short
-  answers from the Knowledge base (FAQs and facts, `businessText`), the Playbook and the idea it's written from.
+  answers from the Knowledge base (FAQs and facts, `businessText`), the live main offer (its parts, never the price)
+  and the lists for content (what makes you different, features and benefits, your voice, never say and the rest),
+  the Playbook and the idea it's written from. Ideas read the offer and the lists too.
 - **Pictures** (decision 14), made in the worker's `socialcontent.pictures` job, one post at a time:
   - **Designed by the AI** (the default for tips, steps, quotes, claims and every carousel slide): Claude picks a
     layout (bold, clean or split), the colours (from the business's colour, kept readable) and the words for each page;
@@ -326,6 +337,9 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
   2, so the Assistant asks first. Changing an OK'd post takes its OK back. The worker writes posts and pictures only
   through its own commands (`socialcontent.content.put`, `.pictured`), which make the record through core's
   `custom_record.create`, so the system may run that command (and `custom_record.update`) for an add-on.
+- **Every post and idea is built on the main offer and its lists** (`OFFER_FOR_CONTENT`, in both `WRITE_SYSTEM` and
+  `IDEAS_SYSTEM`): they're quoted as data in their own blocks, the price is never quoted, and never say is a hard
+  rule. Nothing is written until the offer is live; the add-on reads the offer and never writes it.
 - **Words on pictures are drawn by the worker, never by an image model** (decision 14): OpenAI's pictures are asked
   for with no words in them.
 - **A post goes up once in each place** (part 9). Once Post is pressed in a place it's never pressed there again on

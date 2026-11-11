@@ -86,6 +86,21 @@ async function onEnable(ctx: AddonScopeContext): Promise<void> {
   if (s?.filled_at && s.auto_fill) await queueFill(ctx, new Date(Date.now() + WEEK_MS), false);
 }
 
+/**
+ * The main offer put live (or a new version of it): the calendar fills the open days now when it was filling before
+ * and still fills on its own, since nothing is written while no offer is live (pick 7b). A first fill still waits for
+ * the person to press Fill the calendar.
+ */
+const onOfferPublished: AddonSubscriber = async (ctx) => {
+  const [s] = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{ filled_at: Date | null; auto_fill: boolean }>(
+      tx,
+      sql`select filled_at, auto_fill from addon_socialcontent.settings where workspace_id = ${ctx.scope.workspaceId}`,
+    ),
+  );
+  if (s?.filled_at && s.auto_fill) await queueFill(ctx, new Date(), true);
+};
+
 /** Fill on its own turned back on (Settings → Posting, or the Calendar's switch): it fills the open days now. */
 const onSettingsSaved: AddonSubscriber = async (ctx) => {
   const p = (ctx.event.payload ?? {}) as Record<string, unknown>;
@@ -123,6 +138,7 @@ export const socialcontentAddonWorker: AddonWorkerModule = {
     'socialcontent.niche.added': onNicheAdded,
     'socialcontent.posts.saved': onPostsSaved,
     'socialcontent.content.done_well': onOwnDoneWell,
+    'main_offer.published': onOfferPublished,
   },
   jobs: {
     [WEEKLY_JOB]: readWeekly,

@@ -6257,6 +6257,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/main_offer.save_list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save one of the main offer’s lists for content, like what makes the business different or its features and benefits, as its lines. The AI Social Media Content Creator writes posts and ideas from them. Saving an empty list clears it.
+         * @description Risk level 1. Requires main_offer.manage. Emits main_offer.list_saved.
+         */
+        post: operations["command_main_offer_save_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/main_offer.save_names": {
         parameters: {
             query?: never;
@@ -24027,7 +24047,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled, whether it fills on its own (autoFill) and when it fills again; and how many ideas are saved to write from.
+         * The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled, whether it fills on its own (autoFill) and when it fills again; whether the main offer is live (offerLive: until it is, the AI writes no posts); and how many ideas are saved to write from.
          * @description Requires socialcontent.use.
          */
         post: operations["query_socialcontent_calendar_get"];
@@ -24107,7 +24127,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The content ideas the AI suggested for the business’s own posts, from the Playbook and its profile, newest first: each with its title, hook, format, network, an outline, why it should work and the standouts it’s based on (examples: each one’s link), and whether it’s new, saved, used or skipped. Pass state to keep to one.
+         * The content ideas the AI suggested for the business’s own posts, from the Playbook and its profile, newest first: each with its title, hook, format, network, an outline, why it should work and the standouts it’s based on (examples: each one’s link), and whether it’s new, saved, used or skipped; and whether the main offer is live (offerLive: until it is, the AI writes no ideas). Pass state to keep to one.
          * @description Requires socialcontent.use.
          */
         post: operations["query_socialcontent_idea_list"];
@@ -39263,6 +39283,40 @@ export interface operations {
                 content: {
                     "application/json": {
                         revision: number;
+                    };
+                };
+            };
+        };
+    };
+    command_main_offer_save_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    lines: string[];
+                    /** @enum {string} */
+                    list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        lines: string[];
+                        /** @enum {string} */
+                        list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
                     };
                 };
             };
@@ -78155,6 +78209,10 @@ export interface operations {
                             } | null;
                         } | null;
                         inUse: boolean;
+                        /** @default {} */
+                        lists: {
+                            [key: string]: string[];
+                        };
                         live: {
                             anyway: string | null;
                             line: string;
@@ -94764,6 +94822,8 @@ export interface operations {
                         ideasSaved: number;
                         mayManage: boolean;
                         nextFillAt: string | null;
+                        /** @default true */
+                        offerLive: boolean;
                         open: {
                             at: string;
                             date: string;
@@ -95363,6 +95423,8 @@ export interface operations {
                             title: string;
                             why: string | null;
                         }[];
+                        /** @default true */
+                        offerLive: boolean;
                     };
                 };
             };

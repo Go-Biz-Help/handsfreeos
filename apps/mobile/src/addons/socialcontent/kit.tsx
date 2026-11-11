@@ -5,12 +5,17 @@ import {
   SOCIALCONTENT_WORDS as W,
 } from '@hfos/core/addons/socialcontent/words';
 import * as Linking from 'expo-linking';
+import { router } from 'expo-router';
 import * as React from 'react';
 import { View } from 'react-native';
 
 import { ChangeError } from '@/changes';
-import { CloudOff } from '@/components/icons';
-import { useBusiness } from '@/components/shell/business-context';
+import { CloudOff, Megaphone } from '@/components/icons';
+import {
+  businessHref,
+  useBusiness,
+  useOptionalBusiness,
+} from '@/components/shell/business-context';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
@@ -186,6 +191,34 @@ export function Note({ children, testID }: { children: React.ReactNode; testID?:
     <Text className="text-[13px] leading-[18px] text-text-2" testID={testID}>
       {children}
     </Text>
+  );
+}
+
+/**
+ * The main offer isn't live, so the AI writes no posts and no ideas (the owner's pick 7b, 11 Nov 2026): says so on the
+ * Calendar and Ideas screens, with the way to Settings → Main offer.
+ */
+export function OfferNotLive() {
+  const business = useOptionalBusiness()?.business;
+  return (
+    <Card className="gap-3 bg-warning-soft p-4" testID="socialcontent-offer-not-live">
+      <View className="flex-row items-start gap-2.5">
+        <Icon as={Megaphone} className="mt-0.5 size-4 text-warning-text" />
+        <Text className="flex-1 text-[14px] leading-[20px] text-warning-text">
+          {W.offer.notLive}
+        </Text>
+      </View>
+      {business ? (
+        <Button
+          size="md"
+          variant="secondary"
+          onPress={() => router.push(businessHref(business.id, 'settings/main-offer'))}
+          testID="socialcontent-offer-open"
+        >
+          {W.offer.open}
+        </Button>
+      ) : null}
+    </Card>
   );
 }
 

@@ -841,6 +841,22 @@ describe('the business’s own posts', () => {
     expect(on.autoFill).toBe(true);
     expect(on.nextFillAt).not.toBeNull();
   });
+
+  it('says whether the main offer is live, since nothing is written until it is (pick 7b, 11 Nov)', async () => {
+    expect((await as(member, 'socialcontent.calendar.get')).offerLive).toBe(false);
+    expect((await as(member, 'socialcontent.idea.list')).offerLive).toBe(false);
+    await rows(
+      admin(),
+      sql`insert into app.main_offers (workspace_id, live_version) values (${ws}, 1)
+          on conflict (workspace_id) do update set live_version = 1`,
+    );
+    expect((await as(member, 'socialcontent.calendar.get')).offerLive).toBe(true);
+    expect((await as(member, 'socialcontent.idea.list')).offerLive).toBe(true);
+    await rows(
+      admin(),
+      sql`update app.main_offers set live_version = null where workspace_id = ${ws}`,
+    );
+  });
   it('puts an OK’d post up from the reading computer once its time comes, and only once', async () => {
     expect(
       await refused(as(member, 'socialcontent.post.next', { networks: ['facebook', 'linkedin'] })),

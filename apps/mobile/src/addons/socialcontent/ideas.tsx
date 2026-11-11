@@ -15,7 +15,14 @@ import { Text } from '@/components/ui/text';
 import { api, unwrap } from '@/lib/api';
 import { workerPost } from '@/lib/worker';
 
-import { NeedsSignal, Note, useAct, useSocialcontentAnswer, useSocialcontentContext } from './kit';
+import {
+  NeedsSignal,
+  Note,
+  OfferNotLive,
+  useAct,
+  useSocialcontentAnswer,
+  useSocialcontentContext,
+} from './kit';
 import { StandoutLinks } from './post-card';
 
 /**
@@ -38,6 +45,8 @@ export interface IdeasData {
   readonly ideas: readonly Idea[];
   readonly examples: readonly StandoutRef[];
   readonly hasPlaybook: boolean;
+  /** Until the main offer is live, the AI writes no ideas (pick 7b); an older API doesn't say, and means live. */
+  readonly offerLive?: boolean;
 }
 
 export function IdeasScreen() {
@@ -55,6 +64,7 @@ export function IdeasScreen() {
         ideas: found.ideas,
         examples: found.examples,
         hasPlaybook: book.playbook.writtenAt !== null,
+        offerLive: found.offerLive !== false,
       };
     },
     `socialcontent-ideas:${ws}`,
@@ -122,9 +132,10 @@ export function IdeasBody({
   return (
     <Screen title={W.ideas.title} leading="back" testID="socialcontent-ideas">
       <Note>{W.ideas.intro}</Note>
+      {data?.offerLive === false ? <OfferNotLive /> : null}
       {data ? (
         <>
-          {data.hasPlaybook ? (
+          {data.hasPlaybook && data.offerLive !== false ? (
             <Button
               icon={Lightbulb}
               loading={busy === 'get'}

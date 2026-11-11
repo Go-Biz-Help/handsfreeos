@@ -20,6 +20,7 @@ import {
   MainOfferTryWhy,
   missingParts,
 } from '../main-offer/parts';
+import { listsOf } from '../main-offer/lists';
 import {
   MainOfferGetInput,
   MainOfferGetOutput,
@@ -89,6 +90,7 @@ export const mainOfferGet = defineQuery({
       direction: offer?.direction ?? null,
       names: offer?.names ?? [],
       businessName: business?.name ?? '',
+      lists: listsOf(offer?.lists),
       live,
       draft:
         offer && draftParts

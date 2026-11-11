@@ -255,6 +255,7 @@ export function calendarView(over: Partial<CalendarView> = {}): CalendarView {
     filledAt: ago(120),
     nextFillAt: new Date(NOW + 5 * 24 * 60 * 60_000).toISOString(),
     autoFill: true,
+    offerLive: true,
     ideasSaved: 0,
     ready: 0,
     poster: { name: 'Chris', mine: true, seenAt: ago(1), version: '0.134.0' },

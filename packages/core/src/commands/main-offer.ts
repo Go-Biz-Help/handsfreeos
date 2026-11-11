@@ -34,6 +34,7 @@ import {
   underBar,
   withPartsFrom,
 } from '../main-offer/parts';
+import { cleanListLines, listsOf } from '../main-offer/lists';
 import {
   MainOfferDiscardDraftInput,
   MainOfferDiscardDraftOutput,
@@ -43,6 +44,8 @@ import {
   MainOfferSaveDirectionOutput,
   MainOfferSaveDraftInput,
   MainOfferSaveDraftOutput,
+  MainOfferSaveListInput,
+  MainOfferSaveListOutput,
   MainOfferSaveNamesInput,
   MainOfferSaveNamesOutput,
   MainOfferScoreSaveInput,
@@ -348,6 +351,48 @@ export const mainOfferSaveNames = defineCommand({
       broadcast: false,
     });
     return { names };
+  },
+});
+
+/**
+ * One of the lists for content (docs/main-offer.md, "For your content"): what makes the business different, its
+ * features and benefits, and the rest the AI Social Media Content Creator writes from. Saved as it is: not scored, so
+ * no revision moves, and never holds the offer back from going live.
+ */
+export const mainOfferSaveList = defineCommand({
+  name: 'main_offer.save_list',
+  description:
+    'Save one of the main offer’s lists for content, like what makes the business different or its features and benefits, as its lines. The AI Social Media Content Creator writes posts and ideas from them. Saving an empty list clears it.',
+  risk: 1,
+  input: MainOfferSaveListInput,
+  output: MainOfferSaveListOutput,
+  permission: 'main_offer.manage',
+  scope: inWorkspace,
+  emits: ['main_offer.list_saved'],
+  async handler(ctx, input) {
+    await requireMainOfferInUse(ctx);
+    const row = await lockOffer(ctx);
+    const kept = listsOf(row.lists);
+    const lines = cleanListLines(input.lines);
+    const before = kept[input.list] ?? [];
+    if (lines.join('\n') === before.join('\n')) return { list: input.list, lines };
+    const lists = { ...kept };
+    if (lines.length) lists[input.list] = lines;
+    else delete lists[input.list];
+    await ctx.tx
+      .update(mainOffers)
+      .set({ lists })
+      .where(eq(mainOffers.workspaceId, row.workspaceId));
+    await ctx.emit({
+      type: 'main_offer.list_saved',
+      entityType: 'main_offer',
+      entityId: row.workspaceId,
+      payload: { list: input.list, count: lines.length },
+      before: { list: input.list, lines: before },
+      after: { list: input.list, lines },
+      broadcast: false,
+    });
+    return { list: input.list, lines };
   },
 });
 

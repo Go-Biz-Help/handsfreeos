@@ -47,7 +47,7 @@ import { socialcontentAddon } from '../manifest';
 import { tidyHashtags } from '../posts-ai';
 import { content } from '../tables';
 import { SOCIALCONTENT_WORDS as W } from '../words';
-import { inWorkspace, mayManage, settingsOf, timeZoneOf, type Ctx } from './common';
+import { inWorkspace, mayManage, offerLiveOf, settingsOf, timeZoneOf, type Ctx } from './common';
 
 const PATH = 'a/socialcontent/calendar';
 /** An OK needs its time at least this far ahead: a post OK'd for a minute ago would never go. */
@@ -291,7 +291,7 @@ const RECENT_DAYS = 30;
 export const calendarGet = defineAddonQuery(socialcontentAddon, {
   name: 'socialcontent.calendar.get',
   description:
-    'The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled, whether it fills on its own (autoFill) and when it fills again; and how many ideas are saved to write from.',
+    'The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled, whether it fills on its own (autoFill) and when it fills again; whether the main offer is live (offerLive: until it is, the AI writes no posts); and how many ideas are saved to write from.',
   input: CalendarGetInput,
   output: CalendarGetOutput,
   permission: 'socialcontent.use',
@@ -346,6 +346,7 @@ export const calendarGet = defineAddonQuery(socialcontentAddon, {
       recent: await contentOut(ctx, recent),
       filledAt: s.filledAt,
       autoFill: s.autoFill,
+      offerLive: await offerLiveOf(ctx),
       nextFillAt:
         s.filledAt && s.autoFill
           ? new Date(new Date(s.filledAt).getTime() + CALENDAR.everyDays * 86_400_000).toISOString()
