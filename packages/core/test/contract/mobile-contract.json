@@ -5873,6 +5873,66 @@
                 "type": "string",
                 "maxLength": 500
               },
+              "email": {
+                "default": {
+                  "with": null,
+                  "domain": "",
+                  "local": "hello",
+                  "freeLocal": "",
+                  "name": "",
+                  "receive": null,
+                  "mine": false,
+                  "mineLocal": ""
+                },
+                "type": "object",
+                "properties": {
+                  "with": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["domain", "free"]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "domain": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "local": {
+                    "default": "hello",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "freeLocal": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "name": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "receive": {
+                    "default": null,
+                    "type": ["boolean", "null"]
+                  },
+                  "mine": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "mineLocal": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  }
+                }
+              },
               "ai": {
                 "default": {
                   "jobs": [],
@@ -6381,6 +6441,9 @@
               "customers",
               "booking",
               "number",
+              "email",
+              "email_records",
+              "email_own",
               "paid",
               "jobs",
               "facts",
@@ -6433,6 +6496,66 @@
                 "default": "",
                 "type": "string",
                 "maxLength": 500
+              },
+              "email": {
+                "default": {
+                  "with": null,
+                  "domain": "",
+                  "local": "hello",
+                  "freeLocal": "",
+                  "name": "",
+                  "receive": null,
+                  "mine": false,
+                  "mineLocal": ""
+                },
+                "type": "object",
+                "properties": {
+                  "with": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["domain", "free"]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "domain": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "local": {
+                    "default": "hello",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "freeLocal": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "name": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "receive": {
+                    "default": null,
+                    "type": ["boolean", "null"]
+                  },
+                  "mine": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "mineLocal": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  }
+                }
               },
               "ai": {
                 "default": {
