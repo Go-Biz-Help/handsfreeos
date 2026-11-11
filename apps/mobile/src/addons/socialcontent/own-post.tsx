@@ -2,6 +2,7 @@ import {
   addDays,
   ATTACHMENT_MAX_BYTES,
   ATTACHMENT_TYPES,
+  holds,
   localDateOf,
   localInstant,
 } from '@hfos/core';
@@ -29,6 +30,7 @@ import {
 import { File } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
+import { router } from 'expo-router';
 import * as React from 'react';
 import {
   Image,
@@ -49,6 +51,7 @@ import {
   ImagePlus,
   Play,
   Share as ShareIcon,
+  Trash,
   Video,
   X,
 } from '@/components/icons';
@@ -61,6 +64,7 @@ import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { api, unwrap } from '@/lib/api';
+import { useGrants } from '@/lib/grants';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { workerPost } from '@/lib/worker';
@@ -81,7 +85,8 @@ import {
  * and part 12): where it went up and how it did, why it didn't post, its words, hook, hashtags, a carousel's slides or
  * a video's script, its pictures or the person's video, where on Facebook it goes and when. Anyone who uses the add-on
  * changes it, has the AI write it again or make its picture again, adds their own photos or video from the phone, OKs
- * it, puts it up now, or skips it. Changing an OK'd post takes the OK back. It opens at the web's own address
+ * it, puts it up now, or skips it. Changing an OK'd post takes the OK back. An owner or admin removes it from the
+ * calendar for good (records.archive), after asking, which opens its day. It opens at the web's own address
  * (`calendar?post=<id>`), and needs signal.
  */
 
@@ -365,8 +370,20 @@ export function PostScreen({ postId }: { postId: string }) {
   );
   const { busy, act } = useAct(answer.reload);
   const [adding, setAdding] = React.useState(false);
+  // Removing a post is archiving its record: owners and admins (records.archive).
+  const canRemove = holds(useGrants(), 'records.archive');
   const p = answer.data?.post ?? null;
   const tz = answer.data?.timeZone ?? 'UTC';
+  const removePost = () =>
+    void act(
+      'remove',
+      async () =>
+        (await change('socialcontent.content.remove', { workspaceId: ws, postId })).output,
+      (out) => W.post.removed(out?.openDay != null),
+    ).then((out) => {
+      // Back to the Calendar, where its day shows open.
+      if (out) router.back();
+    });
 
   const actions: PostActions = {
     save: (d) =>
@@ -470,6 +487,7 @@ export function PostScreen({ postId }: { postId: string }) {
       uploading={adding}
       onRetry={answer.reload}
       actions={actions}
+      onRemove={canRemove ? removePost : undefined}
     />
   );
 }
@@ -554,6 +572,7 @@ export function PostBody({
   uploading,
   onRetry,
   actions,
+  onRemove,
 }: {
   post: Content | null;
   timeZone: string;
@@ -564,8 +583,11 @@ export function PostBody({
   uploading: boolean;
   onRetry: () => void;
   actions: PostActions;
+  /** Takes it off the calendar once asked; absent for those who can't (records.archive). */
+  onRemove?: () => void;
 }) {
   const [d, setD] = React.useState<PostDraft | null>(p ? draftOf(p, timeZone) : null);
+  const [asking, setAsking] = React.useState(false);
   const [ask, setAsk] = React.useState('');
   const [pictureAsk, setPictureAsk] = React.useState('');
   const [viewing, setViewing] = React.useState<number | null>(null);
@@ -1103,6 +1125,39 @@ export function PostBody({
               {W.post.skip}
             </Button>
           )}
+          {onRemove && asking ? (
+            <Card className="gap-2 p-4" testID="socialcontent-post-remove-ask">
+              <Text className="text-[15px] font-semibold text-text">{W.post.removeTitle}</Text>
+              <Text className="text-[13.5px] leading-[19px] text-text-2">{W.post.removeAsk}</Text>
+              <Button
+                variant="danger"
+                loading={busy === 'remove'}
+                disabled={other('remove')}
+                onPress={onRemove}
+                testID="socialcontent-post-remove-yes"
+              >
+                {W.post.removeYes}
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={busy === 'remove'}
+                onPress={() => setAsking(false)}
+                testID="socialcontent-post-remove-no"
+              >
+                {W.post.removeNo}
+              </Button>
+            </Card>
+          ) : onRemove ? (
+            <Button
+              variant="ghostDanger"
+              icon={Trash}
+              disabled={other('remove')}
+              onPress={() => setAsking(true)}
+              testID="socialcontent-post-remove"
+            >
+              {W.post.remove}
+            </Button>
+          ) : null}
           <Card className="mt-2 gap-2 p-4">
             <Input
               value={ask}

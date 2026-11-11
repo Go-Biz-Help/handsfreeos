@@ -15609,6 +15609,23 @@
         "required": ["workspaceId", "postId"]
       }
     },
+    "socialcontent.content.remove": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "postId"]
+      }
+    },
     "socialcontent.content.save": {
       "offline": "online",
       "input": {

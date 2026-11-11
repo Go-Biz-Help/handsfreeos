@@ -658,6 +658,17 @@ export const SOCIALCONTENT_WORDS = {
     skipped: 'Skipped. Its day is open again.',
     restore: 'Bring it back',
     restored: 'It’s back, waiting for your OK.',
+    /** Taking a post off the calendar (owners and admins, with `remove` as its button): its day opens again. */
+    removeLabel: (title: string) => `Remove ${title}`,
+    removeTitle: 'Remove this post?',
+    removeAsk:
+      'It comes off the calendar and isn’t posted. Its day opens up, so Fill the calendar or Write one puts a new post there.',
+    removeYes: 'Remove it',
+    removeNo: 'Keep it',
+    removed: (hadDay: boolean) =>
+      hadDay
+        ? 'Removed. Its day is open: press Fill the calendar to have a new post written for it.'
+        : 'Removed.',
     rewrite: 'Write it again',
     rewriteAsk: 'What to change (optional)',
     rewritten: 'Written again. It’s waiting for your OK.',
