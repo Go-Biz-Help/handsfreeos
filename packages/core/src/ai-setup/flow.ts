@@ -75,6 +75,19 @@ export function mergeAiSetupAnswers(
   return out as AiSetupAnswers;
 }
 
+/**
+ * What still counts as changed on screen after a save that left the furthest screen finished at `reached`: the answers
+ * on screens after it. The server keeps only the answers of screens finished (`resumeAiSetup`), so one changed further
+ * on (then Back, and Next on an earlier screen) is still the person's until its own screen is saved, and what arrives
+ * never undoes it.
+ */
+export function aiSetupTouchedAfterSave(
+  touched: ReadonlySet<Field>,
+  reached: AiSetupStep | null,
+): Set<Field> {
+  return new Set([...touched].filter((key) => at(STEP_OF.get(key)) > at(reached)));
+}
+
 /** Where the screens open: the test chat after Save (`?at=try`), else the screen after the furthest one finished. */
 export function aiSetupFirstStep(
   got: {

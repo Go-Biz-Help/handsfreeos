@@ -22,11 +22,11 @@ import {
   type OnboardingSetupScreen,
   type OnboardingSetupStateOut,
 } from '@hfos/core';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as React from 'react';
-import { Linking } from 'react-native';
+import { AppState, Linking, type AppStateStatus } from 'react-native';
 
 import ChooseBusiness from '@/app/app/index';
 import OnboardingSetup from '@/app/app/w/[workspaceId]/setup';
@@ -35,6 +35,7 @@ import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import type { Business, Me } from '@/lib/businesses';
 import { deviceStore } from '@/lib/device-store';
+import { AI_SETUP_PHONE_WORDS as AI_PHONE } from '@/ai-setup/words';
 import { ONBOARDING_SETUP_PHONE_WORDS as P } from '@/onboarding-setup/words';
 
 /**
@@ -541,6 +542,60 @@ describe('the screens after the first', () => {
     // Next from the booking page goes straight on: it was saved as it opened.
     await fireEvent.press(screen.getByTestId('onboarding-setup-next'));
     await screen.findByTestId('onboarding-setup-step-number');
+  });
+
+  it('keeps hours changed on screen when someone goes Back and saves an earlier screen', async () => {
+    // Full Spectrum, 10 Nov: their hours set, then Back, and Next on "About your business". HandsFreeOS keeps only
+    // the screens finished, so it reads the hours back as the starting picks until "When are you open?" is saved.
+    const listeners: ((s: AppStateStatus) => void)[] = [];
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+      listeners.push(listener as (s: AppStateStatus) => void);
+      return { remove: jest.fn() };
+    });
+    answers['/v1/queries/onboarding_setup.get'] = gotOf(STATE, {
+      reached: 'about',
+      answers: {
+        ai: {
+          description: 'We fix leaks and water heaters in Austin.',
+          services: [{ name: 'Leak repair' }],
+          area: 'Austin',
+        },
+      },
+    });
+    await open();
+    await screen.findByTestId('onboarding-setup-step-hours');
+
+    // Saturday on too.
+    await fireEvent(screen.getByTestId('setup-open-day-sat-switch'), 'press');
+    expect(screen.getByTestId('setup-open-day-sat')).not.toHaveTextContent(AI_PHONE.closed, {
+      exact: false,
+    });
+    await fireEvent.press(screen.getByTestId('onboarding-setup-back'));
+    await screen.findByTestId('onboarding-setup-step-about');
+    await fireEvent.press(screen.getByTestId('onboarding-setup-next'));
+    await screen.findByTestId('onboarding-setup-step-hours');
+    // What HandsFreeOS says now arrives (back in the app, say): Saturday stays on.
+    await act(async () => {
+      for (const l of listeners) l('active');
+    });
+    await waitFor(() =>
+      expect(
+        post.mock.calls.filter((c) => c[0] === '/v1/queries/onboarding_setup.get').length,
+      ).toBeGreaterThan(1),
+    );
+    expect(screen.getByTestId('setup-open-day-sat')).not.toHaveTextContent(AI_PHONE.closed, {
+      exact: false,
+    });
+    await fireEvent.press(screen.getByTestId('onboarding-setup-next'));
+    await screen.findByTestId('onboarding-setup-step-look');
+    const hours = sent('/v1/commands/onboarding_setup.save').at(-1) as {
+      screen: string;
+      answers: OnboardingSetupAnswers;
+    };
+    expect(hours.screen).toBe('hours');
+    expect(hours.answers.ai.openHours).toEqual(
+      expect.arrayContaining([expect.objectContaining({ day: 6 })]),
+    );
   });
 
   it('finds numbers near the address and buys the one picked', async () => {

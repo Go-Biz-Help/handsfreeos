@@ -167,6 +167,10 @@ export const AI_SETUP_FIELD_WORDS = {
   /** Under a quick fact the website answered. */
   fromWebsite: 'From your website. Check it’s right.',
   openHours: 'When you’re open',
+  /** Under it, while the hours are still the starting guess (`aiSetupOpenHoursNote`). */
+  openHoursGuess: 'This is only a guess. Set your real hours: {name} tells customers these.',
+  /** And while they're what the website said. */
+  openHoursFromWebsite: 'From your website. Check they’re right.',
   answerWhen: 'When should {name} answer?',
   customHours: 'The hours {name} answers',
   yes: 'Yes',

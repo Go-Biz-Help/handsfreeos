@@ -12,7 +12,7 @@ import type { KnowledgeProfile } from '../knowledge/profile';
 import { money } from '../money/format';
 import type { OnboardingGoal } from '../onboarding/steps';
 import { DEFAULT_OPEN_HOURS } from '../schemas/workspace';
-import { AiSetupAnswers, type AiSetupTone } from './answers';
+import { AI_SETUP_START_HOURS, AiSetupAnswers, type AiSetupTone } from './answers';
 import {
   quickFactsFor,
   SETUP_JOBS,
@@ -23,7 +23,7 @@ import {
   type SetupKind,
 } from './kinds';
 import type { AiSetupState } from './state';
-import { AI_SETUP_TONE_TEXTS } from './words';
+import { AI_SETUP_FIELD_WORDS, AI_SETUP_TONE_TEXTS, withAiName } from './words';
 
 // ---- Where it starts ----
 
@@ -150,7 +150,7 @@ export function startingAiSetupAnswers(
     area: fieldOr('area', p.serviceArea.trim() || read?.area),
     openHours: fieldOr(
       'openHours',
-      state.openHours ?? read?.openHours ?? tpl?.openHours ?? DEFAULT_OPEN_HOURS,
+      state.openHours ?? read?.openHours ?? tpl?.openHours ?? AI_SETUP_START_HOURS,
     ),
     answerWhen: fieldOr('answerWhen', tpl?.answerWhen ?? t?.hours.mode),
     customHours: fieldOr('customHours', tpl?.customHours ?? t?.hours.custom),
@@ -263,6 +263,36 @@ const hoursKey = (h: WeeklyHours | null) =>
       )
     : null;
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/** The same weekly hours, whatever order the days and their keys come in. */
+const sameHours = (a: WeeklyHours, b: WeeklyHours) => {
+  const key = (h: WeeklyHours) =>
+    h
+      .map((w) => `${w.day} ${w.start}-${w.end}`)
+      .sort()
+      .join(',');
+  return key(a) === key(b);
+};
+
+/**
+ * The line under "When you’re open" about the hours on screen: that they're only a guess (the business hasn't saved
+ * hours, its website doesn't give them, and they're still setup's starting 9 to 5 or the 8 to 5 a business has
+ * before it says, as a draft from before 9 to 5 has), or that they're what its website said. Null once they're the
+ * business's own. A guess left as it is becomes the hours Ava tells customers, so the screen says it's one.
+ */
+export function aiSetupOpenHoursNote(
+  state: Pick<AiSetupState, 'openHours' | 'found'>,
+  hours: WeeklyHours,
+  name: string,
+): string | null {
+  if (state.openHours) return null;
+  const site = state.found?.openHours;
+  if (site?.length)
+    return sameHours(hours, site) ? AI_SETUP_FIELD_WORDS.openHoursFromWebsite : null;
+  return sameHours(hours, AI_SETUP_START_HOURS) || sameHours(hours, DEFAULT_OPEN_HOURS)
+    ? withAiName(AI_SETUP_FIELD_WORDS.openHoursGuess, name)
+    : null;
+}
 const joinAnd = (items: readonly string[]) =>
   items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
 const the = (noun: string, names: readonly string[]) =>

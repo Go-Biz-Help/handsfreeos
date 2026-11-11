@@ -48,6 +48,9 @@ import {
   onboardingSetupStopName,
   onboardingSetupSummary,
   onboardingSetupTitle,
+  onboardingSetupTouchedAfterSave,
+  onboardingSetupUnsavedOf,
+  onboardingSetupUnsavedRestored,
   planOnboardingBooking,
   planOnboardingSetup,
   SETUP_KIND_LABELS,
@@ -150,6 +153,8 @@ export function OnboardingQuickSetup({
   const [invites, setInvites] = useState<string[]>(['']);
   const [problems, setProblems] = useState<AiSetupProblems>({});
   const [error, setError] = useState<string | null>(null);
+  /** The last save was refused because the sign-in ran out: "Sign in again", with what's on screen kept. */
+  const [signedOut, setSignedOut] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [finished, setFinished] = useState<OnboardingSetupFinished | null>(null);
@@ -180,6 +185,37 @@ export function OnboardingQuickSetup({
   const latest = useRef({ answers, state });
   latest.current = { answers, state };
 
+  // Answers changed and not saved yet are kept on this computer until their screen is saved, so a sign-out part way
+  // through, a reload or a closed tab doesn't lose them (`onboardingSetupUnsavedOf`).
+  const keptKey = `hfos.setup-unsaved.${ws}`;
+  const [keptRead, setKeptRead] = useState(false);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(keptKey);
+      const kept = raw
+        ? onboardingSetupUnsavedRestored(JSON.parse(raw), latest.current.answers, Date.now())
+        : null;
+      if (kept) {
+        for (const key of kept.touched) touched.current.add(key);
+        setAnswers(kept.answers);
+      }
+    } catch {
+      // Nothing usable kept, or storage turned off: what the server has is all there is.
+    }
+    setKeptRead(true);
+  }, [keptKey]);
+  useEffect(() => {
+    if (!keptRead) return;
+    try {
+      const unsaved = onboardingSetupUnsavedOf(answers, touched.current, Date.now());
+      if (unsaved) window.localStorage.setItem(keptKey, JSON.stringify(unsaved));
+      else window.localStorage.removeItem(keptKey);
+    } catch {
+      // Storage turned off or full: the answers are on screen all the same.
+    }
+    // `busy` too: a save changes what's waiting to be saved without always changing the answers.
+  }, [keptRead, keptKey, answers, busy]);
+
   const facts = aiSetupFlowFactsOf(state);
   const pageOrigin = usePublicOrigin(data.brandedOrigin);
   /** The business's simple page, which the chat goes on when there's no website to paste it into. */
@@ -205,10 +241,14 @@ export function OnboardingQuickSetup({
   /** Takes in what the server says now: all of it after the first screen, else what isn't answered on screen. */
   const adopt = useCallback((fresh: OnboardingSetupGot, all: boolean) => {
     setGot(fresh);
+    // All of it after the first screen, except what's changed on a screen not saved yet (`touched`).
     setAnswers((local) =>
-      all
-        ? fresh.answers
-        : mergeOnboardingSetupAnswers(local, fresh.answers, touched.current, reached.current),
+      mergeOnboardingSetupAnswers(
+        local,
+        fresh.answers,
+        touched.current,
+        all ? null : reached.current,
+      ),
     );
     if (!businessTouched.current) setBusinessDraft(onboardingSetupBusinessDraftOf(fresh.state));
   }, []);
@@ -290,6 +330,7 @@ export function OnboardingQuickSetup({
     setConfirming(false);
     setProblems({});
     setError(null);
+    setSignedOut(false);
     // Drawn again for the screen it's now on, which brings what the number and the customers need.
     router.replace(onboardingSetupHref(ws, next, ownerPart), { scroll: false });
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -325,7 +366,7 @@ export function OnboardingQuickSetup({
     try {
       const saved = await actions.save({ screen: 'booking', answers: latest.current.answers });
       reached.current = saved.reached;
-      touched.current.clear();
+      touched.current = onboardingSetupTouchedAfterSave(touched.current, saved.reached);
       setBooking({ ...NOTHING_MADE, changes: saved.changes, notes: saved.notes });
       await refresh();
     } catch (e) {
@@ -355,6 +396,7 @@ export function OnboardingQuickSetup({
     }
     setBusy(true);
     setError(null);
+    setSignedOut(false);
     try {
       const clean = cleanOnboardingSetupAnswers(screen, answers, findings);
       if (screen === 'business') {
@@ -366,7 +408,12 @@ export function OnboardingQuickSetup({
         });
         reached.current = saved.reached;
         const [fresh, read] = await Promise.all([actions.get(), ai.findings()]);
-        touched.current.clear();
+        // Picking where they start from picks those answers again (`onboarding_setup.save`), so they're taken as
+        // they are; otherwise what's changed on a screen not saved yet stays.
+        touched.current =
+          startPick !== undefined
+            ? new Set()
+            : onboardingSetupTouchedAfterSave(touched.current, saved.reached);
         businessTouched.current = false;
         setStartPick(undefined);
         // Kept as they were, and picked again for the kind of business when that changed.
@@ -394,7 +441,8 @@ export function OnboardingQuickSetup({
           ...(inviting ? { invite: emails } : {}),
         });
         reached.current = saved.reached;
-        touched.current.clear();
+        // The server keeps the screens finished; an answer changed further on (then Back) stays changed.
+        touched.current = onboardingSetupTouchedAfterSave(touched.current, saved.reached);
         setAnswers(clean);
         setCarrying(false);
         if (saved.notes.length) toast(saved.notes.join(' '));
@@ -411,7 +459,9 @@ export function OnboardingQuickSetup({
       }
     } catch (e) {
       setProblems(apiProblems(e));
-      setError(errorMessage(e));
+      const out = e instanceof ApiError && e.code === 'unauthenticated';
+      setSignedOut(out);
+      setError(out ? W.signedOut : errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -655,6 +705,19 @@ export function OnboardingQuickSetup({
   ) : screen === 'try' && teammate ? null : (
     <div className="mt-auto flex flex-col gap-3 border-t border-border pt-4">
       {error ? <FieldError>{error}</FieldError> : null}
+      {signedOut ? (
+        <Button
+          variant="secondary"
+          className="self-start"
+          onClick={() => {
+            const here = `${window.location.pathname}${window.location.search}`;
+            router.push(`/sign-in?next=${encodeURIComponent(here)}`);
+          }}
+          data-testid="onboarding-setup-sign-in-again"
+        >
+          {W.signInAgain}
+        </Button>
+      ) : null}
       <div className="flex flex-wrap-reverse items-center justify-between gap-3">
         {canGoBack || confirming ? (
           <Button
