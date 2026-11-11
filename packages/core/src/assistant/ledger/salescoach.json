@@ -7,7 +7,7 @@
     "apps/mobile/src/addons/salescoach/call-card.tsx": "e11b62dde145",
     "apps/mobile/src/addons/salescoach/live.tsx": "d4318f640442",
     "apps/mobile/src/addons/salescoach/more.tsx": "6375527d5542",
-    "apps/web/src/addons/registry.ts": "03150bd26303",
+    "apps/web/src/addons/registry.ts": "c596d9461fd5",
     "apps/web/src/addons/salescoach/call-panel.tsx": "04eeac0b46c2",
     "apps/web/src/addons/salescoach/calls-view.tsx": "9df2ca234691",
     "apps/web/src/addons/salescoach/composer-suggestions.tsx": "aa5c423c9d4e",
@@ -27,7 +27,7 @@
     {
       "path": "Side menu → AI Sales Coach (opens Live call)",
       "kind": "do",
-      "file": "apps/web/src/addons/registry.ts:274",
+      "file": "apps/web/src/addons/registry.ts:275",
       "covered": "yes",
       "by": "add-on directory line in the prompt; salescoach_live reads the page"
     },

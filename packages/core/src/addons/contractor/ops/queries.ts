@@ -142,7 +142,7 @@ export function rowOut(r: JobSqlRow, today: string): JobRow {
 }
 
 /** The people who may use the add-on here (everyone on the team when the person asking can't see who holds what). */
-async function peopleOf(ctx: Ctx) {
+export async function peopleOf(ctx: Ctx) {
   const ws = ctx.scope.workspaceId!;
   const held = await rows<{ user_id: string; role: string; permissions: string[] | null }>(
     ctx.tx,
@@ -217,6 +217,7 @@ export const overview = defineAddonQuery(contractorAddon, {
         assign: scopeCan(ctx.scope, 'records.assign'),
         approve,
         skipChecks: scopeCan(ctx.scope, 'contractor.skip_checks' as Permission),
+        fixTime: scopeCan(ctx.scope, 'contractor.fix_time' as Permission),
       },
       estimating: costs ? await estimatingOf(ctx) : null,
       estimatesWaitingOk: waiting?.n ?? 0,

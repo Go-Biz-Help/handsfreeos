@@ -8,7 +8,8 @@
  *
  * Under them, how the business estimates: its lowest margin (the owner's decision 6), the markup a new line starts
  * with, and labor's hourly price and cost. Seen by people who may see job costs, and changed by the people who OK
- * estimates under that margin (`contractor.approve`), with the add-on's own `contractor.estimating.save`.
+ * estimates under that margin (`contractor.approve`), with the add-on's own `contractor.estimating.save`. Last, what
+ * an hour of each person costs the business (./labor-costs-card.tsx), seen and changed by the same people.
  */
 import {
   ITEM_KINDS,
@@ -41,7 +42,8 @@ import { Input, Select } from '@/components/ui/input';
 import { MoneyInput, PercentInput } from '@/components/money/money-input';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { CrewsCard } from './crews-card';
-import type { Crew, Overview } from './types';
+import { LaborCostsCard } from './labor-costs-card';
+import type { Crew, LaborRateList, Overview } from './types';
 import { useAct } from './use-act';
 
 const S = CONTRACTOR_WORDS.settings;
@@ -56,6 +58,7 @@ export function ContractorSettingsPage({
   crews,
   people,
   estimating,
+  laborRates,
   mayApprove,
 }: {
   workspaceId: string;
@@ -66,6 +69,8 @@ export function ContractorSettingsPage({
   people: Overview['people'];
   /** How the business estimates; null for someone who may not see job costs. */
   estimating: Overview['estimating'];
+  /** What an hour of each person costs; null for someone who may not see job costs. */
+  laborRates: LaborRateList | null;
   mayApprove: boolean;
 }) {
   const [trades, setTrades] = useState<readonly Trade[]>(settings.trades);
@@ -274,6 +279,7 @@ export function ContractorSettingsPage({
       {estimating ? (
         <EstimatingCard workspaceId={workspaceId} estimating={estimating} mayApprove={mayApprove} />
       ) : null}
+      {laborRates ? <LaborCostsCard workspaceId={workspaceId} rates={laborRates} /> : null}
     </div>
   );
 }

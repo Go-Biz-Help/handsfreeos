@@ -2,13 +2,13 @@
 
 An add-on (`contractor`) for contractors and home service companies: electricians, plumbers, HVAC, roofers,
 remodelers and general contractors. One shared engine runs jobs and projects, estimates with costs, crews, work
-orders and dispatch, and each job's materials, and later job costing and a field app, with trade tools inside it
-after that.
+orders and dispatch, each job's materials, and time and job costing, and later a field app, with trade tools inside
+it after that.
 
 The owner's decisions and the build order are in `HANDSFREEOS_CONTRACTOR_OPERATIONS_IMPLEMENTATION_PLAN.md`; the
 numbers below (decision 1, and so on) are its decisions. Built: part 1, jobs and projects; part 2, costs and
-estimates; part 3, crews, work orders and dispatch; and part 4, materials. The add-on is in `development`, offered
-to nobody; staff give it to a business from Admin → Businesses.
+estimates; part 3, crews, work orders and dispatch; part 4, materials; and part 5, time and job costing. The add-on
+is in `development`, offered to nobody; staff give it to a business from Admin → Businesses.
 
 ## Where things are
 
@@ -19,6 +19,7 @@ to nobody; staff give it to a business from Admin → Businesses.
 | Part 2's tables: costs, estimates, OKs                         | `supabase/migrations/20261027024200_contractor_estimates.sql`          |
 | Part 3's tables: crews, work orders, checklists, subs          | `supabase/migrations/20261027024300_contractor_work_orders.sql`        |
 | Part 4's tables: materials and what each costs                 | `supabase/migrations/20261027024400_contractor_materials.sql`          |
+| Part 5's tables: time, what an hour cost, other costs          | `supabase/migrations/20261027024500_contractor_time.sql`               |
 | Trades and their starter phases                                | `trades.ts` (pure; web, phone and server all use it)                   |
 | Statuses, % done, lateness and planned profit                  | `progress.ts` (pure)                                                   |
 | The pages' words, and every refusal's                          | `words.ts`                                                             |
@@ -33,11 +34,16 @@ to nobody; staff give it to a business from Admin → Businesses.
 | Dispatch                                                       | `ops/dispatch.ts`                                                      |
 | What's missing, where a material stands, and when to tell      | `materials.ts` (pure)                                                  |
 | A job's materials: list, add, change, remove, cost             | `ops/materials.ts`                                                     |
+| What starts and stops time, and what a fix may be              | `time.ts` (pure)                                                       |
+| Planned, so far, heading for, and the profit page's sums       | `job-costing.ts` (pure)                                                |
+| Time on a job, breaks, fixes, and what an hour costs           | `ops/time.ts`                                                          |
+| A job's costing, its other costs, and the profit page          | `ops/costing.ts`                                                       |
 | Reading: overview, jobs, one job, properties                   | `ops/queries.ts`                                                       |
 | What it shares (loading a job, keeping % done, timelines)      | `ops/common.ts`                                                        |
 | Where the Assistant finds each page                            | `ai-places.ts`                                                         |
 | The worker: visits, work orders, approved estimates, OK alerts | `apps/worker/src/addons/contractor/`                                   |
 | The worker: what a visit is still missing, and its alert       | `apps/worker/src/addons/contractor/materials.ts`                       |
+| The worker: time from a visit's buttons, and time left running | `apps/worker/src/addons/contractor/time.ts`                            |
 | The web pages                                                  | `apps/web/src/addons/contractor/`, routes under `a/contractor/`        |
 | The Assistant's checklist for its screens                      | `packages/core/src/assistant/ledger/contractor.json`                   |
 
@@ -75,7 +81,7 @@ to nobody; staff give it to a business from Admin → Businesses.
 - **Settings** (decision 1). The trades the business does, the phases a new project starts with, the checklist a
   new visit starts with and how long before a visit its missing materials are told, saved by core's
   `addon.save_settings` against the manifest's settings shape. A save replaces all four, so the page always sends
-  them together. Estimating and Crews are cards of their own there.
+  them together. Estimating, Crews and What an hour costs you are cards of their own there.
 
 ## Costs and estimates
 
@@ -224,6 +230,65 @@ records; it orders nothing. Stock in a warehouse or a van, and orders to supplie
 - **The job's timeline** gets a line when a material is added, when its counts change ("12/2 wire: 20 ft
   delivered, 12 ft used") and when one is taken off. Costs are never on it.
 
+## Time and job costing
+
+Part 5 (decisions 10 and 11). Time comes from the buttons a crew already taps on a visit. Each person's cost per
+hour turns it into labor cost. The job's page sets what the job has cost against its plan, and the Profit page adds
+the jobs up.
+
+- **Time is kept in stretches** (`addon_contractor.time_entries`): one person's travel, work or break on a job,
+  from when to when, and the visit it was on. A stretch with no end is running.
+- **The buttons start and stop it** (`contractor.time.follow_status`, the worker's, on core's
+  `job.status_changed`). On the way starts travel time and Started starts work time, for everyone on the visit.
+  Waiting on parts, Done, going back to Scheduled or a cancelled visit stops it. With nobody on the visit, the time
+  is whoever pressed the button's. The moment is when the button was pressed (the event's `occurredAt`), so a phone
+  with no signal still gives the right hours when it catches up.
+- **Safe to hear twice, and late.** A moment at or before a stretch the buttons already started on the visit
+  changes nothing. Only the buttons' own stretches count for that: a break starts at the server's time, and must
+  never make a Done pressed right after it look old. A stop never lands before its stretch started.
+- **Nobody is in two places.** One running stretch per person in a business, held by a unique index and a lock per
+  person. Starting one stops whatever else that person had running, on any job.
+- **Someone added to a visit after Started** gets time from the next button, not from when they were added.
+  Someone who may fix time adds what's missing.
+- **Break** (`contractor.time.set_break`) pauses one person's work time on a visit and starts it again. It's for
+  themselves; someone else's takes `contractor.fix_time`. Only while they're working there. A break is shown and
+  never costed.
+- **Left running.** A stretch still running after 12 hours (`MAX_RUNNING_HOURS`) is stopped there and marked
+  (`contractor.time.stop_overrun`, the queued job `contractor.time_check`), so one forgotten Done doesn't swallow a
+  job's profit. The people who may fix time get an alert on Home, their phones and their email. It stays until every
+  marked stretch on the visit has been fixed or removed. Time on a visit deleted for good stops at the limit too.
+- **Fixing takes an owner or admin** (decision 10): `contractor.fix_time`, theirs by default, and anyone given it.
+  Fix, Add time and Remove each need a reason, kept on the stretch and on the job's timeline. A fixed stretch ends
+  after it starts, lasts a day at most, isn't still to come, and never overlaps the same person's other time. It's
+  allowed on a done job, since that's when the numbers get checked, and never on an archived one.
+- **What an hour cost** is kept apart, for each stretch (`time_costs`), where row security lets only
+  `contractor.costs` read it (decision 11). Only the system writes it (`contractor.time.stamp_costs`): the person's
+  own cost per hour (`labor_rates`, Settings → What an hour costs you), else Estimating's labor cost per hour when
+  that's above $0. It's stamped when the time is tracked and never changed after, so a raise never rewrites what a
+  finished job cost. Time with no cost yet gets one once a cost is set.
+- **Who sets what an hour costs.** People with `contractor.costs` see each person's cost. Only
+  `contractor.approve` (owners and admins) sets one. The amount stays off the event.
+- **Other costs** (`other_costs`): a permit, a dump fee, a subcontractor's bill. Added and removed, never edited,
+  by people with `contractor.costs`. A job keeps up to 200.
+- **Costs so far** (`contractor.job.costing`; the math is `job-costing.ts`, pure). For labor, materials and other
+  costs it shows what was planned (the job's budget), what it has cost so far (time at what each hour cost,
+  materials taken at what each costs, and the other costs), and what it's heading for. Labor is paced by the job's %
+  done once it's 10% along: half done with 6 hours spent heads for 12. Materials head for the largest of the
+  budget, what the whole materials list would cost and what's been taken. Other costs head for the larger of the
+  budget and what's spent. A done or cancelled job heads for exactly what it cost. The card warns when a job heads
+  over its plan or under the business's lowest margin, and says when time or materials have no cost yet.
+- **Added up in the database, rounded like the pure rules.** `ops/costing.ts` rounds each stretch and each
+  material to the cent the way `time.ts` and `materials.ts` do, so the Costs so far card, the Materials card and
+  the Profit page never differ by a cent.
+- **Profit** (`contractor.profit`, the Profit page). The jobs done this month, last month, this quarter, this year
+  or ever, by when each was marked Done in the business's time zone; or the open jobs, at what they're heading for.
+  Split by job, customer, crew or service (the job's trade). Each job counts in one row, so the rows add up to the
+  total. A job counts for the crew on most of its visits. A job with no price counts as $0. Cancelled and archived
+  jobs aren't counted. It counts up to 2,000 jobs, the newest first.
+- **Techs see the hours, not the money** (decision 11). Everyone who uses the add-on sees the Time card. Costs so
+  far, Profit and What an hour costs you are for `contractor.costs` only, and row security closes their tables to
+  everyone else.
+
 ## Rules worth knowing before changing anything
 
 - **One add-on for every trade** (decision 1). A trade brings its starter lists; it never becomes its own add-on. New
@@ -246,7 +311,9 @@ records; it orders nothing. Stock in a warehouse or a van, and orders to supplie
   starting a work order, its instructions, adding an item or a subcontractor and saving a crew run on their own.
   Marking a job done with items left needs its reason on the same Confirm card as the status. In part 4, adding a
   material and changing its counts run on their own, because they record what happened and spend nothing; taking
-  one off and setting what one costs wait on a Confirm card.
+  one off and setting what one costs wait on a Confirm card. In part 5, taking a break and coming back run on their
+  own; fixing, adding and removing time, setting what an hour of someone costs, and adding and removing a job's
+  other costs wait on a Confirm card, because they change the record of hours and money.
 - **An estimate is core's; the add-on never copies one.** The builder saves through `estimate.create`,
   `estimate.update` and `estimate.send` (`executeCommandWithin`), so core's rules, numbering and totals apply
   unchanged. Never write to `app.estimates` or `app.estimate_lines` from the add-on.
@@ -277,18 +344,35 @@ records; it orders nothing. Stock in a warehouse or a van, and orders to supplie
   `costing: null` and no unit costs for everyone else.
 - **The missing-materials alert is one per visit** (key `materials:<the appointment's id>`), raised and cleared by
   the worker only. It reads the visit from core and never changes it.
+- **Time comes from the visit's buttons** (decision 10). There's no Start or Stop timer, on purpose: the crew
+  already taps On the way, Started and Done. The only other way in is a fix, which takes `contractor.fix_time` and
+  a reason.
+- **A stretch's cost is stamped once, by the system, in `time_costs`.** Never on `time_entries`, and never worked
+  out again when someone's cost per hour changes. `contractor.time.list` never answers a cost.
+- **`contractor.time.*`, `contractor.labor_rate.set` and `contractor.other_cost.*` events and timeline lines carry
+  no amount** (decision 11). A line says a cost was added, not what it came to.
+- **The costing math has one copy,** `job-costing.ts`. `ops/costing.ts` only adds up what it feeds it. Change how a
+  job heads for a number there, and nowhere else.
+- **The time alert is one per visit** (key `time:<the appointment's id>`), raised and cleared by the worker only.
 - **Archiving and deleting go through core.** The add-on never deletes a job's record itself. What it does delete
   is small and its own: a phase, a checklist item, a subcontractor taken off a visit, a material taken off a job,
-  and a crew's member list when the crew is saved. The Assistant asks first for the first four.
+  a stretch of time removed from a job, one of a job's other costs, and a crew's member list when the crew is
+  saved. The Assistant asks first for all but the last.
 - **Every screen item is in the Assistant's checklist,** and every person-run operation declares `ai`.
 
 ## Not yet
 
-- Parts 5 to 7: time and job costing, the phone's pages, and the AI helpers. See the plan.
+- Parts 6 and 7: the phone's pages, and the AI helpers. See the plan.
 - Stock in warehouses and vans, purchase orders and suppliers: Phase 2. Until then a material's supplier is a
   name typed on it, and Mark ordered records an order placed somewhere else.
-- What the materials really cost against the budget, beside labor: job costing, part 5. Today the Materials card
-  shows planned and taken so far to people who may see costs, and the budget's materials line is the estimate's.
+- The Break button and the Time card on the phone: part 6. Time itself already follows the buttons a tech taps on
+  the phone, since those are core's.
+- Payroll, pay rates, overtime and a timesheet to export: Phase 2. Time here is for what jobs cost.
+- A warning sent when a job heads over budget: part 7, with the AI helpers. Today the Costs so far card shows it.
+- What was invoiced and paid on the Profit page: it sets a job's price against its costs. Change orders and
+  progress payments are Phase 2.
+- Time for someone added to a visit after it started: it begins at the next button. Until then someone who may fix
+  time adds it.
 - An estimate the AI drafts on its own always waits for a person (decision 6): that comes with the AI helpers in
   part 7. Today the Assistant writes an estimate only as the person asking, on a Confirm card.
 - The builder is on the web. On the phone, Money won't send such a draft and says to open it in Contractor

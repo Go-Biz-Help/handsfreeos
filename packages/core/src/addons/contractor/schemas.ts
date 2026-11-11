@@ -15,6 +15,8 @@ import { ITEM_KINDS } from './checklists';
 import { COST_KINDS } from './estimating';
 import { DEFAULT_MATERIALS_ALERT_HOURS, MATERIAL_STATES } from './materials';
 import { JOB_KINDS, JOB_STATUSES, PHASE_STATUSES } from './progress';
+import { PROFIT_GROUPS, PROFIT_PERIODS } from './job-costing';
+import { TIME_KINDS, TIME_SOURCES } from './time';
 import { TRADES } from './trades';
 
 export const uuid = z.uuid();
@@ -68,6 +70,14 @@ export const LIMITS = {
   quantity: 1_000_000,
   /** The longest before a visit its missing materials are told: two weeks. */
   alertHours: 336,
+  /** Stretches of time one job's list answers, the newest first. */
+  timeEntries: 500,
+  /** Other costs on one job. */
+  otherCosts: 200,
+  otherCostName: 200,
+  otherCostNote: 500,
+  /** Jobs the profit page counts at once. */
+  profitJobs: 2000,
 } as const;
 
 export const Trade = z.enum(TRADES);
@@ -411,6 +421,8 @@ export const OverviewOutput = z.object({
     approve: z.boolean(),
     /** Mark a job done with required checklist items left, with a reason. */
     skipChecks: z.boolean(),
+    /** Change, add and remove the time tracked on jobs. */
+    fixTime: z.boolean(),
   }),
   /** How the business estimates; null for anyone who may not see job costs. */
   estimating: Estimating.nullable(),
@@ -1062,5 +1074,269 @@ export const DispatchOutput = z.object({
       daysLate: z.int().nullable(),
     }),
   ),
+  truncated: z.boolean(),
+});
+
+// ---------- time (part 5) ----------
+
+export const TimeKind = z.enum(TIME_KINDS);
+export const TimeSource = z.enum(TIME_SOURCES);
+/** A moment, as ISO text with its offset or Z. */
+const moment = z.iso.datetime({ offset: true });
+const fixReason = z
+  .string()
+  .trim()
+  .min(1, 'Say why, so the next person knows.')
+  .max(LIMITS.reason, `Keep the reason under ${LIMITS.reason} characters.`);
+
+/** One stretch of one person's time on a job. Never with what it cost. */
+export const TimeEntry = z.object({
+  id: uuid,
+  /** Null for someone who has left HandsFreeOS. */
+  userId: uuid.nullable(),
+  name: z.string(),
+  /** The visit it was on; null once that visit is deleted for good. */
+  appointmentId: uuid.nullable(),
+  kind: TimeKind,
+  startedAt: z.string(),
+  /** Null while it's running. */
+  endedAt: z.string().nullable(),
+  /** How long it is, up to now while it's running. */
+  seconds: z.int(),
+  source: TimeSource,
+  /** Left running too long and stopped on its own: worth a look. */
+  autoStopped: z.boolean(),
+  fixed: z.object({ by: z.string().nullable(), at: z.string(), reason: z.string() }).nullable(),
+});
+export const TimeListInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid,
+  /** Only one visit's time. */
+  appointmentId: uuid.optional(),
+});
+export const TimeListOutput = z.object({
+  jobId: uuid,
+  /** The newest first. */
+  entries: z.array(TimeEntry),
+  totals: z.object({
+    workSeconds: z.int(),
+    travelSeconds: z.int(),
+    breakSeconds: z.int(),
+    /** Work and travel: the time that's labor. */
+    paidSeconds: z.int(),
+    running: z.int(),
+  }),
+  /** What the person asking is doing right now on this job (or this visit), if they're on the clock. */
+  mine: z.object({ entryId: uuid, appointmentId: uuid.nullable(), kind: TimeKind }).nullable(),
+  may: z.object({ fix: z.boolean() }),
+  truncated: z.boolean(),
+});
+
+/** The worker: a visit's status moved, so its people's clocks start or stop. */
+export const TimeFollowStatusInput = z.object({
+  workspaceId: uuid,
+  appointmentId: uuid,
+  /** Core's status for the visit now: on_the_way, in_progress, waiting_on_parts, done, scheduled, cancelled. */
+  status: z.string().max(40),
+  /** When the button was really pressed. */
+  at: moment,
+  /** Who pressed it: their clock starts when nobody is on the visit. */
+  byUserId: uuid.nullable().optional(),
+});
+export const TimeFollowStatusOutput = z
+  .object({ jobId: uuid, appointmentId: uuid, started: z.int(), stopped: z.int() })
+  .nullable();
+
+export const TimeSetBreakInput = z.object({
+  workspaceId: uuid,
+  appointmentId: uuid,
+  /** true: take a break; false: back to work. */
+  onBreak: z.boolean(),
+  /** Someone else's break, for people who may fix time. Left out: the person asking. */
+  userId: uuid.optional(),
+});
+export const TimeSetBreakOutput = z.object({
+  jobId: uuid,
+  appointmentId: uuid,
+  userId: uuid,
+  name: z.string(),
+  onBreak: z.boolean(),
+  changed: z.boolean(),
+});
+
+export const TimeFixInput = z.object({
+  workspaceId: uuid,
+  entryId: uuid,
+  startedAt: moment.optional(),
+  endedAt: moment.optional(),
+  kind: TimeKind.optional(),
+  reason: fixReason,
+});
+export const TimeAddInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid,
+  /** The visit it was on, if it was on one. */
+  appointmentId: uuid.optional(),
+  userId: uuid,
+  kind: TimeKind.default('work'),
+  startedAt: moment,
+  endedAt: moment,
+  reason: fixReason,
+});
+export const TimeRemoveInput = z.object({ workspaceId: uuid, entryId: uuid, reason: fixReason });
+export const TimeChangeOutput = z.object({
+  entryId: uuid,
+  jobId: uuid,
+  name: z.string(),
+  changed: z.boolean(),
+});
+
+/** The worker: time with no cost yet gets what an hour of that person costs now. */
+export const TimeStampCostsInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid.optional(),
+  userId: uuid.optional(),
+});
+export const TimeStampCostsOutput = z.object({ stamped: z.int() });
+
+/** The worker: a visit's time left running past the limit is stopped there. */
+export const TimeStopOverrunInput = z.object({ workspaceId: uuid, appointmentId: uuid });
+export const TimeStopOverrunOutput = z.object({
+  jobId: uuid.nullable(),
+  job: z.string().nullable(),
+  /** Whose time was stopped now. */
+  stopped: z.array(z.string()),
+  /** Everyone with a stretch on the visit that was stopped this way and still waits for a look. */
+  flagged: z.array(z.string()),
+  /** When to look again: the moment the next one still running reaches the limit. */
+  nextAt: z.string().nullable(),
+});
+
+// ---------- what an hour of each person costs (part 5) ----------
+
+export const LaborRateListInput = z.object({ workspaceId: uuid });
+export const LaborRateListOutput = z.object({
+  /** Everyone who may use the add-on, with what an hour of them costs; null when nobody has said. */
+  people: z.array(z.object({ userId: uuid, name: z.string(), costCents: z.number().nullable() })),
+  /** What an hour of labor costs when a person has no cost of their own (Estimating); 0 when that isn't set. */
+  fallbackCents: z.number(),
+  canChange: z.boolean(),
+});
+export const LaborRateSetInput = z.object({
+  workspaceId: uuid,
+  userId: uuid,
+  /** What an hour of them costs the business; null takes it off. */
+  costCents: hourCents.nullable(),
+});
+export const LaborRateSetOutput = z.object({
+  userId: uuid,
+  name: z.string(),
+  changed: z.boolean(),
+});
+
+// ---------- what else a job cost, and job costing (part 5) ----------
+
+const otherCostName = z
+  .string()
+  .trim()
+  .min(1, 'Say what it was for.')
+  .max(LIMITS.otherCostName, `Keep it under ${LIMITS.otherCostName} characters.`);
+export const OtherCost = z.object({
+  id: uuid,
+  name: z.string(),
+  amountCents: z.number(),
+  spentOn: Day,
+  note: z.string().nullable(),
+});
+export const OtherCostAddInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid,
+  name: otherCostName,
+  amountCents: cents,
+  /** The day it was spent: today when left out. */
+  spentOn: Day.optional(),
+  note: z
+    .string()
+    .trim()
+    .max(LIMITS.otherCostNote, `Keep the note under ${LIMITS.otherCostNote} characters.`)
+    .optional(),
+});
+export const OtherCostRemoveInput = z.object({ workspaceId: uuid, costId: uuid });
+export const OtherCostOutput = z.object({ costId: uuid, jobId: uuid, name: z.string() });
+
+const CostLine = z.object({
+  budgetCents: z.number().nullable(),
+  actualCents: z.number(),
+  headingCents: z.number(),
+});
+export const JobCostingInput = z.object({ workspaceId: uuid, jobId: uuid });
+export const JobCostingOutput = z.object({
+  jobId: uuid,
+  name: z.string(),
+  status: JobStatus,
+  percentDone: z.int(),
+  labor: CostLine,
+  materials: CostLine,
+  other: CostLine,
+  total: CostLine,
+  hours: z.object({ budget: z.number().nullable(), actual: z.number(), heading: z.number() }),
+  priceCents: z.number().nullable(),
+  profit: z.object({
+    plannedCents: z.number().nullable(),
+    plannedMarginBp: z.number().nullable(),
+    soFarCents: z.number().nullable(),
+    headingCents: z.number().nullable(),
+    headingMarginBp: z.number().nullable(),
+  }),
+  /** How far over its planned cost it's heading; null when no cost was planned. */
+  overCents: z.number().nullable(),
+  finished: z.boolean(),
+  uncostedHours: z.number(),
+  uncostedMaterials: z.int(),
+  /** The business's lowest margin: a job heading under it is worth a look. */
+  minMarginBp: z.int(),
+  underMargin: z.boolean(),
+  /** Labor by person: their hours on the job and what they cost. */
+  people: z.array(
+    z.object({
+      userId: uuid.nullable(),
+      name: z.string(),
+      hours: z.number(),
+      costCents: z.number(),
+    }),
+  ),
+  otherCosts: z.array(OtherCost),
+  /** A done job's costs can still be put right; an archived job's can't. */
+  canChange: z.boolean(),
+});
+
+export const ProfitGroup = z.enum(PROFIT_GROUPS);
+export const ProfitPeriod = z.enum(PROFIT_PERIODS);
+export const ProfitInput = z.object({
+  workspaceId: uuid,
+  /** Jobs done this month, last month, this quarter, this year or ever; or the open jobs, at what they head for. */
+  period: ProfitPeriod.default('month'),
+  by: ProfitGroup.default('job'),
+});
+const ProfitRow = z.object({
+  /** The job's id, the customer's, the crew's, or the trade; null for jobs with none. */
+  key: z.string().nullable(),
+  name: z.string().nullable(),
+  jobs: z.int(),
+  priceCents: z.number(),
+  costCents: z.number(),
+  profitCents: z.number(),
+  marginBp: z.number().nullable(),
+  laborHours: z.number(),
+});
+export const ProfitOutput = z.object({
+  period: ProfitPeriod,
+  by: ProfitGroup,
+  /** The days the period covers, in the business's time zone; null for all time and for open jobs. */
+  from: Day.nullable(),
+  to: Day.nullable(),
+  total: ProfitRow,
+  rows: z.array(ProfitRow),
+  minMarginBp: z.int(),
   truncated: z.boolean(),
 });

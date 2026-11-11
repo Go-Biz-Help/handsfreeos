@@ -43,3 +43,13 @@ export type Material = MaterialList['materials'][number];
 export type MaterialCosting = NonNullable<MaterialList['costing']>;
 /** A material as a visit's work order has it: never with a cost. */
 export type VisitMaterial = WorkOrder['materials'][number];
+
+export type TimeList = Ok<'/v1/queries/contractor.time.list'>;
+/** One stretch of one person's time on a job: never with what it cost. */
+export type TimeEntry = TimeList['entries'][number];
+export type JobCosting = Ok<'/v1/queries/contractor.job.costing'>;
+export type OtherCost = JobCosting['otherCosts'][number];
+export type LaborRateList = Ok<'/v1/queries/contractor.labor_rate.list'>;
+export type LaborRate = LaborRateList['people'][number];
+export type Profit = Ok<'/v1/queries/contractor.profit'>;
+export type ProfitRow = Profit['rows'][number];

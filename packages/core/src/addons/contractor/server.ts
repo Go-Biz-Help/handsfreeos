@@ -9,6 +9,7 @@
  */
 import type { AddonServerModule } from '../server';
 import { contractorAddon } from './manifest';
+import { jobCosting, otherCostAdd, otherCostRemove, profit } from './ops/costing';
 import { crewArchive, crewList, crewSave } from './ops/crews';
 import { dispatch } from './ops/dispatch';
 import {
@@ -45,6 +46,18 @@ import {
 } from './ops/materials';
 import { phaseAdd, phaseRemove, phaseReorder, phaseUpdate } from './ops/phases';
 import { jobGet, jobList, overview, propertyList } from './ops/queries';
+import {
+  laborRateList,
+  laborRateSet,
+  timeAdd,
+  timeFix,
+  timeFollowStatus,
+  timeList,
+  timeRemove,
+  timeSetBreak,
+  timeStampCosts,
+  timeStopOverrun,
+} from './ops/time';
 import {
   workOrderGet,
   workOrderItemAdd,
@@ -102,6 +115,16 @@ export const contractorAddonServer: AddonServerModule = {
     materialRemove,
     materialSetCost,
     materialStampCost,
+    timeFollowStatus,
+    timeSetBreak,
+    timeFix,
+    timeAdd,
+    timeRemove,
+    timeStampCosts,
+    timeStopOverrun,
+    laborRateSet,
+    otherCostAdd,
+    otherCostRemove,
   ],
   queries: [
     overview,
@@ -115,6 +138,10 @@ export const contractorAddonServer: AddonServerModule = {
     workOrderGet,
     dispatch,
     materialList,
+    timeList,
+    laborRateList,
+    jobCosting,
+    profit,
   ],
   notForTheAssistant: {},
 };
