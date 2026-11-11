@@ -10,6 +10,8 @@ import {
   MoneyLineInput,
   MoneyTerms,
 } from '../../schemas/money';
+import { JOB_STATUSES as VISIT_STAGES } from '../../schemas/job';
+import { ITEM_KINDS } from './checklists';
 import { COST_KINDS } from './estimating';
 import { JOB_KINDS, JOB_STATUSES, PHASE_STATUSES } from './progress';
 import { TRADES } from './trades';
@@ -40,12 +42,31 @@ export const LIMITS = {
   /** The most one unit of anything costs: $1 billion, as a line's price. */
   unitCostCents: 100_000_000_000,
   okNote: 500,
+  crewName: 60,
+  /** Crews a business keeps at once, not counting archived ones. */
+  crews: 50,
+  /** People and subcontractors in one crew, each. */
+  crewMembers: 30,
+  /** Items on one work order's checklist, and in the business's starter checklist. */
+  checklist: 40,
+  itemLabel: 200,
+  instructions: 4000,
+  bring: 2000,
+  /** Subcontractors on one visit. */
+  subs: 20,
+  subNote: 500,
+  /** Visits one day's dispatch answers. */
+  dispatch: 300,
 } as const;
 
 export const Trade = z.enum(TRADES);
 export const JobKind = z.enum(JOB_KINDS);
 export const JobStatus = z.enum(JOB_STATUSES);
 export const PhaseStatus = z.enum(PHASE_STATUSES);
+export const ItemKind = z.enum(ITEM_KINDS);
+/** Where a visit stands, as its crew sets it in Calendar or on the phone (core's). */
+export const VisitStage = z.enum(VISIT_STAGES);
+export type VisitStage = z.infer<typeof VisitStage>;
 
 /** A day, `YYYY-MM-DD`: deadlines are days in the business's time zone. */
 export const Day = z.iso.date();
@@ -69,6 +90,20 @@ const phaseName = z
   .trim()
   .min(1, 'Name the phase.')
   .max(LIMITS.phaseName, `Keep a phase’s name under ${LIMITS.phaseName} characters.`);
+const itemLabel = z
+  .string()
+  .trim()
+  .min(1, 'Say what to check.')
+  .max(LIMITS.itemLabel, `Keep an item under ${LIMITS.itemLabel} characters.`);
+const crewName = z
+  .string()
+  .trim()
+  .min(1, 'Name the crew.')
+  .max(LIMITS.crewName, `Keep a crew’s name under ${LIMITS.crewName} characters.`);
+const reason = z
+  .string()
+  .trim()
+  .max(LIMITS.reason, `Keep the reason under ${LIMITS.reason} characters.`);
 const percent = z.int().min(0, 'From 0 to 100.').max(100, 'From 0 to 100.');
 const cents = z.int().min(0, 'Not below $0.').max(LIMITS.cents, 'That’s more than $100 million.');
 const hours = z
@@ -81,10 +116,22 @@ export const InWorkspace = z.object({ workspaceId: uuid });
 
 // ---------- settings ----------
 
-/** The business's settings (the owner's decision 1): the trades it does, and the phases a new project starts with. */
+/** An item a new work order's checklist starts with. */
+export const ChecklistStarter = z.object({
+  label: itemLabel,
+  kind: ItemKind.default('check'),
+  /** The job can't be marked Done while it's left (the owner's decision 8). */
+  required: z.boolean().default(false),
+});
+
+/**
+ * The business's settings (the owner's decision 1): the trades it does, the phases a new project starts with, and
+ * the checklist a new visit's work order starts with.
+ */
 export const ContractorSettingsSchema = z.object({
   trades: z.array(Trade).max(TRADES.length).default([]),
   phases: z.array(phaseName).max(LIMITS.phases).default([]),
+  checklist: z.array(ChecklistStarter).max(LIMITS.checklist).default([]),
 });
 export type ContractorSettings = z.infer<typeof ContractorSettingsSchema>;
 
@@ -139,6 +186,11 @@ export const JobSetStatusInput = z.object({
   status: JobStatus,
   /** Why it's on hold or cancelled. */
   reason: z.string().trim().max(LIMITS.reason).optional(),
+  /**
+   * Done with required checklist items or photos still left on its work orders: why (the owner's decision 8). Only
+   * people who may mark a job done that way; the items left are kept as passed over, with this.
+   */
+  skipReason: reason.optional(),
 });
 export const JobSetStatusOutput = z.object({
   jobId: uuid,
@@ -261,6 +313,13 @@ export const Money = z.object({
   marginBp: z.int().nullable(),
 });
 
+/** How far along a checklist is, and what still holds its job's Done. */
+export const ChecklistProgress = z.object({
+  total: z.int(),
+  done: z.int(),
+  requiredLeft: z.int(),
+});
+
 export const Phase = z.object({
   id: uuid,
   name: z.string(),
@@ -287,6 +346,12 @@ export const JobDetail = JobRow.extend({
       startsAt: z.string(),
       endsAt: z.string(),
       status: z.string(),
+      /** Where its crew has it: on the way, started, done. */
+      stage: VisitStage,
+      /** The crew it was given to. */
+      crew: z.string().nullable(),
+      /** Its work order's checklist; null while it has no work order yet. */
+      checklist: ChecklistProgress.nullable(),
     }),
   ),
   /** Only for people who may see job costs and profit (the owner's decision 11); null for everyone else. */
@@ -325,6 +390,8 @@ export const OverviewOutput = z.object({
     assign: z.boolean(),
     /** OK an estimate under the lowest margin, and set that margin. */
     approve: z.boolean(),
+    /** Mark a job done with required checklist items left, with a reason. */
+    skipChecks: z.boolean(),
   }),
   /** How the business estimates; null for anyone who may not see job costs. */
   estimating: Estimating.nullable(),
@@ -550,3 +617,263 @@ export const EstimateListOutput = z.object({
 /** The worker: an approved estimate fills its job's price and budget. */
 export const EstimateFillJobInput = z.object({ workspaceId: uuid, estimateId: uuid });
 export const EstimateFillJobOutput = z.object({ jobId: uuid, estimates: z.int() }).nullable();
+
+// ---------- crews (part 3, the owner's decision 7) ----------
+
+/** A subcontractor: a contact who doesn't sign in. */
+const Sub = z.object({
+  personId: uuid,
+  name: z.string(),
+  /** The company they're at, when Contacts knows it. */
+  company: z.string().nullable(),
+  /** They have a mobile number on file, so they can be texted the job's details. */
+  canText: z.boolean(),
+});
+
+export const CrewSaveInput = z.object({
+  workspaceId: uuid,
+  /** Left out: a new crew, which needs a name. */
+  crewId: uuid.optional(),
+  name: crewName.optional(),
+  /** The people on the business's team in it. Left out keeps them as they are; given, it's the whole list. */
+  userIds: z.array(uuid).max(LIMITS.crewMembers).optional(),
+  /** Its subcontractors, as contacts. Left out keeps them as they are; given, it's the whole list. */
+  subPersonIds: z.array(uuid).max(LIMITS.crewMembers).optional(),
+});
+export const CrewSaveOutput = z.object({ crewId: uuid, name: z.string(), created: z.boolean() });
+
+export const CrewArchiveInput = z.object({
+  workspaceId: uuid,
+  crewId: uuid,
+  /** false brings an archived crew back. */
+  archived: z.boolean().default(true),
+});
+export const CrewArchiveOutput = z.object({ crewId: uuid, archived: z.boolean() });
+
+export const CrewListInput = z.object({
+  workspaceId: uuid,
+  includeArchived: z.boolean().default(false),
+});
+export const Crew = z.object({
+  id: uuid,
+  name: z.string(),
+  archived: z.boolean(),
+  people: z.array(Person),
+  subs: z.array(Sub),
+});
+export const CrewListOutput = z.object({ crews: z.array(Crew) });
+
+// ---------- a visit's work order (part 3, the owner's decision 8) ----------
+
+const instructions = z
+  .string()
+  .trim()
+  .max(
+    LIMITS.instructions,
+    `Keep it under ${LIMITS.instructions.toLocaleString('en-US')} characters.`,
+  );
+const bring = z
+  .string()
+  .trim()
+  .max(LIMITS.bring, `Keep it under ${LIMITS.bring.toLocaleString('en-US')} characters.`);
+
+export const WorkOrderStartInput = z.object({ workspaceId: uuid, appointmentId: uuid });
+/** null (the worker only): the visit isn't on a job, so it has no work order. */
+export const WorkOrderStartOutput = z
+  .object({
+    appointmentId: uuid,
+    jobId: uuid,
+    /** false: it had one already. */
+    started: z.boolean(),
+    items: z.int(),
+  })
+  .nullable();
+
+export const WorkOrderUpdateInput = z.object({
+  workspaceId: uuid,
+  appointmentId: uuid,
+  /** Each left out stays as it is; null or empty clears it. */
+  instructions: instructions.nullable().optional(),
+  bring: bring.nullable().optional(),
+});
+export const WorkOrderChangeOutput = z.object({ appointmentId: uuid, changed: z.boolean() });
+
+export const WorkOrderSetCrewInput = z.object({
+  workspaceId: uuid,
+  appointmentId: uuid,
+  /** null takes the crew's name off the visit; the people already on it stay. */
+  crewId: uuid.nullable(),
+  /** Put the crew on anyway when someone in it is busy, off or outside their hours then. */
+  acknowledgeWarnings: z.boolean().default(false),
+});
+export const WorkOrderSetCrewOutput = z.object({
+  appointmentId: uuid,
+  crewId: uuid.nullable(),
+  /** Everyone on the visit now. */
+  userIds: z.array(uuid),
+  /** Subcontractors the crew brought that weren't on the visit yet. */
+  subsAdded: z.int(),
+});
+
+export const WorkOrderItemAddInput = z.object({
+  workspaceId: uuid,
+  appointmentId: uuid,
+  label: itemLabel,
+  kind: ItemKind.default('check'),
+  required: z.boolean().default(false),
+});
+export const WorkOrderItemAddOutput = z.object({ itemId: uuid, appointmentId: uuid });
+
+export const WorkOrderItemUpdateInput = z.object({
+  workspaceId: uuid,
+  itemId: uuid,
+  label: itemLabel.optional(),
+  kind: ItemKind.optional(),
+  required: z.boolean().optional(),
+});
+export const WorkOrderItemRemoveInput = z.object({ workspaceId: uuid, itemId: uuid });
+
+export const WorkOrderItemSetInput = z.object({
+  workspaceId: uuid,
+  itemId: uuid,
+  done: z.boolean(),
+  /** A photo item's photo: one of the job's files. Needed to mark a photo item done. */
+  fileId: uuid.nullable().optional(),
+});
+export const WorkOrderItemOutput = z.object({
+  itemId: uuid,
+  appointmentId: uuid,
+  jobId: uuid,
+  done: z.boolean(),
+  /** Required items still left on this work order. */
+  requiredLeft: z.int(),
+});
+
+export const WorkOrderSubInput = z.object({
+  workspaceId: uuid,
+  appointmentId: uuid,
+  /** The subcontractor, as a contact. */
+  personId: uuid,
+});
+export const WorkOrderSubSetInput = WorkOrderSubInput.extend({
+  /** The office marks a subcontractor's work: they don't sign in. */
+  done: z.boolean(),
+  note: z.string().trim().max(LIMITS.subNote).nullable().optional(),
+});
+
+export const WorkOrderTellSubsInput = z.object({
+  workspaceId: uuid,
+  appointmentId: uuid,
+  /** Only these subcontractors; everyone on the visit when left out. */
+  personIds: z.array(uuid).min(1).max(LIMITS.subs).optional(),
+  /** A line of your own at the end of the text. */
+  note: z.string().trim().max(300, 'Keep your note under 300 characters.').optional(),
+  /** Send it during the business's quiet hours anyway. */
+  acknowledgeQuietHours: z.boolean().default(false),
+});
+export const WorkOrderTellSubsOutput = z.object({
+  appointmentId: uuid,
+  told: z.array(z.object({ personId: uuid, name: z.string() })),
+  /** Who wasn't texted, and why, in words to show. */
+  notTold: z.array(z.object({ personId: uuid, name: z.string(), why: z.string() })),
+});
+
+export const WorkOrderGetInput = z.object({ workspaceId: uuid, appointmentId: uuid });
+export const ChecklistItem = z.object({
+  id: uuid,
+  position: z.int(),
+  label: z.string(),
+  kind: ItemKind,
+  required: z.boolean(),
+  done: z.boolean(),
+  doneAt: z.string().nullable(),
+  doneBy: z.string().nullable(),
+  /** A photo item's photo. */
+  file: z.object({ id: uuid, name: z.string() }).nullable(),
+  /** An owner or admin marked the job done without it. */
+  skipped: z.object({ by: z.string().nullable(), at: z.string(), reason: z.string() }).nullable(),
+});
+export const VisitSub = Sub.extend({
+  toldAt: z.string().nullable(),
+  done: z.boolean(),
+  doneAt: z.string().nullable(),
+  doneBy: z.string().nullable(),
+  note: z.string().nullable(),
+});
+export const WorkOrder = z.object({
+  appointmentId: uuid,
+  /** false until its work order is started: nothing is kept for it yet. */
+  started: z.boolean(),
+  visit: z.object({
+    title: z.string(),
+    startsAt: z.string(),
+    endsAt: z.string(),
+    /** Core's: scheduled, completed, cancelled or no_show. */
+    status: z.string(),
+    stage: VisitStage,
+  }),
+  job: z.object({
+    id: uuid,
+    name: z.string(),
+    kind: JobKind,
+    status: JobStatus,
+    trade: Trade.nullable(),
+    details: z.string().nullable(),
+    customer: Customer.nullable(),
+    property: Property.nullable(),
+  }),
+  crew: z.object({ id: uuid, name: z.string() }).nullable(),
+  /** The people on the business's team going: the visit's own (core's). */
+  people: z.array(Person),
+  subs: z.array(VisitSub),
+  instructions: z.string().nullable(),
+  bring: z.string().nullable(),
+  items: z.array(ChecklistItem),
+  progress: ChecklistProgress,
+});
+
+// ---------- dispatch (part 3) ----------
+
+export const DispatchInput = z.object({
+  workspaceId: uuid,
+  /** The day to show, in the business's time zone: today when left out. */
+  day: Day.optional(),
+});
+export const DispatchVisit = z.object({
+  appointmentId: uuid,
+  title: z.string(),
+  startsAt: z.string(),
+  endsAt: z.string(),
+  stage: VisitStage,
+  job: z.object({ id: uuid, name: z.string(), status: JobStatus }),
+  customer: z.string().nullable(),
+  property: z.string().nullable(),
+  crew: z.string().nullable(),
+  /** Who's on it; empty when nobody is yet. */
+  userIds: z.array(uuid),
+  subs: z.object({ total: z.int(), done: z.int() }),
+  /** null while it has no work order yet. */
+  checklist: ChecklistProgress.nullable(),
+});
+export const DispatchOutput = z.object({
+  day: Day,
+  today: Day,
+  timeZone: z.string(),
+  /** The day's visits on jobs, earliest first; cancelled ones left out. */
+  visits: z.array(DispatchVisit),
+  /** Everyone on one of them, by name. */
+  people: z.array(Person),
+  /** Open jobs with nothing booked from today on. */
+  needsVisit: z.array(
+    z.object({
+      id: uuid,
+      name: z.string(),
+      status: JobStatus,
+      customer: Customer.nullable(),
+      property: z.string().nullable(),
+      dueOn: Day.nullable(),
+      daysLate: z.int().nullable(),
+    }),
+  ),
+  truncated: z.boolean(),
+});

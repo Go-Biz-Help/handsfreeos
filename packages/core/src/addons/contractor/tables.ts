@@ -1,10 +1,11 @@
 /**
- * Contractor Operations' own tables, in its schema `addon_contractor` (supabase/migrations/20261027024000): the
- * Drizzle mirror its server code reads and writes through. Server-only. test/addons/contractor-ops.test.ts holds the
+ * Contractor Operations' own tables, in its schema `addon_contractor` (supabase/migrations/20261027024000, 024200
+ * and 024300): the Drizzle mirror its server code reads and writes through. Server-only. test/addons/contractor-ops.test.ts holds the
  * mirror to the live columns.
  */
 import {
   bigint,
+  boolean,
   date,
   integer,
   numeric,
@@ -15,12 +16,16 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import {
+  appointments,
   customRecords,
   estimates as coreEstimates,
+  files,
+  people,
   products,
   users,
   workspaces,
 } from '@hfos/db/schema';
+import type { ItemKind } from './checklists';
 import type { CostKind } from './estimating';
 import type { JobKind, JobStatus, PhaseStatus } from './progress';
 import type { Trade } from './trades';
@@ -169,6 +174,83 @@ export const estimateOks = addonContractor.table('estimate_oks', {
   note: text('note'),
 });
 
+/** A crew: a named group of team members and subcontractors (the owner's decision 7). */
+export const crews = addonContractor.table('crews', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: workspaceRef(),
+  name: text('name').notNull(),
+  archivedAt: ts('archived_at'),
+  createdBy: userRef('created_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/** Who's in a crew: someone on the team (`userId`) or a subcontractor, who is a contact (`personId`). */
+export const crewMembers = addonContractor.table('crew_members', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: workspaceRef(),
+  crewId: uuid('crew_id').notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  personId: uuid('person_id').references(() => people.id, { onDelete: 'cascade' }),
+  addedBy: userRef('added_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/** A visit's work order: one per appointment on a job. */
+export const workOrders = addonContractor.table('work_orders', {
+  appointmentId: uuid('appointment_id')
+    .primaryKey()
+    .references(() => appointments.id, { onDelete: 'cascade' }),
+  workspaceId: workspaceRef(),
+  recordId: uuid('record_id').notNull(),
+  crewId: uuid('crew_id'),
+  instructions: text('instructions'),
+  bring: text('bring'),
+  createdBy: userRef('created_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/** A work order's checklist: boxes to tick and photos to add, some required before the job is Done. */
+export const workOrderItems = addonContractor.table('work_order_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: workspaceRef(),
+  appointmentId: uuid('appointment_id').notNull(),
+  recordId: uuid('record_id').notNull(),
+  position: integer('position').notNull(),
+  label: text('label').notNull(),
+  kind: text('kind').notNull().$type<ItemKind>().default('check'),
+  required: boolean('required').notNull().default(false),
+  doneAt: ts('done_at'),
+  doneBy: userRef('done_by'),
+  fileId: uuid('file_id').references(() => files.id, { onDelete: 'set null' }),
+  skippedAt: ts('skipped_at'),
+  skippedBy: userRef('skipped_by'),
+  skipReason: text('skip_reason'),
+  createdBy: userRef('created_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/** The subcontractors on a visit: when they were told, and when the office marked their work done. */
+export const workOrderSubs = addonContractor.table('work_order_subs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: workspaceRef(),
+  appointmentId: uuid('appointment_id').notNull(),
+  recordId: uuid('record_id').notNull(),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  toldAt: ts('told_at'),
+  toldBy: userRef('told_by'),
+  doneAt: ts('done_at'),
+  doneBy: userRef('done_by'),
+  note: text('note'),
+  addedBy: userRef('added_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
 export const CONTRACTOR_TABLES = {
   jobs,
   phases,
@@ -179,4 +261,9 @@ export const CONTRACTOR_TABLES = {
   estimates,
   estimateCosts,
   estimateOks,
+  crews,
+  crewMembers,
+  workOrders,
+  workOrderItems,
+  workOrderSubs,
 } as const;

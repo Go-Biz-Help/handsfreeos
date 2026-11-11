@@ -5,6 +5,9 @@
  * - **A job follows its visits:** a visit booked on a job (an appointment whose record is the job) moves a new job to
  *   Scheduled, and a visit started there moves a new or scheduled job to In progress. Never backwards, and never a
  *   job that's on hold, done or cancelled. Both are safe to run again: the command does nothing the second time.
+ * - **A visit booked on a job gets its work order,** with the checklist a new visit starts with (the business's own
+ *   list, else its trade's), so the crew finds it there whoever booked the visit and from wherever. Safe to run
+ *   again: a visit that has one keeps it.
  * - **An approved estimate fills its job:** when a customer says yes to an estimate the builder wrote for a job, the
  *   job's price and budget become what was agreed, at the option they picked. Safe to run again: it adds up every
  *   approved estimate on the job afresh.
@@ -13,6 +16,7 @@
  */
 import { estimateFillJob } from '@hfos/core/addons/contractor/ops/estimates';
 import { jobFollowVisit } from '@hfos/core/addons/contractor/ops/jobs';
+import { workOrderStart } from '@hfos/core/addons/contractor/ops/work-orders';
 import { catalogAddon, executeCommand } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { clearAddonAlert, raiseAddonAlert } from '../alerts';
@@ -31,6 +35,21 @@ const follow = (what: 'booked' | 'started') => async (ctx: AddonEventContext) =>
 };
 
 const visitStarted = follow('started');
+const visitBooked = follow('booked');
+
+/** A visit booked on a job: its work order starts, then the job moves along. Anything else booked is left alone. */
+async function booked(ctx: AddonEventContext): Promise<void> {
+  const appointmentId = ctx.event.entityId;
+  if (!appointmentId) return;
+  await executeCommand(
+    ctx.db,
+    workOrderStart,
+    { workspaceId: ctx.scope.workspaceId, appointmentId },
+    ctx.actor,
+    ctx.meta,
+  );
+  await visitBooked(ctx);
+}
 
 const okAlertKey = (estimateId: string) => `estimate-ok:${estimateId}`;
 const payloadOf = (ctx: AddonEventContext) => (ctx.event.payload ?? {}) as Record<string, unknown>;
@@ -82,7 +101,7 @@ const okDone = (reason: string) => async (ctx: AddonEventContext) => {
 export const contractorAddonWorker: AddonWorkerModule = {
   manifest: catalogAddon('contractor'),
   subscribers: {
-    'appointment.booked': follow('booked'),
+    'appointment.booked': booked,
     // A visit's crew pressing Started (core's job.status_changed, its entity the appointment).
     'job.status_changed': async (ctx) => {
       const payload = (ctx.event.payload ?? {}) as Record<string, unknown>;

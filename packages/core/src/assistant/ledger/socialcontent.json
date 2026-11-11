@@ -23,7 +23,7 @@
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/playbook.tsx": "1ece804bcab9",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/settings.tsx": "b7e6c2a6389d",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/standouts.tsx": "adbc9f8ec4fe",
-    "apps/web/src/addons/registry.ts": "5ce8310d4da9",
+    "apps/web/src/addons/registry.ts": "03150bd26303",
     "apps/web/src/addons/socialcontent/activity-card.tsx": "ac129c506362",
     "apps/web/src/addons/socialcontent/calendar-page.tsx": "0a7ce25ad974",
     "apps/web/src/addons/socialcontent/creators-page.tsx": "534489749606",
@@ -46,7 +46,7 @@
     {
       "path": "Side menu → AI Social Media Content Creator (opens Creators; Standouts, Playbook, Ideas and Settings pop out)",
       "kind": "do",
-      "file": "apps/web/src/addons/registry.ts:268",
+      "file": "apps/web/src/addons/registry.ts:283",
       "covered": "yes",
       "by": "add-on directory line in the prompt; SOCIALCONTENT_PLACES link each page"
     },

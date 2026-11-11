@@ -11,6 +11,13 @@ import {
   queries,
 } from '../../src/server';
 import {
+  checklistForNewVisit,
+  checklistProgress,
+  checklistWords,
+  PLAIN_CHECKLIST,
+  STARTER_CHECKLISTS,
+} from '../../src/addons/contractor/checklists';
+import {
   checkMargin,
   costOption,
   defaultCostKind,
@@ -22,7 +29,13 @@ import {
 } from '../../src/addons/contractor/estimating';
 import { contractorAddon } from '../../src/addons/contractor/manifest';
 import { contractorAddonServer } from '../../src/addons/contractor/server';
-import { okNeededWords, REFUSALS } from '../../src/addons/contractor/words';
+import { TRADES } from '../../src/addons/contractor/trades';
+import {
+  namesWords,
+  okNeededWords,
+  REFUSALS,
+  subTextWords,
+} from '../../src/addons/contractor/words';
 
 describe('Contractor Operations', () => {
   it('has a valid manifest', () => {
@@ -139,5 +152,90 @@ describe('estimating', () => {
   it('tells whoever is refused what to do next', () => {
     expect(REFUSALS.marginNeedsOk('Why.', true)).toMatch(/OK it first/);
     expect(REFUSALS.marginNeedsOk('Why.', false)).toMatch(/Ask an owner or admin/);
+  });
+
+  it('starts a visit’s checklist from the business’s own list, else its trade’s, else the plain one', () => {
+    const own = [{ label: 'Boot covers on', kind: 'check' as const, required: true }];
+    expect(checklistForNewVisit({ trades: ['roofing'], checklist: own }, 'plumbing')).toBe(own);
+    // The job's trade before the business's first one.
+    expect(checklistForNewVisit({ trades: ['roofing'] }, 'plumbing')).toBe(
+      STARTER_CHECKLISTS.plumbing,
+    );
+    expect(checklistForNewVisit({ trades: ['roofing'] }, null)).toBe(STARTER_CHECKLISTS.roofing);
+    expect(checklistForNewVisit({ trades: [] }, 'not a trade')).toBe(PLAIN_CHECKLIST);
+    // Every trade's list has something required, so decision 8 has something to hold on.
+    for (const trade of TRADES) {
+      expect(
+        STARTER_CHECKLISTS[trade].some((i) => i.required),
+        trade,
+      ).toBe(true);
+      const labels = STARTER_CHECKLISTS[trade].map((i) => i.label.toLowerCase());
+      expect(new Set(labels).size, trade).toBe(labels.length);
+    }
+  });
+
+  it('counts what holds a job’s Done: required items neither done nor passed over', () => {
+    const item = (required: boolean, done = false, skipped = false) => ({
+      required,
+      done,
+      skipped,
+    });
+    const progress = checklistProgress([
+      item(true, true),
+      item(true),
+      item(true, false, true),
+      item(false),
+      item(false, true),
+    ]);
+    expect(progress).toEqual({ total: 5, done: 2, requiredLeft: 1 });
+    expect(checklistWords(progress)).toBe('2 of 5 done · 1 required left');
+    expect(checklistWords({ total: 2, done: 2, requiredLeft: 0 })).toBe('2 of 2 done');
+    expect(checklistWords(checklistProgress([]))).toBe('No checklist');
+  });
+
+  it('says what’s left when a job isn’t ready, and who can pass it over', () => {
+    const left = ['Photo of the panel', 'Circuits tested', 'Permit posted', 'Walkthrough'];
+    const mine = REFUSALS.jobNotReady('Panel swap', left, false);
+    expect(mine).toContain('“Panel swap” can’t be marked done yet: 4 required items');
+    expect(mine).toContain('Photo of the panel, Circuits tested, Permit posted and 1 more');
+    expect(mine).toMatch(/ask an owner or admin/);
+    expect(REFUSALS.jobNotReady('Panel swap', left.slice(0, 1), true)).toMatch(
+      /1 required item still left .*Finish it on .*or mark the job done anyway with a reason\./,
+    );
+    expect(namesWords(['Ana', 'Ben'])).toBe('Ana and Ben');
+    expect(namesWords(['Ana'])).toBe('Ana');
+  });
+
+  it('texts a subcontractor everything they need, since they don’t sign in', () => {
+    const text = subTextWords({
+      firstName: 'Sam',
+      business: 'Bright Line Electric',
+      job: 'Panel swap',
+      address: '12 Oak St',
+      when: 'Fri, Sep 18 at 10:00 AM',
+      instructions: 'Swap the 100A panel for a 200A.',
+      bring: 'A 200A panel',
+      note: 'Park on the street.',
+    });
+    expect(text.split('\n')).toEqual([
+      'Hi Sam, Bright Line Electric has you on a job: Panel swap at 12 Oak St, Fri, Sep 18 at 10:00 AM.',
+      'Work to do: Swap the 100A panel for a 200A.',
+      'Bring: A 200A panel',
+      'Park on the street.',
+      'Reply here with any questions.',
+    ]);
+    // With nothing written yet it's still a whole message, and long instructions are cut, not sent in pieces.
+    const bare = subTextWords({
+      firstName: null,
+      business: 'Bright Line Electric',
+      job: 'Panel swap',
+      address: null,
+      when: 'Fri, Sep 18 at 10:00 AM',
+      instructions: 'x'.repeat(2_000),
+      bring: null,
+      note: null,
+    });
+    expect(bare.startsWith('Bright Line Electric has you on a job: Panel swap, Fri')).toBe(true);
+    expect(bare.length).toBeLessThan(700);
   });
 });

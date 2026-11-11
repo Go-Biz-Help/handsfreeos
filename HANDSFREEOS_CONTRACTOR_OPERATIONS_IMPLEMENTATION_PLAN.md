@@ -50,9 +50,10 @@ How it works, and the rules worth knowing before changing anything: `docs/contra
    at cost, markup, profit and margin, making a normal HandsFreeOS estimate; good, better, best options in core's
    estimates (decision 5); the lowest margin and its OK (decision 6). An accepted estimate fills the job's budget and
    its materials list.
-3. **Crews, scheduling and work orders.** Crews (decision 7), booked from the job; a work order on each visit
-   (instructions, checklist, materials to bring, who's going, photos required); starter checklists per trade; Done
-   waits on the required items (decision 8); one dispatch screen.
+3. **Crews, scheduling and work orders.** _Built, on the web; the phone's pages come with part 6._ Crews
+   (decision 7), booked from the job; a work order on each visit (instructions, checklist, materials to bring, who's
+   going, photos required); starter checklists per trade; Done waits on the required items (decision 8); one dispatch
+   screen.
 4. **Materials.** Per job (decision 9), with what's missing for each upcoming visit and an alert before it.
 5. **Time and job costing.** Time from the status buttons (decision 10), each person's cost per hour, estimate
    against actual, the profit it's heading for, and a profit dashboard by job, crew, service and customer.
@@ -115,3 +116,31 @@ How it works, and the rules worth knowing before changing anything: `docs/contra
 - **Choices made while building.** An OK stands when the lowest margin is raised afterwards. Whoever may OK an
   estimate still has to OK it before sending, so nothing goes out unchecked by a slip. A line with no cost counts
   as unchecked only for labor and materials; a permit or a fee with no cost is fine.
+
+## Part 3 as built
+
+- **Data.** `supabase/migrations/20261027024300_contractor_work_orders.sql`: the permission `contractor.skip_checks`
+  (owners and admins), and `crews`, `crew_members`, `work_orders` (one per visit on a job: instructions, what to
+  bring, its crew), `work_order_items` (the checklist) and `work_order_subs` (the subcontractors on a visit: when
+  they were texted, when their work was marked done). Core's appointment stays the visit; nothing in core points at
+  these.
+- **Operations.** 13 commands and 3 queries: crews (`ops/crews.ts`: save, archive, list), work orders
+  (`ops/work-orders.ts`: start, update, set the crew, add, remove, mark and text subcontractors, add, change, remove
+  and tick checklist items, and read one) and Dispatch (`ops/dispatch.ts`). The Done check is in
+  `contractor.job.set_status` (`ops/jobs.ts`). The checklist's rules are pure, in `checklists.ts`.
+- **Worker.** A visit booked on a job starts its work order, then moves the job along as before.
+- **Web.** A visit's work order page, Dispatch (a second row popping out of the add-on's menu row), Crews and
+  Checklist for a new visit in Settings, and on the job: each visit's stage, crew and checklist progress, and a
+  dialog saying what's left when Done is refused, with the skip for people who may.
+- **Left for later parts.** The job's materials on a work order (part 4). Time from the status buttons (part 5).
+  The phone's work orders, checklists and photos (part 6).
+- **Choices made while building.**
+  - A subcontractor is always a contact. For a company, it's the person the business deals with there, since a
+    text and a "done" need a person.
+  - Decision 8 holds the job's Done, not a visit's own Done button, which is core's.
+  - Skipping needs its own permission, `contractor.skip_checks`, so a business can give it to a lead without making
+    them an admin.
+  - A visit is booked with core's own dialog (one person), then its work order opens and the crew is picked there;
+    putting a crew on replaces who was on the visit.
+  - Crews are set up by people who manage the add-on (`contractor.manage`); anyone who uses it puts one on a visit.
+  - A cancelled visit's required items never hold its job.

@@ -3,6 +3,10 @@
  * One job (docs/contractor.md, "A job's page"): its status, customer and property, the work to do, its phases and %
  * done, its lead and team, its visits, and (for people who may see job costs, the owner's decision 11) its price and
  * budget. Notes, files and tasks are on core's page for its record, linked from here.
+ *
+ * Each visit opens its work order, and booking one starts it and opens it, to put a crew on. Marking the job Done
+ * waits on the required checklist items and photos on its work orders (the owner's decision 8): the server says
+ * which are left, and someone who may can mark it done anyway with a reason.
  */
 import {
   JOB_STATUSES,
@@ -18,22 +22,34 @@ import {
   JOB_STATUS_WORDS,
   lateWords,
   percentFromBp,
-  VISIT_STATUS_WORDS,
 } from '@hfos/core/addons/contractor/words';
 import { formatDate, formatDateOnly, money } from '@hfos/core';
-import { ArrowLeft, CalendarPlus, FileText, X } from 'lucide-react';
+import { ArrowLeft, CalendarPlus, ChevronRight, FileText, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
+import { toast } from 'sonner';
 import { AppointmentDialog } from '@/components/calendar/appointment-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Field } from '@/components/ui/field';
 import { Select } from '@/components/ui/input';
-import { apiBrowser, unwrap } from '@/lib/api/client';
+import { Textarea } from '@/components/ui/textarea';
+import { ApiError, apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
-import { contractorHref, DueLine, jobRecordHref, PercentBar, StatusBadge } from './bits';
+import {
+  ChecklistLine,
+  contractorHref,
+  DueLine,
+  jobRecordHref,
+  PercentBar,
+  StageBadge,
+  StatusBadge,
+  workOrderHref,
+} from './bits';
 import { EstimateLine } from './estimates-home';
 import { EditJobDialog, MoneyDialog, ReasonDialog } from './job-dialogs';
 import { PercentInput, PhasesCard } from './phases-card';
@@ -41,6 +57,17 @@ import type { EstimateList, JobDetail, Overview } from './types';
 import { useAct } from './use-act';
 
 const J = CONTRACTOR_WORDS.job;
+
+/** What the server says when a job isn't ready to be marked done (`contractor_job_not_ready`). */
+interface NotReady {
+  readonly maySkip: boolean;
+  readonly left: readonly {
+    readonly itemId: string;
+    readonly appointmentId: string;
+    readonly startsAt: string;
+    readonly label: string;
+  }[];
+}
 
 export function JobPage({
   workspaceId,
@@ -67,13 +94,49 @@ export function JobPage({
   const [editing, setEditing] = useState(false);
   const [reasonFor, setReasonFor] = useState<JobStatus | null>(null);
   const [booking, setBooking] = useState(false);
+  const [notReady, setNotReady] = useState<NotReady | null>(null);
   const closed = job.status === 'done' || job.status === 'cancelled';
-  const setStatus = (status: JobStatus, reason?: string) =>
+  const setStatus = (status: JobStatus, reason?: string, skipReason?: string) =>
     apiBrowser()
       .POST('/v1/commands/contractor.job.set_status', {
-        body: { workspaceId, jobId: job.id, status, ...(reason ? { reason } : {}) },
+        body: {
+          workspaceId,
+          jobId: job.id,
+          status,
+          ...(reason ? { reason } : {}),
+          ...(skipReason ? { skipReason } : {}),
+        },
       })
       .then(unwrap);
+  /**
+   * A visit just booked: its work order starts now (the worker would start it within moments anyway) and opens. The
+   * booking put one person on the visit, and a crew is put on from there.
+   */
+  const openWorkOrder = async (appointmentId: string) => {
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/contractor.work_order.start', {
+          body: { workspaceId, appointmentId },
+        }),
+      );
+      router.push(workOrderHref(workspaceId, appointmentId));
+    } catch {
+      // Booked all the same: it shows in the job's visits, and opens from there.
+      router.refresh();
+    }
+  };
+  /** Done waits on the required items on its work orders: the server names what's left, and this shows it. */
+  const markDone = () =>
+    void act('status', async () => {
+      try {
+        await setStatus('done');
+      } catch (e) {
+        if (!(e instanceof ApiError) || e.rule !== 'contractor_job_not_ready') throw e;
+        setNotReady(e.details as NotReady);
+        return;
+      }
+      toast.success(J.statusSet(JOB_STATUS_WORDS.done));
+    });
   return (
     <div data-testid="contractor-job">
       <Link
@@ -108,6 +171,7 @@ export function JobPage({
               const next = e.target.value as JobStatus;
               if (next === job.status) return;
               if (STATUSES_WITH_REASON.includes(next)) return setReasonFor(next);
+              if (next === 'done') return markDone();
               void act('status', () => setStatus(next), J.statusSet(JOB_STATUS_WORDS[next]));
             }}
             data-testid="job-status-pick"
@@ -222,27 +286,29 @@ export function JobPage({
             ) : (
               <ul>
                 {job.visits.map((v) => (
-                  <li
-                    key={v.appointmentId}
-                    className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-5 py-3 text-[13.5px] last:border-b-0"
-                  >
-                    <span className="min-w-0">
-                      <span className="block font-medium">
-                        {formatDate(v.startsAt, { time: true, timeZone })}
-                      </span>
-                      <span className="block truncate text-[12.5px] text-text-3">{v.title}</span>
-                    </span>
-                    <Badge
-                      variant={
-                        v.status === 'completed'
-                          ? 'ok'
-                          : v.status === 'scheduled'
-                            ? 'accent'
-                            : 'gray'
-                      }
+                  <li key={v.appointmentId} className="border-b border-border last:border-b-0">
+                    <Link
+                      href={workOrderHref(workspaceId, v.appointmentId)}
+                      className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-[13.5px] hover:bg-card-2"
+                      aria-label={`${J.openWorkOrder}: ${formatDate(v.startsAt, { time: true, timeZone })}`}
+                      data-testid="job-visit"
                     >
-                      {VISIT_STATUS_WORDS[v.status] ?? v.status}
-                    </Badge>
+                      <span className="min-w-0">
+                        <span className="block font-medium">
+                          {formatDate(v.startsAt, { time: true, timeZone })}
+                        </span>
+                        <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12.5px] text-text-3">
+                          <span className="truncate">{v.crew ?? v.title}</span>
+                          {v.stage === 'cancelled' ? null : (
+                            <ChecklistLine checklist={v.checklist} />
+                          )}
+                        </span>
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <StageBadge stage={v.stage} />
+                        <ChevronRight className="h-4 w-4 text-text-3" />
+                      </span>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -337,13 +403,118 @@ export function JobPage({
               : {}),
           }}
           onOpenChange={(o) => !o && setBooking(false)}
-          onBooked={() => {
+          onBooked={(booked) => {
             setBooking(false);
-            router.refresh();
+            void openWorkOrder(booked.appointmentId);
           }}
         />
       ) : null}
+      {notReady ? (
+        <NotReadyDialog
+          workspaceId={workspaceId}
+          notReady={notReady}
+          timeZone={timeZone}
+          onClose={() => setNotReady(null)}
+          skip={(why) => setStatus('done', undefined, why)}
+        />
+      ) : null}
     </div>
+  );
+}
+
+const N = J.notReady;
+
+/**
+ * The required checklist items and photos still left on the job's work orders, by visit. Someone who may mark it
+ * done anyway says why; the reason is kept on each item passed over and on the job's timeline.
+ */
+function NotReadyDialog({
+  workspaceId,
+  notReady,
+  timeZone,
+  onClose,
+  skip,
+}: {
+  workspaceId: string;
+  notReady: NotReady;
+  timeZone: string;
+  onClose: () => void;
+  skip: (why: string) => Promise<unknown>;
+}) {
+  const [why, setWhy] = useState('');
+  const { busy, errors, act } = useAct(onClose);
+  const visits = [...new Set(notReady.left.map((l) => l.appointmentId))].map((id) => ({
+    id,
+    items: notReady.left.filter((l) => l.appointmentId === id),
+  }));
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent title={N.title} description={N.left(notReady.left.length)}>
+        <div className="mt-3 space-y-3 text-[13.5px]" data-testid="job-not-ready">
+          {visits.map((v) => (
+            <div key={v.id}>
+              <Link
+                href={workOrderHref(workspaceId, v.id)}
+                className="font-medium text-accent-text hover:underline"
+              >
+                {N.onVisit(formatDate(v.items[0]!.startsAt, { time: true, timeZone }))}
+              </Link>
+              <ul className="mt-1 list-disc space-y-0.5 pl-5 text-text-2">
+                {v.items.map((i) => (
+                  <li key={i.itemId}>{i.label}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          <p className="text-text-2">
+            {N.finish} {notReady.maySkip ? null : N.askAdmin}
+          </p>
+        </div>
+        {notReady.maySkip ? (
+          <form
+            className="mt-4 space-y-3 border-t border-border pt-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void act('skip', () => skip(why.trim()), N.skipped);
+            }}
+          >
+            <div>
+              <div className="text-[13.5px] font-semibold">{N.skipTitle}</div>
+              <p className="mt-0.5 text-[12.5px] text-text-3">{N.skipHint}</p>
+            </div>
+            <Field label={N.skipReason} htmlFor="job-skip-reason" error={errors.skipReason}>
+              <Textarea
+                id="job-skip-reason"
+                value={why}
+                maxLength={300}
+                placeholder={N.skipReasonPlaceholder}
+                onChange={(e) => setWhy(e.target.value)}
+                className="min-h-[72px]"
+                data-testid="job-skip-reason"
+              />
+            </Field>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={onClose}>
+                {N.close}
+              </Button>
+              <Button
+                type="submit"
+                variant="danger"
+                disabled={!why.trim()}
+                loading={busy === 'skip'}
+                data-testid="job-skip"
+              >
+                {N.skip}
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <div className="mt-5 flex justify-end">
+            <Button onClick={onClose}>{N.close}</Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
