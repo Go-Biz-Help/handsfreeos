@@ -11,6 +11,9 @@
  * POST /v1/main-offer/assist {workspaceId, path, mode, parts} → {options, steps}
  * POST /v1/main-offer/score {workspaceId, revision} → {saved, score}
  * POST /v1/main-offer/try {workspaceId, revision, notes, keep} → {saved, try}
+ * POST /v1/main-offer/lists {workspaceId, mode, list?, line?} → {options, gaps}: the lists for content ("For your
+ * content"): Write it for me, Improve a line, Examples, and What's missing. Nothing is kept; the person saves what they
+ * pick with `main_offer.save_list`.
  * 403 without main_offer.manage; 409 `main_offer_not_in_use`, `main_offer_no_draft` or `main_offer_draft_moved`;
  * 422 `main_offer_no_proof`, `main_offer_all_kept` or `main_offer_try_unchanged`; 429 `budget_reached` or
  * `rate_limited`; 402 `wallet_empty`; 503 `ai_not_configured` or `ai_busy`; 502 `ai_failed`.
@@ -20,11 +23,13 @@ import rateLimit from '@fastify/rate-limit';
 import {
   briefFromProfile,
   checkedOfferAssist,
+  checkedOfferLists,
   checkedOfferNiche,
   checkedOfferScore,
   checkedOfferTry,
   executeCommand,
   executeQuery,
+  formatKnowledgeForPrompt,
   HfosError,
   industryLabel,
   mainOfferGet,
@@ -33,6 +38,8 @@ import {
   mainOfferTrySave,
   OFFER_ASSIST_SCHEMA,
   OFFER_ASSIST_SYSTEM,
+  OFFER_LISTS_SCHEMA,
+  OFFER_LISTS_SYSTEM,
   OFFER_NICHE_SCHEMA,
   OFFER_NICHE_SYSTEM,
   OFFER_SCORE_SCHEMA,
@@ -43,6 +50,9 @@ import {
   OfferAssistInput,
   offerAssistPrompt,
   offerAssistRefusal,
+  OfferListsAnswer,
+  OfferListsAssistInput,
+  offerListsPrompt,
   OfferNicheAnswer,
   OfferNicheInput,
   offerNichePrompt,
@@ -60,6 +70,7 @@ import {
   type MainOfferTryOut,
   type OfferAssistOutput,
   type OfferBusiness,
+  type OfferListsAssistOutput,
   type OfferNicheOption,
   type OfferTryOutput,
 } from '@hfos/core/server';
@@ -74,6 +85,7 @@ import {
   askStructured,
 } from '../ai/ask';
 import { authenticate, parseBody, requirePermission, type HttpDeps } from '../http/common';
+import { shortKnowledge } from '../knowledge/find';
 import { loadGrounding } from '../knowledge/grounding';
 import { systemActor, workerMeta } from '../services';
 import type { TenantScope } from '../services';
@@ -86,6 +98,10 @@ const NicheBody = OfferNicheInput.extend({ workspaceId });
 const AssistBody = OfferAssistInput.extend({ workspaceId });
 const ScoreBody = z.object({ workspaceId, revision: z.int().min(0) });
 const TryBody = OfferTryInput.extend({ workspaceId, revision: z.int().min(0) });
+const ListsBody = z.intersection(OfferListsAssistInput, z.object({ workspaceId }));
+
+/** How much of the Knowledge base the lists' help reads: its short answers, as the Content Creator reads them. */
+const LISTS_KNOWLEDGE = { items: 30, itemChars: 1_200, chars: 6_000 } as const;
 
 const FAILED = 'The AI couldn’t help with that just now. Try again, or write it yourself.';
 
@@ -206,6 +222,55 @@ export async function offerAssist(
       usage: { source: 'main_offer', userId: actor.userId },
     });
     return checkedOfferAssist(value, input);
+  } catch (e) {
+    throw aiError(e);
+  }
+}
+
+/**
+ * The AI's help with the lists for content: Write it for me, Improve a line three ways, Examples to model for the
+ * business's line of work, or What's missing across them all. It reads the live offer (else the draft), the owner's
+ * direction, the lists as kept and the Knowledge base's short answers. Nothing is kept.
+ */
+export async function offerListsAssist(
+  deps: MainOfferDeps,
+  actor: HumanActor,
+  input: z.output<typeof ListsBody>,
+): Promise<OfferListsAssistOutput> {
+  const { scope, business, offer } = await preparing(deps, actor, input.workspaceId);
+  const knowledge = await asWorker(deps.httpDb, scope, async (tx) => {
+    const items = await shortKnowledge(tx, {
+      workspaceId: input.workspaceId,
+      limit: LISTS_KNOWLEDGE.items,
+      itemChars: LISTS_KNOWLEDGE.itemChars,
+    });
+    return items.length ? formatKnowledgeForPrompt(items, LISTS_KNOWLEDGE.chars) : '';
+  }).catch((e: unknown) => {
+    deps.log.warn({ err: e }, 'couldn’t read the knowledge base for the offer’s lists');
+    return '';
+  });
+  const parts = offer.live?.parts ?? offer.draft?.parts ?? null;
+  try {
+    const { value } = await askStructured(services(deps), scope, {
+      system: OFFER_LISTS_SYSTEM,
+      messages: [
+        {
+          role: 'user',
+          content: offerListsPrompt(
+            { ...business, knowledge },
+            parts,
+            offer.direction,
+            offer.lists,
+            input,
+          ),
+        },
+      ],
+      schema: OFFER_LISTS_SCHEMA,
+      zod: OfferListsAnswer,
+      maxTokens: 1500,
+      usage: { source: 'main_offer', userId: actor.userId },
+    });
+    return checkedOfferLists(value, input, offer.lists);
   } catch (e) {
     throw aiError(e);
   }
@@ -354,6 +419,10 @@ export async function registerMainOfferRoutes(app: FastifyInstance, deps: HttpDe
     scoped.post('/v1/main-offer/try', limited, async (req) => {
       const actor = await authenticate(deps, req);
       return offerTry(deps, actor, parseBody(TryBody, req.body));
+    });
+    scoped.post('/v1/main-offer/lists', limited, async (req) => {
+      const actor = await authenticate(deps, req);
+      return offerListsAssist(deps, actor, parseBody(ListsBody, req.body));
     });
   });
 }

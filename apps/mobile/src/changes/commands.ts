@@ -135,6 +135,8 @@ import {
   MainOfferSaveDirectionOutput,
   MainOfferSaveDraftInput,
   MainOfferSaveDraftOutput,
+  MainOfferSaveListInput,
+  MainOfferSaveListOutput,
   MessageCancelScheduledInput,
   MessageCancelScheduledOutput,
   MessageRetryInput,
@@ -628,7 +630,7 @@ export const PHONE_COMMANDS = {
   'look.find': command(ONLINE, LookFindInput, LookFindOutput),
   'look.set': command(ONLINE, LookSetInput, LookSetOutput),
   'look.use_upload': command(ONLINE, LookUseUploadInput, LookUseUploadOutput),
-  // Settings → Main offer: a part edited, the direction, and going live. Online, since each is for the draft as the
+  // Settings → Main offer: a part edited, the direction, a list for content, and going live. Online, since each is for the draft as the
   // server has it now (its revision) and the score the worker gave it.
   'main_offer.publish': command(ONLINE, MainOfferPublishInput, MainOfferPublishOutput),
   'main_offer.save_direction': command(
@@ -637,6 +639,8 @@ export const PHONE_COMMANDS = {
     MainOfferSaveDirectionOutput,
   ),
   'main_offer.save_draft': command(ONLINE, MainOfferSaveDraftInput, MainOfferSaveDraftOutput),
+  // For your content (the owner's pick 6b): one list saved whole, online as the rest of the offer is.
+  'main_offer.save_list': command(ONLINE, MainOfferSaveListInput, MainOfferSaveListOutput),
   // A partner's page and a customer's Partner card (the partners plan, stage 2d): online, since each is for the
   // partner as HandsFreeOS has them now, and promises the business's money.
   'partner.add': command(ONLINE, PartnerAddInput, PartnerAddOutput),

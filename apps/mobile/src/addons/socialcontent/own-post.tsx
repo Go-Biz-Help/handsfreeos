@@ -30,10 +30,28 @@ import { File } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import * as React from 'react';
-import { Image, Pressable, ScrollView, Share, View } from 'react-native';
+import {
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  Share,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { change } from '@/changes';
-import { ExternalLink, ImagePlus, Play, Share as ShareIcon, Video, X } from '@/components/icons';
+import {
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  ImagePlus,
+  Play,
+  Share as ShareIcon,
+  Video,
+  X,
+} from '@/components/icons';
 import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -98,9 +116,12 @@ const networkNameOf = (n: string) => networkName(n as PostingNetwork);
 export function PostPictureTile({
   picture,
   className,
+  fit = 'cover',
 }: {
   picture: ContentPicture;
   className?: string;
+  /** 'contain' shows all of it, as full screen does. */
+  fit?: 'cover' | 'contain';
 }) {
   const [url, setUrl] = React.useState<string | null>(null);
   React.useEffect(() => {
@@ -128,9 +149,120 @@ export function PostPictureTile({
       accessibilityLabel={picture.name}
       accessibilityIgnoresInvertColors
       className={cn('size-full', className)}
-      resizeMode="cover"
+      resizeMode={fit}
     />
   ) : null;
+}
+
+/**
+ * A post's pictures full screen, to see them properly (the owner, 11 Nov): swipe between them, pinch to zoom in on
+ * iPhone, ✕ or Back closes.
+ */
+export function PictureViewer({
+  pictures,
+  at,
+  onClose,
+}: {
+  pictures: readonly ContentPicture[];
+  at: number | null;
+  onClose: () => void;
+}) {
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const [shown, setShown] = React.useState(at ?? 0);
+  const pager = React.useRef<ScrollView>(null);
+  React.useEffect(() => {
+    if (at === null) return;
+    setShown(at);
+    // Opened on the picture pressed.
+    requestAnimationFrame(() => pager.current?.scrollTo({ x: at * width, animated: false }));
+  }, [at, width]);
+  const go = (to: number) => {
+    setShown(to);
+    pager.current?.scrollTo({ x: to * width, animated: true });
+  };
+  const many = pictures.length > 1;
+  const round = 'size-10 items-center justify-center rounded-full bg-white/20';
+  return (
+    <Modal
+      visible={at !== null && pictures.length > 0}
+      animationType="fade"
+      presentationStyle="fullScreen"
+      onRequestClose={onClose}
+      testID="socialcontent-picture-viewer"
+    >
+      <View className="flex-1 bg-black">
+        <ScrollView
+          ref={pager}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          contentOffset={{ x: (at ?? 0) * width, y: 0 }}
+          onMomentumScrollEnd={(e) =>
+            setShown(Math.round(e.nativeEvent.contentOffset.x / Math.max(1, width)))
+          }
+        >
+          {pictures.map((pic) => (
+            <ScrollView
+              key={pic.fileId}
+              style={{ width, height }}
+              contentContainerStyle={{ width, height }}
+              maximumZoomScale={3}
+              minimumZoomScale={1}
+              centerContent
+              showsHorizontalScrollIndicator={false}
+              showsVerticalScrollIndicator={false}
+              testID={`socialcontent-picture-viewer-${pic.fileId}`}
+            >
+              <PostPictureTile picture={pic} fit="contain" />
+            </ScrollView>
+          ))}
+        </ScrollView>
+        <Pressable
+          role="button"
+          accessibilityLabel={W.post.viewerClose}
+          hitSlop={8}
+          onPress={onClose}
+          className={cn('absolute right-4', round)}
+          style={{ top: insets.top + 12 }}
+          testID="socialcontent-picture-viewer-close"
+        >
+          <Icon as={X} className="size-5 text-white" />
+        </Pressable>
+        {many ? (
+          <View
+            className="absolute inset-x-0 flex-row items-center justify-center gap-4"
+            style={{ bottom: insets.bottom + 16 }}
+            pointerEvents="box-none"
+          >
+            <Pressable
+              role="button"
+              accessibilityLabel={W.post.viewerPrevious}
+              disabled={shown === 0}
+              onPress={() => go(shown - 1)}
+              className={cn(round, shown === 0 && 'opacity-40')}
+              testID="socialcontent-picture-viewer-previous"
+            >
+              <Icon as={ChevronLeft} className="size-5 text-white" />
+            </Pressable>
+            <Text className="text-[14px] text-white" testID="socialcontent-picture-viewer-count">
+              {W.post.viewerOf(shown + 1, pictures.length)}
+            </Text>
+            <Pressable
+              role="button"
+              accessibilityLabel={W.post.viewerNext}
+              disabled={shown >= pictures.length - 1}
+              onPress={() => go(shown + 1)}
+              className={cn(round, shown >= pictures.length - 1 && 'opacity-40')}
+              testID="socialcontent-picture-viewer-next"
+            >
+              <Icon as={ChevronRight} className="size-5 text-white" />
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
+    </Modal>
+  );
 }
 
 /** What's changed on the post while it's open: its fields as the person types. */
@@ -436,6 +568,7 @@ export function PostBody({
   const [d, setD] = React.useState<PostDraft | null>(p ? draftOf(p, timeZone) : null);
   const [ask, setAsk] = React.useState('');
   const [pictureAsk, setPictureAsk] = React.useState('');
+  const [viewing, setViewing] = React.useState<number | null>(null);
   const was = p ? draftOf(p, timeZone) : null;
   const dirty = !!d && !!was && JSON.stringify(d) !== JSON.stringify(was);
   // What the post changed to while it was open (pictures made, written again) shows unless it's being edited.
@@ -803,10 +936,11 @@ export function PostBody({
               showsHorizontalScrollIndicator={false}
               contentContainerClassName="gap-2"
             >
-              {stills.map((pic) => (
+              {stills.map((pic, i) => (
                 <Tile
                   key={pic.fileId}
                   picture={pic}
+                  onOpen={() => setViewing(i)}
                   onRemove={changeable ? () => actions.remove(pic.fileId) : null}
                   disabled={busy !== null}
                 />
@@ -993,6 +1127,7 @@ export function PostBody({
           </Card>
         </View>
       ) : null}
+      <PictureViewer pictures={stills} at={viewing} onClose={() => setViewing(null)} />
     </Screen>
   );
 }
@@ -1028,15 +1163,20 @@ function Chips({ children }: { children: React.ReactNode }) {
   return <View className="flex-row flex-wrap gap-1.5">{children}</View>;
 }
 
-/** One of its pictures (or its video, taller), with a cross to take it off the post. */
+/**
+ * One of its pictures (or its video, taller), with a cross to take it off the post. A picture opens full screen
+ * when pressed.
+ */
 function Tile({
   picture,
   tall = false,
+  onOpen,
   onRemove,
   disabled,
 }: {
   picture: ContentPicture;
   tall?: boolean;
+  onOpen?: () => void;
   onRemove: (() => void) | null;
   disabled: boolean;
 }) {
@@ -1048,7 +1188,19 @@ function Tile({
       )}
       testID={`socialcontent-post-file-${picture.fileId}`}
     >
-      <PostPictureTile picture={picture} />
+      {onOpen ? (
+        <Pressable
+          role="button"
+          accessibilityLabel={W.post.fullScreen(picture.name)}
+          onPress={onOpen}
+          className="size-full"
+          testID={`socialcontent-post-picture-${picture.fileId}`}
+        >
+          <PostPictureTile picture={picture} />
+        </Pressable>
+      ) : (
+        <PostPictureTile picture={picture} />
+      )}
       {onRemove ? (
         <Pressable
           role="button"

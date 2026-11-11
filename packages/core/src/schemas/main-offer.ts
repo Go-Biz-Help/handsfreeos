@@ -13,6 +13,7 @@ import {
   MainOfferTryWhy,
   SCORED_PARTS,
 } from '../main-offer/parts';
+import { MainOfferLists, OFFER_LISTS, OfferListLines } from '../main-offer/lists';
 import { isoDateTime, uuid } from './common';
 
 /** The draft's revision the person started from: two editors can't undo each other. */
@@ -83,6 +84,20 @@ export const MainOfferSaveNamesInput = z.object({
     .max(MAIN_OFFER_LIMITS.names, `Up to ${MAIN_OFFER_LIMITS.names} names.`),
 });
 export const MainOfferSaveNamesOutput = z.object({ names: z.array(z.string()) });
+
+/**
+ * One of the lists for content (docs/main-offer.md, "For your content"): what makes the business different, its
+ * features and benefits, and the rest the Content Creator writes from. Saved as it is, not scored.
+ */
+export const MainOfferSaveListInput = z.object({
+  workspaceId: uuid,
+  list: z.enum(OFFER_LISTS),
+  lines: OfferListLines,
+});
+export const MainOfferSaveListOutput = z.object({
+  list: z.enum(OFFER_LISTS),
+  lines: z.array(z.string()),
+});
 
 /** The worker's alone: a try the AI wrote from the draft at this revision, with its score. */
 export const MainOfferTrySaveInput = z.object({
@@ -184,6 +199,8 @@ export const MainOfferGetOutput = z.object({
   names: z.array(z.string()).default([]),
   /** The business's name in HandsFreeOS: the one that stands while no names are saved. */
   businessName: z.string().default(''),
+  /** The lists for content, each its lines; a list never written isn't there. Defaults, for an older API. */
+  lists: MainOfferLists.default({}),
   live: MainOfferVersionOut.nullable(),
   draft: z
     .object({

@@ -465,6 +465,22 @@ describe('Ideas', () => {
     );
     expect(screen.queryByTestId('socialcontent-ideas-get')).toBeNull();
   });
+
+  it('gets no ideas until the main offer is live (pick 7b)', async () => {
+    await render(
+      <IdeasBody
+        data={{ ideas: [], examples: [], hasPlaybook: true, offerLive: false }}
+        error={null}
+        online
+        busy={null}
+        onRetry={jest.fn()}
+        onGet={jest.fn()}
+        onDecide={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId('socialcontent-offer-not-live')).toBeTruthy();
+    expect(screen.queryByTestId('socialcontent-ideas-get')).toBeNull();
+  });
 });
 
 describe('Settings', () => {
@@ -599,6 +615,7 @@ describe('the Calendar', () => {
       onRetry={jest.fn()}
       onOpen={jest.fn()}
       onFill={jest.fn()}
+      onAutoFill={jest.fn()}
       onOkWeek={jest.fn()}
       onWrite={jest.fn()}
       {...props}
@@ -645,6 +662,39 @@ describe('the Calendar', () => {
     expect(onWrite).toHaveBeenCalledWith(null, null, 'write');
     await render(body({ data: calendarView({ posts: [content(30, { state: 'ready' })] }) }));
     expect(screen.queryByTestId('socialcontent-calendar-ok-week')).toBeNull();
+  });
+
+  it('stops filling on its own with its switch, and starts again (the owner, 11 Nov)', async () => {
+    const onAutoFill = jest.fn();
+    await render(body({ onAutoFill }));
+    await fireEvent.press(screen.getByTestId('socialcontent-calendar-auto-fill'));
+    expect(onAutoFill).toHaveBeenCalledWith(false);
+    await render(body({ onAutoFill, data: calendarView({ autoFill: false, nextFillAt: null }) }));
+    expect(screen.queryByTestId('socialcontent-calendar-fill')).toBeNull();
+    expect(screen.getByTestId('socialcontent-calendar-filled')).toHaveTextContent(
+      /^Filled .* filling on its own is off/,
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-calendar-auto-fill'));
+    expect(onAutoFill).toHaveBeenCalledWith(true);
+    // Only an owner or admin flips it; anyone else is told who can.
+    await render(
+      body({ data: calendarView({ autoFill: false, nextFillAt: null, mayManage: false }) }),
+    );
+    expect(screen.getByTestId('socialcontent-calendar-auto-fill')).toBeDisabled();
+    expect(screen.getByTestId('socialcontent-calendar-filled')).toHaveTextContent(
+      /An owner or admin can turn filling on its own back on\.$/,
+    );
+  });
+
+  it('writes nothing until the main offer is live, and says where to put it live (pick 7b)', async () => {
+    await render(body({ data: calendarView({ offerLive: false }) }));
+    expect(screen.getByTestId('socialcontent-offer-not-live')).toHaveTextContent(
+      /Your main offer isn’t live yet/,
+    );
+    expect(screen.queryByTestId('socialcontent-calendar-fill')).toBeNull();
+    expect(screen.queryByTestId('socialcontent-calendar-write')).toBeNull();
+    await render(body());
+    expect(screen.queryByTestId('socialcontent-offer-not-live')).toBeNull();
   });
 
   it('says how to start when it’s empty, and can’t press anything with no signal', async () => {
@@ -753,6 +803,25 @@ describe('one of its posts', () => {
     await fireEvent.changeText(screen.getByTestId('socialcontent-post-rewrite-ask'), 'Shorter');
     await fireEvent.press(screen.getByTestId('socialcontent-post-rewrite'));
     expect(actions.rewrite).toHaveBeenCalledWith('Shorter');
+  });
+
+  it('opens its pictures full screen, and goes between them (the owner, 11 Nov)', async () => {
+    const pic = (n: number) => ({
+      fileId: id(90 + n),
+      bucket: 'files',
+      objectPath: `w/${n}.png`,
+      name: `Slide ${n}`,
+      mimeType: 'image/png',
+    });
+    await render(body({ post: content(40, { format: 'carousel', pictures: [pic(1), pic(2)] }) }));
+    expect(screen.queryByTestId('socialcontent-picture-viewer-count')).toBeNull();
+    await fireEvent.press(screen.getByTestId(`socialcontent-post-picture-${id(92)}`));
+    expect(screen.getByTestId('socialcontent-picture-viewer-count')).toHaveTextContent('2 of 2');
+    expect(screen.getByTestId('socialcontent-picture-viewer-next')).toBeDisabled();
+    await fireEvent.press(screen.getByTestId('socialcontent-picture-viewer-previous'));
+    expect(screen.getByTestId('socialcontent-picture-viewer-count')).toHaveTextContent('1 of 2');
+    await fireEvent.press(screen.getByTestId('socialcontent-picture-viewer-close'));
+    expect(screen.queryByTestId('socialcontent-picture-viewer-count')).toBeNull();
   });
 
   it('shows where a post went up and how it did, with nothing left to change', async () => {

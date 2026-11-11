@@ -104,6 +104,7 @@ export * from './main-offer/parts';
 export * from './main-offer/examples';
 export * from './main-offer/assist';
 export * from './main-offer/words';
+export * from './main-offer/lists';
 // Partners (HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md, stage 2): their settings and how they earn.
 export * from './partners/index';
 // HandsFreeOS's own affiliate program (20261027014000): its words and links.

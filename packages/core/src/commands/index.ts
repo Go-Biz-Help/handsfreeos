@@ -312,6 +312,7 @@ import {
   mainOfferPublish,
   mainOfferSaveDirection,
   mainOfferSaveDraft,
+  mainOfferSaveList,
   mainOfferSaveNames,
   mainOfferScoreSave,
   mainOfferTryApply,
@@ -1004,6 +1005,7 @@ export const commands: readonly CommandDef[] = [
   mainOfferPublish,
   mainOfferSaveDirection,
   mainOfferSaveNames,
+  mainOfferSaveList,
   mainOfferTrySave,
   mainOfferTryApply,
   // Partners (HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md, stage 2).

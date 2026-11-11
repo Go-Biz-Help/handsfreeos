@@ -28,7 +28,7 @@ import {
 } from '../shapes';
 import { ideas, playbook } from '../tables';
 import { SOCIALCONTENT_WORDS as W } from '../words';
-import { inWorkspace, queueWork, settingsOf, type Ctx } from './common';
+import { inWorkspace, offerLiveOf, queueWork, settingsOf, type Ctx } from './common';
 import { CONTENT_NETWORK_INFO, handleShown, isContentNetwork } from '../networks';
 
 export const ideaOut = (i: typeof ideas.$inferSelect): Idea => ({
@@ -145,7 +145,7 @@ export const playbookGet = defineAddonQuery(socialcontentAddon, {
 export const ideaList = defineAddonQuery(socialcontentAddon, {
   name: 'socialcontent.idea.list',
   description:
-    'The content ideas the AI suggested for the business’s own posts, from the Playbook and its profile, newest first: each with its title, hook, format, network, an outline, why it should work and the standouts it’s based on (examples: each one’s link), and whether it’s new, saved, used or skipped. Pass state to keep to one.',
+    'The content ideas the AI suggested for the business’s own posts, from the Playbook and its profile, newest first: each with its title, hook, format, network, an outline, why it should work and the standouts it’s based on (examples: each one’s link), and whether it’s new, saved, used or skipped; and whether the main offer is live (offerLive: until it is, the AI writes no ideas). Pass state to keep to one.',
   input: IdeaListInput,
   output: IdeaListOutput,
   permission: 'socialcontent.use',
@@ -169,6 +169,7 @@ export const ideaList = defineAddonQuery(socialcontentAddon, {
         ctx,
         found.flatMap((i) => i.basedOn),
       ),
+      offerLive: await offerLiveOf(ctx),
     };
   },
 });

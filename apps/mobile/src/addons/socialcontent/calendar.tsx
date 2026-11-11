@@ -20,6 +20,7 @@ import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { api, unwrap } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -28,6 +29,7 @@ import { workerPost } from '@/lib/worker';
 import {
   NeedsSignal,
   Note,
+  OfferNotLive,
   openSocialcontent,
   useAct,
   useNow,
@@ -40,8 +42,9 @@ import { PostPictureTile, STATE_BADGE } from './own-post';
  * The Calendar on the phone, as on the web (docs/socialcontent.md, "Making posts" and part 12): the business's own
  * posts for today and the next two weeks, each day's posts and open days, posts with no day yet, and what went up
  * lately with how each did. **Fill the calendar** has the AI write posts for the open days, **OK the week** OKs every
- * post ready in the next 7 days, and **Write a post** (or **Write one** on an open day) writes one. Opening a post shows
- * it on its own screen, at the web's own address (`calendar?post=<id>`). It needs signal.
+ * post ready in the next 7 days, and **Write a post** (or **Write one** on an open day) writes one. **Fill on its own**
+ * stops the AI filling it, or starts it again (the owner, 11 Nov). Opening a post shows it on its own screen, at the
+ * web's own address (`calendar?post=<id>`). It needs signal.
  */
 
 const WRITE = '/v1/addons/socialcontent/actions/socialcontent.content.write';
@@ -81,6 +84,14 @@ export function CalendarScreen() {
           (out) => (out.open ? W.calendar.fillAsked : W.calendar.fillNothing),
         )
       }
+      onAutoFill={(on) =>
+        void act(
+          'autoFill',
+          async () =>
+            (await change('socialcontent.settings.save', { workspaceId: ws, autoFill: on })).output,
+          on ? W.calendar.fillStarted : W.calendar.fillStopped,
+        )
+      }
       onOkWeek={() =>
         void act(
           'week',
@@ -115,6 +126,7 @@ export function CalendarBody({
   onRetry,
   onOpen,
   onFill,
+  onAutoFill,
   onOkWeek,
   onWrite,
 }: {
@@ -126,6 +138,7 @@ export function CalendarBody({
   onRetry: () => void;
   onOpen: (postId: string) => void;
   onFill: () => void;
+  onAutoFill: (on: boolean) => void;
   onOkWeek: () => void;
   onWrite: (network: PostingNetwork | null, postAt: string | null, key: string) => void;
 }) {
@@ -161,16 +174,20 @@ export function CalendarBody({
   return (
     <Screen title={W.calendar.title} leading="back" testID="socialcontent-calendar">
       <Note>{W.calendar.intro}</Note>
+      {/* No posts are written until the main offer is live (pick 7b); an older API doesn't say, and means live. */}
+      {c.offerLive === false ? <OfferNotLive /> : null}
       <View className="gap-2">
-        <Button
-          icon={CalendarPlus}
-          loading={busy === 'fill'}
-          disabled={other('fill')}
-          onPress={onFill}
-          testID="socialcontent-calendar-fill"
-        >
-          {busy === 'fill' ? W.calendar.filling : W.calendar.fill}
-        </Button>
+        {c.autoFill && c.offerLive !== false ? (
+          <Button
+            icon={CalendarPlus}
+            loading={busy === 'fill'}
+            disabled={other('fill')}
+            onPress={onFill}
+            testID="socialcontent-calendar-fill"
+          >
+            {busy === 'fill' ? W.calendar.filling : W.calendar.fill}
+          </Button>
+        ) : null}
         <View className="flex-row gap-2">
           {drafts ? (
             <Button
@@ -185,26 +202,39 @@ export function CalendarBody({
               {W.calendar.approveWeek}
             </Button>
           ) : null}
-          <Button
-            className="flex-1"
-            variant="secondary"
-            icon={PenLine}
-            loading={busy === 'write'}
-            disabled={other('write')}
-            onPress={() => onWrite(null, null, 'write')}
-            testID="socialcontent-calendar-write"
-          >
-            {busy === 'write' ? W.calendar.writing : W.calendar.write}
-          </Button>
+          {c.offerLive !== false ? (
+            <Button
+              className="flex-1"
+              variant="secondary"
+              icon={PenLine}
+              loading={busy === 'write'}
+              disabled={other('write')}
+              onPress={() => onWrite(null, null, 'write')}
+              testID="socialcontent-calendar-write"
+            >
+              {busy === 'write' ? W.calendar.writing : W.calendar.write}
+            </Button>
+          ) : null}
         </View>
       </View>
 
       <Card className="gap-2 p-4">
+        <View className="flex-row items-center gap-3">
+          <Text className="flex-1 text-[14.5px] font-medium">{W.calendar.autoFill}</Text>
+          <Switch
+            label={W.calendar.autoFill}
+            checked={c.autoFill}
+            disabled={!c.mayManage || other('autoFill')}
+            onCheckedChange={onAutoFill}
+            testID="socialcontent-calendar-auto-fill"
+          />
+        </View>
         <Text
           className="text-[13.5px] leading-[19px] text-text-2"
           testID="socialcontent-calendar-filled"
         >
           {filledLine(c, now)}
+          {!c.autoFill && !c.mayManage ? ` ${W.calendar.fillOffWho}` : null}
         </Text>
         <Text className="text-[12.5px] leading-[17px] text-text-3">
           {planShown(c.plan, POSTING_NETWORKS, networkNameOf)}

@@ -817,8 +817,45 @@ describe('the business’s own posts', () => {
     const cal = await as(member, 'socialcontent.calendar.get');
     expect(cal.filledAt).not.toBeNull();
     expect(Date.parse(cal.nextFillAt) - Date.parse(cal.filledAt)).toBe(7 * DAY);
+    expect(cal.autoFill).toBe(true);
     const { posts } = await as(member, 'socialcontent.content.list');
     expect(posts.map((p: Any) => p.id)).toEqual(expect.arrayContaining([linkedinId, facebookId]));
+  });
+
+  it('stops filling the calendar on its own, and starts again (the owner, 11 Nov)', async () => {
+    expect(await refused(as(member, 'socialcontent.settings.save', { autoFill: false }))).toBe(
+      'forbidden',
+    );
+    expect(await as(owner, 'socialcontent.settings.save', { autoFill: false })).toMatchObject({
+      autoFill: false,
+    });
+    const off = await as(member, 'socialcontent.calendar.get');
+    expect(off.autoFill).toBe(false);
+    expect(off.nextFillAt).toBeNull();
+    // Saving something else leaves it off.
+    expect((await as(owner, 'socialcontent.settings.save', { plan: {} })).autoFill).toBe(false);
+    expect(await as(owner, 'socialcontent.settings.save', { autoFill: true })).toMatchObject({
+      autoFill: true,
+    });
+    const on = await as(member, 'socialcontent.calendar.get');
+    expect(on.autoFill).toBe(true);
+    expect(on.nextFillAt).not.toBeNull();
+  });
+
+  it('says whether the main offer is live, since nothing is written until it is (pick 7b, 11 Nov)', async () => {
+    expect((await as(member, 'socialcontent.calendar.get')).offerLive).toBe(false);
+    expect((await as(member, 'socialcontent.idea.list')).offerLive).toBe(false);
+    await rows(
+      admin(),
+      sql`insert into app.main_offers (workspace_id, live_version) values (${ws}, 1)
+          on conflict (workspace_id) do update set live_version = 1`,
+    );
+    expect((await as(member, 'socialcontent.calendar.get')).offerLive).toBe(true);
+    expect((await as(member, 'socialcontent.idea.list')).offerLive).toBe(true);
+    await rows(
+      admin(),
+      sql`update app.main_offers set live_version = null where workspace_id = ${ws}`,
+    );
   });
   it('puts an OK’d post up from the reading computer once its time comes, and only once', async () => {
     expect(

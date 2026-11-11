@@ -125,7 +125,7 @@ afterAll(closeTestDbs);
 describe('the main offer tools', () => {
   it('each has a step label, and goes only to people who build the offer', () => {
     const names = [...Object.keys(mainOfferAutoTools), ...Object.keys(mainOfferConfirmTools)];
-    expect(names).toHaveLength(6);
+    expect(names).toHaveLength(7);
     for (const name of names) {
       expect(assistantToolByName.get(name), name).toBeTruthy();
       expect(mainOfferStepLabels[name], name).toBeTruthy();
@@ -341,5 +341,40 @@ describe('the main offer tools', () => {
     expect(now.draft).toBeNull();
     expect(now.live?.version).toBe(2);
     expect(now.names).toEqual(['Go Biz Help', 'HandsFreeOS']);
+  });
+
+  it('helps with the lists for content, saving nothing, and saves one on Confirm', async () => {
+    const write = await run('help_main_offer_lists', { mode: 'write', list: 'different' });
+    expect(write.result['label']).toBe('What makes you different');
+    expect(write.result['options']).toHaveLength(3);
+    expect(write.result['next']).toContain('Nothing is saved yet');
+    const gaps = await run('help_main_offer_lists', { mode: 'gaps' });
+    expect((gaps.result['gaps'] as { list: string }[])[0]).toMatchObject({
+      list: 'different',
+      label: 'What makes you different',
+    });
+    expect((await offer()).lists).toEqual({});
+
+    const set = await prepare('manage_main_offer', {
+      action: 'set_list',
+      list: 'different',
+      lines: ['We send photos the same day', 'Free drone checks'],
+    });
+    expect(field(set.card, 'What makes you different')).toBe(
+      'We send photos the same day\nFree drone checks',
+    );
+    expect((await confirm('manage_main_offer', set.parsed)).outcome).toBe(
+      'What makes you different is saved, 2 lines',
+    );
+    expect((await offer()).lists).toEqual({
+      different: ['We send photos the same day', 'Free drone checks'],
+    });
+    await expect(
+      prepare('manage_main_offer', {
+        action: 'set_list',
+        list: 'different',
+        lines: ['We send photos the same day', 'Free drone checks'],
+      }),
+    ).rejects.toMatchObject({ rule: 'main_offer_nothing_to_change' });
   });
 });

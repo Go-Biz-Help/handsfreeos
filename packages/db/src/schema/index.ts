@@ -3488,6 +3488,8 @@ export const mainOffers = app.table('main_offers', {
     .array()
     .notNull()
     .default(sql`'{}'`),
+  /** The lists for content (20261027025900), each its lines; not scored or versioned, like the names. */
+  lists: jsonb('lists').$type<Json>().notNull().default({}),
   ...timestamps(),
 });
 

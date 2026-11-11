@@ -26,7 +26,17 @@ import {
   numbersLines,
   timeShown,
 } from '@hfos/core/addons/socialcontent/words';
-import { Copy, ExternalLink, ImagePlus, Trash2, Video } from 'lucide-react';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  ExternalLink,
+  ImagePlus,
+  Trash2,
+  Video,
+  X,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { uploadFile } from '@/components/files/upload-zone';
@@ -99,6 +109,98 @@ export function PostPicture({
   );
 }
 
+/**
+ * A post's pictures full screen, to see them properly (the owner, 11 Nov): the arrows, or the arrow keys, go between
+ * them; Esc, ✕ or a click on the dark around it closes.
+ */
+export function PictureViewer({
+  pictures,
+  at,
+  onAt,
+  onClose,
+}: {
+  pictures: readonly ContentPicture[];
+  at: number | null;
+  onAt: (at: number) => void;
+  onClose: () => void;
+}) {
+  const pic = at === null ? null : (pictures[at] ?? null);
+  const many = pictures.length > 1;
+  const go = (step: number) => {
+    if (at !== null) onAt((at + step + pictures.length) % pictures.length);
+  };
+  const round =
+    'flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-white/60';
+  return (
+    <DialogPrimitive.Root open={pic !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[60] bg-black/90" />
+        <DialogPrimitive.Content
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 focus:outline-none md:p-12"
+          data-testid="socialcontent-picture-viewer"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) onClose();
+          }}
+          onKeyDown={(e) => {
+            if (!many) return;
+            if (e.key === 'ArrowRight') {
+              e.preventDefault();
+              go(1);
+            } else if (e.key === 'ArrowLeft') {
+              e.preventDefault();
+              go(-1);
+            }
+          }}
+        >
+          <DialogPrimitive.Title className="sr-only">{W.post.viewer}</DialogPrimitive.Title>
+          <DialogPrimitive.Description className="sr-only">
+            {pic ? pic.name : W.post.viewer}
+          </DialogPrimitive.Description>
+          {pic ? (
+            <PostPicture
+              key={pic.fileId}
+              picture={pic}
+              className="max-h-full max-w-full rounded-md object-contain"
+            />
+          ) : null}
+          <DialogPrimitive.Close
+            className={`absolute right-4 top-4 ${round}`}
+            aria-label={W.post.viewerClose}
+          >
+            <X className="h-5 w-5" strokeWidth={1.75} />
+          </DialogPrimitive.Close>
+          {many ? (
+            <>
+              <button
+                type="button"
+                className={`absolute left-4 top-1/2 -translate-y-1/2 ${round}`}
+                aria-label={W.post.viewerPrevious}
+                onClick={() => go(-1)}
+              >
+                <ChevronLeft className="h-5 w-5" strokeWidth={1.75} />
+              </button>
+              <button
+                type="button"
+                className={`absolute right-4 top-1/2 -translate-y-1/2 ${round}`}
+                aria-label={W.post.viewerNext}
+                onClick={() => go(1)}
+              >
+                <ChevronRight className="h-5 w-5" strokeWidth={1.75} />
+              </button>
+              <div
+                className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-white/15 px-3 py-1 text-[13px] text-white"
+                data-testid="socialcontent-picture-viewer-count"
+              >
+                {W.post.viewerOf((at ?? 0) + 1, pictures.length)}
+              </div>
+            </>
+          ) : null}
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
+}
+
 type Draft = {
   title: string;
   network: PostingNetwork;
@@ -153,6 +255,7 @@ export function PostSheet({
   const [d, setD] = useState<Draft>(() => draftOf(p, timeZone));
   const [ask, setAsk] = useState('');
   const [pictureAsk, setPictureAsk] = useState('');
+  const [viewing, setViewing] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const videoInput = useRef<HTMLInputElement>(null);
@@ -297,6 +400,7 @@ export function PostSheet({
   const making = p.pictureState === 'waiting' || p.pictureState === 'making';
   const pictures = hasPictures(d.format);
   const videos = p.pictures.filter((x) => x.mimeType?.startsWith('video/'));
+  const stills = p.pictures.filter((x) => !x.mimeType?.startsWith('video/'));
   // How it did, 2 and 7 days after it went up (part 11).
   const numbers = numbersLines(p, (n) => networkName(n as PostingNetwork));
   const other = (busyKey: string) => busy !== null && busy !== busyKey;
@@ -654,10 +758,26 @@ export function PostSheet({
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {p.pictures.map((pic) => (
                     <div key={pic.fileId} className="relative w-[132px] flex-none">
-                      <PostPicture
-                        picture={pic}
-                        className="aspect-[4/5] w-full rounded-md object-cover"
-                      />
+                      {stills.includes(pic) ? (
+                        <button
+                          type="button"
+                          className="block w-full cursor-zoom-in rounded-md focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+                          aria-label={W.post.fullScreen(pic.name)}
+                          title={W.post.fullScreen(pic.name)}
+                          onClick={() => setViewing(stills.indexOf(pic))}
+                          data-testid={`socialcontent-post-picture-${pic.fileId}`}
+                        >
+                          <PostPicture
+                            picture={pic}
+                            className="aspect-[4/5] w-full rounded-md object-cover"
+                          />
+                        </button>
+                      ) : (
+                        <PostPicture
+                          picture={pic}
+                          className="aspect-[4/5] w-full rounded-md object-cover"
+                        />
+                      )}
                       {changeable ? (
                         <button
                           type="button"
@@ -854,6 +974,12 @@ export function PostSheet({
             </div>
           ) : null}
         </div>
+        <PictureViewer
+          pictures={stills}
+          at={viewing}
+          onAt={setViewing}
+          onClose={() => setViewing(null)}
+        />
       </SheetContent>
     </Sheet>
   );

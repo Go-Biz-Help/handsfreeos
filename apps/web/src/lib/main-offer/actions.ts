@@ -7,6 +7,9 @@ import {
   type OfferAssistMode,
   type OfferAssistOutput,
   type OfferAssistPath,
+  type OfferList,
+  type OfferListMode,
+  type OfferListsAssistOutput,
   type OfferNicheOption,
   type ScoredPart,
 } from '@hfos/core';
@@ -55,6 +58,23 @@ export async function saveOfferNames(workspaceId: string, names: string[]) {
       body: { workspaceId, names },
     }),
   );
+}
+
+/** One of the lists for content, as its lines; none clears it. Not scored: no revision moves. */
+export async function saveOfferList(workspaceId: string, list: OfferList, lines: string[]) {
+  return unwrap(
+    await apiBrowser().POST('/v1/commands/main_offer.save_list', {
+      body: { workspaceId, list, lines },
+    }),
+  );
+}
+
+/** The lists' help: Write it for me, Improve a line, Examples, or What's missing. Nothing is kept. */
+export function assistOfferLists(
+  workspaceId: string,
+  input: { mode: OfferListMode; list?: OfferList; line?: string },
+): Promise<OfferListsAssistOutput> {
+  return workerPost('/v1/main-offer/lists', { workspaceId, ...input });
 }
 
 /** Takes the picked parts of a try into the draft; says whether the try's line came too. */

@@ -77,7 +77,7 @@ import {
 } from '../../ai/ask';
 import { noteSpeech, speechMinutes } from '../../money/speech-usage';
 import { scheduleAddonJob } from '../queue';
-import { businessText } from './business';
+import { businessText, offerIsLive, requireLiveOffer } from './business';
 import type {
   AddonEventContext,
   AddonJobHandler,
@@ -485,7 +485,8 @@ export const runNotes: AddonJobHandler = async (ctx) => {
     ) {
       business ??= await businessText(ctx);
       const sections = await writePlaybook(ctx, business);
-      if (sections && state.newIdeas < NOTES_LIMITS.ideasWaitingMost)
+      // No ideas until the main offer is live (pick 7b): the Playbook is research, and goes on.
+      if (sections && state.newIdeas < NOTES_LIMITS.ideasWaitingMost && (await offerIsLive(ctx)))
         await suggestIdeas(ctx, business);
     }
     if (standouts.length > NOTES_LIMITS.perRun)
@@ -531,12 +532,13 @@ export const suggestIdeasNow: AddonWorkerAction<Record<string, never>> = {
   ai: {
     tool: 'socialcontent_suggest_ideas',
     description:
-      'Have the AI suggest up to 5 new content ideas for the business’s own posts, from AI Social Media Content Creator’s Playbook and the business’s profile, each with a hook, format, network, outline, why it should work and the standouts it’s based on. They wait under Ideas as new.',
+      'Have the AI suggest up to 5 new content ideas for the business’s own posts, from AI Social Media Content Creator’s Playbook and the business’s profile, each with a hook, format, network, outline, why it should work and the standouts it’s based on. They wait under Ideas as new. Refused until the business’s main offer is live.',
     autonomy: 'auto',
     keywords: ['content ideas', 'post ideas', 'what to post'],
   },
   input: z.object({}).strict() as unknown as z.ZodType<Record<string, never>>,
   async run(ctx) {
+    await requireLiveOffer(ctx);
     let added: number | null;
     try {
       added = await suggestIdeas(ctx);

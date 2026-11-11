@@ -3,7 +3,8 @@
  * Ideas (docs/socialcontent.md, part 3): posts the AI suggests the business makes, from the Playbook and what
  * HandsFreeOS knows about the business, each with its hook, format, network, an outline, why it should work and the
  * standouts it's based on. New ones come on their own when the Playbook is written; **Get ideas** asks for more.
- * Anyone on the team saves one, marks it used once posted, or skips it, and can put it back to new.
+ * Anyone on the team saves one, marks it used once posted, or skips it, and can put it back to new. Until the main
+ * offer is live, no ideas are written, and the page says so (pick 7b, 11 Nov).
  */
 import { networkName } from '@hfos/core/addons/socialcontent/networks';
 import { SOCIALCONTENT_WORDS as W, daysAgo } from '@hfos/core/addons/socialcontent/words';
@@ -19,6 +20,7 @@ import { Segmented } from '@/components/ui/segmented';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { workerPost } from '@/lib/api/worker';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
+import { OfferNotLive } from './offer-notice';
 import { StandoutLinks } from './standout-links';
 import type { Idea, StandoutRef } from './types';
 import { useAct } from './use-act';
@@ -37,11 +39,14 @@ export function IdeasPage({
   ideas,
   examples,
   hasPlaybook,
+  offerLive,
 }: {
   workspaceId: string;
   ideas: readonly Idea[];
   examples: readonly StandoutRef[];
   hasPlaybook: boolean;
+  /** Until the main offer is live, the AI writes no ideas (pick 7b). */
+  offerLive: boolean;
 }) {
   useLiveRefresh(['socialcontent_idea', 'socialcontent_playbook']);
   const { busy, act } = useAct();
@@ -97,7 +102,7 @@ export function IdeasPage({
         title={W.ideas.title}
         description={W.ideas.intro}
         actions={
-          hasPlaybook ? (
+          hasPlaybook && offerLive ? (
             <Button
               loading={busy === 'get'}
               onClick={() => void get()}
@@ -109,6 +114,7 @@ export function IdeasPage({
           ) : null
         }
       />
+      {offerLive ? null : <OfferNotLive workspaceId={workspaceId} />}
       {!ideas.length ? (
         <Card>
           <EmptyState title={W.ideas.title} className="py-10">

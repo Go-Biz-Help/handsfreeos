@@ -139,11 +139,14 @@ export const socialcontentAddon = defineAddon({
     ],
     // A niche someone added: the AI writes the words to search each network for it. Posts saved with new
     // standouts: the AI notes them, and the Playbook and ideas follow. One of the business's own posts that did
-    // well (part 11): the Playbook is written again with it.
+    // well (part 11): the Playbook is written again with it. Fill on its own turned back on: the calendar fills now.
+    // The main offer put live: the calendar fills now, since nothing is written until it is (pick 7b).
     consumes: [
+      'socialcontent.settings.saved',
       'socialcontent.niche.added',
       'socialcontent.posts.saved',
       'socialcontent.content.done_well',
+      'main_offer.published',
     ],
   },
   // Each studied creator read again once a week; new creators looked for once a month (decision 11); the AI's
@@ -157,6 +160,9 @@ export const socialcontentAddon = defineAddon({
     'socialcontent.pictures',
   ],
   billing: { model: 'free' },
+  // The business's main offer and its lists for content (docs/main-offer.md, "For your content"): every post and idea
+  // is written from them, and none until the offer is live (the owner's picks, 11 Nov 2026).
+  uses: ['main_offer'],
   ui: {
     // Its pages in the side menu, which pop out from its one row (the owner's decision, 2026-10-09).
     nav: [

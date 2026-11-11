@@ -1,7 +1,7 @@
 /**
  * The business's main offer (docs/main-offer.md), by asking: change any box of it, score it, have the AI write a
- * try, take a try's parts in, set the owner's direction and the names the business goes by, throw the draft away,
- * and put it live. The same commands Settings → Main offer runs, as the person, so only someone with
+ * try, take a try's parts in, set the owner's direction, the names the business goes by and the lists for content
+ * (with the AI's help on them), throw the draft away, and put it live. The same commands Settings → Main offer runs, as the person, so only someone with
  * `main_offer.manage` is offered them and each still refuses while no add-on that uses the offer is on.
  *
  * What changes the offer waits for the person's OK, going live most of all. A score and a try only read the draft and
@@ -9,6 +9,12 @@
  */
 import { z } from 'zod';
 import { OFFER_ASSIST_MODES, OFFER_ASSIST_PATH_KEYS } from '../main-offer/assist';
+import {
+  OFFER_LIST_INFO,
+  OFFER_LIST_LIMITS,
+  OFFER_LIST_MODES,
+  OFFER_LISTS,
+} from '../main-offer/lists';
 import { MAIN_OFFER_LIMITS, MainOfferNotes, SCORED_PARTS } from '../main-offer/parts';
 import { OFFER_STEP_WORDS, OFFER_STEPS } from '../main-offer/words';
 import { uuid } from '../schemas/common';
@@ -36,6 +42,9 @@ export function mainOfferBoxLabel(path: string): string {
 }
 
 const L = MAIN_OFFER_LIMITS;
+
+/** The lists for content, each by its key and what it holds, for the tools' words. */
+const LISTS_SAID = OFFER_LISTS.map((k) => `${k} (${OFFER_LIST_INFO[k].label})`).join(', ');
 
 /** Why it goes live with a part under the bar: the person's own reason, as Use it anyway takes it. */
 const anyway = text(300).describe(
@@ -94,9 +103,9 @@ export const mainOfferTools: readonly AssistantTool[] = [
   define({
     name: 'manage_main_offer',
     description:
-      'The rest of Settings → Main offer: throw the draft away (the live version stays), set the owner’s direction for the whole offer that every score and try follows, set the names the business goes by on people’s profiles, or take parts from one of the AI’s tries into the draft (its id from try_main_offer, or from get_settings main_offer, whose tries lists this round’s, as Review and go live’s Versions does).',
+      'The rest of Settings → Main offer: throw the draft away (the live version stays), set the owner’s direction for the whole offer that every score and try follows, set the names the business goes by on people’s profiles, set one of the lists for content (For your content: the AI Social Media Content Creator writes posts and ideas from them; read them with get_settings main_offer, lists), or take parts from one of the AI’s tries into the draft (its id from try_main_offer, or from get_settings main_offer, whose tries lists this round’s, as Review and go live’s Versions does).',
     input: z.object({
-      action: z.enum(['discard_draft', 'set_direction', 'set_names', 'take_from_try']),
+      action: z.enum(['discard_draft', 'set_direction', 'set_names', 'set_list', 'take_from_try']),
       direction: z
         .string()
         .trim()
@@ -109,6 +118,14 @@ export const mainOfferTools: readonly AssistantTool[] = [
         .optional()
         .describe(
           'set_names: the company and the brand it sells, the whole list; none means the business’s name here',
+        ),
+      list: z.enum(OFFER_LISTS).optional().describe(`set_list: which list: ${LISTS_SAID}`),
+      lines: z
+        .array(text(OFFER_LIST_LIMITS.line))
+        .max(OFFER_LIST_LIMITS.lines)
+        .optional()
+        .describe(
+          'set_list: the whole list, a short line each, in the business’s own words; results only as the person gave them; none clears it',
         ),
       tryId: uuid
         .optional()
@@ -145,6 +162,17 @@ export const mainOfferTools: readonly AssistantTool[] = [
         .enum(OFFER_ASSIST_MODES)
         .default('improve')
         .describe('A box: improve what it says, or write it afresh'),
+    }),
+    autonomy: 'auto',
+    permission: 'main_offer.manage',
+  }),
+  define({
+    name: 'help_main_offer_lists',
+    description: `Ask the AI for help with the main offer’s lists for content (Settings → Main offer, For your content), as its buttons do: write gives new lines for a list (Write it for me), improve rewrites one line three ways (Improve), examples gives lines to model for the business’s line of work (Examples), and gaps says which lists are missing or thin (What’s missing). It reads the offer, the owner’s direction, the lists and the Knowledge base, and costs AI from the daily limit. Nothing is saved: show the person the lines, and save the ones they pick with manage_main_offer (set_list), the whole list. The lists are ${LISTS_SAID}.`,
+    input: z.object({
+      mode: z.enum(OFFER_LIST_MODES).describe('write, improve, examples, or gaps'),
+      list: z.enum(OFFER_LISTS).optional().describe('Which list; gaps reads them all'),
+      line: text(OFFER_LIST_LIMITS.line).optional().describe('improve: the line to rewrite'),
     }),
     autonomy: 'auto',
     permission: 'main_offer.manage',

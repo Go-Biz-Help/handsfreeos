@@ -71,7 +71,7 @@ import { assertInWorkspace } from '../../handlers/file-removed';
 import { chargeUsage } from '../../money/wallet';
 import { PictureError } from '../../pictures';
 import { scheduleAddonJob } from '../queue';
-import { businessText } from './business';
+import { businessText, offerIsLive, requireLiveOffer } from './business';
 import { drawDesign, PICTURE_HEIGHT, PICTURE_WIDTH } from './draw';
 import { aiRefusal } from './notes';
 import type { AddonJobHandler, AddonScopeContext, AddonWorkerAction } from '../types';
@@ -98,6 +98,8 @@ interface Here {
   readonly color: string;
   readonly plan: ReturnType<typeof planOf>;
   readonly playbook: WriteInput['playbook'];
+  /** Whether it fills the calendar on its own (Settings → Posting, and the Calendar's switch). */
+  readonly autoFill: boolean;
 }
 
 async function hereOf(ctx: AddonScopeContext): Promise<Here> {
@@ -106,9 +108,9 @@ async function hereOf(ctx: AddonScopeContext): Promise<Here> {
       tx,
       sql`select timezone, name, settings from app.workspaces where id = ${ctx.scope.workspaceId}`,
     );
-    const [s] = await rows<{ plan: unknown }>(
+    const [s] = await rows<{ plan: unknown; auto_fill: boolean }>(
       tx,
-      sql`select plan from addon_socialcontent.settings where workspace_id = ${ctx.scope.workspaceId}`,
+      sql`select plan, auto_fill from addon_socialcontent.settings where workspace_id = ${ctx.scope.workspaceId}`,
     );
     const [p] = await rows<{ summary: string | null; sections: unknown }>(
       tx,
@@ -120,6 +122,7 @@ async function hereOf(ctx: AddonScopeContext): Promise<Here> {
       businessName: w?.name ?? 'the business',
       color: lookOf(w?.settings).color?.hex ?? LOOK_DEFAULT_COLOR,
       plan: planOf(s?.plan),
+      autoFill: s?.auto_fill ?? true,
       playbook: p
         ? { summary: p.summary, sections: PlaybookSection.array().catch([]).parse(p.sections) }
         : null,
@@ -306,12 +309,13 @@ export const writePostNow: AddonWorkerAction<z.output<typeof WriteInputShape>> =
   ai: {
     tool: 'socialcontent_write_own_post',
     description:
-      'Have the AI write one of the business’s own posts for Instagram, Facebook or LinkedIn, from a content idea (ideaId), or from a few words of what it should be about (ask), using the Playbook and what HandsFreeOS knows about the business. It goes on the next open day in the plan for that network unless postAt is given, and waits for an OK; its picture is made on its own when the AI makes it.',
+      'Have the AI write one of the business’s own posts for Instagram, Facebook or LinkedIn, from a content idea (ideaId), or from a few words of what it should be about (ask), using the Playbook and what HandsFreeOS knows about the business. It goes on the next open day in the plan for that network unless postAt is given, and waits for an OK; its picture is made on its own when the AI makes it. Refused until the business’s main offer is live.',
     autonomy: 'auto',
     keywords: ['write a post', 'social post', 'caption', 'content calendar'],
   },
   input: WriteInputShape,
   async run(ctx, input) {
+    await requireLiveOffer(ctx);
     const idea = input.ideaId ? await ideaOf(ctx, input.ideaId) : null;
     const here = await hereOf(ctx);
     const network: PostingNetwork =
@@ -366,6 +370,7 @@ export const rewritePostNow: AddonWorkerAction<z.output<typeof RewriteInput>> = 
   },
   input: RewriteInput,
   async run(ctx, input) {
+    await requireLiveOffer(ctx);
     const [was] = await asWorker(ctx.db, ctx.scope, (tx) =>
       rows<{
         network: string;
@@ -439,13 +444,20 @@ export const fillCalendarNow: AddonWorkerAction<Record<string, never>> = {
   ai: {
     tool: 'socialcontent_fill_calendar',
     description:
-      'Fill the business’s content calendar: the AI writes a post for each open day in the plan over the next two weeks (saved ideas first, then new ones, then from the Playbook), each waiting for an OK, with their pictures. After that it tops up once a week on its own. Says how many open days there are; the posts show on the calendar as they’re written, over a few minutes.',
+      'Fill the business’s content calendar: the AI writes a post for each open day in the plan over the next two weeks (saved ideas first, then new ones, then from the Playbook), each waiting for an OK, with their pictures. After that it tops up once a week on its own. Says how many open days there are; the posts show on the calendar as they’re written, over a few minutes. Refused until the business’s main offer is live.',
     autonomy: 'auto',
     keywords: ['fill calendar', 'content calendar', 'plan my posts', 'next two weeks of posts'],
   },
   input: z.object({}).strict() as unknown as z.ZodType<Record<string, never>>,
   async run(ctx) {
     const here = await hereOf(ctx);
+    if (!here.autoFill)
+      throw HfosError.rule(
+        'socialcontent_fill_off',
+        409,
+        'Filling the calendar is off, so the AI doesn’t write posts on its own. Turn on Fill on its own on the Calendar page or in Settings → Posting, and it fills the open days right away.',
+      );
+    await requireLiveOffer(ctx);
     const open = await openSlots(ctx, here);
     if (!open.length) return { open: 0 };
     await queueFill(ctx, new Date(), true);
@@ -466,13 +478,78 @@ async function ideasToUse(ctx: AddonScopeContext): Promise<IdeaRow[]> {
   );
 }
 
+/** Whether it still fills on its own: turned off, a fill under way stops before its next post. */
+async function fillsOnItsOwn(ctx: AddonScopeContext): Promise<boolean> {
+  const [s] = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{ auto_fill: boolean }>(
+      tx,
+      sql`select auto_fill from addon_socialcontent.settings where workspace_id = ${ctx.scope.workspaceId}`,
+    ),
+  );
+  return s?.auto_fill ?? true;
+}
+
+/**
+ * Video posts the AI wrote before it stopped writing videos (the owner, 11 Nov), still drafts with no video added:
+ * each is written again as a picture post on the same day, a few at a time. Returns how many it wrote.
+ */
+async function rewriteVideoDrafts(
+  ctx: AddonScopeContext,
+  here: Here,
+  business: string,
+  most: number,
+): Promise<{ written: number; more: boolean }> {
+  const drafts = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{ record_id: string; network: string; words: string; idea_id: string | null }>(
+      tx,
+      sql`select c.record_id, c.network, c.words, c.idea_id from addon_socialcontent.content c
+          join app.custom_records r on r.id = c.record_id and r.archived_at is null
+          where c.workspace_id = ${ctx.scope.workspaceId} and c.made_by = 'ai' and c.format = 'video'
+            and c.state = 'draft' and cardinality(c.file_ids) = 0
+          order by c.post_at nulls last, c.created_at
+          limit ${most + 1}`,
+    ),
+  );
+  let written = 0;
+  for (const d of drafts.slice(0, most)) {
+    if (!isPostingNetwork(d.network)) continue;
+    if (!(await fillsOnItsOwn(ctx))) return { written, more: false };
+    const idea = d.idea_id ? await ideaOf(ctx, d.idea_id).catch(() => null) : null;
+    const post = await writeOne(ctx, {
+      business,
+      network: d.network,
+      playbook: here.playbook,
+      idea: ideaForAi(idea),
+      ask: 'Keep what it says, as a picture post instead of a video.',
+      before: { words: d.words, format: 'video' },
+    });
+    if (!post) continue;
+    await keep(ctx, post, { network: d.network, postId: d.record_id });
+    written++;
+  }
+  return { written, more: drafts.length > most };
+}
+
 /**
  * `socialcontent.calendar`: a post for each open day in the plan over the next two weeks, a few at a time. Once
- * every day has one, it's marked filled and runs again in a week.
+ * every day has one, it's marked filled and runs again in a week. Turned off (Fill on its own), it stops before its
+ * next post and isn't queued again: turning it back on queues it (onSettingsSaved). With no main offer live, it
+ * writes nothing and waits: putting the offer live queues it (onOfferPublished, pick 7b).
  */
 export const runCalendar: AddonJobHandler = async (ctx) => {
   try {
     const here = await hereOf(ctx);
+    if (!here.autoFill) {
+      ctx.log.info('the content calendar fills on its own no more: it was turned off');
+      return;
+    }
+    if (!(await offerIsLive(ctx))) {
+      ctx.log.info('the content calendar waits for the main offer to go live');
+      return;
+    }
+    const business = await businessText(ctx);
+    const redone = await rewriteVideoDrafts(ctx, here, business, FILL_PER_RUN);
+    if (redone.more) return { rescheduleAt: new Date(ctx.now + SOON_MS) };
     const open = await openSlots(ctx, here);
     if (!open.length) {
       await executeCommand(
@@ -485,9 +562,10 @@ export const runCalendar: AddonJobHandler = async (ctx) => {
       return { rescheduleAt: new Date(ctx.now + WEEK_MS) };
     }
     const ideas = await ideasToUse(ctx);
-    const business = await businessText(ctx);
+    const room = Math.max(0, FILL_PER_RUN - redone.written);
     let written = 0;
-    for (const slot of open.slice(0, FILL_PER_RUN)) {
+    for (const slot of open.slice(0, room)) {
+      if (!(await fillsOnItsOwn(ctx))) return;
       const at = ideas.findIndex((i) => i.network === slot.network || i.network === null);
       const idea = at >= 0 ? ideas.splice(at, 1)[0]! : (ideas.shift() ?? null);
       if (!idea && !here.playbook) break;
@@ -503,7 +581,8 @@ export const runCalendar: AddonJobHandler = async (ctx) => {
       await keep(ctx, post, { network: slot.network, ideaId: idea?.id ?? null, postAt: slot.at });
       written++;
     }
-    if (written && open.length > FILL_PER_RUN) return { rescheduleAt: new Date(ctx.now + SOON_MS) };
+    if ((written || redone.written) && open.length > room)
+      return { rescheduleAt: new Date(ctx.now + SOON_MS) };
     await executeCommand(
       ctx.db,
       calendarFilled,

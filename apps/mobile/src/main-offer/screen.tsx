@@ -42,6 +42,7 @@ import {
   type MainOffer,
   type MainOfferTry,
 } from './calls';
+import { ContentListsLink } from './lists';
 import { LiveOffer } from './live';
 import { DirectionBox, PartCard, ScoreGlance } from './review';
 import { TryReady } from './try-ready';
@@ -97,11 +98,15 @@ export function MainOfferScreen() {
   ) : !data.offer.inUse ? (
     <Notice testID="main-offer-not-in-use">{PW.notInUse(joinAnd(data.offer.comesWith))}</Notice>
   ) : !data.offer.live && !data.offer.draft ? (
-    manages ? (
-      <BuildOnWeb workspaceId={business.id} />
-    ) : (
-      <Notice testID="main-offer-ask-owner">{W.askOwner}</Notice>
-    )
+    <>
+      {manages ? (
+        <BuildOnWeb workspaceId={business.id} />
+      ) : (
+        <Notice testID="main-offer-ask-owner">{W.askOwner}</Notice>
+      )}
+      {/* The lists for content can be filled in before the offer is built. */}
+      <ContentListsLink workspaceId={business.id} lists={data.offer.lists} />
+    </>
   ) : null;
 
   return (
@@ -123,7 +128,7 @@ export function MainOfferScreen() {
             onReload={answer.reload}
           />
         ) : (
-          <ReadOnly offer={data.offer} />
+          <ReadOnly workspaceId={business.id} offer={data.offer} />
         )
       ) : null}
     </Screen>
@@ -200,8 +205,11 @@ function DraftBanner({ offer }: { offer: MainOffer }) {
   );
 }
 
-/** For everyone who can't change it: the live version, and that someone is working on a new one. */
-function ReadOnly({ offer }: { offer: MainOffer }) {
+/**
+ * For everyone who can't change it: the live version, that someone is working on a new one, and the lists for
+ * content.
+ */
+function ReadOnly({ workspaceId, offer }: { workspaceId: string; offer: MainOffer }) {
   return (
     <>
       <DraftBanner offer={offer} />
@@ -216,6 +224,7 @@ function ReadOnly({ offer }: { offer: MainOffer }) {
       ) : (
         <Notice testID="main-offer-nothing-live">{PW.nothingLive}</Notice>
       )}
+      <ContentListsLink workspaceId={workspaceId} lists={offer.lists} />
     </>
   );
 }
@@ -418,6 +427,9 @@ function Review({
           disabled={!!busy && busy !== 'try'}
           onMake={() => void makeTry()}
         />
+
+        {/* The lists for content, changed on their own page with the AI's help (pick 6b). */}
+        <ContentListsLink workspaceId={workspaceId} lists={offer.lists} />
       </ScrollView>
 
       {keyboard ? null : (

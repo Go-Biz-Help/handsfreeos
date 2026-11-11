@@ -27674,6 +27674,104 @@
         }
       }
     },
+    "/v1/commands/main_offer.save_list": {
+      "post": {
+        "operationId": "command_main_offer_save_list",
+        "summary": "Save one of the main offer’s lists for content, like what makes the business different or its features and benefits, as its lines. The AI Social Media Content Creator writes posts and ideas from them. Saving an empty list clears it.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires main_offer.manage. Emits main_offer.list_saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "list": {
+                    "type": "string",
+                    "enum": [
+                      "different",
+                      "benefits",
+                      "problems",
+                      "questions",
+                      "beforeAfter",
+                      "story",
+                      "topics",
+                      "myths",
+                      "voice",
+                      "asks",
+                      "never"
+                    ]
+                  },
+                  "lines": {
+                    "maxItems": 12,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "list",
+                  "lines"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "list": {
+                      "type": "string",
+                      "enum": [
+                        "different",
+                        "benefits",
+                        "problems",
+                        "questions",
+                        "beforeAfter",
+                        "story",
+                        "topics",
+                        "myths",
+                        "voice",
+                        "asks",
+                        "never"
+                      ]
+                    },
+                    "lines": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "list",
+                    "lines"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/main_offer.try_apply": {
       "post": {
         "operationId": "command_main_offer_try_apply",
@@ -115747,7 +115845,7 @@
     "/v1/commands/socialcontent.settings.save": {
       "post": {
         "operationId": "command_socialcontent_settings_save",
-        "summary": "Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (posts a week on Instagram, Facebook and LinkedIn, and the time they go), the business’s Facebook Page, and where its Facebook posts go (the profile, the Page or both). What isn’t given stays as it is.",
+        "summary": "Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (posts a week on Instagram, Facebook and LinkedIn, and the time they go), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), and whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away). What isn’t given stays as it is.",
         "tags": [
           "commands"
         ],
@@ -115846,6 +115944,9 @@
                         "page"
                       ]
                     }
+                  },
+                  "autoFill": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -115992,6 +116093,9 @@
                           "page"
                         ]
                       }
+                    },
+                    "autoFill": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -116003,7 +116107,8 @@
                     "readerVersion",
                     "plan",
                     "facebookPage",
-                    "facebookWhere"
+                    "facebookWhere",
+                    "autoFill"
                   ],
                   "additionalProperties": false
                 }
@@ -164241,6 +164346,32 @@
                       "default": "",
                       "type": "string"
                     },
+                    "lists": {
+                      "default": {},
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string",
+                        "enum": [
+                          "different",
+                          "benefits",
+                          "problems",
+                          "questions",
+                          "beforeAfter",
+                          "story",
+                          "topics",
+                          "myths",
+                          "voice",
+                          "asks",
+                          "never"
+                        ]
+                      },
+                      "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
                     "live": {
                       "anyOf": [
                         {
@@ -165453,6 +165584,7 @@
                     "direction",
                     "names",
                     "businessName",
+                    "lists",
                     "live",
                     "draft"
                   ],
@@ -246082,6 +246214,9 @@
                               "page"
                             ]
                           }
+                        },
+                        "autoFill": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -246093,7 +246228,8 @@
                         "readerVersion",
                         "plan",
                         "facebookPage",
-                        "facebookWhere"
+                        "facebookWhere",
+                        "autoFill"
                       ],
                       "additionalProperties": false
                     },
@@ -247282,7 +247418,7 @@
     "/v1/queries/socialcontent.idea.list": {
       "post": {
         "operationId": "query_socialcontent_idea_list",
-        "summary": "The content ideas the AI suggested for the business’s own posts, from the Playbook and its profile, newest first: each with its title, hook, format, network, an outline, why it should work and the standouts it’s based on (examples: each one’s link), and whether it’s new, saved, used or skipped. Pass state to keep to one.",
+        "summary": "The content ideas the AI suggested for the business’s own posts, from the Playbook and its profile, newest first: each with its title, hook, format, network, an outline, why it should work and the standouts it’s based on (examples: each one’s link), and whether it’s new, saved, used or skipped; and whether the main offer is live (offerLive: until it is, the AI writes no ideas). Pass state to keep to one.",
         "tags": [
           "queries"
         ],
@@ -247461,11 +247597,16 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "offerLive": {
+                      "default": true,
+                      "type": "boolean"
                     }
                   },
                   "required": [
                     "ideas",
-                    "examples"
+                    "examples",
+                    "offerLive"
                   ],
                   "additionalProperties": false
                 }
@@ -247478,7 +247619,7 @@
     "/v1/queries/socialcontent.calendar.get": {
       "post": {
         "operationId": "query_socialcontent_calendar_get",
-        "summary": "The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled and fills again on its own; and how many ideas are saved to write from.",
+        "summary": "The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled, whether it fills on its own (autoFill) and when it fills again; whether the main offer is live (offerLive: until it is, the AI writes no posts); and how many ideas are saved to write from.",
         "tags": [
           "queries"
         ],
@@ -249068,6 +249209,13 @@
                         "null"
                       ]
                     },
+                    "autoFill": {
+                      "type": "boolean"
+                    },
+                    "offerLive": {
+                      "default": true,
+                      "type": "boolean"
+                    },
                     "ideasSaved": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -249151,6 +249299,8 @@
                     "recent",
                     "filledAt",
                     "nextFillAt",
+                    "autoFill",
+                    "offerLive",
                     "ideasSaved",
                     "ready",
                     "poster",
