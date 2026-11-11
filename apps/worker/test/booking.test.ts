@@ -1,8 +1,8 @@
 /**
  * The public booking page's routes end to end on the real database: listing and booking, the honeypot,
- * per-address limits, the bot check on and off, two customers racing for one time, change-or-cancel
- * links (good, bad and stale; rescheduling and cancelling within the cutoffs; the calendar file), the
- * waitlist for a full session, and the links' signing and key rotation.
+ * per-address limits, the bot check on and off, an email at a domain that can't take mail, two customers
+ * racing for one time, change-or-cancel links (good, bad and stale; rescheduling and cancelling within the
+ * cutoffs; the calendar file), the waitlist for a full session, and the links' signing and key rotation.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
 import {
@@ -460,6 +460,60 @@ describe('the booking page', () => {
     expect(ok.statusCode, ok.body).toBe(200);
     expect(fake.seen[0]).toEqual({ token: undefined, ip: '192.0.2.44' });
     // With the check off (the main server), no token is needed: the first test booked without one.
+  });
+
+  it('sends back an email at a domain that can’t take mail, before booking or joining the waitlist', async () => {
+    const cal = await makeCalendar('Typo check');
+    const gone = Object.assign(new Error('queryMx ENOTFOUND'), { code: 'ENOTFOUND' });
+    const asked: string[] = [];
+    const checked = await server({
+      limits: ROOMY,
+      mailDns: {
+        mx: async (host) => {
+          asked.push(host);
+          if (host === 'fullspecteumlighttherqpy.com') throw gone;
+          return [{ exchange: `mx.${host}` }];
+        },
+        a: async () => {
+          throw gone;
+        },
+        aaaa: async () => {
+          throw gone;
+        },
+      },
+    });
+    const { slots } = await openTimes(cal.slug, '', checked);
+    const url = `/public/book/${site}/${cal.slug}/bookings`;
+    const typo = await post(
+      url,
+      bookingBody(slots[0]!.startsAt, { email: 'lynn.combs@fullspecteumlighttherqpy.com' }),
+      { srv: checked },
+    );
+    expect(typo.statusCode).toBe(400);
+    const err = errorOf(typo);
+    expect(err).toMatchObject({ code: 'validation', rule: 'email_domain_not_found' });
+    expect(err.details).toEqual([
+      { path: 'email', message: expect.stringContaining('fullspecteumlighttherqpy.com') },
+    ]);
+    const [none] = await rows<{ n: number }>(
+      admin(),
+      sql`select count(*)::int as n from app.appointments where calendar_id = ${cal.id}`,
+    );
+    expect(none!.n).toBe(0);
+    const waitlist = await post(
+      `/public/book/${site}/${cal.slug}/waitlist`,
+      { ...customer('Lynn'), email: 'lynn@fullspecteumlighttherqpy.com', sessionId: randomUUID() },
+      { srv: checked },
+    );
+    expect(errorOf(waitlist).rule).toBe('email_domain_not_found');
+    // Spelled right, it books.
+    const fixed = await post(
+      url,
+      bookingBody(slots[0]!.startsAt, { email: 'lynn.combs@fullspectrumlighttherapy.com' }),
+      { srv: checked },
+    );
+    expect(fixed.statusCode, fixed.body).toBe(200);
+    expect(asked).toContain('fullspectrumlighttherapy.com');
   });
 
   it('asks Cloudflare with the secret, the token and the address', async () => {

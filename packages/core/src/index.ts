@@ -63,6 +63,7 @@ export * from './messaging/rcs';
 export * from './messaging/social';
 // The DNS records for a business's own email domain, as Settings → Email lists them.
 export * from './messaging/email-records';
+export * from './messaging/email-setup';
 // Facebook and Instagram lead ads' answers, consent boxes and access (funnels).
 export * from './messaging/lead-ads';
 export * from './messaging/video-link';
@@ -127,6 +128,8 @@ export * from './automations/index';
 export * from './onboarding/index';
 // The guided setup a new business goes through, from its address to its AI teammate.
 export * from './onboarding-setup/index';
+// A computer whose clock is wrong: sign-ins judged by the server's clock, and what the web app says about it.
+export * from './auth/clock';
 // The business's logo and colour, on its booking page, website chat, invoices and emails.
 export * from './look/index';
 // The AI keeps customers' tags and details up to date (0107).

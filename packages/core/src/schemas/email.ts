@@ -56,12 +56,14 @@ const LOCAL_PART_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$/;
 
 /** What someone typed in the domain box, reduced to the domain: "https://LoneStarHVAC.com/contact" → "lonestarhvac.com". */
 export function normalizeEmailDomain(value: string): string {
-  return value
+  const bare = value
     .trim()
     .toLowerCase()
-    .replace(/^[a-z][a-z0-9+.-]*:\/\//, '')
-    .replace(/[/?#].*$/, '')
-    .replace(/\.$/, '');
+    .replace(/^[a-z][a-z0-9+.-]*:\/\//, '');
+  // Everything from the first / ? or # is a path, a query or a fragment. Cut there by position: a pattern running to
+  // the end from each of them gets slow on a long, odd tail (many #s and a line break).
+  const path = bare.search(/[/?#]/);
+  return (path < 0 ? bare : bare.slice(0, path)).replace(/\.$/, '');
 }
 
 export const isHandsFreeOsDomain = (domain: string): boolean =>
@@ -137,6 +139,12 @@ export const EmailDomainRecordInput = z.object({
    */
   ownershipFound: z.boolean().nullable().optional(),
   error: z.string().trim().min(1).max(2000).nullable().optional(),
+  /**
+   * Where the domain's mail goes now (from its MX: none, google, microsoft…) and where its DNS is managed (from its
+   * name servers: godaddy, cloudflare…), for the business email step. Absent keeps what is stored.
+   */
+  mailHost: z.string().trim().min(1).max(40).optional(),
+  dnsHost: z.string().trim().min(1).max(40).optional(),
 });
 export const EmailDomainRecordOutput = z.object({
   emailDomainId: uuid,

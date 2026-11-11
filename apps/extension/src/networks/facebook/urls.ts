@@ -169,7 +169,14 @@ export function facebookUrl(href: string, base: string = FACEBOOK): URL | null {
  * The only places the extension's own tab may go: Facebook's pages, and its Accounts Center for the file and the
  * username.
  */
-const WORK_HOSTS = new Set(['www.facebook.com', 'web.facebook.com', 'accountscenter.facebook.com']);
+const WORK_HOSTS = new Set([
+  'www.facebook.com',
+  'web.facebook.com',
+  'accountscenter.facebook.com',
+  // Meta Business Suite, where AI Social Media Content Creator puts the business's OK'd post up on its Page without
+  // switching the person's profile (src/research/posting.ts, from 0.132.0). Nothing else opens it.
+  'business.facebook.com',
+]);
 
 /**
  * An address the extension's own tab may open, made whole, or null: https, on Facebook or its Accounts Center, with

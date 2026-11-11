@@ -8,6 +8,8 @@ import type { AddonServerModule } from '../server';
 import { socialcontentAddon } from './manifest';
 import { contentCommands, contentQueries } from './ops/content';
 import { notesCommands, notesQueries } from './ops/notes';
+import { OWN_EXTENSION, ownCommands } from './ops/own';
+import { POSTING_EXTENSION, postingCommands } from './ops/posting';
 import { EXTENSION, readingCommands } from './ops/reading';
 import { researchCommands, researchQueries } from './ops/research';
 import { workerCommands } from './ops/worker';
@@ -18,6 +20,8 @@ export const socialcontentAddonServer: AddonServerModule = {
     ...researchCommands,
     ...notesCommands,
     ...contentCommands,
+    ...postingCommands,
+    ...ownCommands,
     ...readingCommands,
     ...workerCommands,
   ],
@@ -29,5 +33,9 @@ export const socialcontentAddonServer: AddonServerModule = {
     'socialcontent.creators.found': EXTENSION,
     'socialcontent.creator.read': EXTENSION,
     'socialcontent.posts.save': EXTENSION,
+    'socialcontent.post.next': POSTING_EXTENSION,
+    'socialcontent.post.went': POSTING_EXTENSION,
+    'socialcontent.own.next': OWN_EXTENSION,
+    'socialcontent.own.read': OWN_EXTENSION,
   },
 };

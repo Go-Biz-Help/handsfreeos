@@ -24,10 +24,13 @@ export const INBOX_BOXES: readonly InboxBoxKey[] = [
 ];
 
 /**
- * Whose mail a list shows (M19): the team's, or the viewer's own mailbox — mail to an address that is theirs alone.
- * The same boxes work over both.
+ * Whose mail a list shows (M19): the team's with the viewer's own mail among it (each of theirs marked "Only you"), or
+ * the viewer's own mail alone ("My mail") — mail to an address that is theirs. The same boxes work over both.
  */
 export type InboxMailbox = 'team' | 'mine';
+
+/** What marks someone's own mail (M19), on its row in the list and inside the thread: only they see it. */
+export const ONLY_YOU = 'Only you';
 
 /** The email folders beside the Inbox (M19), and a person's own mail: "My mail · 2", "Other mail · 5", "Spam". */
 export const MAIL_BOX_NAMES = { mine: 'My mail', other: 'Other mail', spam: 'Spam' } as const;
@@ -109,6 +112,7 @@ export function previewLine(
 
 /** One chip under a row, in the order the row shows them. */
 export type RowChip =
+  | { readonly kind: 'private'; readonly label: string }
   | { readonly kind: 'needs_person'; readonly label: string }
   | { readonly kind: 'wait'; readonly minutes: number; readonly label: string }
   | { readonly kind: 'ai'; readonly label: string }
@@ -121,7 +125,8 @@ export type RowChip =
   | { readonly kind: 'closed'; readonly label: string };
 
 /**
- * What needs attention on a row: how long the customer has waited (amber once past the reminder threshold), the AI
+ * What needs attention on a row: the viewer's own mail first ("Only you", M19: it sits among the team's threads, and
+ * this is what tells them apart), how long the customer has waited (amber once past the reminder threshold), the AI
  * teammate ("Ava", "Ava · draft waiting", or "Needs a person" with how long since), a chat visitor still on the site,
  * the open lead's stage, a number that isn't a customer yet, and snoozed or closed.
  */
@@ -144,6 +149,7 @@ export function conversationChips(
 ): RowChip[] {
   const now = opts.now ?? Date.now();
   const chips: RowChip[] = [];
+  if (c.private) chips.push({ kind: 'private', label: ONLY_YOU });
   const needsPerson = c.status === 'open' && !!c.needsPersonSince;
   const aiName = c.handledBy === 'ai' ? (c.teammate?.name ?? null) : null;
   const handedFor = needsPerson ? minutesWaiting(c.needsPersonSince, now) : null;

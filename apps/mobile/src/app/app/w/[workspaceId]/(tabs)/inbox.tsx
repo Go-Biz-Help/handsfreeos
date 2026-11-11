@@ -57,8 +57,9 @@ type OwnBox = 'all' | 'other' | 'spam';
  * virtualized: only the rows on screen are drawn. Its box filters conversations, and ends the list with Search
  * everything for what was typed.
  *
- * My mail is the same list over the person's own mail, as on the web: its own Inbox, Other mail and Spam in place of
- * Mine, Unassigned and All, and Team inbox to go back.
+ * The person's own mail is in the list beside the team's, each thread of theirs marked "Only you" (in Mine and All,
+ * Other mail and Spam). My mail narrows it to their own, as on the web: its own Inbox, Other mail and Spam in place of
+ * Mine, Unassigned and All, and Show all to go back.
  */
 export default function Inbox() {
   const { business, me } = useBusiness();
@@ -111,7 +112,7 @@ export default function Inbox() {
           : box === 'other'
             ? counts.mail.other
             : null;
-  /** Into the person's own mail, or back to the team's Inbox. */
+  /** Into the person's own mail alone, or back to everything. */
   const openMailbox = (next: InboxMailbox) => {
     setMailbox(next);
     setBox('all');

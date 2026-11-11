@@ -96,6 +96,7 @@ import {
   emailUnmatchedList,
 } from './email';
 import { emailComposeOptions } from './email-compose';
+import { emailSetupGet } from './email-setup';
 import { invitationPreview } from './invitation.preview';
 import { intakeList } from './intake';
 import { phoneSetupStatus } from './phone';
@@ -182,6 +183,7 @@ export {
   inboxSummary,
   messageGet,
   emailSetupStatus,
+  emailSetupGet,
   emailSuppressionList,
   emailUnmatchedList,
   emailSenderRuleList,
@@ -346,6 +348,7 @@ export const queries: readonly QueryDef[] = [
   metaAccountList,
   attributionList,
   emailSetupStatus,
+  emailSetupGet,
   emailSuppressionList,
   emailUnmatchedList,
   emailSenderRuleList,

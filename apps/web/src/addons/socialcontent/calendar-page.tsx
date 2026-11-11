@@ -4,12 +4,20 @@
  * two weeks after, day by day, written by the AI from the Playbook and saved ideas. Each waits for an OK (decision
  * 15): open one to change it, OK it or skip it, or **OK the week** in one go. Open days in the plan show where a post
  * is still wanted; **Fill the calendar** has the AI write them all, and after the first time it tops up once a week
- * on its own (decision 18). Posting itself comes in the next updates.
+ * on its own (decision 18). OK'd posts go up at their times from the reading computer (part 9): Facebook and
+ * LinkedIn for now, and the card says whose computer that is and when it last checked in.
  */
 import { addDays, localDateOf } from '@hfos/core';
 import { POSTING_NETWORKS, type PostingNetwork } from '@hfos/core/addons/socialcontent/calendar';
 import { networkName } from '@hfos/core/addons/socialcontent/networks';
-import { SOCIALCONTENT_WORDS as W, daysAgo } from '@hfos/core/addons/socialcontent/words';
+import {
+  SOCIALCONTENT_WORDS as W,
+  dayShown,
+  filledLine,
+  numbersLines,
+  planShown,
+  postingLines,
+} from '@hfos/core/addons/socialcontent/words';
 import { CalendarCheck, CalendarPlus, PenLine } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
@@ -26,18 +34,6 @@ import { useAct } from './use-act';
 
 const WRITE = '/v1/addons/socialcontent/actions/socialcontent.content.write';
 const FILL = '/v1/addons/socialcontent/actions/socialcontent.calendar.fill';
-
-function dayName(date: string, today: string): string {
-  if (date === today) return W.calendar.today;
-  if (date === addDays(today, 1)) return W.calendar.tomorrow;
-  const [y, m, d] = date.split('-').map(Number);
-  return new Intl.DateTimeFormat('en-US', {
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'UTC',
-  }).format(new Date(Date.UTC(y!, m! - 1, d!)));
-}
 
 export function CalendarPage({
   workspaceId,
@@ -56,10 +52,13 @@ export function CalendarPage({
   const [openId, setOpenId] = useState<string | null>(openPostId);
   const [fetched, setFetched] = useState<Content | null>(null);
 
-  const all = useMemo(() => [...c.posts, ...c.undated], [c.posts, c.undated]);
+  const all = useMemo(
+    () => [...c.posts, ...c.undated, ...c.recent],
+    [c.posts, c.undated, c.recent],
+  );
   const open = all.find((p) => p.id === openId) ?? (fetched?.id === openId ? fetched : null);
 
-  // A post asked for that isn't in these two weeks (an older one, or one further ahead) is read on its own.
+  // A post asked for that isn't on the page (an older one, or one further ahead) is read on its own.
   useEffect(() => {
     if (!openId || all.some((p) => p.id === openId)) return;
     let gone = false;
@@ -116,9 +115,7 @@ export function CalendarPage({
       if (out?.postId) show(out.postId);
     });
 
-  const filled = c.filledAt
-    ? W.calendar.filled(daysAgo(c.filledAt), c.nextFillAt ? daysUntil(c.nextFillAt) : null)
-    : W.calendar.neverFilled;
+  const filled = filledLine(c);
   const drafts = c.posts.filter((p) => p.state === 'draft').length;
 
   return (
@@ -168,15 +165,19 @@ export function CalendarPage({
           {filled}
         </p>
         <p className="mt-2 text-[12.5px] text-text-3">
-          {W.calendar.plan}:{' '}
-          {POSTING_NETWORKS.map((n) =>
-            W.calendar.planLine(networkName(n), c.plan[n].perWeek, clock(c.plan[n].time)),
-          ).join(' · ')}
-          . {W.calendar.planEdit}
+          {planShown(c.plan, POSTING_NETWORKS, (n) => networkName(n as PostingNetwork))}
         </p>
-        {W.calendar.ready(c.ready) ? (
-          <p className="mt-2 text-[12.5px] text-text-3">{W.calendar.ready(c.ready)}</p>
-        ) : null}
+        {postingLines(c, (n) => networkName(n as PostingNetwork)).map((l) => (
+          <p
+            key={l.text}
+            className={
+              l.warn ? 'mt-2 text-[12.5px] text-warning-text' : 'mt-2 text-[12.5px] text-text-3'
+            }
+            data-testid="socialcontent-calendar-posting"
+          >
+            {l.text}
+          </p>
+        ))}
       </Card>
 
       {!c.posts.length && !c.undated.length && !c.open.length ? (
@@ -191,7 +192,7 @@ export function CalendarPage({
           return (
             <section key={day} data-testid={`socialcontent-day-${day}`}>
               <h2 className="mb-2 text-[13px] font-semibold text-text-2">
-                {dayName(day, c.today)}
+                {dayShown(day, c.today)}
               </h2>
               <div className="space-y-2">
                 {posts.map((p) => (
@@ -236,6 +237,17 @@ export function CalendarPage({
         </section>
       ) : null}
 
+      {c.recent.length ? (
+        <section data-testid="socialcontent-recent">
+          <h2 className="mb-2 text-[13px] font-semibold text-text-2">{W.calendar.recent}</h2>
+          <div className="space-y-2">
+            {c.recent.map((p) => (
+              <PostRow key={p.id} post={p} timeZone={c.timeZone} onOpen={() => show(p.id)} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {open ? (
         <PostSheet
           key={open.id}
@@ -250,21 +262,6 @@ export function CalendarPage({
   );
 }
 
-/** "9:00 AM" from "09:00". */
-function clock(time: string): string {
-  const [h, m] = time.split(':').map(Number);
-  const hour = ((h! + 11) % 12) + 1;
-  return `${hour}:${String(m).padStart(2, '0')} ${h! < 12 ? 'AM' : 'PM'}`;
-}
-
-/** "in 6 days", "tomorrow", "today". */
-function daysUntil(at: string): string {
-  const days = Math.ceil((Date.parse(at) - Date.now()) / 86_400_000);
-  if (days <= 0) return 'today';
-  if (days === 1) return 'tomorrow';
-  return `in ${days} days`;
-}
-
 function PostRow({
   post: p,
   timeZone,
@@ -275,6 +272,8 @@ function PostRow({
   onOpen: () => void;
 }) {
   const first = p.pictures[0];
+  // A post that went up: its latest numbers, or that it did well, in one line.
+  const numbers = numbersLines(p, (n) => networkName(n as PostingNetwork)).at(-1);
   return (
     <button
       type="button"
@@ -301,6 +300,14 @@ function PostRow({
         </div>
         {p.state === 'draft' && p.stillNeeds ? (
           <div className="mt-1 text-[12.5px] text-warning-text">{p.stillNeeds}</div>
+        ) : null}
+        {numbers ? (
+          <div
+            className={`mt-1 text-[12.5px] ${numbers.well ? 'text-success-text' : 'text-text-3'}`}
+            data-testid={`socialcontent-post-${p.id}-numbers`}
+          >
+            {numbers.text}
+          </div>
         ) : null}
       </div>
     </button>

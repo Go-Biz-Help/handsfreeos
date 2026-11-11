@@ -97,6 +97,14 @@ test('an agency sets up a client’s business, hands it to the owner, and the ow
   await at('number');
   await page.getByTestId('setup-ein-yes').click();
   await next.click();
+  // The business email: the free address for now; the owner's own address is theirs, and booking emails go on.
+  await at('email');
+  await page.getByTestId('email-setup-with-free').click();
+  await page.getByTestId('email-setup-free').fill(`curlup${randomUUID().slice(0, 6)}`);
+  await next.click();
+  await at('email_own');
+  await expect(setup).toContainText('Booking emails keep going from curlup');
+  await next.click();
   await at('paid');
   await page.getByTestId('setup-pay-stripe').click();
   await expect(setup).toContainText(

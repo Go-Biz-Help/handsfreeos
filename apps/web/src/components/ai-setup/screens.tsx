@@ -13,6 +13,7 @@ import {
   AI_SETUP_TEMPLATE_WORDS,
   AI_SETUP_TONE_LABELS,
   AI_SETUP_TONE_TEXTS,
+  aiSetupOpenHoursNote,
   aiSetupProblemAt,
   firstTextPreview,
   HOURS_MODES,
@@ -48,6 +49,7 @@ import type { AiSetupScreenData } from '@/lib/ai-setup/data';
 import { errorMessage } from '@/lib/api/client';
 import { DOCUMENT_ACCEPT, uploadKnowledgeDocument } from '@/lib/knowledge/upload';
 import {
+  OpenHoursNote,
   Option,
   Pills,
   QualifyField,
@@ -298,6 +300,7 @@ function HoursScreen({ state, answers, set, problems }: ScreenProps) {
       <Reading state={state} answers={answers} />
       <div>
         <Label>{W.openHours}</Label>
+        <OpenHoursNote note={aiSetupOpenHoursNote(state, answers.openHours, name)} />
         <WeeklyHoursEditor
           value={answers.openHours}
           onChange={(next) => set('openHours', next)}

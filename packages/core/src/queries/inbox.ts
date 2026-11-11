@@ -153,8 +153,12 @@ type LaneRow = {
  * address itself, which still merges an unknown number that has written to two of the business's lines, and
  * still keeps an unknown number apart from an unknown mail address: nothing here knows they are the same
  * person, and guessing that is how a shared family phone becomes one customer.
+ *
+ * Someone's own mail (M19) is a customer of its own, apart from the team's: it shows in the same list as the team's
+ * now, but a sender who writes to both the person's own address and a team one is two rows, one marked as theirs,
+ * so sharing or answering one never reaches into the other.
  */
-const GROUP_KEY = sql`coalesce(c.person_id::text, c.channel::text || ':' || c.counterpart)`;
+const GROUP_KEY = sql`coalesce(c.person_id::text, c.channel::text || ':' || c.counterpart) || coalesce(':own:' || c.private_to::text, '')`;
 
 /** A lane's line: the number, the address, or the Page or Instagram account it's on. */
 const LINE_ID = (z: string) => {
@@ -211,7 +215,10 @@ const LANES = (workspaceId: string, archived: boolean) => sql`
       -- read every thread in the business once per row on the page.
       and (z.person_id = x.person_id
         or (x.person_id is null and z.person_id is null and z.channel = x.channel::app.channel
-          and z.counterpart = x.counterpart)))`;
+          and z.counterpart = x.counterpart))
+      -- The person's own mail and the team's are never lanes of one row (M19): the policies show only the viewer's
+      -- own, so "as private as this one" is all it takes.
+      and (z.private_to is not null) = x.private)`;
 
 /**
  * The customer an unlinked thread looks like, so the row can offer "Same as Kim Alvarez?" (0089).
@@ -449,7 +456,7 @@ async function chatOf(
 export const inboxList = defineQuery({
   name: 'inbox.list',
   description:
-    'Conversations newest first: mine, unassigned or everyone’s, those waiting for a person (oldest first) or the AI teammate’s, or email in Other mail or Spam; open, snoozed or closed; texts or email; with search.',
+    'Conversations newest first: mine, unassigned or everyone’s, those waiting for a person (oldest first) or the AI teammate’s, or email in Other mail or Spam; open, snoozed or closed; texts or email; with search. The person’s own mail shows beside the team’s (in Mine, All, Other mail, Spam and Archived), or alone with mailbox mine.',
   input: InboxListInput,
   output: InboxListOutput,
   permission: 'inbox.use',
@@ -465,15 +472,17 @@ export const inboxList = defineQuery({
     // customer the grouped list looks for (`c2`).
     const filters = (t: 'c' | 'c2') => {
       const c = sql.raw(t);
+      // The person's own mail is theirs, so it is in Mine; it is nobody's to pick up, so never in Unassigned; and the
+      // AI teammate never touches it, so never in its two boxes either.
       const box =
         input.box === 'mine'
-          ? sql`and ${c}.assignee_user_id = ${me}`
+          ? sql`and (${c}.assignee_user_id = ${me} or ${c}.private_to = ${me})`
           : input.box === 'unassigned'
-            ? sql`and ${c}.assignee_user_id is null`
+            ? sql`and ${c}.assignee_user_id is null and ${c}.private_to is null`
             : input.box === 'needs_person'
-              ? sql`and ${c}.needs_person_since is not null`
+              ? sql`and ${c}.needs_person_since is not null and ${c}.private_to is null`
               : input.box === 'ai'
-                ? sql`and ${c}.handled_by = 'ai'`
+                ? sql`and ${c}.handled_by = 'ai' and ${c}.private_to is null`
                 : sql``;
       // The email folders (M19): Other mail and Spam are boxes of their own, and every other box is the Inbox's.
       // A customer's record lists all of their threads, wherever they are, and so does Archived: a thread put away
@@ -484,11 +493,12 @@ export const inboxList = defineQuery({
           : input.box === 'other' || input.box === 'spam'
             ? sql`and ${c}.folder = ${input.box}::app.conversation_folder`
             : sql`and ${c}.folder = 'inbox'`;
-      // The team's threads, or the person's own mailbox (M19). The policies already keep anyone else's out.
+      // The team's threads with the person's own mail among them, or their own mail alone (M19, "My mail"). Never
+      // anyone else's: the policies already keep it out, and this says so too.
       const mailbox =
         input.mailbox === 'mine'
           ? sql`and ${c}.private_to = ${me}`
-          : sql`and ${c}.private_to is null`;
+          : sql`and (${c}.private_to is null or ${c}.private_to = ${me})`;
       // Archived threads are out of the inbox: only their own box shows them, and only it hides the live ones.
       const archived =
         input.box === 'archived'
@@ -561,6 +571,8 @@ export const inboxList = defineQuery({
                       and (c2.person_id = c.person_id
                         or (c.person_id is null and c2.person_id is null and c2.channel = c.channel
                           and c2.counterpart = c.counterpart))
+                      -- The person's own mail is its own row, never folded into the team's (GROUP_KEY).
+                      and c2.private_to is not distinct from c.private_to
                       ${filters('c2')}
                       and (c2.${col}, c2.id) > (c.${col}, c.id))`
                 : sql``
@@ -600,7 +612,7 @@ export const inboxList = defineQuery({
 export const inboxSummary = defineQuery({
   name: 'inbox.summary',
   description:
-    'Unread and open counts for the badges, and how many customers are waiting too long.',
+    'Unread and open counts for the badges (the person’s own mail among them, as the list shows it), and how many customers are waiting too long.',
   input: InboxSummaryInput,
   output: InboxSummaryOutput,
   permission: 'inbox.use',
@@ -613,29 +625,32 @@ export const inboxSummary = defineQuery({
       ctx.tx,
       // Customers, not threads (0089): the list beside these badges shows each customer once, and a badge
       // that counts their lanes says "3" over a list with one row in it.
+      // The person's own mail is in the list beside the team's (M19), so it is in Mine and All here too, and never in
+      // Unassigned. Who is waiting too long, and the AI teammate's boxes, are the team's customers only.
       sql`select
             count(distinct ${GROUP_KEY}) filter (where c.status = 'open')::int as open_all,
-            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.assignee_user_id = ${me})::int as open_mine,
-            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.assignee_user_id is null)::int as open_unassigned,
+            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and (c.assignee_user_id = ${me} or c.private_to = ${me}))::int as open_mine,
+            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.assignee_user_id is null and c.private_to is null)::int as open_unassigned,
             count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.unread_count > 0)::int as unread_all,
-            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.unread_count > 0 and c.assignee_user_id = ${me})::int as unread_mine,
-            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.unread_count > 0 and c.assignee_user_id is null)::int as unread_unassigned,
-            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.awaiting_reply_since is not null
+            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.unread_count > 0 and (c.assignee_user_id = ${me} or c.private_to = ${me}))::int as unread_mine,
+            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.unread_count > 0 and c.assignee_user_id is null and c.private_to is null)::int as unread_unassigned,
+            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.private_to is null and c.awaiting_reply_since is not null
               and c.awaiting_reply_since <= now() - make_interval(mins => ${threshold}))::int as waiting,
-            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.needs_person_since is not null)::int as needs_person,
-            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.handled_by = 'ai')::int as ai
+            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.private_to is null and c.needs_person_since is not null)::int as needs_person,
+            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.private_to is null and c.handled_by = 'ai')::int as ai
           from app.conversations c
           where c.workspace_id = ${input.workspaceId} and c.last_message_at is not null
-            and c.archived_at is null and c.folder = 'inbox' and c.private_to is null`,
+            and c.archived_at is null and c.folder = 'inbox' and (c.private_to is null or c.private_to = ${me})`,
     );
     const n = (k: string) => Number(s?.[k] ?? 0);
-    // Beside the team's Inbox (M19): the viewer's own mailbox, and the team's Other mail and Spam.
+    // Beside the team's Inbox (M19): the viewer's own mail (the My mail filter), and Other mail and Spam, which hold
+    // the viewer's own beside the team's as the list does.
     const [mail] = await rows<{ mine: number; other: number; spam: number; own: boolean }>(
       ctx.tx,
       sql`select
             count(*) filter (where c.private_to = ${me} and c.folder = 'inbox' and c.unread_count > 0)::int as mine,
-            count(*) filter (where c.private_to is null and c.folder = 'other' and c.unread_count > 0)::int as other,
-            count(*) filter (where c.private_to is null and c.folder = 'spam')::int as spam,
+            count(*) filter (where (c.private_to is null or c.private_to = ${me}) and c.folder = 'other' and c.unread_count > 0)::int as other,
+            count(*) filter (where (c.private_to is null or c.private_to = ${me}) and c.folder = 'spam')::int as spam,
             (exists (select 1 from app.email_addresses a
                       where a.workspace_id = ${input.workspaceId} and a.owner_user_id = ${me})
               or exists (select 1 from app.conversations o

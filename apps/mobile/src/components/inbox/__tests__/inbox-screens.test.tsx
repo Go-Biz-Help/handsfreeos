@@ -1,6 +1,6 @@
 import { conversationOf, groupByCustomer, mailMoves, type ConversationListRow } from '@hfos/core';
 import { useQuery } from '@powersync/react-native';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import * as React from 'react';
 
 import Inbox from '@/app/app/w/[workspaceId]/(tabs)/inbox';
@@ -344,9 +344,9 @@ describe('email’s boxes and My mail (M19)', () => {
     })) as never);
   });
 
-  it('keeps Other mail and Spam out of the team’s Inbox, each a box of its own', async () => {
+  it('keeps Other mail and Spam out of the Inbox, each a box of its own', async () => {
     await render(wrap(<Inbox />));
-    expect(screen.getByTestId('box-all')).toHaveTextContent('All · 1');
+    expect(screen.getByTestId('box-all')).toHaveTextContent('All · 2');
     expect(screen.getByTestId('conversation-row-c-kim')).toBeTruthy();
     expect(screen.queryByTestId('conversation-row-c-deals')).toBeNull();
     expect(screen.getByTestId('box-other')).toHaveTextContent('Other mail · 1');
@@ -354,6 +354,8 @@ describe('email’s boxes and My mail (M19)', () => {
     await fireEvent.press(screen.getByTestId('box-other'));
     expect(screen.getByTestId('box-other')).toBeSelected();
     expect(screen.getByTestId('conversation-row-c-deals')).toBeTruthy();
+    // The person's own Other mail is there too, beside the team's.
+    expect(screen.getByTestId('conversation-row-c-news')).toBeTruthy();
     expect(screen.queryByTestId('conversation-row-c-kim')).toBeNull();
     expect(screen.getByTestId('filter-unread')).toHaveTextContent('Unread · 1');
     await fireEvent.press(screen.getByTestId('box-spam'));
@@ -363,12 +365,28 @@ describe('email’s boxes and My mail (M19)', () => {
     expect(screen.getByTestId('conversation-row-c-kim')).toBeTruthy();
   });
 
-  it('opens the person’s own mail, with its own Inbox, Other mail and Spam, and goes back to the team’s', async () => {
+  it('shows the person’s own mail in the Inbox beside the team’s, marked Only you', async () => {
+    await render(wrap(<Inbox />));
+    expect(screen.getByTestId('conversation-row-c-kim')).toBeTruthy();
+    const mom = screen.getByTestId('conversation-row-c-mom');
+    expect(within(mom).getByTestId('row-private')).toHaveTextContent('Only you');
+    expect(
+      within(screen.getByTestId('conversation-row-c-kim')).queryByTestId('row-private'),
+    ).toBeNull();
+    // Theirs, so in Mine; nobody's to pick up, so not in Unassigned.
+    expect(screen.getByTestId('box-mine')).toHaveTextContent('Mine · 1');
+    await fireEvent.press(screen.getByTestId('box-unassigned'));
+    expect(screen.queryByTestId('conversation-row-c-mom')).toBeNull();
+    await fireEvent.press(screen.getByTestId('box-mine'));
+    expect(screen.getByTestId('conversation-row-c-mom')).toBeTruthy();
+  });
+
+  it('narrows to the person’s own mail, with its own Inbox, Other mail and Spam, and goes back to everything', async () => {
     await render(wrap(<Inbox />));
     expect(screen.getByTestId('box-my-mail')).toHaveTextContent('My mail · 1');
     await fireEvent.press(screen.getByTestId('box-my-mail'));
     expect(screen.getByTestId('my-mail')).toHaveTextContent(/^My mail · only you see it/);
-    expect(screen.getByTestId('mail-back')).toHaveTextContent('Team inbox');
+    expect(screen.getByTestId('mail-back')).toHaveTextContent('Show all');
     expect(screen.queryByTestId('box-mine')).toBeNull();
     expect(screen.queryByTestId('box-other')).toBeNull();
     expect(screen.getByTestId('mail-inbox')).toBeSelected();
@@ -381,7 +399,7 @@ describe('email’s boxes and My mail (M19)', () => {
     await fireEvent.press(screen.getByTestId('mail-spam'));
     expect(screen.getByTestId('inbox-empty')).toHaveTextContent(/No spam/);
     await fireEvent.press(screen.getByTestId('mail-back'));
-    expect(screen.getByTestId('box-mine')).toHaveTextContent('Mine · 0');
+    expect(screen.getByTestId('box-mine')).toHaveTextContent('Mine · 1');
     expect(screen.getByTestId('box-all')).toBeSelected();
     expect(screen.getByTestId('conversation-row-c-kim')).toBeTruthy();
   });

@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
-import { supabaseBrowser } from '@/lib/supabase/client';
+import { browserSession } from '@/lib/supabase/token';
 
 /**
  * Matomo analytics for the web app (site 5 in gobizhelp.matomo.cloud; handsfreeos.com is 3, the phone app 4): which
@@ -84,8 +84,7 @@ function load(paq: unknown[][]) {
  * after signing in or out.
  */
 async function accountId(): Promise<string | null> {
-  const { data } = await supabaseBrowser().auth.getSession();
-  return data.session?.user.id ?? null;
+  return (await browserSession())?.user.id ?? null;
 }
 
 /** Counts a page view each time the route changes; the App Router never reloads the page. */

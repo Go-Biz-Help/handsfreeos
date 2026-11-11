@@ -33,6 +33,8 @@ export const config = {
    * native passkey module (see `src/lib/passkey.ts`).
    */
   passkeysEnabled: process.env.EXPO_PUBLIC_PASSKEYS_ENABLED === 'true',
+  /** Gmail's sign-in, once Google approves HandsFreeOS: until then "Connect Gmail" says it's coming soon. */
+  gmailEnabled: process.env.EXPO_PUBLIC_GMAIL_ENABLED === 'true',
   /** Builds for the Maestro flows: a stand-in for the Face ID prompt, and the test switches in Settings. */
   e2e: process.env.EXPO_PUBLIC_E2E === '1',
   /** Matomo's id for the phone app (`src/lib/analytics.ts`). Unset: nothing is counted. */

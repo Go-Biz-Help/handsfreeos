@@ -36,7 +36,7 @@ import { inWorkspace, queueWork, settingsOf, TAKEN_FOR_MS, type Ctx } from './co
 import type { CommandContext } from '../../../kernel/types';
 
 /** Only the reading computer's person sends these in. */
-async function needReader(ctx: CommandContext): Promise<string> {
+export async function needReader(ctx: CommandContext): Promise<string> {
   const me = requireHuman(ctx).userId;
   const s = await settingsOf(ctx);
   if (s.readerUserId !== me)

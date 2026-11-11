@@ -912,6 +912,22 @@ Apple lets people hide their email address. HandsFreeOS then gets a private one 
 - An invitation works only for the address it was sent to. Someone invited by email should sign in with that email and a code, or with Apple, choosing to share their email.
 - Apple forwards mail to a private address only from senders it knows. To let HandsFreeOS's emails through, open **Certificates, Identifiers & Profiles** → **Services** → **Sign in with Apple for Email Communication** → **Configure**, and add `handsfreeos.com`, the domain HandsFreeOS's own mail (codes, invitations and alerts) comes from.
 
+#### Someone is signed out part way through
+
+The web app shows "Sign in to continue." while the person still sees "Signed in as …" on the page. First, look at their sign-in renewals in the Supabase logs. Open `https://supabase.com/dashboard/project/ybupfghakoszfcxhyrby/logs/explorer` and run this, with the window set to when it happened:
+
+```sql
+select substring(log_attributes['auth_audit_event.created_at'], 12, 5) as minute,
+  countIf(log_attributes['auth_audit_event.action'] = 'token_refreshed') as renewals
+from logs
+where source = 'auth_audit_logs' and log_attributes['auth_audit_event.actor_username'] = '<their email>'
+group by minute order by minute
+```
+
+A healthy browser renews about once an hour. Ten or more a minute means the computer's clock is wrong, most often an hour fast. Supabase limits renewals to about 150 every 5 minutes from one address. The refused one shows in the `auth_logs` source as `over_request_rate_limit`, and the browser dropped the sign-in then. That happened to a new customer on 10 Nov 2026, on the "When are you open?" screen.
+
+The web app now copes with a wrong clock (`apps/web/src/lib/supabase/token.ts`). It measures how far the clock is off from each renewal, judges the sign-in's time left by the server's clock, and sends a request refused for its sign-in once more after renewing. It also shows "Your computer’s clock is about an hour fast…", which tells the person to turn on **Set time automatically**. Setup keeps answers not yet saved on the computer, so after **Sign in again** they're back on screen.
+
 ### Send Auth email through Postmark
 
 Until you do this, Supabase sends sign-up confirmations and password resets through its own test mail service. It sends at most 2 an hour, and only to members of the Supabase organization's team ("Email address not authorized" for anyone else). Real clients cannot confirm their accounts or reset their passwords.
@@ -5556,8 +5572,8 @@ A campaign paused with "Email campaigns aren't set up on HandsFreeOS yet" means 
 ### Postmark Part M: HandsFreeOS's own mail at handsfreeos.com
 
 HandsFreeOS's own business can use `handsfreeos.com` as its email (M19): `chris@handsfreeos.com` becomes
-Chris's own mailbox inside HandsFreeOS, with no Google or Outlook. Mail to it lands in **Inbox → My mail**, and
-only Chris sees it. Nothing changes in Postmark or DNS: the support server from "Postmark Part K" already
+Chris's own mailbox inside HandsFreeOS, with no Google or Outlook. Mail to it lands in Chris's **Inbox**, marked
+**Only you** (and in **Inbox → My mail**, which shows only his own), and only Chris sees it. Nothing changes in Postmark or DNS: the support server from "Postmark Part K" already
 receives the whole domain and posts it to the worker, and the production server already sends for it.
 `support@` and `help@` (everything in `SUPPORT_ADDRESSES`) stay the support desk's.
 
@@ -5579,7 +5595,7 @@ Do it once the M19 migrations are on the hosted database and M19 is on `main`:
 4. **Receive mail here too.** In the same card, click **Receive mail here**. The MX record already points at
    `inbound.postmarkapp.com`, so the badge turns to **Receiving** within 15 minutes.
 5. **Test it from outside.** From a personal email account, write to `chris@handsfreeos.com`.
-   - Within a minute it shows in **Inbox → My mail**, and Chris's phone buzzes.
+   - Within a minute it shows in the **Inbox** marked **Only you** (and in **My mail**), and Chris's phone buzzes.
    - Nobody else in the business sees it.
    - Reply from HandsFreeOS. The reply arrives from `chris@handsfreeos.com`, and answering it lands in the same
      thread.
@@ -7896,6 +7912,7 @@ Text or email:
 - A message goes by text when the customer can get texts (see "Consent and STOP" below), the workspace's business number is set up for texting, and the calendar's **Text** switch for it is on (under **Confirmation**, or **Send reminders by** for reminders).
 - Otherwise it goes by email, when the customer has an email address and the matching **Email** switch is on. When a reminder goes by email because the customer can't get texts or it is too early to text, the email says so, for example "Sent by email because Sarah didn’t ask for texts."
 - With neither, nothing is sent, and the appointment's details say why.
+- The email goes to the address typed on the booking page, not the one on the customer's record, since the page never changes a customer. So in production the page checks that the address's domain can take mail (DNS has a mail server for it, or at least an address) and sends a typo back to be fixed before booking or joining the waitlist: "We couldn’t find gmial.con, so emails sent there wouldn’t arrive. Check the spelling of your email address." (rule `email_domain_not_found`). DNS that doesn't answer within 3 seconds lets the booking through. Other environments skip the check, as their made-up example.com addresses take no mail. Before this, on 2026-11-10, a customer's confirmation and both reminders went to `fullspecteumlighttherqpy.com`, and nothing said so: a bounce shows only once Postmark's delivery events are set up (Postmark Part H).
 
 Quiet hours are the workspace's own (**Settings** → **Texting & calls** → **Quiet hours**, 8 PM to 8 AM unless changed):
 

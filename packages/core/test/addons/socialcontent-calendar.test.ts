@@ -4,16 +4,31 @@
  * writes and designs. No database.
  */
 import { describe, expect, it } from 'vitest';
+import { ATTACHMENT_MAX_BYTES, FileBeginUploadInput } from '../../src/schemas/file';
 import {
   CALENDAR,
   DEFAULT_PLAN,
   emptySlots,
   formatFor,
+  placesFor,
+  placesLeft,
   planOf,
+  POSTING,
+  postText,
   slotsAhead,
   stillNeeds,
   type ReadyCheck,
 } from '../../src/addons/socialcontent/calendar';
+import {
+  clockOf,
+  clockShown,
+  dayShown,
+  daysUntil,
+  filledLine,
+  planShown,
+  postingLines,
+  timeShown,
+} from '../../src/addons/socialcontent/words';
 import {
   checkedDesign,
   checkedPost,
@@ -108,6 +123,7 @@ describe('what a post still needs', () => {
     words: 'Three ways to save time this week.',
     slides: [],
     fileIds: ['f1'],
+    videos: 0,
     postAt: '2026-11-11T15:00:00Z',
     facebookWhere: [],
   };
@@ -128,8 +144,21 @@ describe('what a post still needs', () => {
     ).toBeNull();
   });
 
-  it('lets a video go without its file, since it’s added when it posts', () => {
-    expect(stillNeeds({ ...ready, format: 'video', fileIds: [] })).toBeNull();
+  it('needs the person’s own video for a video post (part 10)', () => {
+    expect(stillNeeds({ ...ready, format: 'video', fileIds: [] })).toMatch(/no video yet/);
+    expect(stillNeeds({ ...ready, format: 'video', fileIds: ['v1'], videos: 1 })).toBeNull();
+    // The video is kept as a file on the post, as phones record it, up to 25 MB.
+    for (const mimeType of ['video/mp4', 'video/quicktime', 'video/webm'])
+      expect(
+        FileBeginUploadInput.safeParse({
+          workspaceId: '00000000-0000-4000-8000-000000000001',
+          recordType: 'custom_record',
+          recordId: '00000000-0000-4000-8000-000000000002',
+          name: 'tip.mov',
+          mimeType,
+          sizeBytes: ATTACHMENT_MAX_BYTES,
+        }).success,
+      ).toBe(true);
   });
 
   it('asks where on Facebook, and for the Page’s link before posting to the Page', () => {
@@ -277,5 +306,117 @@ describe('checking what the AI designs', () => {
     expect(prompt).toContain('A plumber fixing a sink.');
     expect(prompt).toContain('Also: make it brighter');
     expect(prompt).toMatch(/No words, letters, logos/);
+  });
+});
+
+describe('putting posts up (part 9)', () => {
+  it('goes to the profile, the Page or both on Facebook, and the feed elsewhere', () => {
+    expect(placesFor('facebook', ['page', 'profile'])).toEqual(['profile', 'page']);
+    expect(placesFor('facebook', [])).toEqual(['profile']);
+    expect(placesFor('linkedin', ['profile'])).toEqual(['feed']);
+    expect(placesFor('instagram', [])).toEqual(['feed']);
+  });
+
+  it('never puts it up again where it went up already', () => {
+    expect(placesLeft('facebook', ['profile', 'page'], [{ place: 'profile' }])).toEqual(['page']);
+    expect(placesLeft('linkedin', [], [{ place: 'feed' }])).toEqual([]);
+  });
+
+  it('adds the hashtags after a blank line, and keeps within what the network takes', () => {
+    expect(postText('facebook', '  Three ways to save time. ', ['crm', '#automation'])).toBe(
+      'Three ways to save time.\n\n#crm #automation',
+    );
+    expect(postText('linkedin', 'Words only', [])).toBe('Words only');
+    const long = postText('linkedin', 'x'.repeat(3_500), ['tag']);
+    expect(long.length).toBeLessThanOrEqual(POSTING.textMost.linkedin);
+    expect(long.endsWith('…\n\n#tag')).toBe(true);
+  });
+
+  it('posts on Facebook and LinkedIn (part 9), and Instagram (part 10)', () => {
+    expect(POSTING.networks).toEqual(['facebook', 'linkedin', 'instagram']);
+  });
+
+  it('says whose computer puts the OK’d posts up, and warns when it’s quiet or there’s none', () => {
+    const name = (n: string) => n.toUpperCase();
+    const base = { ready: 2, postsOn: ['facebook', 'linkedin'], posts: [] };
+    expect(postingLines({ ...base, poster: null }, name).map((l) => l.warn)).toEqual([false, true]);
+    const fresh = postingLines(
+      {
+        ...base,
+        poster: { name: 'Sam', mine: false, seenAt: new Date(NOW - 60_000).toISOString() },
+      },
+      name,
+      NOW,
+    );
+    expect(fresh).toHaveLength(2);
+    expect(fresh[1]!.text).toMatch(/Sam’s computer/);
+    const quiet = postingLines(
+      {
+        ...base,
+        poster: { name: null, mine: true, seenAt: new Date(NOW - 3_600_000).toISOString() },
+      },
+      name,
+      NOW,
+    );
+    expect(quiet.at(-1)!.warn).toBe(true);
+    expect(quiet.at(-1)!.text).toMatch(/1 hour ago/);
+    const later = postingLines(
+      {
+        ready: 0,
+        poster: null,
+        postsOn: ['facebook'],
+        posts: [{ network: 'instagram', state: 'draft' }],
+      },
+      name,
+      NOW,
+    );
+    expect(later).toEqual([
+      { text: expect.stringMatching(/INSTAGRAM comes in a later update/), warn: false },
+    ]);
+  });
+});
+
+describe('the Calendar’s days and times, as the web and the phone both show them', () => {
+  const now = Date.parse('2026-11-10T15:00:00.000Z');
+
+  it('shows a clock, a time in the business’s zone, and picks the time back out', () => {
+    expect(clockShown('09:00')).toBe('9:00 AM');
+    expect(clockShown('00:30')).toBe('12:30 AM');
+    expect(clockShown('17:45')).toBe('5:45 PM');
+    expect(timeShown('2026-11-12T15:00:00.000Z', 'America/Chicago')).toBe('9:00 AM');
+    expect(timeShown('2026-11-12T15:00:00.000Z', 'America/Chicago', true)).toBe(
+      'Thu, Nov 12, 9:00 AM',
+    );
+    expect(clockOf('2026-11-12T15:00:00.000Z', 'America/Chicago')).toBe('09:00');
+    expect(clockOf('2026-11-12T05:30:00.000Z', 'America/Chicago')).toBe('23:30');
+  });
+
+  it('names today and tomorrow, and other days by their weekday', () => {
+    expect(dayShown('2026-11-10', '2026-11-10')).toBe('Today');
+    expect(dayShown('2026-11-11', '2026-11-10')).toBe('Tomorrow');
+    expect(dayShown('2026-11-13', '2026-11-10')).toBe('Friday, November 13');
+  });
+
+  it('says when it filled and fills again, or how to start', () => {
+    expect(daysUntil('2026-11-16T15:00:00.000Z', now)).toBe('in 6 days');
+    expect(daysUntil('2026-11-11T09:00:00.000Z', now)).toBe('tomorrow');
+    expect(daysUntil('2026-11-10T09:00:00.000Z', now)).toBe('today');
+    expect(filledLine({ filledAt: null, nextFillAt: null }, now)).toMatch(/Fill the calendar/);
+    expect(
+      filledLine(
+        { filledAt: '2026-11-10T13:00:00.000Z', nextFillAt: '2026-11-16T15:00:00.000Z' },
+        now,
+      ),
+    ).toMatch(/in 6 days/);
+  });
+
+  it('puts the plan in one line', () => {
+    expect(
+      planShown(
+        { instagram: { perWeek: 3, time: '09:00' }, linkedin: { perWeek: 2, time: '08:00' } },
+        ['instagram', 'facebook', 'linkedin'],
+        (n) => n.charAt(0).toUpperCase() + n.slice(1),
+      ),
+    ).toMatch(/^Your plan: Instagram.*3.*9:00 AM · Linkedin.*2.*8:00 AM\. /);
   });
 });

@@ -131,11 +131,20 @@ export const socialcontentAddon = defineAddon({
       'socialcontent.content.approved',
       'socialcontent.content.skipped',
       'socialcontent.content.pictured',
+      'socialcontent.content.posting',
+      'socialcontent.content.posted',
+      'socialcontent.content.failed',
+      'socialcontent.content.done_well',
       'socialcontent.calendar.filled',
     ],
     // A niche someone added: the AI writes the words to search each network for it. Posts saved with new
-    // standouts: the AI notes them, and the Playbook and ideas follow.
-    consumes: ['socialcontent.niche.added', 'socialcontent.posts.saved'],
+    // standouts: the AI notes them, and the Playbook and ideas follow. One of the business's own posts that did
+    // well (part 11): the Playbook is written again with it.
+    consumes: [
+      'socialcontent.niche.added',
+      'socialcontent.posts.saved',
+      'socialcontent.content.done_well',
+    ],
   },
   // Each studied creator read again once a week; new creators looked for once a month (decision 11); the AI's
   // notes on new standouts, a few at a time.
@@ -176,12 +185,13 @@ export const socialcontentAddon = defineAddon({
       { path: 'standouts', query: ['network', 'creator'] },
       { path: 'playbook' },
       { path: 'ideas' },
+      { path: 'calendar', query: ['post'] },
       { path: 'settings' },
     ],
   },
   ai: {
     directory:
-      'social media content research: the niches searched, creators found and studied on Instagram, Facebook and LinkedIn (TikTok and YouTube later), their posts with how many times their normal each did, the standout posts with the AI’s notes on why each worked (and what it saw and heard watching Instagram videos), the Playbook of what works, content ideas to save, use or skip, the business’s own posts on a content calendar two weeks ahead (written by the AI from the Playbook and saved ideas, with pictures designed by the AI or photo-style from the AI or the person’s own; each waits for an OK, or the week is OK’d in one go; posting through the extension comes in later updates), the calendar’s plan (posts a week on Instagram, Facebook and LinkedIn and the time), asking the reading computer to find, read or try watching now, and its settings (the networks, whose computer reads in Chrome with the HandsFreeOS Social extension, and watching videos, which uses more AI, the calendar’s plan, the Facebook Page and where Facebook posts go)',
+      'social media content research: the niches searched, creators found and studied on Instagram, Facebook and LinkedIn (TikTok and YouTube later), their posts with how many times their normal each did, the standout posts with the AI’s notes on why each worked (and what it saw and heard watching Instagram videos), the Playbook of what works (for the creators and for the business’s own posts that did best), content ideas to save, use or skip, the business’s own posts on a content calendar two weeks ahead (written by the AI from the Playbook and saved ideas, with pictures designed by the AI or photo-style from the AI or the person’s own; each waits for an OK, or the week is OK’d in one go; a video post needs the person’s own video added; OK’d posts go up at their times on Facebook (profile and Page), LinkedIn and Instagram from the reading computer in Chrome with the extension, or now with Post it now; how each did about 2 and 7 days after it went up, and the ones that did well against the business’s own others in the Playbook), the calendar’s plan (posts a week on Instagram, Facebook and LinkedIn and the time), asking the reading computer to find, read or try watching now, and its settings (the networks, whose computer reads in Chrome with the HandsFreeOS Social extension, and watching videos, which uses more AI, the calendar’s plan, the Facebook Page and where Facebook posts go)',
     places: SOCIALCONTENT_PLACES,
     lookAlikes: SOCIALCONTENT_LOOK_ALIKES,
   },

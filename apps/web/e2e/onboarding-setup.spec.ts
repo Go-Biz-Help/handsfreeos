@@ -31,7 +31,7 @@ test('a new owner sets up the business one question at a time, carries on later,
 
   // 1. Your business: what's missing is said where it's missing.
   await at('business');
-  await expect(counter).toHaveText('2 of 14 · Your business');
+  await expect(counter).toHaveText('2 of 15 · Your business');
   await next.click();
   await expect(setup).toContainText('Name your business.');
   await expect(setup).toContainText('Pick what you do');
@@ -56,7 +56,7 @@ test('a new owner sets up the business one question at a time, carries on later,
   await expect(page).toHaveURL(/\/onboarding\/[0-9a-f-]{36}\?at=goal$/);
   const workspaceId = /\/onboarding\/([0-9a-f-]{36})/.exec(page.url())![1]!;
   await at('goal');
-  await expect(counter).toHaveText('3 of 15 · Your goal');
+  await expect(counter).toHaveText('3 of 16 · Your goal');
   await expect(page.getByTestId('onboarding-setup-carry-on')).toHaveCount(0);
   await page.getByTestId('setup-goal-booked').click();
   // Anyone else gets an invitation from here.
@@ -92,7 +92,7 @@ test('a new owner sets up the business one question at a time, carries on later,
   // 5. The logo and colour: with no website to find it on, an upload, which the worker makes ready; its colour
   // comes with it until another is picked. Each is kept as it changes.
   await at('look');
-  await expect(counter).toHaveText('6 of 15 · Your logo and colour');
+  await expect(counter).toHaveText('6 of 16 · Your logo and colour');
   await expect(page.getByTestId('look-no-logo')).toContainText('Your initials stand in');
   await page.getByTestId('look-file').setInputFiles({
     name: 'bella-logo.svg',
@@ -113,7 +113,7 @@ test('a new owner sets up the business one question at a time, carries on later,
 
   // 6. With no website, a simple page made from the answers, as customers will see it. Not now says why it matters.
   await at('page');
-  await expect(counter).toHaveText('7 of 15 · Your page');
+  await expect(counter).toHaveText('7 of 16 · Your page');
   await expect(page.getByTestId('ai-setup-use-page-use')).toHaveAttribute('aria-checked', 'true');
   const preview = page.getByTestId('setup-page-preview');
   await expect(preview.getByRole('heading', { level: 1 })).toHaveText('Bella Hair Studio');
@@ -181,6 +181,21 @@ test('a new owner sets up the business one question at a time, carries on later,
   await page.getByTestId('setup-ein-yes').click();
   await expect(page.getByTestId('number-results')).toContainText('Boulder', { timeout: 60_000 });
   await next.click();
+
+  // 10. Your business email: the sign-up email's domain is offered first; the free address goes out straight away,
+  // under a name without random letters, and the address just for them waits for their own domain.
+  await at('email');
+  await expect(counter).toHaveText('11 of 16 · Your business email');
+  await expect(page.getByTestId('email-setup-domain')).toHaveValue('hfos.test');
+  await expect(setup).toContainText('From the email you signed up with.');
+  await page.getByTestId('email-setup-with-free').click();
+  const free = `bellahair${randomUUID().slice(0, 6)}`;
+  await page.getByTestId('email-setup-free').fill(free);
+  await next.click();
+  await at('email_own');
+  await expect(summary).toContainText(`Emails go out from ${free}@mail.handsfreeos.com`);
+  await expect(page.getByTestId('email-setup-mine-yes')).toHaveCount(0);
+  await next.click();
   await at('paid');
 
   // Finish later: Home's card carries on where they left off.
@@ -196,7 +211,7 @@ test('a new owner sets up the business one question at a time, carries on later,
     'Carry on where you left off',
   );
 
-  // 10. Payments: Stripe's sign-in comes straight back here, connected; and the review link.
+  // 11. Payments: Stripe's sign-in comes straight back here, connected; and the review link.
   await page.getByTestId('setup-pay-stripe').click();
   await page.getByTestId('setup-pay-connect').click();
   await page.waitForURL(/\/oauth\/fake\/payments\/stripe\/authorize/);
@@ -211,10 +226,10 @@ test('a new owner sets up the business one question at a time, carries on later,
   await page.getByTestId('setup-review-link').fill('https://g.page/r/bella-hair-studio/review');
   await next.click();
 
-  // 11. The AI teammate's screens, as the AI quick setup asks them: its name, and the rest as picked. With the
+  // 12. The AI teammate's screens, as the AI quick setup asks them: its name, and the rest as picked. With the
   // page live, its chat goes on the page.
   await at('jobs');
-  await expect(counter).toHaveText('12 of 15 · Your AI teammate');
+  await expect(counter).toHaveText('13 of 16 · Your AI teammate');
   for (let i = 0; i < 8 && (await setup.getAttribute('data-screen')) !== 'loop'; i++) {
     const screen = (await setup.getAttribute('data-screen'))!;
     if (screen === 'meet') await page.getByTestId('ai-setup-name').fill('Max');
@@ -223,7 +238,7 @@ test('a new owner sets up the business one question at a time, carries on later,
     await expect(setup).not.toHaveAttribute('data-screen', screen);
   }
 
-  // 12. Stay in the loop: Save sets it all up, and the test chat comes next. The chat is on the page already, so
+  // 13. Stay in the loop: Save sets it all up, and the test chat comes next. The chat is on the page already, so
   // there's nothing to paste.
   await at('loop');
   await expect(next).toHaveText('Save');
@@ -242,7 +257,7 @@ test('a new owner sets up the business one question at a time, carries on later,
     page.getByText('Turned on. Max starts with training wheels: every message waits for your OK.'),
   ).toBeVisible();
 
-  // 13. What already works, then Home, with nothing left to carry on.
+  // 14. What already works, then Home, with nothing left to carry on.
   await at('done');
   await expect(page.getByTestId('onboarding-setup-done')).toContainText('Bella Hair Studio');
   await page.getByTestId('onboarding-setup-home').click();

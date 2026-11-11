@@ -320,7 +320,7 @@ describe('conversations from the copy', () => {
     expect(rows('all', 'closed').map((c) => c.id)).toEqual(['m-closed']);
   });
 
-  it('keeps Other mail, Spam and the viewer’s own mail to their own boxes, as `inbox.list` does (M19)', () => {
+  it('keeps Other mail and Spam to their own boxes, and shows the viewer’s own mail beside the team’s, as `inbox.list` does (M19)', () => {
     const mail = { channel: 'email', person_id: null, first_name: null, last_name: null };
     const all = [
       conv({ id: 'text' }),
@@ -357,10 +357,15 @@ describe('conversations from the copy', () => {
     });
     const ids = (box: Parameters<typeof inInbox>[1]['box'], mailbox?: 'team' | 'mine') =>
       all.filter((c) => inInbox(c, { box, status: 'open', mailbox }, ME)).map((c) => c.id);
-    expect(ids('all')).toEqual(['text', 'old-copy']);
+    // The viewer's own mail is in the team's list, in its folder: theirs, so in Mine, and nobody's to pick up.
+    expect(ids('all')).toEqual(['text', 'old-copy', 'own']);
+    expect(ids('mine')).toEqual(['own']);
     expect(ids('unassigned', 'team')).toEqual(['text', 'old-copy']);
-    expect(ids('other')).toEqual(['other']);
-    expect(ids('spam')).toEqual(['spam']);
+    expect(ids('needs_person')).toEqual([]);
+    expect(ids('ai')).toEqual([]);
+    expect(ids('other')).toEqual(['other', 'own-other']);
+    expect(ids('spam')).toEqual(['spam', 'own-spam']);
+    // My mail is the viewer's own alone.
     expect(ids('all', 'mine')).toEqual(['own']);
     expect(ids('other', 'mine')).toEqual(['own-other']);
     expect(ids('spam', 'mine')).toEqual(['own-spam']);
@@ -373,7 +378,33 @@ describe('conversations from the copy', () => {
     ).toEqual(['own']);
   });
 
-  it('counts Other mail, Spam and the viewer’s own mail apart from the team’s badges, as `inbox.summary` does (M19)', () => {
+  it('never folds the viewer’s own mail into a team row from the same sender, nor the team’s into theirs (M19)', () => {
+    const mail = { channel: 'email', person_id: null, first_name: null, last_name: null };
+    const items = [
+      conv({
+        ...mail,
+        id: 'team',
+        counterpart: 'bob@example.com',
+        last_message_at: '2026-09-17T12:00:00Z',
+      }),
+      conv({
+        ...mail,
+        id: 'own',
+        counterpart: 'bob@example.com',
+        private_to: ME,
+        last_message_at: '2026-09-17T12:30:00Z',
+      }),
+    ].map((r) => ({ conversation: conversationOf(r) }));
+    const rows = groupByCustomer(items, { box: 'all', status: 'open' }, ME).map(
+      (i) => i.conversation,
+    );
+    expect(rows.map((c) => [c.id, c.private, c.lanes!.map((l) => l.id)])).toEqual([
+      ['team', false, ['team']],
+      ['own', true, ['own']],
+    ]);
+  });
+
+  it('counts Other mail and Spam apart, and the viewer’s own mail in Mine and All, as `inbox.summary` does (M19)', () => {
     const mail = { channel: 'email', person_id: null, first_name: null, last_name: null };
     const rows = [
       conv({ id: 'a', person_id: 'p-a', unread_count: 1 }),
@@ -415,9 +446,11 @@ describe('conversations from the copy', () => {
       }),
     ].map(conversationOf);
     const counts = inboxCounts(rows, ME, 10);
-    expect(counts.open).toEqual({ mine: 0, unassigned: 1, all: 1 });
-    expect(counts.unread).toEqual({ mine: 0, unassigned: 1, all: 1 });
-    expect(counts.mail).toEqual({ mine: 1, other: 2, spam: 1, own: true });
+    // Their own Inbox mail is theirs, in the list beside the team's: Mine and All, never Unassigned.
+    expect(counts.open).toEqual({ mine: 2, unassigned: 1, all: 3 });
+    expect(counts.unread).toEqual({ mine: 1, unassigned: 1, all: 2 });
+    // Other mail holds their own beside the team's.
+    expect(counts.mail).toEqual({ mine: 1, other: 3, spam: 1, own: true });
     // My mail shows for someone with an address of their own before any mail has come to it, and for nobody else.
     const team = rows.filter((c) => !c.private);
     expect(inboxCounts(team, ME, 10).mail.own).toBe(false);

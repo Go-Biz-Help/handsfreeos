@@ -3857,6 +3857,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/email_domain.send_steps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email the DNS records for one of the business’s domains, with the steps for where it’s managed, to you or to whoever looks after the domain. Up to 10 a day.
+         * @description Risk level 2. Requires channels.manage. Emits email_domain.steps_requested.
+         */
+        post: operations["command_email_domain_send_steps"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/email_domain.stop_receiving": {
         parameters: {
             query?: never;
@@ -3911,6 +3931,26 @@ export interface paths {
          * @description Risk level 1. Requires inbox.use. Emits email_sender_rule.removed.
          */
         post: operations["command_email_sender_rule_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/email_setup.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set up the address the business’s emails (booking confirmations, reminders, invoices, the AI teammate’s) go out from, one screen at a time. sender: a free address on mail.handsfreeos.com, made the default now, or a team address on the business’s own domain, which is added and becomes the default on its own once its DNS records check out (mail goes from the free address until then). records: whether the domain’s mail comes to the Inbox too. own: an address on the domain just for you, which only you read and booking emails never use.
+         * @description Risk level 2. Requires channels.manage. Emits email_domain.planned, email_address.created, email_address.updated, email_domain.receiving_requested.
+         */
+        post: operations["command_email_setup_save"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7307,7 +7347,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website), and picks where the answers start from (answers the business’s agency saved, or our picks); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the simple page (for a business with no website) goes live with its open hours and business profile, or is turned off; the booking stop makes the booking page and turns it on (left to the owner when someone from their agency sets it up); and the review link is saved for thank-you texts.
+         * Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website), and picks where the answers start from (answers the business’s agency saved, or our picks); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the simple page (for a business with no website) goes live with its open hours and business profile, or is turned off; the booking stop makes the booking page and turns it on (left to the owner when someone from their agency sets it up); “Your business email” sets the address booking emails go out from, the domain’s mail and your own address (as email_setup.save does); and the review link is saved for thank-you texts.
          * @description Risk level 2. Requires workspace.update. Emits onboarding_setup.started, ai_setup.read_requested, look.find_requested.
          */
         post: operations["command_onboarding_setup_save"];
@@ -14957,6 +14997,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/socialcontent.content.post_now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put one of the business’s own posts up now, from the computer that posts (in Chrome with the HandsFreeOS Social extension), instead of at its time: an OK’d one, or one that didn’t post. It counts as the OK (decision 15), so it needs everything a post needs. Places it already went up in are left out. It goes up in a minute or two while that computer has Chrome open.
+         * @description Risk level 2. Requires socialcontent.use. Emits socialcontent.content.approved.
+         */
+        post: operations["command_socialcontent_content_post_now"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/socialcontent.content.save": {
         parameters: {
             query?: never;
@@ -15151,6 +15211,86 @@ export interface paths {
          * @description Risk level 1. Requires socialcontent.use. Emits socialcontent.niche.decided.
          */
         post: operations["command_socialcontent_niche_decide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.own.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extension: the next of the business’s own posts whose numbers are due to be read (about 2 and 7 days after it went up), on the networks given: the places to read, each by its link, and its words. It’s put off half an hour as it’s handed out. Null when none is due.
+         * @description Risk level 0. Requires socialcontent.use. Emits .
+         */
+        post: operations["command_socialcontent_own_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.own.read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extension: what one of the business’s own posts showed in each place it went up, at its read about 2 or 7 days on (views where the network shows them, likes, comments, shares), or why a place couldn’t be read. Kept on the post; at the 7-day read it’s weighed against the business’s own other posts there, and one that did well goes into the Playbook.
+         * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.content.done_well.
+         */
+        post: operations["command_socialcontent_own_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.post.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extension: the next of the business’s own posts to put up now, on the networks the extension posts on: OK’d, its time come, within a day of it, soonest first. It’s taken, so it goes up once. What a computer took and never said how it went is marked as didn’t post (it may have gone up), and what waited more than a day past its time too. Null when nothing is due.
+         * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.content.posting, socialcontent.content.failed.
+         */
+        post: operations["command_socialcontent_post_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.post.went": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extension: how putting one of the business’s own posts up went, place by place (Facebook profile, Page, a feed): each place it went up is kept with its link, so trying again never puts it up twice there. Up everywhere is posted; any place that didn’t take it is didn’t post, with why. Nothing pressed (again) puts it back to waiting.
+         * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.content.posted, socialcontent.content.failed.
+         */
+        post: operations["command_socialcontent_post_went"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19277,6 +19417,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/email_setup.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business email step: the address booking emails go out from now, the business’s free address and own domains (with their DNS records, where each is managed and what happens once they check out), your own address, connected mailboxes, and the answers to start from.
+         * @description Requires channels.manage.
+         */
+        post: operations["query_email_setup_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/email_suppression.list": {
         parameters: {
             query?: never;
@@ -20007,7 +20167,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Conversations newest first: mine, unassigned or everyone’s, those waiting for a person (oldest first) or the AI teammate’s, or email in Other mail or Spam; open, snoozed or closed; texts or email; with search.
+         * Conversations newest first: mine, unassigned or everyone’s, those waiting for a person (oldest first) or the AI teammate’s, or email in Other mail or Spam; open, snoozed or closed; texts or email; with search. The person’s own mail shows beside the team’s (in Mine, All, Other mail, Spam and Archived), or alone with mailbox mine.
          * @description Requires inbox.use.
          */
         post: operations["query_inbox_list"];
@@ -20027,7 +20187,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Unread and open counts for the badges, and how many customers are waiting too long.
+         * Unread and open counts for the badges (the person’s own mail among them, as the list shows it), and how many customers are waiting too long.
          * @description Requires inbox.use.
          */
         post: operations["query_inbox_summary"];
@@ -24047,7 +24207,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled and fills again on its own; and how many ideas are saved to write from.
+         * The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled and fills again on its own; and how many ideas are saved to write from.
          * @description Requires socialcontent.use.
          */
         post: operations["query_socialcontent_calendar_get"];
@@ -24067,7 +24227,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * One of the business’s own posts: its network, format, title, words, hook, hashtags, a carousel’s slides or a video’s script, what its picture shows and how it’s made (designed by the AI, a photo-style picture from the AI, or the person’s own), its pictures, where on Facebook it goes, when it goes, whether it’s waiting for an OK, OK’d, posted or skipped, and what it still needs before it can be OK’d.
+         * One of the business’s own posts: its network, format, title, words, hook, hashtags, a carousel’s slides or a video’s script, what its picture shows and how it’s made (designed by the AI, a photo-style picture from the AI, or the person’s own), its pictures, where on Facebook it goes, when it goes, whether it’s waiting for an OK, OK’d, posted or skipped, what it still needs before it can be OK’d, and once it went up: where, its links, its numbers about 2 and 7 days after (views, likes, comments, shares) and whether it did well against the business’s own other posts.
          * @description Requires socialcontent.use.
          */
         post: operations["query_socialcontent_content_get"];
@@ -34092,6 +34252,40 @@ export interface operations {
             };
         };
     };
+    command_email_domain_send_steps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    emailDomainId: string;
+                    to: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        emailDomainId: string;
+                        to: string;
+                    };
+                };
+            };
+        };
+    };
     command_email_domain_stop_receiving: {
         parameters: {
             query?: never;
@@ -34185,6 +34379,59 @@ export interface operations {
                     "application/json": {
                         address: string;
                         removed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_email_setup_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    email: {
+                        /** @default  */
+                        domain?: string;
+                        /** @default  */
+                        freeLocal?: string;
+                        /** @default hello */
+                        local?: string;
+                        /** @default false */
+                        mine?: boolean;
+                        /** @default  */
+                        mineLocal?: string;
+                        /** @default  */
+                        name?: string;
+                        /** @default null */
+                        receive?: boolean | null;
+                        /** @default null */
+                        with?: ("domain" | "free") | null;
+                    };
+                    /** @enum {string} */
+                    part: "sender" | "records" | "own";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changes: string[];
+                        emailDomainId: string | null;
+                        sender: string;
+                        /** Format: uuid */
+                        workspaceId: string;
                     };
                 };
             };
@@ -34738,7 +34985,7 @@ export interface operations {
                     /** Format: uuid */
                     id?: string;
                     /** @enum {string} */
-                    mimeType: "image/jpeg" | "image/png" | "image/webp" | "image/heic" | "image/heif" | "image/gif" | "application/pdf" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document" | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" | "text/plain" | "text/csv" | "audio/mp4" | "audio/aac" | "audio/mpeg" | "audio/webm";
+                    mimeType: "image/jpeg" | "image/png" | "image/webp" | "image/heic" | "image/heif" | "image/gif" | "application/pdf" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document" | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" | "text/plain" | "text/csv" | "audio/mp4" | "audio/aac" | "audio/mpeg" | "audio/webm" | "video/mp4" | "video/quicktime" | "video/webm";
                     name: string;
                     /** Format: uuid */
                     recordId: string;
@@ -41766,6 +42013,36 @@ export interface operations {
                          */
                         customersIn?: "sheet" | "ghl" | "crm" | "phone" | "none";
                         /**
+                         * @default {
+                         *       "with": null,
+                         *       "domain": "",
+                         *       "local": "hello",
+                         *       "freeLocal": "",
+                         *       "name": "",
+                         *       "receive": null,
+                         *       "mine": false,
+                         *       "mineLocal": ""
+                         *     }
+                         */
+                        email?: {
+                            /** @default  */
+                            domain?: string;
+                            /** @default  */
+                            freeLocal?: string;
+                            /** @default hello */
+                            local?: string;
+                            /** @default false */
+                            mine?: boolean;
+                            /** @default  */
+                            mineLocal?: string;
+                            /** @default  */
+                            name?: string;
+                            /** @default null */
+                            receive?: boolean | null;
+                            /** @default null */
+                            with?: ("domain" | "free") | null;
+                        };
+                        /**
                          * @default leads
                          * @enum {string}
                          */
@@ -42082,6 +42359,36 @@ export interface operations {
                          */
                         customersIn?: "sheet" | "ghl" | "crm" | "phone" | "none";
                         /**
+                         * @default {
+                         *       "with": null,
+                         *       "domain": "",
+                         *       "local": "hello",
+                         *       "freeLocal": "",
+                         *       "name": "",
+                         *       "receive": null,
+                         *       "mine": false,
+                         *       "mineLocal": ""
+                         *     }
+                         */
+                        email?: {
+                            /** @default  */
+                            domain?: string;
+                            /** @default  */
+                            freeLocal?: string;
+                            /** @default hello */
+                            local?: string;
+                            /** @default false */
+                            mine?: boolean;
+                            /** @default  */
+                            mineLocal?: string;
+                            /** @default  */
+                            name?: string;
+                            /** @default null */
+                            receive?: boolean | null;
+                            /** @default null */
+                            with?: ("domain" | "free") | null;
+                        };
+                        /**
                          * @default leads
                          * @enum {string}
                          */
@@ -42126,7 +42433,7 @@ export interface operations {
                     /** @default [] */
                     invite?: string[];
                     /** @enum {string} */
-                    screen: "business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
+                    screen: "business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "email" | "email_records" | "email_own" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
                     templateId?: string | null;
                     /** Format: uuid */
                     workspaceId: string;
@@ -42149,7 +42456,7 @@ export interface operations {
                         kindChanged: boolean;
                         notes: string[];
                         /** @enum {string} */
-                        reached: "business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
+                        reached: "business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "email" | "email_records" | "email_own" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
                         scanStarted: boolean;
                         /** Format: uuid */
                         workspaceId: string;
@@ -60890,6 +61197,14 @@ export interface operations {
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
+                        doneWell: {
+                            at: string;
+                            /** @enum {string} */
+                            on: "views" | "engagement" | "both";
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                            times: number;
+                        } | null;
                         facebookWhere: ("profile" | "page")[];
                         failure: string | null;
                         /** @enum {string} */
@@ -60903,6 +61218,22 @@ export interface operations {
                         madeBy: "ai" | "person";
                         /** @enum {string} */
                         network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        numbers: {
+                            [key: string]: {
+                                [key: string]: {
+                                    at: string;
+                                    comments: number | null;
+                                    days: number;
+                                    likes: number | null;
+                                    shares: number | null;
+                                    views: number | null;
+                                } | {
+                                    at: string;
+                                    days: number;
+                                    failure: string;
+                                };
+                            };
+                        };
                         picture: string | null;
                         pictureFailure: string | null;
                         pictures: {
@@ -60919,6 +61250,12 @@ export interface operations {
                         pictureWay: "design" | "photo" | "own";
                         postAt: string | null;
                         postedAt: string | null;
+                        postedTo: {
+                            at: string;
+                            link: string | null;
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                        }[];
                         postLink: string | null;
                         script: {
                             lines: string[];
@@ -60975,6 +61312,113 @@ export interface operations {
             };
         };
     };
+    command_socialcontent_content_post_now: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    postId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approvedAt: string | null;
+                        approvedBy: string | null;
+                        createdAt: string;
+                        doneWell: {
+                            at: string;
+                            /** @enum {string} */
+                            on: "views" | "engagement" | "both";
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                            times: number;
+                        } | null;
+                        facebookWhere: ("profile" | "page")[];
+                        failure: string | null;
+                        /** @enum {string} */
+                        format: "photo" | "carousel" | "video" | "text";
+                        hashtags: string[];
+                        hook: string | null;
+                        /** Format: uuid */
+                        id: string;
+                        ideaId: string | null;
+                        /** @enum {string} */
+                        madeBy: "ai" | "person";
+                        /** @enum {string} */
+                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        numbers: {
+                            [key: string]: {
+                                [key: string]: {
+                                    at: string;
+                                    comments: number | null;
+                                    days: number;
+                                    likes: number | null;
+                                    shares: number | null;
+                                    views: number | null;
+                                } | {
+                                    at: string;
+                                    days: number;
+                                    failure: string;
+                                };
+                            };
+                        };
+                        picture: string | null;
+                        pictureFailure: string | null;
+                        pictures: {
+                            bucket: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            mimeType: string | null;
+                            name: string;
+                            objectPath: string;
+                        }[];
+                        /** @enum {string} */
+                        pictureState: "none" | "waiting" | "making" | "made" | "failed";
+                        /** @enum {string} */
+                        pictureWay: "design" | "photo" | "own";
+                        postAt: string | null;
+                        postedAt: string | null;
+                        postedTo: {
+                            at: string;
+                            link: string | null;
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                        }[];
+                        postLink: string | null;
+                        script: {
+                            lines: string[];
+                            shots: string[];
+                        } | null;
+                        slides: {
+                            body: string;
+                            heading: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
+                        stillNeeds: string | null;
+                        title: string;
+                        updatedAt: string;
+                        words: string;
+                    };
+                };
+            };
+        };
+    };
     command_socialcontent_content_save: {
         parameters: {
             query?: never;
@@ -61025,6 +61469,14 @@ export interface operations {
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
+                        doneWell: {
+                            at: string;
+                            /** @enum {string} */
+                            on: "views" | "engagement" | "both";
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                            times: number;
+                        } | null;
                         facebookWhere: ("profile" | "page")[];
                         failure: string | null;
                         /** @enum {string} */
@@ -61038,6 +61490,22 @@ export interface operations {
                         madeBy: "ai" | "person";
                         /** @enum {string} */
                         network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        numbers: {
+                            [key: string]: {
+                                [key: string]: {
+                                    at: string;
+                                    comments: number | null;
+                                    days: number;
+                                    likes: number | null;
+                                    shares: number | null;
+                                    views: number | null;
+                                } | {
+                                    at: string;
+                                    days: number;
+                                    failure: string;
+                                };
+                            };
+                        };
                         picture: string | null;
                         pictureFailure: string | null;
                         pictures: {
@@ -61054,6 +61522,12 @@ export interface operations {
                         pictureWay: "design" | "photo" | "own";
                         postAt: string | null;
                         postedAt: string | null;
+                        postedTo: {
+                            at: string;
+                            link: string | null;
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                        }[];
                         postLink: string | null;
                         script: {
                             lines: string[];
@@ -61104,6 +61578,14 @@ export interface operations {
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
+                        doneWell: {
+                            at: string;
+                            /** @enum {string} */
+                            on: "views" | "engagement" | "both";
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                            times: number;
+                        } | null;
                         facebookWhere: ("profile" | "page")[];
                         failure: string | null;
                         /** @enum {string} */
@@ -61117,6 +61599,22 @@ export interface operations {
                         madeBy: "ai" | "person";
                         /** @enum {string} */
                         network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        numbers: {
+                            [key: string]: {
+                                [key: string]: {
+                                    at: string;
+                                    comments: number | null;
+                                    days: number;
+                                    likes: number | null;
+                                    shares: number | null;
+                                    views: number | null;
+                                } | {
+                                    at: string;
+                                    days: number;
+                                    failure: string;
+                                };
+                            };
+                        };
                         picture: string | null;
                         pictureFailure: string | null;
                         pictures: {
@@ -61133,6 +61631,12 @@ export interface operations {
                         pictureWay: "design" | "photo" | "own";
                         postAt: string | null;
                         postedAt: string | null;
+                        postedTo: {
+                            at: string;
+                            link: string | null;
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                        }[];
                         postLink: string | null;
                         script: {
                             lines: string[];
@@ -61503,6 +62007,341 @@ export interface operations {
                         /** @enum {string} */
                         state: "suggested" | "picked" | "skipped";
                         why: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_own_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    networks: ("instagram" | "facebook" | "linkedin")[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        check: {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            network: "instagram" | "facebook" | "linkedin";
+                            places: {
+                                link: string;
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                            }[];
+                            /** @enum {string} */
+                            read: "d2" | "d7";
+                            text: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_own_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    postId: string;
+                    /** @enum {string} */
+                    read: "d2" | "d7";
+                    reads: {
+                        /** @default null */
+                        comments?: number | null;
+                        /** @default null */
+                        failure?: string | null;
+                        /** @default null */
+                        likes?: number | null;
+                        /** @enum {string} */
+                        place: "profile" | "page" | "feed";
+                        /** @default null */
+                        shares?: number | null;
+                        /** @default null */
+                        views?: number | null;
+                    }[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approvedAt: string | null;
+                        approvedBy: string | null;
+                        createdAt: string;
+                        doneWell: {
+                            at: string;
+                            /** @enum {string} */
+                            on: "views" | "engagement" | "both";
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                            times: number;
+                        } | null;
+                        facebookWhere: ("profile" | "page")[];
+                        failure: string | null;
+                        /** @enum {string} */
+                        format: "photo" | "carousel" | "video" | "text";
+                        hashtags: string[];
+                        hook: string | null;
+                        /** Format: uuid */
+                        id: string;
+                        ideaId: string | null;
+                        /** @enum {string} */
+                        madeBy: "ai" | "person";
+                        /** @enum {string} */
+                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        numbers: {
+                            [key: string]: {
+                                [key: string]: {
+                                    at: string;
+                                    comments: number | null;
+                                    days: number;
+                                    likes: number | null;
+                                    shares: number | null;
+                                    views: number | null;
+                                } | {
+                                    at: string;
+                                    days: number;
+                                    failure: string;
+                                };
+                            };
+                        };
+                        picture: string | null;
+                        pictureFailure: string | null;
+                        pictures: {
+                            bucket: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            mimeType: string | null;
+                            name: string;
+                            objectPath: string;
+                        }[];
+                        /** @enum {string} */
+                        pictureState: "none" | "waiting" | "making" | "made" | "failed";
+                        /** @enum {string} */
+                        pictureWay: "design" | "photo" | "own";
+                        postAt: string | null;
+                        postedAt: string | null;
+                        postedTo: {
+                            at: string;
+                            link: string | null;
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                        }[];
+                        postLink: string | null;
+                        script: {
+                            lines: string[];
+                            shots: string[];
+                        } | null;
+                        slides: {
+                            body: string;
+                            heading: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
+                        stillNeeds: string | null;
+                        title: string;
+                        updatedAt: string;
+                        words: string;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_post_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    networks: ("instagram" | "facebook" | "linkedin")[];
+                    version?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        post: {
+                            facebookPage: string | null;
+                            files: {
+                                bucket: string;
+                                mimeType: string | null;
+                                name: string;
+                                objectPath: string;
+                            }[];
+                            /** @enum {string} */
+                            format: "photo" | "carousel" | "video" | "text";
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            network: "instagram" | "facebook" | "linkedin";
+                            places: ("profile" | "page" | "feed")[];
+                            postAt: string | null;
+                            text: string;
+                            title: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_post_went: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    again?: boolean;
+                    /** @default null */
+                    failure?: string | null;
+                    /** Format: uuid */
+                    postId: string;
+                    went: {
+                        /** @default null */
+                        failure?: string | null;
+                        /** @default null */
+                        link?: string | null;
+                        /** @enum {string} */
+                        place: "profile" | "page" | "feed";
+                        posted: boolean;
+                    }[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approvedAt: string | null;
+                        approvedBy: string | null;
+                        createdAt: string;
+                        doneWell: {
+                            at: string;
+                            /** @enum {string} */
+                            on: "views" | "engagement" | "both";
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                            times: number;
+                        } | null;
+                        facebookWhere: ("profile" | "page")[];
+                        failure: string | null;
+                        /** @enum {string} */
+                        format: "photo" | "carousel" | "video" | "text";
+                        hashtags: string[];
+                        hook: string | null;
+                        /** Format: uuid */
+                        id: string;
+                        ideaId: string | null;
+                        /** @enum {string} */
+                        madeBy: "ai" | "person";
+                        /** @enum {string} */
+                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        numbers: {
+                            [key: string]: {
+                                [key: string]: {
+                                    at: string;
+                                    comments: number | null;
+                                    days: number;
+                                    likes: number | null;
+                                    shares: number | null;
+                                    views: number | null;
+                                } | {
+                                    at: string;
+                                    days: number;
+                                    failure: string;
+                                };
+                            };
+                        };
+                        picture: string | null;
+                        pictureFailure: string | null;
+                        pictures: {
+                            bucket: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            mimeType: string | null;
+                            name: string;
+                            objectPath: string;
+                        }[];
+                        /** @enum {string} */
+                        pictureState: "none" | "waiting" | "making" | "made" | "failed";
+                        /** @enum {string} */
+                        pictureWay: "design" | "photo" | "own";
+                        postAt: string | null;
+                        postedAt: string | null;
+                        postedTo: {
+                            at: string;
+                            link: string | null;
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                        }[];
+                        postLink: string | null;
+                        script: {
+                            lines: string[];
+                            shots: string[];
+                        } | null;
+                        slides: {
+                            body: string;
+                            heading: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
+                        stillNeeds: string | null;
+                        title: string;
+                        updatedAt: string;
+                        words: string;
                     };
                 };
             };
@@ -74164,6 +75003,122 @@ export interface operations {
             };
         };
     };
+    query_email_setup_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        answers: {
+                            /** @default  */
+                            domain: string;
+                            /** @default  */
+                            freeLocal: string;
+                            /** @default hello */
+                            local: string;
+                            /** @default false */
+                            mine: boolean;
+                            /** @default  */
+                            mineLocal: string;
+                            /** @default  */
+                            name: string;
+                            /** @default null */
+                            receive: boolean | null;
+                            /** @default null */
+                            with: ("domain" | "free") | null;
+                        };
+                        state: {
+                            businessName: string;
+                            canManage: boolean;
+                            domains: {
+                                dnsHost: string | null;
+                                domain: string;
+                                /** Format: uuid */
+                                id: string;
+                                lastCheckedAt: string | null;
+                                lastError: string | null;
+                                mailHost: ("none" | "handsfreeos" | "google" | "microsoft" | "godaddy" | "zoho" | "other") | null;
+                                plan: {
+                                    own?: {
+                                        localPart: string;
+                                        /** Format: uuid */
+                                        userId: string;
+                                    };
+                                    receive?: boolean;
+                                    team?: {
+                                        displayName: string;
+                                        localPart: string;
+                                    };
+                                };
+                                /** @enum {string} */
+                                receiving: "off" | "pending" | "on" | "lapsed";
+                                records: {
+                                    found: boolean;
+                                    fullHost: string;
+                                    host: string;
+                                    priority?: number;
+                                    purpose: string;
+                                    /** @enum {string} */
+                                    type: "TXT" | "CNAME" | "MX";
+                                    value: string;
+                                }[];
+                                /** @enum {string} */
+                                status: "pending" | "verified" | "failed";
+                            }[];
+                            free: {
+                                address: string;
+                                displayName: string;
+                                /** Format: uuid */
+                                id: string;
+                                isDefault: boolean;
+                                localPart: string;
+                            } | null;
+                            inboundMxHost: string;
+                            mailboxes: {
+                                accountEmail: string | null;
+                                mine: boolean;
+                                /** @enum {string} */
+                                provider: "microsoft" | "google";
+                                /** @enum {string} */
+                                status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                            }[];
+                            mine: {
+                                address: string;
+                            } | null;
+                            myEmail: string | null;
+                            myFirstName: string | null;
+                            sender: {
+                                address: string;
+                                displayName: string;
+                                domain: string | null;
+                                localPart: string;
+                            } | null;
+                            sharedDomain: string;
+                            slug: string;
+                            websiteDomain: string | null;
+                        };
+                    };
+                };
+            };
+        };
+    };
     query_email_suppression_list: {
         parameters: {
             query?: never;
@@ -80007,6 +80962,36 @@ export interface operations {
                              */
                             customersIn: "sheet" | "ghl" | "crm" | "phone" | "none";
                             /**
+                             * @default {
+                             *       "with": null,
+                             *       "domain": "",
+                             *       "local": "hello",
+                             *       "freeLocal": "",
+                             *       "name": "",
+                             *       "receive": null,
+                             *       "mine": false,
+                             *       "mineLocal": ""
+                             *     }
+                             */
+                            email: {
+                                /** @default  */
+                                domain: string;
+                                /** @default  */
+                                freeLocal: string;
+                                /** @default hello */
+                                local: string;
+                                /** @default false */
+                                mine: boolean;
+                                /** @default  */
+                                mineLocal: string;
+                                /** @default  */
+                                name: string;
+                                /** @default null */
+                                receive: boolean | null;
+                                /** @default null */
+                                with: ("domain" | "free") | null;
+                            };
+                            /**
                              * @default leads
                              * @enum {string}
                              */
@@ -80047,7 +81032,7 @@ export interface operations {
                         } | null;
                         /** @default null */
                         handOverAs: ("owner" | "admin") | null;
-                        reached: ("business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done") | null;
+                        reached: ("business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "email" | "email_records" | "email_own" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done") | null;
                         /** @default null */
                         saveTo: {
                             name: string;
@@ -80299,6 +81284,36 @@ export interface operations {
                              */
                             customersIn: "sheet" | "ghl" | "crm" | "phone" | "none";
                             /**
+                             * @default {
+                             *       "with": null,
+                             *       "domain": "",
+                             *       "local": "hello",
+                             *       "freeLocal": "",
+                             *       "name": "",
+                             *       "receive": null,
+                             *       "mine": false,
+                             *       "mineLocal": ""
+                             *     }
+                             */
+                            email: {
+                                /** @default  */
+                                domain: string;
+                                /** @default  */
+                                freeLocal: string;
+                                /** @default hello */
+                                local: string;
+                                /** @default false */
+                                mine: boolean;
+                                /** @default  */
+                                mineLocal: string;
+                                /** @default  */
+                                name: string;
+                                /** @default null */
+                                receive: boolean | null;
+                                /** @default null */
+                                with: ("domain" | "free") | null;
+                            };
+                            /**
                              * @default leads
                              * @enum {string}
                              */
@@ -80365,6 +81380,76 @@ export interface operations {
                                 count: number;
                                 migrationNeedsYou: boolean;
                                 running: ("import" | "migration") | null;
+                            };
+                            email: {
+                                businessName: string;
+                                canManage: boolean;
+                                domains: {
+                                    dnsHost: string | null;
+                                    domain: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                    lastCheckedAt: string | null;
+                                    lastError: string | null;
+                                    mailHost: ("none" | "handsfreeos" | "google" | "microsoft" | "godaddy" | "zoho" | "other") | null;
+                                    plan: {
+                                        own?: {
+                                            localPart: string;
+                                            /** Format: uuid */
+                                            userId: string;
+                                        };
+                                        receive?: boolean;
+                                        team?: {
+                                            displayName: string;
+                                            localPart: string;
+                                        };
+                                    };
+                                    /** @enum {string} */
+                                    receiving: "off" | "pending" | "on" | "lapsed";
+                                    records: {
+                                        found: boolean;
+                                        fullHost: string;
+                                        host: string;
+                                        priority?: number;
+                                        purpose: string;
+                                        /** @enum {string} */
+                                        type: "TXT" | "CNAME" | "MX";
+                                        value: string;
+                                    }[];
+                                    /** @enum {string} */
+                                    status: "pending" | "verified" | "failed";
+                                }[];
+                                free: {
+                                    address: string;
+                                    displayName: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                    isDefault: boolean;
+                                    localPart: string;
+                                } | null;
+                                inboundMxHost: string;
+                                mailboxes: {
+                                    accountEmail: string | null;
+                                    mine: boolean;
+                                    /** @enum {string} */
+                                    provider: "microsoft" | "google";
+                                    /** @enum {string} */
+                                    status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                                }[];
+                                mine: {
+                                    address: string;
+                                } | null;
+                                myEmail: string | null;
+                                myFirstName: string | null;
+                                sender: {
+                                    address: string;
+                                    displayName: string;
+                                    domain: string | null;
+                                    localPart: string;
+                                } | null;
+                                sharedDomain: string;
+                                slug: string;
+                                websiteDomain: string | null;
                             };
                             emailAddress: {
                                 address: string;
@@ -94578,10 +95663,24 @@ export interface operations {
                                 time: string;
                             };
                         };
+                        poster: {
+                            mine: boolean;
+                            name: string | null;
+                            seenAt: string | null;
+                            version: string | null;
+                        } | null;
                         posts: {
                             approvedAt: string | null;
                             approvedBy: string | null;
                             createdAt: string;
+                            doneWell: {
+                                at: string;
+                                /** @enum {string} */
+                                on: "views" | "engagement" | "both";
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                                times: number;
+                            } | null;
                             facebookWhere: ("profile" | "page")[];
                             failure: string | null;
                             /** @enum {string} */
@@ -94595,6 +95694,22 @@ export interface operations {
                             madeBy: "ai" | "person";
                             /** @enum {string} */
                             network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            numbers: {
+                                [key: string]: {
+                                    [key: string]: {
+                                        at: string;
+                                        comments: number | null;
+                                        days: number;
+                                        likes: number | null;
+                                        shares: number | null;
+                                        views: number | null;
+                                    } | {
+                                        at: string;
+                                        days: number;
+                                        failure: string;
+                                    };
+                                };
+                            };
                             picture: string | null;
                             pictureFailure: string | null;
                             pictures: {
@@ -94611,6 +95726,12 @@ export interface operations {
                             pictureWay: "design" | "photo" | "own";
                             postAt: string | null;
                             postedAt: string | null;
+                            postedTo: {
+                                at: string;
+                                link: string | null;
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                            }[];
                             postLink: string | null;
                             script: {
                                 lines: string[];
@@ -94627,13 +95748,20 @@ export interface operations {
                             updatedAt: string;
                             words: string;
                         }[];
+                        postsOn: ("instagram" | "facebook" | "linkedin")[];
                         ready: number;
-                        timeZone: string;
-                        today: string;
-                        undated: {
+                        recent: {
                             approvedAt: string | null;
                             approvedBy: string | null;
                             createdAt: string;
+                            doneWell: {
+                                at: string;
+                                /** @enum {string} */
+                                on: "views" | "engagement" | "both";
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                                times: number;
+                            } | null;
                             facebookWhere: ("profile" | "page")[];
                             failure: string | null;
                             /** @enum {string} */
@@ -94647,6 +95775,22 @@ export interface operations {
                             madeBy: "ai" | "person";
                             /** @enum {string} */
                             network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            numbers: {
+                                [key: string]: {
+                                    [key: string]: {
+                                        at: string;
+                                        comments: number | null;
+                                        days: number;
+                                        likes: number | null;
+                                        shares: number | null;
+                                        views: number | null;
+                                    } | {
+                                        at: string;
+                                        days: number;
+                                        failure: string;
+                                    };
+                                };
+                            };
                             picture: string | null;
                             pictureFailure: string | null;
                             pictures: {
@@ -94663,6 +95807,93 @@ export interface operations {
                             pictureWay: "design" | "photo" | "own";
                             postAt: string | null;
                             postedAt: string | null;
+                            postedTo: {
+                                at: string;
+                                link: string | null;
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                            }[];
+                            postLink: string | null;
+                            script: {
+                                lines: string[];
+                                shots: string[];
+                            } | null;
+                            slides: {
+                                body: string;
+                                heading: string;
+                            }[];
+                            /** @enum {string} */
+                            state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
+                            stillNeeds: string | null;
+                            title: string;
+                            updatedAt: string;
+                            words: string;
+                        }[];
+                        timeZone: string;
+                        today: string;
+                        undated: {
+                            approvedAt: string | null;
+                            approvedBy: string | null;
+                            createdAt: string;
+                            doneWell: {
+                                at: string;
+                                /** @enum {string} */
+                                on: "views" | "engagement" | "both";
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                                times: number;
+                            } | null;
+                            facebookWhere: ("profile" | "page")[];
+                            failure: string | null;
+                            /** @enum {string} */
+                            format: "photo" | "carousel" | "video" | "text";
+                            hashtags: string[];
+                            hook: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            ideaId: string | null;
+                            /** @enum {string} */
+                            madeBy: "ai" | "person";
+                            /** @enum {string} */
+                            network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            numbers: {
+                                [key: string]: {
+                                    [key: string]: {
+                                        at: string;
+                                        comments: number | null;
+                                        days: number;
+                                        likes: number | null;
+                                        shares: number | null;
+                                        views: number | null;
+                                    } | {
+                                        at: string;
+                                        days: number;
+                                        failure: string;
+                                    };
+                                };
+                            };
+                            picture: string | null;
+                            pictureFailure: string | null;
+                            pictures: {
+                                bucket: string;
+                                /** Format: uuid */
+                                fileId: string;
+                                mimeType: string | null;
+                                name: string;
+                                objectPath: string;
+                            }[];
+                            /** @enum {string} */
+                            pictureState: "none" | "waiting" | "making" | "made" | "failed";
+                            /** @enum {string} */
+                            pictureWay: "design" | "photo" | "own";
+                            postAt: string | null;
+                            postedAt: string | null;
+                            postedTo: {
+                                at: string;
+                                link: string | null;
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                            }[];
                             postLink: string | null;
                             script: {
                                 lines: string[];
@@ -94712,6 +95943,14 @@ export interface operations {
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
+                        doneWell: {
+                            at: string;
+                            /** @enum {string} */
+                            on: "views" | "engagement" | "both";
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                            times: number;
+                        } | null;
                         facebookWhere: ("profile" | "page")[];
                         failure: string | null;
                         /** @enum {string} */
@@ -94725,6 +95964,22 @@ export interface operations {
                         madeBy: "ai" | "person";
                         /** @enum {string} */
                         network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        numbers: {
+                            [key: string]: {
+                                [key: string]: {
+                                    at: string;
+                                    comments: number | null;
+                                    days: number;
+                                    likes: number | null;
+                                    shares: number | null;
+                                    views: number | null;
+                                } | {
+                                    at: string;
+                                    days: number;
+                                    failure: string;
+                                };
+                            };
+                        };
                         picture: string | null;
                         pictureFailure: string | null;
                         pictures: {
@@ -94741,6 +95996,12 @@ export interface operations {
                         pictureWay: "design" | "photo" | "own";
                         postAt: string | null;
                         postedAt: string | null;
+                        postedTo: {
+                            at: string;
+                            link: string | null;
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                        }[];
                         postLink: string | null;
                         script: {
                             lines: string[];
@@ -94794,6 +96055,14 @@ export interface operations {
                             approvedAt: string | null;
                             approvedBy: string | null;
                             createdAt: string;
+                            doneWell: {
+                                at: string;
+                                /** @enum {string} */
+                                on: "views" | "engagement" | "both";
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                                times: number;
+                            } | null;
                             facebookWhere: ("profile" | "page")[];
                             failure: string | null;
                             /** @enum {string} */
@@ -94807,6 +96076,22 @@ export interface operations {
                             madeBy: "ai" | "person";
                             /** @enum {string} */
                             network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            numbers: {
+                                [key: string]: {
+                                    [key: string]: {
+                                        at: string;
+                                        comments: number | null;
+                                        days: number;
+                                        likes: number | null;
+                                        shares: number | null;
+                                        views: number | null;
+                                    } | {
+                                        at: string;
+                                        days: number;
+                                        failure: string;
+                                    };
+                                };
+                            };
                             picture: string | null;
                             pictureFailure: string | null;
                             pictures: {
@@ -94823,6 +96108,12 @@ export interface operations {
                             pictureWay: "design" | "photo" | "own";
                             postAt: string | null;
                             postedAt: string | null;
+                            postedTo: {
+                                at: string;
+                                link: string | null;
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                            }[];
                             postLink: string | null;
                             script: {
                                 lines: string[];

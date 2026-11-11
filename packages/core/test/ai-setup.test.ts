@@ -26,6 +26,7 @@ import {
   aiSetupFoundOf,
   aiSetupNextStep,
   aiSetupOf,
+  aiSetupOpenHoursNote,
   aiSetupPreviousStep,
   aiSetupTemplateAbout,
   aiSetupTemplateOf,
@@ -44,6 +45,7 @@ import {
   aiSetupStepTitle,
   aiSetupSummary,
   aiSetupTestQuestions,
+  aiSetupTouchedAfterSave,
   aiSetupWentToPerson,
   applyTeammatePatch,
   asksAboutWhoSomeoneIs,
@@ -85,6 +87,7 @@ const CALENDAR = uid(20);
 const WIDGET = uid(30);
 
 const WEEKDAYS_8_TO_5 = [1, 2, 3, 4, 5].map((day) => ({ day, start: '08:00', end: '17:00' }));
+const WEEKDAYS_9_TO_5 = [1, 2, 3, 4, 5].map((day) => ({ day, start: '09:00', end: '17:00' }));
 
 /** A business on its first day, of the given industry. */
 function business(patch: Partial<AiSetupState> = {}): AiSetupState {
@@ -807,6 +810,58 @@ describe('where the answers start', () => {
     expect(none.openHours).toEqual(startingAiSetupAnswers(business()).openHours);
   });
 
+  it('start the open hours at weekdays 9 to 5, and say it’s only a guess', () => {
+    const fresh = business();
+    const start = startingAiSetupAnswers(fresh).openHours;
+    expect(start).toEqual(WEEKDAYS_9_TO_5);
+    expect(aiSetupOpenHoursNote(fresh, start, 'Ava')).toBe(
+      'This is only a guess. Set your real hours: Ava tells customers these.',
+    );
+    // In any order, as the database gives them back.
+    expect(
+      aiSetupOpenHoursNote(
+        fresh,
+        [...start].reverse().map(({ day, start: s, end }) => ({ end, start: s, day })),
+        'Max',
+      ),
+    ).toBe('This is only a guess. Set your real hours: Max tells customers these.');
+    // A draft from before still has the old 8 to 5 guess: just as much a guess.
+    expect(aiSetupOpenHoursNote(fresh, WEEKDAYS_8_TO_5, 'Ava')).toBe(
+      'This is only a guess. Set your real hours: Ava tells customers these.',
+    );
+    // Changed on screen: they're the business's own now.
+    const changed = start.map((h) => (h.day === 1 ? { ...h, start: '07:00' } : h));
+    expect(aiSetupOpenHoursNote(fresh, changed, 'Ava')).toBeNull();
+    // Hours the business saved before are never a guess, even 9 to 5.
+    expect(aiSetupOpenHoursNote(business({ openHours: WEEKDAYS_9_TO_5 }), start, 'Ava')).toBeNull();
+  });
+
+  it('keep counting an answer as changed until its own screen is saved', () => {
+    // Hours set, then Back, and Next on "About your business": the hours' screen isn't finished yet.
+    const touched = aiSetupTouchedAfterSave(new Set(['openHours', 'description']), 'about');
+    expect([...touched]).toEqual(['openHours']);
+    const local = answers({ openHours: WEEKDAYS_9_TO_5 });
+    const fresh = answers({ openHours: WEEKDAYS_8_TO_5 });
+    expect(
+      mergeAiSetupAnswers(local, fresh, touched, 'about', AI_SETUP_READ_FIELDS).openHours,
+    ).toEqual(WEEKDAYS_9_TO_5);
+    // Before, everything counted as saved and the server's read undid them.
+    expect(
+      mergeAiSetupAnswers(local, fresh, new Set(), 'about', AI_SETUP_READ_FIELDS).openHours,
+    ).toEqual(WEEKDAYS_8_TO_5);
+    expect([...aiSetupTouchedAfterSave(touched, 'hours')]).toEqual([]);
+  });
+
+  it('say open hours came from the website while they still match it', () => {
+    const site = [...WEEKDAYS_8_TO_5, { day: 6, start: '08:00', end: '14:00' }];
+    const read = business({ website: SITE, found: found({ openHours: site }) });
+    expect(startingAiSetupAnswers(read).openHours).toEqual(site);
+    expect(aiSetupOpenHoursNote(read, site, 'Ava')).toBe('From your website. Check they’re right.');
+    expect(aiSetupOpenHoursNote(read, WEEKDAYS_8_TO_5, 'Ava')).toBeNull();
+    // The website said when it's open, so 9 to 5 there is the person's own pick.
+    expect(aiSetupOpenHoursNote(read, WEEKDAYS_9_TO_5, 'Ava')).toBeNull();
+  });
+
   it('answers the quick facts the website answers, unless the business has its own answer', () => {
     expect(startingAiSetupAnswers(business({ website: SITE, found: found() })).facts).toEqual({
       emergency: 'yes',
@@ -1147,7 +1202,7 @@ describe('the plan Save carries out', () => {
     );
     expect(plan.creates).toBe(true);
     expect(plan.changes[0]).toBe('Sets up Ava, your AI teammate');
-    expect(plan.openHours).toEqual(WEEKDAYS_8_TO_5);
+    expect(plan.openHours).toEqual(WEEKDAYS_9_TO_5);
     expect(plan.profile).toMatchObject({
       description: 'Heating and cooling in Katy.',
       serviceArea: '77494, 77433',

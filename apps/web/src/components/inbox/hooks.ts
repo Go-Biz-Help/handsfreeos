@@ -16,7 +16,7 @@ import { useUnread } from '@/lib/realtime/unread-provider';
 export interface InboxFilters {
   /** Mine, unassigned or everyone's, or the AI teammate's boxes: "Needs a person" and its own. */
   readonly box: InboxBoxKey;
-  /** The team's threads (the default), or the person's own mail (M19). */
+  /** The team's threads with the person's own mail among them (the default), or their own mail alone (M19). */
   readonly mailbox?: InboxMailbox;
   readonly status: ConversationStatus;
   readonly channel?: 'sms' | 'email' | 'chat';

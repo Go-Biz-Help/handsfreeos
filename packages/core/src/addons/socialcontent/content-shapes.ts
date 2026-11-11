@@ -11,8 +11,10 @@ import {
   FACEBOOK_WHERE,
   PICTURE_STATES,
   PICTURE_WAYS,
+  POST_PLACES,
   POSTING_NETWORKS,
 } from './calendar';
+import { OWN_READS } from './own';
 import { POST_LIMITS } from './posts-ai';
 import { Network, PlanShape, uuid } from './shapes';
 
@@ -20,6 +22,7 @@ export const PostingNetwork = z.enum(POSTING_NETWORKS);
 export const ContentFormat = z.enum(CONTENT_FORMATS);
 export const PictureWay = z.enum(PICTURE_WAYS);
 export const FacebookWhere = z.enum(FACEBOOK_WHERE);
+export const PostPlace = z.enum(POST_PLACES);
 
 const LocalDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
@@ -48,6 +51,30 @@ export const ContentPicture = z.object({
 });
 export type ContentPicture = z.infer<typeof ContentPicture>;
 
+/** One place's numbers at one read (part 11): what the network showed, or why they couldn't be read. */
+const Count = z.number().int().min(0).nullable();
+export const OwnNumbersRead = z.union([
+  z.object({
+    at: z.string(),
+    days: z.number().int(),
+    views: Count,
+    likes: Count,
+    comments: Count,
+    shares: Count,
+  }),
+  z.object({ at: z.string(), days: z.number().int(), failure: z.string() }),
+]);
+export const OwnRead = z.enum(OWN_READS);
+/** Its numbers so far, by place: the read at about 2 days (`d2`) and at about 7 (`d7`). */
+export const OwnNumbersShape = z.partialRecord(PostPlace, z.partialRecord(OwnRead, OwnNumbersRead));
+/** Whether it did well against the business's own other posts in that place, at its 7-day read. */
+export const DoneWellShape = z.object({
+  place: PostPlace,
+  on: z.enum(['views', 'engagement', 'both']),
+  times: z.number(),
+  at: z.string(),
+});
+
 /** One of the business's own posts: a Social post record, with what the add-on keeps about it. */
 export const Content = z.object({
   id: uuid,
@@ -72,6 +99,11 @@ export const Content = z.object({
   approvedAt: z.string().nullable(),
   postedAt: z.string().nullable(),
   postLink: z.string().nullable(),
+  /** Each place it went up so far (part 9): its link when the network showed one, and when. */
+  postedTo: z.array(z.object({ place: PostPlace, link: z.string().nullable(), at: z.string() })),
+  /** Its numbers 2 and 7 days after it went up, in each place (part 11), and whether it did well. */
+  numbers: OwnNumbersShape,
+  doneWell: DoneWellShape.nullable(),
   failure: z.string().nullable(),
   madeBy: z.enum(['ai', 'person']),
   ideaId: uuid.nullable(),
@@ -109,13 +141,29 @@ export const CalendarGetOutput = z.object({
   /** Posts going in these days, soonest first, and drafts with no day yet. */
   posts: z.array(Content),
   undated: z.array(Content),
+  /** What went up in the 30 days before these days, newest first, with how each did (part 11). */
+  recent: z.array(Content),
   /** When it last filled the calendar, and when it fills again on its own (null until it first fills). */
   filledAt: z.string().nullable(),
   nextFillAt: z.string().nullable(),
   /** Ideas saved to make, which a fill uses first. */
   ideasSaved: z.number().int(),
-  /** Posts OK'd and waiting to go: posting itself comes with the next updates. */
+  /** Posts OK'd and waiting to go up at their times. */
   ready: z.number().int(),
+  /**
+   * The computer that puts them up (the reading computer, in Chrome with the extension, part 9): whose it is, whether
+   * it's the person's own, when it last checked in and its extension's version. Null when none is picked.
+   */
+  poster: z
+    .object({
+      name: z.string().nullable(),
+      mine: z.boolean(),
+      seenAt: z.string().nullable(),
+      version: z.string().nullable(),
+    })
+    .nullable(),
+  /** The networks the extension puts posts up on; the rest wait for a later update. */
+  postsOn: z.array(PostingNetwork),
   facebookPage: z.string().nullable(),
   mayManage: z.boolean(),
 });
@@ -172,6 +220,102 @@ export const ContentSkipInput = z.object({
   postId: uuid,
   /** false brings a skipped post back as a draft. */
   skip: z.boolean().default(true),
+});
+
+export const ContentPostNowInput = z.object({ workspaceId: uuid, postId: uuid });
+
+// ------------------------------------------------------------------------------------------------ the extension
+
+/** One of a post's files as the extension fetches it to put up: a picture, or the person's video. */
+export const PostFile = z.object({
+  bucket: z.string(),
+  objectPath: z.string(),
+  name: z.string(),
+  mimeType: z.string().nullable(),
+});
+
+export const PostNextInput = z.object({
+  workspaceId: uuid,
+  /** The networks this build of the extension posts on, with no warning today. */
+  networks: z.array(PostingNetwork).max(POSTING_NETWORKS.length),
+  version: z.string().max(20).optional(),
+});
+export const DuePost = z.object({
+  id: uuid,
+  title: z.string(),
+  network: PostingNetwork,
+  format: ContentFormat,
+  /** The words as they go up, hashtags at the end. */
+  text: z.string(),
+  files: z.array(PostFile),
+  /** Where it still goes up, in order: places it went up already are left out. */
+  places: z.array(PostPlace),
+  /** The business's Facebook Page's link, for a post to the Page. */
+  facebookPage: z.string().nullable(),
+  postAt: z.string().nullable(),
+});
+export type DuePost = z.infer<typeof DuePost>;
+export const PostNextOutput = z.object({ post: DuePost.nullable() });
+
+export const PostWentInput = z.object({
+  workspaceId: uuid,
+  postId: uuid,
+  /** How each place it tried went. */
+  went: z
+    .array(
+      z.object({
+        place: PostPlace,
+        posted: z.boolean(),
+        link: z.url().max(500).nullable().default(null),
+        failure: z.string().max(300).nullable().default(null),
+      }),
+    )
+    .max(POST_PLACES.length),
+  /**
+   * Nothing was pressed (a warning on the network, signed out, Chrome closing): it goes back to waiting and goes up
+   * on a later turn, while its time is still recent.
+   */
+  again: z.boolean().default(false),
+  /** Why, when nothing was tried or it stopped before a place. */
+  failure: z.string().max(300).nullable().default(null),
+});
+
+export const OwnNextInput = z.object({
+  workspaceId: uuid,
+  /** The networks the extension reads its own posts' numbers on, with no warning today. */
+  networks: z.array(PostingNetwork).max(POSTING_NETWORKS.length),
+});
+export const OwnCheck = z.object({
+  id: uuid,
+  network: PostingNetwork,
+  /** The read: at about 2 days, or at about 7. */
+  read: OwnRead,
+  /** The places to read, each by its link. */
+  places: z.array(z.object({ place: PostPlace, link: z.string() })),
+  /** Its words as they went up, to know it among the person's own posts. */
+  text: z.string(),
+});
+export type OwnCheck = z.infer<typeof OwnCheck>;
+export const OwnNextOutput = z.object({ check: OwnCheck.nullable() });
+
+const CountIn = z.number().int().min(0).max(2_000_000_000).nullable().default(null);
+export const OwnReadInput = z.object({
+  workspaceId: uuid,
+  postId: uuid,
+  read: OwnRead,
+  /** What each place showed; a failure when it couldn't be read. */
+  reads: z
+    .array(
+      z.object({
+        place: PostPlace,
+        views: CountIn,
+        likes: CountIn,
+        comments: CountIn,
+        shares: CountIn,
+        failure: z.string().max(300).nullable().default(null),
+      }),
+    )
+    .max(POST_PLACES.length),
 });
 
 // ------------------------------------------------------------------------------------------------ the worker

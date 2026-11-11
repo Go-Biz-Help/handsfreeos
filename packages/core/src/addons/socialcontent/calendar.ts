@@ -42,6 +42,87 @@ export type ContentState = (typeof CONTENT_STATES)[number];
 export const FACEBOOK_WHERE = ['profile', 'page'] as const;
 export type FacebookWhere = (typeof FACEBOOK_WHERE)[number];
 
+/**
+ * Where one post goes up on its network (part 9): Facebook's on the person's profile, the business's Page, or both
+ * (decision 17); LinkedIn's and Instagram's (part 10) on the person's own feed.
+ */
+export const POST_PLACES = ['profile', 'page', 'feed'] as const;
+export type PostPlace = (typeof POST_PLACES)[number];
+
+/** Each place a post went up so far: its link when the network showed one, and when. */
+export interface PostedTo {
+  readonly place: PostPlace;
+  readonly link: string | null;
+  readonly at: string;
+}
+
+/** The places one post goes up, in the order the extension puts it up. */
+export function placesFor(
+  network: ContentNetwork,
+  facebookWhere: readonly FacebookWhere[],
+): PostPlace[] {
+  if (network !== 'facebook') return ['feed'];
+  const where = FACEBOOK_WHERE.filter((w) => facebookWhere.includes(w));
+  return where.length ? where : ['profile'];
+}
+
+/** The places still to go: those it went up in already are never put up again. */
+export function placesLeft(
+  network: ContentNetwork,
+  facebookWhere: readonly FacebookWhere[],
+  postedTo: readonly Pick<PostedTo, 'place'>[],
+): PostPlace[] {
+  const done = new Set(postedTo.map((p) => p.place));
+  return placesFor(network, facebookWhere).filter((p) => !done.has(p));
+}
+
+/**
+ * Posting through the extension (parts 9 and 10). The extension posts on the networks its build can; HandsFreeOS hands
+ * an OK'd post to the business's reading computer once its time comes.
+ */
+export const POSTING = {
+  /** The networks the extension posts on: Facebook and LinkedIn (part 9), and Instagram (part 10). */
+  networks: ['facebook', 'linkedin', 'instagram'] as readonly PostingNetwork[],
+  /**
+   * A post the computer took to put up that hasn't said how it went after this is marked as didn't post, and never
+   * tried again on its own: it may have gone up.
+   */
+  postingForMs: 20 * 60_000,
+  /** An OK'd post still waiting this long after its time is marked as didn't post: the posting computer wasn't on. */
+  lateMs: 24 * 3_600_000,
+  /** The most characters each network takes in a post, hashtags and all. */
+  textMost: { instagram: 2_200, facebook: 60_000, linkedin: 3_000 } as Readonly<
+    Record<PostingNetwork, number>
+  >,
+} as const;
+
+/**
+ * The words as they go up: the post's words, then a blank line and its hashtags, each with its #. Kept within what
+ * the network takes, cutting the words (never a hashtag in half) when they'd run over.
+ */
+export function postText(
+  network: PostingNetwork,
+  words: string,
+  hashtags: readonly string[],
+): string {
+  const tags = hashtags
+    .map((t) => t.replace(/^#+/, '').trim())
+    .filter(Boolean)
+    .map((t) => `#${t}`)
+    .join(' ');
+  const most = POSTING.textMost[network];
+  const tail = tags ? `\n\n${tags}` : '';
+  const room = Math.max(0, most - tail.length);
+  const body =
+    words.trim().length > room
+      ? `${words
+          .trim()
+          .slice(0, Math.max(0, room - 1))
+          .trimEnd()}…`
+      : words.trim();
+  return body ? `${body}${tail}`.slice(0, most) : tags.slice(0, most);
+}
+
 export const CALENDAR = {
   /** How far ahead it fills (decision 18). */
   days: 14,
@@ -167,6 +248,8 @@ export interface ReadyCheck {
   readonly words: string;
   readonly slides: readonly unknown[];
   readonly fileIds: readonly string[];
+  /** How many of its files are videos: a video post goes up with the person's own video (part 10). */
+  readonly videos: number;
   readonly postAt: string | Date | number | null;
   readonly facebookWhere: readonly FacebookWhere[];
   /** The business's Facebook Page's link, when it has one (Settings → Posting). */
@@ -174,8 +257,8 @@ export interface ReadyCheck {
 }
 
 /**
- * What's still missing before a post can be OK'd, in words to show; null when nothing is. A video needs no file yet:
- * the person records it from the script, and adding it comes with posting it (part 10).
+ * What's still missing before a post can be OK'd, in words to show; null when nothing is. A video needs the person's
+ * own video, recorded from the script and added to the post (part 10).
  */
 export function stillNeeds(c: ReadyCheck): string | null {
   if (!c.words.trim() && c.format === 'text') return 'It has no words yet. Write them first.';
@@ -183,6 +266,8 @@ export function stillNeeds(c: ReadyCheck): string | null {
     return 'A carousel needs at least 2 slides. Add slides or pictures first.';
   if (hasPictures(c.format) && c.fileIds.length === 0)
     return 'It has no picture yet. Make one, or add your own photo.';
+  if (c.format === 'video' && c.videos === 0)
+    return 'It has no video yet. Record it from the script, then add it with Add your video.';
   if (c.postAt === null) return 'It has no day to go yet. Pick when it goes first.';
   if (c.network === 'facebook' && c.facebookWhere.length === 0)
     return 'Pick where on Facebook it goes: your profile, your Page, or both.';

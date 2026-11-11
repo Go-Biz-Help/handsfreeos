@@ -21,6 +21,7 @@ import {
   type AiSetupStep,
 } from '../ai-setup/answers';
 import { SETUP_KINDS, type SetupKind } from '../ai-setup/kinds';
+import { EmailSetupAnswers } from '../messaging/email-setup';
 import { CUSTOMER_SOURCES, ONBOARDING_GOALS, TEAM_SIZES } from '../onboarding/steps';
 import { canActOnRole, type WorkspaceRole } from '../permissions';
 
@@ -37,6 +38,9 @@ export const ONBOARDING_SETUP_SCREENS = [
   'customers',
   'booking',
   'number',
+  'email',
+  'email_records',
+  'email_own',
   'paid',
   'jobs',
   'facts',
@@ -63,6 +67,7 @@ export const ONBOARDING_SETUP_STOPS = [
   { key: 'customers', screens: ['customers'] },
   { key: 'booking', screens: ['booking'] },
   { key: 'number', screens: ['number'] },
+  { key: 'email', screens: ['email', 'email_records', 'email_own'] },
   { key: 'paid', screens: ['paid'] },
   { key: 'ai', screens: ['jobs', 'facts', 'meet', 'voice', 'learned', 'qualify', 'chat'] },
   { key: 'loop', screens: ['loop'] },
@@ -116,6 +121,12 @@ export const OnboardingSetupAnswers = z.object({
     .trim()
     .max(ONBOARDING_SETUP_MAX.reviewLink, 'Keep it under 500 characters.')
     .default(''),
+  /**
+   * "Your business email": the address booking emails go out from, the domain's records, and an address just for
+   * the person (messaging/email-setup.ts). `with` stays null until it was picked, so a draft from before the step
+   * existed starts from the business's own picks.
+   */
+  email: EmailSetupAnswers.default(() => EmailSetupAnswers.parse({})),
   /** The AI quick setup's answers: what "About your business" and "When are you open?" ask too. */
   ai: AiSetupAnswers.default(() => AiSetupAnswers.parse({})),
 });
@@ -142,6 +153,10 @@ export const ONBOARDING_SETUP_SCREEN_FIELDS: Readonly<
   customers: { own: ['customersIn'], ai: [] },
   booking: { own: [], ai: [] },
   number: { own: ['hasEin'], ai: [] },
+  // The step's answers are one document, picked on its first screen; the next two change parts of it.
+  email: { own: ['email'], ai: [] },
+  email_records: { own: [], ai: [] },
+  email_own: { own: [], ai: [] },
   paid: { own: ['payWith', 'reviewLink'], ai: [] },
   jobs: { own: [], ai: ['jobs'] },
   facts: { own: [], ai: ['facts'] },
@@ -160,22 +175,27 @@ export const ONBOARDING_SETUP_KIND_FIELDS: readonly OwnField[] = ['booksTime'];
 
 /**
  * Whether a screen shows: the simple page only for a business with no website; booking only when customers book a
- * time; the AI part's qualifying questions only when Ava asks them, and its chat only for a website (or the page)
- * without one.
+ * time; the domain's records only for an address on the business's own domain; the AI part's qualifying questions
+ * only when Ava asks them, and its chat only for a website (or the page) without one.
  */
 export function onboardingSetupScreenApplies(
   screen: OnboardingSetupScreen,
-  answers: Pick<OnboardingSetupAnswers, 'booksTime' | 'ai'>,
+  answers: Pick<OnboardingSetupAnswers, 'booksTime' | 'ai'> & {
+    readonly email?: Pick<EmailSetupAnswers, 'with'>;
+  },
   facts: AiSetupFlowFacts,
 ): boolean {
   if (screen === 'page') return !facts.website;
   if (screen === 'booking') return answers.booksTime;
+  if (screen === 'email_records') return answers.email?.with === 'domain';
   if (screen === 'qualify' || screen === 'chat')
     return aiSetupStepApplies(screen, answers.ai, facts);
   return true;
 }
 
-type Applies = Pick<OnboardingSetupAnswers, 'booksTime' | 'ai'>;
+type Applies = Pick<OnboardingSetupAnswers, 'booksTime' | 'ai'> & {
+  readonly email?: Pick<EmailSetupAnswers, 'with'>;
+};
 
 /** The screens this business goes through, in order. */
 export function onboardingSetupScreens(
@@ -258,9 +278,12 @@ export function resumeOwnAnswers(
   if (!draft || !reached) return starting;
   const out: Record<string, unknown> = { ...starting };
   for (const screen of onboardingSetupScreensTo(reached))
-    for (const field of ONBOARDING_SETUP_SCREEN_FIELDS[screen].own)
+    for (const field of ONBOARDING_SETUP_SCREEN_FIELDS[screen].own) {
+      // Never picked (a draft from before the step, or past it unanswered): the business's own picks stay.
+      if (field === 'email' && !draft.email.with) continue;
       if (record.kind === kind || !ONBOARDING_SETUP_KIND_FIELDS.includes(field))
         out[field] = draft[field];
+    }
   return out as OnboardingSetupAnswers;
 }
 

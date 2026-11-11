@@ -42,7 +42,9 @@ export const inboxCrmTools: readonly AssistantTool[] = [
       mailbox: z
         .enum(['team', 'mine'])
         .default('team')
-        .describe('mine: the person’s own mail (My mail), which only they see until they share it'),
+        .describe(
+          'team: the inbox as it shows, the person’s own mail among the team’s (each marked private); mine: only their own mail (My mail), which only they see until they share it',
+        ),
       unread: z.boolean().optional().describe('Only ones with something unread'),
       cursor: z.string().max(400).optional().describe('The next page: the cursor an answer gave'),
       status: z

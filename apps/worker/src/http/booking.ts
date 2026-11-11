@@ -68,6 +68,7 @@ import {
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { passThroughBotCheck, type BotCheck } from '../booking/bot-check';
+import { refuseUndeliverableEmail } from '../booking/email-check';
 import {
   cannotTakePayment,
   confirmAndCapture,
@@ -84,6 +85,7 @@ import { icsCalendar, icsSequence } from '../booking/ics';
 import { manageToken, resolveManageToken, resolveWaitlistToken } from '../booking/links';
 import { businessPageOf } from '../booking/page';
 import { oneOnOne } from '../booking/visit';
+import type { MailDnsLookup } from '../email/dns';
 import { publicOrigin } from '../hosting/origin';
 import { accountFor } from '../payments/index';
 import { declineWording, type PaymentMethodKind, type PaymentResult } from '../payments/provider';
@@ -130,6 +132,11 @@ export const BOOKING_LIMITS: BookingLimits = {
 export interface BookingHttpOptions {
   /** Default: none (every booking passes). */
   readonly botCheck?: BotCheck;
+  /**
+   * Checks that a typed email's domain can take mail, and refuses a typo's (`email_domain_not_found`). Default:
+   * none. Production uses real DNS (`mailDns`); elsewhere the made-up example.com addresses would all fail it.
+   */
+  readonly mailDns?: MailDnsLookup;
   /** Multiplies every limit; 10 outside production, where Playwright books from one address. */
   readonly limitFactor?: number;
   /** Replaces limits outright (tests). */
@@ -1271,6 +1278,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
         refuseHoneypot(req.body);
         const body = parseBody(BookingBody, req.body);
         const phone = usPhone(body.phone);
+        await refuseUndeliverableEmail(opts.mailDns, body.email);
         const verdict = await botCheck.verify(body.turnstileToken, req.ip);
         if (verdict === 'unavailable')
           throw HfosError.rule(
@@ -1361,6 +1369,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
         refuseHoneypot(req.body);
         const body = parseBody(WaitlistBody, req.body);
         const phone = usPhone(body.phone);
+        await refuseUndeliverableEmail(opts.mailDns, body.email);
         const verdict = await botCheck.verify(body.turnstileToken, req.ip);
         if (verdict === 'unavailable')
           throw HfosError.rule(

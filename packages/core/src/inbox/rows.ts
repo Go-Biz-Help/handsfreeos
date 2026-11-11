@@ -266,9 +266,15 @@ export function conversationOf(r: ConversationListRow): ConversationShape {
  * Which customer a thread belongs to, as `inbox.list` and `inbox.summary` group them (0089): their id when the
  * thread is linked to someone, so their texts and email are one row; otherwise the address itself, so an unknown
  * number and an unknown mail address stay apart, since nothing knows they are the same person.
+ *
+ * Someone's own mail (M19) is apart from the team's: it shows in the same list, but a sender who wrote to both the
+ * person's own address and a team one is two rows, one marked as theirs.
  */
-export const customerKeyOf = (c: Pick<ConversationShape, 'person' | 'channel' | 'counterpart'>) =>
-  c.person?.id ?? `${c.channel}:${c.counterpart}`;
+export const customerKeyOf = (
+  c: Pick<ConversationShape, 'person' | 'channel' | 'counterpart'> & {
+    readonly privateTo?: string | null;
+  },
+) => (c.person?.id ?? `${c.channel}:${c.counterpart}`) + (c.privateTo ? `:own:${c.privateTo}` : '');
 
 /** A lane, as a row's switcher lists it. */
 const laneOf = (c: ConversationShape): InboxLane => ({
@@ -344,7 +350,10 @@ export function groupByCustomer<T extends { readonly conversation: ConversationS
 export interface InboxFilter {
   readonly box: InboxBoxKey;
   readonly status: ConversationStatus;
-  /** The team's threads (the default), or the viewer's own mail (M19): the same boxes over either. */
+  /**
+   * The team's threads with the viewer's own mail among them (the default), or the viewer's own mail alone (M19's
+   * "My mail"): the same boxes over either.
+   */
   readonly mailbox?: InboxMailbox;
   readonly channel?: 'sms' | 'email' | 'chat';
   /** Search: a name, the number or address, words from the latest message. */
@@ -355,7 +364,8 @@ export interface InboxFilter {
 
 /**
  * Whether a conversation is in the list, as `inbox.list` decides: its box and status, its folder (Other mail and Spam
- * are boxes of their own, and every other box is the Inbox's) and whose mail it is (M19), one that has had a message,
+ * are boxes of their own, and every other box is the Inbox's) and whose mail it is (M19: the viewer's own mail is in
+ * the team's list too, in Mine and never in Unassigned or the AI teammate's boxes), one that has had a message,
  * whether it has anything unread when only those are asked for, and the search (a name, the number or address, the
  * latest message; three digits or more match inside the number).
  */
@@ -366,21 +376,23 @@ export function inInbox(c: ConversationShape, filter: InboxFilter, myUserId: str
   if (filter.box === 'other' || filter.box === 'spam') {
     if (c.folder !== filter.box) return false;
   } else if (filter.box !== 'archived' && c.folder !== 'inbox') return false;
-  // The team's threads, or the viewer's own: never someone else's, which a phone shouldn't hold in any case.
-  if ((filter.mailbox ?? 'team') === 'mine' ? c.privateTo !== myUserId : c.privateTo !== null)
-    return false;
+  // The team's threads with the viewer's own among them, or the viewer's own alone: never someone else's, which a
+  // phone shouldn't hold in any case.
+  const own = c.privateTo !== null && c.privateTo === myUserId;
+  if (c.privateTo !== null && !own) return false;
+  if ((filter.mailbox ?? 'team') === 'mine' && !own) return false;
   switch (filter.box) {
     case 'mine':
-      if (c.assignee?.id !== myUserId) return false;
+      if (c.assignee?.id !== myUserId && !own) return false;
       break;
     case 'unassigned':
-      if (c.assignee) return false;
+      if (c.assignee || own) return false;
       break;
     case 'needs_person':
-      if (!c.needsPersonSince) return false;
+      if (!c.needsPersonSince || own) return false;
       break;
     case 'ai':
-      if (c.handledBy !== 'ai') return false;
+      if (c.handledBy !== 'ai' || own) return false;
       break;
     default:
       break;
@@ -415,9 +427,10 @@ export function inboxOrder(box: InboxBoxKey) {
 }
 
 /**
- * The badges' counts, as `inbox.summary` counts them: open conversations in the team's Inbox that have had a message,
- * each customer once (0089). The list beside the badges shows a customer's texts and email as one row, and a badge
- * that counted their lanes would say "3" over a list with one row in it.
+ * The badges' counts, as `inbox.summary` counts them: open conversations in the Inbox that have had a message, each
+ * customer once (0089). The list beside the badges shows a customer's texts and email as one row, and a badge
+ * that counted their lanes would say "3" over a list with one row in it. The viewer's own mail is in that list
+ * (M19), so it counts in Mine and All, never in Unassigned, waiting or the AI teammate's boxes.
  */
 export interface InboxCounts {
   readonly open: { readonly mine: number; readonly unassigned: number; readonly all: number };
@@ -428,9 +441,10 @@ export interface InboxCounts {
   readonly needsPerson: number;
   readonly ai: number;
   /**
-   * Beside the team's Inbox (M19), counted in threads as `inbox.summary` counts them: unread in the viewer's own
-   * Inbox, unread in the team's Other mail, open threads in the team's Spam; and whether the viewer has mail of their
-   * own at all (an address that is theirs, or a thread of their own), so My mail shows only for them.
+   * Beside the Inbox (M19), counted in threads as `inbox.summary` counts them: unread in the viewer's own Inbox (the
+   * My mail filter), unread in Other mail, open threads in Spam (both with the viewer's own beside the team's); and
+   * whether the viewer has mail of their own at all (an address that is theirs, or a thread of their own), so My
+   * mail shows only for them.
    */
   readonly mail: {
     readonly mine: number;
@@ -459,22 +473,23 @@ export function inboxCounts(
   const mail = { mine: 0, other: 0, spam: 0, own: ownAddress };
   const threshold = waitingThresholdMinutes || 10;
   for (const c of conversations) {
-    if (c.privateTo === myUserId) mail.own = true;
+    const own = c.privateTo !== null && c.privateTo === myUserId;
+    if (own) mail.own = true;
     if (c.status !== 'open' || !c.lastMessageAt) continue;
-    // Other mail, Spam and anyone's own mail are counted apart, thread by thread, and never in the team's badges.
-    if (c.folder !== 'inbox' || c.privateTo !== null) {
+    // Someone else's own mail is never counted, and a phone shouldn't hold it in any case.
+    if (c.privateTo !== null && !own) continue;
+    // The viewer's own Inbox mail, for the My mail filter; it counts in the badges below too.
+    if (own && c.channel === 'email' && c.folder === 'inbox' && c.unreadCount > 0) mail.mine += 1;
+    // Other mail and Spam are counted apart, thread by thread, the viewer's own beside the team's.
+    if (c.folder !== 'inbox') {
       if (c.channel !== 'email') continue;
-      if (c.privateTo === myUserId) {
-        if (c.folder === 'inbox' && c.unreadCount > 0) mail.mine += 1;
-      } else if (c.privateTo === null) {
-        if (c.folder === 'other' && c.unreadCount > 0) mail.other += 1;
-        if (c.folder === 'spam') mail.spam += 1;
-      }
+      if (c.folder === 'other' && c.unreadCount > 0) mail.other += 1;
+      if (c.folder === 'spam') mail.spam += 1;
       continue;
     }
     const who = customerKeyOf(c);
-    const mine = c.assignee?.id === myUserId;
-    const unassigned = !c.assignee;
+    const mine = c.assignee?.id === myUserId || own;
+    const unassigned = !c.assignee && !own;
     open.all.add(who);
     if (mine) open.mine.add(who);
     if (unassigned) open.unassigned.add(who);
@@ -483,6 +498,8 @@ export function inboxCounts(
       if (mine) unread.mine.add(who);
       if (unassigned) unread.unassigned.add(who);
     }
+    // Who is waiting too long, and the AI teammate's boxes, are the team's customers only.
+    if (own) continue;
     if (c.awaitingReplySince && Date.parse(c.awaitingReplySince) <= now - threshold * 60_000)
       waiting.add(who);
     if (c.needsPersonSince) needsPerson.add(who);

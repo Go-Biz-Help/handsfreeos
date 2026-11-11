@@ -8,41 +8,50 @@ below (decision 1, and so on) are its decisions. Built: the add-on, its tables, 
 the web pages (part 1); the extension reading Instagram, with the AI helper and problem reports when a read goes wrong
 (part 2); the AI's notes, the Playbook and ideas (part 3); watching Instagram videos, opt-in (part 4); the phone's
 pages (part 5); reading Facebook and LinkedIn (part 6); and writing the business's own posts on a Calendar, with
-designed, photo-style and its own pictures (part 8, below under "Making posts"). The add-on is in `development`,
+designed, photo-style and its own pictures (part 8, below under "Making posts"); and putting OK'd posts up on
+Facebook and LinkedIn through the extension (part 9, "Posting"), and on Instagram with the person's videos (part 10);
+and reading how its own posts did, with the ones that did well in the Playbook (part 11, "Its own posts' numbers");
+and the Calendar and its posts on the phone (part 12, under "On the phone").
+The add-on is in `development`,
 offered to nobody; staff give it to a business from Admin → Businesses.
 
 ## Where things are
 
-| What                                                     | Where                                                                       |
-| -------------------------------------------------------- | --------------------------------------------------------------------------- |
-| The manifest, its permissions, events and pages          | `packages/core/src/addons/socialcontent/manifest.ts`                        |
-| The tables (and their Drizzle mirror)                    | `supabase/migrations/20261027023800_addon_socialcontent.sql`, `tables.ts`   |
-| What the reading computer is doing (`work.progress`)     | `supabase/migrations/20261027023900_socialcontent_progress.sql`             |
-| Which posts stand out, and who has done well             | `standouts.ts` (pure; web, phone and server all use it)                     |
-| Reading a link to someone's page, and each network       | `networks.ts`                                                               |
-| The pages' words                                         | `words.ts`                                                                  |
-| What the AI is asked about niches, and how it's checked  | `niches-ai.ts`                                                              |
-| People's operations: settings, niches, creators, posts   | `ops/research.ts`                                                           |
-| The extension's operations: take work, save what it read | `ops/reading.ts`                                                            |
-| The worker's operations: niches, searches, the schedule  | `ops/worker.ts`, and `apps/worker/src/addons/socialcontent/`                |
-| What the AI helper is asked about a read, and its check  | `helper.ts`, and the worker's `apps/worker/src/addons/socialcontent/`       |
-| What the AI is asked about standouts, and its checks     | `notes-ai.ts`; the asks run in the worker's `socialcontent/notes.ts`        |
-| The Playbook, ideas and Try watching                     | `ops/notes.ts`                                                              |
-| The extension's reading                                  | `apps/extension/src/research/` (its README's 0.127.0 section)               |
-| Instagram's reads, and Facebook's and LinkedIn's         | `instagram-read.ts`; `page-read.ts`                                         |
-| Watching a video in the reading tab                      | `apps/extension/src/research/watch.ts`                                      |
-| The web pages                                            | `apps/web/src/addons/socialcontent/`, routes under `a/socialcontent/`       |
-| What it's doing, on the Creators page                    | `activity-card.tsx` there; the extension's `Progress` in `research/read.ts` |
-| The phone's pages                                        | `apps/mobile/src/addons/socialcontent/`, routes under `a/socialcontent/`    |
-| The Assistant's checklist for its screens                | `packages/core/src/assistant/ledger/socialcontent.json`                     |
-| The business's own posts: the table, plan and post kind  | `supabase/migrations/20261027025000_socialcontent_calendar.sql`             |
-| The plan, its open days, and what a post still needs     | `calendar.ts` (pure)                                                        |
-| What the AI is asked to write and design, and its checks | `posts-ai.ts`; the shapes on the wire in `content-shapes.ts`                |
-| People's operations on posts: calendar, save, OK, skip   | `ops/content.ts`; the worker's keep in `ops/worker.ts`                      |
-| Writing, filling the calendar, and making pictures       | the worker's `socialcontent/content.ts`                                     |
-| Drawing a designed picture                               | the worker's `socialcontent/draw.ts` (Inter from `@fontsource/inter`)       |
-| OpenAI's photo-style pictures                            | `apps/worker/src/pictures.ts`                                               |
-| The Calendar page and a post's sheet                     | `calendar-page.tsx` and `post-sheet.tsx` in the web's folder                |
+| What                                                     | Where                                                                            |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| The manifest, its permissions, events and pages          | `packages/core/src/addons/socialcontent/manifest.ts`                             |
+| The tables (and their Drizzle mirror)                    | `supabase/migrations/20261027023800_addon_socialcontent.sql`, `tables.ts`        |
+| What the reading computer is doing (`work.progress`)     | `supabase/migrations/20261027023900_socialcontent_progress.sql`                  |
+| Which posts stand out, and who has done well             | `standouts.ts` (pure; web, phone and server all use it)                          |
+| Reading a link to someone's page, and each network       | `networks.ts`                                                                    |
+| The pages' words                                         | `words.ts`                                                                       |
+| What the AI is asked about niches, and how it's checked  | `niches-ai.ts`                                                                   |
+| People's operations: settings, niches, creators, posts   | `ops/research.ts`                                                                |
+| The extension's operations: take work, save what it read | `ops/reading.ts`                                                                 |
+| The worker's operations: niches, searches, the schedule  | `ops/worker.ts`, and `apps/worker/src/addons/socialcontent/`                     |
+| What the AI helper is asked about a read, and its check  | `helper.ts`, and the worker's `apps/worker/src/addons/socialcontent/`            |
+| What the AI is asked about standouts, and its checks     | `notes-ai.ts`; the asks run in the worker's `socialcontent/notes.ts`             |
+| The Playbook, ideas and Try watching                     | `ops/notes.ts`                                                                   |
+| The extension's reading                                  | `apps/extension/src/research/` (its README's 0.127.0 section)                    |
+| Instagram's reads, and Facebook's and LinkedIn's         | `instagram-read.ts`; `page-read.ts`                                              |
+| Watching a video in the reading tab                      | `apps/extension/src/research/watch.ts`                                           |
+| The web pages                                            | `apps/web/src/addons/socialcontent/`, routes under `a/socialcontent/`            |
+| What it's doing, on the Creators page                    | `activity-card.tsx` there; the extension's `Progress` in `research/read.ts`      |
+| The phone's pages                                        | `apps/mobile/src/addons/socialcontent/`, routes under `a/socialcontent/`         |
+| The Assistant's checklist for its screens                | `packages/core/src/assistant/ledger/socialcontent.json`                          |
+| The business's own posts: the table, plan and post kind  | `supabase/migrations/20261027025000_socialcontent_calendar.sql`                  |
+| The plan, its open days, and what a post still needs     | `calendar.ts` (pure)                                                             |
+| What the AI is asked to write and design, and its checks | `posts-ai.ts`; the shapes on the wire in `content-shapes.ts`                     |
+| People's operations on posts: calendar, save, OK, skip   | `ops/content.ts`; the worker's keep in `ops/worker.ts`                           |
+| Writing, filling the calendar, and making pictures       | the worker's `socialcontent/content.ts`                                          |
+| Drawing a designed picture                               | the worker's `socialcontent/draw.ts` (Inter from `@fontsource/inter`)            |
+| OpenAI's photo-style pictures                            | `apps/worker/src/pictures.ts`                                                    |
+| The Calendar page and a post's sheet                     | `calendar-page.tsx` and `post-sheet.tsx` in the web's folder                     |
+| Posting: where a post goes, its words as they go up      | `calendar.ts` (`placesFor`, `postText`, `POSTING`)                               |
+| Posting: the next post due, how it went, Post it now     | `ops/posting.ts`; `supabase/migrations/20261027025100_socialcontent_posting.sql` |
+| The extension putting a post up                          | `apps/extension/src/research/posting.ts` and `post-here.ts`                      |
+| Its own posts' numbers: when they're read, doing well    | `own.ts` (pure); `ops/own.ts`; `20261027025200_socialcontent_own_numbers.sql`    |
+| The extension reading its own posts' numbers             | `apps/extension/src/research/own.ts`                                             |
 
 ## How it works
 
@@ -121,12 +130,26 @@ offered to nobody; staff give it to a business from Admin → Businesses.
   it needs signal with none, and Creators and Settings ask again every half minute while they're open. Its commands
   are online commands in the phone's contract (`packages/core/test/contract/mobile-contract.json`); the worker's
   actions (Suggest niches, Write it again, Get ideas) go through `workerPost`, as on the web.
+- **The Calendar on the phone** (part 12). Its first screen lists the Calendar too, at the web's own address
+  (`a/socialcontent/calendar`). It does what the web's does: Fill the calendar, OK the week, Write a post, when it
+  filled and fills again with the plan and who puts posts up, each day's posts and open days (Write one), No day yet,
+  and Went up lately with each post's latest numbers. A post opens on its own screen at `calendar?post=<id>`, as the
+  web's sheet does, so a link to one opens it there too. That screen changes everything the sheet does (title,
+  network, format, a day in the next two weeks and a time in the business's time zone, where on Facebook, hook,
+  words, hashtags, slides, script), shows where it went up and How it did, makes its picture again, takes the
+  person's own photos (made smaller first, to 2048 px) or video (up to 25 MB) from the phone, OKs it or takes the OK
+  back, Post it now, Skip it, and Write it again. On a network the extension doesn't post on yet, Share the words
+  hands them to the phone's share sheet. The day and clock words (`dayShown`, `timeShown`, `filledLine`,
+  `planShown`) live in core's words, shared with the web. Its commands (`socialcontent.content.save`, `.approve`,
+  `.approve_week`, `.post_now`, `.skip`) are online commands; uploads ask `file.begin_upload` and `file.confirm`
+  straight away (as an anytime command would only be queued) and put the file in storage between. The screens ask
+  again every 20 seconds (the Calendar) and 15 (a post) while open, so a picture being made or a post going up shows
+  when it's done.
 
 ## Making posts
 
 Part 8 (decisions 13 to 20). The business's own posts, written by the AI from the Playbook and its ideas, on a
-**Calendar** page beside the others. Posting them through the extension is parts 9 and 10; until then an OK'd post
-waits, and the Calendar says so.
+**Calendar** page beside the others. Posting them through the extension is parts 9 and 10 (below under "Posting").
 
 - **A Social post is a record** of a kind this add-on manages (`socialcontent_post`, "Social posts"), so its pictures
   are core files on it, it has a timeline and search finds it. What only a post has is its row in
@@ -156,13 +179,82 @@ waits, and the Calendar says so.
   - **Photo-style, by the AI**: OpenAI's image model (`OPENAI_IMAGE_MODEL`, `gpt-image-2`) makes a lifelike picture
     with no words from the AI's description, cropped to 1080 by 1350. Charged 9¢ each on the balance (`ai.image`),
     and only when the balance has room. Without `OPENAI_API_KEY` posts get designed pictures only.
-  - **Your own**: **Add your photo** uploads to the post's files; a video's file comes with Instagram posting.
+  - **Your own**: **Add your photo** uploads to the post's files. A video post needs the person's own video: they
+    record it from the script and add it with **Add your video** (up to 25 MB, core's most for a file), which takes
+    the place of one it had (part 10). Core's files take MP4, QuickTime and WebM videos for this (`ATTACHMENT_TYPES`,
+    and the attachments bucket from `20261027025150_attachments_take_videos.sql`).
     The sheet's **Make it again**, **Switch to designed** and **Switch to photo-style** make it again, with what to
     change.
 - **The OK** (decision 15). Every post waits for an OK: **OK it** on one, or **OK the week** for every post going in
-  the next 7 days that has everything it needs (words, its pictures or 2 slides, a day at least a minute ahead, and on
+  the next 7 days that has everything it needs (words, its pictures or 2 slides, a video's own video, a day at least a minute ahead, and on
   Facebook where it goes, with the Page's link when it goes to the Page). What one still needs is shown on the post
   and said by OK the week. Changing an OK'd post takes the OK back; **Skip it** opens its day again.
+
+## Posting
+
+Parts 9 and 10 (decisions 15 to 17). An OK'd post goes up at its time from the business's reading computer, in Chrome
+with the HandsFreeOS Social extension, while Chrome is open there: Facebook and LinkedIn from 0.132.0, Instagram from
+0.133.0. The post's sheet offers **Copy the words** on any network the extension doesn't post on.
+
+- **Each minute, before any reading,** the extension asks for the next post due (`socialcontent.post.next`) on the
+  networks it posts on with no warning today. HandsFreeOS hands it the OK'd post whose time has come, soonest first,
+  with its words as they go up (`postText`: the words, a blank line, then the hashtags, within what the network
+  takes), its pictures (or the person's video, on a video post), the places it still goes, and the Page's link. It's
+  taken (`posting`), so it goes up once.
+- **Where it goes** (`placesFor`): on Facebook the person's profile, the business's Page, or both, in that order
+  (decision 17); on LinkedIn and Instagram their feed. Each place it went up is kept (`posted_to`, with its link when the network
+  shows one), so trying again never puts it up twice there.
+- **Putting it up** (the extension's `research/posting.ts` and `post-here.ts`): the pictures are fetched from
+  HandsFreeOS's storage on the person's own sign-in; the network's box is opened, the words typed, the pictures added
+  (its file field, pasting, its photo button with the file picker held back, or dropping them), Next pressed when the
+  box asks, then Post. A Facebook Page's post goes through Meta Business Suite's Create post for the Page, so the
+  person's profile is never switched to the Page while Social Outreach works as them; a tick for Instagram there is
+  turned off. Its link comes from the network (LinkedIn's View post), else from the top of the profile, the Page or
+  their own posts by its first words.
+- **Instagram** (part 10): **Create** on its home page (then **Post** when it asks which kind), the pictures or the
+  person's video into Create new post, **OK** when it says a video goes up as a reel, **Next** past cropping and
+  editing, then the words in the caption box and **Share**. Its link comes from the person's own newest posts, as
+  Instagram's page asks for them, by its first words.
+- **How it went** (`socialcontent.post.went`): up everywhere is **Posted**, with **See it on your profile**, **your
+  Page** or **LinkedIn**; any place that didn't take it is **Didn't post**, saying why and where. A network's warning
+  before anything was pressed stops posting and reading there for the day, for both social add-ons, and the post goes
+  back to waiting.
+- **Never twice:** once Post is pressed in a place it's never pressed there again on its own. One taken that hasn't
+  said how it went within 20 minutes is marked as didn't post ("it may have gone up"), never retried. One still
+  waiting a day past its time (the computer was off) is marked as didn't post too.
+- **Post it now** (`socialcontent.content.post_now`, risk 2: the Assistant asks first) puts an OK'd post, or one that
+  didn't post, up now: its time becomes now, and it counts as the OK. Places it already went up in are left out.
+- **The Calendar** says how many are OK'd and going up, whose computer puts them up, and warns when none is picked or
+  it hasn't checked in for 10 minutes (`postingLines`, shared with the phone).
+- **When a place doesn't work,** a problem report goes to Admin → Problem reports with job `post.profile`,
+  `post.page` or `post.feed`: what the hands did, step by step, and the page's outline. Never a name.
+
+## Its own posts' numbers
+
+Part 11 (decision 19). About 2 and 7 days after a post went up, the reading computer reads its numbers in each place
+it went up with a link, from 0.134.0 of the extension; at 7 days it's weighed against the business's own other posts
+there, and one that did well goes into the Playbook beside the creators' standouts.
+
+- **When** (`nextCheckAt`, `checkDue` in `own.ts`): going up sets `checks_due_at` for 2 days after it first went up
+  anywhere; once every place has its 2-day read, for 7 days; then none. A 2-day read missed until the 7th day is left
+  out, and the 7-day read takes its place. Only places that went up with a link are read.
+- **Each minute, after posting,** the extension asks for the next post whose read is due (`socialcontent.own.next`,
+  reader only), on the networks it posts on with no warning today. It's put off half an hour as it's handed out
+  (`OWN.takenMs`), so a read never answered is simply asked again; reading twice changes nothing.
+- **Reading** (the extension's `research/own.ts`): it opens the post by its link. On Instagram it reads the post's own
+  answer by the number in its link (views on a video, likes, comments, shares), as a creator's post is read; on
+  Facebook and LinkedIn the post's own page by the network's reader (reactions as likes, and comments: neither shows
+  views or shares there). A warning stops it there for the day, for both social add-ons, with nothing said.
+- **What it showed** (`socialcontent.own.read`): kept by place and read in `numbers`, each read once; a place that
+  couldn't be read keeps why. The post's sheet shows **How it did** ("After 2 days: 1,240 views · 86 likes"), and the
+  Calendar lists **Went up lately** (the 30 days before its days) with each post's latest line (`numbersLines`,
+  shared with the phone).
+- **Doing well** (`ownDoneWell`): at the 7-day read each place is weighed against the business's own posts there with
+  their 7-day numbers, by the same rule as a creator's standouts (`STANDOUT`: 2 times the middle of up to 10 on each
+  side, at least 4 that show the same number, and the least numbers a standout needs). The best place is kept
+  (`done_well`), and `socialcontent.content.done_well` has the worker write the Playbook again, from the creators'
+  noted standouts and up to 10 of the business's own posts that did well (`<own_posts>`, examples `O1`…), shown as
+  **Your post** among its examples.
 
 ## When a read goes wrong
 
@@ -217,16 +309,23 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
   `custom_record.create`, so the system may run that command (and `custom_record.update`) for an add-on.
 - **Words on pictures are drawn by the worker, never by an image model** (decision 14): OpenAI's pictures are asked
   for with no words in them.
+- **A post goes up once in each place** (part 9). Once Post is pressed in a place it's never pressed there again on
+  its own; one that may have gone up is the person's to look at, and Post it now leaves out the places it went up in.
+- **A Page's post never switches the person's profile:** it goes through Meta Business Suite, so Social Outreach,
+  working at the same time, stays the person.
+- **The business's own posts are weighed only against its own** (part 11): in the same place, by their 7-day numbers,
+  never against creators', so a small business's good post counts as one.
 - **Watching videos is opt-in** (decision 9, part 4): a switch that starts off, a notice that it uses more AI, and a
   way to try it on a few videos first. Only networks marked `watches` are watched (Instagram). The video is fetched
   only from Instagram's video servers, and the worker takes a watch only from the reading computer, for work it took.
 
 ## Not yet
 
-- Posting the business's posts through the extension: Facebook and LinkedIn (part 9), then Instagram with videos
-  (part 10). OK'd posts wait until then.
-- Reading the business's own posts after 2 and 7 days, and its standouts in the Playbook (part 11).
-- The Calendar and a post's sheet on the phone (part 12).
+- Videos over 25 MB: core's most for a file. A longer video needs making smaller first (phones offer it when
+  sharing).
+- Posting's boxes are built from the networks' usual words and roles, not yet from page outlines of them: the first
+  problem reports (`post.*`) will say what to fix.
+- Reading a Facebook or LinkedIn post's shares and views: neither shows them on the post's own page.
 - Removing a post's older AI pictures: a picture made again replaces them on the post, but the old files stay among
   its files, since deleting a file is a person's step.
 - TikTok and YouTube (part 7).

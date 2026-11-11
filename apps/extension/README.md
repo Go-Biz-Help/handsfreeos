@@ -1233,6 +1233,71 @@ The problem check of 10 Nov 2026 (early) found two things on 0.129.0:
   words at all, and a Facebook draft then said the AI couldn't write it. The worker now asks once more before it says
   so (`askedTwice` in `apps/worker/src/addons/outreach/today.ts`).
 
+### Reading how the business's own posts did (0.134.0)
+
+AI Social Media Content Creator's part 11 (`docs/socialcontent.md`, "Its own posts' numbers"). About 2 and 7 days
+after one of the business's own posts went up, the reading window reads its numbers (`src/research/own.ts`), each
+minute after posting and before any reading:
+
+- It asks for the next post whose read is due (`socialcontent.own.next`) on the networks it posts on with no warning
+  today, and opens the post by its link in each place it went up.
+- **Instagram:** the post's own answer by the number in its link (`mediaIdOf`, `mediaInfoPath`, read by `postOf` as
+  a creator's post is): views on a video, likes, comments and shares.
+- **Facebook and LinkedIn:** the post's own page, by the network's reader (`shownOf`); the post is the one that starts
+  the way its words do (`ownPostOf`, past "…" and See more), else the first. Its reactions count as likes, with its
+  comments; neither shows views or shares there.
+- It says what each place showed (`socialcontent.own.read`), or why it couldn't be read ("didn't show the post at its
+  link"). A warning keeps the network's words for the day, for both social add-ons, and says nothing: the read is
+  asked for again later, since one handed out is put off half an hour.
+
+### Putting the business's own posts up on Instagram (0.133.0)
+
+AI Social Media Content Creator's part 10 (`docs/socialcontent.md`, "Posting"). Instagram joins Facebook and LinkedIn:
+an OK'd Instagram post goes up from the reading window on Instagram's home page (`instagramPost` in
+`src/research/post-here.ts`):
+
+- **Create** in the side menu, then **Post** when Instagram asks which kind (only a **Post** that showed after Create
+  was pressed, never a comment's).
+- **The pictures, or the person's video,** into Create new post's file field (else **Select from computer** with the
+  file picker held back, else dropped on it). **OK** when Instagram says a video goes up as a reel, then **Next** past
+  cropping and editing.
+- **The words** in the caption box, only while it's empty, then **Share**, and waiting for "Your post has been
+  shared" (up to about 3 minutes for a video; "couldn't be shared" ends it). Instagram's words are read piece by piece
+  (`wordsIn`), as its boxes put them side by side with no space between.
+- **Its link** comes from the person's own newest posts, as Instagram's page asks for them (their name from the
+  Profile link in its side menu, the `me` hand), by its first words.
+- A post's files are handed to the tab up to 40 MB together, within what Chrome passes to a page in one go; a video is
+  up to 25 MB, core's most for a file.
+
+### Putting the business's own posts up (0.132.0)
+
+AI Social Media Content Creator's part 9 (`docs/socialcontent.md`, "Posting"). Each minute, before any reading, the
+reading computer asks HandsFreeOS for the next OK'd post whose time has come (`socialcontent.post.next`) on the
+networks it posts on with no warning today (Facebook and LinkedIn; Instagram from 0.133.0), and puts it up from
+its reading window (`src/research/posting.ts`):
+
+- **Its pictures** (or the person's video) are fetched from HandsFreeOS's storage on the person's own sign-in, and
+  handed to the tab as files.
+- **Facebook, the profile:** the home feed's "What's on your mind" box; words typed, pictures added, **Next** when
+  Facebook asks for it, then **Post**. Its link comes from the top of their own profile, by its first words.
+- **Facebook, the Page:** the Page's number from its page, then Meta Business Suite's Create post for it
+  (`business.facebook.com`, in the manifest from 0.132.0), so the person's own profile is never switched to the Page
+  while Social Outreach works as them. A tick for Instagram that's on there is turned off (Instagram has its own post).
+- **LinkedIn:** the feed's **Start a post**, then LinkedIn's **Next** or **Done** after its picture editor, then
+  **Post**; the link from **View post**, else from their own posts.
+- **Adding the files** (`src/research/post-here.ts`) tries the box's own file field, pasting them into the words, the
+  box's photo button with the computer's file picker held back (`holdPicker` in `src/research/tab.ts`, in the page's
+  own world, so no window opens on the person's screen), then dropping them on the box, until the box shows them.
+- **Never twice:** once Post is pressed in a place, it's never pressed there again on its own; a post that may have
+  gone up is the person's to look at (`socialcontent.post.went` keeps each place it went up). A network's warning
+  stops posting and reading there for the day, for both social add-ons, and the post goes back to waiting.
+- **When a place doesn't work,** the post says why on the Calendar (with **Post it now** to try again) and a problem
+  report goes to Admin → Problem reports with job `post.profile`, `post.page` or `post.feed`: what it did (`steps`),
+  and the page's outline. Never a name.
+
+Built from the networks' usual words and roles, not yet from page outlines of these boxes: the first reports will
+say what to fix.
+
 ### Up to 50 of a creator's posts from their grid (0.131.0)
 
 On 10 Nov 2026 the first posts reads on 0.130.0 worked, one post at a time, but read only the 12 posts their profile

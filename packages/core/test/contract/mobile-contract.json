@@ -3914,7 +3914,10 @@
               "audio/mp4",
               "audio/aac",
               "audio/mpeg",
-              "audio/webm"
+              "audio/webm",
+              "video/mp4",
+              "video/quicktime",
+              "video/webm"
             ]
           },
           "sizeBytes": {
@@ -6051,6 +6054,66 @@
                 "type": "string",
                 "maxLength": 500
               },
+              "email": {
+                "default": {
+                  "with": null,
+                  "domain": "",
+                  "local": "hello",
+                  "freeLocal": "",
+                  "name": "",
+                  "receive": null,
+                  "mine": false,
+                  "mineLocal": ""
+                },
+                "type": "object",
+                "properties": {
+                  "with": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["domain", "free"]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "domain": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "local": {
+                    "default": "hello",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "freeLocal": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "name": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "receive": {
+                    "default": null,
+                    "type": ["boolean", "null"]
+                  },
+                  "mine": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "mineLocal": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  }
+                }
+              },
               "ai": {
                 "default": {
                   "jobs": [],
@@ -6559,6 +6622,9 @@
               "customers",
               "booking",
               "number",
+              "email",
+              "email_records",
+              "email_own",
               "paid",
               "jobs",
               "facts",
@@ -6611,6 +6677,66 @@
                 "default": "",
                 "type": "string",
                 "maxLength": 500
+              },
+              "email": {
+                "default": {
+                  "with": null,
+                  "domain": "",
+                  "local": "hello",
+                  "freeLocal": "",
+                  "name": "",
+                  "receive": null,
+                  "mine": false,
+                  "mineLocal": ""
+                },
+                "type": "object",
+                "properties": {
+                  "with": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["domain", "free"]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "domain": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "local": {
+                    "default": "hello",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "freeLocal": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "name": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "receive": {
+                    "default": null,
+                    "type": ["boolean", "null"]
+                  },
+                  "mine": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "mineLocal": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  }
+                }
               },
               "ai": {
                 "default": {
@@ -15139,6 +15265,220 @@
         "required": ["workspaceId", "checkInId", "latitude", "longitude"]
       }
     },
+    "socialcontent.content.approve": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ok": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "postId"]
+      }
+    },
+    "socialcontent.content.approve_week": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "from": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.content.post_now": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "postId"]
+      }
+    },
+    "socialcontent.content.save": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "network": {
+            "type": "string",
+            "enum": ["instagram", "facebook", "linkedin"]
+          },
+          "format": {
+            "type": "string",
+            "enum": ["photo", "carousel", "video", "text"]
+          },
+          "words": {
+            "type": "string",
+            "maxLength": 3000
+          },
+          "hook": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hashtags": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 41
+            }
+          },
+          "slides": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "heading": {
+                  "type": "string"
+                },
+                "body": {
+                  "type": "string"
+                }
+              },
+              "required": ["heading", "body"]
+            }
+          },
+          "script": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "lines": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "shots": {
+                    "maxItems": 12,
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": ["lines", "shots"]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "picture": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 600
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pictureWay": {
+            "type": "string",
+            "enum": ["design", "photo", "own"]
+          },
+          "fileIds": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "facebookWhere": {
+            "maxItems": 2,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["profile", "page"]
+            }
+          },
+          "postAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "postId"]
+      }
+    },
+    "socialcontent.content.skip": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "skip": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "postId"]
+      }
+    },
     "socialcontent.creator.add": {
       "offline": "online",
       "input": {
@@ -17512,6 +17852,44 @@
           }
         },
         "required": ["workspaceId", "q", "kind"]
+      }
+    },
+    "socialcontent.calendar.get": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "from": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "days": {
+            "default": 15,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 42
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.content.get": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "postId"]
       }
     },
     "socialcontent.creator.list": {

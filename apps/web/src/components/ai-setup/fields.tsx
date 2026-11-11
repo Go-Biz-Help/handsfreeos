@@ -25,6 +25,7 @@ import {
 } from '@hfos/core';
 import { Check, Plus, Trash2 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
+import { Note } from '@/components/ai-team/parts';
 import { Button } from '@/components/ui/button';
 import { FieldError, Hint, Label } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
@@ -32,6 +33,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 
 /** A pick-one row of big answers, as the onboarding questions draw them. */
+/** Under "When you’re open": the hours are only a guess, or came from the website (`aiSetupOpenHoursNote`). */
+export function OpenHoursNote({ note }: { note: string | null }) {
+  return note ? <Note className="mb-2">{note}</Note> : null;
+}
+
 export function Pills<T extends string>({
   name,
   legend,
