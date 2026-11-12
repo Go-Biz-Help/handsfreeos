@@ -54,7 +54,10 @@ describe('drawing a design', () => {
     photo,
     pages: [
       page(layout, 'Three ways to never miss every lead'),
-      page(layout === 'photo' || layout === 'framed' ? 'list' : layout, 'A very long heading '.repeat(8)),
+      page(
+        layout === 'photo' || layout === 'framed' ? 'list' : layout,
+        'A very long heading '.repeat(8),
+      ),
     ],
   });
   const sizeOf = async (bytes: Buffer) => {

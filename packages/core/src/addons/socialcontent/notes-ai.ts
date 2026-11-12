@@ -602,7 +602,8 @@ export function checkedIdeas(
     const title = tidy(i.title, NOTES_LIMITS.ideaTitle);
     if (!title || taken.has(title.toLowerCase())) continue;
     // One idea for each slot asked for; with slots, an idea for none of them isn't kept.
-    const slot = i.slot !== null && i.slot >= 1 && i.slot <= slots.length ? slots[i.slot - 1] : null;
+    const slot =
+      i.slot !== null && i.slot >= 1 && i.slot <= slots.length ? slots[i.slot - 1] : null;
     if (slots.length && (!slot || slotsTaken.has(i.slot!))) continue;
     if (slot) slotsTaken.add(i.slot!);
     taken.add(title.toLowerCase());

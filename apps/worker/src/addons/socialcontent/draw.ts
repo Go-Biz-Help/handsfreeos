@@ -112,9 +112,9 @@ function canvasLib(): Promise<Canvas> {
  */
 export function drawable(s: string | null): string {
   return (s ?? '')
-    .replace(/[←-⇿➡⬅-⬇]/g, '›')
-    .replace(/(?![©®™])[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, '')
-    .replace(/[^\s -ɏ -⁯€™]/g, '')
+    .replace(/[\u2190-\u21FF\u27A1\u2B05-\u2B07]/g, '\u203A')
+    .replace(/(?![\u00A9\u00AE\u2122])[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, '')
+    .replace(/[^\s\u0020-\u024F\u2000-\u206F\u20AC\u2122]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -218,7 +218,6 @@ function mix(a: string, b: string, t: number): string {
     )
     .join('')}`;
 }
-const isDark = (hex: string) => luminance(hex) < 0.2;
 
 /** A small, steady number from the words, so two pages of one layout aren't laid out exactly alike. */
 function seedOf(s: string): number {

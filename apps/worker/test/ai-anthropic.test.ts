@@ -788,7 +788,11 @@ describe('AnthropicProvider', () => {
       ],
       [
         'content_block_delta',
-        { type: 'content_block_delta', index: 2, delta: { type: 'text_delta', text: 'Here is what I found. ' } },
+        {
+          type: 'content_block_delta',
+          index: 2,
+          delta: { type: 'text_delta', text: 'Here is what I found. ' },
+        },
       ],
       ['content_block_stop', { type: 'content_block_stop', index: 2 }],
       [
@@ -801,7 +805,11 @@ describe('AnthropicProvider', () => {
       ],
       [
         'content_block_delta',
-        { type: 'content_block_delta', index: 3, delta: { type: 'citations_delta', citation: cite } },
+        {
+          type: 'content_block_delta',
+          index: 3,
+          delta: { type: 'citations_delta', citation: cite },
+        },
       ],
       [
         'content_block_delta',

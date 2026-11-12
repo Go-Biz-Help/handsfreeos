@@ -5,11 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { MainOfferLists } from '../../src/main-offer/lists';
-import {
-  checkedIdeas,
-  ideasPrompt,
-  IdeasAnswer,
-} from '../../src/addons/socialcontent/notes-ai';
+import { checkedIdeas, ideasPrompt, IdeasAnswer } from '../../src/addons/socialcontent/notes-ai';
 import {
   checkedDesign,
   checkedPost,
@@ -95,9 +91,10 @@ describe('a topic for each post', () => {
       { list: 'questions', line: 'Will it sound like a robot? No.' },
     ];
     expect(pickTopic('tip', LISTS, used)?.list).toBe('myths');
-    expect(
-      pickTopic('tip', LISTS, [{ list: 'myths', line: LISTS.myths![0]! }, ...used]),
-    ).toEqual({ list: 'topics', line: 'Follow up' });
+    expect(pickTopic('tip', LISTS, [{ list: 'myths', line: LISTS.myths![0]! }, ...used])).toEqual({
+      list: 'topics',
+      line: 'Follow up',
+    });
   });
 
   it('matches lines whatever their case, and is null when the kind’s lists are empty', () => {
@@ -110,7 +107,11 @@ describe('a topic for each post', () => {
   });
 
   it('plans ideas after the ones waiting, so the mix and the lists carry on', () => {
-    const plan = planIdeas(4, [{ angle: 'tip', topic: { list: 'topics', line: 'Reply fast' } }], LISTS);
+    const plan = planIdeas(
+      4,
+      [{ angle: 'tip', topic: { list: 'topics', line: 'Reply fast' } }],
+      LISTS,
+    );
     expect(plan.map((p) => p.angle)).toEqual(['problem', 'story', 'offer', 'tip']);
     expect(plan[0]!.topic).toEqual({ list: 'problems', line: 'Leads go cold' });
     expect(plan[3]!.topic).toEqual({ list: 'questions', line: 'Will it sound like a robot? No.' });
@@ -351,9 +352,9 @@ describe('news and facts found online', () => {
     expect(prompt).toContain('<niches>\n- home services\n</niches>');
     expect(prompt).toContain('<earlier_facts>\n- Fast replies win\n</earlier_facts>');
     expect(prompt).toContain(`Use up to ${RESEARCH.searches} searches`);
-    expect(factsPrompt({ notes: 'Fast [1]', pages: [{ url: 'https://a.org', title: 'A', age: null }] })).toContain(
-      '[1] A (https://a.org)',
-    );
+    expect(
+      factsPrompt({ notes: 'Fast [1]', pages: [{ url: 'https://a.org', title: 'A', age: null }] }),
+    ).toContain('[1] A (https://a.org)');
     const write = writePrompt({
       business: 'CRM',
       network: 'facebook',
@@ -388,7 +389,11 @@ describe('creators’ posts that match', () => {
     const posts = [
       post('Our new truck wraps are here!'),
       post('Missed calls cost contractors jobs every week', { times: 2 }),
-      post('Why missed calls cost you jobs, and the fix', { standout: true, times: 6, why: 'A cost first.' }),
+      post('Why missed calls cost you jobs, and the fix', {
+        standout: true,
+        times: 6,
+        why: 'A cost first.',
+      }),
       post('Three ways to answer leads faster'),
     ];
     const shown = examplesFor('Missed calls cost jobs', posts);
@@ -418,7 +423,9 @@ describe('creators’ posts that match', () => {
       idea: null,
       ask: null,
       before: null,
-      examples: [post('Why missed calls cost you jobs', { standout: true, times: 6, why: 'A cost first.' })],
+      examples: [
+        post('Why missed calls cost you jobs', { standout: true, times: 6, why: 'A cost first.' }),
+      ],
     });
     expect(prompt).toContain(
       '<creator_examples>\n1. Instagram, a standout, 6 times its creator’s usual:\nWhy missed calls cost you jobs\nWhy it worked: A cost first.\n</creator_examples>',
@@ -656,9 +663,8 @@ describe('pictures that don’t all look the same (decision 39)', () => {
     expect(prompt).toMatch(/"framed", "photo"/);
     expect(prompt).toMatch(/Never start with "bold"/);
     expect(prompt).toMatch(/"friendly" font/);
-    const required = (
-      DESIGN_SCHEMA['properties'] as { pages: { items: { required: string[] } } }
-    ).pages.items.required;
+    const required = (DESIGN_SCHEMA['properties'] as { pages: { items: { required: string[] } } })
+      .pages.items.required;
     expect(required).toEqual(['layout', 'kicker', 'heading', 'body', 'items', 'mark', 'footer']);
   });
 });

@@ -74,7 +74,11 @@ export const FACTS_SYSTEM = [
 
 export function factsPrompt(input: {
   readonly notes: string;
-  readonly pages: readonly { readonly url: string; readonly title: string; readonly age: string | null }[];
+  readonly pages: readonly {
+    readonly url: string;
+    readonly title: string;
+    readonly age: string | null;
+  }[];
 }): string {
   return [
     `<notes>\n${quoteData(input.notes.slice(0, RESEARCH.notesChars))}\n</notes>`,

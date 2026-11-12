@@ -205,7 +205,7 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   answers from the Knowledge base (FAQs and facts, `businessText`), the live main offer (its parts, never the price)
   and the lists for content (what makes you different, features and benefits, your voice, never say and the rest),
   the Playbook and the idea it's written from. Ideas read the offer and the lists too.
-- **Pictures** (decisions 14 and 39), made in the worker's `socialcontent.pictures` job, one post at a time:
+- **Pictures** (decisions 14, 39 and 40), made in the worker's `socialcontent.pictures` job, one post at a time:
   - **Designed by the AI** (tips, steps, quotes, claims and a carousel's slides): Claude picks one font and three
     colours for the whole design (from colours that go with the business's colour, `paletteFor`, kept readable) and
     a layout and words for each page; the worker draws each page as a 1080 by 1350 PNG (`draw.ts`). The layouts and
@@ -219,6 +219,15 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
     charge keeps OpenAI's real cost beside it. A photo that still can't be made on the last try leaves the picture
     designed without it. Without `OPENAI_API_KEY` posts get designed pictures only. See "Photo-style pictures: the
     image models" in docs/operations.md.
+  - **OpenAI's whole graphic** (decision 40): now and then a single picture with a photo is made by OpenAI words and
+    all, like a Canva graphic, with the exact words and the business's colours (`graphicPromptFor`). It's kept only
+    when the check passes it; otherwise the photo is made again without words and the words are drawn over it. Each
+    OpenAI picture is charged 9¢ when it's made, kept or not. Under "Variety" below.
+  - **Checked before it's kept** (decision 40, `check-ai.ts`): Claude looks at every picture made, made smaller
+    (540 by 675), beside the words each page should say, and fails one with a word misspelt, garbled, extra, cut off
+    or too small, words overlapping, anything strange in a photo, or a look no business owner would post. A drawn
+    design that fails is designed once more, told each problem, and the one with fewer problems is kept. The answer
+    is kept on the design (`check`). When the check can't be asked, a drawn design is kept and a graphic isn't.
   - **Your own**: **Add your photo** uploads to the post's files. A video post needs the person's own video: they
     record it from the script and add it with **Add your video** (up to 25 MB, core's most for a file), which takes
     the place of one it had (part 10). Core's files take MP4, QuickTime and WebM videos for this (`ATTACHMENT_TYPES`,
@@ -242,9 +251,10 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
 
 ## Variety
 
-Decisions 34 to 39 (the owner, 12 Nov: "the calendar is mostly the same topic ... we need more variety", then "the
-designs always look the same"). The plans are pure, in core (`variety.ts`, `research-ai.ts`, the designs in
-`posts-ai.ts`); the worker asks.
+Decisions 34 to 40 (the owner, 12 Nov: "the calendar is mostly the same topic ... we need more variety", then "the
+designs always look the same", then the picks of 19:00 UTC, "1a 2a 3a 4a 5a&b depending on results ... 6a 7a 8a").
+The plans are pure, in core (`variety.ts`, `research-ai.ts`, the designs in `posts-ai.ts`, the check and graphics in
+`check-ai.ts`); the worker asks.
 
 - **A kind for each post** (decision 36): of every 10, about 4 **tips**, 2 **customer problems**, 2 **stories** and 2
   about **the offer**, each the kind furthest behind its share of the last 10, never the same kind twice in a row
@@ -283,6 +293,11 @@ designs always look the same"). The plans are pure, in core (`variety.ts`, `rese
 - **Never the same twice in a row** (decision 39, `designChoices`): the design AI is told the first layouts of the
   business's last two pictures, never to start with them, a shuffled few others to try (so pictures made at the same
   time differ too) and a font unlike the last. `checkedDesign` swaps a repeat anyway.
+- **OpenAI's whole graphics, depending on how they do** (decision 40, the owner: "open ai doesn’t misspell words much
+  anymore (the system should have built in quality control though to make sure things look right)"): a single picture
+  with a photo, with a heading of up to 9 words and a kicker of up to 4 (`fitsGraphic`), is OpenAI's whole graphic
+  every other time while fewer than 2 of the last 4 tries failed the check; after 2 fail, it waits 4 photo posts
+  before trying again (`graphicDue`, from each design's `graphic`). Carousels and longer words are always drawn.
 
 ## The schedule
 
@@ -485,12 +500,15 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
 - **Every post and idea is built on the main offer and its lists** (`OFFER_FOR_CONTENT`, in both `WRITE_SYSTEM` and
   `IDEAS_SYSTEM`): they're quoted as data in their own blocks, the price is never quoted, and never say is a hard
   rule. Nothing is written until the offer is live; the add-on reads the offer and never writes it.
-- **Words on pictures are drawn by the worker, never by an image model** (decision 14): OpenAI's pictures are asked
-  for with no words in them, and the words are laid over them (decision 39).
+- **Words on pictures are drawn by the worker, except OpenAI's whole graphics** (decisions 14 and 40): OpenAI's
+  photos are asked for with no words in them and the words are laid over them (decision 39); a whole graphic, words
+  and all, is kept only when the check passes it, and how often one is tried follows how the last ones did.
+- **Every picture is checked before it's kept** (decision 40): a design that fails is designed once more, a graphic
+  that fails is never kept, and a graphic the check couldn't look at isn't kept either.
 - **A fact found online always keeps the page the search really found** (decision 38): the facts ask may only point
   at pages from the search's own results, and a post names its source in plain words, never adding a number or claim
   the fact doesn't give.
-- **The mix, topics and looks are worked out in core, not left to the AI** (decisions 34 to 39): the AI is told the
+- **The mix, topics and looks are worked out in core, not left to the AI** (decisions 34 to 40): the AI is told the
   kind, topic and look, and what comes back is held to them (`checkedPost`, `checkedDesign`).
 - **A post goes up once in each place** (part 9). Once Post is pressed in a place it's never pressed there again on
   its own; one that may have gone up is the person's to look at, and Post it now leaves out the places it went up in.

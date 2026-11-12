@@ -63396,6 +63396,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default null */
+                        angle: ("tip" | "problem" | "story" | "offer") | null;
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
@@ -63476,6 +63478,12 @@ export interface operations {
                         state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                         stillNeeds: string | null;
                         title: string;
+                        /** @default null */
+                        topic: {
+                            line: string;
+                            /** @enum {string} */
+                            list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                        } | null;
                         updatedAt: string;
                         words: string;
                     };
@@ -63544,6 +63552,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default null */
+                        angle: ("tip" | "problem" | "story" | "offer") | null;
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
@@ -63624,6 +63634,12 @@ export interface operations {
                         state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                         stillNeeds: string | null;
                         title: string;
+                        /** @default null */
+                        topic: {
+                            line: string;
+                            /** @enum {string} */
+                            list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                        } | null;
                         updatedAt: string;
                         words: string;
                     };
@@ -63711,6 +63727,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default null */
+                        angle: ("tip" | "problem" | "story" | "offer") | null;
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
@@ -63791,6 +63809,12 @@ export interface operations {
                         state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                         stillNeeds: string | null;
                         title: string;
+                        /** @default null */
+                        topic: {
+                            line: string;
+                            /** @enum {string} */
+                            list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                        } | null;
                         updatedAt: string;
                         words: string;
                     };
@@ -63825,6 +63849,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default null */
+                        angle: ("tip" | "problem" | "story" | "offer") | null;
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
@@ -63905,6 +63931,12 @@ export interface operations {
                         state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                         stillNeeds: string | null;
                         title: string;
+                        /** @default null */
+                        topic: {
+                            line: string;
+                            /** @enum {string} */
+                            list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                        } | null;
                         updatedAt: string;
                         words: string;
                     };
@@ -64195,6 +64227,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default null */
+                        angle: ("tip" | "problem" | "story" | "offer") | null;
                         basedOn: string[];
                         createdAt: string;
                         format: string | null;
@@ -64203,9 +64237,21 @@ export interface operations {
                         id: string;
                         network: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube") | null;
                         outline: string | null;
+                        /** @default null */
+                        source: {
+                            name: string;
+                            /** Format: uri */
+                            url: string;
+                        } | null;
                         /** @enum {string} */
                         state: "new" | "saved" | "used" | "skipped";
                         title: string;
+                        /** @default null */
+                        topic: {
+                            line: string;
+                            /** @enum {string} */
+                            list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                        } | null;
                         why: string | null;
                     };
                 };
@@ -64385,6 +64431,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default null */
+                        angle: ("tip" | "problem" | "story" | "offer") | null;
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
@@ -64465,6 +64513,12 @@ export interface operations {
                         state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                         stillNeeds: string | null;
                         title: string;
+                        /** @default null */
+                        topic: {
+                            line: string;
+                            /** @enum {string} */
+                            list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                        } | null;
                         updatedAt: string;
                         words: string;
                     };
@@ -64559,6 +64613,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default null */
+                        angle: ("tip" | "problem" | "story" | "offer") | null;
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
@@ -64639,6 +64695,12 @@ export interface operations {
                         state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                         stillNeeds: string | null;
                         title: string;
+                        /** @default null */
+                        topic: {
+                            line: string;
+                            /** @enum {string} */
+                            list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                        } | null;
                         updatedAt: string;
                         words: string;
                     };
@@ -98933,6 +98995,8 @@ export interface operations {
                             version: string | null;
                         } | null;
                         posts: {
+                            /** @default null */
+                            angle: ("tip" | "problem" | "story" | "offer") | null;
                             approvedAt: string | null;
                             approvedBy: string | null;
                             createdAt: string;
@@ -99013,12 +99077,20 @@ export interface operations {
                             state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                             stillNeeds: string | null;
                             title: string;
+                            /** @default null */
+                            topic: {
+                                line: string;
+                                /** @enum {string} */
+                                list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                            } | null;
                             updatedAt: string;
                             words: string;
                         }[];
                         postsOn: ("instagram" | "facebook" | "linkedin")[];
                         ready: number;
                         recent: {
+                            /** @default null */
+                            angle: ("tip" | "problem" | "story" | "offer") | null;
                             approvedAt: string | null;
                             approvedBy: string | null;
                             createdAt: string;
@@ -99099,12 +99171,20 @@ export interface operations {
                             state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                             stillNeeds: string | null;
                             title: string;
+                            /** @default null */
+                            topic: {
+                                line: string;
+                                /** @enum {string} */
+                                list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                            } | null;
                             updatedAt: string;
                             words: string;
                         }[];
                         timeZone: string;
                         today: string;
                         undated: {
+                            /** @default null */
+                            angle: ("tip" | "problem" | "story" | "offer") | null;
                             approvedAt: string | null;
                             approvedBy: string | null;
                             createdAt: string;
@@ -99185,6 +99265,12 @@ export interface operations {
                             state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                             stillNeeds: string | null;
                             title: string;
+                            /** @default null */
+                            topic: {
+                                line: string;
+                                /** @enum {string} */
+                                list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                            } | null;
                             updatedAt: string;
                             words: string;
                         }[];
@@ -99218,6 +99304,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default null */
+                        angle: ("tip" | "problem" | "story" | "offer") | null;
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
@@ -99298,6 +99386,12 @@ export interface operations {
                         state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                         stillNeeds: string | null;
                         title: string;
+                        /** @default null */
+                        topic: {
+                            line: string;
+                            /** @enum {string} */
+                            list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                        } | null;
                         updatedAt: string;
                         words: string;
                     };
@@ -99335,6 +99429,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         posts: {
+                            /** @default null */
+                            angle: ("tip" | "problem" | "story" | "offer") | null;
                             approvedAt: string | null;
                             approvedBy: string | null;
                             createdAt: string;
@@ -99415,6 +99511,12 @@ export interface operations {
                             state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                             stillNeeds: string | null;
                             title: string;
+                            /** @default null */
+                            topic: {
+                                line: string;
+                                /** @enum {string} */
+                                list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                            } | null;
                             updatedAt: string;
                             words: string;
                         }[];
@@ -99525,6 +99627,8 @@ export interface operations {
                             network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
                         }[];
                         ideas: {
+                            /** @default null */
+                            angle: ("tip" | "problem" | "story" | "offer") | null;
                             basedOn: string[];
                             createdAt: string;
                             format: string | null;
@@ -99533,9 +99637,21 @@ export interface operations {
                             id: string;
                             network: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube") | null;
                             outline: string | null;
+                            /** @default null */
+                            source: {
+                                name: string;
+                                /** Format: uri */
+                                url: string;
+                            } | null;
                             /** @enum {string} */
                             state: "new" | "saved" | "used" | "skipped";
                             title: string;
+                            /** @default null */
+                            topic: {
+                                line: string;
+                                /** @enum {string} */
+                                list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                            } | null;
                             why: string | null;
                         }[];
                         /** @default true */

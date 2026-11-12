@@ -60,9 +60,9 @@ describe('checking each picture before it’s kept', () => {
       ),
     ).toEqual({ passes: true, problems: [] });
     // A page it never answered for fails.
-    expect(checkedPictureCheck({ pages: [{ page: 1, passes: true, problems: [] }] }, 2).passes).toBe(
-      false,
-    );
+    expect(
+      checkedPictureCheck({ pages: [{ page: 1, passes: true, problems: [] }] }, 2).passes,
+    ).toBe(false);
     const failed = checkedPictureCheck(
       {
         pages: [
