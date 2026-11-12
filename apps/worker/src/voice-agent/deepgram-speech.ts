@@ -144,9 +144,13 @@ export function createDeepgramSpeech(deps: {
 
     listen(handlers: ListenHandlers, options?: ListenOptions): Promise<Listening> {
       const audio = options?.audio ?? 'phone';
-      // Flux is set up for the phone's sound; a video call's is always Nova-3's.
-      if (audio === 'phone' && (options?.listener ?? deps.listener) === 'flux')
-        return listenWithFlux({ apiKey: deps.apiKey, handlers, log: deps.log });
+      // Flux hears a phone's sound when it's the listener, and any sound when smart turns are asked for (the
+      // Assistant's live listening); a video call's is Nova-3's.
+      if (
+        options?.smartTurns ||
+        (audio === 'phone' && (options?.listener ?? deps.listener) === 'flux')
+      )
+        return listenWithFlux({ apiKey: deps.apiKey, handlers, log: deps.log, audio });
       const bytesASecond = audio === 'wide' ? WIDE_BYTES_A_SECOND : MULAW_BYTES_A_SECOND;
       return new Promise((resolve, reject) => {
         const ws = new WebSocket(`${LISTEN_URL}?${listenParams(audio).toString()}`, {

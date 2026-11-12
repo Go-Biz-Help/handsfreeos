@@ -22,6 +22,15 @@
  *   A refusal is the API's JSON error, { error: { code, message, rule } }: 401 or 403, 400 for an empty or
  *   unreadable recording, 413 when it's too long, and 503 with rule `speech_not_configured` when the worker has no
  *   one to listen and speak (production without a Deepgram key).
+ *
+ *   GET {worker}/v1/speech/listen (a websocket): the Assistant's smart listening on the web. Instead of recording a
+ *   turn and sending it, the microphone streams live and Deepgram Flux says when they've finished a thought, from
+ *   what they said and how, not only from a pause.
+ *   → first message ListenClientMessage `start` { token, workspaceId }; then 16 kHz 16-bit little-endian mono PCM
+ *     as binary frames (LISTEN_RATE); `done` when they press Done.
+ *   ← ListenServerMessage: `ready` once it's listening (send what was recorded meanwhile), `talking` when they
+ *     start, `turn` { text, language } when they've finished (text is '' when nothing was said), then it closes;
+ *     or `error` { message, rule } and it closes (the same rules as hear's refusals).
  */
 import { z } from 'zod';
 import { PHONE_VOICES, type PhoneVoice } from '../ai-team/voices';
@@ -52,6 +61,51 @@ export const SpeechSayInput = z.object({
 });
 export type SpeechSayInput = z.infer<typeof SpeechSayInput>;
 export type SpeechSayBody = z.input<typeof SpeechSayInput>;
+
+/** The sample rate the Assistant's live listening streams at: clear speech, more than a phone line carries. */
+export const LISTEN_RATE = 16_000;
+
+export const ListenClientMessage = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('start'), token: z.string().min(1), workspaceId: z.uuid() }),
+  /** Done was pressed: what's been heard so far is the turn. */
+  z.object({ type: z.literal('done') }),
+]);
+export type ListenClientMessage = z.infer<typeof ListenClientMessage>;
+
+export type ListenServerMessage =
+  | { readonly type: 'ready' }
+  | { readonly type: 'talking' }
+  | { readonly type: 'turn'; readonly text: string; readonly language: string | null }
+  | { readonly type: 'error'; readonly message: string; readonly rule: string };
+
+/** One of the worker's messages on the live listening socket, or null when it isn't one. */
+export function parseListenMessage(raw: unknown): ListenServerMessage | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const m = raw as Record<string, unknown>;
+  switch (m['type']) {
+    case 'ready':
+    case 'talking':
+      return { type: m['type'] };
+    case 'turn':
+      return typeof m['text'] === 'string'
+        ? {
+            type: 'turn',
+            text: m['text'],
+            language: typeof m['language'] === 'string' ? m['language'] : null,
+          }
+        : null;
+    case 'error':
+      return typeof m['message'] === 'string'
+        ? {
+            type: 'error',
+            message: m['message'],
+            rule: typeof m['rule'] === 'string' ? m['rule'] : 'speech_failed',
+          }
+        : null;
+    default:
+      return null;
+  }
+}
 
 /** What the worker heard. */
 export interface HeardSpeech {

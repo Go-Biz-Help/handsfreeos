@@ -13,12 +13,16 @@
  *   (Deepgram's default, five seconds).
  * - The caller's audio goes in 80 ms pieces, as Deepgram recommends for Flux, from Twilio's 20 ms frames.
  * - Flux has no KeepAlive: a call that has sent no audio for five seconds sends a piece of silence instead.
+ * - `wide` sound (16 kHz 16-bit, the Assistant's live listening from a browser) is heard as linear16 instead of a
+ *   phone's μ-law, with the same 80 ms pieces.
  */
 import type { Logger } from 'pino';
 import WebSocket from 'ws';
 import {
   heardEndMs,
   MULAW_BYTES_A_SECOND,
+  WIDE_BYTES_A_SECOND,
+  WIDE_SAMPLE_RATE,
   type HeardWords,
   type ListenHandlers,
   type Listening,
@@ -29,6 +33,9 @@ export const FLUX_URL = 'wss://api.deepgram.com/v2/listen';
 export const FLUX_CHUNK_BYTES = (MULAW_BYTES_A_SECOND * 80) / 1000;
 /** 80 ms of quiet in μ-law, sent when the call has sent nothing for a while. */
 const SILENCE = Buffer.alloc(FLUX_CHUNK_BYTES, 0xff);
+/** The same for wide sound: 80 ms of 16 kHz 16-bit, and its quiet. */
+const WIDE_CHUNK_BYTES = (WIDE_BYTES_A_SECOND * 80) / 1000;
+const WIDE_SILENCE = Buffer.alloc(WIDE_CHUNK_BYTES, 0);
 const KEEP_ALIVE_MS = 5_000;
 const CONNECT_TIMEOUT_MS = 5_000;
 
@@ -42,11 +49,11 @@ export interface FluxMessage {
   readonly description?: string;
 }
 
-export function fluxListenParams(): URLSearchParams {
+export function fluxListenParams(audio: 'phone' | 'wide' = 'phone'): URLSearchParams {
   const params = new URLSearchParams({
     model: 'flux-general-multi',
-    encoding: 'mulaw',
-    sample_rate: '8000',
+    encoding: audio === 'wide' ? 'linear16' : 'mulaw',
+    sample_rate: String(audio === 'wide' ? WIDE_SAMPLE_RATE : 8000),
   });
   params.append('language_hint', 'en');
   params.append('language_hint', 'es');
@@ -75,12 +82,18 @@ export function listenWithFlux(o: {
   readonly apiKey: string;
   readonly handlers: ListenHandlers;
   readonly log: Logger;
+  /** The phone's 8 kHz μ-law (the default), or 16 kHz 16-bit. */
+  readonly audio?: 'phone' | 'wide';
   /** Tests point it at a stand-in server. */
   readonly url?: string;
 }): Promise<Listening> {
   const { handlers } = o;
+  const wide = o.audio === 'wide';
+  const chunkBytes = wide ? WIDE_CHUNK_BYTES : FLUX_CHUNK_BYTES;
+  const silence = wide ? WIDE_SILENCE : SILENCE;
+  const bytesASecond = wide ? WIDE_BYTES_A_SECOND : MULAW_BYTES_A_SECOND;
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(`${o.url ?? FLUX_URL}?${fluxListenParams().toString()}`, {
+    const ws = new WebSocket(`${o.url ?? FLUX_URL}?${fluxListenParams(o.audio).toString()}`, {
       headers: { authorization: `Token ${o.apiKey}` },
     });
     let open = false;
@@ -112,8 +125,8 @@ export function listenWithFlux(o: {
     const keepAlive = setInterval(() => {
       if (ws.readyState !== WebSocket.OPEN || Date.now() - lastSent < KEEP_ALIVE_MS) return;
       if (waitingBytes) return sendWaiting();
-      ws.send(SILENCE);
-      heard += SILENCE.length;
+      ws.send(silence);
+      heard += silence.length;
       lastSent = Date.now();
     }, KEEP_ALIVE_MS);
     const stop = () => {
@@ -129,7 +142,7 @@ export function listenWithFlux(o: {
           heard += audio.length;
           waiting.push(audio);
           waitingBytes += audio.length;
-          if (waitingBytes >= FLUX_CHUNK_BYTES) sendWaiting();
+          if (waitingBytes >= chunkBytes) sendWaiting();
         },
         async close() {
           stop();
@@ -154,7 +167,7 @@ export function listenWithFlux(o: {
       if (m.type === 'Warning')
         return o.log.warn({ code: m.code, description: m.description }, 'Deepgram Flux warned');
       if (m.type === 'TurnInfo' && m.event === 'StartOfTurn') handlers.onSpeechStarted();
-      const words = fluxHeardOf(m, heard / MULAW_BYTES_A_SECOND);
+      const words = fluxHeardOf(m, heard / bytesASecond);
       if (words) handlers.onWords(words);
     });
     ws.on('error', (e) => {

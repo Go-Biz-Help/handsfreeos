@@ -9,6 +9,10 @@
  *   can't speak (not set up, or in trouble) is said in its closest Deepgram voice, which the answer's
  *   SPOKEN_VOICE_HEADER names.
  * - GET /v1/speech/voices answers which providers can speak, for the voice pickers.
+ * - GET /v1/speech/listen is a websocket: the Assistant's smart listening on the web. The microphone streams in
+ *   live as 16 kHz 16-bit sound, Deepgram Flux decides when they've finished a thought (from what they said and
+ *   how, not only a pause), and the words come back as the turn. One socket is one turn. It's billed as live
+ *   listening (`speech.live.minute`) on the seconds streamed.
  *
  * Both need assistant.use or ai_team.manage in the workspace, and both use the same speech services as the live
  * calls (deps.speech): with none (production without a Deepgram key) they answer 503 `speech_not_configured`,
@@ -23,6 +27,10 @@
 import {
   audioTypeOf,
   HfosError,
+  ListenClientMessage,
+  SPEECH_TURN_MAX_MS,
+  type HumanActor,
+  type ListenServerMessage,
   loadTeammate,
   WALLET_REFUSALS,
   walletRoom,
@@ -37,11 +45,13 @@ import {
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
+import type WebSocket from 'ws';
 import { z } from 'zod';
 import { runtimeConfigOf } from '../ai-team/config';
 import { KeyedLimiter } from '../chat/limiter';
 import { noteSpeech, speechKchars, speechMinutes } from '../money/speech-usage';
 import type { TenantScope } from '../services';
+import { WIDE_BYTES_A_SECOND, type Listening } from '../voice-agent/speech';
 import type { RateRule } from './booking';
 import { authenticate, hasPermission, header, parseBody, type HttpDeps } from './common';
 
@@ -234,6 +244,19 @@ export async function registerSpeechRoutes(app: FastifyInstance, deps: HttpDeps)
     });
   });
 
+  // The Assistant's smart listening: one turn streamed live, and heard by Flux (registered after the websocket
+  // plugin, which http/voice-agent.ts registers).
+  app.get('/v1/speech/listen', { websocket: true }, (socket) =>
+    handleListenSocket(socket, deps, async (actor, workspaceId) => {
+      await requireVoice(deps, actor.userId, workspaceId);
+      if (!deps.speech) throw notConfigured();
+      allow('hear', actor.userId);
+      const scope = await scopeOf(deps, workspaceId);
+      await requireBalance(deps, scope);
+      return scope;
+    }),
+  );
+
   // Which providers can speak, for the voice pickers: a Rime voice says "not ready yet" until RIME_API_KEY is here.
   app.get('/v1/speech/voices', async (req) => {
     await authenticate(deps, req);
@@ -246,3 +269,134 @@ export async function registerSpeechRoutes(app: FastifyInstance, deps: HttpDeps)
 
 /** No speech at all (production without a Deepgram key): no voice can speak. */
 const NO_VOICES: VoiceReadiness = { deepgram: false, rime: false };
+
+/** A socket that hasn't said who it is by now is closed. */
+const LISTEN_START_WITHIN_MS = 10_000;
+/** After Done, how long to wait for Flux to finish the words it's still on before sending what it has. */
+const DONE_SETTLE_MS = 600;
+
+/**
+ * One turn of the Assistant's smart listening (GET /v1/speech/listen): `start` says who it is, `admit` checks they
+ * may talk in that business (and may be refused with the rule the app branches on), then the microphone's sound goes
+ * to Flux as it arrives and the turn comes back the moment Flux says they've finished. Done sends what's been heard;
+ * a turn that runs to a minute is sent anyway. Closing the socket throws it away.
+ */
+export function handleListenSocket(
+  socket: WebSocket,
+  deps: HttpDeps,
+  admit: (actor: HumanActor, workspaceId: string) => Promise<TenantScope>,
+): void {
+  let started = false;
+  let over = false;
+  let listening: Listening | null = null;
+  let scope: TenantScope | null = null;
+  /** The turn so far: Flux's latest words, and the language they're in. */
+  let latest = '';
+  let language: string | null = null;
+  let talking = false;
+  /** All the sound streamed to Flux, in bytes: what it's billed on. */
+  let streamed = 0;
+  const timers: NodeJS.Timeout[] = [];
+
+  const send = (m: ListenServerMessage) => {
+    if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(m));
+  };
+  const end = () => {
+    if (over) return;
+    over = true;
+    for (const t of timers) clearTimeout(t);
+    const l = listening;
+    listening = null;
+    void l?.close().catch(() => undefined);
+    if (scope && streamed)
+      void noteSpeech({ db: deps.httpDb, log: deps.log }, scope, [
+        {
+          key: 'speech.live.minute',
+          quantity: speechMinutes(streamed / WIDE_BYTES_A_SECOND),
+          source: 'talk',
+        },
+      ]).catch((e: unknown) => deps.log.error({ err: e }, 'couldn’t note live listening'));
+    if (socket.readyState === socket.OPEN) socket.close(1000);
+  };
+  const finish = (text: string) => {
+    if (over) return;
+    send({ type: 'turn', text: text.trim(), language });
+    end();
+  };
+  const fail = (e: unknown) => {
+    if (over) return;
+    const known = e instanceof HfosError;
+    if (!known) deps.log.warn({ err: e }, 'the Assistant’s live listening failed');
+    send({
+      type: 'error',
+      message: known ? e.message : 'We couldn’t hear that just now. Try again, or type instead.',
+      rule: known ? (e.rule ?? e.code) : 'speech_failed',
+    });
+    end();
+  };
+  timers.push(
+    setTimeout(() => {
+      if (!started) end();
+    }, LISTEN_START_WITHIN_MS),
+  );
+
+  const begin = async (m: Extract<ListenClientMessage, { type: 'start' }>) => {
+    if (!deps.verifyToken) throw HfosError.unauthenticated();
+    const actor = await deps.verifyToken(m.token);
+    const admitted = await admit(actor, m.workspaceId);
+    if (over) return;
+    scope = admitted;
+    const opened = await deps.speech!.listen(
+      {
+        onWords: (w) => {
+          latest = w.text;
+          language = w.language ?? language;
+          if (w.endOfTurn) finish(w.text);
+        },
+        onSpeechStarted: () => {
+          if (talking) return;
+          talking = true;
+          send({ type: 'talking' });
+        },
+        onUtteranceEnd: () => undefined,
+        onError: fail,
+      },
+      { audio: 'wide', smartTurns: true },
+    );
+    if (over) {
+      void opened.close().catch(() => undefined);
+      return;
+    }
+    listening = opened;
+    timers.push(setTimeout(() => finish(latest), SPEECH_TURN_MAX_MS));
+    send({ type: 'ready' });
+  };
+
+  socket.on('message', (raw: WebSocket.RawData, isBinary: boolean) => {
+    if (isBinary) {
+      if (!listening) return;
+      const audio = Buffer.isBuffer(raw) ? raw : Buffer.from(raw as ArrayBuffer);
+      streamed += audio.length;
+      listening.send(audio);
+      return;
+    }
+    let m: ListenClientMessage;
+    try {
+      m = ListenClientMessage.parse(JSON.parse(String(raw)));
+    } catch {
+      return;
+    }
+    if (m.type === 'start') {
+      if (started) return;
+      started = true;
+      void begin(m).catch(fail);
+      return;
+    }
+    // Done: what Flux has so far, once the words it's on have had a moment to land.
+    if (listening) timers.push(setTimeout(() => finish(latest), DONE_SETTLE_MS));
+  });
+  socket.on('close', end);
+  socket.on('error', (e: Error) =>
+    deps.log.warn({ err: e }, 'the Assistant’s live listening socket errored'),
+  );
+}

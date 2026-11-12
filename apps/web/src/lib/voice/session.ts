@@ -4,6 +4,8 @@
  *
  * - Listening records one turn from the microphone and reads its loudness as it goes (@hfos/core's
  *   createTurnDetector), so the turn ends by itself when they stop talking; then the worker turns it into words.
+ *   The Assistant listens live instead (live-ear.ts): the turn streams to the worker, Flux says when they've
+ *   finished a thought, and the words come back; the recording and the pause stay as the way back.
  * - Speaking says text a piece at a time (a sentence or a few), fetching the next piece while one plays, so the
  *   first words start soon. Audio plays through one AudioContext made in the click that turned voice mode on:
  *   browsers only let a page make sound after the person has touched it, and Safari only then.
@@ -16,10 +18,12 @@ import {
   levelDb,
   speechChunks,
   VOICE_WORDS,
+  type HeardSpeech,
   type PhoneVoice,
   type TurnDetectorOptions,
 } from '@hfos/core';
 import { errorMessage } from '../api/client';
+import { LiveEar } from './live-ear';
 import { hear, say, speechStops } from './speech';
 
 /** off: voice mode is off; idle: on, and waiting for a tap; then what it's doing. */
@@ -40,6 +44,8 @@ interface Piece {
 
 /** The longest piece said in one go. */
 const PIECE_MAX = 280;
+/** Quiet this long while listening live asks the worker for what it has, in case Flux never says they're done. */
+const LIVE_BACKSTOP_MS = 6_500;
 /** How often the microphone's loudness is read. */
 const TICK_MS = 50;
 /** What the browser records in, best first: Chrome and Firefox make WebM, Safari MP4. */
@@ -91,6 +97,8 @@ export class VoiceSession {
   private language: string | null = null;
   /** More is still coming (an answer still being written): between pieces it's thinking, not waiting for a tap. */
   private held = false;
+  /** The live way failed once: the rest of this session ends each turn on a pause. */
+  private liveOff = false;
 
   constructor(
     private readonly opts: {
@@ -179,6 +187,7 @@ export class VoiceSession {
     this.ctx = null;
     this.language = null;
     this.held = false;
+    this.liveOff = false;
     this.set('off', error);
   }
 
@@ -213,8 +222,16 @@ export class VoiceSession {
    * Hears one turn: records until they stop talking, then answers their words, or null when nothing was said, it
    * was stopped, or it couldn't be heard (the phase says why). `turn` changes how long a pause ends it (the
    * Assistant's ASSISTANT_TURN waits longer than a call).
+   *
+   * `live` (the Assistant) streams the turn to the worker as it's said instead (live-ear.ts), where Flux decides
+   * when they've finished from what they said and how, and the words come straight back. The recording and the
+   * pause are kept alongside: if the live way fails, the turn ends on the pause as before, and the rest of the
+   * session listens that way.
    */
-  async listen(turn: TurnDetectorOptions = {}): Promise<string | null> {
+  async listen(
+    turn: TurnDetectorOptions = {},
+    opts: { readonly live?: boolean } = {},
+  ): Promise<string | null> {
     const ctx = this.ctx;
     const stream = this.stream;
     if (this.on && ctx && !stream && scripted) return this.listenScripted(scripted);
@@ -239,24 +256,72 @@ export class VoiceSession {
     source.connect(analyser);
     const samples = new Float32Array(analyser.fftSize);
     const detector = createTurnDetector(turn);
+    /** While the live way is on, a long quiet only asks the worker for what it has (Flux waits up to five). */
+    const backstop = createTurnDetector({ ...turn, silenceMs: LIVE_BACKSTOP_MS });
     this.set('listening');
 
-    const outcome = await new Promise<'done' | 'nothing' | 'cancelled'>((resolve) => {
+    /** The live way's words, or why talking out loud has to stop. */
+    const got: { heard: HeardSpeech | null; refused: string | null } = {
+      heard: null,
+      refused: null,
+    };
+    const outcome = await new Promise<'done' | 'nothing' | 'cancelled' | 'live'>((resolve) => {
       let over = false;
-      const end = (why: 'done' | 'nothing' | 'cancelled') => {
+      let ear: LiveEar | null = null;
+      /** The live way heard them start, however quietly: it doesn't give up on them for being quiet. */
+      let talking = false;
+      /** Done was pressed while listening live: if the live way fails now, the recording goes at once. */
+      let doneAsked = false;
+      const end = (why: 'done' | 'nothing' | 'cancelled' | 'live') => {
         if (over) return;
         over = true;
         clearInterval(timer);
+        ear?.close();
         this.listening = null;
         resolve(why);
       };
+      if (opts.live && !this.liveOff) {
+        const live = new LiveEar(ctx, stream, this.opts.workspaceId(), {
+          onTalking: () => {
+            talking = true;
+          },
+          onTurn: (heard) => {
+            got.heard = heard;
+            end('live');
+          },
+          onRefused: (message, rule) => {
+            got.refused = rule === 'speech_not_configured' ? VOICE_WORDS.notConfigured : message;
+            end('cancelled');
+          },
+          // The rest of this turn, and of the session, ends on a pause.
+          onFailed: () => {
+            this.liveOff = true;
+            ear = null;
+            if (doneAsked) end(detector.heard || talking ? 'done' : 'cancelled');
+          },
+        });
+        ear = live;
+        void live.start();
+      }
       const timer = setInterval(() => {
         analyser.getFloatTimeDomainData(samples);
-        const state = detector.feed(levelDb(samples), performance.now());
+        const db = levelDb(samples);
+        const at = performance.now();
+        const state = detector.feed(db, at);
+        const late = backstop.feed(db, at);
         this.level(detector.level);
-        if (state === 'done' || state === 'nothing') end(state);
+        if (state === 'nothing' && !(ear && talking)) end('nothing');
+        else if (!ear && state === 'done') end('done');
+        else if (ear && late === 'done') ear.done();
       }, TICK_MS);
-      this.listening = { stop: (send) => end(send && detector.heard ? 'done' : 'cancelled') };
+      this.listening = {
+        stop: (send) => {
+          if (send && ear) {
+            doneAsked = true;
+            ear.done();
+          } else end(send && detector.heard ? 'done' : 'cancelled');
+        },
+      };
       recorder.start(250);
     });
     const recording = await new Promise<Blob>((resolve) => {
@@ -268,7 +333,12 @@ export class VoiceSession {
     });
     source.disconnect();
     this.level(0);
+    if (got.refused) {
+      this.stop(got.refused);
+      return null;
+    }
     if (outcome === 'cancelled' || !this.on) return null;
+    if (outcome === 'live' && got.heard) return this.heardWords(got.heard);
     if (outcome === 'nothing' || !recording.size) {
       this.set('idle', VOICE_WORDS.heardNothing);
       return null;
@@ -279,13 +349,7 @@ export class VoiceSession {
     try {
       const heard = await hear(this.opts.workspaceId(), recording, this.fetches.signal);
       if (gen !== this.gen || !this.on) return null;
-      if (heard.language) this.language = heard.language;
-      if (!heard.text) {
-        this.set('idle', VOICE_WORDS.heardNothing);
-        return null;
-      }
-      this.set('thinking');
-      return heard.text;
+      return this.heardWords(heard);
     } catch (e) {
       if (gen !== this.gen || !this.on) return null;
       const stops = speechStops(e);
@@ -293,6 +357,17 @@ export class VoiceSession {
       else this.set('idle', errorMessage(e));
       return null;
     }
+  }
+
+  /** What they said, heard: their words, or null (and "Didn't catch that") when there were none. */
+  private heardWords(heard: HeardSpeech): string | null {
+    if (heard.language) this.language = heard.language;
+    if (!heard.text) {
+      this.set('idle', VOICE_WORDS.heardNothing);
+      return null;
+    }
+    this.set('thinking');
+    return heard.text;
   }
 
   /** Hears the demo player's next line, with the meter moving while it's said, as if from the microphone. */

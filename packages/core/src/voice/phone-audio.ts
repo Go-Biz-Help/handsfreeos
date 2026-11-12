@@ -50,8 +50,9 @@ export function decodeMulaw(bytes: ArrayLike<number>): Float32Array {
 
 /**
  * The microphone's samples at whatever rate the browser records (44.1 or 48 kHz, usually) given back at a phone's
- * 8 kHz. A low-pass comes first, a little under what a phone line carries, so nothing higher folds back into what
- * the listener hears; then it steps through at the phone's rate, in between samples when the rates don't divide.
+ * 8 kHz, or at another rate below it (`to`: the Assistant's live listening sends 16 kHz). A low-pass comes first, a
+ * little under half the new rate (3.4 kHz, what a phone line carries, at 8 kHz), so nothing higher folds back into
+ * what the listener hears; then it steps through at the new rate, in between samples when the rates don't divide.
  * It keeps what it needs between calls, so a stream fed in pieces comes out as one.
  */
 export class PhoneDownsampler {
@@ -63,13 +64,16 @@ export class PhoneDownsampler {
   /** Where the next phone sample falls in `buf`. */
   private pos: number;
 
-  constructor(readonly rate: number) {
-    if (!(rate >= PHONE_RATE))
-      throw new Error(`A ${rate} Hz microphone is below a phone line’s rate`);
-    this.step = rate / PHONE_RATE;
-    // 3.4 kHz, the top of what a phone line carries, as a fraction of the recording's rate. The taps grow with
-    // the rate so the filter is as sharp at 48 kHz as at 16: past about 4.3 kHz nothing gets through.
-    const cutoff = 3400 / rate;
+  constructor(
+    readonly rate: number,
+    readonly to: number = PHONE_RATE,
+  ) {
+    if (!(rate >= to)) throw new Error(`A ${rate} Hz microphone is below ${to} Hz`);
+    this.step = rate / to;
+    // 3.4 kHz at a phone's rate, the top of what a phone line carries (0.425 of the new rate), as a fraction of
+    // the recording's rate. The taps grow with the rate so the filter is as sharp at 48 kHz as at 16: past about
+    // 4.3 kHz (at 8 kHz) nothing gets through.
+    const cutoff = (to * 0.425) / rate;
     const n = Math.max(31, Math.ceil(this.step * 24)) | 1;
     this.half = (n - 1) / 2;
     const taps = new Float32Array(n);
@@ -119,4 +123,15 @@ export class PhoneDownsampler {
     for (let k = 0; k < this.taps.length; k++) acc += this.taps[k]! * buf[start + k]!;
     return acc;
   }
+}
+
+/** Samples from -1 to 1 as 16-bit little-endian PCM, the Assistant's live listening's sound. */
+export function encodeLinear16(samples: ArrayLike<number>): Uint8Array {
+  const out = new Uint8Array(samples.length * 2);
+  const view = new DataView(out.buffer);
+  for (let i = 0; i < samples.length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i] ?? 0));
+    view.setInt16(i * 2, Math.round(s < 0 ? s * 0x8000 : s * 0x7fff), true);
+  }
+  return out;
 }

@@ -35,7 +35,7 @@ export function useAssistantVoice() {
   /** Hears one turn and acts on it. */
   const turn = useRef(async () => {});
   turn.current = async () => {
-    const words = await session.listen(ASSISTANT_TURN);
+    const words = await session.listen(ASSISTANT_TURN, { live: true });
     if (!words) return;
     const now = latest.current;
     const cut = session.generation;
