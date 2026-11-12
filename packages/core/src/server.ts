@@ -10,6 +10,7 @@ export * from './crm/matching';
 export * from './auth/token';
 export * from './messaging/store';
 export * from './messaging/legal-source';
+export * from './messaging/web-person';
 export * from './messaging/phone-account';
 export * from './messaging/call-consent';
 export * from './messaging/registration-fingerprint';

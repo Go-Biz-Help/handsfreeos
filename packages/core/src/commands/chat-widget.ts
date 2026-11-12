@@ -8,9 +8,9 @@
  * it had nothing to link to. That's how the texting registration's chat gets its links without a form or a
  * booking page being made first.
  */
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { chatWidgets, workspaces } from '@hfos/db/schema';
+import { chatWidgets, telephonyRegistrations, workspaces } from '@hfos/db/schema';
 import { loadTeammate } from '../ai-team/load';
 import { ensureBookingSite } from '../calendar/site';
 import { chatShownName, normalizeChatOrigins } from '../chat/origins';
@@ -19,11 +19,14 @@ import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import { lookOf } from '../look/look';
+import { optInNowOf } from '../messaging/legal-source';
 import {
   ChatAskFor,
   chatAskForOf,
   ChatWidgetCreateInput,
   ChatWidgetCreateOutput,
+  ChatWidgetHideUntilTextingInput,
+  ChatWidgetHideUntilTextingOutput,
   ChatWidgetPauseOutput,
   ChatWidgetRecordSeenInput,
   ChatWidgetRecordSeenOutput,
@@ -260,7 +263,10 @@ export const chatWidgetResume = defineCommand({
   async handler(ctx, input) {
     const w = await loadWidget(ctx, input.widgetId);
     if (!w.pausedAt) return { widgetId: w.id, paused: false };
-    await ctx.tx.update(chatWidgets).set({ pausedAt: null }).where(eq(chatWidgets.id, w.id));
+    await ctx.tx
+      .update(chatWidgets)
+      .set({ pausedAt: null, hiddenUntilTexting: false })
+      .where(eq(chatWidgets.id, w.id));
     await ctx.emit({
       type: 'chat_widget.resumed',
       entityType: 'chat_widget',
@@ -324,5 +330,93 @@ export const chatWidgetRecordSeen = defineCommand({
           returning id`,
     );
     return { widgetId: w.id, recorded: !!row };
+  },
+});
+
+/** Whether the carriers approved this business's texting: its campaign, or its toll-free number's verification. */
+async function textingApproved(ctx: CommandContext, workspaceId: string): Promise<boolean> {
+  const regs = await ctx.tx
+    .select({ kind: telephonyRegistrations.kind, status: telephonyRegistrations.status })
+    .from(telephonyRegistrations)
+    .where(
+      and(
+        eq(telephonyRegistrations.workspaceId, workspaceId),
+        inArray(telephonyRegistrations.kind, ['a2p_campaign', 'toll_free_verification']),
+      ),
+    )
+    .orderBy(telephonyRegistrations.createdAt);
+  const latest = new Map<string, string>();
+  for (const r of regs) latest.set(r.kind, r.status);
+  return [...latest.values()].some((status) => status === 'approved');
+}
+
+/**
+ * "Hide the website chat until texting is approved" (the owner, 2026-11-12). A business whose customers agree to texts
+ * on a form sometimes wants the chat out of the way while the carriers look: every chat it has is paused (its code
+ * stays on the site and shows nothing) and comes back on by itself when texting is approved (the worker, on
+ * `registration.status_changed`). `hide: false` turns back on the chats this hid, and only those.
+ *
+ * Refused while the chat is how customers agree: the reviewer has to find it.
+ */
+export const chatWidgetHideUntilTexting = defineCommand({
+  name: 'chat_widget.hide_until_texting',
+  description:
+    'Hide every website chat until the business’s texting is approved, when they come back on by themselves (the code stays on the site and shows nothing meanwhile); or turn the chats it hid back on now. Refused while the chat is how customers agree to texts.',
+  risk: 1,
+  input: ChatWidgetHideUntilTextingInput,
+  output: ChatWidgetHideUntilTextingOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: ['chat_widget.paused', 'chat_widget.resumed'],
+  actors: ['human', 'system'],
+  async handler(ctx, input) {
+    const workspaceId = ctx.scope.workspaceId!;
+    if (input.hide) {
+      if (await textingApproved(ctx, workspaceId))
+        throw HfosError.rule(
+          'texting_already_approved',
+          409,
+          'Texting is already approved for this business, so there’s nothing to wait for. Pause a chat in Settings → Website chat instead.',
+        );
+      const optIn = await optInNowOf(ctx.tx, workspaceId);
+      if (optIn.path === 'hosted' || optIn.otherPaths.includes('hosted'))
+        throw HfosError.rule(
+          'chat_is_the_opt_in',
+          409,
+          'Your customers agree to texts in the website chat, so the carriers’ reviewer has to find it. Hiding it would get the registration turned down. To use a form instead, change “How customers agree” in the texting registration first.',
+        );
+    }
+    const targets = await ctx.tx
+      .select()
+      .from(chatWidgets)
+      .where(
+        and(
+          eq(chatWidgets.workspaceId, workspaceId),
+          input.hide ? isNull(chatWidgets.pausedAt) : eq(chatWidgets.hiddenUntilTexting, true),
+        ),
+      );
+    for (const w of targets) {
+      await ctx.tx
+        .update(chatWidgets)
+        .set(
+          input.hide
+            ? { pausedAt: new Date(), hiddenUntilTexting: true }
+            : { pausedAt: null, hiddenUntilTexting: false },
+        )
+        .where(eq(chatWidgets.id, w.id));
+      await ctx.emit({
+        type: input.hide ? 'chat_widget.paused' : 'chat_widget.resumed',
+        entityType: 'chat_widget',
+        entityId: w.id,
+        payload: { widgetId: w.id, untilTexting: true },
+        before: { paused: !input.hide },
+        after: {
+          name: chatShownName(w.name, w.allowedOrigins),
+          paused: input.hide,
+          ...(input.hide ? { until: 'texting is approved' } : {}),
+        },
+      });
+    }
+    return { widgetIds: targets.map((w) => w.id), hidden: input.hide };
   },
 });
