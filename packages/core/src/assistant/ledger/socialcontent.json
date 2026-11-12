@@ -418,9 +418,9 @@
       "by": "socialcontent_list_ideas (state)"
     },
     {
-      "path": "Ideas → an idea: network, format, title, hook, outline, why, based on",
+      "path": "Ideas → an idea: network, format, its kind (Tip, Customer problem, Story, Offer), title, hook, outline, About (the line from the lists), why, based on, Found on (a fact’s page)",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:196",
+      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:201",
       "covered": "yes",
       "by": "socialcontent_list_ideas"
     },
@@ -698,9 +698,9 @@
       "by": "socialcontent_suggest_ideas (worker action)"
     },
     {
-      "path": "Phone → Ideas → tabs with counts; an idea: network, format, title, hook, outline, why, based on; none yet or needs a Playbook",
+      "path": "Phone → Ideas → tabs with counts; an idea: network, format, its kind, title, hook, outline, About, why, based on, Found on (opens the page); none yet or needs a Playbook",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/ideas.tsx:189",
+      "file": "apps/mobile/src/addons/socialcontent/ideas.tsx:221",
       "covered": "yes",
       "by": "socialcontent_list_ideas; socialcontent_get_playbook"
     },
@@ -873,9 +873,9 @@
       "by": "socialcontent_get_calendar; socialcontent_get_own_post"
     },
     {
-      "path": "Phone → Post → header: title, network, state, who OK’d it and when",
+      "path": "Phone → Post → header: title, network, state, its kind, who OK’d it and when, and About (the line it’s about)",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:631",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:630",
       "covered": "yes",
       "by": "socialcontent_get_own_post (state, approvedBy, approvedAt)"
     },
@@ -1160,9 +1160,9 @@
       "by": "socialcontent_get_calendar; socialcontent_get_own_post"
     },
     {
-      "path": "Post → header: title, network, state, who OK’d it and when",
+      "path": "Post → header: title, network, state, its kind (Tip, Customer problem, Story, Offer), who OK’d it and when, and About (the line from the lists it’s about)",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:469",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:480",
       "covered": "yes",
       "by": "socialcontent_get_own_post (state, approvedBy, approvedAt)"
     },

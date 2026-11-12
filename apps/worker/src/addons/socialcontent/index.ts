@@ -36,6 +36,7 @@ import {
   writePostNow,
 } from './content';
 import { READ_LOOK_ACTION, readLook } from './helper';
+import { RESEARCH_JOB, runResearch } from './research';
 import { onNicheAdded, suggestNichesNow } from './niches';
 import {
   onSetupMayGoOn,
@@ -63,12 +64,16 @@ const MONTH_MS = 30 * 86_400_000;
 /** Learning the hours waits this long after new posts, so a read's many saves make one run. */
 const TIMES_LATER_MS = 10 * 60_000;
 
-/** Arms the weekly read and the monthly search, from now: nothing that came due while it was off runs late. */
+/**
+ * Arms the weekly read, the monthly search and the weekly look for news (decision 38), from now: nothing that came due
+ * while it was off runs late.
+ */
 async function armChecks(ctx: AddonScopeContext): Promise<void> {
   await asWorker(ctx.db, ctx.scope, async (tx) => {
     for (const [kind, every] of [
       [WEEKLY_JOB, WEEK_MS],
       [MONTHLY_JOB, MONTH_MS],
+      [RESEARCH_JOB, WEEK_MS],
     ] as const)
       await scheduleAddonJob(
         tx,
@@ -198,6 +203,7 @@ export const socialcontentAddonWorker: AddonWorkerModule = {
     [PICTURES_JOB]: runPictures,
     [TIMES_JOB]: runTimes,
     [SETUP_JOB]: runSetup,
+    [RESEARCH_JOB]: runResearch,
   },
   onEnable,
   actions: {

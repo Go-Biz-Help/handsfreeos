@@ -56,12 +56,14 @@ import {
   postWatched,
 } from '@hfos/core/addons/socialcontent/ops/worker';
 import {
+  LIMITS,
   PlaybookSection,
   PostNotes,
   PostWatched,
   PostWatchInput,
   type PostKind,
 } from '@hfos/core/addons/socialcontent/shapes';
+import { planIdeas, VARIETY } from '@hfos/core/addons/socialcontent/variety';
 import { SOCIALCONTENT_WORDS as W } from '@hfos/core/addons/socialcontent/words';
 import { executeCommand, HfosError } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
@@ -77,7 +79,8 @@ import {
 } from '../../ai/ask';
 import { noteSpeech, speechMinutes } from '../../money/speech-usage';
 import { scheduleAddonJob } from '../queue';
-import { businessText, offerIsLive, requireLiveOffer } from './business';
+import { businessText, listsHere, offerIsLive, requireLiveOffer } from './business';
+import { ideasBefore, postsBefore } from './variety';
 import type {
   AddonEventContext,
   AddonJobHandler,
@@ -355,10 +358,14 @@ export async function writePlaybook(ctx: AddonScopeContext, business?: string): 
 
 // ------------------------------------------------------------------------------------------------ ideas
 
-/** Has the AI suggest ideas from the Playbook. How many were added; null when there's no Playbook yet. */
+/**
+ * Has the AI suggest ideas from the Playbook, each planned first as a kind in the weekly mix and a line from the lists
+ * (decisions 34 to 36). How many were added; null when there's no Playbook yet.
+ */
 export async function suggestIdeas(
   ctx: AddonScopeContext,
   business?: string,
+  wanted: number = NOTES_LIMITS.ideasAsked,
 ): Promise<number | null> {
   const here = await asWorker(ctx.db, ctx.scope, async (tx) => {
     const [p] = await rows<{ summary: string | null; sections: unknown }>(
@@ -395,6 +402,13 @@ export async function suggestIdeas(
   const networks = here.networks
     .filter(isContentNetwork)
     .filter((n) => CONTENT_NETWORK_INFO[n].ready);
+  const recent = await postsBefore(ctx);
+  // The ideas waiting come before the new ones in the mix, and their topics aren't taken again.
+  const slots = planIdeas(
+    Math.min(wanted, LIMITS.ideasAtOnce),
+    [...(await ideasBefore(ctx)), ...recent],
+    await listsHere(ctx),
+  );
   const { prompt, refs } = ideasPrompt({
     business: business ?? (await businessText(ctx)),
     summary: here.p.summary,
@@ -407,16 +421,24 @@ export async function suggestIdeas(
     }),
     networks: networks.length ? networks : ['instagram'],
     already: here.already,
+    slots,
+    recent: recent.slice(0, VARIETY.recentShown),
   });
   const { value } = await askStructured(ctx, ctx.scope, {
     system: IDEAS_SYSTEM,
     messages: [{ role: 'user', content: prompt }],
     schema: IDEAS_SCHEMA,
     zod: IdeasAnswer,
-    maxTokens: 3000,
+    maxTokens: 1000 + 500 * slots.length,
     usage: { source: 'addon', addonId: ctx.manifest.id },
   });
-  const ideas = checkedIdeas(value, refs, here.already, networks.length ? networks : ['instagram']);
+  const ideas = checkedIdeas(
+    value,
+    refs,
+    here.already,
+    networks.length ? networks : ['instagram'],
+    slots,
+  );
   if (!ideas.length) return 0;
   const { output } = await executeCommand(
     ctx.db,
@@ -486,8 +508,8 @@ export const runNotes: AddonJobHandler = async (ctx) => {
       business ??= await businessText(ctx);
       const sections = await writePlaybook(ctx, business);
       // No ideas until the main offer is live (pick 7b): the Playbook is research, and goes on.
-      if (sections && state.newIdeas < NOTES_LIMITS.ideasWaitingMost && (await offerIsLive(ctx)))
-        await suggestIdeas(ctx, business);
+      if (sections && state.newIdeas < VARIETY.ideasBelow && (await offerIsLive(ctx)))
+        await suggestIdeas(ctx, business, VARIETY.ideasAdded);
     }
     if (standouts.length > NOTES_LIMITS.perRun)
       return { rescheduleAt: new Date(ctx.now + AGAIN_MS) };
@@ -532,7 +554,7 @@ export const suggestIdeasNow: AddonWorkerAction<Record<string, never>> = {
   ai: {
     tool: 'socialcontent_suggest_ideas',
     description:
-      'Have the AI suggest up to 5 new content ideas for the business’s own posts, from AI Social Media Content Creator’s Playbook and the business’s profile, each with a hook, format, network, outline, why it should work and the standouts it’s based on. They wait under Ideas as new. Refused until the business’s main offer is live.',
+      'Have the AI suggest up to 5 new content ideas for the business’s own posts, from AI Social Media Content Creator’s Playbook and the business’s profile, each with a hook, format, network, outline, why it should work and the standouts it’s based on. Each is the next kind in the weekly mix (a tip, a customer’s problem, a story, or the offer) about the next line from the main offer’s lists for content. They wait under Ideas as new; 10 more come on their own whenever fewer than 5 wait. Refused until the business’s main offer is live.',
     autonomy: 'auto',
     keywords: ['content ideas', 'post ideas', 'what to post'],
   },

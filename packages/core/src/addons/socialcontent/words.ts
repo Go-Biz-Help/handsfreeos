@@ -435,7 +435,7 @@ export const SOCIALCONTENT_WORDS = {
   ideas: {
     title: 'Ideas',
     intro:
-      'Ideas for your own posts, from the Playbook and what HandsFreeOS knows about your business. Write the post from one, and it goes on your Calendar. Saved ideas are written first when the calendar fills.',
+      'Ideas for your own posts, from the Playbook and what HandsFreeOS knows about your business. Each is a tip, a customer problem, a story or your offer, about a line from your lists in Main offer → For your content. Write the post from one, and it goes on your Calendar. Saved ideas are written first when the calendar fills, and 10 more come on their own whenever fewer than 5 wait.',
     none: 'No ideas yet. Get ideas once there’s a Playbook.',
     get: 'Get ideas',
     getting: 'Thinking…',
@@ -451,6 +451,8 @@ export const SOCIALCONTENT_WORDS = {
     outline: 'Outline',
     why: 'Why it should work',
     basedOn: (n: number) => `Based on ${count(n, 'standout')}`,
+    about: 'About',
+    source: 'Found on',
     decided: 'Done.',
     needsPlaybook:
       'Ideas come from the Playbook, and there isn’t one yet. Once a few standouts have the AI’s notes, it’s written on its own.',
@@ -662,6 +664,8 @@ export const SOCIALCONTENT_WORDS = {
     tomorrow: 'Tomorrow',
   },
   post: {
+    /** The line from the lists a post is about (decision 34). */
+    about: (line: string) => `About: “${line}”`,
     states: {
       draft: 'Waiting for your OK',
       ready: 'OK’d',
@@ -673,13 +677,14 @@ export const SOCIALCONTENT_WORDS = {
     formats: { photo: 'Picture', carousel: 'Carousel', video: 'Video', text: 'Words only' },
     ways: {
       design: 'Designed by the AI',
-      photo: 'Photo-style, by the AI',
+      photo: 'Photo with words, by the AI',
       own: 'Your own',
     },
     waysHint: {
       design:
         'A picture with words on it, in your colour: tips, steps, a quote, a big claim, or each slide of a carousel.',
-      photo: 'A lifelike picture with no words, made by OpenAI’s image AI. It costs 9¢ each.',
+      photo:
+        'A lifelike photo made by OpenAI’s image AI, with your words laid over it like a Canva design. It costs 9¢ each.',
       own: 'A photo or video you take: the real you, your team or your work.',
     },
     pictureStates: {

@@ -141,6 +141,19 @@ export interface AiRequest {
    * a loop it stays, at the same place, on every later call: the conversation only grows at its end.
    */
   readonly effortFrom?: { readonly at: number; readonly effort: AiEffort };
+  /**
+   * Let the model look things up on the web, up to `maxUses` searches in the request (Claude's own search tool). A
+   * provider without one answers from what it knows. Each search is paid for beside the tokens (`AiTurn.webSearches`).
+   */
+  readonly webSearch?: { readonly maxUses: number };
+}
+
+/** A page the model's web search found, and what of it the answer quoted. */
+export interface AiWebSource {
+  readonly url: string;
+  readonly title: string;
+  /** How old the page is, as the search said ("3 days ago"), when it said. */
+  readonly age: string | null;
 }
 
 export interface AiToolCall {
@@ -172,6 +185,15 @@ export interface AiTurn {
   readonly usage: AiUsage;
   /** The model that answered, when the provider says: the backup's, when Claude was down. */
   readonly model?: string;
+  /** The pages its web searches found, in the order found, each once (with `AiRequest.webSearch`). */
+  readonly webSources?: readonly AiWebSource[];
+  /**
+   * The answer's words with each claim it took from a page marked `[n]`, n being that page's place in `webSources`
+   * from 1: what a second step reads to keep each fact with where it came from.
+   */
+  readonly citedText?: string;
+  /** How many web searches it made, each paid for beside the tokens. */
+  readonly webSearches?: number;
 }
 
 /** A tool call as the model writes it. */

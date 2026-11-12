@@ -16,7 +16,7 @@ import {
 } from './calendar';
 import { OWN_READS } from './own';
 import { POST_LIMITS } from './posts-ai';
-import { LearnedPlanShape, Network, PlanShape, uuid } from './shapes';
+import { AngleShape, LearnedPlanShape, Network, PlanShape, TopicShape, uuid } from './shapes';
 
 export const PostingNetwork = z.enum(POSTING_NETWORKS);
 export const ContentFormat = z.enum(CONTENT_FORMATS);
@@ -108,6 +108,9 @@ export const Content = z.object({
   madeBy: z.enum(['ai', 'person']),
   /** Who set its time: AI picks may move one it set to a better hour (decision 27). Defaults, for an older API. */
   placedBy: z.enum(['ai', 'person']).default('ai'),
+  /** Its kind in the weekly mix and the line from the lists it's about (decisions 34 to 36). Default for an older API. */
+  angle: AngleShape.nullable().default(null),
+  topic: TopicShape.nullable().default(null),
   ideaId: uuid.nullable(),
   /** What it still needs before it can be OK'd, in words to show; null when nothing. */
   stillNeeds: z.string().nullable(),
@@ -352,6 +355,8 @@ export const WrittenPostShape = z.object({
   script: ScriptShape.nullable(),
   picture: z.string().max(POST_LIMITS.picture).nullable(),
   pictureWay: PictureWay,
+  angle: AngleShape.nullable().default(null),
+  topic: TopicShape.nullable().default(null),
 });
 
 export const ContentPutInput = z.object({

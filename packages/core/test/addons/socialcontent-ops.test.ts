@@ -427,11 +427,28 @@ describe('studying creators', () => {
       why: 'Questions work.',
       basedOn: [c2.id],
     });
+    // A fact found online keeps its kind, topic and page (decisions 34 and 38).
+    const fact = {
+      ...idea('One fix'),
+      angle: 'tip',
+      topic: { list: 'topics', line: 'Small leaks' },
+      source: { url: 'https://example.com/leaks', name: 'Example News' },
+    };
     expect(
-      await worker('socialcontent.ideas.put', { ideas: [idea('Leak or not?'), idea('One fix')] }),
+      await worker('socialcontent.ideas.put', { ideas: [idea('Leak or not?'), fact] }),
     ).toEqual({ added: 2 });
     const listed = await as(member, 'socialcontent.idea.list');
     expect(listed.ideas.map((i: Any) => i.state)).toEqual(['new', 'new']);
+    expect(listed.ideas.find((i: Any) => i.title === 'One fix')).toMatchObject({
+      angle: 'tip',
+      topic: { list: 'topics', line: 'Small leaks' },
+      source: { url: 'https://example.com/leaks', name: 'Example News' },
+    });
+    expect(listed.ideas.find((i: Any) => i.title === 'Leak or not?')).toMatchObject({
+      angle: null,
+      topic: null,
+      source: null,
+    });
     expect(listed.examples.map((e: Any) => e.id)).toEqual([c2.id]);
     const first = listed.ideas[0];
     expect(
@@ -728,7 +745,7 @@ describe('the business’s own posts', () => {
       network: 'linkedin',
       ideaId: idea.id,
       postAt: new Date(slot.at).toISOString(),
-      post: written(),
+      post: written({ angle: 'problem', topic: { list: 'problems', line: 'Drips at night' } }),
       askedBy: member.id,
     });
     expect(made).toMatchObject({ created: true });
@@ -742,6 +759,8 @@ describe('the business’s own posts', () => {
       ideaId: idea.id,
       stillNeeds: null,
       placedBy: 'ai',
+      angle: 'problem',
+      topic: { list: 'problems', line: 'Drips at night' },
     });
     const after = await as(member, 'socialcontent.calendar.get');
     expect(after.posts.map((p: Any) => p.id)).toContain(linkedinId);

@@ -19,6 +19,7 @@ import {
 } from '@hfos/core/addons/socialcontent/calendar';
 import type { Content, ContentPicture } from '@hfos/core/addons/socialcontent/content-shapes';
 import { networkName } from '@hfos/core/addons/socialcontent/networks';
+import { ANGLE_LABELS } from '@hfos/core/addons/socialcontent/variety';
 import {
   SOCIALCONTENT_WORDS as W,
   clockOf,
@@ -626,12 +627,18 @@ export function PostBody({
       <View className="flex-row flex-wrap items-center gap-2">
         <Text className="text-[13px] text-text-3">{networkName(p.network)}</Text>
         <Badge variant={STATE_BADGE[p.state]}>{W.post.states[p.state]}</Badge>
+        {p.angle ? <Badge variant="accent">{ANGLE_LABELS[p.angle]}</Badge> : null}
         {p.state === 'ready' && p.approvedAt ? (
           <Text className="text-[12.5px] text-text-3">
             {W.post.approvedBy(p.approvedBy, daysAgo(p.approvedAt))}
           </Text>
         ) : null}
       </View>
+      {p.topic ? (
+        <Text className="text-[12.5px] text-text-3" testID="socialcontent-post-topic">
+          {W.post.about(p.topic.line)}
+        </Text>
+      ) : null}
 
       {p.postedTo.length ? (
         <Card className="gap-2 p-4" testID="socialcontent-post-went">

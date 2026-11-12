@@ -7,6 +7,7 @@
  * offer is live, no ideas are written, and the page says so (pick 7b, 11 Nov).
  */
 import { networkName } from '@hfos/core/addons/socialcontent/networks';
+import { ANGLE_LABELS } from '@hfos/core/addons/socialcontent/variety';
 import { SOCIALCONTENT_WORDS as W, daysAgo } from '@hfos/core/addons/socialcontent/words';
 import { Lightbulb, PenLine } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -197,10 +198,17 @@ function IdeaCard({
     <Card className="p-4 md:p-5" data-testid={`socialcontent-idea-${i.id}`}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-text-3">
         {i.network ? <span>{networkName(i.network)}</span> : null}
+        {i.angle ? <Badge variant="accent">{ANGLE_LABELS[i.angle]}</Badge> : null}
         {i.format ? <Badge>{i.format}</Badge> : null}
         <span>{daysAgo(i.createdAt)}</span>
       </div>
       <h2 className="mt-1.5 text-[15px] font-semibold text-text">{i.title}</h2>
+      {i.topic ? (
+        <p className="mt-1 text-[13px] text-text-2" data-testid="socialcontent-idea-topic">
+          <span className="text-text-3">{W.ideas.about}: </span>
+          {i.topic.line}
+        </p>
+      ) : null}
       {i.hook ? (
         <p className="mt-1.5 text-[13.5px] text-text">
           <span className="text-text-3">{W.ideas.hook}: </span>“{i.hook}”
@@ -216,6 +224,19 @@ function IdeaCard({
         <p className="mt-2 text-[13px] text-text-2">
           <span className="text-text-3">{W.ideas.why}: </span>
           {i.why}
+        </p>
+      ) : null}
+      {i.source ? (
+        <p className="mt-2 text-[13px] text-text-2" data-testid="socialcontent-idea-source">
+          <span className="text-text-3">{W.ideas.source}: </span>
+          <a
+            href={i.source.url}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="text-accent underline-offset-2 hover:underline"
+          >
+            {i.source.name}
+          </a>
         </p>
       ) : null}
       <StandoutLinks

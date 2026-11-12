@@ -205,17 +205,20 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   answers from the Knowledge base (FAQs and facts, `businessText`), the live main offer (its parts, never the price)
   and the lists for content (what makes you different, features and benefits, your voice, never say and the rest),
   the Playbook and the idea it's written from. Ideas read the offer and the lists too.
-- **Pictures** (decision 14), made in the worker's `socialcontent.pictures` job, one post at a time:
-  - **Designed by the AI** (the default for tips, steps, quotes, claims and every carousel slide): Claude picks a
-    layout (bold, clean or split), the colours (from the business's colour, kept readable) and the words for each page;
-    the worker draws each page as a 1080 by 1350 PNG with Inter. Words are drawn, never left to an image model, so
-    they're spelled right; emoji are left out. Charged as the AI's words, like any ask.
-  - **Photo-style, by the AI**: OpenAI's image model (`OPENAI_IMAGE_MODEL`, GPT-Image-2.6 Sunburst) makes a lifelike
-    picture with no words from the AI's description, cropped to 1080 by 1350. When it's busy, GPT-Image-2.6 Flare
-    tries once (`OPENAI_IMAGE_BACKUP_MODEL`); it plans at `medium` (`OPENAI_IMAGE_COMPLEXITY`). Charged 9¢ each on
-    the balance (`ai.image`), and only when the balance has room; the charge keeps OpenAI's real cost beside it.
-    Without `OPENAI_API_KEY` posts get designed pictures only. See "Photo-style pictures: the image models" in
-    docs/operations.md.
+- **Pictures** (decisions 14 and 39), made in the worker's `socialcontent.pictures` job, one post at a time:
+  - **Designed by the AI** (tips, steps, quotes, claims and a carousel's slides): Claude picks one font and three
+    colours for the whole design (from colours that go with the business's colour, `paletteFor`, kept readable) and
+    a layout and words for each page; the worker draws each page as a 1080 by 1350 PNG (`draw.ts`). The layouts and
+    fonts are under "Variety" below. Words are drawn, never left to an image model, so they're spelled right; emoji
+    are left out. Charged as the AI's words, like any ask.
+  - **Photo with words, by the AI**: OpenAI's image model (`OPENAI_IMAGE_MODEL`, GPT-Image-2.6 Sunburst) makes a
+    lifelike photo with no words from the AI's description, cropped to 1080 by 1350, and Claude designs the words over
+    it in the photo or framed layout, like a picture made in Canva (decision 39); on a carousel it goes under the first
+    slide. When it's busy, GPT-Image-2.6 Flare tries once (`OPENAI_IMAGE_BACKUP_MODEL`); it plans at `medium`
+    (`OPENAI_IMAGE_COMPLEXITY`). Charged 9¢ each on the balance (`ai.image`), and only when the balance has room; the
+    charge keeps OpenAI's real cost beside it. A photo that still can't be made on the last try leaves the picture
+    designed without it. Without `OPENAI_API_KEY` posts get designed pictures only. See "Photo-style pictures: the
+    image models" in docs/operations.md.
   - **Your own**: **Add your photo** uploads to the post's files. A video post needs the person's own video: they
     record it from the script and add it with **Add your video** (up to 25 MB, core's most for a file), which takes
     the place of one it had (part 10). Core's files take MP4, QuickTime and WebM videos for this (`ATTACHMENT_TYPES`,
@@ -236,6 +239,50 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   has Skip it, and the refusal says so (`socialcontent_remove_forbidden`). A post that went up or is going up can't be
   removed. The Assistant removes one on a Confirm card (`socialcontent_remove_own_post`). It's an online command on
   the phone.
+
+## Variety
+
+Decisions 34 to 39 (the owner, 12 Nov: "the calendar is mostly the same topic ... we need more variety", then "the
+designs always look the same"). The plans are pure, in core (`variety.ts`, `research-ai.ts`, the designs in
+`posts-ai.ts`); the worker asks.
+
+- **A kind for each post** (decision 36): of every 10, about 4 **tips**, 2 **customer problems**, 2 **stories** and 2
+  about **the offer**, each the kind furthest behind its share of the last 10, never the same kind twice in a row
+  (`nextAngles`). The AI is told what each kind does (`ANGLE_FOR_AI`).
+- **A topic for each post** (decision 34): a line from the main offer's For your content lists, the kind's lists
+  taking turns (`ANGLE_LISTS`), a list with a line not used lately first, then its line used longest ago
+  (`pickTopic`). The writer sees the business's last 20 posts (`<recent_posts>`) and never opens the way one did.
+  Posts and ideas keep their kind and topic (`angle`, `topic_list`, `topic`), shown as a badge and an About line on
+  the post and the idea, on the web and the phone.
+- **What each open day is written from** (`planWrites`): a saved idea for the network first; otherwise the kind the
+  mix needs, then a waiting idea of that kind, then a line from the lists, then an older idea with no kind.
+- **Ideas refill on their own** (decision 35): when fewer than 5 wait, the calendar and the nightly job have 10 more
+  written, each planned as a kind and a line first (`planIdeas`, one idea a slot).
+- **The drafts from before are written again** (decision 37): the AI's drafts with no kind that nobody changed, ahead
+  or with no day, 5 a run, on the same days and times (`oldDrafts`). Migration 026500 runs the calendar half an hour
+  after it's applied, and Fill the calendar runs while any wait.
+- **News and facts found online** (decision 38): once a week (`socialcontent.research`, the first time before the
+  first fill) Claude's own web search looks up to 5 times for news and true facts in the business's line of work and
+  its customers' world, then a second ask turns its notes into up to 10 ideas, each a tip pointing at a page the
+  search really found (`checkedFacts`), so a link is never made up. An idea keeps its page (`source_url`,
+  `source_name`, shown as "Found on"), and a post written from one names the source in plain words. Every other tip
+  is one while one waits, so about 2 in 10 posts. Each search is charged 2¢ (`ai.web_search`); with the search off
+  for the organisation, it keeps nothing.
+- **Creators' posts that match** (decision 38): the writer is shown the 3 studied creators' posts sharing the most
+  words with its topic and idea, standouts first (`examplesFor`), to learn hooks and shape from, never to copy.
+- **How it's shown** (decision 39, `nextLook`): words alone on Facebook or LinkedIn when none of the last 9 posts was;
+  otherwise a carousel or one picture, taking turns, about half each; and a photo under the words when photos are
+  behind 3 in 10 posts with pictures and the post before had none. A person's Write a post with words of what they
+  want leaves it to the AI.
+- **Layouts** (decision 39): bold, clean, split, number (one big stat), list (items with ticks), quote, myth
+  (crossed out, then the truth), before and after, note (a handwritten sticky note), highlight (words painted over),
+  and with a photo, photo (it fills the page) or framed (above a band of words). A carousel keeps one font and set
+  of colours and mixes layouts. A layout missing what it needs is drawn bold or clean (`checkedDesign`).
+- **Fonts** (decision 39): modern (Inter), classic (Playfair Display headings), loud (Oswald, in capitals) and
+  friendly (Poppins), with Caveat for notes, all shipped with the worker (@fontsource).
+- **Never the same twice in a row** (decision 39, `designChoices`): the design AI is told the first layouts of the
+  business's last two pictures, never to start with them, a shuffled few others to try (so pictures made at the same
+  time differ too) and a font unlike the last. `checkedDesign` swaps a repeat anyway.
 
 ## The schedule
 
@@ -439,7 +486,12 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
   `IDEAS_SYSTEM`): they're quoted as data in their own blocks, the price is never quoted, and never say is a hard
   rule. Nothing is written until the offer is live; the add-on reads the offer and never writes it.
 - **Words on pictures are drawn by the worker, never by an image model** (decision 14): OpenAI's pictures are asked
-  for with no words in them.
+  for with no words in them, and the words are laid over them (decision 39).
+- **A fact found online always keeps the page the search really found** (decision 38): the facts ask may only point
+  at pages from the search's own results, and a post names its source in plain words, never adding a number or claim
+  the fact doesn't give.
+- **The mix, topics and looks are worked out in core, not left to the AI** (decisions 34 to 39): the AI is told the
+  kind, topic and look, and what comes back is held to them (`checkedPost`, `checkedDesign`).
 - **A post goes up once in each place** (part 9). Once Post is pressed in a place it's never pressed there again on
   its own; one that may have gone up is the person's to look at, and Post it now leaves out the places it went up in.
 - **A Page's post never switches the person's profile:** it goes through Meta Business Suite, so Social Outreach,

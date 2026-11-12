@@ -168,6 +168,7 @@ const answer = (over: Partial<WriteAnswer> = {}): WriteAnswer => ({
   picture: 'A phone full of unread texts on a desk.',
   pictureWay: 'photo',
   photoPrompt: 'A phone full of unread texts on a wooden desk, morning light.',
+  angle: null,
   ...over,
 });
 
@@ -186,7 +187,7 @@ describe('checking what the AI writes', () => {
     expect(onLinkedIn.pictureWay).toBe('own');
   });
 
-  it('designs a carousel’s slides, and makes one of fewer than 2 slides a picture post', () => {
+  it('designs a carousel’s slides, a photo under the first when asked, and makes one of fewer than 2 slides a picture post', () => {
     const two = checkedPost(
       answer({
         format: 'carousel',
@@ -199,7 +200,15 @@ describe('checking what the AI writes', () => {
     )!;
     expect(two.format).toBe('carousel');
     expect(two.slides).toHaveLength(2);
-    expect(two.pictureWay).toBe('design');
+    expect(two.pictureWay).toBe('photo');
+    const slides = [
+      { heading: 'One', body: 'a' },
+      { heading: 'Two', body: 'b' },
+    ];
+    expect(
+      checkedPost(answer({ format: 'carousel', slides, pictureWay: 'own' }), 'instagram')!
+        .pictureWay,
+    ).toBe('design');
     const one = checkedPost(
       answer({ format: 'carousel', slides: [{ heading: 'One', body: 'a' }] }),
       'instagram',
@@ -230,20 +239,24 @@ describe('checking what the AI writes', () => {
   });
 });
 
+const designPage = (over: Partial<DesignAnswer['pages'][number]> = {}) => ({
+  layout: null,
+  kicker: 'Tip 1',
+  heading: 'Answer in five minutes',
+  body: 'Leads go cold fast.',
+  items: [],
+  mark: null,
+  footer: null,
+  ...over,
+});
 const design = (over: Partial<DesignAnswer> = {}): DesignAnswer => ({
   style: 'split',
+  font: null,
   background: '#ffffff',
   text: '#111111',
   accent: '#2d69d8',
-  pages: [
-    {
-      kicker: 'Tip 1',
-      heading: 'Answer in five minutes',
-      body: 'Leads go cold fast.',
-      footer: null,
-    },
-    { kicker: 'Tip 2', heading: 'Follow up twice', body: null, footer: null },
-  ],
+  photo: false,
+  pages: [designPage(), designPage({ kicker: 'Tip 2', heading: 'Follow up twice', body: null })],
   ...over,
 });
 
@@ -266,7 +279,7 @@ describe('checking what the AI designs', () => {
     expect(d.accent).toBe('#aa3300');
     expect(
       checkedDesign(
-        design({ pages: [{ kicker: null, heading: ' ', body: 'x', footer: null }] }),
+        design({ pages: [designPage({ kicker: null, heading: ' ', body: 'x' })] }),
         '#2d69d8',
         1,
       ),
@@ -285,6 +298,7 @@ describe('checking what the AI designs', () => {
     expect(prompt).toContain('A plumber fixing a sink.');
     expect(prompt).toContain('Also: make it brighter');
     expect(prompt).toMatch(/No words, letters, logos/);
+    expect(prompt).toMatch(/bottom third calm/);
   });
 });
 

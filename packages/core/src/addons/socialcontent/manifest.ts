@@ -163,6 +163,7 @@ export const socialcontentAddon = defineAddon({
   // notes on new standouts, a few at a time.
   // The calendar topped up once a week from the first fill (decision 18), and each post's pictures made. AI picks'
   // posts moved to the hours it learned (decision 27). Setting itself up, step by step, until it writes (decision 28).
+  // News and facts looked up online once a week (decision 38).
   jobs: [
     'socialcontent.weekly',
     'socialcontent.monthly',
@@ -171,6 +172,7 @@ export const socialcontentAddon = defineAddon({
     'socialcontent.pictures',
     'socialcontent.times',
     'socialcontent.setup',
+    'socialcontent.research',
   ],
   billing: { model: 'free' },
   // The business's main offer and its lists for content (docs/main-offer.md, "For your content"): every post and idea
