@@ -1,7 +1,7 @@
 'use client';
 /**
  * Settings (docs/socialcontent.md, decisions 2, 9, 11 and 12): the networks studied, whose computer reads them,
- * whether the AI watches standout videos (off until someone turns it on, with the notice that it uses a lot more AI,
+ * whether it picks niches and creators on its own (decisions 29 to 31), whether the AI watches standout videos (off until someone turns it on, with the notice that it uses a lot more AI,
  * and a way to try it on a few videos first), when it reads on its own, and what that computer was asked to do lately.
  * Owners and admins (`socialcontent.manage`) change the first three; anyone who uses the add-on can stop work that
  * hasn't finished.
@@ -79,6 +79,7 @@ export function SettingsPage({
       facebookPage?: string | null;
       facebookWhere?: FacebookWhere[];
       autoFill?: boolean;
+      autoPick?: boolean;
     },
     done: string = W.settings.saved,
   ) =>
@@ -194,6 +195,26 @@ export function SettingsPage({
         <p className="mt-3 text-[12.5px] text-text-3">{W.settings.extensionHow}</p>
         {!mayManage ? (
           <p className="mt-1 text-[12.5px] text-text-3">{W.settings.managersOnly}</p>
+        ) : null}
+      </Card>
+
+      <Card className="p-4 md:p-5" data-testid="socialcontent-picking">
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[15px] font-semibold">{W.settings.picking}</h2>
+            <p className="mt-1 text-[13px] text-text-2">{W.settings.autoPickHint}</p>
+          </div>
+          <Switch
+            checked={settings.autoPick}
+            onChange={(on) => void save('pick', { autoPick: on }, W.settings.autoPickSaved(on))}
+            label={W.settings.autoPick}
+            disabled={!mayManage || (busy !== null && busy !== 'pick')}
+            busy={busy === 'pick'}
+            testId="socialcontent-auto-pick"
+          />
+        </div>
+        {!mayManage ? (
+          <p className="mt-3 text-[12.5px] text-text-3">{W.settings.managersOnly}</p>
         ) : null}
       </Card>
 

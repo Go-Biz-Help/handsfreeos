@@ -115845,7 +115845,7 @@
     "/v1/commands/socialcontent.settings.save": {
       "post": {
         "operationId": "command_socialcontent_settings_save",
-        "summary": "Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (for each of Instagram, Facebook and LinkedIn: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times on each weekday), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), and whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away). What isn’t given stays as it is.",
+        "summary": "Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (for each of Instagram, Facebook and LinkedIn: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times on each weekday), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away), and whether it picks niches and creators on its own (the business’s own niche and the 2 closest, and the best 10 creators on each network, swapped once a month). What isn’t given stays as it is.",
         "tags": [
           "commands"
         ],
@@ -115982,6 +115982,9 @@
                     }
                   },
                   "autoFill": {
+                    "type": "boolean"
+                  },
+                  "autoPick": {
                     "type": "boolean"
                   }
                 },
@@ -116267,6 +116270,10 @@
                     },
                     "autoFill": {
                       "type": "boolean"
+                    },
+                    "autoPick": {
+                      "default": true,
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -116279,7 +116286,8 @@
                     "plan",
                     "facebookPage",
                     "facebookWhere",
-                    "autoFill"
+                    "autoFill",
+                    "autoPick"
                   ],
                   "additionalProperties": false
                 }
@@ -116708,6 +116716,48 @@
                     },
                     "createdAt": {
                       "type": "string"
+                    },
+                    "pickedBy": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "ai",
+                            "person"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "match": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "matchWhy": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "engagement": {
+                      "default": null,
+                      "type": [
+                        "number",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -116730,7 +116780,11 @@
                     "postsCount",
                     "standoutsCount",
                     "reading",
-                    "createdAt"
+                    "createdAt",
+                    "pickedBy",
+                    "match",
+                    "matchWhy",
+                    "engagement"
                   ],
                   "additionalProperties": false
                 }
@@ -116907,6 +116961,48 @@
                     },
                     "createdAt": {
                       "type": "string"
+                    },
+                    "pickedBy": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "ai",
+                            "person"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "match": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "matchWhy": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "engagement": {
+                      "default": null,
+                      "type": [
+                        "number",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -116929,7 +117025,11 @@
                     "postsCount",
                     "standoutsCount",
                     "reading",
-                    "createdAt"
+                    "createdAt",
+                    "pickedBy",
+                    "match",
+                    "matchWhy",
+                    "engagement"
                   ],
                   "additionalProperties": false
                 }
@@ -121944,6 +122044,67 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "recent": {
+                          "anyOf": [
+                            {
+                              "maxItems": 12,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "likes": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "comments": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "views": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "caption": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -122049,6 +122210,67 @@
                         "type": "string",
                         "format": "date-time",
                         "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "recent": {
+                    "anyOf": [
+                      {
+                        "maxItems": 12,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "likes": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "comments": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "views": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "caption": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          }
+                        }
                       },
                       {
                         "type": "null"
@@ -249192,7 +249414,7 @@
     "/v1/queries/socialcontent.overview": {
       "post": {
         "operationId": "query_socialcontent_overview",
-        "summary": "How content research stands: the networks studied, whose computer reads them, how many creators are suggested, studied and skipped, how many standout posts there are, and what the reading computer was asked to do lately (each with how it went).",
+        "summary": "How content research stands: the networks studied, whose computer reads them, how many creators are suggested, studied and skipped, how many standout posts there are, what the reading computer was asked to do lately (each with how it went), and how setting up on its own stands.",
         "tags": [
           "queries"
         ],
@@ -249495,6 +249717,10 @@
                         },
                         "autoFill": {
                           "type": "boolean"
+                        },
+                        "autoPick": {
+                          "default": true,
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -249507,7 +249733,8 @@
                         "plan",
                         "facebookPage",
                         "facebookWhere",
-                        "autoFill"
+                        "autoFill",
+                        "autoPick"
                       ],
                       "additionalProperties": false
                     },
@@ -249890,6 +250117,134 @@
                         "linkedin"
                       ],
                       "additionalProperties": false
+                    },
+                    "setup": {
+                      "type": "object",
+                      "properties": {
+                        "autoPick": {
+                          "type": "boolean"
+                        },
+                        "autoFill": {
+                          "type": "boolean"
+                        },
+                        "marks": {
+                          "default": {},
+                          "type": "object",
+                          "properties": {
+                            "startedAt": {
+                              "type": "string"
+                            },
+                            "nichesAt": {
+                              "type": "string"
+                            },
+                            "findAt": {
+                              "type": "string"
+                            },
+                            "writeAt": {
+                              "type": "string"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "readerSet": {
+                          "type": "boolean"
+                        },
+                        "nichesPicked": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "findsLeft": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "readsLeft": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "networks": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "network": {
+                                "type": "string"
+                              },
+                              "studying": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "byAi": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "pickable": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "network",
+                              "studying",
+                              "byAi",
+                              "pickable"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "noted": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "playbookAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "filledAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "offerLive": {
+                          "type": "boolean"
+                        },
+                        "listsFilled": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "listsAll": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "autoPick",
+                        "autoFill",
+                        "marks",
+                        "readerSet",
+                        "nichesPicked",
+                        "findsLeft",
+                        "readsLeft",
+                        "networks",
+                        "noted",
+                        "playbookAt",
+                        "filledAt",
+                        "offerLive",
+                        "listsFilled",
+                        "listsAll"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -250213,6 +250568,48 @@
                           },
                           "createdAt": {
                             "type": "string"
+                          },
+                          "pickedBy": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "ai",
+                                  "person"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "match": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "matchWhy": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "engagement": {
+                            "default": null,
+                            "type": [
+                              "number",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -250235,7 +250632,11 @@
                           "postsCount",
                           "standoutsCount",
                           "reading",
-                          "createdAt"
+                          "createdAt",
+                          "pickedBy",
+                          "match",
+                          "matchWhy",
+                          "engagement"
                         ],
                         "additionalProperties": false
                       }

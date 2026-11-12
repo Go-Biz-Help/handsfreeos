@@ -20,6 +20,7 @@
  * It looks for what it needs wherever the answer keeps it, so a field Instagram moves within an answer is still found.
  * When it can't be, the read goes to the AI helper and a problem report (./run.ts), as Social Outreach's steps do.
  */
+import type { RecentPost } from '@hfos/core/addons/socialcontent/picking';
 import type { PostIn, PostKind } from '@hfos/core/addons/socialcontent/shapes';
 
 export const INSTAGRAM_HOME = 'https://www.instagram.com';
@@ -160,6 +161,27 @@ export interface InstagramCreator {
   readonly lastPostAt: string | null;
   /** How many posts they have, as the profile says. */
   readonly posts: number | null;
+  /**
+   * Their latest posts' numbers and words, newest first, pinned ones last (0.136.0): HandsFreeOS works out how they do
+   * for their followers, and its AI reads the words for how close they are to what the business does.
+   */
+  readonly recent?: readonly RecentPost[];
+}
+
+/** The latest posts kept from a profile, at most. */
+const RECENT_MOST = 12;
+
+/** Their latest posts as their numbers and words, from a list of their posts: newest first, pinned ones last. */
+export function recentFrom(posts: readonly PostIn[]): RecentPost[] {
+  return [...posts]
+    .sort((a, b) => Number(a.pinned) - Number(b.pinned) || b.postedAt.localeCompare(a.postedAt))
+    .slice(0, RECENT_MOST)
+    .map((p) => ({
+      likes: p.likes,
+      comments: p.comments,
+      views: p.views,
+      caption: p.caption ? p.caption.slice(0, 200) : null,
+    }));
 }
 
 /** The person a profile's answer is about, or null when it doesn't hold one. */
@@ -178,6 +200,29 @@ export function creatorFrom(json: unknown): InstagramCreator | null {
   const unpinned = times(nodes.filter((n) => !pinned(n)));
   const newest = (unpinned.length ? unpinned : times(nodes)).sort().at(-1) ?? null;
   const id = user.id ?? user.pk;
+  // Their grid's first posts, as the profile's answer gives them: likes, comments, views and words.
+  const recent = nodes
+    .map((n) => {
+      const caption = at(n, 'edge_media_to_caption', 'edges');
+      const first = Array.isArray(caption) ? at(caption[0], 'node', 'text') : undefined;
+      return {
+        pinned: pinned(n),
+        at: moment(n.taken_at_timestamp ?? n.taken_at) ?? '',
+        post: {
+          likes: count(
+            at(n, 'edge_liked_by', 'count') ??
+              at(n, 'edge_media_preview_like', 'count') ??
+              n.like_count,
+          ),
+          comments: count(at(n, 'edge_media_to_comment', 'count') ?? n.comment_count),
+          views: n.is_video === true ? count(n.video_view_count ?? n.play_count) : null,
+          caption: text(first ?? at(n, 'caption', 'text'))?.slice(0, 200) ?? null,
+        },
+      };
+    })
+    .sort((a, b) => Number(a.pinned) - Number(b.pinned) || b.at.localeCompare(a.at))
+    .slice(0, RECENT_MOST)
+    .map((r) => r.post);
   return {
     id: typeof id === 'string' || typeof id === 'number' ? String(id) : null,
     username: user.username.toLowerCase(),
@@ -187,6 +232,7 @@ export function creatorFrom(json: unknown): InstagramCreator | null {
     private: user.is_private === true,
     lastPostAt: newest,
     posts: count(at(media, 'count') ?? user.media_count),
+    recent,
   };
 }
 
@@ -290,6 +336,7 @@ export function pageProfileFrom(
           .sort()
           .at(-1) ?? null,
       posts: fromData?.posts ?? said.posts,
+      recent: fromData?.recent?.length ? fromData.recent : recentFrom(list),
     },
     posts: list,
     linked,

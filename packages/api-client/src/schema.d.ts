@@ -15987,7 +15987,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (for each of Instagram, Facebook and LinkedIn: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times on each weekday), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), and whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away). What isn’t given stays as it is.
+         * Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (for each of Instagram, Facebook and LinkedIn: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times on each weekday), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away), and whether it picks niches and creators on its own (the business’s own niche and the 2 closest, and the best 10 creators on each network, swapped once a month). What isn’t given stays as it is.
          * @description Risk level 1. Requires socialcontent.manage. Emits socialcontent.settings.saved.
          */
         post: operations["command_socialcontent_settings_save"];
@@ -25187,7 +25187,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * How content research stands: the networks studied, whose computer reads them, how many creators are suggested, studied and skipped, how many standout posts there are, and what the reading computer was asked to do lately (each with how it went).
+         * How content research stands: the networks studied, whose computer reads them, how many creators are suggested, studied and skipped, how many standout posts there are, what the reading computer was asked to do lately (each with how it went), and how setting up on its own stands.
          * @description Requires socialcontent.use.
          */
         post: operations["query_socialcontent_overview"];
@@ -63833,6 +63833,8 @@ export interface operations {
                     "application/json": {
                         bio: string | null;
                         createdAt: string;
+                        /** @default null */
+                        engagement: number | null;
                         followers: number | null;
                         /** @enum {string} */
                         foundBy: "search" | "person";
@@ -63841,11 +63843,17 @@ export interface operations {
                         id: string;
                         lastPostAt: string | null;
                         link: string;
+                        /** @default null */
+                        match: number | null;
+                        /** @default null */
+                        matchWhy: string | null;
                         name: string | null;
                         /** @enum {string} */
                         network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
                         nicheId: string | null;
                         nicheName: string | null;
+                        /** @default null */
+                        pickedBy: ("ai" | "person") | null;
                         postsCount: number;
                         postsReadAt: string | null;
                         profileReadAt: string | null;
@@ -63888,6 +63896,8 @@ export interface operations {
                     "application/json": {
                         bio: string | null;
                         createdAt: string;
+                        /** @default null */
+                        engagement: number | null;
                         followers: number | null;
                         /** @enum {string} */
                         foundBy: "search" | "person";
@@ -63896,11 +63906,17 @@ export interface operations {
                         id: string;
                         lastPostAt: string | null;
                         link: string;
+                        /** @default null */
+                        match: number | null;
+                        /** @default null */
+                        matchWhy: string | null;
                         name: string | null;
                         /** @enum {string} */
                         network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
                         nicheId: string | null;
                         nicheName: string | null;
+                        /** @default null */
+                        pickedBy: ("ai" | "person") | null;
                         postsCount: number;
                         postsReadAt: string | null;
                         profileReadAt: string | null;
@@ -63933,6 +63949,15 @@ export interface operations {
                     /** @default null */
                     lastPostAt?: string | null;
                     name?: string | null;
+                    recent?: {
+                        caption?: string | null;
+                        /** @default null */
+                        comments?: number | null;
+                        /** @default null */
+                        likes?: number | null;
+                        /** @default null */
+                        views?: number | null;
+                    }[] | null;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -63971,6 +63996,15 @@ export interface operations {
                         /** @default null */
                         lastPostAt?: string | null;
                         name?: string | null;
+                        recent?: {
+                            caption?: string | null;
+                            /** @default null */
+                            comments?: number | null;
+                            /** @default null */
+                            likes?: number | null;
+                            /** @default null */
+                            views?: number | null;
+                        }[] | null;
                     }[];
                     /** Format: uuid */
                     workId: string;
@@ -64605,6 +64639,7 @@ export interface operations {
             content: {
                 "application/json": {
                     autoFill?: boolean;
+                    autoPick?: boolean;
                     facebookPage?: string | null;
                     facebookWhere?: ("profile" | "page")[];
                     networks?: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
@@ -64636,6 +64671,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         autoFill: boolean;
+                        /** @default true */
+                        autoPick: boolean;
                         facebookPage: string | null;
                         facebookWhere: ("profile" | "page")[];
                         networks: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
@@ -99307,6 +99344,8 @@ export interface operations {
                         creators: {
                             bio: string | null;
                             createdAt: string;
+                            /** @default null */
+                            engagement: number | null;
                             followers: number | null;
                             /** @enum {string} */
                             foundBy: "search" | "person";
@@ -99315,11 +99354,17 @@ export interface operations {
                             id: string;
                             lastPostAt: string | null;
                             link: string;
+                            /** @default null */
+                            match: number | null;
+                            /** @default null */
+                            matchWhy: string | null;
                             name: string | null;
                             /** @enum {string} */
                             network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
                             nicheId: string | null;
                             nicheName: string | null;
+                            /** @default null */
+                            pickedBy: ("ai" | "person") | null;
                             postsCount: number;
                             postsReadAt: string | null;
                             profileReadAt: string | null;
@@ -99492,6 +99537,8 @@ export interface operations {
                         readerIsMe: boolean;
                         settings: {
                             autoFill: boolean;
+                            /** @default true */
+                            autoPick: boolean;
                             facebookPage: string | null;
                             facebookWhere: ("profile" | "page")[];
                             networks: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
@@ -99532,6 +99579,33 @@ export interface operations {
                             readerUserId: string | null;
                             readerVersion: string | null;
                             watchVideos: boolean;
+                        };
+                        setup?: {
+                            autoFill: boolean;
+                            autoPick: boolean;
+                            filledAt: string | null;
+                            findsLeft: number;
+                            listsAll: number;
+                            listsFilled: number;
+                            /** @default {} */
+                            marks: {
+                                findAt?: string;
+                                nichesAt?: string;
+                                startedAt?: string;
+                                writeAt?: string;
+                            };
+                            networks: {
+                                byAi: number;
+                                network: string;
+                                pickable: number;
+                                studying: number;
+                            }[];
+                            nichesPicked: number;
+                            noted: number;
+                            offerLive: boolean;
+                            playbookAt: string | null;
+                            readerSet: boolean;
+                            readsLeft: number;
                         };
                         work: {
                             /** @enum {string} */

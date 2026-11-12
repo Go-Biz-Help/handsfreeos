@@ -162,6 +162,7 @@ describe('what a profile page holds', () => {
       private: false,
       lastPostAt: new Date(newest).toISOString(),
       posts: 1_005,
+      recent: [],
     });
   });
 
@@ -222,6 +223,11 @@ describe('what a profile page holds', () => {
       private: false,
       lastPostAt: new Date((NOW - 2 * 86_400) * 1000).toISOString(),
       posts: 40,
+      // Its latest posts' numbers from the page's list of them, the pinned one last (0.136.0).
+      recent: [
+        { likes: 50, comments: null, views: null, caption: null },
+        { likes: null, comments: null, views: null, caption: null },
+      ],
     });
     expect(held.posts.map((p) => p.postKey)).toEqual(['PINNED1', 'NEWER01']);
   });
@@ -239,6 +245,7 @@ describe('what a profile page holds', () => {
       private: false,
       lastPostAt: null,
       posts: 300,
+      recent: [],
     });
     expect(profileHeldOn(pageWith(''), 'nobody.here')).toEqual({
       creator: null,

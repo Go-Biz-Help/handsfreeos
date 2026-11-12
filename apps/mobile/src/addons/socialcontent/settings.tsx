@@ -76,6 +76,8 @@ export interface SettingsActions {
   /** Only what changes on one network's plan: the server keeps (and checks) the rest. */
   setPlan(network: PostingNetwork, change: Partial<NetworkPlan>): void;
   autoFill(on: boolean): void;
+  /** Whether it picks niches and creators on its own (decisions 29 to 31). */
+  autoPick(on: boolean): void;
 }
 
 export function SettingsScreen() {
@@ -121,6 +123,7 @@ export function settingsActions(
       watchVideos?: boolean;
       plan?: Partial<Record<PostingNetwork, Partial<NetworkPlan>>>;
       autoFill?: boolean;
+      autoPick?: boolean;
     },
     done: string = W.settings.saved,
   ) =>
@@ -154,6 +157,7 @@ export function settingsActions(
     setPlan: (n, plan) => save(`plan:${n}`, { plan: { [n]: plan } }),
     autoFill: (on) =>
       save('autoFill', { autoFill: on }, on ? W.calendar.fillStarted : W.calendar.fillStopped),
+    autoPick: (on) => save('pick', { autoPick: on }, W.settings.autoPickSaved(on)),
   };
 }
 
@@ -259,6 +263,23 @@ export function SettingsBody({
         <Text className="text-[12.5px] leading-[17px] text-text-3">
           {W.phone.extensionOnComputer}
         </Text>
+        {managersOnly}
+      </Part>
+
+      <Part
+        title={W.settings.picking}
+        about={W.settings.autoPickHint}
+        side={
+          <Switch
+            label={W.settings.autoPick}
+            checked={settings.autoPick}
+            disabled={!online || !mayManage || (busy !== null && busy !== 'pick')}
+            onCheckedChange={actions.autoPick}
+            testID="socialcontent-auto-pick"
+          />
+        }
+        testID="socialcontent-picking"
+      >
         {managersOnly}
       </Part>
 

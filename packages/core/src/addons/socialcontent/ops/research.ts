@@ -66,6 +66,7 @@ import {
 } from '../calendar';
 import { learnedShown } from '../schedule';
 import { learnedTimesOf } from './schedule';
+import { setupFactsOf } from './setup';
 import { parseClock } from '../../../calendar/engine/zoned';
 
 const NO_READER =
@@ -117,7 +118,7 @@ async function creatorShown(ctx: Ctx, creatorId: string) {
 export const overview = defineAddonQuery(socialcontentAddon, {
   name: 'socialcontent.overview',
   description:
-    'How content research stands: the networks studied, whose computer reads them, how many creators are suggested, studied and skipped, how many standout posts there are, and what the reading computer was asked to do lately (each with how it went).',
+    'How content research stands: the networks studied, whose computer reads them, how many creators are suggested, studied and skipped, how many standout posts there are, what the reading computer was asked to do lately (each with how it went), and how setting up on its own stands.',
   input: InWorkspace,
   output: OverviewOutput,
   permission: 'socialcontent.use',
@@ -125,7 +126,7 @@ export const overview = defineAddonQuery(socialcontentAddon, {
   ai: {
     tool: 'socialcontent_overview',
     description:
-      'How AI Social Media Content Creator stands here: the networks studied, whose computer reads them (it works in Chrome with the HandsFreeOS Social extension), counts of creators suggested, studied and skipped, the number of standout posts, and the reading computer’s recent work (finding creators, reading profiles and posts), each with its state and, when it didn’t work, why.',
+      'How AI Social Media Content Creator stands here: the networks studied, whose computer reads them (it works in Chrome with the HandsFreeOS Social extension), counts of creators suggested, studied and skipped, the number of standout posts, the reading computer’s recent work (finding creators, reading profiles and posts), each with its state and, when it didn’t work, why, and `setup`: how setting up on its own stands (niches ticked, searches left, creators studied on each network of the 10 it picks, standouts noted, the Playbook, and whether writing waits on the main offer, its lists for content or the Playbook).',
   },
   async handler(ctx) {
     const me = requireHuman(ctx).userId;
@@ -157,6 +158,7 @@ export const overview = defineAddonQuery(socialcontentAddon, {
       counts: counts ?? { suggested: 0, studying: 0, skipped: 0, standouts: 0, waiting: 0 },
       work: recent.map(workOut),
       learned: learnedShown(s.plan, await learnedTimesOf(ctx.tx, ws, await timeZoneOf(ctx))),
+      setup: await setupFactsOf(ctx.tx, ws),
     };
   },
 });
@@ -196,7 +198,7 @@ export function planChanged(
 export const settingsSave = defineAddonCommand(socialcontentAddon, {
   name: 'socialcontent.settings.save',
   description:
-    'Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (for each of Instagram, Facebook and LinkedIn: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times on each weekday), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), and whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away). What isn’t given stays as it is.',
+    'Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (for each of Instagram, Facebook and LinkedIn: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times on each weekday), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away), and whether it picks niches and creators on its own (the business’s own niche and the 2 closest, and the best 10 creators on each network, swapped once a month). What isn’t given stays as it is.',
   risk: 1,
   input: SettingsSaveInput,
   output: SettingsOut,
@@ -219,13 +221,15 @@ export const settingsSave = defineAddonCommand(socialcontentAddon, {
         i.autoFill === true
           ? 'fill the calendar on its own again (it fills the open days now)'
           : null,
+        i.autoPick === false ? 'stop picking niches and creators on its own' : null,
+        i.autoPick === true ? 'pick niches and creators on its own' : null,
       ].filter((p): p is string => !!p);
       return parts.length
         ? `Change AI Social Media Content Creator’s settings: ${parts.join(', ')}`
         : 'Change AI Social Media Content Creator’s settings';
     },
     description:
-      'Change AI Social Media Content Creator’s settings: `networks`, the networks creators are looked for and read on, `readerUserId`, the team member whose computer reads them in Chrome with the HandsFreeOS Social extension (null for none), `watchVideos`, whether new standout videos are watched (it uses about 10 to 20 times the AI of notes alone for each video, so say so before turning it on), `plan`, the calendar’s plan for each network given, only the parts that change: `mode` "ai" (AI picks the days and hours: `perWeek` 0 to 21, `perDay` the most in one day 1 to 3 or null to spread them out, `from` and `to` the hours it posts between as HH:MM, at least an hour apart) or "mine" (the person picks: `week`, 7 lists of HH:MM times, Sunday first, up to 3 a day); all in the business’s time zone; posts that haven’t gone up move to the AI’s hours when the hours change, `facebookPage`, the business’s Facebook Page link (null for none), `facebookWhere`, where its Facebook posts go (["profile"], ["page"] or both), and `autoFill`, whether the AI fills the calendar on its own (false stops it, a fill under way too, and the posts already written stay; true fills the open days in the next two weeks right away, then tops up once a week). Leave out what doesn’t change.',
+      'Change AI Social Media Content Creator’s settings: `networks`, the networks creators are looked for and read on, `readerUserId`, the team member whose computer reads them in Chrome with the HandsFreeOS Social extension (null for none), `watchVideos`, whether new standout videos are watched (it uses about 10 to 20 times the AI of notes alone for each video, so say so before turning it on), `plan`, the calendar’s plan for each network given, only the parts that change: `mode` "ai" (AI picks the days and hours: `perWeek` 0 to 21, `perDay` the most in one day 1 to 3 or null to spread them out, `from` and `to` the hours it posts between as HH:MM, at least an hour apart) or "mine" (the person picks: `week`, 7 lists of HH:MM times, Sunday first, up to 3 a day); all in the business’s time zone; posts that haven’t gone up move to the AI’s hours when the hours change, `facebookPage`, the business’s Facebook Page link (null for none), `facebookWhere`, where its Facebook posts go (["profile"], ["page"] or both), and `autoFill`, whether the AI fills the calendar on its own (false stops it, a fill under way too, and the posts already written stay; true fills the open days in the next two weeks right away, then tops up once a week), and `autoPick`, whether it picks niches and creators on its own (true: it ticks the business’s own niche and the 2 closest, and studies the best 10 creators on each network, swapping out quiet ones once a month, never ones a person ticked or added; false: a person ticks them). Leave out what doesn’t change.',
     outcome: () => ({ words: W.settings.saved, path: 'a/socialcontent/settings' }),
   },
   emits: ['socialcontent.settings.saved'],
@@ -265,6 +269,7 @@ export const settingsSave = defineAddonCommand(socialcontentAddon, {
     const readerUserId = input.readerUserId === undefined ? was.readerUserId : input.readerUserId;
     const watchVideos = input.watchVideos ?? was.watchVideos;
     const autoFill = input.autoFill ?? was.autoFill;
+    const autoPick = input.autoPick ?? was.autoPick;
     // Another computer reads now: when the last one checked in says nothing about it.
     const readerChanged = readerUserId !== was.readerUserId;
     const seen = readerChanged
@@ -281,6 +286,7 @@ export const settingsSave = defineAddonCommand(socialcontentAddon, {
         facebookPage,
         facebookWhere,
         autoFill,
+        autoPick,
         updatedBy: me,
       })
       .onConflictDoUpdate({
@@ -293,6 +299,7 @@ export const settingsSave = defineAddonCommand(socialcontentAddon, {
           facebookPage,
           facebookWhere,
           autoFill,
+          autoPick,
           ...(readerChanged ? { readerSeenAt: null, readerVersion: null } : {}),
           updatedBy: me,
           updatedAt: changeMoment(ctx.meta),
@@ -309,6 +316,9 @@ export const settingsSave = defineAddonCommand(socialcontentAddon, {
         autoFill,
         // Turned back on: the worker fills the open days right away.
         fillTurnedOn: autoFill && !was.autoFill,
+        // A reading computer picked, or picking on its own turned on: setting up goes on (decision 28).
+        readerPicked: readerChanged && readerUserId !== null,
+        pickTurnedOn: autoPick && !was.autoPick,
       },
     });
     return {
@@ -321,6 +331,7 @@ export const settingsSave = defineAddonCommand(socialcontentAddon, {
       facebookPage,
       facebookWhere,
       autoFill,
+      autoPick,
     };
   },
 });
@@ -510,10 +521,11 @@ export const creatorAdd = defineAddonCommand(socialcontentAddon, {
     needReady(page.network);
     const [made] = await rows<{ id: string; created: boolean }>(
       ctx.tx,
-      sql`insert into addon_socialcontent.creators (workspace_id, network, handle, link, state, found_by, added_by, decided_by)
-          values (${ws}, ${page.network}, ${page.handle}, ${page.link}, 'studying', 'person', ${me}, ${me})
+      sql`insert into addon_socialcontent.creators
+            (workspace_id, network, handle, link, state, found_by, added_by, decided_by, picked_by)
+          values (${ws}, ${page.network}, ${page.handle}, ${page.link}, 'studying', 'person', ${me}, ${me}, 'person')
           on conflict (workspace_id, network, handle)
-            do update set state = 'studying', decided_by = excluded.decided_by
+            do update set state = 'studying', decided_by = excluded.decided_by, picked_by = 'person'
           returning id, (xmax = 0) as created`,
     );
     const c = await loadCreator(ctx, made!.id);
@@ -558,9 +570,18 @@ export const creatorDecide = defineAddonCommand(socialcontentAddon, {
     const me = requireHuman(ctx).userId;
     const was = await loadCreator(ctx, input.creatorId);
     const state = input.study ? 'studying' : 'skipped';
+    // Ticked again by a person, one the AI picked is theirs now: the monthly swap leaves it (decision 31).
+    if (was.state === state && was.pickedBy === 'ai')
+      await ctx.tx
+        .update(creators)
+        .set({ pickedBy: 'person', decidedBy: me })
+        .where(eq(creators.id, was.id));
     if (was.state !== state) {
       if (input.study) needReady(was.network);
-      await ctx.tx.update(creators).set({ state, decidedBy: me }).where(eq(creators.id, was.id));
+      await ctx.tx
+        .update(creators)
+        .set({ state, decidedBy: me, pickedBy: 'person' })
+        .where(eq(creators.id, was.id));
       if (input.study)
         await queueWork(
           ctx,

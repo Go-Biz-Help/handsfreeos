@@ -12,7 +12,8 @@ designed, photo-style and its own pictures (part 8, below under "Making posts");
 Facebook and LinkedIn through the extension (part 9, "Posting"), and on Instagram with the person's videos (part 10);
 and reading how its own posts did, with the ones that did well in the Playbook (part 11, "Its own posts' numbers");
 and the Calendar and its posts on the phone (part 12, under "On the phone"); and a schedule it learns, AI picks or
-I pick on each network (part 13, "The schedule").
+I pick on each network (part 13, "The schedule"); and setting itself up with no press, from niches to the
+best creators to writing (part 14, "Setting up on its own").
 The add-on is in `development`,
 offered to nobody; staff give it to a business from Admin → Businesses.
 
@@ -57,6 +58,10 @@ offered to nobody; staff give it to a business from Admin → Businesses.
 | The schedule: open places, the hours it learned, moves   | `schedule.ts` (pure); `ops/schedule.ts`; the worker's `socialcontent.times` job  |
 | Who set a post's time (`placed_by`)                      | `supabase/migrations/20261027026200_socialcontent_schedule.sql`                  |
 | The extension reading its own posts' numbers             | `apps/extension/src/research/own.ts`                                             |
+| Setting up on its own: who it picks, swaps, the steps    | `picking.ts` (pure; web, phone, server and worker); `ops/setup.ts`               |
+| What the AI is asked about how close a creator is        | `match-ai.ts`; the asks run in the worker's `socialcontent/setup.ts`             |
+| The setup steps, who picked a creator, their match       | `supabase/migrations/20261027026300_socialcontent_setup.sql`                     |
+| The setup steps on the Creators page                     | `setup-card.tsx` in the web's folder; `setup.tsx` in the phone's                 |
 
 ## How it works
 
@@ -266,6 +271,44 @@ and the worker share):
   place), one going up within half an hour, and I pick's networks are never moved; a post changed meanwhile isn't
   either, as the move names the time it had.
 
+## Setting up on its own
+
+Part 14 (decisions 28 to 33, the owner's picks of 12 Nov: "the initial setup should be more autonomous ... this should
+all be adjustable by the user"). The worker's `socialcontent.setup` job (`advanceSetup` in its `socialcontent/setup.ts`)
+takes the next step each time something it waits on happens, and checks again every 6 hours until it has written:
+
+1. **Starts** once the add-on is on and an owner or admin picks the reading computer (decision 28;
+   `socialcontent.settings.saved` with `readerPicked`, and on turning the add-on on).
+2. **Niches** (decision 29): with none ticked, it has the AI suggest them and ticks the business's own and the 2
+   closest (`socialcontent.niches.put` with `pickClosest: 2`), never the one about its customers' world. The rest wait
+   for a person.
+3. **Finding creators**: it searches each ticked niche, as Find creators now does.
+4. **Picking the best 10** (decision 30) once no search or profile read is left. The AI scores how close each
+   suggested creator is to what the business does, 0 to 10, from their bio and latest posts' captions (`match-ai.ts`,
+   12 to an ask, up to 120 a run; kept in `creators.match` and `match_why`). Of those 6 or closer on a network, the
+   closest 20 are weighed: their profiles are read first when not in the last 14 days (or never with their latest
+   posts, from extension 0.136.0), then those with 5,000+ followers and a post in the last 30 days are scored by how
+   close plus up to 3 for the best likes and comments for their followers among them (`engagement`: the middle of
+   their latest posts', from at least 3), and the best are studied, up to 10 on each network counting those already
+   studied (`pickCreators`, then `socialcontent.creators.pick`). Creator research stays Instagram only for now.
+5. **Notes and the Playbook** come as they always do, once the posts are read.
+6. **Writing** (decision 32) starts once the Playbook is written or 3 days have passed since setup started, and only
+   once the main offer is live and its For your content lists are all filled (`writeWaitsOn`). With no Playbook and
+   no idea yet, the first fill writes from the main offer's lists. Each post still waits for an OK (decision 33).
+
+Each step taken is marked once, with its first time, in `settings.setup` (`socialcontent.setup.mark`), so it never runs
+twice; businesses that had niches or a fill before part 14 were marked as set up by the migration. The Creators page
+shows the steps on the web and the phone (`setupSteps`, worked out in core from `overview.setup`), each with where it
+stands and a button to fix what one waits on (Settings, Main offer, For your content), until every step is done or off.
+
+- **Swapping out quiet creators** (decision 31): each month, before the search, the creators the AI picked whose
+  posts were read and who haven't posted in 45 days, or have fewer than 1 standout in 30 posts once 30 are read, are
+  skipped, with why ("Swapped out by the AI: …"), their waiting reads stopped, and others picked once the searches
+  end (`swapsFor`).
+- **Adjustable** (the owner's ask): Settings → Picking creators → **Pick creators on its own** (`settings.auto_pick`,
+  on to start). Off, it neither ticks niches nor picks or swaps creators: people tick who to study, and the step says
+  so. Fill on its own still decides whether it writes. Anyone can study, skip or stop studying any creator as before.
+
 ## Posting
 
 Parts 9 and 10 (decisions 15 to 17). An OK'd post goes up at its time from the business's reading computer, in Chrome
@@ -379,6 +422,11 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
 - **Only networks the extension reads can be picked** (`CONTENT_NETWORK_INFO[n].ready`: Instagram, Facebook and
   LinkedIn). The rest show as coming later (decision 2). LinkedIn's creators are read weekly and monthly on their own,
   like the others (the owner's pick, 8 Nov).
+- **A creator a person ticked, added or skipped is theirs** (decision 31): `creators.picked_by` says who picked one
+  (`ai` or `person`; ticking one the AI picked makes it the person's). The AI picks only from Suggested and swaps
+  out only its own picks, so it never drops one a person chose or brings back one they skipped.
+- **Setting up never writes before the main offer is live and its lists are filled** (decision 32), and every post
+  it writes waits for an OK (decision 33).
 - **A time a person set is theirs** (decision 27): AI picks moves only the posts it placed, never one a person set
   the time of, and never on I pick's networks. Moving keeps a post's OK, by the owner's pick (7b, 12 Nov).
 - **At most 3 posts a day on one network**, whoever picks (decision 21): more from one account risks a network's

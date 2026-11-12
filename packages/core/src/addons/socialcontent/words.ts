@@ -374,6 +374,11 @@ export const SOCIALCONTENT_WORDS = {
     noneSuggested: `Nobody to tick yet. Find creators now looks in your ticked niches for creators with ${DONE_WELL.followersAtLeast.toLocaleString('en-US')}+ followers who posted in the last ${DONE_WELL.postedWithinDays} days.`,
     noneStudying: 'Nobody studied yet. Tick creators under Suggested, or add one from a link.',
     noneSkipped: 'Nobody skipped.',
+    /** Setting up on its own (decisions 30 and 31). */
+    byAi: 'Picked by the AI',
+    match: (n: number, why: string | null) => `${n} of 10 close${why ? `: ${why}` : ''}`,
+    engagement: (rate: number) =>
+      `${(rate * 100).toFixed(rate >= 0.1 ? 0 : 1)}% likes and comments for their followers`,
     posts: {
       title: 'Their posts',
       none: 'No posts read yet.',
@@ -539,9 +544,31 @@ export const SOCIALCONTENT_WORDS = {
       own: (n: number) => count(n, 'of your posts', 'of your posts'),
     },
     learnedTrying: 'About 1 in 5 posts go at a new time, so it keeps learning.',
+    /** Setting up on its own (decisions 29 to 31). */
+    picking: 'Picking creators',
+    autoPick: 'Pick niches and creators on its own',
+    autoPickHint:
+      'It ticks your niche and the 2 closest, studies the best 10 creators on each network, and swaps out quiet ones once a month. It never drops ones you ticked or added, or picks ones you skipped.',
+    autoPickSaved: (on: boolean) =>
+      on
+        ? 'It picks niches and creators on its own again.'
+        : 'It won’t pick on its own. Tick niches and creators under Creators.',
     facebookPage: 'Your Facebook Page',
     savePage: 'Save',
     facebookWhere: 'Where Facebook posts go',
+  },
+  /** Setting up on its own (decisions 28 to 33), on top of Creators. */
+  setup: {
+    title: 'Setting up on its own',
+    intro:
+      'It finds the creators closest to what you do, studies them, then fills your calendar. Change anything as it goes: tick or skip niches and creators, or turn picking off in Settings.',
+    states: { done: 'Done', doing: 'Working on it', waiting: 'Waiting', off: 'Off' } as const,
+    fix: {
+      settings: 'Open Settings',
+      niches: 'See niches',
+      'main-offer': 'Open Main offer',
+      'main-offer-lists': 'Open For your content',
+    } as const,
   },
   activity: {
     title: 'What it’s doing',

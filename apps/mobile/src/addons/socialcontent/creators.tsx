@@ -1,12 +1,15 @@
 import { CONTENT_NETWORK_INFO, networkName } from '@hfos/core/addons/socialcontent/networks';
+import type { SetupStep } from '@hfos/core/addons/socialcontent/picking';
 import type { Creator, Niche, Overview, Post } from '@hfos/core/addons/socialcontent/shapes';
 import { DONE_WELL } from '@hfos/core/addons/socialcontent/standouts';
 import { SOCIALCONTENT_WORDS as W, daysAgo } from '@hfos/core/addons/socialcontent/words';
+import { router } from 'expo-router';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
 import { change } from '@/changes';
 import { Check, Sparkles, X } from '@/components/icons';
+import { businessHref } from '@/components/shell/business-context';
 import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { workerPost } from '@/lib/worker';
 
 import { ActivityCard } from './activity';
+import { SetupPart } from './setup';
 import {
   Group,
   NeedsSignal,
@@ -36,7 +40,8 @@ import {
 import { OutsideLink, PostCard } from './post-card';
 
 /**
- * Creators on the phone, as on the web (docs/socialcontent.md): what the reading computer is doing, the niches
+ * Creators on the phone, as on the web (docs/socialcontent.md): how setting up on its own stands (./setup.tsx), what
+ * the reading computer is doing, the niches
  * searched, adding a creator from a link, then the creators found, studied and skipped. Anyone on the team picks
  * niches and creators (one list for the whole business, decision 12): **Suggest niches** has the AI find the
  * business's own niche and ones like it, **Find creators now** asks the reading computer to search the ticked ones,
@@ -64,6 +69,8 @@ export interface CreatorsActions {
   readAgain(creator: Creator): void;
   posts(creator: Creator): Promise<readonly Post[] | null>;
   openSettings(): void;
+  /** Where a step of setting up on its own is fixed: Settings, or the main offer and its lists for content. */
+  openFix(fix: NonNullable<SetupStep['fix']>): void;
 }
 
 export function CreatorsScreen() {
@@ -176,6 +183,15 @@ export function creatorsActions(ws: string, act: Act): CreatorsActions {
         )
       )?.posts ?? null,
     openSettings: () => openSocialcontent(ws, 'settings'),
+    openFix: (fix) =>
+      fix === 'main-offer' || fix === 'main-offer-lists'
+        ? router.push(
+            businessHref(
+              ws,
+              fix === 'main-offer' ? 'settings/main-offer' : 'settings/main-offer-lists',
+            ),
+          )
+        : openSocialcontent(ws, 'settings'),
   };
 }
 
@@ -235,6 +251,12 @@ export function CreatorsBody({
               ) : null}
             </Card>
           ) : null}
+          <SetupPart
+            setup={data.overview.setup}
+            now={now}
+            mayManage={data.overview.mayManage}
+            onFix={actions.openFix}
+          />
           <ActivityCard overview={data.overview} now={now} />
           <NichesPart niches={data.niches} online={online} busy={busy} actions={actions} />
           <AddCreator online={online} busy={busy} onAdd={actions.addCreator} onAdded={setTab} />
@@ -479,10 +501,22 @@ function CreatorCard({
           </Pressable>
           {c.name ? <Text className="text-[13px] text-text-3">{c.shown}</Text> : null}
           {c.reading ? <Badge variant="pending">{W.creators.reading}</Badge> : null}
+          {c.pickedBy === 'ai' && c.state === 'studying' ? (
+            <Badge variant="accent">{W.creators.byAi}</Badge>
+          ) : null}
         </View>
         <Text className="text-[12.5px] text-text-3">{facts.join(' · ')}</Text>
-        {c.state === 'suggested' && c.why ? (
+        {(c.state === 'suggested' || (c.state === 'skipped' && c.pickedBy === 'ai')) && c.why ? (
           <Text className="text-[13px] leading-[18px] text-text-2">{c.why}</Text>
+        ) : null}
+        {c.match !== null && c.state !== 'didnt_fit' ? (
+          <Text
+            className="text-[13px] leading-[18px] text-text-2"
+            testID="socialcontent-creator-match"
+          >
+            {W.creators.match(c.match, c.matchWhy)}
+            {c.engagement !== null ? ` · ${W.creators.engagement(c.engagement)}` : ''}
+          </Text>
         ) : null}
         {read ? (
           <Text className="text-[13px] text-text-2" testID="socialcontent-creator-read">

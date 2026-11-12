@@ -28,6 +28,7 @@ import {
   overview,
   playbook,
   post,
+  setupFacts,
   work,
   WS,
 } from './mocks';
@@ -79,6 +80,7 @@ function creatorsActionsMock(): jest.Mocked<CreatorsActions> {
     readAgain: jest.fn(),
     posts: jest.fn(async (_creator: Creator): Promise<readonly Post[] | null> => [post(10)]),
     openSettings: jest.fn(),
+    openFix: jest.fn(),
   };
 }
 
@@ -177,6 +179,53 @@ describe('Creators', () => {
     expect(screen.getByText('1 more thing waiting')).toBeTruthy();
     expect(screen.getByTestId(`socialcontent-lately-${id(71)}`)).toHaveTextContent(
       /Done · 30 minutes ago.*Read 12 profiles.*3 suggested, 9 didn’t fit/,
+    );
+  });
+
+  it('shows how setting up on its own stands, and opens what writing waits on (decision 32)', async () => {
+    const actions = creatorsActionsMock();
+    await render(
+      body({ actions, data: { ...data, overview: { ...data.overview, setup: setupFacts() } } }),
+    );
+    expect(screen.getByTestId('socialcontent-setup-niches')).toHaveTextContent(
+      'Niches3 niches ticked to search.',
+    );
+    expect(screen.getByTestId('socialcontent-setup-pick')).toHaveTextContent(
+      /Picking the best 10\s*Instagram 4 of 10\. More after the next search\./,
+    );
+    expect(screen.getByTestId('socialcontent-setup-write')).toHaveTextContent(
+      /For your content in Settings → Main offer: 8 of 11 lists filled/,
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-setup-fix-write'));
+    expect(actions.openFix).toHaveBeenCalledWith('main-offer-lists');
+  });
+
+  it('hides setting up once every step is done', async () => {
+    const done = setupFacts({
+      networks: [{ network: 'instagram', studying: 10, byAi: 8, pickable: 3 }],
+      noted: 6,
+      playbookAt: ago(600),
+      filledAt: ago(60),
+      listsFilled: 11,
+    });
+    await render(body({ data: { ...data, overview: { ...data.overview, setup: done } } }));
+    expect(screen.queryByTestId('socialcontent-setup')).toBeNull();
+  });
+
+  it('says which creators the AI picked, how close they are and how their posts do', async () => {
+    const picked = creator(4, {
+      state: 'studying',
+      pickedBy: 'ai',
+      match: 8,
+      matchWhy: 'Posts CRM tips for contractors.',
+      engagement: 0.031,
+    });
+    await render(body({ data: { ...data, creators: [...data.creators, picked] } }));
+    await fireEvent.press(screen.getByTestId('socialcontent-tab-studying'));
+    const card = screen.getByTestId('socialcontent-creator-creator_4');
+    expect(card).toHaveTextContent(/Picked by the AI/);
+    expect(within(card).getByTestId('socialcontent-creator-match')).toHaveTextContent(
+      '8 of 10 close: Posts CRM tips for contractors. · 3.1% likes and comments for their followers',
     );
   });
 
@@ -494,6 +543,7 @@ describe('Settings', () => {
       stop: jest.fn(),
       setPlan: jest.fn(),
       autoFill: jest.fn(),
+      autoPick: jest.fn(),
     };
   }
   const body = (props: Partial<React.ComponentProps<typeof SettingsBody>> = {}) => (
@@ -630,6 +680,16 @@ describe('Settings', () => {
     expect(actions.setPlan).toHaveBeenCalledWith('linkedin', { mode: 'mine' });
     await fireEvent.press(screen.getByTestId('socialcontent-auto-fill'));
     expect(actions.autoFill).toHaveBeenCalledWith(false);
+  });
+
+  it('turns picking niches and creators on its own off (decisions 29 to 31)', async () => {
+    const actions = settingsActionsMock();
+    await render(body({ actions }));
+    expect(screen.getByTestId('socialcontent-picking')).toHaveTextContent(
+      /Pick niches and creators on its own|best 10 creators on each network/,
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-auto-pick'));
+    expect(actions.autoPick).toHaveBeenCalledWith(false);
   });
 
   it('picks I pick’s times on each weekday, up to 3 a day, and takes one off', async () => {

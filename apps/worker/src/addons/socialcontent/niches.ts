@@ -44,8 +44,11 @@ async function nichesHere(ctx: AddonScopeContext): Promise<{ names: string[]; ha
   return { names: found.map((f) => f.name), hasOwn: hasOwnNiche(found) };
 }
 
-/** Has the AI suggest the business's niche and ones like it. How many new ones were kept. */
-export async function suggestNiches(ctx: AddonScopeContext): Promise<number> {
+/**
+ * Has the AI suggest the business's niche and ones like it, the closest first. Setting up on its own ticks the closest
+ * `pickClosest` new ones too (decision 29). How many new ones were kept.
+ */
+export async function suggestNiches(ctx: AddonScopeContext, pickClosest = 0): Promise<number> {
   const here = await nichesHere(ctx);
   const business = await businessText(ctx);
   const { value } = await askStructured(ctx, ctx.scope, {
@@ -61,7 +64,7 @@ export async function suggestNiches(ctx: AddonScopeContext): Promise<number> {
   const { output } = await executeCommand(
     ctx.db,
     nichesPut,
-    { workspaceId: ctx.scope.workspaceId, own: checked.own, similar: checked.similar },
+    { workspaceId: ctx.scope.workspaceId, own: checked.own, similar: checked.similar, pickClosest },
     ctx.actor,
     ctx.meta,
   );

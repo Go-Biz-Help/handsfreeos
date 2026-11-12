@@ -162,5 +162,6 @@ at 06:34 UTC. Creator research stays on Instagram.
 13. **The schedule (this part).** I pick or AI picks on each network in Settings → Posting, on the web and the phone;
     the AI's times from the creators' best posts and then the business's own, with about 1 in 5 tried at a new hour;
     and posts not up yet moved when it learns a better time.
-14. **Setting up on its own.** Niches, the best 10 creators, their notes and the Playbook without a press, then the
-    calendar filling, each step shown and each one a person can change.
+14. **Setting up on its own (this part).** Niches, the best 10 creators, their notes and the Playbook without a press,
+    then the calendar filling, each step shown and each one a person can change. It needs extension 0.136.0 for each
+    creator's latest likes and comments, and migration 026300.

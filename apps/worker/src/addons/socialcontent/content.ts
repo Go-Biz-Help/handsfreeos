@@ -76,7 +76,7 @@ import { assertInWorkspace } from '../../handlers/file-removed';
 import { chargeUsage } from '../../money/wallet';
 import { PictureError } from '../../pictures';
 import { scheduleAddonJob } from '../queue';
-import { businessText, offerIsLive, requireLiveOffer } from './business';
+import { businessText, listsAllFilled, offerIsLive, requireLiveOffer } from './business';
 import { drawDesign, PICTURE_HEIGHT, PICTURE_WIDTH } from './draw';
 import { aiRefusal } from './notes';
 import type { AddonJobHandler, AddonScopeContext, AddonWorkerAction } from '../types';
@@ -558,13 +558,16 @@ export const runCalendar: AddonJobHandler = async (ctx) => {
       return { rescheduleAt: new Date(ctx.now + WEEK_MS) };
     }
     const ideas = await ideasToUse(ctx);
+    // With no Playbook or idea yet, it writes from the main offer and its lists once they're all filled (decision 32:
+    // setting up on its own writes 3 days on, Playbook or not).
+    const fromLists = !here.playbook && (await listsAllFilled(ctx));
     const room = Math.max(0, FILL_PER_RUN - redone.written);
     let written = 0;
     for (const slot of open.slice(0, room)) {
       if (!(await fillsOnItsOwn(ctx))) return;
       const at = ideas.findIndex((i) => i.network === slot.network || i.network === null);
       const idea = at >= 0 ? ideas.splice(at, 1)[0]! : (ideas.shift() ?? null);
-      if (!idea && !here.playbook) break;
+      if (!idea && !here.playbook && !fromLists) break;
       const post = await writeOne(ctx, {
         business,
         network: slot.network,

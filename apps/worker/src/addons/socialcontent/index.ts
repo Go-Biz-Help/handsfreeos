@@ -2,7 +2,8 @@
  * AI Social Media Content Creator in the worker (docs/socialcontent.md): the AI's niches and the words to search for
  * them (./niches.ts), the weekly and monthly reading it queues for the business's reading computer (decision 11), and
  * the AI's notes on the standouts, the Playbook, the ideas and watching videos (./notes.ts), and the business's own
- * posts, their calendar and their pictures (./content.ts).
+ * posts, their calendar and their pictures (./content.ts), and setting itself up with no press: niches, the best
+ * creators, then writing (./setup.ts).
  * The reading itself is the HandsFreeOS Social extension's, on that computer. The worker hands it work only while
  * it's on, and everything it does through the kernel (with `ctx.actor`) is refused the moment it's turned off.
  */
@@ -36,6 +37,14 @@ import {
 } from './content';
 import { READ_LOOK_ACTION, readLook } from './helper';
 import { onNicheAdded, suggestNichesNow } from './niches';
+import {
+  onSetupMayGoOn,
+  onWorkFinished,
+  queueSetup,
+  runSetup,
+  SETUP_JOB,
+  swapQuiet,
+} from './setup';
 import {
   NOTES_JOB,
   onOwnDoneWell,
@@ -77,11 +86,13 @@ async function armChecks(ctx: AddonScopeContext): Promise<void> {
 }
 
 /**
- * Turned on again: the weekly reading and searching, and the calendar's weekly top-up once it was ever filled and
- * still fills on its own (turning it off cancelled its queued work).
+ * Turned on, or on again: the weekly reading and searching, setting up on its own (once a reading computer is picked,
+ * decision 28), and the calendar's weekly top-up once it was ever filled and still fills on its own (turning it off
+ * cancelled its queued work).
  */
 async function onEnable(ctx: AddonScopeContext): Promise<void> {
   await armChecks(ctx);
+  await queueSetup(ctx);
   const [s] = await asWorker(ctx.db, ctx.scope, (tx) =>
     rows<{ filled_at: Date | null; auto_fill: boolean }>(
       tx,
@@ -93,10 +104,11 @@ async function onEnable(ctx: AddonScopeContext): Promise<void> {
 
 /**
  * The main offer put live (or a new version of it): the calendar fills the open days now when it was filling before
- * and still fills on its own, since nothing is written while no offer is live (pick 7b). A first fill still waits for
- * the person to press Fill the calendar.
+ * and still fills on its own, since nothing is written while no offer is live (pick 7b). A first fill is setting
+ * up's, once the lists for content are filled too (decision 32).
  */
 const onOfferPublished: AddonSubscriber = async (ctx) => {
+  await queueSetup(ctx);
   const [s] = await asWorker(ctx.db, ctx.scope, (tx) =>
     rows<{ filled_at: Date | null; auto_fill: boolean }>(
       tx,
@@ -114,6 +126,9 @@ const onSettingsSaved: AddonSubscriber = async (ctx) => {
   const p = (ctx.event.payload ?? {}) as Record<string, unknown>;
   if (p['planChanged'] === true) await queueTimes(ctx, 0);
   if (p['fillTurnedOn'] === true) await queueFill(ctx, new Date(), true);
+  // A reading computer picked, or picking or filling on its own turned on: setting up goes on (decision 28).
+  if (p['readerPicked'] === true || p['pickTurnedOn'] === true || p['fillTurnedOn'] === true)
+    await queueSetup(ctx);
 };
 
 /** A creator's posts saved: the notes; and AI picks learns the hours again, a little later (decision 25). */
@@ -139,8 +154,19 @@ const readWeekly: AddonJobHandler = async (ctx) => {
   return { rescheduleAt: new Date(ctx.now + WEEK_MS) };
 };
 
-/** Every ticked niche searched again for new creators; then the next month's. */
+/**
+ * Every ticked niche searched again for new creators; then the next month's. While it picks on its own, the creators it
+ * picked that stopped posting or rarely stand out are swapped out first, and others picked once the searches end
+ * (decision 31).
+ */
 const findMonthly: AddonJobHandler = async (ctx) => {
+  const [s] = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{ auto_pick: boolean }>(
+      tx,
+      sql`select auto_pick from addon_socialcontent.settings where workspace_id = ${ctx.scope.workspaceId}`,
+    ),
+  );
+  if (s?.auto_pick ?? true) await swapQuiet(ctx);
   await executeCommand(
     ctx.db,
     workQueue,
@@ -159,7 +185,10 @@ export const socialcontentAddonWorker: AddonWorkerModule = {
     'socialcontent.posts.saved': onCreatorPostsSaved,
     'socialcontent.content.done_well': onOwnDoneWell,
     'socialcontent.content.read': onOwnNumbersRead,
+    'socialcontent.work.finished': onWorkFinished,
+    'socialcontent.playbook.written': onSetupMayGoOn,
     'main_offer.published': onOfferPublished,
+    'main_offer.list_saved': onSetupMayGoOn,
   },
   jobs: {
     [WEEKLY_JOB]: readWeekly,
@@ -168,6 +197,7 @@ export const socialcontentAddonWorker: AddonWorkerModule = {
     [CALENDAR_JOB]: runCalendar,
     [PICTURES_JOB]: runPictures,
     [TIMES_JOB]: runTimes,
+    [SETUP_JOB]: runSetup,
   },
   onEnable,
   actions: {

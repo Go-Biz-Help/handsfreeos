@@ -8,6 +8,7 @@ import type {
   Work,
 } from '@hfos/core/addons/socialcontent/shapes';
 import type { CalendarView, Content } from '@hfos/core/addons/socialcontent/content-shapes';
+import type { SetupFacts } from '@hfos/core/addons/socialcontent/picking';
 import { planOf } from '@hfos/core/addons/socialcontent/calendar';
 import * as React from 'react';
 import type * as ReactNative from 'react-native';
@@ -55,6 +56,7 @@ export function overview(over: Partial<Overview> = {}): Overview {
       facebookPage: null,
       facebookWhere: ['profile'],
       autoFill: true,
+      autoPick: true,
     },
     readerIsMe: true,
     mayManage: true,
@@ -100,6 +102,31 @@ export function creator(n: number, over: Partial<Creator> = {}): Creator {
     standoutsCount: 0,
     reading: false,
     createdAt: ago(600),
+    pickedBy: null,
+    match: null,
+    matchWhy: null,
+    engagement: null,
+    ...over,
+  };
+}
+
+/** How setting up on its own stands: under way, with Instagram half picked. */
+export function setupFacts(over: Partial<SetupFacts> = {}): SetupFacts {
+  return {
+    autoPick: true,
+    autoFill: true,
+    marks: { startedAt: ago(60), nichesAt: ago(60), findAt: ago(60) },
+    readerSet: true,
+    nichesPicked: 3,
+    findsLeft: 0,
+    readsLeft: 0,
+    networks: [{ network: 'instagram', studying: 4, byAi: 4, pickable: 6 }],
+    noted: 0,
+    playbookAt: null,
+    filledAt: null,
+    offerLive: true,
+    listsFilled: 8,
+    listsAll: 11,
     ...over,
   };
 }
