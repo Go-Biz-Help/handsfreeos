@@ -41,6 +41,10 @@ type Submission = {
   contact?: { email?: string };
   policyContact?: { email?: string; phone?: string };
   address?: Address;
+  displayName?: string;
+  optInPath?: string;
+  optInUrl?: string | null;
+  otherWays?: { path?: string; url?: string }[];
 };
 
 /** The wizard's answers as it saves them (`registration_drafts.answers.form`): plain strings, '' when not given. */
@@ -57,7 +61,10 @@ type DraftForm = Partial<
     | 'policyPhone'
     | 'useCase'
     | 'ownPolicyUrl'
-    | 'ownTermsUrl',
+    | 'ownTermsUrl'
+    | 'optInPath'
+    | 'optInUrl'
+    | 'otherWays',
     unknown
   >
 >;
@@ -70,7 +77,14 @@ const withScheme = (v: unknown): string | null => {
   return /^https?:\/\//i.test(url) ? url : `https://${url}`;
 };
 
-export async function legalSourceOf(tx: Tx, workspaceId: string): Promise<LegalSource> {
+/** The registration as it is now: the wizard's answers when they're newer than the last send, else what was sent. */
+async function registrationNow(
+  tx: Tx,
+  workspaceId: string,
+): Promise<
+  | { readonly preparing: true; readonly form: DraftForm }
+  | { readonly preparing: false; readonly submission: Submission }
+> {
   const [sent] = await tx
     .select({
       submission: telephonyRegistrations.submission,
@@ -94,8 +108,14 @@ export async function legalSourceOf(tx: Tx, workspaceId: string): Promise<LegalS
   const preparing =
     !!form && typeof form === 'object' && (!sent?.at || (draft!.at && draft!.at > sent.at));
 
-  if (preparing) {
-    const f = form as DraftForm;
+  if (preparing) return { preparing: true, form: form as DraftForm };
+  return { preparing: false, submission: (sent?.submission ?? {}) as Submission };
+}
+
+export async function legalSourceOf(tx: Tx, workspaceId: string): Promise<LegalSource> {
+  const now = await registrationNow(tx, workspaceId);
+  if (now.preparing) {
+    const f = now.form;
     // Nothing sent yet says which number: the one the business has now.
     const [number] = text(f.policyPhone)
       ? []
@@ -125,7 +145,7 @@ export async function legalSourceOf(tx: Tx, workspaceId: string): Promise<LegalS
     };
   }
 
-  const s = (sent?.submission ?? {}) as Submission;
+  const s = now.submission;
   const phone = text(s.policyContact?.phone) ?? text(s.forNumber);
   return {
     policyUrl: text(s.policyUrl) ?? null,
@@ -138,5 +158,33 @@ export async function legalSourceOf(tx: Tx, workspaceId: string): Promise<LegalS
       address: s.address,
       offers: sendsOffers(s.useCase),
     },
+  };
+}
+
+type OptInPathNow = 'hosted' | 'own_site' | 'in_person';
+const pathOf = (v: unknown): OptInPathNow | null =>
+  v === 'hosted' || v === 'own_site' || v === 'in_person' ? v : null;
+
+/** How customers agree, as the registration has it now (like `legalSourceOf`): the main way, its page, and the rest. */
+export interface OptInNow {
+  readonly path: OptInPathNow | null;
+  /** The page with the tick box, for `own_site`. */
+  readonly pageUrl: string | null;
+  /** Every other way customers agree. */
+  readonly otherPaths: readonly OptInPathNow[];
+  /** The name customers know the business by, when the registration gives one. */
+  readonly displayName: string | null;
+}
+
+export async function optInNowOf(tx: Tx, workspaceId: string): Promise<OptInNow> {
+  const now = await registrationNow(tx, workspaceId);
+  const src = now.preparing ? now.form : now.submission;
+  const path = pathOf(src.optInPath);
+  const others = Array.isArray(src.otherWays) ? (src.otherWays as { path?: unknown }[]) : [];
+  return {
+    path,
+    pageUrl: path === 'own_site' ? withScheme(src.optInUrl) : null,
+    otherPaths: others.map((w) => pathOf(w?.path)).filter((p): p is OptInPathNow => !!p),
+    displayName: now.preparing ? null : (text(now.submission.displayName) ?? null),
   };
 }

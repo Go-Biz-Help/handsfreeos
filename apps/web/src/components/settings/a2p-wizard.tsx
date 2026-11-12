@@ -45,6 +45,7 @@ import {
   updatedPolicyText,
   normalizeChatOrigin,
   notGreen as notGreenList,
+  fixesMissing,
   type A2pDraft,
   type A2pField,
   type A2pIssue,
@@ -93,6 +94,12 @@ import {
   snippetOf,
   snippetSrc,
 } from './chat-install';
+import {
+  HideChatSwitch,
+  WebPersonButton,
+  type WebPersonChat,
+  type WebPersonForm,
+} from './web-person';
 
 // ---------- the answers ----------
 
@@ -580,6 +587,10 @@ export interface HostedSurfaces {
   readonly bookingEnabled: boolean;
   /** Where the chat's code loads from: the business's own domain once one is serving, otherwise this app. */
   readonly snippetOrigin?: string | null;
+  /** Published forms a website could show, for "Email your web person". */
+  readonly liveForms?: readonly WebPersonForm[];
+  /** Every website chat, hidden ones too, for "Hide the website chat until texting is approved". */
+  readonly chats?: readonly WebPersonChat[];
 }
 
 /** The live website chat, as much of it as setting it up for agreeing to texts needs. */
@@ -968,6 +979,20 @@ function OptInStep({
               Go back a step and add your website first. The chat goes on it.
             </p>
           ) : null}
+          {ready && !ownPage ? (
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+              <WebPersonButton
+                workspaceId={workspaceId}
+                website={website || null}
+                forms={surfaces.liveForms ?? []}
+                chats={surfaces.chats ?? []}
+                path="hosted"
+              />
+              <p className="min-w-0 flex-1 text-[13px] text-text-3">
+                Someone else looks after your site? Send them the code and the steps.
+              </p>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -1023,6 +1048,23 @@ function OptInStep({
               </p>
             </div>
           ) : null}
+          <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+            <WebPersonButton
+              workspaceId={workspaceId}
+              website={website || null}
+              forms={surfaces.liveForms ?? []}
+              chats={surfaces.chats ?? []}
+              path="own_site"
+            />
+            <p className="min-w-0 flex-1 text-[13px] text-text-3">
+              Someone else looks after your site? Send them all of this, each part in its own file.
+            </p>
+          </div>
+          <HideChatSwitch
+            workspaceId={workspaceId}
+            chats={surfaces.chats ?? []}
+            className="border-t border-border pt-3"
+          />
         </div>
       ) : null}
 
@@ -1048,6 +1090,11 @@ function OptInStep({
             and share it so anyone with the link can open it. The reviewer never signs in.
           </Why>
           <Issues issues={issuesFor(issues, 'optInProofUrl')} />
+          <HideChatSwitch
+            workspaceId={workspaceId}
+            chats={surfaces.chats ?? []}
+            className="border-t border-border pt-3"
+          />
         </div>
       ) : null}
 
@@ -1892,6 +1939,8 @@ export function A2pWizard({
           agreed={agreed}
           onAgreed={setAgreed}
           onJump={(key) => setAt(STEPS.findIndex((s) => s.key === key))}
+          workspaceId={workspaceId}
+          surfaces={surfaces}
         />
       ) : null}
 
@@ -2564,6 +2613,8 @@ function ReviewStep({
   agreed,
   onAgreed,
   onJump,
+  workspaceId,
+  surfaces,
 }: {
   form: WizardForm;
   /** The name customers know: with a DBA, the carriers are told it beside the legal name. */
@@ -2583,8 +2634,12 @@ function ReviewStep({
   agreed: boolean;
   onAgreed: (next: boolean) => void;
   onJump: (key: string) => void;
+  workspaceId: string;
+  surfaces: HostedSurfaces;
 }) {
   const blockers = issues.filter((i) => i.severity === 'blocker');
+  // What the website itself still needs, for whoever looks after it: the rows above that a web person fixes.
+  const websiteFixes = checks ? fixesMissing(checks, form.optInPath || null) : [];
   // A question only the business can answer is a tick below, not a warning.
   const warnings = issues.filter((i) => i.severity === 'warning' && !i.confirm);
   const pathLabel = OPT_IN_PATHS.find((p) => p.value === form.optInPath)?.title ?? '—';
@@ -2684,6 +2739,26 @@ function ReviewStep({
             We could not look just now. Press &ldquo;Check again&rdquo; — the registration will not
             go until these have been looked at.
           </p>
+        ) : null}
+        {checks ? (
+          <div
+            className="mt-2 flex flex-wrap items-center gap-2 border-t border-border pt-3"
+            data-testid="registration-web-person"
+          >
+            <WebPersonButton
+              workspaceId={workspaceId}
+              website={withScheme(form.website) || null}
+              forms={surfaces.liveForms ?? []}
+              chats={surfaces.chats ?? []}
+              suggested={websiteFixes}
+              path={form.optInPath || null}
+            />
+            <p className="min-w-0 flex-1 text-[13px] text-text-3">
+              {websiteFixes.length
+                ? 'Someone else looks after your site? Send them what’s missing, each change in its own file.'
+                : 'Someone else looks after your site? Send them any of the changes, each in its own file.'}
+            </p>
+          </div>
         ) : null}
       </div>
 

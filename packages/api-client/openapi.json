@@ -9274,6 +9274,105 @@
         }
       }
     },
+    "/v1/commands/registration.email_web_person": {
+      "post": {
+        "operationId": "command_registration_email_web_person",
+        "summary": "Email whoever looks after the business’s website the changes it needs before the carriers approve its texting, each in its own text file: add the sign-up form (one of the business’s published forms, or the box and its words for a form of their own), the privacy policy and terms’ part about texts, and the website chat’s code. Sent from HandsFreeOS in the business’s name; replies go to the person sending it, who gets a copy.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires channels.manage. Emits registration.web_person_emailed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "to": {
+                    "type": "string",
+                    "maxLength": 254,
+                    "format": "email",
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "fixes": {
+                    "minItems": 1,
+                    "maxItems": 3,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "form",
+                        "policy",
+                        "chat"
+                      ]
+                    }
+                  },
+                  "formId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 1000
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "to",
+                  "fixes"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sentTo": {
+                      "type": "string"
+                    },
+                    "files": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "sentTo",
+                    "files"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/conversation.open": {
       "post": {
         "operationId": "command_conversation_open",
@@ -32884,6 +32983,70 @@
                   "required": [
                     "widgetId",
                     "paused"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/chat_widget.hide_until_texting": {
+      "post": {
+        "operationId": "command_chat_widget_hide_until_texting",
+        "summary": "Hide every website chat until the business’s texting is approved, when they come back on by themselves (the code stays on the site and shows nothing meanwhile); or turn the chats it hid back on now. Refused while the chat is how customers agree to texts.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires channels.manage. Emits chat_widget.paused, chat_widget.resumed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "hide": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "hide"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "widgetIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      }
+                    },
+                    "hidden": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "widgetIds",
+                    "hidden"
                   ],
                   "additionalProperties": false
                 }
@@ -180938,6 +181101,9 @@
                               }
                             ]
                           },
+                          "hiddenUntilTexting": {
+                            "type": "boolean"
+                          },
                           "install": {
                             "type": "object",
                             "properties": {
@@ -181004,6 +181170,7 @@
                           "dailyCap",
                           "paused",
                           "pausedAt",
+                          "hiddenUntilTexting",
                           "install",
                           "createdAt",
                           "updatedAt"
@@ -181318,6 +181485,9 @@
                             }
                           ]
                         },
+                        "hiddenUntilTexting": {
+                          "type": "boolean"
+                        },
                         "install": {
                           "type": "object",
                           "properties": {
@@ -181384,6 +181554,7 @@
                         "dailyCap",
                         "paused",
                         "pausedAt",
+                        "hiddenUntilTexting",
                         "install",
                         "createdAt",
                         "updatedAt"

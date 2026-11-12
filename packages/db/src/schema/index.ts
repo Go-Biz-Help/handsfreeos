@@ -3836,6 +3836,8 @@ export const chatWidgets = app.table('chat_widgets', {
   smsConsent: boolean('sms_consent').notNull().default(true),
   dailyCap: integer('daily_cap').notNull().default(200),
   pausedAt: ts('paused_at'),
+  /** Paused until the business's texting is approved, then turned back on by the worker (2026-11-12). */
+  hiddenUntilTexting: boolean('hidden_until_texting').notNull().default(false),
   /** What the business calls it in Forms; null: its first site. */
   name: text('name'),
   /** right, left on a phone; null: the same as position. */
