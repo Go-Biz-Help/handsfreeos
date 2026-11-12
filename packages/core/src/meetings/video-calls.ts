@@ -289,6 +289,11 @@ export const VIDEO_CALL_ATTRIBUTES = {
   video: 'hfos.video',
   /** A webinar: `on` for an attendee the team brought on stage. */
   stage: 'hfos.stage',
+  /**
+   * Their microphone's trouble (`blocked` or `silent`, mic-help.ts), set by their own page so everyone else sees it on
+   * their tile and in People. Empty once it works.
+   */
+  mic: 'hfos.mic',
 } as const;
 
 /**
@@ -516,11 +521,12 @@ export function videoCallSoundGate(
 export type VideoCallSoundGate = ReturnType<typeof videoCallSoundGate>;
 
 /**
- * In-app browsers (Facebook, Instagram, Messenger, TikTok, WeChat, LINE) that can block the camera or the
- * microphone: the join page asks to open the link in Safari or Chrome instead.
+ * In-app browsers (Facebook, Instagram, Threads, Messenger, TikTok, WeChat, LINE, LinkedIn, Snapchat, Pinterest, X, and
+ * any Android app's own web view) that can block the camera or the microphone: the join page asks to open the link
+ * in Safari or Chrome instead. Joining still works where the app allows it.
  */
 const IN_APP_BROWSER =
-  /FBAN|FBAV|FB_IAB|FBIOS|Instagram|Messenger|musical_ly|TikTok|MicroMessenger|\bLine\//i;
+  /FBAN|FBAV|FB_IAB|FBIOS|Instagram|Barcelona|Messenger|musical_ly|TikTok|MicroMessenger|\bLine\/|LinkedInApp|Snapchat|Pinterest|Twitter for|; wv\)/i;
 export const isInAppBrowser = (userAgent: string | null | undefined): boolean =>
   !!userAgent && IN_APP_BROWSER.test(userAgent);
 
@@ -566,8 +572,6 @@ export const VIDEO_CALL_WORDS = {
   full: `This call is full: it has room for ${VIDEO_CALL_MAX_PEOPLE} people. Try again when someone leaves.`,
   inAppBrowser:
     'This app’s own browser can block your camera and microphone. Open this link in Safari or Chrome to join.',
-  noCamera:
-    'Your browser didn’t let this page use your camera or microphone. Allow them in your browser’s settings for this page, then try again.',
   poweredBy: 'Powered by HandsFreeOS',
   endForEveryone: 'End for everyone',
   endForEveryoneConfirm: 'End the call for everyone?',
