@@ -86,7 +86,7 @@
     "apps/web/src/components/video-call/call-frame.tsx": "7b091210e351",
     "apps/web/src/components/video-call/call-notes.tsx": "571d64d4cdef",
     "apps/web/src/components/video-call/call-panels.tsx": "1aae71877cf4",
-    "apps/web/src/components/video-call/call-room.tsx": "39d2c3e08dd0",
+    "apps/web/src/components/video-call/call-room.tsx": "1a2f999360a4",
     "apps/web/src/components/video-call/call-stage.tsx": "e9fc079a3b0c",
     "apps/web/src/components/video-call/coach-float.tsx": "f4d4132cb46e",
     "apps/web/src/components/video-call/customer-call.tsx": "95df1e2ea086",
@@ -1672,49 +1672,56 @@
     {
       "path": "Video → asking to join → Let in",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:416",
+      "file": "apps/web/src/components/video-call/call-room.tsx:422",
       "covered": "yes",
       "by": "do_video_call_admit"
     },
     {
+      "path": "Video → sound as someone joins or asks to join",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-room.tsx:412",
+      "covered": "person",
+      "by": "heard on own device"
+    },
+    {
       "path": "Video → watching count",
       "kind": "see",
-      "file": "apps/web/src/components/video-call/call-room.tsx:526",
+      "file": "apps/web/src/components/video-call/call-room.tsx:532",
       "covered": "yes",
       "by": "read_video_call_get"
     },
     {
       "path": "Video → attendee cameras on / off",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:560",
+      "file": "apps/web/src/components/video-call/call-room.tsx:566",
       "covered": "yes",
       "by": "do_video_call_set_attendee_video"
     },
     {
       "path": "Video → AI notes menu, turn off confirm",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:585",
+      "file": "apps/web/src/components/video-call/call-room.tsx:591",
       "covered": "yes",
       "by": "do_video_call_set_ai"
     },
     {
       "path": "Video → joining / reconnecting / alone",
       "kind": "see",
-      "file": "apps/web/src/components/video-call/call-room.tsx:616",
+      "file": "apps/web/src/components/video-call/call-room.tsx:622",
       "covered": "person",
       "by": "own connection"
     },
     {
       "path": "Video → mic, camera, share screen, blur, reactions, hand",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:679",
+      "file": "apps/web/src/components/video-call/call-room.tsx:685",
       "covered": "person",
       "by": "own devices"
     },
     {
       "path": "Video → captions",
       "kind": "see",
-      "file": "apps/web/src/components/video-call/call-room.tsx:757",
+      "file": "apps/web/src/components/video-call/call-room.tsx:763",
       "covered": "no",
       "by": "live captions not read"
     },
@@ -1826,14 +1833,14 @@
     {
       "path": "Video → Leave",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:808",
+      "file": "apps/web/src/components/video-call/call-room.tsx:814",
       "covered": "person",
       "by": "own session"
     },
     {
       "path": "Video → End for everyone, confirm",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:834",
+      "file": "apps/web/src/components/video-call/call-room.tsx:840",
       "covered": "yes",
       "by": "do_video_call_end"
     },

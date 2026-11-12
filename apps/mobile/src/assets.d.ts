@@ -5,3 +5,9 @@ declare module '*.png' {
   const source: ImageSourcePropType;
   export default source;
 }
+
+// Sounds imported from ../assets: Metro hands back an asset id, which expo-audio's players take.
+declare module '*.wav' {
+  const source: number;
+  export default source;
+}

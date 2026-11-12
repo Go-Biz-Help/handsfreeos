@@ -132,6 +132,7 @@ jest.mock('expo-audio', () => {
       }, 5);
     }
     pause() {}
+    async seekTo(_seconds: number) {}
     remove() {}
   }
   const preset = {
