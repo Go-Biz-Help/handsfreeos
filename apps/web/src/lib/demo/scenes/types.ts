@@ -69,6 +69,12 @@ export interface DemoPlayer {
   readonly me: { readonly id: string; readonly name: string };
   /** The business's time zone, for words a step types that name a day. */
   readonly timeZone: string;
+  /**
+   * When the scene was loaded, in ms: the `at` its `setup` worked its own times out from. A step that opens what
+   * the setup placed (a visit an hour before the scene started) works its day out from this, not from the clock
+   * when the step is played, which may be minutes later and past midnight.
+   */
+  readonly startedAt: number;
   /** Opens a page of the business (`inbox/<id>`), as a click on a link would. */
   go(path: string): Promise<void>;
   /** Moves the pointer to the first match (a CSS selector, or `@id` for a data-testid) and clicks it. */

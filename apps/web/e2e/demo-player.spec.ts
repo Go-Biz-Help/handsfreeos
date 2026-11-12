@@ -521,6 +521,41 @@ test('demo player: moving in from another CRM, a form that texts back, Google re
   await expect(page.getByText('Rhonda Sutton')).toHaveCount(0);
 });
 
+/** The last minute before this one when a clock in `timeZone` read `clock`, such as `00:45`. */
+function lastTimeItWas(clock: string, timeZone: string): Date {
+  const read = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  });
+  const thisMinute = Math.floor(Date.now() / 60_000) * 60_000;
+  // A day has 1,440 minutes, and 1,500 on the night the clocks go back.
+  for (let back = 1; back <= 1_500; back++) {
+    const at = thisMinute - back * 60_000;
+    if (read.format(at) === clock) return new Date(at);
+  }
+  throw new Error(`No ${clock} in the last day in ${timeZone}.`);
+}
+
+test('demo player: the webinar that finds buyers plays just after midnight, when it ran yesterday', async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const workspaceId = await staffBusiness(page, 'demo-midnight');
+  // The scene's webinar starts on a half hour, 60 to 90 minutes before the scene does. At 12:45 AM where the business
+  // is (Chicago, like the browser), that was 11:30 PM yesterday, so the first step has to open yesterday's calendar.
+  // The browser's clock goes back to the last 12:45 AM and runs on from there. Back, never forward: with its clock
+  // ahead, the browser would take its sign-in for expired.
+  await page.clock.install({ time: lastTimeItWas('00:45', 'America/Chicago') });
+  await page.goto(`/app/w/${workspaceId}/inbox?demo`);
+  await expect(director(page)).toBeVisible();
+
+  await pick(page, 'webinar-buyers', 'Open today’s webinar');
+  await play(page, 5);
+  await expect(page.getByText('Is tomorrow afternoon open?').first()).toBeVisible();
+});
+
 test('demo player: the AI calls a new lead, a sales coach on the call, a home buyer’s text, and Social Outreach’s first messages', async ({
   page,
 }) => {
