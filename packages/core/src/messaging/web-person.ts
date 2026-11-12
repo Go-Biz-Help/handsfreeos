@@ -166,13 +166,20 @@ export async function websiteFixSourcesOf(
   return { business, siteSlug, legal, optIn, website, form, chat };
 }
 
+/** An address without the slashes at its end (a loop, not a regex, which slows down on many slashes). */
+function withoutTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url[end - 1] === '/') end--;
+  return url.slice(0, end);
+}
+
 /** The files' facts, once the addresses are known: ours (`app`) and the one the business's pages are on (`pages`). */
 export function websiteFixFactsFrom(
   s: WebsiteFixSources,
   origins: { readonly app: string; readonly pages: string },
 ): WebsiteFixFacts {
-  const pages = origins.pages.replace(/\/+$/, '');
-  const app = origins.app.replace(/\/+$/, '');
+  const pages = withoutTrailingSlashes(origins.pages);
+  const app = withoutTrailingSlashes(origins.app);
   const publicUrl =
     s.form && s.siteSlug ? `${pages}${publicFormPath(s.siteSlug, s.form.slug)}` : null;
   return {
