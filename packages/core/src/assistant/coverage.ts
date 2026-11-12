@@ -243,6 +243,13 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
     warning:
       'This opens a ticket asking HandsFreeOS to check the texting registration by hand, with what isn’t green. Nothing goes to the carriers until HandsFreeOS approves it.',
   },
+  // "Email your web person" (2026-11-12): the website's changes for texting approval, each in its own text file.
+  'registration.email_web_person': {
+    about:
+      'to is the web person’s email, name their name if known. fixes is any of form (add the sign-up form), policy (the privacy policy and terms’ part about texts) and chat (the website chat’s code). formId is one of the business’s published forms from list_forms, or null for a form of their own (they get the box and its words); left out, the newest published form. A refusal saying the form or chat isn’t allowed on the website is fixed by adding the website to its sites first.',
+    warning:
+      'This emails the person named, from HandsFreeOS in the business’s name, with each change in its own text file. Replies go to you, and you get a copy.',
+  },
   'number_import.start': {},
   'number_import.check_now': {},
   'number_import.cancel': {},
@@ -286,6 +293,11 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   },
   'email_sender_rule.remove': {},
   // ---- Settings → Website chat, Facebook & Instagram ----
+  // Hiding every chat while the carriers review a registration whose customers agree on a form (2026-11-12).
+  'chat_widget.hide_until_texting': {
+    about:
+      'hide true hides every website chat until texting is approved, when they come back on by themselves; false turns the ones it hid back on now.',
+  },
   'chat_widget.rotate_key': {
     warning: 'Every chat snippet pasted before stops working until the new one is pasted in.',
   },

@@ -57,6 +57,7 @@ export * from './messaging/policies';
 // A business's own policy or terms, given back with the texting section in place.
 export * from './messaging/policy-update';
 export * from './messaging/preflight';
+export * from './messaging/website-fixes';
 export * from './messaging/sms';
 export * from './messaging/rcs';
 // Facebook Messenger and Instagram direct messages (20261025000200).

@@ -8,6 +8,7 @@
 import { Check, CircleAlert, Loader2, Undo2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
+import { ViewAsButton } from '@/components/admin/view-as';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
@@ -24,6 +25,8 @@ export interface RegistrationReviewView {
   readonly note: string | null;
   readonly notGreen: readonly string[];
   readonly submission: Record<string, unknown>;
+  /** The business it's for: the founder opens it as owner, on its Texting page, to email its web person. */
+  readonly workspaceId?: string;
 }
 
 const KIND_WORD = {
@@ -58,7 +61,14 @@ const link = (url: string) =>
     ''
   );
 
-export function RegistrationReviewPanel({ review }: { review: RegistrationReviewView }) {
+export function RegistrationReviewPanel({
+  review,
+  founder = false,
+}: {
+  review: RegistrationReviewView;
+  /** The founder may open the business as its owner, on its Texting page with "Email your web person" open. */
+  founder?: boolean;
+}) {
   const router = useRouter();
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState<'approve' | 'send_back' | null>(null);
@@ -136,6 +146,27 @@ export function RegistrationReviewPanel({ review }: { review: RegistrationReview
           <h3 className="mt-4 text-[13.5px] font-semibold">Their note</h3>
           <p className="mt-1 whitespace-pre-line text-[13px]">{review.note}</p>
         </>
+      ) : null}
+
+      {founder && review.workspaceId ? (
+        <div
+          className="mt-4 flex flex-wrap items-center gap-2"
+          data-testid="registration-web-person"
+        >
+          <ViewAsButton
+            workspaceId={review.workspaceId}
+            businessName={review.businessName}
+            founder
+            to={{
+              path: '/settings/texting?webPerson=1',
+              label: 'Email their web person',
+            }}
+          />
+          <p className="min-w-0 flex-1 text-[12.5px] text-text-3">
+            Opens {review.businessName} as its owner, with the website&rsquo;s changes ready to
+            email to whoever looks after it.
+          </p>
+        </div>
       ) : null}
 
       <h3 className="mt-4 text-[13.5px] font-semibold">What would be sent</h3>

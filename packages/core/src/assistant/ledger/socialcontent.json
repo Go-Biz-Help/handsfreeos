@@ -24,7 +24,7 @@
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/playbook.tsx": "1ece804bcab9",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/settings.tsx": "b7e6c2a6389d",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/standouts.tsx": "adbc9f8ec4fe",
-    "apps/web/src/addons/registry.ts": "c596d9461fd5",
+    "apps/web/src/addons/registry.ts": "c925198a00a2",
     "apps/web/src/addons/socialcontent/activity-card.tsx": "ac129c506362",
     "apps/web/src/addons/socialcontent/calendar-page.tsx": "3e45600eea09",
     "apps/web/src/addons/socialcontent/creators-page.tsx": "7981cd799c44",

@@ -185,6 +185,7 @@ import { onFileText } from '../files/file-text';
 import { onSupportAccessRequested } from './support-access';
 import { onOnboardingLinkRequested, onOnboardingRemindRequested } from './onboarding';
 import type { HandlerMap } from './types';
+import { onWebPersonEmailed } from './web-person';
 import { onSeatFreed, onWaitedForChanged, onWaitlistAdded } from './waitlist';
 
 /**
@@ -220,6 +221,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       'phone_number.release_requested': onReleaseRequested,
       'registration.submitted': onRegistrationSubmitted,
       'registration.status_changed': onRegistrationStatusChanged,
+      // "Email your web person": the website's fixes for texting approval, each in its own file (2026-11-12).
+      'registration.web_person_emailed': onWebPersonEmailed,
       // A number started working here: a registration sent while it was on its way goes now.
       'phone_number.purchased': onNumberArrived,
       'phone_number.ported_in': onNumberArrived,

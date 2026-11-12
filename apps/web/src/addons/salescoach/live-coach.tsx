@@ -2,7 +2,8 @@
 /**
  * The coach on the person's call right now (`salescoach.live`): where the call is in the script and the cards, the
  * newest on top. It reads them again the moment the worker adds one (the live update for `salescoach_call`). Drawn
- * above the web's call bar (./call-panel.tsx, `compact`) and on the Live call tab, for a call on someone's cell.
+ * above the web's call bar (./call-panel.tsx, `compact`), in the box over a video call (`framed` too) and on the Live
+ * call tab, for a call on someone's cell. Every word shows, wrapped onto more lines as it needs: nothing is cut off.
  *
  * A script whose steps name the method's stages (round five) shows the stage bar: the stages it goes through, the
  * one the call is in now, and the step. A card can carry a tip on how to say it, and a nudge stands out.
@@ -73,9 +74,9 @@ function StageBar({ call }: { call: LiveCall }) {
   const at = stages.indexOf(now);
   return (
     <div className="space-y-1.5" data-testid="coach-stage">
-      <div className="flex items-center gap-2 text-[12.5px] text-text-2">
-        <span className="font-medium text-text">{W.live.stage}:</span>
-        <span className="truncate">{SALES_STAGE_LABELS[now]}</span>
+      <div className="flex items-start gap-2 text-[12.5px] text-text-2">
+        <span className="flex-none font-medium text-text">{W.live.stage}:</span>
+        <span className="min-w-0 break-words">{SALES_STAGE_LABELS[now]}</span>
         <span className="ml-auto flex-none tabular-nums text-text-3">
           {W.live.stageOf(at + 1, stages.length)}
         </span>
@@ -101,9 +102,9 @@ function StepLine({ call }: { call: LiveCall }) {
   const at = steps.findIndex((s) => s.id === call.step);
   if (steps.length === 0) return null;
   return (
-    <div className="flex items-center gap-2 text-[12.5px] text-text-2" data-testid="coach-step">
-      <span className="font-medium text-text">{W.live.step}:</span>
-      <span className="truncate">{at >= 0 ? steps[at]!.title : steps[0]!.title}</span>
+    <div className="flex items-start gap-2 text-[12.5px] text-text-2" data-testid="coach-step">
+      <span className="flex-none font-medium text-text">{W.live.step}:</span>
+      <span className="min-w-0 break-words">{at >= 0 ? steps[at]!.title : steps[0]!.title}</span>
       <span className="ml-auto flex-none tabular-nums text-text-3">
         {Math.max(1, at + 1)}/{steps.length}
       </span>
@@ -146,36 +147,44 @@ function CoachCard({
             : 'border-border bg-card',
       )}
     >
-      <div className="flex items-center gap-2">
+      {/* With little room (big text, a narrow box), the title goes under the kind, and still shows whole. */}
+      <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
         <Icon
           className={cn(
-            'h-4 w-4 flex-none',
+            'mt-0.5 h-4 w-4 flex-none',
             card.kind === 'nudge' ? 'text-warning-text' : 'text-accent-text',
           )}
           strokeWidth={1.75}
           aria-hidden
         />
-        <Badge variant={card.kind === 'objection' || card.kind === 'nudge' ? 'pending' : 'accent'}>
+        <Badge
+          variant={card.kind === 'objection' || card.kind === 'nudge' ? 'pending' : 'accent'}
+          className="flex-none"
+        >
           {W.cardKinds[card.kind]}
         </Badge>
-        <span className="truncate text-[13.5px] font-semibold">{card.title}</span>
+        <span className="min-w-[min(100%,14rem)] flex-1 break-words pt-px text-[13.5px] font-semibold leading-snug">
+          {card.title}
+        </span>
         <Button
           variant="ghost"
           size="sm"
-          className="ml-auto flex-none"
+          className="-my-1 ml-auto flex-none"
           onClick={() => void dismiss()}
         >
           {W.live.dismiss}
         </Button>
       </div>
-      <p className={cn('mt-1.5 leading-snug', top ? 'text-[15px]' : 'text-[13.5px]')}>{card.say}</p>
+      <p className={cn('mt-1.5 break-words leading-snug', top ? 'text-[15px]' : 'text-[13.5px]')}>
+        {card.say}
+      </p>
       {card.tip ? (
-        <p className="mt-1 text-[12.5px] text-text-2" data-testid="coach-tip">
+        <p className="mt-1 break-words text-[12.5px] text-text-2" data-testid="coach-tip">
           <span className="font-medium text-text">{W.live.how}:</span> {card.tip}
         </p>
       ) : null}
       {card.heard && top ? (
-        <p className="mt-1 text-[12px] text-text-3">
+        <p className="mt-1 break-words text-[12px] text-text-3">
           {W.live.heard}: “{card.heard}”
         </p>
       ) : null}
@@ -186,12 +195,15 @@ function CoachCard({
 export function LiveCoach({
   workspaceId,
   compact = false,
+  framed = false,
   idle,
   ownStop = true,
 }: {
   workspaceId: string;
   /** Above the call bar: the newest cards only, and nothing at all with no call. */
   compact?: boolean;
+  /** In a box of the video call's own, which draws the edge: no card around it here. */
+  framed?: boolean;
   /** What shows before the call is heard, instead of "no call right now" (the Zoom panel, while Zoom starts). */
   idle?: string;
   /** Its own button to stop the coach on the call; the Zoom panel stops Zoom's stream instead. */
@@ -217,6 +229,7 @@ export function LiveCoach({
     );
   }
   const cards = call.state === 'stopped' ? [] : compact ? call.cards.slice(0, 2) : call.cards;
+  const Box = framed ? 'div' : Card;
   const status =
     call.state === 'live'
       ? W.live.listening
@@ -246,12 +259,12 @@ export function LiveCoach({
     }
   };
   return (
-    <Card
-      className={cn('space-y-2.5', compact ? 'p-3 shadow-3' : 'p-4 md:p-5')}
+    <Box
+      className={cn('space-y-2.5', framed ? 'p-3' : compact ? 'p-3 shadow-3' : 'p-4 md:p-5')}
       data-testid="coach-live"
       aria-live="polite"
     >
-      <div className="flex items-center gap-2 text-[13px]">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px]">
         <span
           className={cn(
             'inline-block h-2 w-2 rounded-full',
@@ -262,7 +275,7 @@ export function LiveCoach({
         <span className="font-semibold">{W.title}</span>
         <span className="text-text-2">· {status}</span>
         {call.person ? (
-          <span className="ml-auto truncate text-text-2">{call.person.name}</span>
+          <span className="ml-auto min-w-0 break-words text-text-2">{call.person.name}</span>
         ) : null}
       </div>
       <StageBar call={call} />
@@ -308,6 +321,6 @@ export function LiveCoach({
           {W.live.seeCall}
         </Link>
       ) : null}
-    </Card>
+    </Box>
   );
 }

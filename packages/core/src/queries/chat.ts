@@ -69,6 +69,7 @@ async function widgets(ctx: QueryContext, workspaceId: string, widgetId?: string
       dailyCap: w.dailyCap,
       paused: w.pausedAt !== null,
       pausedAt: iso(w.pausedAt),
+      hiddenUntilTexting: w.pausedAt !== null && w.hiddenUntilTexting,
       install: {
         seen: w.lastSeenAt !== null,
         lastSeenOrigin: w.lastSeenOrigin,
