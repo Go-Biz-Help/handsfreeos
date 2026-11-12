@@ -1,4 +1,6 @@
 /** The Lucide icons the app uses, imported one by one so the bundle carries only these. */
+export { default as AArrowDown } from 'lucide-react-native/icons/a-arrow-down';
+export { default as AArrowUp } from 'lucide-react-native/icons/a-arrow-up';
 export { default as AlarmClock } from 'lucide-react-native/icons/alarm-clock';
 export { default as Archive } from 'lucide-react-native/icons/archive';
 export { default as ArchiveX } from 'lucide-react-native/icons/archive-x';
