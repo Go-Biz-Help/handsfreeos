@@ -167,6 +167,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 566,
     said: 'Neither of Instagram’s lists of a creator’s posts comes any more (404 by number and by name), so their posts are read one at a time from their grid, scrolled for up to 50: the usual way now, so a read done that way isn’t reported.',
   },
+  {
+    area: 'instagram',
+    job: 'warm_up',
+    note: 'Couldn’t like (their name)’s post on this visit',
+    fixedIn: '0.136.1',
+    pr: 607,
+    said: 'A reel opens in the reels player, with the next reel under it, no article and a Comment named by its count, so no author was found and no like on a reel ever went: the reel it opened on is found by its own Like and its account’s links.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */

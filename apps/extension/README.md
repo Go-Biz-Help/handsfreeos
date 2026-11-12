@@ -1220,6 +1220,17 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Likes on reels, in the reels player on Instagram (0.136.1)
+
+The problem check of 12 Nov 2026 found no warm-up like on an Instagram reel had ever gone: each said "Couldn’t like
+(their name)’s post on this visit". Their grid links a reel at /<name>/reel/<code>/, and Instagram opens it in the reels
+player at /reels/<code>/, which draws the reel with the next one under it, no article around either, its account's links
+(to /<name>/reels/) over its video, and a Comment button named by its count ("2") beside the icon labelled Comment. So
+no author was found and the Like wasn't taken for the post's. From 0.136.1 (`openedReelOf` in
+`src/networks/instagram/auto.ts`) the reel is the part around the first post Like out to where it holds an account's
+link, while it holds no other Like; its account must be theirs, and a Comment is found by its icon too. The next reel
+is never liked, and a player where the first reel isn't theirs likes nothing.
+
 ### Each creator's latest likes and comments, for picking who to study (0.136.0)
 
 AI Social Media Content Creator sets itself up from 12 Nov 2026 (decisions 28 to 33 in `docs/socialcontent.md`): it
