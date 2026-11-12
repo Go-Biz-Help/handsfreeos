@@ -197,6 +197,8 @@ describe('registry', () => {
       'registration.review.approve',
       'registration.review.send_back',
       'registration.send_reviewed',
+      // 2026-11-12: email the business's web person the website changes.
+      'registration.email_web_person',
       'conversation.open',
       'conversation.mark_read',
       'conversation.mark_unread',
@@ -496,6 +498,7 @@ describe('registry', () => {
       'chat_widget.update',
       'chat_widget.pause',
       'chat_widget.resume',
+      'chat_widget.hide_until_texting',
       'chat_widget.rotate_key',
       'chat_widget.record_seen',
       'chat_visitor.start',
