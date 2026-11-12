@@ -1,12 +1,12 @@
 import { ASSISTANT_WORDS } from '@hfos/core';
 
-import { lapseCalls, noticeFor, settleSteps, upsertStep, type CallState } from '../chat';
+import { noticeFor, replaceWaiting, settleSteps, upsertStep, type CallState } from '../chat';
 import { AssistantError, parseBlock, readEvents } from '../stream';
 
 /**
  * The Assistant's own working out on the phone: reading the worker's stream, what each kind of failure says, and the
  * rules the chat keeps — a step only lands once, steps still spinning settle when an answer ends, and cards left
- * waiting lapse as soon as something else is asked.
+ * waiting are replaced once a newer answer shows cards of its own.
  */
 
 jest.mock('expo/fetch', () => ({ fetch: jest.fn() }));
@@ -99,7 +99,7 @@ describe('the steps under an answer', () => {
 });
 
 describe('cards left waiting', () => {
-  it('lapse when something else is asked, and answered ones stay as they are', () => {
+  it('are replaced by a newer answer’s cards, and answered ones stay as they are', () => {
     const calls: Record<string, CallState> = {
       waiting: {
         status: 'awaiting_confirmation',
@@ -115,9 +115,17 @@ describe('cards left waiting', () => {
         error: null,
         href: null,
       },
+      newer: {
+        status: 'awaiting_confirmation',
+        tool: 'send_text',
+        outcome: null,
+        error: null,
+        href: null,
+      },
     };
-    const after = lapseCalls(calls);
+    const after = replaceWaiting(calls, new Set(['newer']));
     expect(after.waiting!.status).toBe('expired');
+    expect(after.newer!.status).toBe('awaiting_confirmation');
     expect(after.sent!.status).toBe('confirmed');
     expect(after.sent!.outcome).toBe('Sent to Mike Johnson');
   });

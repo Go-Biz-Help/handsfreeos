@@ -242,8 +242,8 @@ export function nextSpoken(
 }
 
 /**
- * What's said once an answer is finished: that there's more on the screen, why it stopped short, and, when one
- * card waits for an OK, the question a yes or a no answers.
+ * What's said once an answer is finished: that there's more on the screen, why it stopped short, and, when cards
+ * wait for an OK, the question a yes or a no answers.
  */
 export function closingSpoken(input: {
   readonly state: SpokenAnswer;
@@ -256,7 +256,15 @@ export function closingSpoken(input: {
   if (input.state.cut) out.push(VOICE_WORDS.more);
   if (input.notice) out.push(input.notice);
   const [only, ...others] = input.waiting;
-  if (only && others.length) out.push(VOICE_WORDS.manyCards);
+  // Several cards: a yes or a no answers them all, unless one needs a reason picked first.
+  if (only && others.length)
+    out.push(
+      input.waiting.some((c) => c.needsReason)
+        ? VOICE_WORDS.manyCards
+        : others.length === 1
+          ? VOICE_WORDS.askOkBoth
+          : VOICE_WORDS.askOkAll,
+    );
   else if (only?.needsReason) out.push(VOICE_WORDS.askOkReason);
   else if (only)
     out.push(
@@ -499,7 +507,10 @@ export const VOICE_WORDS = {
   /** Asked after an answer whose card waits for an OK. */
   askOk: 'Should I go ahead? Say yes or no.',
   askOkReason: 'Pick a reason on the card, then confirm it.',
-  manyCards: 'Check the cards on the screen, or ask me something else.',
+  /** Asked after an answer with several cards, none needing a reason: a yes or a no answers them all. */
+  askOkBoth: 'Should I go ahead with both? Say yes or no.',
+  askOkAll: 'Should I go ahead with all of them? Say yes or no.',
+  manyCards: 'Pick a reason on the cards that need one, then confirm them.',
   more: 'There’s more on the screen.',
   done: 'Done.',
   cancelled: 'OK, I won’t.',

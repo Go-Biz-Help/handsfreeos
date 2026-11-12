@@ -274,11 +274,20 @@ export async function claimToolCall(
   return claimed.length === 1;
 }
 
-/** Cards left waiting when the person asks something else lapse: nothing they didn't OK ever runs. */
-export async function expireWaiting(db: Db, scope: Scope, threadId: string): Promise<void> {
+/**
+ * Cards keep waiting while the person asks other things (a follow-up mid-voice shouldn't throw them away), until a
+ * newer answer shows cards of its own: those replace every card still waiting from before, so only the newest set can
+ * be confirmed and nothing they didn't OK ever runs.
+ */
+export async function replaceWaiting(
+  db: Db,
+  scope: Scope,
+  threadId: string,
+  runId: string,
+): Promise<void> {
   await asWorker(db, scope, (tx) =>
     tx.execute(sql`update app.assistant_tool_calls set status = 'expired'
-      where thread_id = ${threadId} and status = 'awaiting_confirmation'`),
+      where thread_id = ${threadId} and run_id <> ${runId} and status = 'awaiting_confirmation'`),
   );
 }
 

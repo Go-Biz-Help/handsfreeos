@@ -339,7 +339,7 @@ describe('the Assistant on the calendar', () => {
     expect(await appointments()).toHaveLength(1);
   });
 
-  it('warns outside hours, and books nothing on Cancel or once the card lapses', async () => {
+  it('warns outside hours, and books nothing on Cancel or once a newer card replaces it', async () => {
     const page = { type: 'person', id: mikeId };
     const late = cardOf(
       await ask(ownerToken, 'Book him for a tune-up tomorrow at 7 pm', { page }),
@@ -357,8 +357,16 @@ describe('the Assistant on the calendar', () => {
     const threadId = first[0]!.type === 'run' ? first[0]!.threadId : '';
     const lapsing = cardOf(first, 'confirm');
     await ask(ownerToken, 'What’s on my calendar?', { threadId });
+    expect(await toolCallStatus(lapsing.toolCallId)).toBe('awaiting_confirmation');
+    const newer = cardOf(
+      await ask(ownerToken, 'Book him for a tune-up tomorrow at 2 pm', { page, threadId }),
+      'confirm',
+    );
     expect(await toolCallStatus(lapsing.toolCallId)).toBe('expired');
     expect((await decide(lapsing.toolCallId, 'confirm')).statusCode).toBe(409);
+    expect((await decide(newer.toolCallId, 'cancel')).json()).toMatchObject({
+      status: 'cancelled',
+    });
     // Only the 10 AM visit from before.
     expect(await appointments()).toHaveLength(1);
   });

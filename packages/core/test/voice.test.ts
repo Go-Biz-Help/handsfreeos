@@ -127,10 +127,18 @@ describe('reading an answer out as it arrives', () => {
           { title: 'B', needsReason: false },
         ],
       }),
-    ).toEqual([
-      'The connection dropped.',
-      'Check the cards on the screen, or ask me something else.',
-    ]);
+    ).toEqual(['The connection dropped.', 'Should I go ahead with both? Say yes or no.']);
+  });
+
+  it('asks once for several cards, unless one needs a reason first', () => {
+    const said = { taken: 10, said: 10, cut: false };
+    const card = (title: string, needsReason = false) => ({ title, needsReason });
+    expect(
+      closingSpoken({ state: said, notice: null, waiting: [card('A'), card('B'), card('C')] }),
+    ).toEqual(['Should I go ahead with all of them? Say yes or no.']);
+    expect(
+      closingSpoken({ state: said, notice: null, waiting: [card('A'), card('Lost', true)] }),
+    ).toEqual(['Pick a reason on the cards that need one, then confirm them.']);
   });
 });
 

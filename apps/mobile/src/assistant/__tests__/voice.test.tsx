@@ -162,3 +162,51 @@ it('a plain yes confirms the card waiting for an OK, and says how it went', asyn
   await waitFor(() => expect(said()).toEqual(['Texted Mike Johnson.']));
   await act(() => result.current.toggle());
 }, 20_000);
+
+it('a plain yes confirms every card still waiting, even after a follow-up question', async () => {
+  const timeOff = (n: number, title: string) =>
+    ({
+      type: 'confirm',
+      toolCallId: `dddddddd-dddd-4ddd-8ddd-00000000000${n}`,
+      tool: 'add_time_off',
+      title,
+      fields: [],
+      warnings: [],
+      reasons: [],
+      confirmLabel: 'Put it in',
+      editable: false,
+    }) as unknown as AssistantCard;
+  const cards = [timeOff(1, 'Time off until 4 PM'), timeOff(2, 'Time off from 5 PM')];
+  const calls: Record<string, CallState> = {};
+  const setCall = jest.fn((id: string, patch: Partial<CallState>) => {
+    calls[id] = { ...calls[id], ...patch } as CallState;
+  });
+  // Two cards, then "Is it at 3:30 or 4?" answered with none: both still wait.
+  const chat = chatWith(
+    [
+      answer('I set it up in two parts.', false, cards),
+      { key: 'q-2', role: 'user', text: 'Is it at 3:30 or 4?', createdAt: NOW },
+      { ...answer('It’s at 4.', false), key: 'a-2' },
+    ],
+    { setCall },
+  );
+  mockHear.mockResolvedValueOnce({ text: 'Yes.', language: 'en' });
+  mockHear.mockResolvedValue({ text: '', language: null });
+  mockConfirm.mockImplementation(async (id: string) => ({
+    id,
+    tool: 'add_time_off',
+    status: 'confirmed',
+    outcome: id.endsWith('1') ? 'Blocked off until 4.' : 'Blocked off from 5.',
+    href: null,
+    error: null,
+  }));
+  const { result } = await renderHook(() => useAssistantVoice(chat, WS));
+  await act(() => result.current.toggle());
+  await waitFor(() => expect(mockConfirm).toHaveBeenCalledTimes(2), { timeout: 5000 });
+  expect(chat.ask).not.toHaveBeenCalled();
+  expect(calls[cards[0]!.type === 'confirm' ? cards[0]!.toolCallId : '']).toMatchObject({
+    status: 'confirmed',
+  });
+  await waitFor(() => expect(said().join(' ')).toBe('Blocked off until 4. Blocked off from 5.'));
+  await act(() => result.current.toggle());
+}, 20_000);
