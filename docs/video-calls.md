@@ -42,7 +42,7 @@ webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 | Hearing each person, captions, lines         | `apps/worker/src/video-calls/hearing.ts`; LiveKit's media library only in `listener-room.ts`                                      |
 | The transcript, once a stretch is over       | `video_call.keep_words` (core), queued by `onVideoCallEnded` in `apps/worker/src/video-calls/handlers.ts`                         |
 | The coach in the call                        | `apps/worker/src/video-calls/coach.ts` (`CallCoach`, `finishCoaching`); `video_call.coach` (core)                                 |
-| The coach's cards beside the video           | `apps/web/src/components/video-call/call-coach.tsx` (the `call.panels` slot), placed by `call-room.tsx`                           |
+| The coach's cards over the video             | `apps/web/src/components/video-call/call-coach.tsx` (the `call.panels` slot), in `coach-float.tsx`'s box                          |
 | The phone's call screen                      | `apps/mobile/src/video-call/` (`phone-call.tsx`, `room.tsx`, `team-call.ts`), at `app/app/w/[workspaceId]/call/`                  |
 | The coach's card on the phone                | `apps/mobile/src/addons/salescoach/call-card.tsx`, the phone registry's `CallCard`                                                |
 | LiveKit in the phone's build                 | `apps/mobile/app.json` (its plugins and the camera and microphone words), `app.config.ts` (no screen share)                       |
@@ -111,8 +111,8 @@ webhook) is "Video calls: LiveKit" in `docs/operations.md`.
    goes to Deepgram only while they talk. The words go to everyone as captions (CC) and are kept as lines, each with
    who said it. Everyone sees **AI notes on**.
 7. **The coach** (part 3), in a business with AI Sales Coach, for someone on the team it's on for. What the listener
-   hears goes to it line by line, as a Zoom meeting's transcript does. Its cards show beside the video, or over the
-   top of it on a phone, and the call is written up and scored once it's over.
+   hears goes to it line by line, as a Zoom meeting's transcript does. Its cards float over the video, under the
+   camera to start with, and the call is written up and scored once it's over.
 8. **After.** The appointment lists who joined and for how long, a customer's attendance is marked from whether they
    were really in, and everyone's minutes go on the business's balance as one line, `video.minute`. A minute after
    the call ends, what the AI heard becomes the appointment's transcript. Today's After the call starts from it, as
@@ -286,9 +286,20 @@ phone number, an address, a link) is no longer lost when the call ends.
   the live meeting live, and the next listener carries on with the same one. When the stretch is over, the job that
   keeps its words (`video_call.keep_words`) first finishes any coaching still live from the lines kept, so the
   write-up has everything that was said.
-- **The cards beside the video** are the add-ons' `call.panels` slot, the same one above the phone's call bar. The
+- **The cards over the video** are the add-ons' `call.panels` slot, the same one above the phone's call bar. The
   call's page sits outside the business's pages, so it brings the business's add-ons, the person's permissions and
   the live updates along itself (`call-coach.tsx`). Only the team sees it.
+- **The coach's box** (`coach-float.tsx`, the owner's picks of 12 Nov 2026) floats over the video, top middle, right
+  under the camera, so reading it looks like looking at the customer. It stays over the video while Chat, People or
+  Polls is open. Its bar moves it anywhere on the video (the grip moves it from the keyboard too, and a double-click
+  puts it back), its corner makes it wider or taller, A− and A+ make its words smaller or bigger
+  (`CALL_COACH_TEXT_SIZES`, by CSS `zoom`, so the words wrap again rather than spill), and it hides down to its bar.
+  Every word of every card shows, wrapped onto more lines as it needs; the panel draws no edge of its own there
+  (`framed`). Where it is and how big are kept in this browser (`hfos.call.coach`).
+- **Pop out** (Chrome and Edge on a computer: Document Picture-in-Picture) moves the box into a window of its own
+  that stays on top of every other one, as when the person switches to another app. It carries the page's look and
+  the same live cards; the call shows where it went, with Back to the call, and leaving the call closes it. Popping
+  out says to share a tab or a window, not the whole screen, since a whole screen would show it.
 
 ### On the phone (part 4)
 
@@ -310,7 +321,9 @@ phone number, an address, a link) is no longer lost when the call ends.
   own picker; on Android speaker, phone or headphones), captions, People, Chat, and Leave or End for everyone. The
   screen stays awake while the call is open.
 - **The coach's newest card sits over the top of the video** for someone with `salescoach.use`: the phone registry's
-  `CallCard`, read from `salescoach.live` every 3 seconds, as the Live call screen does.
+  `CallCard`, read from `salescoach.live` every 3 seconds, as the Live call screen does. Its whole title and words
+  show, scrolling past most of the video's height; A− and A+ beside Got it make them smaller or bigger, kept on the
+  phone (`salescoach.callTextSize`).
 - **LiveKit loads with the first call** (`load-room.ts`), so the app doesn't start it, or its WebRTC, at launch.
 - **While the app is open.** There's no background sound on an iPhone (no `audio` background mode) and no foreground
   service on Android, so the camera and microphone stop when the person leaves the app, and the call carries on when

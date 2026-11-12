@@ -1,7 +1,7 @@
 {
   "area": "settings-channels",
   "title": "Settings: texting, email, website chat, Facebook and Instagram, templates and lead intake",
-  "checkedOn": "2026-11-07",
+  "checkedOn": "2026-11-12",
   "files": {
     "apps/web/src/app/app/oauth/finish/page.tsx": "32b5c89b1bb7",
     "apps/web/src/app/app/w/[workspaceId]/settings/email/page.tsx": "7a7280639dbc",
@@ -11,7 +11,7 @@
     "apps/web/src/app/app/w/[workspaceId]/settings/texting/page.tsx": "b242e42c3f74",
     "apps/web/src/app/app/w/[workspaceId]/settings/website-chat/page.tsx": "1c86737b9add",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
-    "apps/web/src/components/settings/a2p-wizard.tsx": "bf187e51ead5",
+    "apps/web/src/components/settings/a2p-wizard.tsx": "b64bdf2c7d19",
     "apps/web/src/components/settings/chat-install.tsx": "5a08b1500b10",
     "apps/web/src/components/settings/chat-look-parts.tsx": "f7a53fa395ae",
     "apps/web/src/components/settings/email-page.tsx": "fdb005694b23",
@@ -27,10 +27,11 @@
     "apps/web/src/components/settings/release-number-dialog.tsx": "7bb8208fedb8",
     "apps/web/src/components/settings/templates-editor.tsx": "331baf537fed",
     "apps/web/src/components/settings/test-text-dialog.tsx": "7bce9b29ee3c",
-    "apps/web/src/components/settings/texting-page.tsx": "3393503d82a9",
+    "apps/web/src/components/settings/texting-page.tsx": "a6b98cdfc4fc",
+    "apps/web/src/components/settings/web-person.tsx": "f1689ff9d654",
     "apps/web/src/components/settings/website-chat-page.tsx": "46b8ece2f22d",
     "apps/web/src/lib/chat/editor-data.ts": "84f9988ce043",
-    "apps/web/src/lib/texting.ts": "9dea0156d051"
+    "apps/web/src/lib/texting.ts": "c504cf48a679"
   },
   "items": [
     {
@@ -2923,6 +2924,104 @@
       "file": "apps/web/src/components/settings/lead-intake-page.tsx:642",
       "covered": "person",
       "by": "secrets never go through a chat"
+    },
+    {
+      "path": "Texting → Registration → Opt-in → Let us collect it → Email your web person",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:984",
+      "covered": "yes",
+      "by": "do_registration_email_web_person"
+    },
+    {
+      "path": "Texting → Registration → Opt-in → my own website → Email your web person",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1052",
+      "covered": "yes",
+      "by": "do_registration_email_web_person"
+    },
+    {
+      "path": "Texting → Registration → Opt-in → my own website / in person → Hide the website chat until texting is approved",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1063",
+      "covered": "yes",
+      "by": "do_chat_widget_hide_until_texting"
+    },
+    {
+      "path": "Texting → Registration → Before it goes → Email your web person (what's missing ticked)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2748",
+      "covered": "yes",
+      "by": "do_registration_email_web_person"
+    },
+    {
+      "path": "Texting → Carriers reviewing → Your website → Email your web person",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1055",
+      "covered": "yes",
+      "by": "do_registration_email_web_person"
+    },
+    {
+      "path": "Texting → Carriers reviewing → Your website → Hide the website chat until texting is approved",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1064",
+      "covered": "yes",
+      "by": "do_chat_widget_hide_until_texting"
+    },
+    {
+      "path": "Texting → Turned down → Email your web person",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1544",
+      "covered": "yes",
+      "by": "do_registration_email_web_person"
+    },
+    {
+      "path": "Email your web person → their email, their name",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/web-person.tsx:294",
+      "covered": "yes",
+      "by": "do_registration_email_web_person to, name"
+    },
+    {
+      "path": "Email your web person → what they need to do: Add the sign-up form / Update the privacy policy and terms / Add the website chat",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/web-person.tsx:329",
+      "covered": "yes",
+      "by": "do_registration_email_web_person fixes"
+    },
+    {
+      "path": "Email your web person → which form: one of ours / a form of their own",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/web-person.tsx:342",
+      "covered": "yes",
+      "by": "do_registration_email_web_person formId (list_forms)"
+    },
+    {
+      "path": "Email your web person → a refusal under its change, Allow it on <website>",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/web-person.tsx:367",
+      "covered": "yes",
+      "by": "the refusal says to add the website to the form's or chat's sites: do_form_set_delivery / manage_website_chat"
+    },
+    {
+      "path": "Email your web person → each file, opened before sending",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/web-person.tsx:387",
+      "covered": "partly",
+      "by": "the tool's description says what each file holds; the files themselves are written by the worker as it sends"
+    },
+    {
+      "path": "Email your web person → a note from you",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/web-person.tsx:425",
+      "covered": "yes",
+      "by": "do_registration_email_web_person note"
+    },
+    {
+      "path": "Email your web person → Send / Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/web-person.tsx:441",
+      "covered": "yes",
+      "by": "do_registration_email_web_person, on a Confirm card"
     }
   ],
   "gaps": [

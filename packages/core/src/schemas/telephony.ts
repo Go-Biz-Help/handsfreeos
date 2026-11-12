@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { normalizePhone } from '../crm/phone';
 import { SENSITIVE_TOPIC_IDS, SENSITIVE_TOPICS } from '../messaging/a2p';
 import { CONFIRMATION_IDS } from '../messaging/preflight';
+import { WEBSITE_FIX_IDS } from '../messaging/website-fixes';
 import { isoDateTime, uuid } from './common';
 import { RcsSenderOut } from './rcs-sender';
 import { RcsRequestOut } from './rcs-request';
@@ -445,6 +446,32 @@ export const RegistrationReviewSendBackInput = RegistrationReviewDecideInput.ext
 export const RegistrationReviewDecideOutput = z.object({
   reviewId: uuid,
   status: registrationReviewStatus,
+});
+
+// ---------- the website's fixes, emailed to whoever looks after it (2026-11-12) ----------
+
+/**
+ * "Email your web person": what the business's website needs before the carriers approve its texting, each fix in its
+ * own text file (core's website-fixes.ts), sent to whoever looks after the site. Replies go to whoever sent it.
+ */
+export const RegistrationEmailWebPersonInput = z.object({
+  workspaceId: uuid,
+  to: z.email({ error: 'Enter their email address, like dana@example.com.' }).max(254),
+  /** Their name, for "Hi Dana". */
+  name: z.string().trim().max(80).optional(),
+  fixes: z
+    .array(z.enum(WEBSITE_FIX_IDS))
+    .min(1, 'Tick at least one change to send.')
+    .max(WEBSITE_FIX_IDS.length),
+  /** The form to put on their site: one of the business's published forms, or null for a form of their own. */
+  formId: uuid.nullable().optional(),
+  /** Anything the sender wants to add, said in the email under the list of files. */
+  note: z.string().trim().max(1000, 'Keep the note under 1,000 characters.').optional(),
+});
+export const RegistrationEmailWebPersonOutput = z.object({
+  sentTo: z.string(),
+  /** The files it carries, by name. */
+  files: z.array(z.string()),
 });
 
 /** Worker: send what HandsFreeOS approved, exactly as the business left it. */

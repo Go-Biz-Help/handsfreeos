@@ -10,7 +10,7 @@
  *   chat, and Leave, which also offers End for everyone. The screen stays awake while the call is open.
  * - **The AI's notes**: the pill under the title says whether the AI hears the call, and turns its notes off or on
  *   for this call. CC shows the listener's captions, which come only from it.
- * - **On top of the video**, what add-ons show the team: the Sales Coach's newest card (`top`).
+ * - **On top of the video**, what add-ons show the team: the Sales Coach's newest card (`top`), every word of it.
  * - **How it ends** is LiveKit's word on why the room let them go (./ends.ts). A dropped connection rejoins on its own
  *   first, and says so meanwhile.
  * - **Not on a phone yet**: sharing its screen, reactions and raising a hand. A hand raised on a computer still shows
@@ -466,12 +466,15 @@ function CallScreen({
           </View>
         ) : null}
         {top ? (
+          // Its cards grow with their words (A+ on the coach), scrolling past most of the video's height.
           <View
-            className="absolute inset-x-3 top-2 max-h-[45%]"
+            className="absolute inset-x-3 top-2 max-h-[60%]"
             pointerEvents="box-none"
             testID="call-coach"
           >
-            {top}
+            <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
+              {top}
+            </ScrollView>
           </View>
         ) : null}
         {cc ? <CaptionLines lines={captions} aiOn={aiNotes} /> : null}

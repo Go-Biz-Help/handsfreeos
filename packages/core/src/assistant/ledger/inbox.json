@@ -82,12 +82,13 @@
     "apps/web/src/components/timeline/log-activity-sheet.tsx": "7f502a2a0c95",
     "apps/web/src/components/timeline/timeline.tsx": "f3bb029639b3",
     "apps/web/src/components/video-call/call-chat-log.tsx": "f5b02e51b3c9",
-    "apps/web/src/components/video-call/call-coach.tsx": "350fc005d02a",
+    "apps/web/src/components/video-call/call-coach.tsx": "e8e2b3273150",
     "apps/web/src/components/video-call/call-frame.tsx": "7b091210e351",
     "apps/web/src/components/video-call/call-notes.tsx": "571d64d4cdef",
     "apps/web/src/components/video-call/call-panels.tsx": "1aae71877cf4",
-    "apps/web/src/components/video-call/call-room.tsx": "053b35f5c0d3",
+    "apps/web/src/components/video-call/call-room.tsx": "1a2f999360a4",
     "apps/web/src/components/video-call/call-stage.tsx": "e9fc079a3b0c",
+    "apps/web/src/components/video-call/coach-float.tsx": "f4d4132cb46e",
     "apps/web/src/components/video-call/customer-call.tsx": "95df1e2ea086",
     "apps/web/src/components/video-call/link-call.tsx": "463d1bf669c9",
     "apps/web/src/components/video-call/poll-panel.tsx": "e0c0aae73199",
@@ -1671,56 +1672,56 @@
     {
       "path": "Video → asking to join → Let in",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:421",
+      "file": "apps/web/src/components/video-call/call-room.tsx:422",
       "covered": "yes",
       "by": "do_video_call_admit"
     },
     {
       "path": "Video → sound as someone joins or asks to join",
       "kind": "see",
-      "file": "apps/web/src/components/video-call/call-room.tsx:409",
+      "file": "apps/web/src/components/video-call/call-room.tsx:412",
       "covered": "person",
       "by": "heard on own device"
     },
     {
       "path": "Video → watching count",
       "kind": "see",
-      "file": "apps/web/src/components/video-call/call-room.tsx:531",
+      "file": "apps/web/src/components/video-call/call-room.tsx:532",
       "covered": "yes",
       "by": "read_video_call_get"
     },
     {
       "path": "Video → attendee cameras on / off",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:565",
+      "file": "apps/web/src/components/video-call/call-room.tsx:566",
       "covered": "yes",
       "by": "do_video_call_set_attendee_video"
     },
     {
       "path": "Video → AI notes menu, turn off confirm",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:590",
+      "file": "apps/web/src/components/video-call/call-room.tsx:591",
       "covered": "yes",
       "by": "do_video_call_set_ai"
     },
     {
       "path": "Video → joining / reconnecting / alone",
       "kind": "see",
-      "file": "apps/web/src/components/video-call/call-room.tsx:621",
+      "file": "apps/web/src/components/video-call/call-room.tsx:622",
       "covered": "person",
       "by": "own connection"
     },
     {
       "path": "Video → mic, camera, share screen, blur, reactions, hand",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:690",
+      "file": "apps/web/src/components/video-call/call-room.tsx:685",
       "covered": "person",
       "by": "own devices"
     },
     {
       "path": "Video → captions",
       "kind": "see",
-      "file": "apps/web/src/components/video-call/call-room.tsx:768",
+      "file": "apps/web/src/components/video-call/call-room.tsx:763",
       "covered": "no",
       "by": "live captions not read"
     },
@@ -1832,14 +1833,14 @@
     {
       "path": "Video → Leave",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:819",
+      "file": "apps/web/src/components/video-call/call-room.tsx:814",
       "covered": "person",
       "by": "own session"
     },
     {
       "path": "Video → End for everyone, confirm",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:845",
+      "file": "apps/web/src/components/video-call/call-room.tsx:840",
       "covered": "yes",
       "by": "do_video_call_end"
     },
@@ -1851,11 +1852,25 @@
       "by": "own session"
     },
     {
-      "path": "Video → Sales Coach beside the call",
+      "path": "Video → Sales Coach over the call",
       "kind": "see",
-      "file": "apps/web/src/components/video-call/call-coach.tsx:19",
+      "file": "apps/web/src/components/video-call/call-coach.tsx:20",
       "covered": "yes",
       "by": "salescoach_live"
+    },
+    {
+      "path": "Video → coach box → move, resize, hide, A− / A+ text size",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/coach-float.tsx:188",
+      "covered": "person",
+      "by": "own screen layout, kept in this browser"
+    },
+    {
+      "path": "Video → coach box → Pop out on top of every window, Back to the call",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/coach-float.tsx:308",
+      "covered": "person",
+      "by": "own browser window"
     },
     {
       "path": "Video → AI notes and transcript after",

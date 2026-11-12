@@ -473,6 +473,10 @@ function describeAction(e: AuditEntry): string {
       return `sent ${s(e.after?.legalName)}'s ${s(e.after?.kind) === 'a2p_10dlc' ? 'local-number registration' : 'toll-free verification'} to the carriers`;
     case 'registration.update_status':
       return registrationSentence(e);
+    case 'registration.email_web_person': {
+      const files = Array.isArray(e.after?.files) ? e.after.files.length : 0;
+      return `emailed ${s(e.after?.to) || 'the business’s web person'} the website changes for texting approval${files ? ` (${files === 1 ? '1 file' : `${files} files`})` : ''}`;
+    }
     case 'conversation.open':
       return `started a conversation with ${withWho(e)}`;
     case 'conversation.mark_read':
@@ -925,6 +929,10 @@ function describeAction(e: AuditEntry): string {
       return `paused the website chat on ${name(e)}`;
     case 'chat_widget.resume':
       return `turned the website chat on ${name(e)} back on`;
+    case 'chat_widget.hide_until_texting':
+      return e.after?.paused
+        ? `hid the website chat on ${name(e)} until texting is approved`
+        : `turned the website chat on ${name(e)} back on`;
     case 'chat_widget.rotate_key':
       return `gave the website chat on ${name(e)} a new key, so snippets pasted before stop working`;
     case 'chat.receive':

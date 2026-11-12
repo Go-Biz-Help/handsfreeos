@@ -650,7 +650,46 @@ export const VIDEO_CALL_WORDS = {
   notes: 'Notes from the call',
   notesSoon:
     'The summary and suggestions show here a minute after the call ends, when its AI notes were on.',
+  /** The coach's box over the call, for the team (the owner's picks, 12 Nov 2026). */
+  coach: {
+    label: 'Coach',
+    move: 'Drag to move the coach. Double-click to put it back under your camera.',
+    smaller: 'Smaller text',
+    bigger: 'Bigger text',
+    hide: 'Hide the coach',
+    show: 'Show the coach',
+    resize: 'Drag to make the coach wider or taller',
+    popOut: 'Pop out: keep the coach on top of every window',
+    /** Once it's popped out: it's seen by whatever shares the whole screen. */
+    poppedOutTip:
+      'The coach stays on top of every window now. When you share, share a tab or a window, not your whole screen, so the customer doesn’t see it.',
+    popOutFailed:
+      'Your browser couldn’t pop the coach out. Chrome and Edge on a computer can; here it stays over the call.',
+    /** In the call, while it's in its own window. */
+    poppedOut: 'The coach is in its own window.',
+    backIn: 'Back to the call',
+    /** In its own window, before the coach has anything to show. */
+    waiting: 'The coach’s cards show here once it hears the call.',
+  },
 } as const;
+
+/**
+ * How big the coach's words can go over a call, a step at a time (A− and A+), on the web and the phone: each a
+ * multiple of its usual size. Each screen keeps its own choice.
+ */
+export const CALL_COACH_TEXT_SIZES = [0.85, 1, 1.15, 1.3, 1.5, 1.75, 2] as const;
+/** The usual size's place in CALL_COACH_TEXT_SIZES. */
+export const CALL_COACH_TEXT_SIZE_START = 1;
+
+/** A kept step, read back as one that exists: the usual size for anything else. */
+export function callCoachTextStep(kept: unknown): number {
+  return typeof kept === 'number' &&
+    Number.isInteger(kept) &&
+    kept >= 0 &&
+    kept < CALL_COACH_TEXT_SIZES.length
+    ? kept
+    : CALL_COACH_TEXT_SIZE_START;
+}
 
 /** A webinar's words (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md), one copy for the web and the phone. */
 export const WEBINAR_WORDS = {

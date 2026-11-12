@@ -2257,6 +2257,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/chat_widget.hide_until_texting": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hide every website chat until the business’s texting is approved, when they come back on by themselves (the code stays on the site and shows nothing meanwhile); or turn the chats it hid back on now. Refused while the chat is how customers agree to texts.
+         * @description Risk level 1. Requires channels.manage. Emits chat_widget.paused, chat_widget.resumed.
+         */
+        post: operations["command_chat_widget_hide_until_texting"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/chat_widget.pause": {
         parameters: {
             query?: never;
@@ -14731,6 +14751,26 @@ export interface paths {
          * @description Risk level 1. Requires records.write. Emits referral.lead_created.
          */
         post: operations["command_referral_create_lead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/registration.email_web_person": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email whoever looks after the business’s website the changes it needs before the carriers approve its texting, each in its own text file: add the sign-up form (one of the business’s published forms, or the box and its words for a form of their own), the privacy policy and terms’ part about texts, and the website chat’s code. Sent from HandsFreeOS in the business’s name; replies go to the person sending it, who gets a copy.
+         * @description Risk level 2. Requires channels.manage. Emits registration.web_person_emailed.
+         */
+        post: operations["command_registration_email_web_person"];
         delete?: never;
         options?: never;
         head?: never;
@@ -31768,6 +31808,37 @@ export interface operations {
                         publicKey: string;
                         /** Format: uuid */
                         widgetId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_chat_widget_hide_until_texting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    hide: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        hidden: boolean;
+                        widgetIds: string[];
                     };
                 };
             };
@@ -61376,6 +61447,42 @@ export interface operations {
             };
         };
     };
+    command_registration_email_web_person: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    fixes: ("form" | "policy" | "chat")[];
+                    formId?: string | null;
+                    name?: string;
+                    note?: string;
+                    /** Format: email */
+                    to: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        files: string[];
+                        sentTo: string;
+                    };
+                };
+            };
+        };
+    };
     command_registration_request_review: {
         parameters: {
             query?: never;
@@ -74854,6 +74961,7 @@ export interface operations {
                             dailyCap: number;
                             greeting: string | null;
                             headerColor: string | null;
+                            hiddenUntilTexting: boolean;
                             /** Format: uuid */
                             id: string;
                             install: {
@@ -74957,6 +75065,7 @@ export interface operations {
                             dailyCap: number;
                             greeting: string | null;
                             headerColor: string | null;
+                            hiddenUntilTexting: boolean;
                             /** Format: uuid */
                             id: string;
                             install: {

@@ -1,7 +1,7 @@
 {
   "area": "staff",
   "title": "HandsFreeOS staff only: the Admin area and the affiliate page (tools here must be offered to staff only)",
-  "checkedOn": "2026-11-08",
+  "checkedOn": "2026-11-12",
   "files": {
     "apps/mobile/src/app/app/admin/_layout.tsx": "970799f7fc45",
     "apps/mobile/src/app/app/admin/add-ons.tsx": "a6c29ff249f8",
@@ -85,16 +85,16 @@
     "apps/web/src/components/admin/plan-billing-block.tsx": "4a3644a58a86",
     "apps/web/src/components/admin/problem-reports.tsx": "8b5e82405ba2",
     "apps/web/src/components/admin/rates-table.tsx": "f0fe4af5db43",
-    "apps/web/src/components/admin/registration-review-panel.tsx": "094e7e0a7a42",
+    "apps/web/src/components/admin/registration-review-panel.tsx": "ccd4cc349c00",
     "apps/web/src/components/admin/saved-replies.tsx": "982fbbfd6749",
     "apps/web/src/components/admin/staff-page.tsx": "135ba8336d76",
     "apps/web/src/components/admin/support-access-ask.tsx": "0a512b1d8a74",
     "apps/web/src/components/admin/ticket-bits.tsx": "929ed797092b",
     "apps/web/src/components/admin/ticket-queue.tsx": "52eb7266620e",
-    "apps/web/src/components/admin/ticket-view.tsx": "05a98d9677e7",
+    "apps/web/src/components/admin/ticket-view.tsx": "dfee9a69c7bb",
     "apps/web/src/components/admin/video-calls-block.tsx": "df4f418c98d1",
     "apps/web/src/components/admin/view-as-banner.tsx": "36bf86a4a37f",
-    "apps/web/src/components/admin/view-as.tsx": "375c6cf29e0c",
+    "apps/web/src/components/admin/view-as.tsx": "94fe870ee7cf",
     "apps/web/src/components/admin/wallet-block.tsx": "3f912a7b3d95",
     "apps/web/src/components/admin/whats-new-admin.tsx": "c0c33dfcb728",
     "apps/web/src/components/affiliate/affiliate-codes.tsx": "e41265060535",
@@ -3187,6 +3187,13 @@
       "file": "apps/web/src/components/admin/plan-billing-block.tsx:79",
       "covered": "yes",
       "by": "do_billing_answer_more_time"
+    },
+    {
+      "path": "Ticket → registration review → Email their web person (founder: opens the business as owner on its Texting page)",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/registration-review-panel.tsx:155",
+      "covered": "never",
+      "by": "platform.view_as.start is NEVER; inside the business the Assistant has do_registration_email_web_person"
     }
   ],
   "gaps": [

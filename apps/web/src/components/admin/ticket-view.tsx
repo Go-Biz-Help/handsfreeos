@@ -115,7 +115,10 @@ export function TicketView(props: TicketViewProps) {
           </p>
 
           {props.registrationReview ? (
-            <RegistrationReviewPanel review={props.registrationReview} />
+            <RegistrationReviewPanel
+              review={props.registrationReview}
+              founder={props.can.founder}
+            />
           ) : null}
 
           <ol className="mt-5 flex flex-col gap-3">
