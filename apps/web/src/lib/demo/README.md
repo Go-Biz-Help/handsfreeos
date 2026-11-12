@@ -110,6 +110,9 @@ moved off. Record that window and crop the panel's 300 points off the left: what
    - `run` for what the pointer does (`DemoPlayer` in `scenes/types.ts`). Aim at a `data-testid` as `@id`.
      `p.go` takes an address with a query string too, such as the calendar on a day with a visit's sheet open
      (`calendarPath` in `scenes/calendar-kit.ts`).
+   - A visit the `setup` places a little before the scene starts (`halfHourBefore(at - 60 * MIN)`) was yesterday
+     when the scene plays just after midnight. A step that clicks it on the calendar opens the visit's own day,
+     worked out from `p.startedAt` (`calendarPathAt`), never today's (`calendarPath(p, 0)`).
 3. A step's `change` lands before its `run`, so a page the run opens already shows it. When the step is a click
    that makes the app fetch again by itself (Take it, Turn into an invoice, Send), leave those types out of `live`,
    or the screen changes before the click.
@@ -128,8 +131,8 @@ moved off. Record that window and crop the panel's 300 points off the left: what
      `scenes/ask-look.ts` and `scenes/ask-do.ts` are built this way. `beatStep` turns one beat into a step, for a
      scene that asks Ask HandsFreeOS part way through (`scenes/paperwork-calls.ts`, scene 38).
    - **Calendar, money and paperwork scenes** (`scenes/calendar-money.ts`, `scenes/paperwork-calls.ts`) use
-     `scenes/calendar-kit.ts`: `calendarPath`, `openVisit`, `bookedText` (the booking text as the worker words it)
-     and `REMINDERS`.
+     `scenes/calendar-kit.ts`: `calendarPath`, `calendarPathAt`, `openVisit`, `bookedText` (the booking text as the
+     worker words it) and `REMINDERS`.
    - **Out loud:** `p.say` speaks a line to it instead of typing (`scenes/ask-voice.ts`). It turns talking on and
      the turn hears the words as written (`ears.ts`, through `scriptVoice` in `lib/voice/session.ts`), so no
      microphone is used. A spoken yes confirms the one waiting card, and a line its voice can't say plays as a

@@ -1,6 +1,6 @@
 import { businessOf, type DemoPerson, type DemoWebinarLead, type DemoWorld } from '../world';
 import { idsFor } from './ask-kit';
-import { calendarPath, DAY, halfHourBefore, MIN, openVisit } from './calendar-kit';
+import { calendarPathAt, DAY, halfHourBefore, MIN, openVisit } from './calendar-kit';
 import { conversationIn, openConversation } from './kit';
 import { customerSays, NEW_MESSAGE, newPerson, regular } from './teammate-kit';
 import type { DemoScene } from './types';
@@ -113,6 +113,9 @@ const CAME: readonly (Omit<DemoWebinarLead, 'id' | 'person'> & {
   },
 ];
 
+/** When the webinar started: on a half hour, an hour or more before the scene did, so it's over and scored. */
+const webinarStart = (sceneStarted: number) => halfHourBefore(sceneStarted - 60 * MIN);
+
 const JILL_CHAT = s44(0x11);
 const JILL_TEXT = s44(0x12);
 const JILL_REPLY = s44(0x13);
@@ -137,7 +140,7 @@ const webinarBuyers: DemoScene = {
   setup: (w, at) => {
     w.teammateAutomatic = true;
     const came = attendees();
-    const starts = halfHourBefore(at - 60 * MIN);
+    const starts = webinarStart(at);
     w.visits.push({
       id: WEBINAR,
       person: came[0]!.person,
@@ -176,7 +179,8 @@ const webinarBuyers: DemoScene = {
       voiceover:
         'Earlier today you ran a short webinar on cutting your summer energy bill, on a HandsFreeOS video call with a live poll.',
       run: async (p) => {
-        await p.go(calendarPath(p, 0));
+        // The webinar's own day, which is yesterday when the scene plays in the hour after midnight.
+        await p.go(calendarPathAt(p, webinarStart(p.startedAt)));
         await openVisit(p, WEBINAR);
       },
     },
