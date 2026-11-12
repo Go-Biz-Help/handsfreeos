@@ -39,6 +39,15 @@ const PROMPT: PromptContext = {
   attention: null,
 };
 
+describe('how the Assistant writes (owner, 2026-11-11)', () => {
+  it('answers in as few words as it takes, simply, with more only when asked, and no notes to itself', () => {
+    expect(SYSTEM).toContain('Write at a 5th grade reading level');
+    expect(SYSTEM).toContain('never more than three unless they ask for more');
+    expect(SYSTEM).toContain('only when they ask for them ("how", "why", "tell me more")');
+    expect(SYSTEM).toContain("Don't write notes to yourself");
+  });
+});
+
 describe('Assistant context (PERF-M20)', () => {
   it('keeps what stays the same apart from what changes each question, so it can be cached', () => {
     const later: PromptContext = {

@@ -1,9 +1,9 @@
 /**
  * Social Outreach on Instagram (the Instagram and Alignable plan’s parts 12, 14 and 15, and its "The steps"): a follow network.
  * Someone the person followed who's among their saved followers has followed back, which counts as accepting, and
- * their first message comes as on the other networks. Someone who hasn't followed back in 3 days gets one short message
- * marked as going to their Requests (no link, no video, one text), at most 5 of the day's 10 first messages, and no
- * follow-up goes in a chat they haven't answered or accepted. Tidying unfollows those who didn't follow back in the
+ * their first message comes as on the other networks. Someone who hasn't followed back gets no message at all, however
+ * long ago they were followed (decision 159): it would land in their Requests, never their inbox. No follow-up goes in a
+ * chat they haven't answered or accepted. Tidying unfollows those who didn't follow back in the
  * business's wait, never anyone who wrote back or a customer. Its growing (part 15): hashtags made from the area and the
  * playbook's words, posts found there whose authors get a like and then a follow, and whoever followed the person
  * followed back at once.
@@ -19,7 +19,12 @@ import {
   NO_LISTS,
   preDaySteps,
 } from '../../src/addons/outreach/lists';
-import { NETWORKS, runsOnItsOwn, type Platform } from '../../src/addons/outreach/networks';
+import {
+  FOLLOW_PLATFORMS,
+  NETWORKS,
+  runsOnItsOwn,
+  type Platform,
+} from '../../src/addons/outreach/networks';
 import {
   sendingModesOn,
   ticksOn,
@@ -33,7 +38,6 @@ import {
   fitsComment,
   fitsRequests,
   REQUESTS_TASK,
-  REQUESTS_WHY,
   todayDraftPrompt,
   todayDraftSystem,
   type TodayItem,
@@ -46,22 +50,18 @@ const DAY = 86_400_000;
 const ago = (days: number) => new Date(Date.now() - days * DAY);
 
 describe('Instagram’s kit and words', () => {
-  it('sends one message to Requests after 3 days, at most 5 a day, and only on Instagram', () => {
+  it('is the only follow network', () => {
     expect(NETWORKS.instagram).toMatchObject({
       stage: 'working',
-      requestsMessageAfterDays: 3,
-      requestsMessagesPerDay: 5,
+      follows: true,
       tidyLimits: { cancel_request: 20, unfriend: 0 },
       // Who followed back, from the accounts they followed: its own count, beside the 20 profiles checked a day.
       followBackLooksPerDay: 30,
       checksPerDay: 20,
     });
     for (const p of ['facebook', 'linkedin', 'alignable'] as const)
-      expect([
-        NETWORKS[p].requestsMessageAfterDays,
-        NETWORKS[p].requestsMessagesPerDay,
-        NETWORKS[p].followBackLooksPerDay,
-      ]).toEqual([null, null, null]);
+      expect([NETWORKS[p].follows, NETWORKS[p].followBackLooksPerDay]).toEqual([false, null]);
+    expect(FOLLOW_PLATFORMS).toEqual(['instagram']);
   });
 
   it('says Follow them, Save my followers and Unfollow on Instagram', () => {
@@ -319,34 +319,50 @@ describe('Today on Instagram', () => {
     expect(first!.link).not.toBeNull();
   });
 
-  it('gives someone who hasn’t followed back in 3 days one message to their Requests, never sooner', async () => {
+  it('never gives someone who hasn’t followed back a message, however long ago (decision 159)', async () => {
     await follow('sam.lee', 'Sam Lee', ago(4));
     await follow('kim_bakes', 'Kim Bakes', ago(1));
-    const listed = (await today()).filter((i) => i.name === 'Sam Lee' || i.name === 'Kim Bakes');
-    expect(listed).toEqual([
-      {
-        kind: 'opener',
-        name: 'Sam Lee',
-        requests: true,
-        why: ['You followed them 4 days ago, and they haven’t followed back', REQUESTS_WHY],
-        link: null,
-      },
-    ]);
+    for (const n of [1, 2, 3, 4, 5, 6])
+      await follow(`lead.${n}`, `Lead ${n}`, new Date(Date.now() - 12 * DAY - n * 60_000));
+    const listed = await today();
+    expect(listed.filter((i) => i.name !== 'Dana Reyes')).toEqual([]);
+    expect(listed.some((i) => i.requests)).toBe(false);
   });
 
-  it('sends at most 5 of the day’s first messages to Requests, those sent there today counted', async () => {
-    for (const n of [1, 2, 3, 4, 5, 6])
-      await follow(`lead.${n}`, `Lead ${n}`, new Date(Date.now() - 4 * DAY - n * 60_000));
-    const there = async () => (await today()).filter((i) => i.requests);
-    // Sam and six more wait; five go.
-    expect(await there()).toHaveLength(5);
-    // One sent there today: four more today.
-    const first = (await there())[0]!;
-    const username = first.name === 'Sam Lee' ? 'sam.lee' : `lead.${first.name.split(' ')[1]}`;
-    expect(await message(username, first.name)).toMatchObject({ step: 'first_message' });
-    const after = await there();
-    expect(after).toHaveLength(4);
-    expect(after.map((i) => i.name)).not.toContain(first.name);
+  it('drops a message to someone who doesn’t follow back drafted before, and refuses a new one (decision 159)', async () => {
+    // One drafted and OK'd before the change, and one waiting for an OK, both to their Requests.
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.sends (workspace_id, user_id, profile_id, kind, text, drafted, state, approved_at,
+            rules_version)
+          values (${ws}, ${owner.id}, ${await profileOf('lead.1')}, 'opener', 'Hi there', 'Hi there', 'approved',
+              now(), 1000),
+            (${ws}, ${owner.id}, ${await profileOf('lead.2')}, 'opener', 'Hi there', 'Hi there', 'waiting', null,
+              1000)`,
+    );
+    // The next draft queued, to someone who follows them back, takes both off: the OK'd one skipped, the other gone.
+    expect(
+      await runAs(owner, ws, 'outreach.send.queue', {
+        profileId: await profileOf('dana.reyes'),
+        kind: 'opener',
+        text: 'Hi Dana, are you open to more booked calls?',
+      }),
+    ).toMatchObject({ kind: 'opener' });
+    const left = await rows<{ username: string; state: string }>(
+      admin(),
+      sql`select p.username, s.state from addon_outreach.sends s
+          join addon_outreach.profiles p on p.id = s.profile_id
+          where s.workspace_id = ${ws} and p.username in ('lead.1', 'lead.2')`,
+    );
+    expect(left).toEqual([{ username: 'lead.1', state: 'skipped' }]);
+    // A new one to someone who doesn't follow back is refused, saying why.
+    await expect(
+      runAs(owner, ws, 'outreach.send.queue', {
+        profileId: await profileOf('sam.lee'),
+        kind: 'opener',
+        text: 'Hi Sam, are you open to more booked calls?',
+      }),
+    ).rejects.toMatchObject({ code: 'rule_violation', rule: 'outreach_not_following' });
   });
 
   it('follows up only once they’ve followed back or answered, never in their Requests', async () => {
@@ -372,7 +388,7 @@ describe('Today on Instagram', () => {
     expect((await ivys()).map((i) => i.kind)).toEqual(['follow_up']);
   });
 
-  it('lists for unfollowing those who didn’t follow back in 3 weeks, never a customer or someone who wrote back', async () => {
+  it('lists for unfollowing those who didn’t follow back in their 2-week warm-up, never a customer or someone who wrote back', async () => {
     await follow('old.one', 'Old One', ago(25));
     await follow('old.customer', 'Old Customer', ago(25));
     await follow('old.talker', 'Old Talker', ago(25));
@@ -396,7 +412,7 @@ describe('Today on Instagram', () => {
     const tidy = await runAs(owner, ws, 'outreach.friends.tidy', { platform: 'instagram' });
     expect(tidy.cancel.map((c: { name: string }) => c.name)).toEqual(['Old One']);
     expect(tidy).toMatchObject({
-      cancelAfterWeeks: 3,
+      cancelAfterWeeks: 2,
       limits: { cancel_request: { done: 0, most: 20 } },
     });
     // Unfollowed by the extension once ticked: off the list, and counted.
@@ -808,8 +824,8 @@ describe('Instagram’s people found by topic (decision 92)', () => {
 
 /**
  * The owner's design of 21 Oct 2026: Save my followers reads only the newest (300 the first time, then those new since
- * the last save), and who followed back is seen on their own account instead, so the first message, the one to their
- * Requests and the unfollow list never wait on the whole list of followers.
+ * the last save), and who followed back is seen on their own account instead, so the first message and the unfollow
+ * list never wait on the whole list of followers.
  */
 describe('Instagram’s newest followers, and follow-backs from their own accounts (21 Oct 2026)', () => {
   let owner: TestUser;
@@ -922,12 +938,10 @@ describe('Instagram’s newest followers, and follow-backs from their own accoun
       added: 0,
       changed: 0,
     });
-    // Still followed 5 days ago: her Requests message and the unfollow list's wait go by that.
+    // Still followed 5 days ago: the unfollow list's wait goes by that. No message till she follows back.
     expect((await states())['eve.five']).toEqual(before['eve.five']);
     expect((await next()).names).toEqual(['Cara Waits']);
-    expect(await today(['Eve Five'])).toEqual([
-      ['Eve Five', 'opener', true, 'You followed them 5 days ago, and they haven’t followed back'],
-    ]);
+    expect(await today(['Eve Five'])).toEqual([]);
   });
 
   it('takes a follow-back seen on their account as accepting: the first message comes, and nobody unfollows them', async () => {

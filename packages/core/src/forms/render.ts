@@ -8,6 +8,7 @@
  *
  * Browser-safe.
  */
+import { z } from 'zod';
 import { normalizePhone } from '../crm/phone';
 import { isClock, isLocalDate } from '../calendar/engine/zoned';
 import {
@@ -169,7 +170,15 @@ export function isUnansweredProblem(problem: AnswerProblem): boolean {
   return problem.message === ANSWER_THIS_ONE || problem.message === CHECK_THIS_BOX;
 }
 
-const isEmail = (value: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
+/**
+ * An email address a customer's record will take: the same test `optionalEmail` puts it to when it's saved, so
+ * the page asks again for one that saving would refuse (an accented letter, a comma) instead of the whole
+ * form failing when it's sent.
+ */
+export function isEmailAddress(value: string): boolean {
+  const email = value.trim().toLowerCase();
+  return email.length <= 254 && z.email().safeParse(email).success;
+}
 
 const choiceIds = (question: Question): string[] =>
   ((question.config as { choices?: { id: string }[] }).choices ?? []).map((c) => c.id);
@@ -195,10 +204,16 @@ export function answerProblem(question: Question, value: AnswerValue): string | 
     case 'long_text': {
       if (typeof value !== 'string') return 'Write an answer.';
       const max = Number(config.maxLength);
-      return value.length > max ? `Keep it under ${max} characters.` : null;
+      if (value.length > max) return `Keep it under ${max} characters.`;
+      // A short answer the business saves as the customer's email or phone has to be one, or it can't be saved.
+      if (question.mapTo === 'person.email' && !isEmailAddress(value))
+        return 'Enter an email address.';
+      if (question.mapTo === 'person.phone' && !normalizePhone(value))
+        return 'Enter a phone number.';
+      return null;
     }
     case 'email':
-      return typeof value === 'string' && isEmail(value) ? null : 'Enter an email address.';
+      return typeof value === 'string' && isEmailAddress(value) ? null : 'Enter an email address.';
     case 'phone':
       return typeof value === 'string' && normalizePhone(value) ? null : 'Enter a phone number.';
     case 'choice': {

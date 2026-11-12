@@ -551,6 +551,8 @@ export async function ask(
       ...(careful ? { thinkHarder: careful, onThinkHarder: thinkHarder } : {}),
       onAsked: clock.asked,
       onStarted: clock.started,
+      // Its notes to itself between tool calls ("Need form id; search for list forms.") are never the answer.
+      answerOnly: true,
       onText: (delta) => emit({ type: 'text', delta }),
       // Each call's tokens count toward the limit as soon as it ends, and every later call checks the limit
       // and the balance again (the first was checked above): a long question, or several people asking at once,

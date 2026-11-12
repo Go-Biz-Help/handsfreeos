@@ -608,6 +608,100 @@ describe('sending it', () => {
   });
 });
 
+describe('a form whose questions save to nowhere (Shop Your Solar, 2026-11-11)', () => {
+  /** Published with only these questions, none of them pointed at the customer's fields. */
+  async function unmappedForm(name: string, questions: Record<string, unknown>[]) {
+    const created = await run(formCreate, { workspaceId: wsId, name }, owner);
+    const pageId = ((await formRow(created.formId)).definition as { pages: { id: string }[] })
+      .pages[0]!.id;
+    const saved = await run(
+      formSaveDraft,
+      {
+        workspaceId: wsId,
+        formId: created.formId,
+        baseRevision: 1,
+        ops: questions.map((q) => addQuestion(pageId, q)),
+      },
+      owner,
+    );
+    await run(
+      formPublish,
+      { workspaceId: wsId, formId: created.formId, baseRevision: saved.revision },
+      owner,
+    );
+    return created.formId;
+  }
+
+  it('takes the name from "First Name" and "Last Name" boxes for someone new', async () => {
+    const formId = await unmappedForm('Contact Form', [
+      question('First Name', { id: qid('first'), type: 'short_text', required: true }),
+      question('Last Name', { id: qid('last'), type: 'short_text', required: true }),
+      question('Your email', { id: qid('mail'), type: 'email', required: true }),
+      question('Your phone', { id: qid('cell'), type: 'phone' }),
+    ]);
+    const sent = await submit(await start(formId), {
+      [qid('first')]: 'Marisol',
+      [qid('last')]: 'Ortega',
+      [qid('mail')]: 'marisol.unmapped@example.com',
+    });
+    const [person] = await admin().select().from(people).where(eq(people.id, sent.personId!));
+    expect([person!.firstName, person!.lastName]).toEqual(['Marisol', 'Ortega']);
+    expect(person!.email).toBe('marisol.unmapped@example.com');
+    expect((await responseRow(sent.responseId)).status).toBe('completed');
+  });
+
+  it('still sends with no name at all, saving them under their email until somebody adds one', async () => {
+    const formId = await unmappedForm('Just an email', [
+      question('Where can we reach you?', { id: qid('mail'), type: 'email', required: true }),
+      question('What do you need?', { id: qid('need'), type: 'long_text' }),
+    ]);
+    const sent = await submit(await start(formId), {
+      [qid('mail')]: 'no.name.given@example.com',
+      [qid('need')]: 'A quote',
+    });
+    const [person] = await admin().select().from(people).where(eq(people.id, sent.personId!));
+    expect(person!.firstName).toBe('no.name.given');
+    expect(person!.email).toBe('no.name.given@example.com');
+  });
+
+  it('saves every field a new customer’s answers fill, on a form with a long name', async () => {
+    // A form's name holds 200 characters and a customer's source 80: this one used to fail every new customer.
+    const longName = `Free solar savings estimate for homeowners across Dallas, Fort Worth, Plano and Frisco`;
+    expect(longName.length).toBeGreaterThan(80);
+    const formId = await unmappedForm(longName, [
+      question('Email', { id: qid('mail'), type: 'email', required: true }),
+      question('Second number', {
+        id: qid('other'),
+        type: 'short_text',
+        mapTo: 'person.phone_alt',
+      }),
+      question('Town', { id: qid('town'), type: 'short_text', mapTo: 'person.city' }),
+      question('Anything else?', { id: qid('note'), type: 'long_text', mapTo: 'person.notes' }),
+      question('How did you hear about us?', {
+        id: qid('heard'),
+        type: 'choice',
+        mapTo: 'person.source',
+        config: {
+          choices: [
+            { id: 'c_google00', label: 'Google' },
+            { id: 'c_friend00', label: 'A friend' },
+          ],
+        },
+      }),
+    ]);
+    const sent = await submit(await start(formId), {
+      [qid('mail')]: 'every.field@example.com',
+      [qid('other')]: '(214) 555-0187',
+      [qid('town')]: 'Frisco',
+      [qid('note')]: 'Gate code 4410',
+      [qid('heard')]: 'c_google00',
+    });
+    const [person] = await admin().select().from(people).where(eq(people.id, sent.personId!));
+    expect(person).toMatchObject({ city: 'Frisco', notes: 'Gate code 4410', source: 'Google' });
+    expect(person!.otherPhones).toEqual([expect.objectContaining({ phone: '+12145550187' })]);
+  });
+});
+
 describe('a funnel: details saved part way, and personal links', () => {
   /** Name, email and phone on a page that saves their details, then a page with one more question. */
   async function funnel(name: string) {

@@ -13,6 +13,16 @@
  *   approved estimate on the job afresh.
  * - **An estimate waiting for an OK is an alert** (the owner's decision 6) for the people who can give it, on Home
  *   and their phones, until it's OK'd, changed so it needs none, sent, or voided.
+ * - **A visit that's still missing materials is an alert** (the owner's decision 9) for the job's lead and the
+ *   people going, before the visit: ./materials.ts.
+ * - **Time follows the visit's buttons** (the owner's decision 10): On the way and Started start the clocks of the
+ *   people on it, anything else stops them, and time left running half a day is stopped and flagged: ./time.ts.
+ * - **A voice note gets its words** from its recording, a moment after the note arrives: ./notes.ts.
+ * - **Phones keep a job** while it's open and for a month after it's done or cancelled: ./phone.ts.
+ * - **The AI helpers** (part 7), each of which prepares something and leaves the deciding to a person: an estimate
+ *   drafted from a job's notes and photos, kept as a draft a person checks and saves (./drafts.ts); a look at a
+ *   job's budget whenever something that costs money changes, and an alert for the people who may see job costs
+ *   when it heads over (./budget.ts); and each job's daily report from what its crew left that day (./reports.ts).
  */
 import { estimateFillJob } from '@hfos/core/addons/contractor/ops/estimates';
 import { jobFollowVisit } from '@hfos/core/addons/contractor/ops/jobs';
@@ -20,7 +30,36 @@ import { workOrderStart } from '@hfos/core/addons/contractor/ops/work-orders';
 import { catalogAddon, executeCommand } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { clearAddonAlert, raiseAddonAlert } from '../alerts';
-import type { AddonEventContext, AddonWorkerModule } from '../types';
+import type { AddonEventContext, AddonSubscriber, AddonWorkerModule } from '../types';
+import { BUDGET_CHECK, budgetCheckJob, costsChanged } from './budget';
+import { DRAFT_ACTION, draftEstimate } from './drafts';
+import {
+  materialAdded,
+  MATERIALS_CHECK,
+  materialsChanged,
+  materialsCheckJob,
+  visitCancelled,
+  visitMoved,
+} from './materials';
+import { noteAdded } from './notes';
+import { jobStatusMoved, PHONE_CHECK, phoneCheckJob } from './phone';
+import {
+  noteForReport,
+  REPORT_ACTION,
+  REPORT_WRITE,
+  reportWriteJob,
+  writeReportNow,
+} from './reports';
+import {
+  estimatingSaved,
+  jobTimeChanged,
+  laborRateSet,
+  TIME_CHECK,
+  timeCheckJob,
+  visitCancelledTime,
+  visitStatusMoved,
+  visitTimeChanged,
+} from './time';
 
 const follow = (what: 'booked' | 'started') => async (ctx: AddonEventContext) => {
   const appointmentId = ctx.event.entityId;
@@ -37,7 +76,10 @@ const follow = (what: 'booked' | 'started') => async (ctx: AddonEventContext) =>
 const visitStarted = follow('started');
 const visitBooked = follow('booked');
 
-/** A visit booked on a job: its work order starts, then the job moves along. Anything else booked is left alone. */
+/**
+ * A visit booked on a job: its work order starts, the job moves along, and its missing materials are looked at when
+ * its alert is due. Anything else booked is left alone.
+ */
 async function booked(ctx: AddonEventContext): Promise<void> {
   const appointmentId = ctx.event.entityId;
   if (!appointmentId) return;
@@ -49,6 +91,7 @@ async function booked(ctx: AddonEventContext): Promise<void> {
     ctx.meta,
   );
   await visitBooked(ctx);
+  await visitMoved(ctx);
 }
 
 const okAlertKey = (estimateId: string) => `estimate-ok:${estimateId}`;
@@ -93,6 +136,15 @@ async function okAsked(ctx: AddonEventContext): Promise<void> {
   });
 }
 
+/** One after another, for an event more than one part of the add-on follows. Each is safe to run again. */
+const each =
+  (...subscribers: readonly AddonSubscriber[]): AddonSubscriber =>
+  async (ctx) => {
+    for (const subscriber of subscribers) await subscriber(ctx);
+  };
+/** What the event did, and then a look at the job's budget: it changed what the job costs or how far along it is. */
+const thenBudget = (subscriber: AddonSubscriber) => each(subscriber, costsChanged);
+
 const okDone = (reason: string) => async (ctx: AddonEventContext) => {
   const estimateId = estimateIdOf(ctx);
   if (estimateId) await clearAddonAlert(ctx, okAlertKey(estimateId), reason);
@@ -102,12 +154,44 @@ export const contractorAddonWorker: AddonWorkerModule = {
   manifest: catalogAddon('contractor'),
   subscribers: {
     'appointment.booked': booked,
-    // A visit's crew pressing Started (core's job.status_changed, its entity the appointment).
+    'appointment.rescheduled': visitMoved,
+    // Nobody needs to be ready for it, and whatever time was running on it stops.
+    'appointment.cancelled': async (ctx) => {
+      await visitCancelled(ctx);
+      await visitCancelledTime(ctx);
+    },
+    'contractor.material.added': thenBudget(materialAdded),
+    'contractor.material.updated': thenBudget(materialsChanged),
+    'contractor.material.removed': thenBudget(materialsChanged),
+    'contractor.materials.filled': thenBudget(materialsChanged),
+    'contractor.material.cost_set': costsChanged,
+    'contractor.other_cost.added': costsChanged,
+    'contractor.other_cost.removed': costsChanged,
+    // Its budget was set, or it moved along: both change where it's heading.
+    'contractor.job.money_set': costsChanged,
+    'contractor.job.percent_set': costsChanged,
+    'contractor.phase.updated': costsChanged,
+    // A visit's crew pressing one of its status buttons (core's job.status_changed, its entity the appointment):
+    // the clocks follow every one of them, and Started moves the job along too.
     'job.status_changed': async (ctx) => {
       const payload = (ctx.event.payload ?? {}) as Record<string, unknown>;
-      if (payload['status'] !== 'in_progress' || payload['statusChanged'] === false) return;
-      await visitStarted(ctx);
+      if (payload['statusChanged'] === false) return;
+      await visitStatusMoved(ctx);
+      if (payload['status'] === 'in_progress') await visitStarted(ctx);
     },
+    'contractor.time.tracked': thenBudget(visitTimeChanged),
+    'contractor.time.break_set': thenBudget(jobTimeChanged),
+    'contractor.time.fixed': thenBudget(jobTimeChanged),
+    'contractor.time.added': thenBudget(jobTimeChanged),
+    'contractor.time.removed': thenBudget(visitTimeChanged),
+    'contractor.labor_rate.set': laborRateSet,
+    'contractor.estimating.saved': estimatingSaved,
+    // A voice note gets its words, and the day's report is queued for the evening.
+    'contractor.note.added': each(noteAdded, noteForReport),
+    // Its words came: a report written before them is written again with them.
+    'contractor.note.transcribed': noteForReport,
+    // A job that closes leaves phones later, and stops being watched for its budget now.
+    'contractor.job.status_changed': thenBudget(jobStatusMoved),
     'estimate.accepted': async (ctx) => {
       const estimateId = estimateIdOf(ctx);
       if (!estimateId) return;
@@ -127,5 +211,16 @@ export const contractorAddonWorker: AddonWorkerModule = {
     'contractor.estimate.saved': async (ctx) => {
       if (payloadOf(ctx)['waitingOk'] === false) await okDone('changed')(ctx);
     },
+  },
+  jobs: {
+    [MATERIALS_CHECK]: materialsCheckJob,
+    [TIME_CHECK]: timeCheckJob,
+    [PHONE_CHECK]: phoneCheckJob,
+    [BUDGET_CHECK]: budgetCheckJob,
+    [REPORT_WRITE]: reportWriteJob,
+  },
+  actions: {
+    [DRAFT_ACTION]: draftEstimate,
+    [REPORT_ACTION]: writeReportNow,
   },
 };

@@ -8,6 +8,7 @@ import {
   questionLine,
   ruleText,
   applyFormOps,
+  FORM_BUILDER_TOOLS,
   type AiFormCall,
   type FormDefinition,
 } from '../../src/forms/index';
@@ -28,6 +29,42 @@ const call = (name: string, args: Record<string, unknown>, id = name): AiFormCal
 
 const build = (definition: FormDefinition, calls: AiFormCall[]) =>
   formToolCallsToOps(calls, definition, seeded());
+
+describe('the builder’s tool schemas', () => {
+  // Claude takes at most 16 values that may be one of several types across a request's strict tools, and refuses
+  // the whole request past them: these had 21 and the builder never got an answer (2026-11-11). The limits
+  // themselves are checked in the worker's ai-anthropic test.
+  it('are flat and strict, and what the model may leave out is optional, never null', () => {
+    for (const tool of FORM_BUILDER_TOOLS) {
+      const schema = tool.inputSchema as {
+        type: string;
+        properties: Record<string, Record<string, unknown>>;
+        required: string[];
+        additionalProperties: boolean;
+      };
+      expect(tool.strict).toBe(true);
+      expect(schema).toMatchObject({ type: 'object', additionalProperties: false });
+      for (const key of schema.required) expect(schema.properties).toHaveProperty(key);
+      for (const prop of Object.values(schema.properties)) {
+        expect(prop).not.toHaveProperty('anyOf');
+        expect(Array.isArray(prop.type)).toBe(false);
+      }
+    }
+  });
+
+  it('take a call that leaves out what it doesn’t need', () => {
+    const out = build(def({ pages: [page('about', [])] }), [
+      call('add_question', { type: 'short_text', title: 'Your name', mapTo: 'person.first_name' }),
+      call('add_page', {}),
+      call('set_form', { title: 'Get a quote' }),
+    ]);
+    expect(out.results.every((r) => r.ok)).toBe(true);
+    expect(out.definition.pages).toHaveLength(2);
+    expect(allQuestions(out.definition)).toEqual([
+      expect.objectContaining({ title: 'Your name', mapTo: 'person.first_name' }),
+    ]);
+  });
+});
 
 describe('the AI builder', () => {
   it('builds a quote form out of tool calls', () => {

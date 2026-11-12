@@ -185,16 +185,10 @@ describe('Autopilot’s day’s list on the phone (decision 151)', () => {
     expect(onAutopilot).toHaveBeenCalledWith('waiting', [id(71)]);
   });
 
-  it('says when the list comes before it’s made, and shows nothing while Autopilot is off', async () => {
+  it('shrinks to a line at the bottom once everyone’s answered, whose Show opens it to put someone back (decision 160)', async () => {
     const h = handlers();
-    const before = {
-      ...AUTOPILOT,
-      made: false,
-      people: [],
-      waiting: 0,
-      listAt: '2026-10-11T12:00:00.000Z',
-    };
-    const { rerender } = await render(
+    const onAutopilot = jest.fn();
+    const body = (autopilot: AutopilotOutput) => (
       <WaitingBody
         phone={waitingOfCopy([], ME)}
         server={SERVER}
@@ -202,29 +196,52 @@ describe('Autopilot’s day’s list on the phone (decision 151)', () => {
         online
         timeZone={TZ}
         now={NOW}
-        autopilot={before}
-        onAutopilot={jest.fn()}
+        autopilot={autopilot}
+        onAutopilot={onAutopilot}
         {...h}
-      />,
+      />
+    );
+    // Everyone OK'd but the one taken off: no list at the top, one line at the bottom.
+    const answered: AutopilotOutput = {
+      ...AUTOPILOT,
+      waiting: 0,
+      people: AUTOPILOT.people.map((p) =>
+        p.state === 'waiting' ? { ...p, state: 'ok' as const } : p,
+      ),
+    };
+    const { rerender } = await render(body(answered));
+    expect(screen.queryByTestId('autopilot-list')).toBeNull();
+    const line = screen.getByTestId('autopilot-line');
+    expect(within(line).getByText(AUTOPILOT_WORDS.answered(2, 1))).toBeTruthy();
+    expect(screen.queryByTestId('autopilot-put-back')).toBeNull();
+    await fireEvent.press(screen.getByTestId('autopilot-show'));
+    expect(within(line).getByText('Jordan New')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('autopilot-put-back'));
+    expect(onAutopilot).toHaveBeenCalledWith('waiting', [id(71)]);
+    // Before the list is made, the line says when it comes, with nothing to show.
+    await rerender(
+      body({
+        ...AUTOPILOT,
+        made: false,
+        people: [],
+        waiting: 0,
+        listAt: '2026-10-11T12:00:00.000Z',
+      }),
     );
     expect(
       screen.getByText(/^Today’s list comes at .+, an hour before your working hours\.$/),
     ).toBeTruthy();
-    expect(screen.queryByTestId('autopilot-ok-all')).toBeNull();
-    await rerender(
-      <WaitingBody
-        phone={waitingOfCopy([], ME)}
-        server={SERVER}
-        serverError={null}
-        online
-        timeZone={TZ}
-        now={NOW}
-        autopilot={{ ...AUTOPILOT, on: false }}
-        onAutopilot={jest.fn()}
-        {...h}
-      />,
-    );
+    expect(screen.queryByTestId('autopilot-show')).toBeNull();
+    await rerender(body({ ...AUTOPILOT, people: [], waiting: 0 }));
+    expect(screen.getByText(AUTOPILOT_WORDS.none)).toBeTruthy();
+    // Nothing at all while Autopilot is off.
+    await rerender(body({ ...AUTOPILOT, on: false }));
     expect(screen.queryByTestId('autopilot-list')).toBeNull();
+    expect(screen.queryByTestId('autopilot-line')).toBeNull();
+    // Someone waits again: it's back at the top, and the line is gone.
+    await rerender(body(AUTOPILOT));
+    expect(screen.getByTestId('autopilot-list')).toBeTruthy();
+    expect(screen.queryByTestId('autopilot-line')).toBeNull();
   });
 
   it('sends OK for everyone waiting with nobody named, and Not today for the one named', async () => {

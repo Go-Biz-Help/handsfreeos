@@ -54,7 +54,6 @@ import {
   leftToday,
   RECOMMEND_PER_DAY,
   RECOMMEND_WORDS,
-  REQUESTS_WHY,
   requestsHeldOn,
   requestsLimitHeld,
   SAY_HI_WHY,
@@ -102,6 +101,7 @@ import {
   notNever,
   notOthers,
   openToMe,
+  outreachSettingsOf,
   pitchable,
   recentOf,
   requestable,
@@ -121,6 +121,8 @@ import {
 import { goalFacts } from './goal';
 import { fewAhead, goalTries, goalWhy } from '../goal';
 import { foundByTopicSince, workingBuild } from './live';
+import { visitsDue } from './keep-warm';
+import { keepWarmOn, VISIT_LIKES, visitLikes, visitWhy, warmUpEnds } from '../keep-warm';
 import { playbooksInUse } from './friends';
 import { retrySince } from './needs';
 import { readinessFor } from './readiness';
@@ -494,7 +496,7 @@ export async function todayFor(
   // A follow network (Instagram's): a follow is its request, and someone among the person's followers follows them,
   // which says nothing of whether the person follows them back.
   const kit = NETWORKS[input.platform];
-  const follows = kit.requestsMessageAfterDays !== null;
+  const follows = kit.follows;
 
   // Warm leads (decision 50): people who reacted to or commented on the person's helpful posts lately. A comment
   // waits for an answer; someone not a friend yet goes first for a like back, then a friend request, as anyone does.
@@ -600,7 +602,47 @@ export async function todayFor(
           where p.workspace_id = ${ws} and p.platform = ${input.platform}
             and p.warm_up_missed_at >= ${todayFrom}::timestamptz`,
   );
-  const warmUpLeft = Math.max(0, leftToday(limits, 'warm_up') - (missed?.n ?? 0));
+  const likeRoom = Math.max(0, leftToday(limits, 'warm_up') - (missed?.n ?? 0));
+  // Warm-ups while they decide (decision 161, ../keep-warm.ts): whoever's waiting on the person's request here, in its
+  // warm-up, gets a visit every few days at random that likes 1 or 2 of their newest posts (`visitLikes`), while the
+  // person's warm-ups are on and their computer's build does visits (`keepWarmOn`). The day's likes go to them first,
+  // a second one each only while there's room; the likes before new requests get what's left.
+  const visitWeeks = (await outreachSettingsOf(ctx)).cancelRequestsAfterWeeks;
+  const visits =
+    settings.warmUp && likeRoom >= VISIT_LIKES.least && keepWarmOn(await workingBuild(ctx, me))
+      ? await visitsDue(ctx, me, {
+          platform: input.platform,
+          weeks: visitWeeks,
+          now,
+          todayFrom: todayStart,
+          allowed: sql`(${pitchable('p')} and ${contactable('p')} and ${inPlay(me, 'p')} and ${reach})`,
+          most: Math.floor(likeRoom / VISIT_LIKES.least),
+        })
+      : [];
+  const day = todayStart.toISOString().slice(0, 10);
+  const likesFor = visits.map((v) => visitLikes(v.id, day));
+  // Past the day's room, the visits with two drop to one, the last first.
+  let over = likesFor.reduce((sum, n) => sum + n, 0) - likeRoom;
+  for (let i = likesFor.length - 1; i >= 0 && over > 0; i--) {
+    const cut = Math.min(over, likesFor[i]! - VISIT_LIKES.least);
+    likesFor[i] = likesFor[i]! - cut;
+    over -= cut;
+  }
+  visits.forEach((v, i) => {
+    const until = warmUpEnds(v.since, v.warm_up_from, visitWeeks);
+    items.push(
+      item({
+        kind: 'warm_up',
+        name: v.name,
+        profileId: v.id,
+        profileUrl: v.url,
+        why: visitWhy(input.platform, until),
+        playbookName: v.playbook_name,
+        keepWarm: { likes: likesFor[i]!, until: until.toISOString() },
+      }),
+    );
+  });
+  const warmUpLeft = Math.max(0, likeRoom - likesFor.reduce((sum, n) => sum + n, 0));
   let warmRequests = 0;
   let warmLikes = 0;
   if (!requestsOff)
@@ -1192,7 +1234,6 @@ export async function todayFor(
   // request, connected on the network themselves, or has been friends a while. Never Reconnect's catch-up, which is for
   // a conversation had. Each waits the playbook's days after becoming friends, the good fits before the maybes.
   const openersLeft = leftToday(limits, 'opener');
-  let openers = 0;
   if (openersLeft) {
     const fresh = sql`(${acceptedMine(me)} and f.since >= ${ago(TODAY_WINDOW_DAYS.opener)}::timestamptz)`;
     const accepted = await rows<{
@@ -1222,7 +1263,6 @@ export async function todayFor(
             order by ${fresh} desc, (ch.verdict = 'good') desc nulls last, f.since desc, p.id
             limit ${openersLeft}`,
     );
-    openers = accepted.length;
     for (const p of accepted) {
       const when = dayWords(p.since, now);
       const how = p.mine
@@ -1248,59 +1288,9 @@ export async function todayFor(
     }
   }
 
-  // No follow-back in a few days, on a follow network (Instagram's, the Instagram and Alignable plan's "The steps"):
-  // one short first message, which lands in their Requests. No link and no video, one text: Instagram passes only one
-  // till they accept it. At most so many of the day's first messages go there, those sent there today counted.
-  const requestsAfter = kit.requestsMessageAfterDays;
-  const requestsCap = kit.requestsMessagesPerDay;
-  if (requestsAfter !== null && requestsCap !== null && openersLeft > openers) {
-    const [sentThere] = await rows<{ n: number }>(
-      ctx.tx,
-      sql`select count(*)::int as n from addon_outreach.touches t
-            join addon_outreach.profiles p on p.id = t.profile_id
-            where t.workspace_id = ${ws} and t.user_id = ${me} and t.step = 'first_message'
-              and p.platform = ${input.platform} and t.at >= ${todayFrom}::timestamptz
-              and not exists (select 1 from addon_outreach.friends f
-                where f.profile_id = p.id and f.user_id = ${me} and f.state = 'friends')`,
-    );
-    const left = Math.min(openersLeft - openers, Math.max(0, requestsCap - (sentThere?.n ?? 0)));
-    const waiting = left
-      ? await rows<{ id: string; name: string; url: string; since: Date | string }>(
-          ctx.tx,
-          sql`select p.id, p.name, p.url, f.since from addon_outreach.friends f
-                join addon_outreach.profiles p on p.id = f.profile_id
-                where f.workspace_id = ${ws} and f.user_id = ${me} and f.state = 'request_sent'
-                  and f.since between ${ago(TODAY_WINDOW_DAYS.opener)}::timestamptz
-                    and ${ago(requestsAfter)}::timestamptz
-                and ${pitchable('p')} and ${inPlay(me, 'p')} and ${reach}
-                  and exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
-                    and t.user_id = ${me} and t.kind = 'friend_request')
-                  and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
-                    and t.kind = 'message')
-                  and not exists (select 1 from addon_outreach.file_chats c where c.profile_id = p.id
-                    and c.user_id = ${me})
-                  and not exists (select 1 from addon_outreach.follow_ups fu where fu.profile_id = p.id
-                    and fu.user_id = ${me})
-                  and not exists (select 1 from addon_outreach.replies r where r.profile_id = p.id
-                    and r.user_id = ${me})
-                order by f.since desc limit ${left}`,
-        )
-      : [];
-    for (const p of waiting)
-      items.push(
-        item({
-          kind: 'opener',
-          name: p.name,
-          profileId: p.id,
-          profileUrl: p.url,
-          why: [
-            `You followed them ${dayWords(p.since, now)}, and they haven’t followed back`,
-            REQUESTS_WHY,
-          ],
-          requests: true,
-        }),
-      );
-  }
+  // On a follow network (Instagram's), nobody who hasn't followed the person back gets a first message, however long
+  // ago they were followed (decision 159): a message to them lands in their Requests, never their inbox, and their
+  // follow-back is what starts it (above). Who doesn't follow back in the business's wait is unfollowed (./tidy.ts).
 
   // Send the link, follow-ups and check-ins share the follow-ups' limit, in that order (the main
   // offer plan's "The conversation", ../conversation.ts).

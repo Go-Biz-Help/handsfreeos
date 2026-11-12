@@ -36,3 +36,34 @@ export type VisitSub = WorkOrder['subs'][number];
 export type Dispatch = Ok<'/v1/queries/contractor.dispatch'>;
 export type DispatchVisit = Dispatch['visits'][number];
 export type JobVisit = JobDetail['visits'][number];
+
+export type MaterialList = Ok<'/v1/queries/contractor.material.list'>;
+/** A material on a job, with what one costs when the person may see job costs. */
+export type Material = MaterialList['materials'][number];
+export type MaterialCosting = NonNullable<MaterialList['costing']>;
+/** A material as a visit's work order has it: never with a cost. */
+export type VisitMaterial = WorkOrder['materials'][number];
+
+export type TimeList = Ok<'/v1/queries/contractor.time.list'>;
+/** One stretch of one person's time on a job: never with what it cost. */
+export type TimeEntry = TimeList['entries'][number];
+export type NoteList = Ok<'/v1/queries/contractor.note.list'>;
+/** A note from the field: typed, a voice note with its words, or photos. */
+export type FieldNote = NoteList['notes'][number];
+export type JobCosting = Ok<'/v1/queries/contractor.job.costing'>;
+export type OtherCost = JobCosting['otherCosts'][number];
+export type LaborRateList = Ok<'/v1/queries/contractor.labor_rate.list'>;
+export type LaborRate = LaborRateList['people'][number];
+export type Profit = Ok<'/v1/queries/contractor.profit'>;
+export type ProfitRow = Profit['rows'][number];
+
+/** The AI's draft the builder opens from, or the one a saved estimate was started from. */
+export type BuilderDraft = NonNullable<EstimateBuilderData['draft']>;
+export type DraftedLine = BuilderDraft['draft']['options'][number]['lines'][number];
+export type EstimateDraftList = Ok<'/v1/queries/contractor.estimate_draft.list'>;
+/** An estimate the AI drafted for a job, still waiting for someone to open it. */
+export type WaitingDraft = EstimateDraftList['drafts'][number];
+export type ReportList = Ok<'/v1/queries/contractor.report.list'>;
+/** One day's report on a job. */
+export type DailyReport = ReportList['reports'][number];
+export type BudgetWatch = JobCosting['watch'];

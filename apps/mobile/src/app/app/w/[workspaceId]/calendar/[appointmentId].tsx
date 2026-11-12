@@ -29,8 +29,10 @@ import {
 } from '@hfos/core';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import * as React from 'react';
-import { Linking, Platform, View } from 'react-native';
+import { View } from 'react-native';
 
+import { holdsAddon } from '@/addons/gate';
+import { PHONE_ADDONS } from '@/addons/registry';
 import { cancelVisit, confirmSeat, setSeatAttendance, setVisitStatus } from '@/calendar/actions';
 import { addressOf, useAppointment, useNow, useVisitInvoices } from '@/calendar/use-calendar';
 import { useCalendarZone } from '@/calendar/use-calendar';
@@ -49,6 +51,7 @@ import { Sheet } from '@/components/ui/sheet';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { useGrants } from '@/lib/grants';
+import { openMaps } from '@/lib/maps';
 import { useNetwork } from '@/lib/network';
 
 /**
@@ -350,6 +353,8 @@ export default function Appointment() {
         </Section>
       ) : null}
 
+      <AddonVisitPanels workspaceId={business.id} appointmentId={appointmentId} />
+
       {a.status === 'scheduled' && a.kind === 'booking' ? (
         <VisitJob appointmentId={appointmentId} location={a.location ?? null} timeZone={timeZone} />
       ) : null}
@@ -646,15 +651,23 @@ function confirmedLine(
   return `Confirmed ${how} ${fmtAt(one.confirmed_at!, timeZone)}`;
 }
 
-/** The phone's own maps app, as the canvas's Directions does. */
-async function openMaps(address: string): Promise<void> {
-  const q = encodeURIComponent(address);
-  const url = Platform.OS === 'ios' ? `maps://?q=${q}` : `geo:0,0?q=${q}`;
-  const fallback = `https://maps.google.com/?q=${q}`;
-  try {
-    if (await Linking.canOpenURL(url)) await Linking.openURL(url);
-    else await Linking.openURL(fallback);
-  } catch {
-    await Linking.openURL(fallback).catch(() => undefined);
-  }
+/** What add-ons show on a visit's page, for the add-ons the person may use (the registry's `VisitPanel`). */
+function AddonVisitPanels({
+  workspaceId,
+  appointmentId,
+}: {
+  workspaceId: string;
+  appointmentId: string;
+}) {
+  const grants = useGrants();
+  return (
+    <>
+      {PHONE_ADDONS.filter((a) => a.VisitPanel && holdsAddon(grants, a.permission)).map(
+        ({ addonId, VisitPanel }) =>
+          VisitPanel ? (
+            <VisitPanel key={addonId} workspaceId={workspaceId} appointmentId={appointmentId} />
+          ) : null,
+      )}
+    </>
+  );
 }

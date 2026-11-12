@@ -777,6 +777,26 @@ describe('one of its posts', () => {
     expect(actions.skip).toHaveBeenCalledWith(false);
   });
 
+  it('removes a post only for those who may, and only once asked (the owner, 11 Nov)', async () => {
+    await render(body());
+    expect(screen.queryByTestId('socialcontent-post-remove')).toBeNull();
+    const onRemove = jest.fn();
+    await render(body({ onRemove }));
+    await fireEvent.press(screen.getByTestId('socialcontent-post-remove'));
+    expect(onRemove).not.toHaveBeenCalled();
+    expect(screen.getByTestId('socialcontent-post-remove-ask')).toHaveTextContent(
+      /Its day opens up/,
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-post-remove-no'));
+    expect(screen.queryByTestId('socialcontent-post-remove-ask')).toBeNull();
+    await fireEvent.press(screen.getByTestId('socialcontent-post-remove'));
+    await fireEvent.press(screen.getByTestId('socialcontent-post-remove-yes'));
+    expect(onRemove).toHaveBeenCalledTimes(1);
+    // A post that went up stays, with its numbers.
+    await render(body({ onRemove, post: content(42, { state: 'posted', postedAt: ago(1) }) }));
+    expect(screen.queryByTestId('socialcontent-post-remove')).toBeNull();
+  });
+
   it('asks for the Facebook Page first, and takes the person’s video for a video post', async () => {
     const actions = actionsMock();
     await render(

@@ -45,21 +45,23 @@ How it works, and the rules worth knowing before changing anything: `docs/contra
    project with phases, deadlines, % done and a planned budget. Jobs page (board by status and a list; All, My jobs,
    Late; search; done and cancelled on a tick), a page for each job, and Settings (trades, a new project's phases).
    Visits booked or started on a job move it along. The Assistant can do all of it.
-2. **Costs and estimates.** _Built, but for the materials list, which comes with part 4._ A cost on each price list
+2. **Costs and estimates.** _Built._ A cost on each price list
    item; an estimate builder with labor (hours × rate), materials
    at cost, markup, profit and margin, making a normal HandsFreeOS estimate; good, better, best options in core's
    estimates (decision 5); the lowest margin and its OK (decision 6). An accepted estimate fills the job's budget and
-   its materials list.
-3. **Crews, scheduling and work orders.** _Built, on the web; the phone's pages come with part 6._ Crews
+   its materials list (the list came with part 4).
+3. **Crews, scheduling and work orders.** _Built._ Crews
    (decision 7), booked from the job; a work order on each visit (instructions, checklist, materials to bring, who's
    going, photos required); starter checklists per trade; Done waits on the required items (decision 8); one dispatch
    screen.
-4. **Materials.** Per job (decision 9), with what's missing for each upcoming visit and an alert before it.
-5. **Time and job costing.** Time from the status buttons (decision 10), each person's cost per hour, estimate
-   against actual, the profit it's heading for, and a profit dashboard by job, crew, service and customer.
-6. **The phone field app.** Jobs, work orders, checklists, photos, materials used, time and voice notes, all with no
-   signal.
-7. **AI helpers.** Draft an estimate from notes, photos and measurements; warn when a job heads over budget, with the
+4. **Materials.** _Built._ Per job (decision 9), with what's
+   missing for each upcoming visit and an alert before it.
+5. **Time and job costing.** _Built._ Time from the status buttons
+   (decision 10), each person's cost per hour, estimate against actual, the profit it's heading for, and a profit
+   dashboard by job, crew, service and customer.
+6. **The phone field app.** _Built._ Jobs, work orders, checklists, photos, materials used, time and voice notes,
+   all with no signal.
+7. **AI helpers.** _Built._ Draft an estimate from notes, photos and measurements; warn when a job heads over budget, with the
    new profit; turn a tech's voice notes and photos into a daily job report. Each waits for a person where the
    owner's rule says so.
 
@@ -111,8 +113,8 @@ How it works, and the rules worth knowing before changing anything: `docs/contra
 - **Web.** Estimates (all, or waiting for an OK), the builder, Item costs, an Estimating card in Settings, an
   Estimates card on the job, a waiting notice on Jobs, and the Costs and profit panel on Money's estimate page.
 - **Left for later parts.** The job's materials list from an approved estimate (part 4). Estimate against actual
-  (part 5). The phone's builder (part 6). An estimate the AI drafts on its own, which always waits for a person
-  (part 7).
+  (part 5). A builder on the phone (not in Phase 1: part 6 kept estimates on the web). An estimate the AI drafts on
+  its own, which always waits for a person (part 7).
 - **Choices made while building.** An OK stands when the lowest margin is raised afterwards. Whoever may OK an
   estimate still has to OK it before sending, so nothing goes out unchecked by a slip. A line with no cost counts
   as unchecked only for labor and materials; a permit or a fee with no cost is fine.
@@ -144,3 +146,168 @@ How it works, and the rules worth knowing before changing anything: `docs/contra
     putting a crew on replaces who was on the visit.
   - Crews are set up by people who manage the add-on (`contractor.manage`); anyone who uses it puts one on a visit.
   - A cancelled visit's required items never hold its job.
+
+## Part 4 as built
+
+- **Data.** `supabase/migrations/20261027024400_contractor_materials.sql`: `materials` (one row per material on a
+  job: its name, what it's counted in, the price list item and the visit it's for, if any, the six counts, its
+  supplier, when it's expected, a note, and the estimate line it came from) and `material_costs` (what one costs,
+  readable only with `contractor.costs`). The add-on's settings gain `materialsAlertHours`. No new permission.
+- **Operations.** 5 commands and 1 query in `ops/materials.ts`: list, add, change, remove, set a cost, and the
+  system's own cost stamp. `contractor.estimate.fill_job` now puts an approved estimate's material lines on the
+  job. A job's visits, Dispatch and a work order each say what's missing. The rules are pure, in `materials.ts`.
+- **Worker.** `contractor.materials_check`, one queued job per visit, raises and clears the missing-materials
+  alert. It's armed when a visit is booked or moved, run again when the job's materials change, and taken down when
+  the visit is cancelled or over. The worker also fills in a price list item's cost for someone who couldn't see it.
+- **Web.** A Materials card on the job's page and on each visit's work order (the visit's own, with no costs), the
+  missing count on the job's visits and on Dispatch, and Missing materials in Settings.
+- **Left for later parts.** Actual material cost against the budget (part 5). Materials used from the phone, with
+  no signal (part 6). Stock, suppliers and purchase orders (Phase 2).
+- **Choices made while building.**
+  - Each count is the total so far, and where a material stands is worked out from the counts, never stored.
+  - A material is for one visit or for any. What a visit is missing counts both.
+  - Adding a material and changing its counts run on their own for the AI: they record what happened and order
+    nothing, so no money moves. Taking one off and setting a cost wait on a Confirm card.
+  - Costs live in their own table so the database, not the screen, keeps them to people who may see job costs.
+    The worker stamps a price list item's cost when the person adding it couldn't see it, so costing stays whole.
+  - Picking from the price list needs core's `money.read`, since the price list is core's. Everyone else types a
+    name.
+  - The alert goes to the job's lead and the people on the visit, a day before to start. A business picks 2 hours,
+    1, 2 or 3 days, a week, or never.
+  - An approved estimate's material lines are added once each, so a retry never doubles the list.
+
+## Part 5 as built
+
+- **Data.** `supabase/migrations/20261027024500_contractor_time.sql`: `time_entries` (one stretch of one person's
+  travel, work or break on a job, with the visit it was on and who fixed it and why), `time_costs` (what an hour of
+  a stretch cost), `labor_rates` (what an hour of each person costs) and `other_costs` (a permit, a fee, a
+  subcontractor's bill). The last three are readable only with `contractor.costs`. One new permission,
+  `contractor.fix_time`, for owners and admins.
+- **Operations.** 10 commands and 4 queries in `ops/time.ts` and `ops/costing.ts`: the time on a job, taking a
+  break, fixing, adding and removing time, what an hour of each person costs, a job's costing, its other costs, and
+  profit across jobs; plus the system's own three (follow a visit's status, stamp costs, stop time left running).
+  The rules are pure, in `time.ts` and `job-costing.ts`.
+- **Worker.** Core's `job.status_changed` and `appointment.cancelled` on a visit start and stop time. A queued job
+  per visit, `contractor.time_check`, stops time left running 12 hours and raises the alert for people who may fix
+  time. Costs are stamped after a break, a fix, added time, and a change to someone's cost per hour or to
+  Estimating's labor cost.
+- **Web.** A Time card on the job's page and on each visit's work order, a Costs so far card on the job's page, a
+  Profit page in the menu, and What an hour costs you in Settings. The last three show only to people who may see
+  job costs.
+- **Left for later parts.** The Break button and time on the phone's own pages (part 6). A warning sent when a job
+  heads over budget (part 7). Payroll, pay rates and overtime (Phase 2).
+- **Choices made while building.**
+  - Time is per person, in stretches of travel, work and break. The buttons start it for everyone on the visit, at
+    the moment pressed, or for whoever pressed it when nobody is on the visit.
+  - One clock per person in a business. Starting on another visit stops the first.
+  - News heard twice or late changes nothing. Only the buttons' own stretches count as proof it's old, and a stop
+    never lands before its stretch started.
+  - Break pauses only work time, for oneself. Someone else's takes the fix permission.
+  - A stretch left running 12 hours is stopped there, marked, and the people who may fix time are told. The alert
+    stays until someone has looked.
+  - Fixing, adding and removing need a reason, kept on the stretch and the timeline. They're allowed on a done job
+    and can't overlap the same person's other time.
+  - What an hour cost is stamped for each stretch by the system when the time is tracked: the person's own cost
+    per hour, else Estimating's labor cost. A later raise never changes past jobs. Seeing costs takes
+    `contractor.costs`; setting one takes `contractor.approve`.
+  - Other costs are added and removed, never edited.
+  - Heading for: labor is paced by the job's % done from 10% along; materials and other costs head for the larger
+    of the plan and what's spent; a finished job heads for what it cost.
+  - Profit counts done jobs by the day they were marked Done in the business's time zone, in whole calendar
+    months, quarters and years, or open jobs at what they're heading for. The price is the job's budget price; none
+    counts as $0. Service is the job's trade, and a job counts for the crew on most of its visits.
+  - For the AI, a break runs on its own. Every other change to time, a cost per hour or a job's other costs waits
+    on a Confirm card.
+  - Costs stay off events, timelines and AI outcomes.
+
+## Part 6 as built
+
+- **Data.** `supabase/migrations/20261027025300_contractor_on_the_phone.sql`: one new table, `notes` (a note from
+  the field on a job or one of its visits: typed, a recording with its words, or photos), an `id` on `team`, and
+  what phones keep. Phones keep each job with its phases, team, work orders, checklists, subcontractors, materials,
+  time and notes, and the business's crews. They keep no money (decision 11). Nothing changed in
+  `apps/sync/sync-config.yaml`: the rows travel the way Real Estate's do.
+- **Operations.** 3 new commands and 1 query: counting a material (`contractor.material.count`), and adding,
+  taking off and listing notes; plus the system's own (`contractor.note.transcribed`). Six commands may wait on a
+  phone with no signal: a tick, a count, a break, a note, a phase's status and a service call's % done. The phone's
+  views are pure, in `views/phone.ts`, and a test holds them to the server's answers.
+- **Worker.** A voice note's recording is put into words by the transcriber calls use, and billed the same way, as
+  speech. A job that closes leaves phones a month later (a queued job per job, `contractor.phone_check`), and
+  comes back when it's opened again.
+- **Phone.** A Jobs row in More. Jobs (my visits today, then my jobs, all or late, with a search), a job (status,
+  customer with Call, progress, visits, materials, time, notes), and a visit's work order (when and where with
+  Directions, the visit's status buttons, instructions, checklist with photos, materials, time with the break
+  button, notes). A visit on a job also has a Work order row on its page in Calendar.
+- **Web.** A Notes from the field card on the job's page and on each visit's work order, where the office reads
+  what the crew left and can type a note.
+- **Left for later.** On the phone: starting a job, booking a visit, dispatch, estimates, costs and settings;
+  adding or changing materials, checklist items, crews and subcontractors; fixing time; marking a job done anyway;
+  looking at a note's photos and playing its recording. A daily report made from the notes and photos (part 7).
+- **Choices made while building.**
+  - Everyone who uses the add-on gets every job on their phone, so a tech can cover a visit that isn't theirs.
+  - A done or cancelled job stays on phones 30 days, then leaves with everything on it.
+  - Work done with no signal counts from when it was done. A tick or a count made while the job was open still
+    lands after the office closed it.
+  - A count from the phone adds to what's counted, so two people counting both add up. It can take some back, never
+    under nothing.
+  - A job's status needs signal, because Done is checked against every visit's checklist. So does taking a note
+    off.
+  - A note is typed, spoken or photographed, and never edited. People take off their own; owners and admins take
+    off anyone's. Its photos and recording stay in the job's files.
+  - A finished job still takes notes, for a callback or something the customer said afterwards.
+  - With no Deepgram key a voice note gets no words: the note keeps its recording, and the app says to play it.
+  - The phone shows hours and never money.
+
+## Part 7 as built
+
+The owner's rule runs through all three: the AI prepares and recommends, and a person approves. None of the helpers
+saves an estimate, sets a price, changes a job or reaches a customer.
+
+- **Data.** `supabase/migrations/20261027025700_contractor_ai_helpers.sql`: three new tables. `estimate_drafts`
+  (an estimate the AI drafted for a job, kept beside it; it holds costs, so only people who may see job costs read
+  it), `budget_watch` (where each job's budget stood when it was last looked at, and the AI's advice; the same
+  people only), and `daily_reports` (one per job per day, no money in it, so everyone on the job reads it). Nothing
+  new goes to phones, and no setting needed a data step: the two new switches start on.
+- **Operations.** 7 commands and 4 queries. People's: list a job's waiting drafts and set one aside; list a job's
+  reports, change one, and send its update to the customer. The system's: what the AI reads for a draft and for a
+  report, keeping a draft, keeping a report, looking at a job's budget and keeping the AI's advice on it.
+  `contractor.estimate.get` and `contractor.estimate.save` take a `draftId`, and `contractor.job.costing` answers
+  the watch.
+- **Worker.** Two things a person presses: Draft with AI (`contractor.estimate.draft`) and Write today's report
+  (`contractor.report.write`). Two queued jobs: a look at a job's budget two minutes after something that costs
+  money changes, and a day's report at 6 PM where the business is. The AI's use is counted as the add-on's,
+  against the business's AI budget.
+- **Web.** On a job's page: **Draft with AI** and **Drafts from the AI** in the Estimates card, a **Daily
+  reports** card, and the AI's advice under the warning on **Costs so far**. In the estimate builder: a banner on a
+  draft from the AI, and **Guess** beside a guessed cost. In Settings: **AI helpers**, with two switches.
+- **The Assistant** can ask for a draft, list drafts and set one aside, write, read and change a report, and send
+  its update to the customer on a Confirm card. Saving an estimate from a draft is the same Confirm card as any
+  estimate it writes. 31 new items in its checklist.
+- **Left for later.** Daily reports and Draft with AI on the phone. A weekly or whole-job report, and one the
+  customer reads in their portal. The AI acting on its own advice, on purpose.
+- **Choices made while building.**
+  - Anyone who may see job costs can ask for a draft and check one. Saving it is an ordinary estimate save: under
+    the lowest margin it still waits for an owner's or admin's OK (decision 6).
+  - The AI never changes a price or a cost the business set. A line from the price list keeps the item's price and
+    cost, and labor is at the business's hourly price. A line on no price list carries the AI's guess at its cost,
+    priced at the starting markup, and it's marked Guess until a person changes it.
+  - With the draft the AI says what it assumed, and what to answer before sending.
+  - A job keeps its newest five waiting drafts. An older one is set aside, never deleted.
+  - Arithmetic decides whether a job is over budget, so the warning never waits on the AI. It's told at 5% over
+    its planned cost, when it heads under the lowest margin, and when it heads for a loss.
+  - People are told once, then only when it gets worse: a worse kind, or another 10 points over. Getting better is
+    never news.
+  - Only people who may see job costs are told, on Home, their phones and by email (decision 11). The alert's title
+    has no amount; its detail has the costs and the profit the job is now heading for.
+  - The AI's advice is a sentence on what's driving it and up to three things to do. Nothing it suggests is
+    carried out.
+  - A daily report is written after 6 PM on a day the crew left a note or a photo. Hours alone aren't a report.
+    A note that lands later has it written again half an hour on.
+  - A report has no prices or costs, so the whole crew can read it. Safety and code go under Needs a look, in the
+    crew's own words.
+  - Once a person changes a report, the AI never writes over it unless that person asks.
+  - The update for the customer goes only when a person presses Send, by email or text, once. It needs "use the
+    inbox", and core's consent and quiet hours apply. The AI is told to leave out hours, people's names, costs and
+    problems the crew caused, and never to promise a date nobody gave.
+  - Both helpers that run on their own (the budget warning and the evening's report) have a switch in Settings →
+    AI helpers. Both start on.

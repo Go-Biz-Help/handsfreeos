@@ -1,13 +1,15 @@
 /**
- * Contractor Operations' own tables, in its schema `addon_contractor` (supabase/migrations/20261027024000, 024200
- * and 024300): the Drizzle mirror its server code reads and writes through. Server-only. test/addons/contractor-ops.test.ts holds the
- * mirror to the live columns.
+ * Contractor Operations' own tables, in its schema `addon_contractor` (supabase/migrations/20261027024000, 024200,
+ * 024300, 024400, 024500, 025300 and 025700): the Drizzle mirror its server code reads and writes through. Server-only.
+ * test/addons/contractor-ops.test.ts holds the mirror to the live columns.
  */
+import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
   date,
   integer,
+  jsonb,
   numeric,
   pgSchema,
   primaryKey,
@@ -25,9 +27,13 @@ import {
   users,
   workspaces,
 } from '@hfos/db/schema';
+import type { WatchLevel } from './budget-watch';
 import type { ItemKind } from './checklists';
+import type { CheckedDraft } from './estimate-draft';
 import type { CostKind } from './estimating';
+import type { TranscriptState } from './notes';
 import type { JobKind, JobStatus, PhaseStatus } from './progress';
+import type { TimeKind, TimeSource } from './time';
 import type { Trade } from './trades';
 
 export const addonContractor = pgSchema('addon_contractor');
@@ -91,6 +97,8 @@ export const team = addonContractor.table(
       .references(() => users.id, { onDelete: 'cascade' }),
     addedBy: userRef('added_by'),
     createdAt: ts('created_at').notNull().defaultNow(),
+    /** The job and the person as one name, which a phone keeps the row by (025300). The database makes it. */
+    id: text('id').generatedAlwaysAs(sql`(record_id::text || ':' || user_id::text)`),
   },
   (t) => [primaryKey({ columns: [t.recordId, t.userId] })],
 );
@@ -251,6 +259,199 @@ export const workOrderSubs = addonContractor.table('work_order_subs', {
   updatedAt: ts('updated_at').notNull().defaultNow(),
 });
 
+/** How much of something, to three decimal places as core's estimate lines count. */
+const amount = (name: string) =>
+  numeric(name, { precision: 12, scale: 3, mode: 'number' }).notNull().default(0);
+
+/** A material on a job (the owner's decision 9): what's needed, ordered, delivered, used, wasted and returned. */
+export const materials = addonContractor.table('materials', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: workspaceRef(),
+  recordId: uuid('record_id').notNull(),
+  position: integer('position').notNull(),
+  name: text('name').notNull(),
+  unitLabel: text('unit_label').notNull().default('each'),
+  productId: uuid('product_id').references(() => products.id, { onDelete: 'set null' }),
+  /** The visit it's needed for; null: any visit on the job. */
+  appointmentId: uuid('appointment_id').references(() => appointments.id, { onDelete: 'set null' }),
+  needed: amount('needed'),
+  ordered: amount('ordered'),
+  delivered: amount('delivered'),
+  used: amount('used'),
+  wasted: amount('wasted'),
+  returned: amount('returned'),
+  supplier: text('supplier'),
+  expectedOn: day('expected_on'),
+  note: text('note'),
+  /** The approved estimate's line it came from. */
+  estimateId: uuid('estimate_id').references(() => coreEstimates.id, { onDelete: 'set null' }),
+  estimateLine: integer('estimate_line'),
+  createdBy: userRef('created_by'),
+  updatedBy: userRef('updated_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/** What one unit of a material costs the business: read only by people who may see job costs (decision 11). */
+export const materialCosts = addonContractor.table('material_costs', {
+  materialId: uuid('material_id').primaryKey(),
+  workspaceId: workspaceRef(),
+  recordId: uuid('record_id').notNull(),
+  unitCostCents: bigint('unit_cost_cents', { mode: 'number' }).notNull(),
+  updatedBy: userRef('updated_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/** One stretch of one person's time on a job (the owner's decision 10): travel, work or a break. */
+export const timeEntries = addonContractor.table('time_entries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: workspaceRef(),
+  recordId: uuid('record_id').notNull(),
+  /** The visit it was on; kept on the job when the visit is deleted for good. */
+  appointmentId: uuid('appointment_id').references(() => appointments.id, { onDelete: 'set null' }),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  kind: text('kind').$type<TimeKind>().notNull(),
+  startedAt: ts('started_at').notNull(),
+  /** Null while it's running. */
+  endedAt: ts('ended_at'),
+  source: text('source').$type<TimeSource>().notNull().default('status'),
+  /** Left running past the limit and stopped on its own. */
+  autoStopped: boolean('auto_stopped').notNull().default(false),
+  fixedBy: userRef('fixed_by'),
+  fixedAt: ts('fixed_at'),
+  fixReason: text('fix_reason'),
+  createdBy: userRef('created_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/** What an hour of a stretch cost the business then: read only by people who may see job costs (decision 11). */
+export const timeCosts = addonContractor.table('time_costs', {
+  entryId: uuid('entry_id').primaryKey(),
+  workspaceId: workspaceRef(),
+  recordId: uuid('record_id').notNull(),
+  rateCents: bigint('rate_cents', { mode: 'number' }).notNull(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/** What an hour of each person costs the business. */
+export const laborRates = addonContractor.table(
+  'labor_rates',
+  {
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    costCents: bigint('cost_cents', { mode: 'number' }).notNull(),
+    updatedBy: userRef('updated_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.userId] })],
+);
+
+/** What else a job cost: a permit, a dump fee, a subcontractor's bill. */
+export const otherCosts = addonContractor.table('other_costs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: workspaceRef(),
+  recordId: uuid('record_id').notNull(),
+  name: text('name').notNull(),
+  amountCents: bigint('amount_cents', { mode: 'number' }).notNull(),
+  spentOn: day('spent_on').notNull(),
+  note: text('note'),
+  createdBy: userRef('created_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/** A note from the field on a job, or on one of its visits: typed, a recording or photos. Made on the phone. */
+export const notes = addonContractor.table('notes', {
+  id: uuid('id').primaryKey(),
+  workspaceId: workspaceRef(),
+  recordId: uuid('record_id').notNull(),
+  /** The visit it was taken on; kept on the job when the visit is deleted for good. */
+  appointmentId: uuid('appointment_id').references(() => appointments.id, { onDelete: 'set null' }),
+  body: text('body'),
+  /** A voice note's recording: one of the job's files. Its words come later. */
+  audioFileId: uuid('audio_file_id').references(() => files.id, { onDelete: 'set null' }),
+  transcript: text('transcript'),
+  transcriptState: text('transcript_state').notNull().$type<TranscriptState>().default('none'),
+  photoFileIds: uuid('photo_file_ids').array().notNull().default([]),
+  createdBy: userRef('created_by'),
+  /** When it was taken (the phone's moment), not when it arrived. */
+  notedAt: ts('noted_at').notNull(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/**
+ * An estimate the AI drafted for a job (part 7): a draft beside the job until a person saves it from the builder. It
+ * holds costs, so it's read only by people who may see job costs.
+ */
+export const estimateDrafts = addonContractor.table('estimate_drafts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: workspaceRef(),
+  recordId: uuid('record_id').notNull(),
+  askedBy: userRef('asked_by'),
+  brief: text('brief'),
+  draft: jsonb('draft').notNull().$type<CheckedDraft>(),
+  notesRead: integer('notes_read').notNull().default(0),
+  photosRead: integer('photos_read').notNull().default(0),
+  state: text('state').notNull().$type<'ready' | 'used' | 'dismissed'>().default('ready'),
+  /** The estimate a person saved from it. */
+  estimateId: uuid('estimate_id').references(() => coreEstimates.id, { onDelete: 'set null' }),
+  settledBy: userRef('settled_by'),
+  settledAt: ts('settled_at'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/** Where a job's budget stood when it was last looked at, and what the AI said is driving it: costs only. */
+export const budgetWatch = addonContractor.table('budget_watch', {
+  recordId: uuid('record_id').primaryKey(),
+  workspaceId: workspaceRef(),
+  level: text('level').notNull().$type<WatchLevel>().default('ok'),
+  band: integer('band').notNull().default(0),
+  why: text('why'),
+  suggestions: jsonb('suggestions').notNull().$type<string[]>().default([]),
+  advisedAt: ts('advised_at'),
+  /** When people were last told. */
+  warnedAt: ts('warned_at'),
+  checkedAt: ts('checked_at').notNull().defaultNow(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/** One day of one job, written up from what the crew left. No money in it. */
+export const dailyReports = addonContractor.table('daily_reports', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: workspaceRef(),
+  recordId: uuid('record_id').notNull(),
+  day: day('day').notNull(),
+  summary: text('summary').notNull(),
+  done: jsonb('done').notNull().$type<string[]>().default([]),
+  issues: jsonb('issues').notNull().$type<string[]>().default([]),
+  materials: jsonb('materials').notNull().$type<string[]>().default([]),
+  nextSteps: jsonb('next_steps').notNull().$type<string[]>().default([]),
+  /** The update for the customer: it goes only when a person sends it. */
+  forCustomer: text('for_customer'),
+  crew: jsonb('crew').notNull().$type<{ name: string; hours: number }[]>().default([]),
+  photoFileIds: uuid('photo_file_ids').array().notNull().default([]),
+  notesRead: integer('notes_read').notNull().default(0),
+  photosRead: integer('photos_read').notNull().default(0),
+  /** Who pressed Write; null when it was written on its own. */
+  askedBy: userRef('asked_by'),
+  writtenAt: ts('written_at').notNull().defaultNow(),
+  editedBy: userRef('edited_by'),
+  editedAt: ts('edited_at'),
+  sentBy: userRef('sent_by'),
+  sentAt: ts('sent_at'),
+  sentChannel: text('sent_channel').$type<'email' | 'sms'>(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
 export const CONTRACTOR_TABLES = {
   jobs,
   phases,
@@ -266,4 +467,14 @@ export const CONTRACTOR_TABLES = {
   workOrders,
   workOrderItems,
   workOrderSubs,
+  materials,
+  materialCosts,
+  timeEntries,
+  timeCosts,
+  laborRates,
+  otherCosts,
+  notes,
+  estimateDrafts,
+  budgetWatch,
+  dailyReports,
 } as const;

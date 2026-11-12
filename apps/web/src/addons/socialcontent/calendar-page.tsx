@@ -2,8 +2,8 @@
 /**
  * Calendar (docs/socialcontent.md, "Making posts"; decisions 13 to 20): the business's own posts for today and the
  * two weeks after, day by day, written by the AI from the Playbook and saved ideas. Each waits for an OK (decision
- * 15): open one to change it, OK it or skip it, or **OK the week** in one go. Open days in the plan show where a post
- * is still wanted; **Fill the calendar** has the AI write them all, and after the first time it tops up once a week
+ * 15): open one to change it, OK it or skip it, or **OK the week** in one go; an owner or admin removes one from its
+ * row or its sheet, which opens its day again. Open days in the plan show where a post is still wanted; **Fill the calendar** has the AI write them all, and after the first time it tops up once a week
  * on its own (decision 18), until **Fill on its own** is turned off (the owner, 11 Nov). OK'd posts go up at their
  * times from the reading computer (part 9), and the card says whose computer that is and when it last checked in.
  * Until the main offer is live, nothing is written, and the page says so (pick 7b, 11 Nov).
@@ -19,10 +19,11 @@ import {
   planShown,
   postingLines,
 } from '@hfos/core/addons/socialcontent/words';
-import { CalendarCheck, CalendarPlus, PenLine } from 'lucide-react';
+import { CalendarCheck, CalendarPlus, PenLine, Trash2 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '@/components/shell/page-header';
+import { useCan } from '@/components/shell/workspace-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -31,7 +32,7 @@ import { apiBrowser, unwrap } from '@/lib/api/client';
 import { workerPost } from '@/lib/api/worker';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { OfferNotLive } from './offer-notice';
-import { PostPicture, PostSheet, STATE_BADGE, timeIn } from './post-sheet';
+import { PostPicture, PostSheet, RemovePostDialog, STATE_BADGE, timeIn } from './post-sheet';
 import type { CalendarView, Content } from './types';
 import { useAct } from './use-act';
 
@@ -54,6 +55,11 @@ export function CalendarPage({
   const api = apiBrowser();
   const [openId, setOpenId] = useState<string | null>(openPostId);
   const [fetched, setFetched] = useState<Content | null>(null);
+  const [removing, setRemoving] = useState<Content | null>(null);
+  // Removing a post is archiving its record: owners and admins (records.archive).
+  const canRemove = useCan('records.archive');
+  const removable = (p: Content) =>
+    canRemove && p.state !== 'posted' && p.state !== 'posting' ? () => setRemoving(p) : undefined;
 
   const all = useMemo(
     () => [...c.posts, ...c.undated, ...c.recent],
@@ -234,7 +240,13 @@ export function CalendarPage({
               </h2>
               <div className="space-y-2">
                 {posts.map((p) => (
-                  <PostRow key={p.id} post={p} timeZone={c.timeZone} onOpen={() => show(p.id)} />
+                  <PostRow
+                    key={p.id}
+                    post={p}
+                    timeZone={c.timeZone}
+                    onOpen={() => show(p.id)}
+                    onRemove={removable(p)}
+                  />
                 ))}
                 {free.map((o) => (
                   <div
@@ -269,7 +281,13 @@ export function CalendarPage({
           <h2 className="mb-2 text-[13px] font-semibold text-text-2">{W.calendar.undated}</h2>
           <div className="space-y-2">
             {c.undated.map((p) => (
-              <PostRow key={p.id} post={p} timeZone={c.timeZone} onOpen={() => show(p.id)} />
+              <PostRow
+                key={p.id}
+                post={p}
+                timeZone={c.timeZone}
+                onOpen={() => show(p.id)}
+                onRemove={removable(p)}
+              />
             ))}
           </div>
         </section>
@@ -296,6 +314,11 @@ export function CalendarPage({
           onClose={() => show(null)}
         />
       ) : null}
+      <RemovePostDialog
+        workspaceId={workspaceId}
+        post={removing}
+        onClose={() => setRemoving(null)}
+      />
     </div>
   );
 }
@@ -304,50 +327,68 @@ function PostRow({
   post: p,
   timeZone,
   onOpen,
+  onRemove,
 }: {
   post: Content;
   timeZone: string;
   onOpen: () => void;
+  /** Takes it off the calendar, after asking; absent for those who can't, or a post that went up. */
+  onRemove?: () => void;
 }) {
   const first = p.pictures[0];
   // A post that went up: its latest numbers, or that it did well, in one line.
   const numbers = numbersLines(p, (n) => networkName(n as PostingNetwork)).at(-1);
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className={`flex w-full items-start gap-3 rounded-card border border-border bg-card px-4 py-3 text-left transition-colors hover:bg-card-2 ${p.state === 'skipped' ? 'opacity-60' : ''}`}
-      data-testid={`socialcontent-post-${p.id}`}
-    >
-      <div className="h-[60px] w-12 flex-none overflow-hidden rounded-md bg-card-2">
-        {first ? <PostPicture picture={first} className="h-full w-full object-cover" /> : null}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-text-3">
-          <span>{networkName(p.network)}</span>
-          {p.postAt ? <span>{timeIn(p.postAt, timeZone)}</span> : null}
-          <span>{W.post.formats[p.format]}</span>
-          <Badge variant={STATE_BADGE[p.state]}>{W.post.states[p.state]}</Badge>
-          {p.pictureState === 'waiting' || p.pictureState === 'making' ? (
-            <span>{W.post.pictureStates.making}</span>
+    <div className="relative">
+      <button
+        type="button"
+        onClick={onOpen}
+        className={`flex w-full items-start gap-3 rounded-card border border-border bg-card px-4 py-3 text-left transition-colors hover:bg-card-2 ${p.state === 'skipped' ? 'opacity-60' : ''} ${onRemove ? 'pr-12' : ''}`}
+        data-testid={`socialcontent-post-${p.id}`}
+      >
+        <div className="h-[60px] w-12 flex-none overflow-hidden rounded-md bg-card-2">
+          {first ? <PostPicture picture={first} className="h-full w-full object-cover" /> : null}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-text-3">
+            <span>{networkName(p.network)}</span>
+            {p.postAt ? <span>{timeIn(p.postAt, timeZone)}</span> : null}
+            <span>{W.post.formats[p.format]}</span>
+            <Badge variant={STATE_BADGE[p.state]}>{W.post.states[p.state]}</Badge>
+            {p.pictureState === 'waiting' || p.pictureState === 'making' ? (
+              <span>{W.post.pictureStates.making}</span>
+            ) : null}
+          </div>
+          <div className="mt-1 truncate text-[14px] font-medium text-text">{p.title}</div>
+          <div className="mt-0.5 line-clamp-2 text-[13px] text-text-2">
+            {p.hook ?? p.words.split('\n')[0]}
+          </div>
+          {p.state === 'draft' && p.stillNeeds ? (
+            <div className="mt-1 text-[12.5px] text-warning-text">{p.stillNeeds}</div>
+          ) : null}
+          {numbers ? (
+            <div
+              className={`mt-1 text-[12.5px] ${numbers.well ? 'text-success-text' : 'text-text-3'}`}
+              data-testid={`socialcontent-post-${p.id}-numbers`}
+            >
+              {numbers.text}
+            </div>
           ) : null}
         </div>
-        <div className="mt-1 truncate text-[14px] font-medium text-text">{p.title}</div>
-        <div className="mt-0.5 line-clamp-2 text-[13px] text-text-2">
-          {p.hook ?? p.words.split('\n')[0]}
-        </div>
-        {p.state === 'draft' && p.stillNeeds ? (
-          <div className="mt-1 text-[12.5px] text-warning-text">{p.stillNeeds}</div>
-        ) : null}
-        {numbers ? (
-          <div
-            className={`mt-1 text-[12.5px] ${numbers.well ? 'text-success-text' : 'text-text-3'}`}
-            data-testid={`socialcontent-post-${p.id}-numbers`}
-          >
-            {numbers.text}
-          </div>
-        ) : null}
-      </div>
-    </button>
+      </button>
+      {onRemove ? (
+        <Button
+          size="icon"
+          variant="ghost"
+          className="absolute right-2 top-2"
+          onClick={onRemove}
+          aria-label={W.post.removeLabel(p.title)}
+          title={W.post.remove}
+          data-testid={`socialcontent-post-${p.id}-remove`}
+        >
+          <Trash2 className="h-4 w-4" aria-hidden />
+        </Button>
+      ) : null}
+    </div>
   );
 }

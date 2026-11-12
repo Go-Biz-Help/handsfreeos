@@ -570,6 +570,70 @@ describe('a warm-up on Alignable', () => {
     expect(missedPosted()).toEqual([]);
   });
 
+  it('visits while they decide on the connection request: likes up to the visit’s recent posts of theirs, and asks nothing after (decision 161)', async () => {
+    pageWith(
+      [
+        post({ id: 93, words: 'We hired our second plumber this week!' }),
+        post({ id: 94, words: 'Sad news: our founder passed away on Monday.' }),
+        post({ id: 95, by: '/austin-tx/best-bakery', name: 'Sam Lee' }),
+        post({ id: 96 }),
+        post({ id: 97, when: '3 months ago' }),
+      ].join(''),
+    );
+    const pressed: string[] = [];
+    const behave = world.behave;
+    world.behave = (doc, url) => {
+      behave(doc, url);
+      for (const like of doc.querySelectorAll('[data-like]'))
+        like.addEventListener('click', () => pressed.push(like.getAttribute('data-like')!));
+    };
+    const outcome = await doWork(
+      {
+        do: 'step',
+        item: item({
+          kind: 'warm_up',
+          keepWarm: { likes: 2, until: '2026-11-26T06:00:00.000Z' },
+        }),
+      },
+      ME.businessId,
+      false,
+    );
+    expect(outcome).toEqual({
+      done: true,
+      line: 'Liked 2 posts of Dana Reyes’s while they decide on your connection request',
+    });
+    // Their own recent posts: never the sad news, another business's, or one from months ago.
+    expect(pressed).toEqual(['93', '96']);
+    expect(notedAs().map((n) => n.postUrl)).toEqual([
+      `${AL}/biz/discussions/93`,
+      `${AL}/biz/discussions/96`,
+    ]);
+    expect(missedPosted()).toEqual([]);
+  });
+
+  it('counts a visit with no recent post of theirs to like, and tells HandsFreeOS (decision 161)', async () => {
+    pageWith(post({ id: 98, when: '3 months ago' }));
+    const outcome = await doWork(
+      {
+        do: 'step',
+        item: item({
+          kind: 'warm_up',
+          keepWarm: { likes: 2, until: '2026-11-26T06:00:00.000Z' },
+        }),
+      },
+      ME.businessId,
+      false,
+    );
+    expect(outcome).toEqual({
+      done: true,
+      line: 'No new post of Dana Reyes’s to like on this visit: the next comes in a few days',
+    });
+    expect(world.noted).toEqual([]);
+    expect(missedPosted().map((p) => p.body)).toEqual([
+      { workspaceId: ME.businessId, profileId: PROFILE_ID },
+    ]);
+  });
+
   it('counts the look alone when their page shows no recent post of theirs, and the request needn’t wait', async () => {
     pageWith(post({ id: 92, when: '3 months ago' }));
     const outcome = await doWork(

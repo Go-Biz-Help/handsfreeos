@@ -11,6 +11,7 @@ import type { CommandContext, QueryContext } from '../../../kernel/types';
 import { addonTimelineLine } from '../../server';
 import type { StarterItem } from '../checklists';
 import { contractorAddon } from '../manifest';
+import { DEFAULT_MATERIALS_ALERT_HOURS } from '../materials';
 import { jobPercent, type JobKind, type JobStatus, type PhaseStatus } from '../progress';
 import { ChecklistStarter } from '../schemas';
 import { jobs, phases } from '../tables';
@@ -72,6 +73,12 @@ export async function settingsOf(ctx: Ctx): Promise<{
   trades: readonly string[];
   phases: readonly string[];
   checklist: readonly StarterItem[];
+  /** How long before a visit its missing materials are told; 0 is never. */
+  materialsAlertHours: number;
+  /** People who may see job costs are told when a job heads over its budget (part 7). On unless turned off. */
+  budgetWarnings: boolean;
+  /** Each job's daily report is written on its own (part 7). On unless turned off. */
+  dailyReports: boolean;
 }> {
   const [i] = await rows<{ settings: Record<string, unknown> | null }>(
     ctx.tx,
@@ -81,10 +88,17 @@ export async function settingsOf(ctx: Ctx): Promise<{
   const s = i?.settings ?? {};
   const list = (v: unknown) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []);
   const checklist = z.array(ChecklistStarter).safeParse(s.checklist ?? []);
+  const hours = s.materialsAlertHours;
   return {
     trades: list(s.trades),
     phases: list(s.phases),
     checklist: checklist.success ? checklist.data : [],
+    materialsAlertHours:
+      typeof hours === 'number' && Number.isInteger(hours) && hours >= 0
+        ? hours
+        : DEFAULT_MATERIALS_ALERT_HOURS,
+    budgetWarnings: s.budgetWarnings !== false,
+    dailyReports: s.dailyReports !== false,
   };
 }
 
@@ -150,6 +164,21 @@ export async function loadJob(
     percentDone: j.percent_done,
     leadUserId: j.lead_user_id,
   };
+}
+
+/**
+ * Whether a change that waited on a phone was made while the job was still open: before whatever closed it. What a
+ * tech ticked or counted on the job with no signal still counts when the office closed the job before their phone
+ * got through. Never true for a change made now.
+ */
+export async function madeWhileOpen(ctx: CommandContext, job: Job): Promise<boolean> {
+  const at = ctx.meta.occurredAt;
+  if (!at) return false;
+  const [j] = await rows<{ status_at: string }>(
+    ctx.tx,
+    sql`select status_at::text from addon_contractor.jobs where record_id = ${job.recordId}`,
+  );
+  return !!j && at.getTime() < new Date(j.status_at).getTime();
 }
 
 /** A job's phases, in order. */

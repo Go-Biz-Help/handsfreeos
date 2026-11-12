@@ -68,6 +68,8 @@ import {
 } from '../tables';
 import { CONTRACTOR_WORDS as W, okNeededWords, REFUSALS } from '../words';
 import { inWorkspace, jobLine, loadJob, pairsOf, type Ctx, type Job } from './common';
+import { draftBy, draftOut, markDraftUsed } from './draft-rows';
+import { addEstimateMaterials, type EstimateMaterialLine } from './materials';
 
 const estimatePath = (id: string) => `a/contractor/estimates/${id}`;
 const idIn = (v: unknown, key: string) => String((v as Record<string, unknown>)[key] ?? '');
@@ -387,6 +389,11 @@ export const estimateSave = defineAddonCommand(contractorAddon, {
       estimateId = made.output.estimateId;
       created = true;
     }
+    // Started from the AI's draft (part 7): a person has it now, so the draft is used. Only a new estimate can be.
+    const fromDraft =
+      created && input.draftId
+        ? await markDraftUsed(ctx, input.draftId, estimateId, job?.recordId ?? null)
+        : false;
 
     await ctx.tx
       .insert(links)
@@ -440,10 +447,18 @@ export const estimateSave = defineAddonCommand(contractorAddon, {
         options: input.options.length,
         created,
         waitingOk: !!check.asked && !check.canSend,
+        ...(fromDraft ? { fromDraft: true } : {}),
       },
     });
     if (created && fresh.jobId)
-      await jobLine(ctx, fresh.jobId, 'started an estimate for this job', { eventId });
+      await jobLine(
+        ctx,
+        fresh.jobId,
+        fromDraft
+          ? 'checked the AI’s draft and saved it as an estimate for this job'
+          : 'started an estimate for this job',
+        { eventId },
+      );
     return {
       estimateId,
       revision: fresh.revision,
@@ -614,20 +629,55 @@ export const estimateSendBuilt = defineAddonCommand(contractorAddon, {
   },
 });
 
+/** An approved estimate's lines costed as materials, at the option the customer picked. */
+async function materialLinesOf(
+  ctx: Ctx,
+  estimateId: string,
+  option: number,
+): Promise<EstimateMaterialLine[]> {
+  const list = await rows<{
+    position: number;
+    name: string;
+    quantity: number;
+    unit_label: string | null;
+    product_id: string | null;
+    unit_cost_cents: number | null;
+  }>(
+    ctx.tx,
+    sql`select l.position, l.name, l.quantity::float8 as quantity, l.unit_label, l.product_id,
+          c.unit_cost_cents::float8 as unit_cost_cents
+        from app.estimate_lines l
+        join addon_contractor.estimate_costs c on c.estimate_id = l.estimate_id
+          and c.option_position = ${option} and c.line_position = l.position and c.kind = 'material'
+        where l.estimate_id = ${estimateId}
+        order by l.position`,
+  );
+  return list.map((l) => ({
+    line: l.position,
+    name: l.name,
+    quantity: Number(l.quantity),
+    unitLabel: l.unit_label,
+    productId: l.product_id,
+    unitCostCents: l.unit_cost_cents === null ? null : Number(l.unit_cost_cents),
+  }));
+}
+
 /**
  * The worker: the customer said yes to an estimate, so its job's price and budget are what was agreed. Every
- * approved estimate on the job counts (a change order adds to the first), each at the option they picked.
+ * approved estimate on the job counts (a change order adds to the first), each at the option they picked. The
+ * estimate's material lines go onto the job's materials, once each (the owner's decision 9).
  */
 export const estimateFillJob = defineAddonCommand(contractorAddon, {
   name: 'contractor.estimate.fill_job',
-  description: 'Worker: an approved estimate fills its job’s price and budget.',
+  description:
+    'Worker: an approved estimate fills its job’s price and budget, and puts its materials on the job’s list.',
   risk: 0,
   input: EstimateFillJobInput,
   output: EstimateFillJobOutput,
   permission: 'contractor.use',
   actors: ['system'],
   scope: inWorkspace,
-  emits: ['contractor.job.money_set'],
+  emits: ['contractor.job.money_set', 'contractor.materials.filled'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     const [link] = await rows<{ record_id: string | null }>(
@@ -645,7 +695,8 @@ export const estimateFillJob = defineAddonCommand(contractorAddon, {
           where x.record_id = ${job.recordId} and x.workspace_id = ${ws} and e.status = 'accepted'
           order by e.accepted_at`,
     );
-    if (!approved.some((e) => e.id === input.estimateId)) return null;
+    const picked = approved.find((e) => e.id === input.estimateId);
+    if (!picked) return null;
     const sum = { priceCents: 0, laborCents: 0, materialsCents: 0, otherCents: 0, laborHours: 0 };
     for (const e of approved) {
       const lines = await ownLines(ctx, e.id, e.option, await costRowsOf(ctx, e.id));
@@ -682,7 +733,13 @@ export const estimateFillJob = defineAddonCommand(contractorAddon, {
       'set the job’s price and budget from the estimate the customer approved',
       { eventId },
     );
-    return { jobId: job.recordId, estimates: approved.length };
+    const added = await addEstimateMaterials(
+      ctx,
+      job,
+      picked.id,
+      await materialLinesOf(ctx, picked.id, picked.option),
+    );
+    return { jobId: job.recordId, estimates: approved.length, materials: added };
   },
 });
 
@@ -846,6 +903,10 @@ export const estimateBuilder = defineAddonQuery(contractorAddon, {
                 from app.people where id = ${customer.personId} and workspace_id = ${ws} and archived_at is null`,
           )
         : [];
+      // The AI's draft to start from (part 7): only one still waiting, and only for the job named.
+      const found = input.draftId ? await draftBy(ctx, { draftId: input.draftId }) : null;
+      if (input.draftId && (!found || found.state !== 'ready' || found.recordId !== job?.id))
+        throw HfosError.notFound(REFUSALS.draftGone);
       return {
         estimate: null,
         costs: [],
@@ -853,6 +914,7 @@ export const estimateBuilder = defineAddonQuery(contractorAddon, {
         person: person
           ? { id: person.id, fullName: person.full_name, email: person.email, phone: person.phone }
           : null,
+        draft: found ? draftOut(found) : null,
         check: null,
         estimating: await estimatingOf(ctx),
         may,
@@ -863,11 +925,13 @@ export const estimateBuilder = defineAddonQuery(contractorAddon, {
       workspaceId: ws,
       estimateId: b.estimateId,
     });
+    const from = await draftBy(ctx, { estimateId: b.estimateId });
     return {
       estimate,
       costs: await costRowsOf(ctx, b.estimateId),
       job: await jobOf(b.jobId),
       person: estimate.person,
+      draft: from ? draftOut(from) : null,
       check: await checkOf(ctx, b),
       estimating: await estimatingOf(ctx),
       may,
@@ -948,6 +1012,47 @@ export const estimateList = defineAddonQuery(contractorAddon, {
   },
 });
 
+/** The price list with what each item costs the business, by name: what Item costs shows and the AI's draft reads. */
+export async function itemCostRows(ctx: Ctx, most = 1000) {
+  const list = await rows<{
+    id: string;
+    name: string;
+    description: string | null;
+    kind: 'product' | 'service' | 'fee';
+    unit_label: string;
+    unit_price_cents: number;
+    taxable: boolean;
+    cost_kind: CostKind | null;
+    cost_cents: number | null;
+  }>(
+    ctx.tx,
+    sql`select p.id, p.name, p.description, p.kind::text as kind, p.unit_label,
+          p.unit_price_cents::float8 as unit_price_cents, p.taxable, c.kind as cost_kind,
+          c.cost_cents::float8 as cost_cents
+        from app.products p
+        left join addon_contractor.item_costs c on c.product_id = p.id
+        where p.workspace_id = ${ctx.scope.workspaceId!} and p.archived_at is null
+        order by lower(p.name), p.id
+        limit ${most}`,
+  );
+  return list.map((p) => {
+    const cost = p.cost_cents === null ? null : Number(p.cost_cents);
+    const price = Number(p.unit_price_cents);
+    return {
+      productId: p.id,
+      name: p.name,
+      description: p.description,
+      productKind: p.kind,
+      unitLabel: p.unit_label,
+      unitPriceCents: price,
+      taxable: p.taxable,
+      kind: p.cost_kind ?? defaultCostKind(p.kind),
+      costCents: cost,
+      marginBp: cost === null ? null : marginBpOf(price, cost),
+    };
+  });
+}
+
 export const itemCostList = defineAddonQuery(contractorAddon, {
   name: 'contractor.item_cost.list',
   description:
@@ -963,44 +1068,6 @@ export const itemCostList = defineAddonQuery(contractorAddon, {
     keywords: ['item costs', 'price list costs', 'what does it cost us'],
   },
   async handler(ctx) {
-    const list = await rows<{
-      id: string;
-      name: string;
-      description: string | null;
-      kind: 'product' | 'service' | 'fee';
-      unit_label: string;
-      unit_price_cents: number;
-      taxable: boolean;
-      cost_kind: CostKind | null;
-      cost_cents: number | null;
-    }>(
-      ctx.tx,
-      sql`select p.id, p.name, p.description, p.kind::text as kind, p.unit_label,
-            p.unit_price_cents::float8 as unit_price_cents, p.taxable, c.kind as cost_kind,
-            c.cost_cents::float8 as cost_cents
-          from app.products p
-          left join addon_contractor.item_costs c on c.product_id = p.id
-          where p.workspace_id = ${ctx.scope.workspaceId!} and p.archived_at is null
-          order by lower(p.name), p.id
-          limit 1000`,
-    );
-    return {
-      items: list.map((p) => {
-        const cost = p.cost_cents === null ? null : Number(p.cost_cents);
-        const price = Number(p.unit_price_cents);
-        return {
-          productId: p.id,
-          name: p.name,
-          description: p.description,
-          productKind: p.kind,
-          unitLabel: p.unit_label,
-          unitPriceCents: price,
-          taxable: p.taxable,
-          kind: p.cost_kind ?? defaultCostKind(p.kind),
-          costCents: cost,
-          marginBp: cost === null ? null : marginBpOf(price, cost),
-        };
-      }),
-    };
+    return { items: await itemCostRows(ctx) };
   },
 });

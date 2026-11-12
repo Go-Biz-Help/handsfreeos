@@ -72,10 +72,12 @@ import {
   keptProfile,
   neverDeleted,
   once,
+  outreachSettingsOf,
   pitchable,
   requestAnswerColumns,
   type Ctx,
 } from './common';
+import { endedWarmUp } from './keep-warm';
 import { tally } from './tallies';
 import { warnDay } from './day';
 import { playbooksInUse } from './friends';
@@ -210,18 +212,19 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
     const done = await endsToday(ctx, me, todayFrom, input.platform);
     // On a follow network (Instagram's) tidying unfollows (the Instagram and Alignable plan's question 5): never anyone
     // who wrote back, a customer, someone kept, or anyone the person followed before HandsFreeOS saw it.
-    const unfollowing =
-      kit.requestsMessageAfterDays !== null
-        ? sql`and p.person_id is null and not f.keep
+    const unfollowing = kit.follows
+      ? sql`and p.person_id is null and not f.keep
             and exists (select 1 from addon_outreach.touches t
               where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'friend_request')
             and not exists (select 1 from addon_outreach.replies r
               where r.profile_id = p.id and r.user_id = ${me})
             and not exists (select 1 from addon_outreach.file_chats c
               where c.profile_id = p.id and c.user_id = ${me} and not c.last_from_me)`
-        : sql``;
+      : sql``;
 
-    // Past the business's wait, or marked by Cancel all however new (decision 121).
+    // Past the business's wait, or marked by Cancel all however new (decision 121). The wait is their warm-up
+    // (decision 161), from when the request went, or from when warm-ups began for one already waiting then
+    // (`warm_up_from`, the owner's 6b).
     const cancel = await rows<Found>(
       ctx.tx,
       sql`select p.id, p.name, p.url, p.platform_id, p.username, f.since, null as last_contact, p.intro,
@@ -231,7 +234,8 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
           left join addon_outreach.groups g on g.id = p.group_id
           where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}
             and f.state = 'request_sent'
-            and (f.since <= ${new Date(now - weeks * 7 * DAY).toISOString()}::timestamptz or ${marked})
+            and (greatest(f.since, f.warm_up_from)
+                <= ${new Date(now - weeks * 7 * DAY).toISOString()}::timestamptz or ${marked})
             ${unfollowing}
           order by f.since, p.id limit ${TIDY_MOST}`,
     );
@@ -470,6 +474,25 @@ export const friendEnd = defineAddonCommand(outreachAddon, {
           ? { friendship: 'not_friends' as const, lastSeenBy: me, lastSeenAt: at }
           : {},
       );
+      // A request withdrawn once its whole warm-up went by with no answer (decision 161): the tool leaves them alone
+      // from now on, unless they follow back or write first. One Cancel all took sooner had no warm-up to end.
+      const [waited] =
+        input.kind === 'cancel_request' && !input.already
+          ? await rows<{ since: Date | string; warm_up_from: Date | string | null }>(
+              ctx.tx,
+              sql`select since, warm_up_from from addon_outreach.friends
+                  where workspace_id = ${ctx.scope.workspaceId!} and user_id = ${me}
+                    and profile_id = ${profile.id} and state = 'request_sent'`,
+            )
+          : [];
+      const afterWarmUp =
+        waited !== undefined &&
+        endedWarmUp(
+          waited.since,
+          waited.warm_up_from,
+          (await outreachSettingsOf(ctx)).cancelRequestsAfterWeeks,
+          at,
+        );
       await keepFriendStates(ctx, me, [{ profileId: profile.id, state: 'not_friends' }], at);
       if (!input.already)
         await ctx.tx.insert(friendEnds).values({
@@ -477,6 +500,7 @@ export const friendEnd = defineAddonCommand(outreachAddon, {
           userId: me,
           profileId: profile.id,
           kind: input.kind,
+          afterWarmUp,
           at,
         });
       // Done by the extension: counted (decision 140); one done already when it got there isn't.
@@ -654,7 +678,7 @@ export const friendsCancelAll = defineAddonCommand(outreachAddon, {
     const now = at.getTime();
     const kit = NETWORKS[input.platform];
     const { friendRequests } = kit.words;
-    if (kit.requestsMessageAfterDays !== null)
+    if (kit.follows)
       throw HfosError.rule(
         'outreach_cancel_all_follows',
         409,

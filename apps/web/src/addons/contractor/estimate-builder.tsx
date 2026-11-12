@@ -30,6 +30,7 @@ import {
   addDays,
   dayLabel,
   depositProblem,
+  formatDate,
   lineSubtotalCents,
   localDateOf,
   localInstant,
@@ -37,7 +38,7 @@ import {
   parseMoney,
   type MoneySettings,
 } from '@hfos/core';
-import { AlertTriangle, ArrowLeft, Boxes, Clock, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Boxes, Clock, Plus, Sparkles, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -52,6 +53,7 @@ import {
   draftOfEstimate,
   draftProblem,
   draftTotals,
+  lineKey,
   newLine,
   optionLines,
   OPTIONS_MAX,
@@ -68,6 +70,7 @@ import { ProductPicker, type PickedProduct } from '@/components/money/product-pi
 import { StatusBadge } from '@/components/money/status-badge';
 import { percentLabel, TotalRow } from '@/components/money/totals';
 import { Avatar } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -80,9 +83,17 @@ import type { ProductRow } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
 import { contractorHref, jobHref } from './bits';
 import { CheckNote, CostingRows, Margin, OptionMargins } from './costing';
-import type { EstimateBuilderData, Estimating, ItemCost, MarginCheck } from './types';
+import type {
+  BuilderDraft,
+  DraftedLine,
+  EstimateBuilderData,
+  Estimating,
+  ItemCost,
+  MarginCheck,
+} from './types';
 
 const B = CONTRACTOR_WORDS.builder;
+const A = CONTRACTOR_WORDS.aiDraft;
 const SPLIT = 'grid grid-cols-1 items-start gap-5 min-[1360px]:grid-cols-[minmax(0,1fr)_340px]';
 
 /** What the builder keeps beside a line: how it's costed, what one costs, and whether its price still follows that. */
@@ -91,11 +102,18 @@ interface LineCost {
   readonly unitCostCents: number | null;
   /** The price hasn't been typed yet, so it follows the cost at the business's starting markup. */
   readonly auto?: boolean;
+  /** The AI guessed this cost (part 7): it's marked until someone changes it. */
+  readonly guessed?: boolean;
 }
 
 const costOf = (line: DraftLine): LineCost => {
   const x = (line.extra ?? {}) as Partial<LineCost>;
-  return { kind: x.kind ?? 'material', unitCostCents: x.unitCostCents ?? null, auto: x.auto };
+  return {
+    kind: x.kind ?? 'material',
+    unitCostCents: x.unitCostCents ?? null,
+    auto: x.auto,
+    ...(x.guessed ? { guessed: true } : {}),
+  };
 };
 const withCost = (cost: LineCost): Pick<DraftLine, 'extra'> => ({ extra: { ...cost } });
 
@@ -111,13 +129,46 @@ const estimateHref = (workspaceId: string, id: string) =>
 const documentHref = (workspaceId: string, id: string) =>
   `/app/w/${workspaceId}/money/estimates/${id}`;
 
-/** The draft the builder opens with: the estimate as it's kept, each line with its cost, or a blank one for a job. */
+/** A line the AI drafted, as the builder holds one: its cost beside it, marked when the cost is a guess. */
+const lineFromAi = (l: DraftedLine): DraftLine =>
+  newLine({
+    productId: l.productId,
+    name: l.name,
+    description: l.description ?? '',
+    quantity: l.quantity,
+    unitLabel: l.unitLabel,
+    unitPriceCents: l.unitPriceCents,
+    taxable: l.taxable,
+    ...withCost({
+      kind: l.kind,
+      unitCostCents: l.unitCostCents,
+      ...(l.guessed ? { guessed: true } : {}),
+    }),
+  });
+
+/**
+ * The draft the builder opens with: the estimate as it's kept, each line with its cost; or, for a new one, the AI's
+ * draft when it starts from one (nothing of it is saved until the person saves), else a blank one for the job.
+ */
 function initialDraft(data: EstimateBuilderData, settings: MoneySettings): DocumentDraft {
-  if (!data.estimate)
-    return blankDraft('estimate', settings, [], {
+  if (!data.estimate) {
+    const blank = blankDraft('estimate', settings, [], {
       person: data.person,
-      title: data.job?.name ?? '',
+      title: data.draft?.draft.title ?? data.job?.name ?? '',
     });
+    const sets = data.draft?.draft.options ?? [];
+    if (sets.length > 1)
+      return {
+        ...blank,
+        lines: [],
+        options: sets.map((o) => ({
+          key: lineKey(),
+          name: o.name,
+          lines: o.lines.map(lineFromAi),
+        })),
+      };
+    return sets[0] ? { ...blank, lines: sets[0].lines.map(lineFromAi) } : blank;
+  }
   const draft = draftOfEstimate(data.estimate, settings);
   const put = (lines: DraftLine[], option: number) =>
     lines.map((l, n) => {
@@ -253,6 +304,10 @@ export function EstimateBuilder({
     [draft, settings, estimating.minMarginBp],
   );
   const dirty = JSON.stringify(draft) !== JSON.stringify(edit.draft);
+  // Lines still carrying a cost the AI guessed, in every option.
+  const guessedNow = (
+    draft.options.length ? draft.options.flatMap((o) => o.lines) : draft.lines
+  ).filter((l) => costOf(l).guessed).length;
   const problem = draftProblem(draft);
   const depositIssue = depositProblem(depositTerms(draft), smallestTotalCents(draft, settings));
   const taxed = settings.tax.rateBp > 0;
@@ -278,9 +333,11 @@ export function EstimateBuilder({
             workspaceId,
             ...(estimateId
               ? { estimateId, baseRevision: edit.rev }
-              : data.job
-                ? { jobId: data.job.id }
-                : {}),
+              : {
+                  ...(data.job ? { jobId: data.job.id } : {}),
+                  // Started from the AI's draft: saving is what makes it an estimate, and uses the draft up.
+                  ...(data.draft ? { draftId: data.draft.id } : {}),
+                }),
             personId: draft.personId,
             title: draft.title.trim() || null,
             notes: draft.notes.trim() || null,
@@ -426,6 +483,15 @@ export function EstimateBuilder({
           </Button>
         </div>
       </div>
+
+      {data.draft ? (
+        <AiDraftNote
+          draft={data.draft}
+          saved={estimateId !== null}
+          guessed={guessedNow}
+          timeZone={timeZone}
+        />
+      ) : null}
 
       {data.may.bill ? null : (
         <p
@@ -724,6 +790,60 @@ export function EstimateBuilder({
   );
 }
 
+/**
+ * Says the AI drafted this (part 7; the owner's decision 6: an estimate the AI drafts always waits for a person):
+ * what it read, which costs it guessed, what it assumed and what it couldn't tell. On a new estimate it's the
+ * reminder to check every line before saving; on a saved one, where the estimate came from.
+ */
+function AiDraftNote({
+  draft,
+  saved,
+  guessed,
+  timeZone,
+}: {
+  draft: BuilderDraft;
+  /** The person saved it: it's an estimate now, started from the draft. */
+  saved: boolean;
+  /** Lines on screen still carrying a cost the AI guessed. */
+  guessed: number;
+  timeZone: string;
+}) {
+  const when = formatDate(draft.createdAt, { timeZone });
+  const points = (title: string, list: readonly string[], testId: string) =>
+    list.length ? (
+      <div className="mt-2.5" data-testid={testId}>
+        <h3 className="text-[12px] font-medium uppercase tracking-wide text-text-3">{title}</h3>
+        <ul className="mt-1 list-disc space-y-0.5 pl-5 text-text">
+          {list.map((p) => (
+            <li key={p}>{p}</li>
+          ))}
+        </ul>
+      </div>
+    ) : null;
+  return (
+    <div
+      className="mb-4 rounded-menu bg-accent-soft px-3.5 py-3 text-[13px] leading-[1.5]"
+      role="note"
+      data-testid="builder-ai-draft"
+    >
+      <p className="flex items-start gap-2 font-semibold text-accent-text">
+        <Sparkles className="mt-0.5 h-4 w-4 flex-none" strokeWidth={1.75} />
+        <span>{saved ? A.startedFrom(draft.askedBy, when) : A.bannerTitle}</span>
+      </p>
+      {saved ? null : (
+        <p className="mt-1 text-text-2">{A.bannerBody(draft.notesRead, draft.photosRead)}</p>
+      )}
+      {guessed > 0 ? (
+        <p className="mt-1 text-text-2" data-testid="builder-ai-guessed">
+          {A.bannerGuessed(guessed)}
+        </p>
+      ) : null}
+      {points(A.assumed, draft.draft.assumptions, 'builder-ai-assumed')}
+      {points(A.questions, draft.draft.questions, 'builder-ai-questions')}
+    </div>
+  );
+}
+
 function BackLink({ workspaceId, job }: { workspaceId: string; job: EstimateBuilderData['job'] }) {
   return (
     <Link
@@ -899,7 +1019,8 @@ function BuilderLine({
             className="w-[104px]"
             onChange={(unitCostCents) =>
               onChange({
-                ...withCost({ ...cost, unitCostCents }),
+                // A cost someone typed is theirs, not the AI's guess anymore.
+                ...withCost({ ...cost, unitCostCents, guessed: false }),
                 // Until a price is typed, it follows the cost at the business's starting markup.
                 ...(cost.auto && unitCostCents !== null
                   ? { unitPriceCents: priceFromMarkup(unitCostCents, estimating.markupBp) }
@@ -909,6 +1030,17 @@ function BuilderLine({
             data-testid="line-cost"
           />
         </Small>
+        {cost.guessed ? (
+          <Badge
+            variant="pending"
+            className="mb-[5px]"
+            title={A.guessHint}
+            data-testid="line-guess"
+          >
+            <Sparkles className="h-3 w-3" strokeWidth={2} />
+            {A.guess}
+          </Badge>
+        ) : null}
         <Small label={B.markup}>
           <PercentInput
             valueBp={Math.max(0, markupBp ?? 0)}

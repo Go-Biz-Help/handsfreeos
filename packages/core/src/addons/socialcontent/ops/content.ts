@@ -11,10 +11,10 @@
 import { rows, sql } from '@hfos/db/client';
 import { and, eq } from 'drizzle-orm';
 import { addDays, daysBetween, localDateOf, localInstant } from '../../../calendar/engine/zoned';
-import { customRecordUpdate } from '../../../commands/custom-record';
+import { customRecordArchive, customRecordUpdate } from '../../../commands/custom-record';
 import { HfosError } from '../../../errors';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
-import { executeCommandWithin } from '../../../kernel/execute';
+import { executeCommandWithin, scopeCan } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
@@ -38,6 +38,8 @@ import {
   ContentGetInput,
   ContentListInput,
   ContentListOutput,
+  ContentRemoveInput,
+  ContentRemoveOutput,
   ContentSaveInput,
   ContentSkipInput,
   type Content,
@@ -62,6 +64,10 @@ export const POST_REFUSALS = {
   notOnPost:
     'One of those pictures isn’t on this post anymore. Refresh the page, then add it again with Add your photo.',
   skipped: 'That post is skipped. Bring it back first, then OK it.',
+  removeWho:
+    'Only an owner or admin removes posts. Press Skip it instead, which opens its day for another post too, or ask one of them.',
+  removePosted: (network: string) =>
+    `That post already went up, so it stays on the calendar with its numbers. To take it down, delete it on ${network} itself.`,
 } as const;
 
 export type ContentRow = typeof content.$inferSelect & { title: string };
@@ -711,10 +717,53 @@ export const contentSkip = defineAddonCommand(socialcontentAddon, {
   },
 });
 
+export const contentRemove = defineAddonCommand(socialcontentAddon, {
+  name: 'socialcontent.content.remove',
+  description:
+    'Remove one of the business’s own posts from the calendar for good, so it never goes up and its day is open for another (Fill the calendar or Write one then writes a new one there). Its record is archived, as an add-on’s records are never deleted. Not a post that went up or is going up. Owners and admins.',
+  risk: 2,
+  input: ContentRemoveInput,
+  output: ContentRemoveOutput,
+  permission: 'socialcontent.use',
+  scope: inWorkspace,
+  ai: {
+    tool: 'socialcontent_remove_own_post',
+    autonomy: 'confirm',
+    outcome: (output) => ({
+      words: W.post.removed((output as { openDay?: unknown }).openDay != null),
+      path: PATH,
+    }),
+  },
+  // Its record's archiving is core's command, with that command's own event.
+  emits: [],
+  async handler(ctx, input) {
+    requireHuman(ctx);
+    // Archiving a record is records.archive's, and the database holds that too.
+    if (!scopeCan(ctx.scope, 'records.archive'))
+      throw HfosError.rule('socialcontent_remove_forbidden', 403, POST_REFUSALS.removeWho);
+    const c = await loadContent(ctx, input.postId, { lock: true });
+    if (c.state === 'posted')
+      throw HfosError.rule(
+        'socialcontent_post_posted',
+        409,
+        POST_REFUSALS.removePosted(networkWord(c.network)),
+      );
+    if (c.state === 'posting')
+      throw HfosError.rule('socialcontent_post_posting', 409, POST_REFUSALS.posting);
+    await executeCommandWithin(ctx, customRecordArchive, {
+      workspaceId: ctx.scope.workspaceId!,
+      customRecordId: c.recordId,
+    });
+    const openDay = c.postAt ? localDateOf(c.postAt.getTime(), await timeZoneOf(ctx)) : null;
+    return { postId: c.recordId, openDay };
+  },
+});
+
 export const contentCommands = [
   contentSave,
   contentApprove,
   contentApproveWeek,
   contentSkip,
+  contentRemove,
 ] as const;
 export const contentQueries = [calendarGet, contentGet, contentList] as const;

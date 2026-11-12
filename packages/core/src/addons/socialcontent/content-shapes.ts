@@ -226,6 +226,14 @@ export const ContentSkipInput = z.object({
   skip: z.boolean().default(true),
 });
 
+/** Takes a post off the calendar for good (its record archived: an add-on's records are never deleted), opening its day. */
+export const ContentRemoveInput = z.object({ workspaceId: uuid, postId: uuid });
+export const ContentRemoveOutput = z.object({
+  postId: uuid,
+  /** Its day, in the business's time zone, which is open again for another post; null when it had none. */
+  openDay: LocalDate.nullable(),
+});
+
 export const ContentPostNowInput = z.object({ workspaceId: uuid, postId: uuid });
 
 // ------------------------------------------------------------------------------------------------ the extension

@@ -2967,6 +2967,257 @@
         "required": ["workspaceId", "companyId"]
       }
     },
+    "contractor.job.set_percent": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "percentDone": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          }
+        },
+        "required": ["workspaceId", "jobId", "percentDone"]
+      }
+    },
+    "contractor.job.set_status": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["new", "scheduled", "in_progress", "on_hold", "done", "cancelled"]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "skipReason": {
+            "type": "string",
+            "maxLength": 300
+          }
+        },
+        "required": ["workspaceId", "jobId", "status"]
+      }
+    },
+    "contractor.material.count": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "materialId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "used": {
+            "type": "number",
+            "minimum": -1000000,
+            "maximum": 1000000
+          },
+          "wasted": {
+            "type": "number",
+            "minimum": -1000000,
+            "maximum": 1000000
+          },
+          "returned": {
+            "type": "number",
+            "minimum": -1000000,
+            "maximum": 1000000
+          }
+        },
+        "required": ["workspaceId", "materialId"]
+      }
+    },
+    "contractor.note.add": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "appointmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "audioFileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "photoFileIds": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workspaceId", "jobId"]
+      }
+    },
+    "contractor.note.remove": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "noteId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "noteId"]
+      }
+    },
+    "contractor.phase.update": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "phaseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "status": {
+            "type": "string",
+            "enum": ["not_started", "in_progress", "done"]
+          },
+          "percentDone": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "startsOn": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dueOn": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "phaseId"]
+      }
+    },
+    "contractor.time.set_break": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "appointmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "onBreak": {
+            "type": "boolean"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "appointmentId", "onBreak"]
+      }
+    },
+    "contractor.work_order.item_set": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "done": {
+            "type": "boolean"
+          },
+          "fileId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "itemId", "done"]
+      }
+    },
     "conversation.archive": {
       "offline": "anytime",
       "input": {
@@ -15342,6 +15593,23 @@
       }
     },
     "socialcontent.content.post_now": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "postId"]
+      }
+    },
+    "socialcontent.content.remove": {
       "offline": "online",
       "input": {
         "type": "object",

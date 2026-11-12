@@ -544,9 +544,9 @@ describe('the daily limits', () => {
     expect(
       pastLimitWords({
         ...day,
-        friend_request: 21,
-        comment: 16,
-        like: 41,
+        friend_request: DAILY_LIMITS.friend_request + 1,
+        comment: DAILY_LIMITS.comment + 1,
+        like: DAILY_LIMITS.like + 1,
       }),
     ).toMatch(/^Past today’s limit for friend requests, comments and likes\./);
   });

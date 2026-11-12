@@ -242,6 +242,9 @@ export async function findOrCreateCustomer(
     lastName: string;
     phone?: string | null;
     email?: string | null;
+    /** A second number and notes, from a form that asked for them: kept on a customer this makes, never on one it finds. */
+    phoneAlt?: string | null;
+    notes?: string | null;
     address?: {
       line1?: string | null;
       line2?: string | null;
@@ -261,14 +264,21 @@ export async function findOrCreateCustomer(
     const id = await matchPersonByEmail(ctx.tx, ws, customer.email);
     if (id) return { personId: id, created: false };
   }
+  // No name came with them (a form whose name boxes save to nowhere, or were left blank): their number or address
+  // stands in, as it does for a text, rather than the whole submission failing. Somebody writes the real name over it.
+  const [firstName, lastName] = (customer.firstName + customer.lastName).trim()
+    ? [customer.firstName, customer.lastName]
+    : intakeName({ phone: customer.phone, email: customer.email });
   const out = await personCreate.handler(
     ctx,
     PersonCreateInput.parse({
       workspaceId: ws,
-      firstName: customer.firstName,
-      lastName: customer.lastName,
+      firstName,
+      lastName,
       email: customer.email ?? null,
       phone: customer.phone ?? null,
+      ...(customer.phoneAlt ? { phoneAlt: customer.phoneAlt } : {}),
+      ...(customer.notes ? { notes: customer.notes } : {}),
       source,
       ignoreDuplicates: true,
       ...(customer.address

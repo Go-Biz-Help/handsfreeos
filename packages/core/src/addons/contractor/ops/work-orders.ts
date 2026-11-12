@@ -18,6 +18,7 @@ import { messageSend } from '../../../commands/message';
 import { HfosError } from '../../../errors';
 import { userIdOf } from '../../../kernel/actor';
 import { executeCommandWithin } from '../../../kernel/execute';
+import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { checklistProgress } from '../checklists';
@@ -48,6 +49,7 @@ import { workOrderItems, workOrderSubs, workOrders } from '../tables';
 import { CONTRACTOR_WORDS as W, namesWords, REFUSALS, subTextWords } from '../words';
 import { inWorkspace, jobLine, pairsOf, subOut, subsOf, timeZoneOf, type Ctx } from './common';
 import { crewMemberIds, loadCrew } from './crews';
+import { materialsOf } from './materials';
 import { jobsSql, rowOut } from './queries';
 import {
   ensureWorkOrder,
@@ -793,6 +795,8 @@ export const workOrderItemSet = defineAddonCommand(contractorAddon, {
   output: WorkOrderItemOutput,
   permission: 'contractor.use',
   scope: inWorkspace,
+  // Ticked on the job with no signal: it's kept on the phone and sent when there is some.
+  offline: 'anytime',
   ai: {
     tool: 'contractor_set_checklist_item',
     description:
@@ -814,7 +818,7 @@ export const workOrderItemSet = defineAddonCommand(contractorAddon, {
   },
   emits: ['contractor.work_order.item_set', 'contractor.work_order.started'],
   async handler(ctx, input) {
-    const { item, job, visit } = await workOrderOfItem(ctx, input.itemId);
+    const { item, job, visit } = await workOrderOfItem(ctx, input.itemId, { late: true });
     const out = async (done: boolean) => ({
       itemId: item.id,
       appointmentId: item.appointmentId,
@@ -845,7 +849,8 @@ export const workOrderItemSet = defineAddonCommand(contractorAddon, {
     await ctx.tx
       .update(workOrderItems)
       .set({
-        doneAt: input.done ? (item.doneAt ?? dsql`now()`) : null,
+        // When it was ticked, which for a tick that waited on a phone is earlier than now.
+        doneAt: input.done ? (item.doneAt ?? changeMoment(ctx.meta)) : null,
         doneBy: input.done ? (item.doneBy ?? userIdOf(ctx.actor)) : null,
         fileId,
         // Done for real now, so it's no longer something that was passed over.
@@ -875,7 +880,7 @@ export const workOrderItemSet = defineAddonCommand(contractorAddon, {
 export const workOrderGet = defineAddonQuery(contractorAddon, {
   name: 'contractor.work_order.get',
   description:
-    'A visit’s work order: when it is and where it stands, its job, customer and property, the crew and people going, its subcontractors, its instructions, what to bring, and its checklist.',
+    'A visit’s work order: when it is and where it stands, its job, customer and property, the crew and people going, its subcontractors, its instructions, what to bring, its checklist, and the job’s materials it needs.',
   input: WorkOrderGetInput,
   output: WorkOrder,
   permission: 'contractor.use',
@@ -883,7 +888,7 @@ export const workOrderGet = defineAddonQuery(contractorAddon, {
   ai: {
     tool: 'contractor_get_work_order',
     description:
-      'A visit’s work order (by the visit’s appointment id, from a job’s visits or dispatch): when it is, where it stands (scheduled, on the way, started, done), its job with its customer and property, its crew, the team members going, its subcontractors (texted or not, work done or not), its instructions, what to bring, and its checklist (item ids, kind, required, done, photo, passed over) with how many required items are left.',
+      'A visit’s work order (by the visit’s appointment id, from a job’s visits or dispatch): when it is, where it stands (scheduled, on the way, started, done), its job with its customer and property, its crew, the team members going, its subcontractors (texted or not, work done or not), its instructions, what to bring, its checklist (item ids, kind, required, done, photo, passed over) with how many required items are left, and the job’s materials this visit needs (material ids, how much is needed, delivered and used, and what’s still short).',
     keywords: ['work order', 'checklist', 'visit'],
   },
   async handler(ctx, input) {
@@ -909,7 +914,7 @@ export const workOrderGet = defineAddonQuery(contractorAddon, {
           from addon_contractor.work_orders w left join addon_contractor.crews c on c.id = w.crew_id
           where w.appointment_id = ${input.appointmentId}`,
     );
-    const [items, subRows, people] = await Promise.all([
+    const [items, subRows, people, visitMaterials] = await Promise.all([
       rows<{
         id: string;
         position: number;
@@ -952,6 +957,7 @@ export const workOrderGet = defineAddonQuery(contractorAddon, {
             order by s.created_at, s.id`,
       ),
       staffOf(ctx, input.appointmentId),
+      materialsOf(ctx, visit.jobId, input.appointmentId),
     ]);
     const subs = await subsOf(
       ctx,
@@ -1019,6 +1025,7 @@ export const workOrderGet = defineAddonQuery(contractorAddon, {
           skipped: i.skipped_at !== null,
         })),
       ),
+      materials: visitMaterials,
     };
   },
 });

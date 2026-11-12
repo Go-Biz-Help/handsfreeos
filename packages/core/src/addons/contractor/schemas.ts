@@ -11,9 +11,16 @@ import {
   MoneyTerms,
 } from '../../schemas/money';
 import { JOB_STATUSES as VISIT_STAGES } from '../../schemas/job';
+import { WATCH, WATCH_LEVELS } from './budget-watch';
 import { ITEM_KINDS } from './checklists';
+import { REPORT_LIMITS } from './daily-report';
+import { DRAFT_LIMITS } from './estimate-draft';
 import { COST_KINDS } from './estimating';
+import { DEFAULT_MATERIALS_ALERT_HOURS, MATERIAL_STATES } from './materials';
+import { NOTE_LIMITS, TRANSCRIPT_STATES } from './notes';
 import { JOB_KINDS, JOB_STATUSES, PHASE_STATUSES } from './progress';
+import { PROFIT_GROUPS, PROFIT_PERIODS } from './job-costing';
+import { TIME_KINDS, TIME_SOURCES } from './time';
 import { TRADES } from './trades';
 
 export const uuid = z.uuid();
@@ -57,6 +64,24 @@ export const LIMITS = {
   subNote: 500,
   /** Visits one day's dispatch answers. */
   dispatch: 300,
+  /** Materials on one job. */
+  materials: 300,
+  materialName: 200,
+  unitLabel: 30,
+  supplier: 120,
+  materialNote: 500,
+  /** The most of one material: a million of it. */
+  quantity: 1_000_000,
+  /** The longest before a visit its missing materials are told: two weeks. */
+  alertHours: 336,
+  /** Stretches of time one job's list answers, the newest first. */
+  timeEntries: 500,
+  /** Other costs on one job. */
+  otherCosts: 200,
+  otherCostName: 200,
+  otherCostNote: 500,
+  /** Jobs the profit page counts at once. */
+  profitJobs: 2000,
 } as const;
 
 export const Trade = z.enum(TRADES);
@@ -125,13 +150,23 @@ export const ChecklistStarter = z.object({
 });
 
 /**
- * The business's settings (the owner's decision 1): the trades it does, the phases a new project starts with, and
- * the checklist a new visit's work order starts with.
+ * The business's settings (the owner's decision 1): the trades it does, the phases a new project starts with, the
+ * checklist a new visit's work order starts with, and how long before a visit it's told what materials are still
+ * missing for it (0: never).
  */
 export const ContractorSettingsSchema = z.object({
   trades: z.array(Trade).max(TRADES.length).default([]),
   phases: z.array(phaseName).max(LIMITS.phases).default([]),
   checklist: z.array(ChecklistStarter).max(LIMITS.checklist).default([]),
+  materialsAlertHours: z
+    .int()
+    .min(0, 'Not below 0 hours.')
+    .max(LIMITS.alertHours, 'Two weeks before at most.')
+    .default(DEFAULT_MATERIALS_ALERT_HOURS),
+  /** Tell the people who may see job costs when a job heads over its budget (part 7). */
+  budgetWarnings: z.boolean().default(true),
+  /** Write each job's daily report on its own, the evening of a day its crew left notes or photos (part 7). */
+  dailyReports: z.boolean().default(true),
 });
 export type ContractorSettings = z.infer<typeof ContractorSettingsSchema>;
 
@@ -352,6 +387,8 @@ export const JobDetail = JobRow.extend({
       crew: z.string().nullable(),
       /** Its work order's checklist; null while it has no work order yet. */
       checklist: ChecklistProgress.nullable(),
+      /** Materials needed on it that aren't all here yet. */
+      materialsMissing: z.int(),
     }),
   ),
   /** Only for people who may see job costs and profit (the owner's decision 11); null for everyone else. */
@@ -392,6 +429,8 @@ export const OverviewOutput = z.object({
     approve: z.boolean(),
     /** Mark a job done with required checklist items left, with a reason. */
     skipChecks: z.boolean(),
+    /** Change, add and remove the time tracked on jobs. */
+    fixTime: z.boolean(),
   }),
   /** How the business estimates; null for anyone who may not see job costs. */
   estimating: Estimating.nullable(),
@@ -483,6 +522,8 @@ export const EstimateSaveInput = z.object({
   baseRevision: z.int().min(1).optional(),
   /** The job it's for. Its customer is who the estimate is for, unless one is named. */
   jobId: uuid.nullable().optional(),
+  /** The AI's draft a new estimate was started from (part 7): it's marked used once this is saved. */
+  draftId: uuid.optional(),
   personId: uuid.optional(),
   title: z.string().trim().max(200).nullable().optional(),
   notes: z.string().trim().max(5_000).nullable().optional(),
@@ -546,11 +587,70 @@ export const EstimateSaveOutput = z.object({
   check: MarginCheckOut,
 });
 
+/** A line of an estimate the AI drafted: a builder's line, and whether its cost is the AI's guess. */
+export const DraftedLine = z.object({
+  productId: uuid.nullable(),
+  name: z.string().trim().min(1).max(DRAFT_LIMITS.name),
+  description: z.string().max(DRAFT_LIMITS.description).nullable(),
+  quantity: z.number().positive().max(100_000),
+  unitLabel: z.string().trim().min(1).max(DRAFT_LIMITS.unit),
+  unitPriceCents: z.number().int().min(0).max(LIMITS.unitCostCents),
+  taxable: z.boolean(),
+  kind: CostKind,
+  unitCostCents: z.number().int().min(0).max(LIMITS.unitCostCents).nullable(),
+  /** On no price list: its cost is the AI's guess, and its price that cost at the business's starting markup. */
+  guessed: z.boolean(),
+});
+/** What the AI drafted: a title, one option or two or three, what it assumed and what it couldn't tell. */
+export const EstimateDraftBody = z.object({
+  title: z.string().max(DRAFT_LIMITS.title).nullable(),
+  options: z
+    .array(
+      z.object({
+        name: z.string().max(60),
+        lines: z.array(DraftedLine).min(1).max(DRAFT_LIMITS.lines),
+      }),
+    )
+    .min(1)
+    .max(DRAFT_LIMITS.options),
+  assumptions: z.array(z.string().max(DRAFT_LIMITS.point)).max(DRAFT_LIMITS.assumptions),
+  questions: z.array(z.string().max(DRAFT_LIMITS.point)).max(DRAFT_LIMITS.questions),
+});
+export type EstimateDraftBody = z.infer<typeof EstimateDraftBody>;
+
+export const DraftState = z.enum(['ready', 'used', 'dismissed']);
+/** An estimate the AI drafted for a job (part 7), as a list shows it. */
+export const EstimateDraftSummary = z.object({
+  id: uuid,
+  jobId: uuid,
+  state: DraftState,
+  title: z.string().nullable(),
+  /** What the person asking typed. */
+  brief: z.string().nullable(),
+  /** Who asked for it; null for someone who has left HandsFreeOS. */
+  askedBy: z.string().nullable(),
+  createdAt: z.string(),
+  notesRead: z.int(),
+  photosRead: z.int(),
+  /** 1 for one price; 2 or 3 for good, better, best. */
+  optionCount: z.int(),
+  lines: z.int(),
+  /** Lines whose cost is the AI's guess. */
+  guessed: z.int(),
+  questions: z.int(),
+  /** The estimate a person saved from it. */
+  estimateId: uuid.nullable(),
+});
+export const EstimateDraft = EstimateDraftSummary.extend({ draft: EstimateDraftBody });
+export type EstimateDraft = z.infer<typeof EstimateDraft>;
+
 export const EstimateBuilderInput = z.object({
   workspaceId: uuid,
   /** Left out, the builder opens empty for `jobId`. */
   estimateId: uuid.optional(),
   jobId: uuid.optional(),
+  /** The AI's draft to start a new estimate from (part 7). */
+  draftId: uuid.optional(),
 });
 const PersonLite = z.object({
   id: uuid,
@@ -573,6 +673,11 @@ export const EstimateBuilderOutput = z.object({
   job: z.object({ id: uuid, name: z.string() }).nullable(),
   /** Who a new estimate is for: the job's customer. */
   person: PersonLite.nullable(),
+  /**
+   * The AI's draft (part 7): for a new estimate, the one to start from, with every line; for a saved one, the draft
+   * it was started from. Null when the AI had no part.
+   */
+  draft: EstimateDraft.nullable(),
   check: MarginCheckOut.nullable(),
   estimating: Estimating,
   may: z.object({ approve: z.boolean(), bill: z.boolean() }),
@@ -616,7 +721,203 @@ export const EstimateListOutput = z.object({
 
 /** The worker: an approved estimate fills its job's price and budget. */
 export const EstimateFillJobInput = z.object({ workspaceId: uuid, estimateId: uuid });
-export const EstimateFillJobOutput = z.object({ jobId: uuid, estimates: z.int() }).nullable();
+export const EstimateFillJobOutput = z
+  .object({
+    jobId: uuid,
+    estimates: z.int(),
+    /** How many of its material lines went onto the job's materials now. */
+    materials: z.int(),
+  })
+  .nullable();
+
+// ---------- materials (part 4, the owner's decision 9) ----------
+
+export const MaterialState = z.enum(MATERIAL_STATES);
+const materialName = z
+  .string()
+  .trim()
+  .min(1, 'Say what the material is.')
+  .max(LIMITS.materialName, `Keep its name under ${LIMITS.materialName} characters.`);
+const unitLabel = z
+  .string()
+  .trim()
+  .min(1, 'Say what it’s counted in, such as each, ft or box.')
+  .max(LIMITS.unitLabel, `Keep the unit under ${LIMITS.unitLabel} characters.`);
+const supplier = z
+  .string()
+  .trim()
+  .max(LIMITS.supplier, `Keep the supplier under ${LIMITS.supplier} characters.`);
+const materialNote = z
+  .string()
+  .trim()
+  .max(LIMITS.materialNote, `Keep the note under ${LIMITS.materialNote} characters.`);
+/** How much of a material: never below nothing, three decimal places at most. */
+const quantity = z
+  .number()
+  .min(0, 'Not below 0.')
+  .max(LIMITS.quantity, 'That’s more than a million.')
+  .refine((q) => Math.abs(Math.round(q * 1000) - q * 1000) < 1e-6, {
+    error: 'Three decimal places at most.',
+  });
+
+/** A material on a job, as everyone who uses the add-on reads it: never with what it costs. */
+export const MaterialRow = z.object({
+  id: uuid,
+  position: z.int(),
+  name: z.string(),
+  unitLabel: z.string(),
+  /** The price list item it is, when it was picked from the price list. */
+  productId: uuid.nullable(),
+  /** The visit it's for; null when it's for any visit on the job. */
+  appointmentId: uuid.nullable(),
+  needed: z.number(),
+  ordered: z.number(),
+  delivered: z.number(),
+  used: z.number(),
+  wasted: z.number(),
+  returned: z.number(),
+  /** Worked out (./materials.ts): how much still isn't here, how much is here and unused, and where it stands. */
+  short: z.number(),
+  left: z.number(),
+  state: MaterialState,
+  supplier: z.string().nullable(),
+  /** The day it's expected. */
+  expectedOn: Day.nullable(),
+  note: z.string().nullable(),
+  /** It came from an estimate the customer approved. */
+  fromEstimate: z.boolean(),
+  updatedAt: z.string(),
+});
+export type MaterialRow = z.infer<typeof MaterialRow>;
+
+export const Material = MaterialRow.extend({
+  /** What one costs the business. Only for people who may see job costs; null for everyone else, or with none. */
+  unitCostCents: z.number().nullable(),
+});
+export type Material = z.infer<typeof Material>;
+
+export const MaterialListInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid,
+  /** Only what's needed on this visit: the materials for it, and the ones for any visit. */
+  appointmentId: uuid.optional(),
+});
+export const MaterialListOutput = z.object({
+  jobId: uuid,
+  materials: z.array(Material),
+  /** How many of them aren't all here yet. */
+  missing: z.int(),
+  /** false while the job is done, cancelled or archived: its materials are read-only. */
+  canChange: z.boolean(),
+  /** Only for people who may see job costs (the owner's decision 11); null for everyone else. */
+  costing: z
+    .object({
+      /** What everything the job needs costs. */
+      plannedCents: z.number(),
+      /** What the job has taken so far costs. */
+      takenCents: z.number(),
+      /** Materials with no cost yet, so both run low. */
+      uncosted: z.int(),
+    })
+    .nullable(),
+});
+
+export const MaterialAddInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid,
+  /** Left out with a price list item, it's the item's name. */
+  name: materialName.optional(),
+  /** What it's counted in. Left out, the price list item's unit, else "each". */
+  unitLabel: unitLabel.optional(),
+  /** The price list item it is. Its cost is filled in from Costs. */
+  productId: uuid.optional(),
+  /** The visit it's for. Left out: any visit on the job. */
+  appointmentId: uuid.optional(),
+  needed: quantity.default(1),
+  ordered: quantity.default(0),
+  delivered: quantity.default(0),
+  supplier: supplier.optional(),
+  expectedOn: Day.optional(),
+  note: materialNote.optional(),
+  /** What one costs, in cents. Only people who may see job costs can give it. */
+  unitCostCents: unitCost.optional(),
+});
+export const MaterialAddOutput = z.object({ materialId: uuid, jobId: uuid, name: z.string() });
+
+export const MaterialUpdateInput = z.object({
+  workspaceId: uuid,
+  materialId: uuid,
+  name: materialName.optional(),
+  unitLabel: unitLabel.optional(),
+  /** null: for any visit on the job. */
+  appointmentId: uuid.nullable().optional(),
+  needed: quantity.optional(),
+  ordered: quantity.optional(),
+  delivered: quantity.optional(),
+  used: quantity.optional(),
+  wasted: quantity.optional(),
+  returned: quantity.optional(),
+  supplier: supplier.nullable().optional(),
+  expectedOn: Day.nullable().optional(),
+  note: materialNote.nullable().optional(),
+});
+export const MaterialChangeOutput = z.object({
+  materialId: uuid,
+  jobId: uuid,
+  changed: z.boolean(),
+  /** Where it stands now; null once it's removed. */
+  state: MaterialState.nullable(),
+});
+
+export const MaterialRefInput = z.object({ workspaceId: uuid, materialId: uuid });
+
+/** How much more of a material: up or down, to three decimal places. */
+const quantityMore = z
+  .number()
+  .min(-LIMITS.quantity, 'That’s more than a million.')
+  .max(LIMITS.quantity, 'That’s more than a million.')
+  .refine((q) => Math.abs(Math.round(q * 1000) - q * 1000) < 1e-6, {
+    error: 'Three decimal places at most.',
+  });
+/**
+ * Counting on the job (part 6): how much more was used, wasted or sent back since the last count, so two people
+ * counting the same material both add up, and a count made with no signal lands right whenever it arrives.
+ */
+export const MaterialCountInput = z
+  .object({
+    workspaceId: uuid,
+    materialId: uuid,
+    /** How much more was used. Below 0 takes some back, never under nothing. */
+    used: quantityMore.optional(),
+    wasted: quantityMore.optional(),
+    returned: quantityMore.optional(),
+  })
+  .refine((v) => !!v.used || !!v.wasted || !!v.returned, {
+    error: 'Say how much more was used, wasted or sent back.',
+    path: ['used'],
+  });
+export const MaterialCountOutput = MaterialChangeOutput.extend({
+  /** The totals now. */
+  used: z.number(),
+  wasted: z.number(),
+  returned: z.number(),
+});
+
+export const MaterialSetCostInput = MaterialRefInput.extend({
+  /** What one costs the business, in cents; null takes the cost off. */
+  unitCostCents: unitCost.nullable(),
+});
+export const MaterialSetCostOutput = z.object({
+  materialId: uuid,
+  jobId: uuid,
+  changed: z.boolean(),
+});
+
+/** The worker: a material added by someone who can't see costs gets its price list item's cost. */
+export const MaterialStampCostInput = MaterialRefInput;
+export const MaterialStampCostOutput = z
+  .object({ materialId: uuid, stamped: z.boolean() })
+  .nullable();
 
 // ---------- crews (part 3, the owner's decision 7) ----------
 
@@ -830,6 +1131,8 @@ export const WorkOrder = z.object({
   bring: z.string().nullable(),
   items: z.array(ChecklistItem),
   progress: ChecklistProgress,
+  /** The job's materials needed on this visit: the ones for it, and the ones for any visit. Never with costs. */
+  materials: z.array(MaterialRow),
 });
 
 // ---------- dispatch (part 3) ----------
@@ -854,6 +1157,8 @@ export const DispatchVisit = z.object({
   subs: z.object({ total: z.int(), done: z.int() }),
   /** null while it has no work order yet. */
   checklist: ChecklistProgress.nullable(),
+  /** Materials needed on it that aren't all here yet. */
+  materialsMissing: z.int(),
 });
 export const DispatchOutput = z.object({
   day: Day,
@@ -876,4 +1181,634 @@ export const DispatchOutput = z.object({
     }),
   ),
   truncated: z.boolean(),
+});
+
+// ---------- time (part 5) ----------
+
+export const TimeKind = z.enum(TIME_KINDS);
+export const TimeSource = z.enum(TIME_SOURCES);
+/** A moment, as ISO text with its offset or Z. */
+const moment = z.iso.datetime({ offset: true });
+const fixReason = z
+  .string()
+  .trim()
+  .min(1, 'Say why, so the next person knows.')
+  .max(LIMITS.reason, `Keep the reason under ${LIMITS.reason} characters.`);
+
+/** One stretch of one person's time on a job. Never with what it cost. */
+export const TimeEntry = z.object({
+  id: uuid,
+  /** Null for someone who has left HandsFreeOS. */
+  userId: uuid.nullable(),
+  name: z.string(),
+  /** The visit it was on; null once that visit is deleted for good. */
+  appointmentId: uuid.nullable(),
+  kind: TimeKind,
+  startedAt: z.string(),
+  /** Null while it's running. */
+  endedAt: z.string().nullable(),
+  /** How long it is, up to now while it's running. */
+  seconds: z.int(),
+  source: TimeSource,
+  /** Left running too long and stopped on its own: worth a look. */
+  autoStopped: z.boolean(),
+  fixed: z.object({ by: z.string().nullable(), at: z.string(), reason: z.string() }).nullable(),
+});
+export const TimeListInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid,
+  /** Only one visit's time. */
+  appointmentId: uuid.optional(),
+});
+export const TimeListOutput = z.object({
+  jobId: uuid,
+  /** The newest first. */
+  entries: z.array(TimeEntry),
+  totals: z.object({
+    workSeconds: z.int(),
+    travelSeconds: z.int(),
+    breakSeconds: z.int(),
+    /** Work and travel: the time that's labor. */
+    paidSeconds: z.int(),
+    running: z.int(),
+  }),
+  /** What the person asking is doing right now on this job (or this visit), if they're on the clock. */
+  mine: z.object({ entryId: uuid, appointmentId: uuid.nullable(), kind: TimeKind }).nullable(),
+  may: z.object({ fix: z.boolean() }),
+  truncated: z.boolean(),
+});
+
+/** The worker: a visit's status moved, so its people's clocks start or stop. */
+export const TimeFollowStatusInput = z.object({
+  workspaceId: uuid,
+  appointmentId: uuid,
+  /** Core's status for the visit now: on_the_way, in_progress, waiting_on_parts, done, scheduled, cancelled. */
+  status: z.string().max(40),
+  /** When the button was really pressed. */
+  at: moment,
+  /** Who pressed it: their clock starts when nobody is on the visit. */
+  byUserId: uuid.nullable().optional(),
+});
+export const TimeFollowStatusOutput = z
+  .object({ jobId: uuid, appointmentId: uuid, started: z.int(), stopped: z.int() })
+  .nullable();
+
+export const TimeSetBreakInput = z.object({
+  workspaceId: uuid,
+  appointmentId: uuid,
+  /** true: take a break; false: back to work. */
+  onBreak: z.boolean(),
+  /** Someone else's break, for people who may fix time. Left out: the person asking. */
+  userId: uuid.optional(),
+});
+export const TimeSetBreakOutput = z.object({
+  jobId: uuid,
+  appointmentId: uuid,
+  userId: uuid,
+  name: z.string(),
+  onBreak: z.boolean(),
+  changed: z.boolean(),
+});
+
+export const TimeFixInput = z.object({
+  workspaceId: uuid,
+  entryId: uuid,
+  startedAt: moment.optional(),
+  endedAt: moment.optional(),
+  kind: TimeKind.optional(),
+  reason: fixReason,
+});
+export const TimeAddInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid,
+  /** The visit it was on, if it was on one. */
+  appointmentId: uuid.optional(),
+  userId: uuid,
+  kind: TimeKind.default('work'),
+  startedAt: moment,
+  endedAt: moment,
+  reason: fixReason,
+});
+export const TimeRemoveInput = z.object({ workspaceId: uuid, entryId: uuid, reason: fixReason });
+export const TimeChangeOutput = z.object({
+  entryId: uuid,
+  jobId: uuid,
+  name: z.string(),
+  changed: z.boolean(),
+});
+
+/** The worker: time with no cost yet gets what an hour of that person costs now. */
+export const TimeStampCostsInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid.optional(),
+  userId: uuid.optional(),
+});
+export const TimeStampCostsOutput = z.object({ stamped: z.int() });
+
+/** The worker: a visit's time left running past the limit is stopped there. */
+export const TimeStopOverrunInput = z.object({ workspaceId: uuid, appointmentId: uuid });
+export const TimeStopOverrunOutput = z.object({
+  jobId: uuid.nullable(),
+  job: z.string().nullable(),
+  /** Whose time was stopped now. */
+  stopped: z.array(z.string()),
+  /** Everyone with a stretch on the visit that was stopped this way and still waits for a look. */
+  flagged: z.array(z.string()),
+  /** When to look again: the moment the next one still running reaches the limit. */
+  nextAt: z.string().nullable(),
+});
+
+// ---------- what an hour of each person costs (part 5) ----------
+
+export const LaborRateListInput = z.object({ workspaceId: uuid });
+export const LaborRateListOutput = z.object({
+  /** Everyone who may use the add-on, with what an hour of them costs; null when nobody has said. */
+  people: z.array(z.object({ userId: uuid, name: z.string(), costCents: z.number().nullable() })),
+  /** What an hour of labor costs when a person has no cost of their own (Estimating); 0 when that isn't set. */
+  fallbackCents: z.number(),
+  canChange: z.boolean(),
+});
+export const LaborRateSetInput = z.object({
+  workspaceId: uuid,
+  userId: uuid,
+  /** What an hour of them costs the business; null takes it off. */
+  costCents: hourCents.nullable(),
+});
+export const LaborRateSetOutput = z.object({
+  userId: uuid,
+  name: z.string(),
+  changed: z.boolean(),
+});
+
+// ---------- what else a job cost, and job costing (part 5) ----------
+
+const otherCostName = z
+  .string()
+  .trim()
+  .min(1, 'Say what it was for.')
+  .max(LIMITS.otherCostName, `Keep it under ${LIMITS.otherCostName} characters.`);
+export const OtherCost = z.object({
+  id: uuid,
+  name: z.string(),
+  amountCents: z.number(),
+  spentOn: Day,
+  note: z.string().nullable(),
+});
+export const OtherCostAddInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid,
+  name: otherCostName,
+  amountCents: cents,
+  /** The day it was spent: today when left out. */
+  spentOn: Day.optional(),
+  note: z
+    .string()
+    .trim()
+    .max(LIMITS.otherCostNote, `Keep the note under ${LIMITS.otherCostNote} characters.`)
+    .optional(),
+});
+export const OtherCostRemoveInput = z.object({ workspaceId: uuid, costId: uuid });
+export const OtherCostOutput = z.object({ costId: uuid, jobId: uuid, name: z.string() });
+
+const CostLine = z.object({
+  budgetCents: z.number().nullable(),
+  actualCents: z.number(),
+  headingCents: z.number(),
+});
+export const WatchLevel = z.enum(WATCH_LEVELS);
+export const JobCostingInput = z.object({ workspaceId: uuid, jobId: uuid });
+export const JobCostingOutput = z.object({
+  jobId: uuid,
+  name: z.string(),
+  status: JobStatus,
+  percentDone: z.int(),
+  labor: CostLine,
+  materials: CostLine,
+  other: CostLine,
+  total: CostLine,
+  hours: z.object({ budget: z.number().nullable(), actual: z.number(), heading: z.number() }),
+  priceCents: z.number().nullable(),
+  profit: z.object({
+    plannedCents: z.number().nullable(),
+    plannedMarginBp: z.number().nullable(),
+    soFarCents: z.number().nullable(),
+    headingCents: z.number().nullable(),
+    headingMarginBp: z.number().nullable(),
+  }),
+  /** How far over its planned cost it's heading; null when no cost was planned. */
+  overCents: z.number().nullable(),
+  finished: z.boolean(),
+  uncostedHours: z.number(),
+  uncostedMaterials: z.int(),
+  /** The business's lowest margin: a job heading under it is worth a look. */
+  minMarginBp: z.int(),
+  underMargin: z.boolean(),
+  /** Labor by person: their hours on the job and what they cost. */
+  people: z.array(
+    z.object({
+      userId: uuid.nullable(),
+      name: z.string(),
+      hours: z.number(),
+      costCents: z.number(),
+    }),
+  ),
+  otherCosts: z.array(OtherCost),
+  /** A done job's costs can still be put right; an archived job's can't. */
+  canChange: z.boolean(),
+  /**
+   * Where its budget stands now (part 7): within plan, heading over, heading under the lowest margin, or heading for
+   * a loss; and what the AI said is driving it, once it has.
+   */
+  watch: z.object({
+    level: WatchLevel,
+    overPercent: z.number().nullable(),
+    why: z.string().nullable(),
+    suggestions: z.array(z.string()),
+    /** When the people who may see job costs were last told. */
+    warnedAt: z.string().nullable(),
+  }),
+});
+
+export const ProfitGroup = z.enum(PROFIT_GROUPS);
+export const ProfitPeriod = z.enum(PROFIT_PERIODS);
+export const ProfitInput = z.object({
+  workspaceId: uuid,
+  /** Jobs done this month, last month, this quarter, this year or ever; or the open jobs, at what they head for. */
+  period: ProfitPeriod.default('month'),
+  by: ProfitGroup.default('job'),
+});
+const ProfitRow = z.object({
+  /** The job's id, the customer's, the crew's, or the trade; null for jobs with none. */
+  key: z.string().nullable(),
+  name: z.string().nullable(),
+  jobs: z.int(),
+  priceCents: z.number(),
+  costCents: z.number(),
+  profitCents: z.number(),
+  marginBp: z.number().nullable(),
+  laborHours: z.number(),
+});
+export const ProfitOutput = z.object({
+  period: ProfitPeriod,
+  by: ProfitGroup,
+  /** The days the period covers, in the business's time zone; null for all time and for open jobs. */
+  from: Day.nullable(),
+  to: Day.nullable(),
+  total: ProfitRow,
+  rows: z.array(ProfitRow),
+  minMarginBp: z.int(),
+  truncated: z.boolean(),
+});
+
+// ---------- notes from the field (part 6) ----------
+
+export const TranscriptState = z.enum(TRANSCRIPT_STATES);
+const noteBody = z
+  .string()
+  .trim()
+  .min(1, 'Write the note first.')
+  .max(NOTE_LIMITS.body, 'Keep a note to 4,000 characters.');
+
+export const NoteAddInput = z
+  .object({
+    workspaceId: uuid,
+    jobId: uuid,
+    /** The note's own id, made by the phone, so one sent twice is added once. Left out, it gets one. */
+    id: uuid.optional(),
+    /** The visit it was taken on. */
+    appointmentId: uuid.optional(),
+    body: noteBody.optional(),
+    /** A recording, already one of the job's files. Its words follow on their own. */
+    audioFileId: uuid.optional(),
+    /** Photos, already among the job's files. */
+    photoFileIds: z
+      .array(uuid)
+      .max(NOTE_LIMITS.photos, `Up to ${NOTE_LIMITS.photos} photos on a note.`)
+      .default([]),
+  })
+  .refine((v) => !!v.body || !!v.audioFileId || v.photoFileIds.length > 0, {
+    error: 'Write a note, record one or add a photo.',
+    path: ['body'],
+  });
+export const NoteAddOutput = z.object({
+  noteId: uuid,
+  jobId: uuid,
+  appointmentId: uuid.nullable(),
+});
+export const NoteRefInput = z.object({ workspaceId: uuid, noteId: uuid });
+export const NoteRemoveOutput = z.object({ noteId: uuid, jobId: uuid, removed: z.boolean() });
+
+/** The worker's: a recording's words, or that they couldn't be made. */
+export const NoteTranscribedInput = z.object({
+  workspaceId: uuid,
+  noteId: uuid,
+  transcript: z.string().max(NOTE_LIMITS.transcript).nullable(),
+});
+export const NoteTranscribedOutput = z
+  .object({ noteId: uuid, jobId: uuid, changed: z.boolean() })
+  .nullable();
+
+export const Note = z.object({
+  id: uuid,
+  /** The visit it was taken on; null for the job itself, or once that visit is deleted for good. */
+  appointmentId: uuid.nullable(),
+  body: z.string().nullable(),
+  /** A voice note: its recording (null once the file is gone), and its words once they come. */
+  audio: z
+    .object({
+      fileId: uuid.nullable(),
+      transcript: z.string().nullable(),
+      state: TranscriptState,
+    })
+    .nullable(),
+  /** Its photos' files, in the order they were taken. */
+  photoFileIds: z.array(uuid),
+  /** Who left it; null for someone who has left HandsFreeOS. */
+  by: Person.nullable(),
+  /** When it was taken. */
+  notedAt: z.string(),
+});
+export type Note = z.infer<typeof Note>;
+
+export const NoteListInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid,
+  /** Only the notes taken on one visit. */
+  appointmentId: uuid.optional(),
+});
+export const NoteListOutput = z.object({
+  jobId: uuid,
+  /** The newest first. */
+  notes: z.array(Note),
+  /** The names of the files the notes point at (recordings and photos), for a link to each. */
+  files: z.array(z.object({ id: uuid, name: z.string() })),
+  may: z.object({
+    /** Take off anyone's note, not only one's own. */
+    removeAny: z.boolean(),
+  }),
+  truncated: z.boolean(),
+});
+
+// ---------- the AI helpers (part 7) ----------
+
+/** What a person types when asking for a draft: the work wanted, and measurements. */
+const brief = z
+  .string()
+  .trim()
+  .max(DRAFT_LIMITS.brief, 'Keep it under 4,000 characters.')
+  .nullable()
+  .optional();
+
+/** The worker: everything the AI reads to draft an estimate for a job. */
+export const EstimateDraftSourceInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid,
+  brief,
+  /** One price, or good, better and best. */
+  options: z.union([z.literal(1), z.literal(3)]).default(1),
+});
+export const EstimateDraftSourceOutput = z.object({
+  job: z.object({
+    name: z.string(),
+    kind: z.string(),
+    trade: z.string().nullable(),
+    details: z.string().nullable(),
+    property: z.string().nullable(),
+  }),
+  brief: z.string().nullable(),
+  notes: z.array(
+    z.object({ by: z.string().nullable(), when: z.string(), text: z.string(), photos: z.int() }),
+  ),
+  /** The newest photos on the job's notes, for the AI to look at. */
+  photoFileIds: z.array(uuid),
+  items: z.array(
+    z.object({
+      productId: uuid,
+      name: z.string(),
+      description: z.string().nullable(),
+      unitLabel: z.string(),
+      unitPriceCents: z.number(),
+      taxable: z.boolean(),
+      kind: CostKind,
+      costCents: z.number().nullable(),
+    }),
+  ),
+  estimating: z.object({
+    markupBp: z.int(),
+    laborRateCents: z.number(),
+    laborCostCents: z.number(),
+  }),
+  options: z.union([z.literal(1), z.literal(3)]),
+});
+
+/** The worker: the AI's draft, checked, kept beside the job for a person to open. */
+export const EstimateDraftKeepInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid,
+  brief,
+  draft: EstimateDraftBody,
+  notesRead: z.int().min(0).max(1000).default(0),
+  photosRead: z.int().min(0).max(100).default(0),
+});
+export const EstimateDraftKeepOutput = z.object({
+  draftId: uuid,
+  jobId: uuid,
+  optionCount: z.int(),
+  lines: z.int(),
+  guessed: z.int(),
+  questions: z.int(),
+});
+
+export const EstimateDraftListInput = z.object({ workspaceId: uuid, jobId: uuid });
+export const EstimateDraftListOutput = z.object({
+  jobId: uuid,
+  /** The ones still waiting for someone, the newest first. */
+  drafts: z.array(EstimateDraftSummary),
+});
+export const EstimateDraftDismissInput = z.object({ workspaceId: uuid, draftId: uuid });
+export const EstimateDraftDismissOutput = z.object({
+  draftId: uuid,
+  jobId: uuid,
+  changed: z.boolean(),
+});
+
+/** The worker: looks at where a job's budget stands, and answers whether people should be told. */
+export const BudgetCheckInput = z.object({ workspaceId: uuid, jobId: uuid });
+export const BudgetCheckOutput = z
+  .object({
+    jobId: uuid,
+    level: WatchLevel,
+    /** It got worse: the people who may see job costs are told, with these words. */
+    alert: z.object({ title: z.string(), detail: z.string() }).nullable(),
+    /** Back within its plan, finished, or warnings are off: any alert is cleared. */
+    clear: z.boolean(),
+    /** What to ask the AI about it, when it's news. */
+    ask: z.string().nullable(),
+  })
+  .nullable();
+
+/** The worker: what the AI said is driving a job over its budget, and what the business could do. */
+export const BudgetAdviseInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid,
+  why: z.string().trim().min(1).max(WATCH.why),
+  suggestions: z.array(z.string().trim().min(1).max(WATCH.suggestion)).max(WATCH.suggestions),
+});
+export const BudgetAdviseOutput = z.object({ jobId: uuid, kept: z.boolean() });
+
+const reportPoints = z
+  .array(z.string().trim().max(REPORT_LIMITS.point))
+  .max(REPORT_LIMITS.points, 'Eight lines at most in each part.');
+/** A report's words. */
+export const ReportBody = z.object({
+  summary: z
+    .string()
+    .trim()
+    .min(1, 'Write a summary of the day.')
+    .max(REPORT_LIMITS.summary, 'Keep the summary under 900 characters.'),
+  done: reportPoints.default([]),
+  issues: reportPoints.default([]),
+  materials: reportPoints.default([]),
+  next: reportPoints.default([]),
+  /** The update for the customer; null when there's none. */
+  forCustomer: z
+    .string()
+    .trim()
+    .max(REPORT_LIMITS.forCustomer, 'Keep the customer’s update under 1,200 characters.')
+    .nullable()
+    .default(null),
+});
+
+/** A job's daily report (part 7). */
+export const DailyReport = z.object({
+  id: uuid,
+  /** The business's own day, `YYYY-MM-DD`. */
+  day: Day,
+  summary: z.string(),
+  done: z.array(z.string()),
+  issues: z.array(z.string()),
+  materials: z.array(z.string()),
+  next: z.array(z.string()),
+  forCustomer: z.string().nullable(),
+  /** Who was on the clock that day, and for how many hours. */
+  crew: z.array(z.object({ name: z.string(), hours: z.number() })),
+  /** The day's photos' files. */
+  photoFileIds: z.array(uuid),
+  notesRead: z.int(),
+  photosRead: z.int(),
+  writtenAt: z.string(),
+  /** Who pressed Write; null when it was written on its own. */
+  askedBy: z.string().nullable(),
+  /** A person changed its words. */
+  edited: z.object({ by: z.string().nullable(), at: z.string() }).nullable(),
+  /** The customer's update, once someone sent it. */
+  sent: z
+    .object({ by: z.string().nullable(), at: z.string(), channel: z.enum(['email', 'sms']) })
+    .nullable(),
+});
+export type DailyReport = z.infer<typeof DailyReport>;
+
+export const ReportListInput = z.object({ workspaceId: uuid, jobId: uuid });
+export const ReportListOutput = z.object({
+  jobId: uuid,
+  /** The newest day first. */
+  reports: z.array(DailyReport),
+  /** The names of the photos' files, for a link to each. */
+  files: z.array(z.object({ id: uuid, name: z.string() })),
+  /** The business's today. */
+  today: Day,
+  /** Reports are written on their own each evening (the business's setting). */
+  onItsOwn: z.boolean(),
+  /** Who a customer's update goes to, and how they can be reached; null when the job has no customer. */
+  customer: z.object({ name: z.string(), email: z.boolean(), sms: z.boolean() }).nullable(),
+  /** The job isn't archived: a report can be written, changed and sent. */
+  canChange: z.boolean(),
+  truncated: z.boolean(),
+});
+
+/** The worker: everything the AI reads to write one day's report. */
+export const ReportSourceInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid,
+  /** The business's today when left out. */
+  day: Day.optional(),
+});
+export const ReportSourceOutput = z.object({
+  jobId: uuid,
+  day: Day,
+  job: z.object({
+    name: z.string(),
+    kind: z.string(),
+    trade: z.string().nullable(),
+    percentDone: z.int(),
+    customerFirstName: z.string().nullable(),
+  }),
+  business: z.string(),
+  dayWords: z.string(),
+  notes: z.array(
+    z.object({
+      by: z.string().nullable(),
+      at: z.string(),
+      visit: z.string().nullable(),
+      text: z.string(),
+      photos: z.int(),
+    }),
+  ),
+  ticked: z.array(z.string()),
+  crew: z.array(z.object({ name: z.string(), hours: z.number() })),
+  visits: z.array(z.object({ title: z.string(), status: z.string() })),
+  /** The day's photos, the oldest first: the report keeps them all, and the AI looks at the first few. */
+  photoFileIds: z.array(uuid),
+  /** Notes whose words are still on their way. */
+  waitingWords: z.int(),
+  /** The report already kept for the day, when there is one. */
+  existing: z.object({ id: uuid, edited: z.boolean() }).nullable(),
+  /** The business has reports written on their own. */
+  onItsOwn: z.boolean(),
+});
+
+/** The worker: a day's report, written. */
+export const ReportKeepInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid,
+  day: Day,
+  body: ReportBody,
+  crew: z
+    .array(z.object({ name: z.string().max(200), hours: z.number().min(0).max(1000) }))
+    .max(50)
+    .default([]),
+  photoFileIds: z.array(uuid).max(60).default([]),
+  notesRead: z.int().min(0).max(1000).default(0),
+  photosRead: z.int().min(0).max(100).default(0),
+  /** Write over one a person changed (they asked for it). */
+  replace: z.boolean().default(false),
+});
+export const ReportKeepOutput = z.object({
+  reportId: uuid.nullable(),
+  jobId: uuid,
+  day: Day,
+  /** False when a person had changed the day's report, so it was left as theirs. */
+  kept: z.boolean(),
+});
+
+export const ReportUpdateInput = ReportBody.extend({ workspaceId: uuid, reportId: uuid });
+export const ReportChangeOutput = z.object({ reportId: uuid, jobId: uuid, day: Day });
+
+export const ReportSendInput = z.object({
+  workspaceId: uuid,
+  reportId: uuid,
+  channel: z.enum(['email', 'sms']),
+  /** What to send, when it isn't the report's own update for the customer as it stands. */
+  body: z
+    .string()
+    .trim()
+    .min(1, 'Write the update first.')
+    .max(REPORT_LIMITS.forCustomer, 'Keep the customer’s update under 1,200 characters.')
+    .optional(),
+  /** The person said to text during quiet hours. */
+  acknowledgeQuietHours: z.boolean().default(false),
+});
+export const ReportSendOutput = ReportChangeOutput.extend({
+  channel: z.enum(['email', 'sms']),
+  customer: z.string(),
 });

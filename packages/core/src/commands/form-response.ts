@@ -46,6 +46,8 @@ import {
   contactFromAnswers,
   hasIdentity,
   patchesFromAnswers,
+  PERSON_LIMITS,
+  fit,
   type FormContact,
   writeCustomFields,
   writeFormAnswers,
@@ -494,7 +496,8 @@ async function settleCustomer(
   const { identity } = definition.settings;
   let personId: string | null = null;
   let leadId: string | null = response.leadId;
-  const source = definition.onSubmit.person.source || form.name;
+  // A customer's source holds 80 characters and a form's name 200: a long name is cut, not refused.
+  const source = fit(definition.onSubmit.person.source || form.name, PERSON_LIMITS.source);
   /**
    * Where this form's leads belong (M14): the business's one row for the forms built here, which is what
    * Settings → Lead intake shows and turns off. The form's own choice of pipeline still wins when it has
@@ -506,6 +509,8 @@ async function settleCustomer(
   if (identity === 'anonymous') return { personId: null, leadId: null };
   if (!known && !(hasIdentity(contact) && definition.onSubmit.person.create))
     return { personId: null, leadId };
+  const { person, lead } = patchesFromAnswers(definition, answers);
+  const asNumber = (value: unknown) => (typeof value === 'string' ? normalizePhone(value) : null);
   const found = known
     ? { personId: response.personId!, created: false }
     : await findOrCreateCustomer(
@@ -516,11 +521,13 @@ async function settleCustomer(
           phone: contact.phone,
           email: contact.email,
           address: contact.address,
+          // What else the answers say goes on a customer this makes, the way it fills blanks on one it finds.
+          phoneAlt: asNumber(person.fields.phoneAlt),
+          notes: typeof person.fields.notes === 'string' ? person.fields.notes : null,
         },
-        source,
+        typeof person.fields.source === 'string' ? person.fields.source : source,
       );
   personId = found.personId;
-  const { person, lead } = patchesFromAnswers(definition, answers);
   // Only what the business doesn't already know: a form never rubs out what somebody typed.
   if (!found.created && Object.keys(person.fields).length) {
     const [existing] = await ctx.tx.select().from(people).where(eq(people.id, personId));
@@ -528,17 +535,38 @@ async function settleCustomer(
       existing?.phoneE164,
       ...otherPhonesOf(existing?.otherPhones).map((p) => p.phone),
     ];
+    const blank = (value: unknown) => value === null || value === undefined || value === '';
     const fill: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(person.fields)) {
-      const e164 = typeof value === 'string' ? normalizePhone(value) : null;
+      const e164 = asNumber(value);
       if (key === 'phoneAlt') {
         // Another number joins the others (0103) when it reads as one and isn't on file already: a form
         // never relabels a number the business has, and a stray answer never sinks the submission.
         if (e164 && !onFile.includes(e164)) fill[key] = value;
         continue;
       }
+      if (key === 'address') {
+        // Each part of the address on its own: a town fills a blank town, and a street on file stays put.
+        const answer = value as Record<string, string>;
+        const columns = {
+          line1: existing?.addressLine1,
+          line2: existing?.addressLine2,
+          city: existing?.city,
+          state: existing?.state,
+          postalCode: existing?.postalCode,
+        } as Record<string, unknown>;
+        const parts = Object.fromEntries(
+          Object.entries(columns)
+            .filter(([part, onRecord]) => blank(onRecord) && !blank(answer[part]))
+            .map(([part]) => [part, answer[part]]),
+        );
+        if (Object.keys(parts).length) fill.address = parts;
+        continue;
+      }
+      // Words that aren't a number never go in as their phone.
+      if (key === 'phone' && !e164) continue;
       const already = (existing as unknown as Record<string, unknown>)[key];
-      if (already === null || already === undefined || already === '') {
+      if (blank(already)) {
         fill[key] = value;
         continue;
       }
@@ -584,7 +612,12 @@ async function settleCustomer(
     // Money in this system is whole cents; a calculation counts in dollars.
     const quoted = wanted?.valueFrom ? (calculations[wanted.valueFrom] ?? null) : null;
     const typedValue = typeof lead.fields.value === 'number' ? lead.fields.value : null;
-    const valueCents = Math.round((quoted ?? typedValue ?? 0) * 100);
+    // A lead is worth nothing to a billion dollars: a calculation that comes out below zero (or no number at
+    // all) is worth nothing, rather than a lead that can't be opened.
+    const valueCents = Math.min(
+      Math.max(Math.round((quoted ?? typedValue ?? 0) * 100) || 0, 0),
+      100_000_000_000,
+    );
     const created = await leadCreate.handler(
       ctx,
       LeadCreateInput.parse({

@@ -33,8 +33,7 @@ export function pauseEndsOn(now: number, timeZone: string, lastEnded: number | n
 }
 
 /** Whether a network has requests a limit of its own can pause: never a follow network's (Instagram's). */
-export const pausesRequests = (platform: Platform): boolean =>
-  NETWORKS[platform].requestsMessageAfterDays === null;
+export const pausesRequests = (platform: Platform): boolean => !NETWORKS[platform].follows;
 
 export const RequestsPauseInput = z.object({
   workspaceId: z.uuid(),

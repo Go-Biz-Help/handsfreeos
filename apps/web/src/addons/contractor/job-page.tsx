@@ -1,8 +1,10 @@
 'use client';
 /**
  * One job (docs/contractor.md, "A job's page"): its status, customer and property, the work to do, its phases and %
- * done, its lead and team, its visits, and (for people who may see job costs, the owner's decision 11) its price and
- * budget. Notes, files and tasks are on core's page for its record, linked from here.
+ * done, its lead and team, its visits, its materials, the time tracked on it, the crew's notes from the field, its
+ * daily reports, and (for people who may see job costs, the owner's decision 11) its price and budget, what it's
+ * costing against them, and the estimates the AI drafted that wait for someone to check. Files, tasks and the
+ * office's own notes are on core's page for its record, linked from here.
  *
  * Each visit opens its work order, and booking one starts it and opens it, to put a crew on. Marking the job Done
  * waits on the required checklist items and photos on its work orders (the owner's decision 8): the server says
@@ -40,6 +42,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ApiError, apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
+import { DraftWithAi, WaitingDrafts } from './ai-draft';
 import {
   ChecklistLine,
   contractorHref,
@@ -51,9 +54,24 @@ import {
   workOrderHref,
 } from './bits';
 import { EstimateLine } from './estimates-home';
+import { JobCostsCard } from './job-costs-card';
 import { EditJobDialog, MoneyDialog, ReasonDialog } from './job-dialogs';
+import { MaterialsCard, type MaterialProduct } from './materials-card';
+import { FieldNotesCard } from './notes-card';
 import { PercentInput, PhasesCard } from './phases-card';
-import type { EstimateList, JobDetail, Overview } from './types';
+import { DailyReportsCard } from './reports-card';
+import { TimeCard } from './time-card';
+import type {
+  EstimateList,
+  JobCosting,
+  JobDetail,
+  MaterialList,
+  NoteList,
+  Overview,
+  ReportList,
+  TimeList,
+  WaitingDraft,
+} from './types';
 import { useAct } from './use-act';
 
 const J = CONTRACTOR_WORDS.job;
@@ -74,6 +92,13 @@ export function JobPage({
   job,
   overview,
   estimates,
+  materials,
+  time,
+  notes,
+  reports,
+  costing,
+  drafts,
+  products,
   myUserId,
   timeZone,
   staff,
@@ -83,11 +108,26 @@ export function JobPage({
   overview: Overview;
   /** The estimates the builder wrote for this job, as far as this person may see them. */
   estimates: EstimateList['estimates'];
+  /** The job's materials, with what they cost when this person may see job costs. */
+  materials: MaterialList;
+  /** The time tracked on the job: never with what it cost. */
+  time: TimeList;
+  /** The crew's notes from the field, the newest first. */
+  notes: NoteList;
+  /** The job's daily reports, the newest first: never with a cost. */
+  reports: ReportList;
+  /** What the job is costing against its plan; null for someone who may not see job costs. */
+  costing: JobCosting | null;
+  /** The estimates the AI drafted that still wait for someone; empty for someone who may not see job costs. */
+  drafts: readonly WaitingDraft[];
+  /** The price list to pick a material from; empty for someone who can't see it. */
+  products: readonly MaterialProduct[];
   myUserId: string;
   timeZone: string;
   /** The team, as the visit booking dialog picks who goes. */
   staff: readonly { userId: string; fullName: string }[];
 }) {
+  // Time that starts or stops arrives as the add-on's own news about the job's record.
   useLiveRefresh(['custom_record', 'appointment', 'estimate']);
   const router = useRouter();
   const { busy, act } = useAct();
@@ -302,6 +342,14 @@ export function JobPage({
                           {v.stage === 'cancelled' ? null : (
                             <ChecklistLine checklist={v.checklist} />
                           )}
+                          {v.materialsMissing && v.stage !== 'cancelled' && v.stage !== 'done' ? (
+                            <span
+                              className="text-danger-text"
+                              data-testid="visit-materials-missing"
+                            >
+                              {CONTRACTOR_WORDS.dispatch.materialsMissing(v.materialsMissing)}
+                            </span>
+                          ) : null}
                         </span>
                       </span>
                       <span className="flex items-center gap-2">
@@ -315,21 +363,86 @@ export function JobPage({
             )}
           </Card>
 
+          <MaterialsCard
+            workspaceId={workspaceId}
+            jobId={job.id}
+            materials={materials.materials}
+            visits={job.visits
+              .filter((v) => v.stage !== 'cancelled')
+              .map((v) => ({
+                appointmentId: v.appointmentId,
+                label: formatDate(v.startsAt, { time: true, timeZone }),
+              }))}
+            products={products}
+            costing={materials.costing}
+            mayCost={overview.may.costs}
+            readOnly={!materials.canChange}
+          />
+
+          <TimeCard
+            workspaceId={workspaceId}
+            jobId={job.id}
+            time={time}
+            visits={job.visits.map((v) => ({
+              appointmentId: v.appointmentId,
+              label: formatDate(v.startsAt, { time: true, timeZone }),
+            }))}
+            people={overview.people}
+            timeZone={timeZone}
+          />
+
+          <FieldNotesCard
+            workspaceId={workspaceId}
+            jobId={job.id}
+            notes={notes}
+            visits={job.visits.map((v) => ({
+              appointmentId: v.appointmentId,
+              label: formatDate(v.startsAt, { time: true, timeZone }),
+            }))}
+            myUserId={myUserId}
+            timeZone={timeZone}
+          />
+
+          <DailyReportsCard
+            workspaceId={workspaceId}
+            jobId={job.id}
+            reports={reports}
+            timeZone={timeZone}
+          />
+
+          {costing ? (
+            <JobCostsCard
+              workspaceId={workspaceId}
+              costing={costing}
+              today={overview.today}
+              timeZone={timeZone}
+            />
+          ) : null}
+
           {overview.may.costs || estimates.length ? (
             <Card className="p-0" data-testid="job-estimates">
               <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
                 <h2 className="text-[15px] font-semibold">{CONTRACTOR_WORDS.estimates.title}</h2>
                 {overview.may.costs && !closed ? (
-                  <ButtonLink
-                    href={contractorHref(workspaceId, `estimates/new?jobId=${job.id}`)}
-                    size="sm"
-                    variant="ghost"
-                    data-testid="job-new-estimate"
-                  >
-                    {CONTRACTOR_WORDS.estimates.add}
-                  </ButtonLink>
+                  <span className="flex flex-wrap items-center gap-1">
+                    <DraftWithAi workspaceId={workspaceId} jobId={job.id} />
+                    <ButtonLink
+                      href={contractorHref(workspaceId, `estimates/new?jobId=${job.id}`)}
+                      size="sm"
+                      variant="ghost"
+                      data-testid="job-new-estimate"
+                    >
+                      {CONTRACTOR_WORDS.estimates.add}
+                    </ButtonLink>
+                  </span>
                 ) : null}
               </div>
+              <WaitingDrafts
+                workspaceId={workspaceId}
+                drafts={drafts}
+                timeZone={timeZone}
+                readOnly={closed}
+              />
               {estimates.length === 0 ? (
                 <p className="px-5 py-4 text-[13.5px] text-text-2">
                   {CONTRACTOR_WORDS.estimates.none}
