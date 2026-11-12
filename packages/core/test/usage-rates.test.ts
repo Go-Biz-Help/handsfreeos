@@ -200,6 +200,8 @@ describe('the seeded card', () => {
       'lookup.caller_name': 2,
       // A photo-style picture from OpenAI for a social post, at 1.5× about what one costs.
       'ai.image': 9,
+      // A web search the AI makes for a business's posts, at 1.5× the $0.01 one costs.
+      'ai.web_search': 2,
     });
   });
 

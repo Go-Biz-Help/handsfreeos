@@ -40,6 +40,9 @@ export const ideaOut = (i: typeof ideas.$inferSelect): Idea => ({
   outline: i.outline,
   why: i.why,
   basedOn: i.basedOn,
+  angle: i.angle,
+  topic: i.topicList && i.topic ? { list: i.topicList, line: i.topic } : null,
+  source: i.sourceUrl ? { url: i.sourceUrl, name: i.sourceName ?? i.sourceUrl } : null,
   state: i.state,
   createdAt: i.createdAt.toISOString(),
 });

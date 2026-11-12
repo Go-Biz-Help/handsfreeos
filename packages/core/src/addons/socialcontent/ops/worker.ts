@@ -302,7 +302,16 @@ export const ideasPut = defineAddonCommand(socialcontentAddon, {
     const ws = ctx.scope.workspaceId!;
     const made = await ctx.tx
       .insert(ideas)
-      .values(input.ideas.map((i) => ({ ...i, workspaceId: ws })))
+      .values(
+        input.ideas.map(({ topic, source, ...i }) => ({
+          ...i,
+          topicList: topic?.list ?? null,
+          topic: topic?.line ?? null,
+          sourceUrl: source?.url ?? null,
+          sourceName: source?.name ?? null,
+          workspaceId: ws,
+        })),
+      )
       .returning({ id: ideas.id });
     await ctx.emit({
       type: 'socialcontent.ideas.added',
@@ -333,7 +342,7 @@ export async function postKindId(ctx: Ctx): Promise<string> {
 export const contentPut = defineAddonCommand(socialcontentAddon, {
   name: 'socialcontent.content.put',
   description:
-    'Worker: a post the AI wrote for the business, kept as a Social post record waiting for an OK, for a day in the calendar or none; or a post written again, which takes its OK back. The idea it came from is marked used.',
+    'Worker: a post the AI wrote for the business, kept as a Social post record waiting for an OK, for a day in the calendar or none, with its kind in the weekly mix and the line from the lists it’s about; or a post written again, which takes its OK back. The idea it came from is marked used.',
   risk: 0,
   input: ContentPutInput,
   output: ContentPutOutput,
@@ -359,6 +368,9 @@ export const contentPut = defineAddonCommand(socialcontentAddon, {
       picture: p.picture,
       pictureWay: p.pictureWay,
       pictureFailure: null,
+      angle: p.angle,
+      topicList: p.topic?.list ?? null,
+      topic: p.topic?.line ?? null,
       updatedAt: changeMoment(ctx.meta),
     };
     let postId = input.postId ?? null;
@@ -376,6 +388,8 @@ export const contentPut = defineAddonCommand(socialcontentAddon, {
         .update(content)
         .set({
           ...fields,
+          // A draft from before written again from an idea (decision 37) now comes from that idea.
+          ...(input.ideaId ? { ideaId: input.ideaId } : {}),
           // Its pictures stay until new ones are made (or, for its own, until the person changes them).
           pictureState:
             pictureState === 'waiting' ? 'waiting' : was.fileIds.length ? 'made' : 'none',
@@ -408,7 +422,7 @@ export const contentPut = defineAddonCommand(socialcontentAddon, {
         createdBy: input.askedBy,
       });
     }
-    if (created && input.ideaId) {
+    if (input.ideaId) {
       const used = await ctx.tx
         .update(ideas)
         .set({

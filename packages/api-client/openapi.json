@@ -117708,6 +117708,90 @@
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                       }
                     },
+                    "angle": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "tip",
+                            "problem",
+                            "story",
+                            "offer"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "topic": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "list": {
+                              "type": "string",
+                              "enum": [
+                                "different",
+                                "benefits",
+                                "problems",
+                                "questions",
+                                "beforeAfter",
+                                "story",
+                                "topics",
+                                "myths",
+                                "voice",
+                                "asks",
+                                "never"
+                              ]
+                            },
+                            "line": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "list",
+                            "line"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "url": {
+                              "type": "string",
+                              "maxLength": 2000,
+                              "format": "uri"
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 120
+                            }
+                          },
+                          "required": [
+                            "url",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "state": {
                       "type": "string",
                       "enum": [
@@ -117730,6 +117814,9 @@
                     "outline",
                     "why",
                     "basedOn",
+                    "angle",
+                    "topic",
+                    "source",
                     "state",
                     "createdAt"
                   ],
@@ -118398,6 +118485,62 @@
                         "person"
                       ]
                     },
+                    "angle": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "tip",
+                            "problem",
+                            "story",
+                            "offer"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "topic": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "list": {
+                              "type": "string",
+                              "enum": [
+                                "different",
+                                "benefits",
+                                "problems",
+                                "questions",
+                                "beforeAfter",
+                                "story",
+                                "topics",
+                                "myths",
+                                "voice",
+                                "asks",
+                                "never"
+                              ]
+                            },
+                            "line": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "list",
+                            "line"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "ideaId": {
                       "anyOf": [
                         {
@@ -118451,6 +118594,8 @@
                     "failure",
                     "madeBy",
                     "placedBy",
+                    "angle",
+                    "topic",
                     "ideaId",
                     "stillNeeds",
                     "createdAt",
@@ -118927,6 +119072,62 @@
                         "person"
                       ]
                     },
+                    "angle": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "tip",
+                            "problem",
+                            "story",
+                            "offer"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "topic": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "list": {
+                              "type": "string",
+                              "enum": [
+                                "different",
+                                "benefits",
+                                "problems",
+                                "questions",
+                                "beforeAfter",
+                                "story",
+                                "topics",
+                                "myths",
+                                "voice",
+                                "asks",
+                                "never"
+                              ]
+                            },
+                            "line": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "list",
+                            "line"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "ideaId": {
                       "anyOf": [
                         {
@@ -118980,6 +119181,8 @@
                     "failure",
                     "madeBy",
                     "placedBy",
+                    "angle",
+                    "topic",
                     "ideaId",
                     "stillNeeds",
                     "createdAt",
@@ -119539,6 +119742,62 @@
                         "person"
                       ]
                     },
+                    "angle": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "tip",
+                            "problem",
+                            "story",
+                            "offer"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "topic": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "list": {
+                              "type": "string",
+                              "enum": [
+                                "different",
+                                "benefits",
+                                "problems",
+                                "questions",
+                                "beforeAfter",
+                                "story",
+                                "topics",
+                                "myths",
+                                "voice",
+                                "asks",
+                                "never"
+                              ]
+                            },
+                            "line": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "list",
+                            "line"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "ideaId": {
                       "anyOf": [
                         {
@@ -119592,6 +119851,8 @@
                     "failure",
                     "madeBy",
                     "placedBy",
+                    "angle",
+                    "topic",
                     "ideaId",
                     "stillNeeds",
                     "createdAt",
@@ -120371,6 +120632,62 @@
                         "person"
                       ]
                     },
+                    "angle": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "tip",
+                            "problem",
+                            "story",
+                            "offer"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "topic": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "list": {
+                              "type": "string",
+                              "enum": [
+                                "different",
+                                "benefits",
+                                "problems",
+                                "questions",
+                                "beforeAfter",
+                                "story",
+                                "topics",
+                                "myths",
+                                "voice",
+                                "asks",
+                                "never"
+                              ]
+                            },
+                            "line": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "list",
+                            "line"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "ideaId": {
                       "anyOf": [
                         {
@@ -120424,6 +120741,8 @@
                     "failure",
                     "madeBy",
                     "placedBy",
+                    "angle",
+                    "topic",
                     "ideaId",
                     "stillNeeds",
                     "createdAt",
@@ -120896,6 +121215,62 @@
                         "person"
                       ]
                     },
+                    "angle": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "tip",
+                            "problem",
+                            "story",
+                            "offer"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "topic": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "list": {
+                              "type": "string",
+                              "enum": [
+                                "different",
+                                "benefits",
+                                "problems",
+                                "questions",
+                                "beforeAfter",
+                                "story",
+                                "topics",
+                                "myths",
+                                "voice",
+                                "asks",
+                                "never"
+                              ]
+                            },
+                            "line": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "list",
+                            "line"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "ideaId": {
                       "anyOf": [
                         {
@@ -120949,6 +121324,8 @@
                     "failure",
                     "madeBy",
                     "placedBy",
+                    "angle",
+                    "topic",
                     "ideaId",
                     "stillNeeds",
                     "createdAt",
@@ -121642,6 +122019,62 @@
                         "person"
                       ]
                     },
+                    "angle": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "tip",
+                            "problem",
+                            "story",
+                            "offer"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "topic": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "list": {
+                              "type": "string",
+                              "enum": [
+                                "different",
+                                "benefits",
+                                "problems",
+                                "questions",
+                                "beforeAfter",
+                                "story",
+                                "topics",
+                                "myths",
+                                "voice",
+                                "asks",
+                                "never"
+                              ]
+                            },
+                            "line": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "list",
+                            "line"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "ideaId": {
                       "anyOf": [
                         {
@@ -121695,6 +122128,8 @@
                     "failure",
                     "madeBy",
                     "placedBy",
+                    "angle",
+                    "topic",
                     "ideaId",
                     "stillNeeds",
                     "createdAt",
@@ -251494,6 +251929,90 @@
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                             }
                           },
+                          "angle": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "tip",
+                                  "problem",
+                                  "story",
+                                  "offer"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "topic": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "list": {
+                                    "type": "string",
+                                    "enum": [
+                                      "different",
+                                      "benefits",
+                                      "problems",
+                                      "questions",
+                                      "beforeAfter",
+                                      "story",
+                                      "topics",
+                                      "myths",
+                                      "voice",
+                                      "asks",
+                                      "never"
+                                    ]
+                                  },
+                                  "line": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  }
+                                },
+                                "required": [
+                                  "list",
+                                  "line"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "source": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "url": {
+                                    "type": "string",
+                                    "maxLength": 2000,
+                                    "format": "uri"
+                                  },
+                                  "name": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 120
+                                  }
+                                },
+                                "required": [
+                                  "url",
+                                  "name"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "state": {
                             "type": "string",
                             "enum": [
@@ -251516,6 +252035,9 @@
                           "outline",
                           "why",
                           "basedOn",
+                          "angle",
+                          "topic",
+                          "source",
                           "state",
                           "createdAt"
                         ],
@@ -252431,6 +252953,62 @@
                               "person"
                             ]
                           },
+                          "angle": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "tip",
+                                  "problem",
+                                  "story",
+                                  "offer"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "topic": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "list": {
+                                    "type": "string",
+                                    "enum": [
+                                      "different",
+                                      "benefits",
+                                      "problems",
+                                      "questions",
+                                      "beforeAfter",
+                                      "story",
+                                      "topics",
+                                      "myths",
+                                      "voice",
+                                      "asks",
+                                      "never"
+                                    ]
+                                  },
+                                  "line": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  }
+                                },
+                                "required": [
+                                  "list",
+                                  "line"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "ideaId": {
                             "anyOf": [
                               {
@@ -252484,6 +253062,8 @@
                           "failure",
                           "madeBy",
                           "placedBy",
+                          "angle",
+                          "topic",
                           "ideaId",
                           "stillNeeds",
                           "createdAt",
@@ -252914,6 +253494,62 @@
                               "person"
                             ]
                           },
+                          "angle": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "tip",
+                                  "problem",
+                                  "story",
+                                  "offer"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "topic": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "list": {
+                                    "type": "string",
+                                    "enum": [
+                                      "different",
+                                      "benefits",
+                                      "problems",
+                                      "questions",
+                                      "beforeAfter",
+                                      "story",
+                                      "topics",
+                                      "myths",
+                                      "voice",
+                                      "asks",
+                                      "never"
+                                    ]
+                                  },
+                                  "line": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  }
+                                },
+                                "required": [
+                                  "list",
+                                  "line"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "ideaId": {
                             "anyOf": [
                               {
@@ -252967,6 +253603,8 @@
                           "failure",
                           "madeBy",
                           "placedBy",
+                          "angle",
+                          "topic",
                           "ideaId",
                           "stillNeeds",
                           "createdAt",
@@ -253397,6 +254035,62 @@
                               "person"
                             ]
                           },
+                          "angle": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "tip",
+                                  "problem",
+                                  "story",
+                                  "offer"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "topic": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "list": {
+                                    "type": "string",
+                                    "enum": [
+                                      "different",
+                                      "benefits",
+                                      "problems",
+                                      "questions",
+                                      "beforeAfter",
+                                      "story",
+                                      "topics",
+                                      "myths",
+                                      "voice",
+                                      "asks",
+                                      "never"
+                                    ]
+                                  },
+                                  "line": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  }
+                                },
+                                "required": [
+                                  "list",
+                                  "line"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "ideaId": {
                             "anyOf": [
                               {
@@ -253450,6 +254144,8 @@
                           "failure",
                           "madeBy",
                           "placedBy",
+                          "angle",
+                          "topic",
                           "ideaId",
                           "stillNeeds",
                           "createdAt",
@@ -254036,6 +254732,62 @@
                         "person"
                       ]
                     },
+                    "angle": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "tip",
+                            "problem",
+                            "story",
+                            "offer"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "topic": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "list": {
+                              "type": "string",
+                              "enum": [
+                                "different",
+                                "benefits",
+                                "problems",
+                                "questions",
+                                "beforeAfter",
+                                "story",
+                                "topics",
+                                "myths",
+                                "voice",
+                                "asks",
+                                "never"
+                              ]
+                            },
+                            "line": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "list",
+                            "line"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "ideaId": {
                       "anyOf": [
                         {
@@ -254089,6 +254841,8 @@
                     "failure",
                     "madeBy",
                     "placedBy",
+                    "angle",
+                    "topic",
                     "ideaId",
                     "stillNeeds",
                     "createdAt",
@@ -254587,6 +255341,62 @@
                               "person"
                             ]
                           },
+                          "angle": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "tip",
+                                  "problem",
+                                  "story",
+                                  "offer"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "topic": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "list": {
+                                    "type": "string",
+                                    "enum": [
+                                      "different",
+                                      "benefits",
+                                      "problems",
+                                      "questions",
+                                      "beforeAfter",
+                                      "story",
+                                      "topics",
+                                      "myths",
+                                      "voice",
+                                      "asks",
+                                      "never"
+                                    ]
+                                  },
+                                  "line": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  }
+                                },
+                                "required": [
+                                  "list",
+                                  "line"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "ideaId": {
                             "anyOf": [
                               {
@@ -254640,6 +255450,8 @@
                           "failure",
                           "madeBy",
                           "placedBy",
+                          "angle",
+                          "topic",
                           "ideaId",
                           "stillNeeds",
                           "createdAt",

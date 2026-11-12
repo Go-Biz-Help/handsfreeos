@@ -46,6 +46,8 @@ import {
 } from '../content-shapes';
 import { socialcontentAddon } from '../manifest';
 import { tidyHashtags } from '../posts-ai';
+import { isAngle } from '../variety';
+import { isOfferList } from '../../../main-offer/lists';
 import { content } from '../tables';
 import { SOCIALCONTENT_WORDS as W } from '../words';
 import { inWorkspace, mayManage, offerLiveOf, settingsOf, timeZoneOf, type Ctx } from './common';
@@ -159,6 +161,9 @@ function fromRaw(r: RawRow): ContentRow {
     failure: (r['failure'] as string | null) ?? null,
     madeBy: r['made_by'] as ContentRow['madeBy'],
     placedBy: r['placed_by'] === 'person' ? 'person' : 'ai',
+    angle: isAngle(r['angle']) ? r['angle'] : null,
+    topicList: isOfferList(r['topic_list']) ? r['topic_list'] : null,
+    topic: (r['topic'] as string | null) ?? null,
     postingAt: asDate(r['posting_at']),
     postedTo: Array.isArray(r['posted_to']) ? (r['posted_to'] as ContentRow['postedTo']) : [],
     numbers: isPlainObject(r['numbers']) ? (r['numbers'] as ContentRow['numbers']) : {},
@@ -254,6 +259,8 @@ export async function contentOut(ctx: Ctx, list: readonly ContentRow[]): Promise
       failure: c.failure,
       madeBy: c.madeBy,
       placedBy: c.placedBy,
+      angle: c.angle,
+      topic: c.topicList && c.topic ? { list: c.topicList, line: c.topic } : null,
       ideaId: c.ideaId,
       stillNeeds: stillNeeds({
         network: c.network,

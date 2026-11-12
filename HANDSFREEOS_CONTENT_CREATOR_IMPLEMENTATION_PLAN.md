@@ -165,3 +165,39 @@ at 06:34 UTC. Creator research stays on Instagram.
 14. **Setting up on its own (this part).** Niches, the best 10 creators, their notes and the Playbook without a press,
     then the calendar filling, each step shown and each one a person can change. It needs extension 0.136.0 for each
     creator's latest likes and comments, and migration 026300.
+
+## Variety, news and facts, and pictures that don't look alike (the owner, 2026-11-12)
+
+The owner asked (17:58 UTC): "currently the AI social media creator calendar is mostly the same topic, missed call
+text. why is that? i feel we need more variety no?" Its ideas had run out, so every post was written alone from the
+same Playbook and the offer's first line. Four questions went back, and the owner answered "1a 2a 3a 4a, also it should
+do research online for news or interesting facts about the niche and/or look at posts from other creators that match
+things the user would posts" (18:06 UTC), then "it looks like the system is only using the claude design and the
+designs always look the same currently, also it needs to throw in some open ai images too when it's appropriate but
+make sure to have it look like a user created it in canva or photoshop or something" (18:09 UTC). Every one of the
+owner's 42 AI posts was a designed carousel in one of 3 layouts. Eight more questions went back, and the owner picked
+"1a 2a 3a 4a 5a&b depending on results as open ai doesn’t misspell words much anymore (the system should have built in
+quality control though to make sure things look right) 6a 7a 8a" (19:00 UTC): the recommended answers, plus OpenAI's
+whole graphics and a check on every picture (decision 40).
+
+| Question                        | Answer                                                                                                                                                                                                |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 34. What each post is about     | **Its own line from the main offer's For your content lists**, the lists taking turns, the line used longest ago first; the AI sees the business's last 20 posts and never repeats a hook.            |
+| 35. Ideas                       | **10 more on their own whenever fewer than 5 wait**, each planned as a kind and a line before the AI writes it.                                                                                       |
+| 36. The weekly mix              | **Of every 10 posts, about 4 tips, 2 customer problems, 2 stories and 2 about the offer**, never the same kind twice in a row.                                                                        |
+| 37. The drafts from before      | **Written again** with the variety, on the same days and times, unless a person touched them.                                                                                                         |
+| 38. News and facts found online | **Once a week, about 5 web searches**, keeping up to 10 news items or facts as ideas, each with its page; a post names its source in plain words; 2 of the 4 tips in every 10 use one when one waits. |
+| 38. Creators' posts that match  | **The studied creators' posts closest to each post's topic** are shown to the writer as examples, never copied.                                                                                       |
+| 39. Pictures                    | **12 layouts, 4 fonts and colours from the brand colour**, never starting the way the last two did; about half carousels and half single pictures; words alone now and then on Facebook and LinkedIn. |
+| 39. OpenAI's photos             | **About 3 in 10 posts with pictures have a photo OpenAI makes under the words**, like a Canva design, never two in a row (9¢ each); on a carousel it goes under the first slide.                      |
+| 40. Checking every picture      | **Claude looks at each picture beside its words before it's kept**; a drawn design that fails is designed once more, told what to fix.                                                                |
+| 40. OpenAI's whole graphics     | **OpenAI makes a single photo picture words and all, every other time while the last ones passed the check**; one that fails is never kept, and after 2 of 4 fail it waits 4 photo posts.             |
+
+### The parts
+
+15. **Variety (this part).** The mix, topics, ideas that refill, recent posts shown, the old drafts written again,
+    the weekly look online (`socialcontent.research`, charged 2¢ a search as `ai.web_search`), creators' posts as
+    examples, the pictures' layouts, fonts, colours, formats and photos, the check on every picture and OpenAI's
+    whole graphics (`check-ai.ts`). Migration 026500 adds the kind and topic
+    to posts and ideas, an idea's source, the search's price, and runs the calendar half an hour later so the drafts
+    are written again.

@@ -16,6 +16,7 @@ import {
   listsOf,
   MainOfferParts,
   OFFER_LISTS,
+  type MainOfferLists,
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import { shortKnowledge } from '../../knowledge/find';
@@ -78,6 +79,12 @@ export async function offerIsLive(ctx: AddonScopeContext): Promise<boolean> {
 export async function requireLiveOffer(ctx: AddonScopeContext): Promise<void> {
   if (!(await offerIsLive(ctx)))
     throw HfosError.rule('socialcontent_offer_not_live', 409, W.offer.notLive);
+}
+
+/** The main offer's lists for content, each a few lines: what each post's topic is taken from (decision 34). */
+export async function listsHere(ctx: AddonScopeContext): Promise<MainOfferLists> {
+  const { lists } = await asWorker(ctx.db, ctx.scope, (tx) => offerHere(tx, ctx.scope.workspaceId));
+  return lists;
 }
 
 /**

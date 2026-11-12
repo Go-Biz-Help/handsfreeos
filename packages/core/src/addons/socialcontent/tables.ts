@@ -28,6 +28,8 @@ import type {
 import type { ContentNetwork } from './networks';
 import type { DoneWell, OwnNumbers } from './own';
 import type { RecentPost, SetupMarks } from './picking';
+import type { Angle } from './variety';
+import type { OfferList } from '../../main-offer/lists';
 import type {
   CreatorState,
   IdeaState,
@@ -227,6 +229,13 @@ export const ideas = addonSocialcontent.table(
     outline: text('outline'),
     why: text('why'),
     basedOn: uuid('based_on').array().notNull().default([]),
+    /** Its kind in the weekly mix and the line from the lists it's about (decisions 34 to 36). */
+    angle: text('angle').$type<Angle>(),
+    topicList: text('topic_list').$type<OfferList>(),
+    topic: text('topic'),
+    /** Where an idea found online came from. */
+    sourceUrl: text('source_url'),
+    sourceName: text('source_name'),
     state: text('state').notNull().$type<IdeaState>().default('new'),
     decidedBy: userRef('decided_by'),
     decidedAt: ts('decided_at'),
@@ -268,6 +277,13 @@ export const content = addonSocialcontent.table(
     postLink: text('post_link'),
     failure: text('failure'),
     madeBy: text('made_by').notNull().$type<'ai' | 'person'>().default('ai'),
+    /**
+     * Its kind in the weekly mix and the line from the lists it's about (decisions 34 to 36). An AI draft with no kind
+     * was written before them, and is written again (decision 37).
+     */
+    angle: text('angle').$type<Angle>(),
+    topicList: text('topic_list').$type<OfferList>(),
+    topic: text('topic'),
     /** Who set its time: the AI, writing it into the plan's place (AI picks may move it), or a person (decision 27). */
     placedBy: text('placed_by').notNull().$type<'ai' | 'person'>().default('ai'),
     postingAt: ts('posting_at'),

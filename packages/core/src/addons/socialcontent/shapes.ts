@@ -7,6 +7,8 @@ import { CALENDAR, FACEBOOK_WHERE, PLAN_MODES, POSTING_NETWORKS } from './calend
 import { TIMES_FROM } from './schedule';
 import { PICKING, RecentPost, SetupFacts, SetupMarks } from './picking';
 import { CONTENT_NETWORKS } from './networks';
+import { ANGLES } from './variety';
+import { OFFER_LIST_LIMITS, OFFER_LISTS } from '../../main-offer/lists';
 
 export const uuid = z.uuid();
 export const Network = z.enum(CONTENT_NETWORKS);
@@ -36,7 +38,7 @@ export const LIMITS = {
   knownAtMost: 1000,
   /** The Playbook's sections, and the ideas the AI suggests at once. */
   playbookSections: 8,
-  ideasAtOnce: 8,
+  ideasAtOnce: 12,
   /** What watching sends: frames, each one's size, and its sound (base64 characters). */
   framesMost: 12,
   frameBytes: 200_000,
@@ -205,6 +207,19 @@ export const Playbook = z.object({
 });
 export type Playbook = z.infer<typeof Playbook>;
 
+/** The kind of a post or idea in the weekly mix (decision 36). */
+export const AngleShape = z.enum(ANGLES);
+/** A line from the main offer's lists for content that a post or idea is about (decision 34). */
+export const TopicShape = z.object({
+  list: z.enum(OFFER_LISTS),
+  line: z.string().trim().min(1).max(OFFER_LIST_LIMITS.line),
+});
+/** Where an idea found by looking things up online came from: the page, and its site or publisher's name. */
+export const SourceShape = z.object({
+  url: z.url().max(2000),
+  name: z.string().trim().min(1).max(120),
+});
+
 export const Idea = z.object({
   id: uuid,
   title: z.string(),
@@ -214,6 +229,10 @@ export const Idea = z.object({
   outline: z.string().nullable(),
   why: z.string().nullable(),
   basedOn: z.array(uuid),
+  /** Its kind and topic (decisions 34 to 36), and where it came from when it was found online. Default for an older API. */
+  angle: AngleShape.nullable().default(null),
+  topic: TopicShape.nullable().default(null),
+  source: SourceShape.nullable().default(null),
   state: z.enum(IDEA_STATES),
   createdAt: z.string(),
 });
@@ -605,6 +624,9 @@ export const IdeaIn = Idea.pick({
   outline: true,
   why: true,
   basedOn: true,
+  angle: true,
+  topic: true,
+  source: true,
 });
 export type IdeaIn = z.infer<typeof IdeaIn>;
 export const IdeasPutInput = z.object({
