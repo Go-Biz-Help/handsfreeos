@@ -250,7 +250,7 @@ export function CalendarPage({
                 ))}
                 {free.map((o) => (
                   <div
-                    key={`${o.network}:${o.date}`}
+                    key={`${o.network}:${o.at}`}
                     className="flex flex-wrap items-center gap-3 rounded-card border border-dashed border-border-strong px-4 py-3"
                     data-testid={`socialcontent-open-${o.network}-${o.date}`}
                   >
@@ -258,13 +258,16 @@ export function CalendarPage({
                     <span className="text-[13.5px] text-text-2">
                       {W.calendar.openHint(networkName(o.network), timeIn(o.at, c.timeZone))}
                     </span>
+                    {o.trying ? (
+                      <span className="text-[12.5px] text-text-3">{W.calendar.trying}</span>
+                    ) : null}
                     <Button
                       size="sm"
                       variant="ghost"
                       className="ml-auto"
-                      loading={busy === `open:${o.network}:${o.date}`}
-                      disabled={busy !== null && busy !== `open:${o.network}:${o.date}`}
-                      onClick={() => void write(o.network, o.at, `open:${o.network}:${o.date}`)}
+                      loading={busy === `open:${o.network}:${o.at}`}
+                      disabled={busy !== null && busy !== `open:${o.network}:${o.at}`}
+                      onClick={() => void write(o.network, o.at, `open:${o.network}:${o.at}`)}
                     >
                       {W.calendar.writeFor}
                     </Button>

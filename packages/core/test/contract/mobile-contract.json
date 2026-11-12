@@ -15962,17 +15962,53 @@
             "additionalProperties": {
               "type": "object",
               "properties": {
+                "mode": {
+                  "type": "string",
+                  "enum": ["ai", "mine"]
+                },
                 "perWeek": {
                   "type": "integer",
                   "minimum": 0,
-                  "maximum": 7
+                  "maximum": 21
+                },
+                "perDay": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 3
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "from": {
+                  "type": "string",
+                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                },
+                "to": {
+                  "type": "string",
+                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
                 },
                 "time": {
                   "type": "string",
                   "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                },
+                "week": {
+                  "minItems": 7,
+                  "maxItems": 7,
+                  "type": "array",
+                  "items": {
+                    "maxItems": 3,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                    }
+                  }
                 }
-              },
-              "required": ["perWeek", "time"]
+              }
             }
           },
           "facebookPage": {
@@ -15997,6 +16033,9 @@
             }
           },
           "autoFill": {
+            "type": "boolean"
+          },
+          "autoPick": {
             "type": "boolean"
           }
         },

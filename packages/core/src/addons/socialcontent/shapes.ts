@@ -3,7 +3,9 @@
  * limits on what's saved. Browser-safe: the web, the phone, the extension and the worker read them.
  */
 import { z } from 'zod';
-import { CALENDAR, FACEBOOK_WHERE, POSTING_NETWORKS } from './calendar';
+import { CALENDAR, FACEBOOK_WHERE, PLAN_MODES, POSTING_NETWORKS } from './calendar';
+import { TIMES_FROM } from './schedule';
+import { PICKING, RecentPost, SetupFacts, SetupMarks } from './picking';
 import { CONTENT_NETWORKS } from './networks';
 
 export const uuid = z.uuid();
@@ -119,6 +121,13 @@ export const Creator = z.object({
   /** Whether work to read them is waiting or under way. */
   reading: z.boolean(),
   createdAt: z.string(),
+  /** Who ticked or skipped them: the AI or a person (decisions 30 and 31). Defaults, for an older API. */
+  pickedBy: z.enum(['ai', 'person']).nullable().default(null),
+  /** How close the AI found them to what the business does, 0 to 10, and why. */
+  match: z.number().int().nullable().default(null),
+  matchWhy: z.string().nullable().default(null),
+  /** Likes and comments for their followers, the middle of their latest posts' (0.031 is 3.1%). */
+  engagement: z.number().nullable().default(null),
 });
 export type Creator = z.infer<typeof Creator>;
 
@@ -260,16 +269,43 @@ export const Work = z.object({
 export type Work = z.infer<typeof Work>;
 
 /** How many posts a week on one network, and when ('HH:MM' in the business's time zone): the calendar's plan. */
+const Clock = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+
+/** One network's plan (decisions 21, 22 and 24): AI picks (`ai`) or I pick (`mine`). */
 export const NetworkPlanShape = z.object({
+  mode: z.enum(PLAN_MODES),
+  /** AI picks: posts a week. */
   perWeek: z.number().int().min(0).max(CALENDAR.perWeekMost),
-  time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  /** AI picks: the most in one day; null spreads them out. */
+  perDay: z.number().int().min(1).max(CALENDAR.perDayMost).nullable(),
+  /** AI picks: the hours it posts between, HH:MM in the business's time zone. */
+  from: Clock,
+  to: Clock,
+  /** AI picks: the time it starts near while it has learned nothing. */
+  time: Clock,
+  /** I pick: each weekday's times, Sunday first. */
+  week: z.array(z.array(Clock).max(CALENDAR.perDayMost)).length(7),
 });
 export const PlanShape = z.object({
   instagram: NetworkPlanShape,
   facebook: NetworkPlanShape,
   linkedin: NetworkPlanShape,
 });
-export const PlanSaveShape = z.partialRecord(z.enum(POSTING_NETWORKS), NetworkPlanShape);
+/** A change to the plan: for each network given, only the parts that change. */
+export const PlanSaveShape = z.partialRecord(z.enum(POSTING_NETWORKS), NetworkPlanShape.partial());
+
+/** What AI picks learned on one network (decisions 23 and 25): its best hours so far, and from what. */
+export const LearnedShape = z.object({
+  best: z.array(z.string()),
+  from: z.enum(TIMES_FROM),
+  own: z.number().int(),
+  creators: z.number().int(),
+});
+export const LearnedPlanShape = z.object({
+  instagram: LearnedShape,
+  facebook: LearnedShape,
+  linkedin: LearnedShape,
+});
 
 export const Settings = z.object({
   networks: z.array(Network),
@@ -287,6 +323,8 @@ export const Settings = z.object({
   facebookWhere: z.array(z.enum(FACEBOOK_WHERE)),
   /** Whether the AI fills the calendar on its own (on until someone turns it off; the owner, 11 Nov). */
   autoFill: z.boolean(),
+  /** Whether it picks niches and creators on its own (decisions 29 and 30). Defaults, for an older API. */
+  autoPick: z.boolean().default(true),
 });
 export type Settings = z.infer<typeof Settings>;
 
@@ -307,6 +345,10 @@ export const OverviewOutput = z.object({
     waiting: z.number().int(),
   }),
   work: z.array(Work),
+  /** What AI picks learned about the hours on each network. Defaults, for an older API. */
+  learned: LearnedPlanShape.optional(),
+  /** How setting up on its own stands (decisions 28 to 32), for `setupSteps`. None from an older API. */
+  setup: SetupFacts.optional(),
 });
 export type Overview = z.infer<typeof OverviewOutput>;
 
@@ -369,7 +411,7 @@ export const SettingsSaveInput = z.object({
   /** Whose computer reads; null for none. */
   readerUserId: uuid.nullable().optional(),
   watchVideos: z.boolean().optional(),
-  /** The calendar's plan: for each network given, posts a week (0 to 7) and the time they go. */
+  /** The calendar's plan: for each network given, the parts that change (AI picks or I pick, and each one's own). */
   plan: PlanSaveShape.optional(),
   /** The business's Facebook Page's link; null for none. */
   facebookPage: z
@@ -384,6 +426,11 @@ export const SettingsSaveInput = z.object({
    * away, then tops up once a week.
    */
   autoFill: z.boolean().optional(),
+  /**
+   * Whether it picks niches and creators on its own: the business's own niche and the 2 closest, and the best 10
+   * creators on each network, swapped once a month. Off, a person ticks them.
+   */
+  autoPick: z.boolean().optional(),
 });
 
 /** A standout a Playbook item or an idea came from, to open. */
@@ -481,6 +528,8 @@ export const FoundCreator = z.object({
   bio: clipped(LIMITS.bio).nullable().default(null),
   followers: z.number().int().min(0).nullable().default(null),
   lastPostAt: z.iso.datetime().nullable().default(null),
+  /** Their latest posts as their profile shows them (extension 0.136.0 on), for how they do for their followers. */
+  recent: z.array(RecentPost).max(PICKING.recentAtMost).nullable().default(null),
 });
 export type FoundCreator = z.input<typeof FoundCreator>;
 export const CreatorsFoundInput = z.object({
@@ -500,6 +549,8 @@ export const CreatorReadInput = z.object({
   bio: clipped(LIMITS.bio).nullable().default(null),
   followers: z.number().int().min(0).nullable().default(null),
   lastPostAt: z.iso.datetime().nullable().default(null),
+  /** Their latest posts as their profile shows them (extension 0.136.0 on). */
+  recent: z.array(RecentPost).max(PICKING.recentAtMost).nullable().default(null),
 });
 
 export const PostIn = z.object({
@@ -586,7 +637,10 @@ export const NicheOut = z.object({
 export const NichesPutInput = z.object({
   workspaceId: uuid,
   own: NicheOut.nullable(),
+  /** Closest to the business's own first. */
   similar: z.array(NicheOut).max(LIMITS.similarAtMost),
+  /** Setting up on its own: the closest this many new ones are ticked too (decision 29). */
+  pickClosest: z.number().int().min(0).max(LIMITS.similarAtMost).default(0),
 });
 export const NichesPutOutput = z.object({ added: z.number().int() });
 export const NicheSearchesPutInput = z.object({
@@ -597,5 +651,45 @@ export const NicheSearchesPutInput = z.object({
 export const WorkQueueInput = z.object({
   workspaceId: uuid,
   kind: z.enum(['find', 'posts']),
-  askedFor: z.enum(['weekly', 'monthly']),
+  /** `person`: setting up on its own, searched before the weekly and monthly reads. */
+  askedFor: z.enum(['weekly', 'monthly', 'person']),
+});
+
+/** What the AI said about how close creators are to what the business does (decision 30). */
+export const CreatorsMatchedInput = z.object({
+  workspaceId: uuid,
+  matches: z
+    .array(
+      z.object({
+        creatorId: uuid,
+        match: z.number().int().min(0).max(10),
+        why: z.string().max(LIMITS.why).nullable(),
+      }),
+    )
+    .max(PICKING.matchRunMost),
+});
+
+/**
+ * Setting up on its own and the monthly swap (decisions 30 and 31): the creators the AI picks to study, the ones it
+ * swaps out with why, and the profiles it reads first.
+ */
+export const CreatorsPickInput = z.object({
+  workspaceId: uuid,
+  pick: z.array(uuid).max(50).default([]),
+  swap: z
+    .array(z.object({ creatorId: uuid, why: z.string().min(1).max(LIMITS.why) }))
+    .max(50)
+    .default([]),
+  read: z.array(uuid).max(60).default([]),
+});
+export const CreatorsPickOutput = z.object({
+  picked: z.number().int(),
+  swapped: z.number().int(),
+  asked: z.number().int(),
+});
+
+/** The steps of setting up it took just now; one taken before keeps its first time. */
+export const SetupMarkInput = z.object({
+  workspaceId: uuid,
+  marks: SetupMarks,
 });

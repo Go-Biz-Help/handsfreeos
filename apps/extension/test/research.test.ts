@@ -179,10 +179,28 @@ const profileJson = (username: string, over: Record<string, unknown> = {}) => ({
               shortcode: 'PINNED1',
               taken_at_timestamp: day(400),
               pinned_for_users: [{ id: '1' }],
+              edge_liked_by: { count: 5_000 },
             },
           },
-          { node: { shortcode: 'NEWEST1', taken_at_timestamp: day(2) } },
-          { node: { shortcode: 'OLDER01', taken_at_timestamp: day(9) } },
+          {
+            node: {
+              shortcode: 'NEWEST1',
+              taken_at_timestamp: day(2),
+              is_video: true,
+              video_view_count: 12_000,
+              edge_liked_by: { count: 900 },
+              edge_media_to_comment: { count: 40 },
+              edge_media_to_caption: { edges: [{ node: { text: 'Three ways to fold a  sheet' } }] },
+            },
+          },
+          {
+            node: {
+              shortcode: 'OLDER01',
+              taken_at_timestamp: day(9),
+              edge_media_preview_like: { count: 500 },
+              edge_media_to_comment: { count: 10 },
+            },
+          },
         ],
       },
       ...over,
@@ -237,6 +255,12 @@ describe('Instagram’s answers', () => {
       posts: 310,
       lastPostAt: new Date(day(2) * 1000).toISOString(),
     });
+    // Its latest posts' numbers and words, newest first and the pinned one last (0.136.0).
+    expect(c.recent).toEqual([
+      { likes: 900, comments: 40, views: 12_000, caption: 'Three ways to fold a sheet' },
+      { likes: 500, comments: 10, views: null, caption: null },
+      { likes: 5_000, comments: null, views: null, caption: null },
+    ]);
     expect(ig.creatorFrom({ status: 'ok' })).toBeNull();
   });
 
@@ -830,6 +854,7 @@ describe('finding creators when hashtags’ pages are gone', () => {
         bio: 'CRM tips',
         followers: 12_000,
         lastPostAt: new Date(day(3) * 1000).toISOString(),
+        recent: [],
       },
     ]);
   });

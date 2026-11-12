@@ -37,6 +37,7 @@ import {
   INSTAGRAM_READS,
   loadedShown,
   creatorFrom,
+  recentFrom,
   mediaIdOf,
   mediaInfoPath,
   postedAtOf,
@@ -201,9 +202,14 @@ async function readCreator(
   if (!got.gone) return got;
   const held = await datedHeld(ctx, username);
   if (!held?.creator) return got;
+  // Their latest posts' numbers from the page's own list of them, when its data for them had none (0.136.0).
+  const recent = held.creator.recent?.length ? held.creator.recent : recentFrom(held.posts);
   return {
     ok: true,
-    value: { creator: held.creator, page: { posts: held.posts, linked: held.linked } },
+    value: {
+      creator: { ...held.creator, recent },
+      page: { posts: held.posts, linked: held.linked },
+    },
   };
 }
 
@@ -411,6 +417,7 @@ async function find(ctx: ReadCtx): Promise<ReadEnd> {
       bio: c.bio,
       followers: c.followers,
       lastPostAt: c.lastPostAt,
+      recent: [...(c.recent ?? [])],
     });
     if (found.length >= FOUND_EVERY) await send();
   }
@@ -570,6 +577,7 @@ async function profile(ctx: ReadCtx): Promise<ReadEnd> {
     bio: c.bio,
     followers: c.followers,
     lastPostAt: c.lastPostAt,
+    recent: [...(c.recent ?? [])],
   });
   await progress.say({ now: 'Done', profiles: 1 }, true);
   return { failure: null };
@@ -612,6 +620,7 @@ async function posts(ctx: ReadCtx): Promise<ReadEnd> {
     bio: c.bio,
     followers: c.followers,
     lastPostAt: c.lastPostAt,
+    recent: [...(c.recent ?? [])],
   });
   if (c.private)
     return {

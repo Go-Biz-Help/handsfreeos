@@ -135,29 +135,42 @@ export const socialcontentAddon = defineAddon({
       'socialcontent.content.posted',
       'socialcontent.content.failed',
       'socialcontent.content.done_well',
+      'socialcontent.content.read',
+      'socialcontent.content.moved',
       'socialcontent.calendar.filled',
+      'socialcontent.creators.picked',
     ],
     // A niche someone added: the AI writes the words to search each network for it. Posts saved with new
     // standouts: the AI notes them, and the Playbook and ideas follow. One of the business's own posts that did
     // well (part 11): the Playbook is written again with it. Fill on its own turned back on: the calendar fills now.
-    // The main offer put live: the calendar fills now, since nothing is written until it is (pick 7b).
+    // The main offer put live: the calendar fills now, since nothing is written until it is (pick 7b). Its own
+    // posts' numbers read: AI picks learns the hours again, and moves the posts not up yet (decisions 25 to 27).
+    // Setting up on its own (decisions 28 to 32) goes on when a search or profile read ends, the Playbook is
+    // written, or the main offer's lists for content are saved.
     consumes: [
       'socialcontent.settings.saved',
       'socialcontent.niche.added',
       'socialcontent.posts.saved',
       'socialcontent.content.done_well',
+      'socialcontent.content.read',
+      'socialcontent.work.finished',
+      'socialcontent.playbook.written',
       'main_offer.published',
+      'main_offer.list_saved',
     ],
   },
   // Each studied creator read again once a week; new creators looked for once a month (decision 11); the AI's
   // notes on new standouts, a few at a time.
-  // The calendar topped up once a week from the first fill (decision 18), and each post's pictures made.
+  // The calendar topped up once a week from the first fill (decision 18), and each post's pictures made. AI picks'
+  // posts moved to the hours it learned (decision 27). Setting itself up, step by step, until it writes (decision 28).
   jobs: [
     'socialcontent.weekly',
     'socialcontent.monthly',
     'socialcontent.notes',
     'socialcontent.calendar',
     'socialcontent.pictures',
+    'socialcontent.times',
+    'socialcontent.setup',
   ],
   billing: { model: 'free' },
   // The business's main offer and its lists for content (docs/main-offer.md, "For your content"): every post and idea

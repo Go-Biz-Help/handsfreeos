@@ -11,7 +11,9 @@ pages (part 5); reading Facebook and LinkedIn (part 6); and writing the business
 designed, photo-style and its own pictures (part 8, below under "Making posts"); and putting OK'd posts up on
 Facebook and LinkedIn through the extension (part 9, "Posting"), and on Instagram with the person's videos (part 10);
 and reading how its own posts did, with the ones that did well in the Playbook (part 11, "Its own posts' numbers");
-and the Calendar and its posts on the phone (part 12, under "On the phone").
+and the Calendar and its posts on the phone (part 12, under "On the phone"); and a schedule it learns, AI picks or
+I pick on each network (part 13, "The schedule"); and setting itself up with no press, from niches to the
+best creators to writing (part 14, "Setting up on its own").
 The add-on is in `development`,
 offered to nobody; staff give it to a business from Admin → Businesses.
 
@@ -53,7 +55,13 @@ offered to nobody; staff give it to a business from Admin → Businesses.
 | Posting: the next post due, how it went, Post it now     | `ops/posting.ts`; `supabase/migrations/20261027025100_socialcontent_posting.sql` |
 | The extension putting a post up                          | `apps/extension/src/research/posting.ts` and `post-here.ts`                      |
 | Its own posts' numbers: when they're read, doing well    | `own.ts` (pure); `ops/own.ts`; `20261027025200_socialcontent_own_numbers.sql`    |
+| The schedule: open places, the hours it learned, moves   | `schedule.ts` (pure); `ops/schedule.ts`; the worker's `socialcontent.times` job  |
+| Who set a post's time (`placed_by`)                      | `supabase/migrations/20261027026200_socialcontent_schedule.sql`                  |
 | The extension reading its own posts' numbers             | `apps/extension/src/research/own.ts`                                             |
+| Setting up on its own: who it picks, swaps, the steps    | `picking.ts` (pure; web, phone, server and worker); `ops/setup.ts`               |
+| What the AI is asked about how close a creator is        | `match-ai.ts`; the asks run in the worker's `socialcontent/setup.ts`             |
+| The setup steps, who picked a creator, their match       | `supabase/migrations/20261027026300_socialcontent_setup.sql`                     |
+| The setup steps on the Creators page                     | `setup-card.tsx` in the web's folder; `setup.tsx` in the phone's                 |
 
 ## How it works
 
@@ -160,13 +168,13 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   slides or script, what its picture shows and how it's made, its pictures (file ids, in order), where on Facebook it
   goes, when it goes, and its state (waiting for an OK, OK'd, posting, posted, didn't post, skipped). The kind is made
   when the add-on is turned on; the migration made it for businesses that already had it.
-- **The plan** is in Settings → Posting (owners and admins): posts a week on Instagram, Facebook and LinkedIn (0 to
-  7; 3, 3 and 2 at first) and a time for each, in the business's time zone. 1 a week lands on Wednesday, 2 on Tuesday
-  and Thursday, 3 on Monday, Wednesday and Friday, and so on (`WEEKDAYS_FOR`). Settings also takes the Facebook Page's
-  link and where Facebook posts go (the profile, the Page or both), which each Facebook post starts with, and the
-  **Fill on its own** switch (below).
+- **The plan** is in Settings → Posting (owners and admins), on the web and the phone: for each of Instagram, Facebook
+  and LinkedIn, **AI picks** or **I pick** (part 13, below under "The schedule"). Settings also takes the Facebook
+  Page's link and where Facebook posts go (the profile, the Page or both), which each Facebook post starts with, and
+  the **Fill on its own** switch (below).
 - **The Calendar** shows today and the next 14 days, day by day: each post with its picture, title, first line and
-  state, and each open day in the plan (a network's day with no post, or only a skipped one) with **Write one**.
+  state, and each open place in the plan (a place with no post, or only a skipped one) with **Write one**, saying when
+  AI picks is trying a new time there.
   **Fill the calendar** has the worker write a post for every open day from tomorrow on: 5 at a time, 30 seconds
   apart, from saved ideas first, then new ones, then the Playbook alone. After the first fill it tops up once a week
   on its own (`socialcontent.calendar`, re-armed when the add-on is turned back on). **Write a post** takes the next
@@ -228,6 +236,78 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   has Skip it, and the refusal says so (`socialcontent_remove_forbidden`). A post that went up or is going up can't be
   removed. The Assistant removes one on a Confirm card (`socialcontent_remove_own_post`). It's an online command on
   the phone.
+
+## The schedule
+
+Part 13 (decisions 21 to 27, the owner's picks of 12 Nov). Each network's plan is one of two, picked in Settings →
+Posting on the web and the phone (`NetworkPlan` in `calendar.ts`; the math in `schedule.ts`, which the web, the phone
+and the worker share):
+
+- **I pick**: the times on each weekday, up to 3 a day (`week`, Sunday first). Each time is a place on the Calendar,
+  less the nearest one for each post already that day.
+- **AI picks** (the start, 3, 3 and 2 a week, between 7 AM and 8 PM): how many a week (0 to 21), the most a day (1 to 3,
+  or spread out: one a day until there are more posts than days), and the hours it posts between (at least an hour
+  apart). Each week, Monday to Sunday, gets its number, spread out weekdays first (`perWeekday`, from `WEEKDAYS_FOR`);
+  each post already in that week takes the nearest spread day's place, so a post moved by hand isn't written again, and
+  spread days already past are let go. Each open place goes at the best hour it knows that day (`timesFor`), two on a
+  day at least 2 hours apart when the hours have room.
+- **What it learns** (decisions 23 and 25): each hour's average of how many times its normal a post did there, in the
+  business's time zone (`learnTimes`). A creator's post counts by its views against its neighbours where Instagram
+  shows them, else likes plus comments (as standouts are weighed); the business's own by its latest read (7 days,
+  else 2) against the middle of its own latest posts in that place on the same number (`ownSamples`). One of its own
+  counts as 3 of the creators'; from 10 of its own with numbers on a network, only its own count there. Each hour
+  starts as if one post did its normal there, a post at the next hour counts half, one post counts for 5 times its
+  normal at most, and an hour needs about 2 posts to be trusted. With nothing learned it starts near the plan's one
+  time from before (9 AM, 12 PM and 8 AM). It's worked out again from the posts each time, never kept, so every screen
+  and the worker agree (`learnedTimesOf` in `ops/schedule.ts`). Settings shows its best hours so far and what from.
+- **Still learning** (decision 26): about 1 in 5 of the AI's places go at the hour between the plan's hours it knows
+  least about. Which ones is fixed by the network, the day and the place's number (`seedOf`), so the same day gives the
+  same hours everywhere; the Calendar says "A new time, to keep learning" on them.
+- **Moving to a better hour** (decision 27): the worker's `socialcontent.times` job puts each post AI picks placed that
+  hasn't gone up, OK'd ones too (keeping the OK), at the hour it now has for that day (`movesFor`, then
+  `socialcontent.content.retime`). It runs 10 minutes after a creator's posts are saved or one of its own posts'
+  numbers are read (`socialcontent.content.read`), and right after the plan is saved. A post a person set the time of
+  (`placed_by = 'person'`: changing its time on its sheet or screen, or writing one at a time that isn't a plan's
+  place), one going up within half an hour, and I pick's networks are never moved; a post changed meanwhile isn't
+  either, as the move names the time it had.
+
+## Setting up on its own
+
+Part 14 (decisions 28 to 33, the owner's picks of 12 Nov: "the initial setup should be more autonomous ... this should
+all be adjustable by the user"). The worker's `socialcontent.setup` job (`advanceSetup` in its `socialcontent/setup.ts`)
+takes the next step each time something it waits on happens, and checks again every 6 hours until it has written:
+
+1. **Starts** once the add-on is on and an owner or admin picks the reading computer (decision 28;
+   `socialcontent.settings.saved` with `readerPicked`, and on turning the add-on on).
+2. **Niches** (decision 29): with none ticked, it has the AI suggest them and ticks the business's own and the 2
+   closest (`socialcontent.niches.put` with `pickClosest: 2`), never the one about its customers' world. The rest wait
+   for a person.
+3. **Finding creators**: it searches each ticked niche, as Find creators now does.
+4. **Picking the best 10** (decision 30) once no search or profile read is left. The AI scores how close each
+   suggested creator is to what the business does, 0 to 10, from their bio and latest posts' captions (`match-ai.ts`,
+   12 to an ask, up to 120 a run; kept in `creators.match` and `match_why`). Of those 6 or closer on a network, the
+   closest 20 are weighed: their profiles are read first when not in the last 14 days (or never with their latest
+   posts, from extension 0.136.0), then those with 5,000+ followers and a post in the last 30 days are scored by how
+   close plus up to 3 for the best likes and comments for their followers among them (`engagement`: the middle of
+   their latest posts', from at least 3), and the best are studied, up to 10 on each network counting those already
+   studied (`pickCreators`, then `socialcontent.creators.pick`). Creator research stays Instagram only for now.
+5. **Notes and the Playbook** come as they always do, once the posts are read.
+6. **Writing** (decision 32) starts once the Playbook is written or 3 days have passed since setup started, and only
+   once the main offer is live and its For your content lists are all filled (`writeWaitsOn`). With no Playbook and
+   no idea yet, the first fill writes from the main offer's lists. Each post still waits for an OK (decision 33).
+
+Each step taken is marked once, with its first time, in `settings.setup` (`socialcontent.setup.mark`), so it never runs
+twice; businesses that had niches or a fill before part 14 were marked as set up by the migration. The Creators page
+shows the steps on the web and the phone (`setupSteps`, worked out in core from `overview.setup`), each with where it
+stands and a button to fix what one waits on (Settings, Main offer, For your content), until every step is done or off.
+
+- **Swapping out quiet creators** (decision 31): each month, before the search, the creators the AI picked whose
+  posts were read and who haven't posted in 45 days, or have fewer than 1 standout in 30 posts once 30 are read, are
+  skipped, with why ("Swapped out by the AI: …"), their waiting reads stopped, and others picked once the searches
+  end (`swapsFor`).
+- **Adjustable** (the owner's ask): Settings → Picking creators → **Pick creators on its own** (`settings.auto_pick`,
+  on to start). Off, it neither ticks niches nor picks or swaps creators: people tick who to study, and the step says
+  so. Fill on its own still decides whether it writes. Anyone can study, skip or stop studying any creator as before.
 
 ## Posting
 
@@ -342,6 +422,15 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
 - **Only networks the extension reads can be picked** (`CONTENT_NETWORK_INFO[n].ready`: Instagram, Facebook and
   LinkedIn). The rest show as coming later (decision 2). LinkedIn's creators are read weekly and monthly on their own,
   like the others (the owner's pick, 8 Nov).
+- **A creator a person ticked, added or skipped is theirs** (decision 31): `creators.picked_by` says who picked one
+  (`ai` or `person`; ticking one the AI picked makes it the person's). The AI picks only from Suggested and swaps
+  out only its own picks, so it never drops one a person chose or brings back one they skipped.
+- **Setting up never writes before the main offer is live and its lists are filled** (decision 32), and every post
+  it writes waits for an OK (decision 33).
+- **A time a person set is theirs** (decision 27): AI picks moves only the posts it placed, never one a person set
+  the time of, and never on I pick's networks. Moving keeps a post's OK, by the owner's pick (7b, 12 Nov).
+- **At most 3 posts a day on one network**, whoever picks (decision 21): more from one account risks a network's
+  limits.
 - **Nothing the business posts goes up without a person's OK** (decision 15). The AI writes drafts; OKing one is risk
   2, so the Assistant asks first. Changing an OK'd post takes its OK back. The worker writes posts and pictures only
   through its own commands (`socialcontent.content.put`, `.pictured`), which make the record through core's

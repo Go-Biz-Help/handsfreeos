@@ -1,11 +1,11 @@
 {
   "area": "socialcontent",
   "title": "The AI Social Media Content Creator add-on: Creators, Standouts, Playbook, Ideas, Calendar and Settings, on the web and the phone",
-  "checkedOn": "2026-11-11",
+  "checkedOn": "2026-11-12",
   "files": {
     "apps/mobile/src/addons/socialcontent/activity.tsx": "9744b485ef7b",
     "apps/mobile/src/addons/socialcontent/calendar.tsx": "5dea96ba5dd9",
-    "apps/mobile/src/addons/socialcontent/creators.tsx": "3979babd684b",
+    "apps/mobile/src/addons/socialcontent/creators.tsx": "afbddca04aa6",
     "apps/mobile/src/addons/socialcontent/home.tsx": "6973e687d399",
     "apps/mobile/src/addons/socialcontent/ideas.tsx": "370c2f6d54c8",
     "apps/mobile/src/addons/socialcontent/kit.tsx": "f3734b26ca2f",
@@ -13,7 +13,8 @@
     "apps/mobile/src/addons/socialcontent/own-post.tsx": "1521e9767540",
     "apps/mobile/src/addons/socialcontent/playbook.tsx": "f6bbed355f8c",
     "apps/mobile/src/addons/socialcontent/post-card.tsx": "047b4bb8df26",
-    "apps/mobile/src/addons/socialcontent/settings.tsx": "c992671f6d25",
+    "apps/mobile/src/addons/socialcontent/settings.tsx": "e1b751fe67b4",
+    "apps/mobile/src/addons/socialcontent/setup.tsx": "0f359ad31454",
     "apps/mobile/src/addons/socialcontent/standouts.tsx": "dd105b04655a",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/_layout.tsx": "70a8fb6d279c",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/calendar.tsx": "60bcfb60aa6c",
@@ -25,14 +26,15 @@
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/standouts.tsx": "adbc9f8ec4fe",
     "apps/web/src/addons/registry.ts": "c596d9461fd5",
     "apps/web/src/addons/socialcontent/activity-card.tsx": "ac129c506362",
-    "apps/web/src/addons/socialcontent/calendar-page.tsx": "b816419fd1c8",
-    "apps/web/src/addons/socialcontent/creators-page.tsx": "534489749606",
+    "apps/web/src/addons/socialcontent/calendar-page.tsx": "3e45600eea09",
+    "apps/web/src/addons/socialcontent/creators-page.tsx": "7981cd799c44",
     "apps/web/src/addons/socialcontent/ideas-page.tsx": "c93e26d76db8",
     "apps/web/src/addons/socialcontent/offer-notice.tsx": "bd18d03766c4",
     "apps/web/src/addons/socialcontent/playbook-page.tsx": "add4a230d665",
     "apps/web/src/addons/socialcontent/post-card.tsx": "67aaf4c54254",
     "apps/web/src/addons/socialcontent/post-sheet.tsx": "99b0f797cb46",
-    "apps/web/src/addons/socialcontent/settings-page.tsx": "2c8d1a107da8",
+    "apps/web/src/addons/socialcontent/settings-page.tsx": "19547dd13dc3",
+    "apps/web/src/addons/socialcontent/setup-card.tsx": "c30a470b168c",
     "apps/web/src/addons/socialcontent/standout-links.tsx": "1d5a6acf8414",
     "apps/web/src/addons/socialcontent/standouts-page.tsx": "432ad6ca185d",
     "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/calendar/page.tsx": "aac72a86dfcf",
@@ -54,23 +56,37 @@
     {
       "path": "Creators → header: title and how studying works",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:77",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:79",
       "covered": "yes",
       "by": "socialcontent_overview; the place's words"
     },
     {
       "path": "Creators → Find creators now",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:86",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:88",
       "covered": "yes",
       "by": "socialcontent_find_creators"
     },
     {
       "path": "Creators → no reading computer notice, with Settings",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:92",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:94",
       "covered": "yes",
       "by": "socialcontent_overview (settings.readerUserId); socialcontent_save_settings for owners and admins"
+    },
+    {
+      "path": "Creators → Setting up on its own: each step (reading computer, niches, finding creators, picking the best 10, notes and Playbook, writing your posts) with where it stands, shown until every step is done or off",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/setup-card.tsx:37",
+      "covered": "yes",
+      "by": "socialcontent_overview (setup: the marks, niches ticked, searches and profile reads left, studied and AI-picked on each network, standouts noted, the Playbook, when it filled, the main offer live and its lists filled)"
+    },
+    {
+      "path": "Creators → Setting up on its own → the button beside a step that waits (owners and admins): Settings, Main offer, For your content",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/setup-card.tsx:65",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (readerUserId, autoPick, autoFill), on a Confirm card; edit_main_offer for the main offer and For your content"
     },
     {
       "path": "Creators → What it’s doing: whether the reading computer is there (when it last checked in, its extension’s version), or quiet",
@@ -103,105 +119,112 @@
     {
       "path": "Creators → Niches: your niche and similar niches, each with why",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:244",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:247",
       "covered": "yes",
       "by": "socialcontent_list_niches"
     },
     {
       "path": "Creators → Niches → Suggest niches",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:254",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:257",
       "covered": "yes",
       "by": "socialcontent_suggest_niches (worker action)"
     },
     {
       "path": "Creators → Niches → Search it",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:226",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:229",
       "covered": "yes",
       "by": "socialcontent_decide_niche (picked)"
     },
     {
       "path": "Creators → Niches → Skip",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:236",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:239",
       "covered": "yes",
       "by": "socialcontent_decide_niche (skipped)"
     },
     {
       "path": "Creators → Niches → Add a niche",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:291",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:294",
       "covered": "yes",
       "by": "socialcontent_add_niche"
     },
     {
       "path": "Creators → Add a creator from a link",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:103",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:106",
       "covered": "yes",
       "by": "socialcontent_add_creator"
     },
     {
       "path": "Creators → tabs: Suggested, Studying, Skipped, with counts",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:130",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:133",
       "covered": "yes",
       "by": "socialcontent_list_creators (state); socialcontent_overview counts"
     },
     {
       "path": "Creators → a creator: name, network, followers, last post, niche, why suggested, posts read and standouts",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:378",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:384",
       "covered": "yes",
       "by": "socialcontent_list_creators"
     },
     {
+      "path": "Creators → a creator the AI picked or weighed: Picked by the AI, how close to what you do (of 10) with why, their likes and comments for their followers, and why it was swapped out",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:381",
+      "covered": "yes",
+      "by": "socialcontent_list_creators (pickedBy, match, matchWhy, engagement, why)"
+    },
+    {
       "path": "Creators → a creator added under 5,000 followers: the note that a search wouldn’t suggest them",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:389",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:404",
       "covered": "yes",
       "by": "socialcontent_list_creators (followers, foundBy)"
     },
     {
       "path": "Creators → Suggested → Study",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:400",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:415",
       "covered": "yes",
       "by": "socialcontent_decide_creator (study: true)"
     },
     {
       "path": "Creators → Suggested → Skip",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:403",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:418",
       "covered": "yes",
       "by": "socialcontent_decide_creator (study: false)"
     },
     {
       "path": "Creators → Studying → See posts (each with how many times its neighbours it did)",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:409",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:424",
       "covered": "yes",
       "by": "socialcontent_list_posts (creatorId)"
     },
     {
       "path": "Creators → Studying → Read again",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:418",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:433",
       "covered": "yes",
       "by": "socialcontent_read_creators (creatorId)"
     },
     {
       "path": "Creators → Studying → Stop studying",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:421",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:436",
       "covered": "yes",
       "by": "socialcontent_decide_creator (study: false)"
     },
     {
       "path": "Creators → Skipped → Study after all",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:431",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:446",
       "covered": "yes",
       "by": "socialcontent_decide_creator (study: true)"
     },
@@ -257,56 +280,63 @@
     {
       "path": "Settings → Networks: Instagram ticked, the rest Coming later",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:122",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:123",
       "covered": "yes",
       "by": "socialcontent_save_settings (networks); socialcontent_overview"
     },
     {
       "path": "Settings → Whose computer reads",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:151",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:152",
       "covered": "yes",
       "by": "socialcontent_overview (settings.readerName, readerIsMe)"
     },
     {
       "path": "Settings → Read on my computer",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:164",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:165",
       "covered": "yes",
       "by": "socialcontent_save_settings (readerUserId)"
     },
     {
       "path": "Settings → Get the extension",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:173",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:174",
       "covered": "person",
       "by": "a download into the person's own Chrome; the Assistant can say where it is"
     },
     {
       "path": "Settings → Stop reading",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:182",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:183",
       "covered": "yes",
       "by": "socialcontent_save_settings (readerUserId: null)"
     },
     {
+      "path": "Settings → Picking creators → Pick creators on its own: on picks the best 10 on each network and swaps out quiet ones each month; off, you tick who to study",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:207",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (autoPick), on a Confirm card"
+    },
+    {
       "path": "Settings → when it reads on its own (weekly, monthly)",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:230",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:251",
       "covered": "yes",
       "by": "the place's words; socialcontent_find_creators and socialcontent_read_creators descriptions"
     },
     {
       "path": "Settings → What it’s doing: waiting count and recent work, each with how it went and what it did (searches, accounts looked at, profiles and posts read)",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:251",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:272",
       "covered": "yes",
       "by": "socialcontent_overview (counts.waiting, work with progress)"
     },
     {
       "path": "Settings → What it’s doing → Stop",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:316",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:337",
       "covered": "yes",
       "by": "socialcontent_stop_work"
     },
@@ -439,21 +469,21 @@
     {
       "path": "Settings → Watching videos: what it does, and the notice that it uses a lot more AI",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:195",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:196",
       "covered": "yes",
       "by": "the place’s words; socialcontent_save_settings description"
     },
     {
       "path": "Settings → Watching videos → Watch new standout videos (asks first, with the notice)",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:204",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:225",
       "covered": "yes",
       "by": "socialcontent_save_settings (watchVideos), on a Confirm card"
     },
     {
       "path": "Settings → Watching videos → Try it on a few videos",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:218",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:239",
       "covered": "yes",
       "by": "socialcontent_try_watching, on a Confirm card"
     },
@@ -488,16 +518,30 @@
     {
       "path": "Phone → Creators → Find creators now",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:215",
+      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:231",
       "covered": "yes",
       "by": "socialcontent_find_creators"
     },
     {
       "path": "Phone → Creators → no reading computer notice, with Settings for owners and admins",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:231",
+      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:247",
       "covered": "yes",
       "by": "socialcontent_overview (settings.readerUserId, mayManage)"
+    },
+    {
+      "path": "Phone → Creators → Setting up on its own: each step with where it stands, shown until every step is done or off",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/socialcontent/setup.tsx:41",
+      "covered": "yes",
+      "by": "socialcontent_overview (setup: the marks, niches ticked, searches and profile reads left, studied and AI-picked on each network, standouts noted, the Playbook, when it filled, the main offer live and its lists filled)"
+    },
+    {
+      "path": "Phone → Creators → Setting up on its own → Settings, Main offer or For your content beside a step that waits (owners and admins)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/setup.tsx:66",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (readerUserId, autoPick, autoFill), on a Confirm card; edit_main_offer for the main offer and For your content"
     },
     {
       "path": "Phone → Creators → What it’s doing: the reading computer, Now with its progress, how many more wait, Lately",
@@ -509,70 +553,77 @@
     {
       "path": "Phone → Creators → Niches: your niche and similar niches, each with why",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:363",
+      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:385",
       "covered": "yes",
       "by": "socialcontent_list_niches"
     },
     {
       "path": "Phone → Creators → Niches → Suggest niches",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:358",
+      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:380",
       "covered": "yes",
       "by": "socialcontent_suggest_niches (worker action)"
     },
     {
       "path": "Phone → Creators → Niches → Search it / Skip",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:326",
+      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:348",
       "covered": "yes",
       "by": "socialcontent_decide_niche"
     },
     {
       "path": "Phone → Creators → Niches → Add a niche",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:394",
+      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:416",
       "covered": "yes",
       "by": "socialcontent_add_niche"
     },
     {
       "path": "Phone → Creators → Add a creator from a link",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:439",
+      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:461",
       "covered": "yes",
       "by": "socialcontent_add_creator"
     },
     {
       "path": "Phone → Creators → tabs: Suggested, Studying, Skipped, with counts",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:248",
+      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:270",
       "covered": "yes",
       "by": "socialcontent_list_creators (state)"
     },
     {
       "path": "Phone → Creators → a creator: name (opens their page), network, followers, last post, niche, why, posts read and standouts, the under 5,000 note",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:447",
+      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:469",
       "covered": "yes",
       "by": "socialcontent_list_creators (link among them)"
     },
     {
+      "path": "Phone → Creators → a creator the AI picked or weighed: Picked by the AI, how close (of 10) with why, and their likes and comments for their followers",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:505",
+      "covered": "yes",
+      "by": "socialcontent_list_creators (pickedBy, match, matchWhy, engagement, why)"
+    },
+    {
       "path": "Phone → Creators → Study / Skip / Stop studying / Study after all",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:506",
+      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:540",
       "covered": "yes",
       "by": "socialcontent_decide_creator"
     },
     {
       "path": "Phone → Creators → Studying → Read again",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:537",
+      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:571",
       "covered": "yes",
       "by": "socialcontent_read_creators (creatorId)"
     },
     {
       "path": "Phone → Creators → Studying → See posts: a sheet of their posts, Open their page, Show more posts",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:572",
+      "file": "apps/mobile/src/addons/socialcontent/creators.tsx:606",
       "covered": "yes",
       "by": "socialcontent_list_posts (creatorId)"
     },
@@ -663,42 +714,77 @@
     {
       "path": "Phone → Settings → Networks switches (the last one stays on; the rest Coming later)",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:191",
+      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:195",
       "covered": "yes",
       "by": "socialcontent_save_settings (networks)"
     },
     {
       "path": "Phone → Settings → Whose computer reads: Read on my computer, Stop reading",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:211",
+      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:215",
       "covered": "yes",
       "by": "socialcontent_save_settings (readerUserId); socialcontent_overview"
     },
     {
+      "path": "Phone → Settings → Picking creators → Pick creators on its own switch",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:273",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (autoPick), on a Confirm card"
+    },
+    {
       "path": "Phone → Settings → where to get the extension (on that computer, from the web)",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:232",
+      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:236",
       "covered": "person",
       "by": "the extension goes in Chrome on a computer; the Assistant can say where"
     },
     {
       "path": "Phone → Settings → Watching videos switch (asks first in a sheet, with the notice) and Try it on a few videos",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:246",
+      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:250",
       "covered": "yes",
       "by": "socialcontent_save_settings (watchVideos) and socialcontent_try_watching, on Confirm cards"
     },
     {
       "path": "Phone → Settings → when it reads on its own",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:275",
+      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:296",
       "covered": "yes",
       "by": "the place's words"
     },
     {
+      "path": "Phone → Settings → Posting: what the plan does, and the Fill on its own switch",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:338",
+      "covered": "yes",
+      "by": "the place’s words; socialcontent_save_settings (autoFill), on a Confirm card"
+    },
+    {
+      "path": "Phone → Settings → Posting → each network: AI picks or I pick",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:534",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (plan.<network>.mode)"
+    },
+    {
+      "path": "Phone → Settings → Posting → AI picks: posts a week, the most a day, the earliest and latest time, and what it learned",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:545",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (plan.<network>.perWeek, perDay, from, to); socialcontent_overview (learned)"
+    },
+    {
+      "path": "Phone → Settings → Posting → I pick: the times on each weekday, + Add a time (a sheet of times), and pressing a time to take it off",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:640",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (plan.<network>.week)"
+    },
+    {
       "path": "Phone → Settings → What it’s doing: each piece of work, how it went, and Stop",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:376",
+      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:397",
       "covered": "yes",
       "by": "socialcontent_overview (work); socialcontent_stop_work"
     },
@@ -1004,6 +1090,13 @@
       "by": "socialcontent_get_calendar (filledAt, nextFillAt, autoFill, plan, ready)"
     },
     {
+      "path": "Calendar → an open place: “A new time, to keep learning” where AI picks tries an hour",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:262",
+      "covered": "yes",
+      "by": "socialcontent_get_calendar (open[].trying)"
+    },
+    {
       "path": "Calendar → how many are OK’d and going up, whose computer puts them up and when it last checked in (a warning when none is picked or it’s quiet), and the networks posted by hand for now",
       "kind": "see",
       "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:214",
@@ -1265,35 +1358,56 @@
     {
       "path": "Settings → Posting: what the plan does",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:358",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:595",
       "covered": "yes",
       "by": "the place’s words; socialcontent_overview (settings.plan)"
     },
     {
       "path": "Settings → Posting → Fill on its own: off stops the AI filling the calendar, on fills the open days now",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:371",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:607",
       "covered": "yes",
       "by": "socialcontent_save_settings (autoFill), on a Confirm card"
     },
     {
-      "path": "Settings → Posting → posts a week and the time for each network",
+      "path": "Settings → Posting → each network: AI picks or I pick",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:387",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:400",
       "covered": "yes",
-      "by": "socialcontent_save_settings (plan)"
+      "by": "socialcontent_save_settings (plan.<network>.mode)"
+    },
+    {
+      "path": "Settings → Posting → AI picks: posts a week, the most a day (or spread out), and the hours it posts between",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:418",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (plan.<network>.perWeek, perDay, from, to); refusals say what to change"
+    },
+    {
+      "path": "Settings → Posting → AI picks: what it learned (best times so far, and from the creators’ posts or your own), and that 1 in 5 go at a new time",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:492",
+      "covered": "yes",
+      "by": "socialcontent_overview (learned) and socialcontent_get_calendar (learned)"
+    },
+    {
+      "path": "Settings → Posting → I pick: the times on each weekday (up to 3), Add a time, and the cross that takes one off",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:534",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (plan.<network>.week)"
     },
     {
       "path": "Settings → Posting → Your Facebook Page, Save",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:414",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:623",
       "covered": "yes",
       "by": "socialcontent_save_settings (facebookPage)"
     },
     {
       "path": "Settings → Posting → Where Facebook posts go: profile, Page (at least one)",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:436",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:645",
       "covered": "yes",
       "by": "socialcontent_save_settings (facebookWhere)"
     },

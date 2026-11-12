@@ -29,6 +29,7 @@ import {
   WorkProgressInput,
   type WorkKind,
 } from '../shapes';
+import { engagementOf, recentKept } from '../picking';
 import { DONE_WELL, doneWell, weighPosts } from '../standouts';
 import { creators, posts } from '../tables';
 import { SOCIALCONTENT_WORDS as W, daysAgo } from '../words';
@@ -313,6 +314,9 @@ export const creatorsFound = defineAddonCommand(socialcontentAddon, {
       const page = creatorOn(w.network, f.handle.replace(/^@/, '').toLowerCase());
       const good = doneWell(f, now);
       const why = sawWords(f.followers, f.lastPostAt, now) || null;
+      // Their latest posts, from extension 0.136.0: kept for the AI to read, and how they do for their followers.
+      const recent = f.recent === null ? null : JSON.stringify(recentKept(f.recent));
+      const engagement = engagementOf(f.recent, f.followers);
       // Kept as not fitting before, when its profile was read again: suggested now counts as a new suggestion.
       const [before] = await rows<{ state: string }>(
         ctx.tx,
@@ -323,15 +327,19 @@ export const creatorsFound = defineAddonCommand(socialcontentAddon, {
         ctx.tx,
         sql`insert into addon_socialcontent.creators
               (workspace_id, network, handle, name, link, bio, followers, last_post_at, niche_id, state, found_by, why,
-               profile_read_at)
+               profile_read_at, recent, engagement)
             values (${ws}, ${w.network}, ${page.handle}, ${f.name}, ${page.link}, ${f.bio}, ${f.followers},
-                    ${f.lastPostAt}::timestamptz, ${w.niche_id}, ${good ? 'suggested' : 'didnt_fit'}, 'search', ${why}, now())
+                    ${f.lastPostAt}::timestamptz, ${w.niche_id}, ${good ? 'suggested' : 'didnt_fit'}, 'search', ${why}, now(),
+                    ${recent}::jsonb, ${engagement})
             on conflict (workspace_id, network, handle) do update set
               name = coalesce(excluded.name, addon_socialcontent.creators.name),
               bio = coalesce(excluded.bio, addon_socialcontent.creators.bio),
               followers = coalesce(excluded.followers, addon_socialcontent.creators.followers),
               last_post_at = greatest(excluded.last_post_at, addon_socialcontent.creators.last_post_at),
               profile_read_at = now(),
+              recent = coalesce(excluded.recent, addon_socialcontent.creators.recent),
+              engagement = case when excluded.recent is not null then excluded.engagement
+                                else addon_socialcontent.creators.engagement end,
               -- Someone who didn't fit last time and does now is suggested; nobody else's state changes.
               state = case when addon_socialcontent.creators.state = 'didnt_fit' and excluded.state = 'suggested'
                            then 'suggested' else addon_socialcontent.creators.state end,
@@ -380,6 +388,13 @@ export const creatorRead = defineAddonCommand(socialcontentAddon, {
         ...(input.followers !== null ? { followers: input.followers } : {}),
         ...(input.lastPostAt !== null
           ? { lastPostAt: dsql`greatest(${creators.lastPostAt}, ${input.lastPostAt}::timestamptz)` }
+          : {}),
+        // Their latest posts, from extension 0.136.0: how they do for their followers, now.
+        ...(input.recent !== null
+          ? {
+              recent: recentKept(input.recent),
+              engagement: engagementOf(input.recent, input.followers),
+            }
           : {}),
         profileReadAt: new Date(),
       })

@@ -34,6 +34,7 @@ import {
   type WorkAskedFor,
   type WorkKind,
 } from '../shapes';
+import { SetupMarks } from '../picking';
 import { settings, type creators, type niches, type posts } from '../tables';
 
 export const inWorkspace = (i: { workspaceId: string }) => ({
@@ -76,6 +77,8 @@ export async function settingsOf(ctx: Ctx): Promise<{
   facebookWhere: FacebookWhere[];
   filledAt: string | null;
   autoFill: boolean;
+  autoPick: boolean;
+  setup: SetupMarks;
 }> {
   const [s] = await ctx.tx
     .select()
@@ -97,6 +100,8 @@ export async function settingsOf(ctx: Ctx): Promise<{
     ),
     filledAt: s?.filledAt ? s.filledAt.toISOString() : null,
     autoFill: s?.autoFill ?? true,
+    autoPick: s?.autoPick ?? true,
+    setup: SetupMarks.parse(s?.setup ?? {}),
   };
 }
 
@@ -163,6 +168,10 @@ export function creatorOut(
     standoutsCount: c.standoutsCount,
     reading: more.reading,
     createdAt: c.createdAt.toISOString(),
+    pickedBy: c.pickedBy,
+    match: c.match,
+    matchWhy: c.matchWhy,
+    engagement: c.engagement === null ? null : Number(c.engagement),
   };
 }
 

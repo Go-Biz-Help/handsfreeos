@@ -1220,6 +1220,20 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Each creator's latest likes and comments, for picking who to study (0.136.0)
+
+AI Social Media Content Creator sets itself up from 12 Nov 2026 (decisions 28 to 33 in `docs/socialcontent.md`): it
+studies the best 10 creators on each network, the closest to what the business does with the best likes and comments
+for their followers. From 0.136.0, every Instagram profile it reads (for a search, a profile or a creator's posts)
+sends their latest posts with it, as `recent`: up to 12, newest first and pinned ones last, each with its likes,
+comments, views (videos) and its first 200 characters of words (`creatorFrom` and `recentFrom` in
+`src/research/instagram.ts`). They come from the profile's own answer, or from the posts its page holds when that
+answer isn't there, so nothing more is opened. HandsFreeOS keeps 6 for its AI to read and works out the middle of
+their likes and comments for their followers.
+
+HandsFreeOS reads a shortlisted creator's profile again before picking them only while the reading computer runs
+0.136.0 or later (`RECENT_FROM_VERSION`): an older build sends no `recent`, so it would ask again and again.
+
 ### Warm-ups while they decide (0.135.0)
 
 The owner's rule of 11 Nov 2026 (decision 161 in `docs/outreach.md`): nobody gets a message before they follow the

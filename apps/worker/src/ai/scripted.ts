@@ -3402,7 +3402,22 @@ function scriptedIdeas(message: string): unknown {
   };
 }
 
+/**
+ * How close each creator is (addons/socialcontent/setup.ts): 9, 8, 7 and 5 in turn by their place in the ask, so the
+ * same creators always get the same answer and one in four isn't close enough to pick.
+ */
+function scriptedMatches(message: string): unknown {
+  return {
+    creators: refsIn(message, 'creator').map((ref, i) => ({
+      ref,
+      match: [9, 8, 7, 5][i % 4],
+      why: 'Posts tips about the same kind of work for the same kind of customers.',
+    })),
+  };
+}
+
 export const SOCIALCONTENT_RULES: readonly ScriptRule[] = [
+  { when: /Say how close each creator is to this business\.$/, json: (m) => scriptedMatches(m) },
   { when: /Write notes on these standout posts\.$/, json: (m) => scriptedNotes(m) },
   { when: /Write the Playbook from these notes\.$/, json: (m) => scriptedPlaybook(m) },
   { when: /Suggest content ideas for this business\.$/, json: (m) => scriptedIdeas(m) },

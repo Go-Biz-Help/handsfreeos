@@ -6,13 +6,7 @@
  *
  * Browser-safe and pure.
  */
-import {
-  addDays,
-  isClock,
-  localDateOf,
-  localInstant,
-  weekdayOf,
-} from '../../calendar/engine/zoned';
+import { isClock, parseClock } from '../../calendar/engine/zoned';
 import type { ContentNetwork } from './networks';
 
 /** The networks it writes posts for (part 8); posting through the extension comes in parts 9 and 10. */
@@ -133,54 +127,43 @@ export function postText(
 export const CALENDAR = {
   /** How far ahead it fills (decision 18). */
   days: 14,
-  /** At most one post a day on each network. */
-  perWeekMost: 7,
+  /**
+   * The most posts in one day on one network, whoever picks the times (decision 21): more than that from one account
+   * risks a network's limits.
+   */
+  perDayMost: 3,
+  /** The most posts a week on one network: three a day. */
+  perWeekMost: 21,
   /** A carousel's slides, and a post's pictures. */
   slidesMost: 10,
   picturesMost: 10,
   /** How often it fills on its own. */
   everyDays: 7,
+  /** AI picks' hours are at least this far apart (decision 24). */
+  windowLeastMinutes: 60,
 } as const;
 
+/** Each network's plan is one of these (decision 21): the AI picks the days and times, or the person does. */
+export const PLAN_MODES = ['ai', 'mine'] as const;
+export type PlanMode = (typeof PLAN_MODES)[number];
+
 export interface NetworkPlan {
-  /** Posts a week, 0 to 7. */
+  /** **AI picks** (`ai`) or **I pick** (`mine`). */
+  readonly mode: PlanMode;
+  /** AI picks: posts a week, 0 to 21 (decision 22). */
   readonly perWeek: number;
-  /** 'HH:MM' in the business's time zone. */
+  /** AI picks: the most in one day, 1 to 3; null spreads them out, one a day until there are more posts than days. */
+  readonly perDay: number | null;
+  /** AI picks: the hours it may post between, 'HH:MM' in the business's time zone (decision 24). */
+  readonly from: string;
+  readonly to: string;
+  /** AI picks: the time it starts near while it has learned nothing (the plan's one time before 12 Nov). */
   readonly time: string;
+  /** I pick: each weekday's times, Sunday first, soonest first; up to 3 a day. */
+  readonly week: string[][];
 }
-export type CalendarPlan = Readonly<Partial<Record<PostingNetwork, NetworkPlan>>>;
-
-/** The plan until someone changes it: the example in the plan Chris picked from (Instagram 3, Facebook 3, LinkedIn 2). */
-export const DEFAULT_PLAN: Readonly<Record<PostingNetwork, NetworkPlan>> = {
-  instagram: { perWeek: 3, time: '09:00' },
-  facebook: { perWeek: 3, time: '12:00' },
-  linkedin: { perWeek: 2, time: '08:00' },
-};
-
-const clamp = (n: unknown, low: number, high: number, fallback: number): number =>
-  typeof n === 'number' && Number.isFinite(n)
-    ? Math.max(low, Math.min(high, Math.round(n)))
-    : fallback;
-
-/** The plan as kept (settings.plan): each posting network's, the default where it says nothing. */
-export function planOf(raw: unknown): Record<PostingNetwork, NetworkPlan> {
-  const kept = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
-  const out = {} as Record<PostingNetwork, NetworkPlan>;
-  for (const n of POSTING_NETWORKS) {
-    const one = (kept as Record<string, unknown>)[n];
-    const p = one && typeof one === 'object' ? (one as Record<string, unknown>) : null;
-    out[n] = p
-      ? {
-          perWeek: clamp(p['perWeek'], 0, CALENDAR.perWeekMost, DEFAULT_PLAN[n].perWeek),
-          time:
-            typeof p['time'] === 'string' && isClock(p['time']) && p['time'] !== '24:00'
-              ? p['time']
-              : DEFAULT_PLAN[n].time,
-        }
-      : DEFAULT_PLAN[n];
-  }
-  return out;
-}
+/** The plan as kept in `settings.plan`: before 12 Nov each network held only `{ perWeek, time }`. */
+export type CalendarPlan = Readonly<Partial<Record<PostingNetwork, Partial<NetworkPlan>>>>;
 
 /** Which weekdays (0 is Sunday) a number of posts a week lands on: spread out, weekdays first. */
 export const WEEKDAYS_FOR: Readonly<Record<number, readonly number[]>> = {
@@ -194,50 +177,89 @@ export const WEEKDAYS_FOR: Readonly<Record<number, readonly number[]>> = {
   7: [0, 1, 2, 3, 4, 5, 6],
 };
 
-export interface Slot {
-  readonly network: PostingNetwork;
-  /** The local date, YYYY-MM-DD. */
-  readonly date: string;
-  /** When it goes, as an instant. */
-  readonly at: number;
+/** A week of times, Sunday first, from a number a week at one time, on the days WEEKDAYS_FOR spreads them over. */
+export function weekOf(perWeek: number, time: string): string[][] {
+  const days = WEEKDAYS_FOR[Math.max(0, Math.min(7, Math.round(perWeek)))] ?? [];
+  return Array.from({ length: 7 }, (_, d) => (days.includes(d) ? [time] : []));
 }
+
+/** Posts a week on one network as its plan stands: the AI's number, or the times the person picked. */
+export function postsAWeek(p: NetworkPlan): number {
+  return p.mode === 'mine' ? p.week.reduce((n, d) => n + d.length, 0) : p.perWeek;
+}
+
+const aiPicks = (perWeek: number, time: string): NetworkPlan => ({
+  mode: 'ai',
+  perWeek,
+  perDay: null,
+  from: '07:00',
+  to: '20:00',
+  time,
+  week: weekOf(perWeek, time),
+});
 
 /**
- * The plan's slots from tomorrow through the next two weeks, in the business's time zone, soonest first. Today is
- * left out: a post written now still needs an OK before it goes.
+ * The plan until someone changes it: AI picks on each network, 3, 3 and 2 a week (the example the owner picked from on
+ * 10 Nov), between 7 AM and 8 PM (decision 24). Switched to I pick, each starts from the days and time it had before.
  */
-export function slotsAhead(
-  plan: Readonly<Record<PostingNetwork, NetworkPlan>>,
-  timeZone: string,
-  now: number,
-  days: number = CALENDAR.days,
-): Slot[] {
-  const today = localDateOf(now, timeZone);
-  const out: Slot[] = [];
-  for (let d = 1; d <= days; d++) {
-    const date = addDays(today, d);
-    const weekday = weekdayOf(date);
-    for (const network of POSTING_NETWORKS) {
-      const p = plan[network];
-      if (!(WEEKDAYS_FOR[p.perWeek] ?? []).includes(weekday)) continue;
-      out.push({ network, date, at: localInstant(date, p.time, timeZone) });
-    }
+export const DEFAULT_PLAN: Readonly<Record<PostingNetwork, NetworkPlan>> = {
+  instagram: aiPicks(3, '09:00'),
+  facebook: aiPicks(3, '12:00'),
+  linkedin: aiPicks(2, '08:00'),
+};
+
+const clamp = (n: unknown, low: number, high: number, fallback: number): number =>
+  typeof n === 'number' && Number.isFinite(n)
+    ? Math.max(low, Math.min(high, Math.round(n)))
+    : fallback;
+
+const isTime = (v: unknown): v is string => typeof v === 'string' && isClock(v) && v !== '24:00';
+
+/**
+ * One network's plan as kept, each part checked, the fallback's where it says nothing usable. A plan kept before 12 Nov
+ * (`{ perWeek, time }`) becomes AI picks with its number, starting near its time, with its days for I pick.
+ */
+export function networkPlanOf(raw: unknown, fallback: NetworkPlan): NetworkPlan {
+  const p =
+    raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : null;
+  if (!p) return fallback;
+  const perDay = !('perDay' in p)
+    ? fallback.perDay
+    : p['perDay'] === null
+      ? null
+      : clamp(p['perDay'], 1, CALENDAR.perDayMost, 1);
+  const perWeek = Math.min(
+    clamp(p['perWeek'], 0, CALENDAR.perWeekMost, fallback.perWeek),
+    7 * (perDay ?? CALENDAR.perDayMost),
+  );
+  const time = isTime(p['time']) ? p['time'] : fallback.time;
+  let from = isTime(p['from']) ? p['from'] : fallback.from;
+  let to = isTime(p['to']) ? p['to'] : fallback.to;
+  if (parseClock(to) - parseClock(from) < CALENDAR.windowLeastMinutes) {
+    from = fallback.from;
+    to = fallback.to;
   }
-  return out.sort((a, b) => a.at - b.at);
+  const kept = p['week'];
+  const week =
+    Array.isArray(kept) && kept.length === 7
+      ? kept.map((d: unknown) =>
+          Array.isArray(d)
+            ? [...new Set(d.filter(isTime))].sort().slice(0, CALENDAR.perDayMost)
+            : [],
+        )
+      : 'week' in p
+        ? fallback.week.map((d) => [...d])
+        : weekOf(perWeek, time);
+  return { mode: p['mode'] === 'mine' ? 'mine' : 'ai', perWeek, perDay, from, to, time, week };
 }
 
-/** The slots with no post on that network that day yet (a skipped one leaves the day open). */
-export function emptySlots(
-  slots: readonly Slot[],
-  taken: readonly { network: ContentNetwork; postAt: number | Date | null; state: ContentState }[],
-  timeZone: string,
-): Slot[] {
-  const busy = new Set(
-    taken
-      .filter((t) => t.postAt !== null && t.state !== 'skipped')
-      .map((t) => `${t.network}:${localDateOf(Number(t.postAt), timeZone)}`),
-  );
-  return slots.filter((s) => !busy.has(`${s.network}:${s.date}`));
+/** The plan as kept (settings.plan): each posting network's, the default where it says nothing. */
+export function planOf(raw: unknown): Record<PostingNetwork, NetworkPlan> {
+  const kept = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  const out = {} as Record<PostingNetwork, NetworkPlan>;
+  for (const n of POSTING_NETWORKS)
+    out[n] = networkPlanOf((kept as Record<string, unknown>)[n], DEFAULT_PLAN[n]);
+  return out;
 }
 
 /** The format a network can take: Instagram always needs a picture or a video. */
