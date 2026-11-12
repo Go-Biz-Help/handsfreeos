@@ -23,7 +23,7 @@ on:
         default: false
         description: >-
           Build and submit both phones even if a build for this fingerprint exists on EAS: for a build that never
-          reached TestFlight or Play.
+          reached TestFlight or Play. Left off, a hand run is an ordinary release, whatever the last one did.
 
 concurrency:
   group: mobile-release
@@ -73,17 +73,28 @@ jobs:
       # of them for a day that way (23–24 September), and kept closing on a bug fixed the night before. So when the
       # last release didn't finish, this one builds and submits again. A release that outlived the wait below counts
       # as finished; if EAS failed it later, run this workflow by hand with `rebuild`.
+      #
+      # A hand run does what it was asked, either way. Left off, it never rebuilds: that is how to stop the rebuilds
+      # when the build is already in the stores and only its resubmission fails. On 11 November App Store review had
+      # approved 1.0.0, so TestFlight refused every new 1.0.0 build ("The train version '1.0.0' is closed"), and each
+      # release after one failed release rebuilt both phones and failed the same way. Its updates still went out.
       - name: Did the last release finish?
         id: last
         if: steps.check.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          ASKED: ${{ inputs.rebuild == true }}
+          # true or false on a hand run, empty on one CI started.
+          ASKED: ${{ github.event_name == 'workflow_dispatch' && (inputs.rebuild && 'true' || 'false') || '' }}
         run: |
           set -euo pipefail
           if [ "$ASKED" = "true" ]; then
             echo "rebuild=true" >> "$GITHUB_OUTPUT"
             echo "Rebuilding: asked for by hand."
+            exit 0
+          fi
+          if [ "$ASKED" = "false" ]; then
+            echo "rebuild=false" >> "$GITHUB_OUTPUT"
+            echo "An ordinary release: run by hand without rebuild."
             exit 0
           fi
           # Newest first. A release that never asked EAS for anything (skipped, cancelled while it waited its turn, no

@@ -98,9 +98,12 @@ Connect you submit a TestFlight build for review, and in Play Console you promot
   `requireCommit`: EAS's own dependency install rewrites `pnpm-lock.yaml` on its machines, and with `requireCommit` on,
   every update and build started by a workflow refused to run on that "dirty" tree.
 - **`appVersionSource` is `remote`**, so EAS keeps the build number and raises it itself on `preview` and `production`
-  (`autoIncrement`). `version` in `app.json` (`1.0.0`) stays the one Chris edits — it is what a customer sees, and
-  `runtimeVersion`'s fingerprint policy doesn't depend on it. `ios.buildNumber` and `android.versionCode` in
-  `app.json` are only there so a local `expo run:` build has sane values; EAS ignores them.
+  (`autoIncrement`). `version` in `app.json` (`1.0.0`) stays the one Chris edits — it is what a customer sees. It is
+  part of `runtimeVersion`'s fingerprint, so raising it means a new build for both phones, and a phone on the old
+  version gets no more over-the-air updates until it installs the new one from its store. Raise it with a native
+  change that is going to the stores anyway: once App Store review approves a version, TestFlight refuses any more
+  builds of it ("The train version '1.0.0' is closed for new build submissions"). `ios.buildNumber` and
+  `android.versionCode` in `app.json` are only there so a local `expo run:` build has sane values; EAS ignores them.
 - **Most builds no longer start from a keyboard.** A commit on `main` that CI passes makes EAS either build and
   submit or publish an over-the-air update, deciding per platform from the fingerprint; a push to any other branch
   publishes a preview update, and the `mobile-build` label on a pull request makes an installable build. "Phone Part
