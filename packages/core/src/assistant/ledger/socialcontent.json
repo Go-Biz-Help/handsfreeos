@@ -1,7 +1,7 @@
 {
   "area": "socialcontent",
   "title": "The AI Social Media Content Creator add-on: Creators, Standouts, Playbook, Ideas, Calendar and Settings, on the web and the phone",
-  "checkedOn": "2026-11-11",
+  "checkedOn": "2026-11-12",
   "files": {
     "apps/mobile/src/addons/socialcontent/activity.tsx": "9744b485ef7b",
     "apps/mobile/src/addons/socialcontent/calendar.tsx": "5dea96ba5dd9",
@@ -13,7 +13,7 @@
     "apps/mobile/src/addons/socialcontent/own-post.tsx": "1521e9767540",
     "apps/mobile/src/addons/socialcontent/playbook.tsx": "f6bbed355f8c",
     "apps/mobile/src/addons/socialcontent/post-card.tsx": "047b4bb8df26",
-    "apps/mobile/src/addons/socialcontent/settings.tsx": "c992671f6d25",
+    "apps/mobile/src/addons/socialcontent/settings.tsx": "1dd6eedd3a98",
     "apps/mobile/src/addons/socialcontent/standouts.tsx": "dd105b04655a",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/_layout.tsx": "70a8fb6d279c",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/calendar.tsx": "60bcfb60aa6c",
@@ -25,14 +25,14 @@
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/standouts.tsx": "adbc9f8ec4fe",
     "apps/web/src/addons/registry.ts": "c596d9461fd5",
     "apps/web/src/addons/socialcontent/activity-card.tsx": "ac129c506362",
-    "apps/web/src/addons/socialcontent/calendar-page.tsx": "b816419fd1c8",
+    "apps/web/src/addons/socialcontent/calendar-page.tsx": "3e45600eea09",
     "apps/web/src/addons/socialcontent/creators-page.tsx": "534489749606",
     "apps/web/src/addons/socialcontent/ideas-page.tsx": "c93e26d76db8",
     "apps/web/src/addons/socialcontent/offer-notice.tsx": "bd18d03766c4",
     "apps/web/src/addons/socialcontent/playbook-page.tsx": "add4a230d665",
     "apps/web/src/addons/socialcontent/post-card.tsx": "67aaf4c54254",
     "apps/web/src/addons/socialcontent/post-sheet.tsx": "99b0f797cb46",
-    "apps/web/src/addons/socialcontent/settings-page.tsx": "2c8d1a107da8",
+    "apps/web/src/addons/socialcontent/settings-page.tsx": "16d2e36ed854",
     "apps/web/src/addons/socialcontent/standout-links.tsx": "1d5a6acf8414",
     "apps/web/src/addons/socialcontent/standouts-page.tsx": "432ad6ca185d",
     "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/calendar/page.tsx": "aac72a86dfcf",
@@ -696,6 +696,34 @@
       "by": "the place's words"
     },
     {
+      "path": "Phone → Settings → Posting: what the plan does, and the Fill on its own switch",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:317",
+      "covered": "yes",
+      "by": "the place’s words; socialcontent_save_settings (autoFill), on a Confirm card"
+    },
+    {
+      "path": "Phone → Settings → Posting → each network: AI picks or I pick",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:513",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (plan.<network>.mode)"
+    },
+    {
+      "path": "Phone → Settings → Posting → AI picks: posts a week, the most a day, the earliest and latest time, and what it learned",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:524",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (plan.<network>.perWeek, perDay, from, to); socialcontent_overview (learned)"
+    },
+    {
+      "path": "Phone → Settings → Posting → I pick: the times on each weekday, + Add a time (a sheet of times), and pressing a time to take it off",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:619",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (plan.<network>.week)"
+    },
+    {
       "path": "Phone → Settings → What it’s doing: each piece of work, how it went, and Stop",
       "kind": "do",
       "file": "apps/mobile/src/addons/socialcontent/settings.tsx:376",
@@ -1004,6 +1032,13 @@
       "by": "socialcontent_get_calendar (filledAt, nextFillAt, autoFill, plan, ready)"
     },
     {
+      "path": "Calendar → an open place: “A new time, to keep learning” where AI picks tries an hour",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:262",
+      "covered": "yes",
+      "by": "socialcontent_get_calendar (open[].trying)"
+    },
+    {
       "path": "Calendar → how many are OK’d and going up, whose computer puts them up and when it last checked in (a warning when none is picked or it’s quiet), and the networks posted by hand for now",
       "kind": "see",
       "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:214",
@@ -1265,35 +1300,56 @@
     {
       "path": "Settings → Posting: what the plan does",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:358",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:574",
       "covered": "yes",
       "by": "the place’s words; socialcontent_overview (settings.plan)"
     },
     {
       "path": "Settings → Posting → Fill on its own: off stops the AI filling the calendar, on fills the open days now",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:371",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:586",
       "covered": "yes",
       "by": "socialcontent_save_settings (autoFill), on a Confirm card"
     },
     {
-      "path": "Settings → Posting → posts a week and the time for each network",
+      "path": "Settings → Posting → each network: AI picks or I pick",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:387",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:379",
       "covered": "yes",
-      "by": "socialcontent_save_settings (plan)"
+      "by": "socialcontent_save_settings (plan.<network>.mode)"
+    },
+    {
+      "path": "Settings → Posting → AI picks: posts a week, the most a day (or spread out), and the hours it posts between",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:397",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (plan.<network>.perWeek, perDay, from, to); refusals say what to change"
+    },
+    {
+      "path": "Settings → Posting → AI picks: what it learned (best times so far, and from the creators’ posts or your own), and that 1 in 5 go at a new time",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:471",
+      "covered": "yes",
+      "by": "socialcontent_overview (learned) and socialcontent_get_calendar (learned)"
+    },
+    {
+      "path": "Settings → Posting → I pick: the times on each weekday (up to 3), Add a time, and the cross that takes one off",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:513",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (plan.<network>.week)"
     },
     {
       "path": "Settings → Posting → Your Facebook Page, Save",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:414",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:602",
       "covered": "yes",
       "by": "socialcontent_save_settings (facebookPage)"
     },
     {
       "path": "Settings → Posting → Where Facebook posts go: profile, Page (at least one)",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:436",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:624",
       "covered": "yes",
       "by": "socialcontent_save_settings (facebookWhere)"
     },

@@ -492,6 +492,8 @@ describe('Settings', () => {
       watch: jest.fn(),
       tryWatching: jest.fn(),
       stop: jest.fn(),
+      setPlan: jest.fn(),
+      autoFill: jest.fn(),
     };
   }
   const body = (props: Partial<React.ComponentProps<typeof SettingsBody>> = {}) => (
@@ -584,6 +586,84 @@ describe('Settings', () => {
     // The last network on is never turned off.
     actions.setNetwork('instagram', false);
     expect(change).toHaveBeenCalledTimes(2);
+    // Only what changes on a network's plan is sent (decisions 21 to 24).
+    actions.setPlan('linkedin', { mode: 'mine' });
+    actions.autoFill(false);
+    await waitFor(() => expect(change).toHaveBeenCalledTimes(4));
+    expect(change).toHaveBeenCalledWith('socialcontent.settings.save', {
+      workspaceId: WS,
+      plan: { linkedin: { mode: 'mine' } },
+    });
+    expect(change).toHaveBeenCalledWith('socialcontent.settings.save', {
+      workspaceId: WS,
+      autoFill: false,
+    });
+  });
+
+  it('changes each network’s plan: AI picks’ numbers and hours, and what it learned (decisions 21 to 26)', async () => {
+    const actions = settingsActionsMock();
+    await render(
+      body({
+        actions,
+        overview: overview({
+          learned: {
+            instagram: { best: ['18:00', '09:00'], from: 'creators', own: 0, creators: 24 },
+            facebook: { best: [], from: 'none', own: 0, creators: 0 },
+            linkedin: { best: [], from: 'none', own: 0, creators: 0 },
+          },
+        }),
+      }),
+    );
+    expect(screen.getByTestId('socialcontent-learned-instagram')).toHaveTextContent(
+      /^Best times so far: 6:00 PM and 9:00 AM, from 24 posts by the creators you study/,
+    );
+    expect(screen.getByTestId('socialcontent-learned-facebook')).toHaveTextContent(
+      /^Nothing learned yet: it starts near 12:00 PM/,
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-plan-instagram-per-week-10'));
+    expect(actions.setPlan).toHaveBeenCalledWith('instagram', { perWeek: 10 });
+    await fireEvent.press(screen.getByTestId('socialcontent-plan-instagram-per-day-2'));
+    expect(actions.setPlan).toHaveBeenCalledWith('instagram', { perDay: 2 });
+    await fireEvent.press(screen.getByTestId('socialcontent-plan-instagram-from-08:00'));
+    expect(actions.setPlan).toHaveBeenCalledWith('instagram', { from: '08:00' });
+    await fireEvent.press(screen.getByTestId('socialcontent-plan-linkedin-mine'));
+    expect(actions.setPlan).toHaveBeenCalledWith('linkedin', { mode: 'mine' });
+    await fireEvent.press(screen.getByTestId('socialcontent-auto-fill'));
+    expect(actions.autoFill).toHaveBeenCalledWith(false);
+  });
+
+  it('picks I pick’s times on each weekday, up to 3 a day, and takes one off', async () => {
+    const actions = settingsActionsMock();
+    const settings = overview().settings;
+    const week = [[], ['09:00'], [], ['08:00', '12:00', '17:00'], [], [], []];
+    await render(
+      body({
+        actions,
+        overview: overview({
+          settings: {
+            ...settings,
+            plan: { ...settings.plan, facebook: { ...settings.plan.facebook, mode: 'mine', week } },
+          },
+        }),
+      }),
+    );
+    // Wednesday has its 3: no more to add there.
+    expect(screen.queryByTestId('socialcontent-plan-facebook-3-add')).toBeNull();
+    await fireEvent.press(screen.getByTestId('socialcontent-plan-facebook-1-add'));
+    await fireEvent.press(screen.getByTestId('socialcontent-plan-facebook-add-07:30'));
+    expect(actions.setPlan).toHaveBeenCalledWith('facebook', {
+      week: [[], ['07:30', '09:00'], [], ['08:00', '12:00', '17:00'], [], [], []],
+    });
+    await fireEvent.press(screen.getByTestId('socialcontent-plan-facebook-3-12:00'));
+    expect(actions.setPlan).toHaveBeenCalledWith('facebook', {
+      week: [[], ['09:00'], [], ['08:00', '17:00'], [], [], []],
+    });
+  });
+
+  it('leaves the plan to owners and admins', async () => {
+    await render(body({ overview: overview({ mayManage: false }) }));
+    expect(screen.getByTestId('socialcontent-plan-instagram-mine')).toBeDisabled();
+    expect(screen.getByTestId('socialcontent-auto-fill')).toBeDisabled();
   });
 });
 
@@ -605,7 +685,9 @@ describe('the Calendar', () => {
       data={calendarView({
         posts: [content(30, { title: 'Porch season' })],
         undated: [content(31, { title: 'Moving checklist', postAt: null })],
-        open: [{ network: 'facebook', date: tomorrow, at: `${tomorrow}T12:00:00.000Z` }],
+        open: [
+          { network: 'facebook', date: tomorrow, at: `${tomorrow}T12:00:00.000Z`, trying: false },
+        ],
         recent: [went],
       })}
       error={null}

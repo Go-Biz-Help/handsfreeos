@@ -9,15 +9,15 @@ import {
   AI_FORMATS,
   CALENDAR,
   DEFAULT_PLAN,
-  emptySlots,
   formatFor,
   placesFor,
   placesLeft,
   planOf,
   POSTING,
+  postsAWeek,
   postText,
-  slotsAhead,
   stillNeeds,
+  weekOf,
   type ReadyCheck,
 } from '../../src/addons/socialcontent/calendar';
 import {
@@ -42,7 +42,6 @@ import {
   type WriteAnswer,
 } from '../../src/addons/socialcontent/posts-ai';
 
-const TZ = 'America/Chicago';
 /** Tuesday 10 November 2026, noon in Chicago. */
 const NOW = Date.parse('2026-11-10T18:00:00Z');
 
@@ -51,71 +50,46 @@ describe('the posting plan', () => {
     expect(planOf(null)).toEqual(DEFAULT_PLAN);
     expect(planOf('junk')).toEqual(DEFAULT_PLAN);
     const plan = planOf({
-      instagram: { perWeek: 9, time: '25:00' },
-      facebook: { perWeek: -2, time: '24:00' },
-      linkedin: { perWeek: 2.6, time: '07:30' },
+      instagram: { mode: 'ai', perWeek: 99, perDay: 9, from: '25:00', to: '07:30' },
+      facebook: {
+        mode: 'mine',
+        perWeek: -2,
+        week: [['09:00', 'nope', '09:00'], [], [], [], [], [], []],
+      },
+      linkedin: { mode: 'ai', perWeek: 9, perDay: 1, from: '10:00', to: '10:30' },
+    });
+    expect(plan.instagram).toMatchObject({
+      mode: 'ai',
+      perWeek: CALENDAR.perWeekMost,
+      perDay: CALENDAR.perDayMost,
+      from: DEFAULT_PLAN.instagram.from,
+      to: DEFAULT_PLAN.instagram.to,
+    });
+    expect(plan.facebook.mode).toBe('mine');
+    expect(plan.facebook.perWeek).toBe(0);
+    expect(plan.facebook.week[0]).toEqual(['09:00']);
+    expect(postsAWeek(plan.facebook)).toBe(1);
+    // 9 a week don't fit in 1 a day; hours under an hour apart go back to the default.
+    expect(plan.linkedin).toMatchObject({ perWeek: 7, perDay: 1, from: '07:00', to: '20:00' });
+  });
+
+  it('turns a plan kept before 12 Nov into AI picks with its number, near its time, with its days for I pick', () => {
+    const plan = planOf({
+      instagram: { perWeek: 3, time: '09:00' },
+      facebook: { perWeek: 2, time: '12:30' },
+      linkedin: { perWeek: 0, time: '08:00' },
     });
     expect(plan.instagram).toEqual({
-      perWeek: CALENDAR.perWeekMost,
-      time: DEFAULT_PLAN.instagram.time,
+      mode: 'ai',
+      perWeek: 3,
+      perDay: null,
+      from: '07:00',
+      to: '20:00',
+      time: '09:00',
+      week: [[], ['09:00'], [], ['09:00'], [], ['09:00'], []],
     });
-    expect(plan.facebook).toEqual({ perWeek: 0, time: DEFAULT_PLAN.facebook.time });
-    expect(plan.linkedin).toEqual({ perWeek: 3, time: '07:30' });
-  });
-
-  it('spreads 3 a week over Monday, Wednesday and Friday, from tomorrow, at the plan’s time in the business’s zone', () => {
-    const plan = planOf({
-      instagram: { perWeek: 3, time: '09:00' },
-      facebook: { perWeek: 0 },
-      linkedin: { perWeek: 0 },
-    });
-    const slots = slotsAhead(plan, TZ, NOW);
-    expect(slots.map((s) => s.date)).toEqual([
-      '2026-11-11',
-      '2026-11-13',
-      '2026-11-16',
-      '2026-11-18',
-      '2026-11-20',
-      '2026-11-23',
-    ]);
-    expect(slots.every((s) => s.network === 'instagram')).toBe(true);
-    // 9 AM in Chicago in November is 15:00 UTC.
-    expect(new Date(slots[0]!.at).toISOString()).toBe('2026-11-11T15:00:00.000Z');
-  });
-
-  it('leaves today out, and puts every network’s slots in time order', () => {
-    const slots = slotsAhead(DEFAULT_PLAN, TZ, NOW, 7);
-    expect(slots.some((s) => s.date === '2026-11-10')).toBe(false);
-    const times = slots.map((s) => s.at);
-    expect(times).toEqual([...times].sort((a, b) => a - b));
-    expect(slots.filter((s) => s.network === 'instagram')).toHaveLength(3);
-    expect(slots.filter((s) => s.network === 'linkedin')).toHaveLength(2);
-  });
-
-  it('counts a day as open again once its post is skipped, and ignores posts with no day', () => {
-    const plan = planOf({
-      instagram: { perWeek: 3, time: '09:00' },
-      facebook: { perWeek: 0 },
-      linkedin: { perWeek: 0 },
-    });
-    const slots = slotsAhead(plan, TZ, NOW);
-    const open = emptySlots(
-      slots,
-      [
-        { network: 'instagram', postAt: Date.parse('2026-11-13T15:00:00Z'), state: 'draft' },
-        { network: 'instagram', postAt: new Date('2026-11-16T20:00:00Z'), state: 'skipped' },
-        { network: 'facebook', postAt: Date.parse('2026-11-18T15:00:00Z'), state: 'ready' },
-        { network: 'instagram', postAt: null, state: 'draft' },
-      ],
-      TZ,
-    );
-    expect(open.map((s) => s.date)).toEqual([
-      '2026-11-11',
-      '2026-11-16',
-      '2026-11-18',
-      '2026-11-20',
-      '2026-11-23',
-    ]);
+    expect(plan.facebook.week).toEqual(weekOf(2, '12:30'));
+    expect(postsAWeek(plan.linkedin)).toBe(0);
   });
 });
 
@@ -423,12 +397,22 @@ describe('the Calendar’s days and times, as the web and the phone both show th
   });
 
   it('puts the plan in one line', () => {
+    const name = (n: string) => n.charAt(0).toUpperCase() + n.slice(1);
+    // An older API's plan, with one time.
     expect(
       planShown(
         { instagram: { perWeek: 3, time: '09:00' }, linkedin: { perWeek: 2, time: '08:00' } },
         ['instagram', 'facebook', 'linkedin'],
-        (n) => n.charAt(0).toUpperCase() + n.slice(1),
+        name,
       ),
     ).toMatch(/^Your plan: Instagram.*3.*9:00 AM · Linkedin.*2.*8:00 AM\. /);
+    const plan = planOf({
+      instagram: { mode: 'ai', perWeek: 10, perDay: 2 },
+      facebook: { mode: 'mine', week: [[], ['09:00', '17:00'], [], ['09:00'], [], [], []] },
+      linkedin: { mode: 'ai', perWeek: 0 },
+    });
+    expect(planShown(plan, ['instagram', 'facebook', 'linkedin'], name)).toBe(
+      'Your plan: Instagram: 10 posts a week, up to 2 a day, at the times the AI picks · Facebook: 3 posts a week at your times · Linkedin: off. Change the plan in Settings.',
+    );
   });
 });

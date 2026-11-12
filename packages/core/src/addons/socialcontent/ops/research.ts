@@ -13,7 +13,7 @@ import { changeMoment } from '../../../kernel/moment';
 import { isUniqueViolation } from '../../../kernel/pg-errors';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { socialcontentAddon } from '../manifest';
-import { CONTENT_NETWORK_INFO, creatorFromLink, handleShown } from '../networks';
+import { CONTENT_NETWORK_INFO, creatorFromLink, handleShown, networkName } from '../networks';
 import {
   CreatorAddInput,
   CreatorDecideInput,
@@ -51,11 +51,22 @@ import {
   queueWork,
   readSince,
   settingsOf,
+  timeZoneOf,
   WORK_SELECT,
   workOut,
   type Ctx,
   type WorkRow,
 } from './common';
+import {
+  CALENDAR,
+  networkPlanOf,
+  POSTING_NETWORKS,
+  type NetworkPlan,
+  type PostingNetwork,
+} from '../calendar';
+import { learnedShown } from '../schedule';
+import { learnedTimesOf } from './schedule';
+import { parseClock } from '../../../calendar/engine/zoned';
 
 const NO_READER =
   'No computer reads the networks yet. An owner or admin picks one in AI Social Media Content Creator → Settings → Whose computer reads, with the HandsFreeOS Social extension in Chrome.';
@@ -145,14 +156,47 @@ export const overview = defineAddonQuery(socialcontentAddon, {
       mayManage: mayManage(ctx),
       counts: counts ?? { suggested: 0, studying: 0, skipped: 0, standouts: 0, waiting: 0 },
       work: recent.map(workOut),
+      learned: learnedShown(s.plan, await learnedTimesOf(ctx.tx, ws, await timeZoneOf(ctx))),
     };
   },
 });
 
+/**
+ * The plan with a change to some networks (decisions 21, 22 and 24): only the parts given change. Refused, saying
+ * what to change, when the hours are under an hour apart or the posts a week don't fit the most a day.
+ */
+export function planChanged(
+  was: Readonly<Record<PostingNetwork, NetworkPlan>>,
+  change: Readonly<Partial<Record<PostingNetwork, Partial<NetworkPlan>>>>,
+): Record<PostingNetwork, NetworkPlan> {
+  const out = { ...was };
+  for (const n of POSTING_NETWORKS) {
+    const c = change[n];
+    if (!c) continue;
+    const next = { ...was[n], ...c };
+    const name = networkName(n);
+    if (parseClock(next.to) - parseClock(next.from) < CALENDAR.windowLeastMinutes)
+      throw HfosError.rule(
+        'socialcontent_plan_hours',
+        400,
+        `The hours for ${name} need to be at least an hour apart, with the first before the last. Change From or To under ${name} in Settings → Posting.`,
+      );
+    const most = 7 * (next.perDay ?? CALENDAR.perDayMost);
+    if (next.perWeek > most)
+      throw HfosError.rule(
+        'socialcontent_plan_per_day',
+        400,
+        `${next.perWeek} posts a week on ${name} don’t fit in ${next.perDay ?? CALENDAR.perDayMost} a day at most (that’s ${most} a week). Pick fewer a week, or a higher most a day, in Settings → Posting.`,
+      );
+    out[n] = networkPlanOf(next, was[n]);
+  }
+  return out;
+}
+
 export const settingsSave = defineAddonCommand(socialcontentAddon, {
   name: 'socialcontent.settings.save',
   description:
-    'Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (posts a week on Instagram, Facebook and LinkedIn, and the time they go), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), and whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away). What isn’t given stays as it is.',
+    'Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (for each of Instagram, Facebook and LinkedIn: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times on each weekday), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), and whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away). What isn’t given stays as it is.',
   risk: 1,
   input: SettingsSaveInput,
   output: SettingsOut,
@@ -181,7 +225,7 @@ export const settingsSave = defineAddonCommand(socialcontentAddon, {
         : 'Change AI Social Media Content Creator’s settings';
     },
     description:
-      'Change AI Social Media Content Creator’s settings: `networks`, the networks creators are looked for and read on, `readerUserId`, the team member whose computer reads them in Chrome with the HandsFreeOS Social extension (null for none), `watchVideos`, whether new standout videos are watched (it uses about 10 to 20 times the AI of notes alone for each video, so say so before turning it on), `plan`, the calendar’s plan for each network given (`perWeek` 0 to 7, `time` as HH:MM in the business’s time zone), `facebookPage`, the business’s Facebook Page link (null for none), `facebookWhere`, where its Facebook posts go (["profile"], ["page"] or both), and `autoFill`, whether the AI fills the calendar on its own (false stops it, a fill under way too, and the posts already written stay; true fills the open days in the next two weeks right away, then tops up once a week). Leave out what doesn’t change.',
+      'Change AI Social Media Content Creator’s settings: `networks`, the networks creators are looked for and read on, `readerUserId`, the team member whose computer reads them in Chrome with the HandsFreeOS Social extension (null for none), `watchVideos`, whether new standout videos are watched (it uses about 10 to 20 times the AI of notes alone for each video, so say so before turning it on), `plan`, the calendar’s plan for each network given, only the parts that change: `mode` "ai" (AI picks the days and hours: `perWeek` 0 to 21, `perDay` the most in one day 1 to 3 or null to spread them out, `from` and `to` the hours it posts between as HH:MM, at least an hour apart) or "mine" (the person picks: `week`, 7 lists of HH:MM times, Sunday first, up to 3 a day); all in the business’s time zone; posts that haven’t gone up move to the AI’s hours when the hours change, `facebookPage`, the business’s Facebook Page link (null for none), `facebookWhere`, where its Facebook posts go (["profile"], ["page"] or both), and `autoFill`, whether the AI fills the calendar on its own (false stops it, a fill under way too, and the posts already written stay; true fills the open days in the next two weeks right away, then tops up once a week). Leave out what doesn’t change.',
     outcome: () => ({ words: W.settings.saved, path: 'a/socialcontent/settings' }),
   },
   emits: ['socialcontent.settings.saved'],
@@ -210,7 +254,7 @@ export const settingsSave = defineAddonCommand(socialcontentAddon, {
       }
     }
     const was = await settingsOf(ctx);
-    const plan = input.plan ? { ...was.plan, ...input.plan } : was.plan;
+    const plan = input.plan ? planChanged(was.plan, input.plan) : was.plan;
     const facebookPage = input.facebookPage === undefined ? was.facebookPage : input.facebookPage;
     const facebookWhere = input.facebookWhere
       ? [...new Set(input.facebookWhere)]

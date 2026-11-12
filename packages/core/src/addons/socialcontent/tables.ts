@@ -252,6 +252,8 @@ export const content = addonSocialcontent.table(
     postLink: text('post_link'),
     failure: text('failure'),
     madeBy: text('made_by').notNull().$type<'ai' | 'person'>().default('ai'),
+    /** Who set its time: the AI, writing it into the plan's place (AI picks may move it), or a person (decision 27). */
+    placedBy: text('placed_by').notNull().$type<'ai' | 'person'>().default('ai'),
     postingAt: ts('posting_at'),
     postedTo: jsonb('posted_to').notNull().$type<PostedTo[]>().default([]),
     numbers: jsonb('numbers').notNull().$type<OwnNumbers>().default({}),

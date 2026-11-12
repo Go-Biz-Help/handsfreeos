@@ -3,7 +3,8 @@
  * limits on what's saved. Browser-safe: the web, the phone, the extension and the worker read them.
  */
 import { z } from 'zod';
-import { CALENDAR, FACEBOOK_WHERE, POSTING_NETWORKS } from './calendar';
+import { CALENDAR, FACEBOOK_WHERE, PLAN_MODES, POSTING_NETWORKS } from './calendar';
+import { TIMES_FROM } from './schedule';
 import { CONTENT_NETWORKS } from './networks';
 
 export const uuid = z.uuid();
@@ -260,16 +261,43 @@ export const Work = z.object({
 export type Work = z.infer<typeof Work>;
 
 /** How many posts a week on one network, and when ('HH:MM' in the business's time zone): the calendar's plan. */
+const Clock = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+
+/** One network's plan (decisions 21, 22 and 24): AI picks (`ai`) or I pick (`mine`). */
 export const NetworkPlanShape = z.object({
+  mode: z.enum(PLAN_MODES),
+  /** AI picks: posts a week. */
   perWeek: z.number().int().min(0).max(CALENDAR.perWeekMost),
-  time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  /** AI picks: the most in one day; null spreads them out. */
+  perDay: z.number().int().min(1).max(CALENDAR.perDayMost).nullable(),
+  /** AI picks: the hours it posts between, HH:MM in the business's time zone. */
+  from: Clock,
+  to: Clock,
+  /** AI picks: the time it starts near while it has learned nothing. */
+  time: Clock,
+  /** I pick: each weekday's times, Sunday first. */
+  week: z.array(z.array(Clock).max(CALENDAR.perDayMost)).length(7),
 });
 export const PlanShape = z.object({
   instagram: NetworkPlanShape,
   facebook: NetworkPlanShape,
   linkedin: NetworkPlanShape,
 });
-export const PlanSaveShape = z.partialRecord(z.enum(POSTING_NETWORKS), NetworkPlanShape);
+/** A change to the plan: for each network given, only the parts that change. */
+export const PlanSaveShape = z.partialRecord(z.enum(POSTING_NETWORKS), NetworkPlanShape.partial());
+
+/** What AI picks learned on one network (decisions 23 and 25): its best hours so far, and from what. */
+export const LearnedShape = z.object({
+  best: z.array(z.string()),
+  from: z.enum(TIMES_FROM),
+  own: z.number().int(),
+  creators: z.number().int(),
+});
+export const LearnedPlanShape = z.object({
+  instagram: LearnedShape,
+  facebook: LearnedShape,
+  linkedin: LearnedShape,
+});
 
 export const Settings = z.object({
   networks: z.array(Network),
@@ -307,6 +335,8 @@ export const OverviewOutput = z.object({
     waiting: z.number().int(),
   }),
   work: z.array(Work),
+  /** What AI picks learned about the hours on each network. Defaults, for an older API. */
+  learned: LearnedPlanShape.optional(),
 });
 export type Overview = z.infer<typeof OverviewOutput>;
 
@@ -369,7 +399,7 @@ export const SettingsSaveInput = z.object({
   /** Whose computer reads; null for none. */
   readerUserId: uuid.nullable().optional(),
   watchVideos: z.boolean().optional(),
-  /** The calendar's plan: for each network given, posts a week (0 to 7) and the time they go. */
+  /** The calendar's plan: for each network given, the parts that change (AI picks or I pick, and each one's own). */
   plan: PlanSaveShape.optional(),
   /** The business's Facebook Page's link; null for none. */
   facebookPage: z

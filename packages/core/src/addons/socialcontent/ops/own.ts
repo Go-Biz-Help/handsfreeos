@@ -138,7 +138,7 @@ export const ownRead = defineAddonCommand(socialcontentAddon, {
   output: ContentShape,
   permission: 'socialcontent.use',
   scope: inWorkspace,
-  emits: ['socialcontent.content.done_well'],
+  emits: ['socialcontent.content.done_well', 'socialcontent.content.read'],
   async handler(ctx, input) {
     await needReader(ctx);
     const c = await loadContent(ctx, input.postId, { lock: true });
@@ -197,6 +197,15 @@ export const ownRead = defineAddonCommand(socialcontentAddon, {
         updatedAt: at,
       })
       .where(eq(content.recordId, c.recordId));
+    // New numbers: AI picks learns the hours again (decisions 25 and 27).
+    if (input.reads.some((r) => !r.failure))
+      await ctx.emit({
+        type: 'socialcontent.content.read',
+        entityType: 'custom_record',
+        entityId: c.recordId,
+        payload: { postId: c.recordId, network: c.network, read: input.read },
+        broadcast: false,
+      });
     if (doneWell && !c.doneWell)
       await ctx.emit({
         type: 'socialcontent.content.done_well',

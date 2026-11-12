@@ -101,17 +101,63 @@ export function filledLine(
     : C.neverFilled;
 }
 
-/** The plan in a line: "Your plan: Instagram: 3 posts a week at 9:00 AM · … Change the plan in Settings." */
+/** One network's plan as the pages read it; an older API's had only `perWeek` and `time`. */
+export interface PlanForWords {
+  readonly perWeek: number;
+  readonly time: string;
+  readonly mode?: 'ai' | 'mine';
+  readonly perDay?: number | null;
+  readonly week?: readonly (readonly string[])[];
+}
+
+/**
+ * The plan in a line: "Your plan: Instagram: 3 posts a week at the times the AI picks · Facebook: 2 posts a week at
+ * your times · … Change the plan in Settings."
+ */
 export function planShown(
-  plan: Readonly<Record<string, { readonly perWeek: number; readonly time: string }>>,
+  plan: Readonly<Record<string, PlanForWords>>,
   networks: readonly string[],
   networkNameOf: (network: string) => string,
 ): string {
   const C = SOCIALCONTENT_WORDS.calendar;
   const lines = networks
     .filter((n) => plan[n])
-    .map((n) => C.planLine(networkNameOf(n), plan[n]!.perWeek, clockShown(plan[n]!.time)));
+    .map((n) => {
+      const p = plan[n]!;
+      const name = networkNameOf(n);
+      if (p.mode === 'mine') return C.planMine(name, (p.week ?? []).flat().length);
+      if (p.mode === 'ai') return C.planAi(name, p.perWeek, p.perDay ?? null);
+      return C.planLine(name, p.perWeek, clockShown(p.time));
+    });
   return `${C.plan}: ${lines.join(' · ')}. ${C.planEdit}`;
+}
+
+/** "9:00 AM, 12:00 PM and 6:00 PM". */
+const listShown = (items: readonly string[]) =>
+  items.length > 1 ? `${items.slice(0, -1).join(', ')} and ${items.at(-1)}` : (items[0] ?? '');
+
+/**
+ * What AI picks learned on one network, in a line (decisions 25 and 26): its best hours so far and what from, or that
+ * it hasn't learned any yet and starts near the plan's time.
+ */
+export function learnedLine(
+  l: {
+    readonly best: readonly string[];
+    readonly from: 'own' | 'both' | 'creators' | 'none';
+    readonly own: number;
+    readonly creators: number;
+  },
+  startsNear: string,
+): string {
+  const S = SOCIALCONTENT_WORDS.settings;
+  if (!l.best.length || l.from === 'none') return S.learnedNone(clockShown(startsNear));
+  const from =
+    l.from === 'creators'
+      ? S.learnedFrom.creators(l.creators)
+      : l.from === 'both'
+        ? S.learnedFrom.both(l.own, l.creators)
+        : S.learnedFrom.own(l.own);
+  return `${S.learnedBest(listShown(l.best.map(clockShown)), from)} ${S.learnedTrying}`;
 }
 
 /** The reading computer counts as there when it asked for work in the last few minutes (it asks each minute). */
@@ -460,11 +506,39 @@ export const SOCIALCONTENT_WORDS = {
     stopped: 'Stopped.',
     posting: 'Posting',
     postingIntro:
-      'How many of your own posts a week the AI writes for each network, and when they go, in your business’s time zone. The Calendar fills two weeks ahead from this.',
+      'How many of your own posts the AI writes for each network, and when they go, in your business’s time zone. The Calendar fills two weeks ahead from this. Posts go up from the reading computer, so a time only works while Chrome is open there.',
     perWeek: (network: string) => `Posts a week on ${network}`,
     perWeekOption: (n: number) => (n ? `${n} a week` : 'Off'),
     at: 'at',
     timeFor: (network: string) => `Time for ${network}`,
+    /** AI picks or I pick, on each network (decision 21). */
+    modeFor: (network: string) => `Who picks the times on ${network}`,
+    modes: { ai: 'AI picks', mine: 'I pick' } as const,
+    modeHints: {
+      ai: 'You say how many. The AI picks the days and the best times, and learns from how your posts do.',
+      mine: 'You pick the days and the times, up to 3 a day.',
+    } as const,
+    perDay: (network: string) => `Most a day on ${network}`,
+    perDayOption: (n: number | null) => (n ? `Up to ${n} a day` : 'Spread them out'),
+    between: 'between',
+    and: 'and',
+    fromFor: (network: string) => `Earliest time on ${network}`,
+    toFor: (network: string) => `Latest time on ${network}`,
+    days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const,
+    addTime: 'Add a time',
+    addTimeFor: (day: string) => `Add a time on ${day}`,
+    removeTime: (day: string, time: string) => `Remove ${time} on ${day}`,
+    noTimes: 'No posts',
+    learnedNone: (time: string) =>
+      `Nothing learned yet: it starts near ${time}, then learns from the creators’ best posts and your own.`,
+    learnedBest: (times: string, from: string) => `Best times so far: ${times}, from ${from}.`,
+    learnedFrom: {
+      creators: (n: number) => `${count(n, 'post')} by the creators you study`,
+      both: (own: number, creators: number) =>
+        `${count(own, 'of your posts', 'of your posts')} and ${count(creators, 'by creators', 'by creators')}`,
+      own: (n: number) => count(n, 'of your posts', 'of your posts'),
+    },
+    learnedTrying: 'About 1 in 5 posts go at a new time, so it keeps learning.',
     facebookPage: 'Your Facebook Page',
     savePage: 'Save',
     facebookWhere: 'Where Facebook posts go',
@@ -533,6 +607,14 @@ export const SOCIALCONTENT_WORDS = {
     planEdit: 'Change the plan in Settings.',
     planLine: (network: string, perWeek: number, time: string) =>
       perWeek ? `${network}: ${count(perWeek, 'post')} a week at ${time}` : `${network}: off`,
+    planAi: (network: string, perWeek: number, perDay: number | null) =>
+      perWeek
+        ? `${network}: ${count(perWeek, 'post')} a week${perDay ? `, up to ${perDay} a day` : ''}, at the times the AI picks`
+        : `${network}: off`,
+    planMine: (network: string, posts: number) =>
+      posts ? `${network}: ${count(posts, 'post')} a week at your times` : `${network}: off`,
+    /** An open place at an hour AI picks is trying out (decision 26). */
+    trying: 'A new time, to keep learning',
     ready: (n: number) => (n ? `${count(n, 'post')} OK’d, going up at their times.` : null),
     /** Who puts the OK'd posts up (part 9): the reading computer, in Chrome with the extension. */
     poster: (name: string | null, mine: boolean) =>

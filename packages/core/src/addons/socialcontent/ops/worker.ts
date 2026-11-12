@@ -393,6 +393,7 @@ export const contentPut = defineAddonCommand(socialcontentAddon, {
         pictureState,
         facebookWhere: input.network === 'facebook' ? s.facebookWhere : [],
         postAt: input.postAt ? new Date(input.postAt) : null,
+        placedBy: input.placedBy,
         madeBy: 'ai',
         createdBy: input.askedBy,
       });

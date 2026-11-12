@@ -19,15 +19,20 @@
 import { randomUUID } from 'node:crypto';
 import {
   CALENDAR,
-  emptySlots,
   hasPictures,
   isPostingNetwork,
   planOf,
   POSTING_NETWORKS,
-  slotsAhead,
+  postsAWeek,
   type ContentFormat,
   type PostingNetwork,
 } from '@hfos/core/addons/socialcontent/calendar';
+import { movesFor, openSlots as planSlots } from '@hfos/core/addons/socialcontent/schedule';
+import {
+  contentRetime,
+  learnedTimesOf,
+  postsOnCalendar,
+} from '@hfos/core/addons/socialcontent/ops/schedule';
 import {
   calendarFilled,
   contentPictured,
@@ -78,6 +83,7 @@ import type { AddonJobHandler, AddonScopeContext, AddonWorkerAction } from '../t
 
 export const CALENDAR_JOB = 'socialcontent.calendar';
 export const PICTURES_JOB = 'socialcontent.pictures';
+export const TIMES_JOB = 'socialcontent.times';
 export const WRITE_ACTION = 'socialcontent.content.write';
 export const REWRITE_ACTION = 'socialcontent.content.rewrite';
 export const FILL_ACTION = 'socialcontent.calendar.fill';
@@ -155,35 +161,20 @@ async function ideaOf(ctx: AddonScopeContext, ideaId: string): Promise<IdeaRow> 
   return i;
 }
 
-/** The posts in the calendar now: what's taken on each network each day. */
-async function takenDays(ctx: AddonScopeContext) {
-  const found = await asWorker(ctx.db, ctx.scope, (tx) =>
-    rows<{ network: string; post_at: Date | string; state: string }>(
-      tx,
-      sql`select c.network, c.post_at, c.state from addon_socialcontent.content c
-          join app.custom_records r on r.id = c.record_id and r.archived_at is null
-          where c.workspace_id = ${ctx.scope.workspaceId} and c.post_at > now() - interval '1 day'`,
-    ),
-  );
-  return found.flatMap((t) =>
-    isPostingNetwork(t.network)
-      ? [
-          {
-            network: t.network,
-            postAt: new Date(t.post_at).getTime(),
-            state: t.state as 'draft',
-          },
-        ]
-      : [],
-  );
-}
-
-/** The plan's open days ahead, soonest first. */
+/**
+ * The plan's open places ahead, soonest first (decisions 21 and 22): I pick's times, and AI picks' days at the hours
+ * it learned (../../../../../packages/core/src/addons/socialcontent/schedule.ts), the same as the Calendar shows.
+ */
 async function openSlots(ctx: AddonScopeContext, here: Here) {
-  return emptySlots(
-    slotsAhead(here.plan, here.timeZone, Date.now()),
-    await takenDays(ctx),
-    here.timeZone,
+  const now = Date.now();
+  return asWorker(ctx.db, ctx.scope, async (tx) =>
+    planSlots({
+      plan: here.plan,
+      times: await learnedTimesOf(tx, ctx.scope.workspaceId, here.timeZone),
+      taken: await postsOnCalendar(tx, ctx.scope.workspaceId, here.timeZone, now),
+      timeZone: here.timeZone,
+      now,
+    }),
   );
 }
 
@@ -226,6 +217,8 @@ async function keep(
     readonly ideaId?: string | null;
     readonly postAt?: number | null;
     readonly askedBy?: string | null;
+    /** A time the person asked for is theirs: AI picks never moves it (decision 27). */
+    readonly placedBy?: 'ai' | 'person';
   },
 ): Promise<string> {
   const { output } = await executeCommand(
@@ -237,6 +230,7 @@ async function keep(
       network: opts.network,
       ideaId: opts.ideaId ?? null,
       postAt: opts.postAt ? new Date(opts.postAt).toISOString() : null,
+      placedBy: opts.placedBy ?? 'ai',
       post: {
         title: post.title,
         format: post.format,
@@ -321,7 +315,7 @@ export const writePostNow: AddonWorkerAction<z.output<typeof WriteInputShape>> =
     const network: PostingNetwork =
       input.network ??
       (idea?.network && isPostingNetwork(idea.network) ? idea.network : null) ??
-      POSTING_NETWORKS.find((n) => here.plan[n].perWeek > 0) ??
+      POSTING_NETWORKS.find((n) => postsAWeek(here.plan[n]) > 0) ??
       'instagram';
     if (!idea && !input.ask && !here.playbook)
       throw HfosError.rule(
@@ -342,14 +336,16 @@ export const writePostNow: AddonWorkerAction<z.output<typeof WriteInputShape>> =
       throw e instanceof AiAskError ? aiRefusal(e) : e;
     }
     if (!post) throw emptyPost();
-    const postAt = input.postAt
-      ? new Date(input.postAt).getTime()
-      : ((await openSlots(ctx, here)).find((s) => s.network === network)?.at ?? null);
+    const open = (await openSlots(ctx, here)).filter((s) => s.network === network);
+    const postAt = input.postAt ? new Date(input.postAt).getTime() : (open[0]?.at ?? null);
+    // Written into one of the plan's open places (Write one), it's the AI's time; any other time is the person's.
+    const placedBy = postAt === null || open.some((s) => s.at === postAt) ? 'ai' : 'person';
     const postId = await keep(ctx, post, {
       network,
       ideaId: idea?.id ?? null,
       postAt,
       askedBy: ctx.userId,
+      placedBy,
     });
     return { postId, postAt: postAt ? new Date(postAt).toISOString() : null };
   },
@@ -597,6 +593,65 @@ export const runCalendar: AddonJobHandler = async (ctx) => {
     ctx.log.info({ code: e.code }, 'the content calendar waits for the AI');
     return { rescheduleAt: new Date(ctx.now + (e.retryable ? SOON_MS * 10 : LATER_MS)) };
   }
+};
+
+// ------------------------------------------------------------------------------------------------ the hours
+
+/**
+ * Queues `socialcontent.times` a little later, once for a business however much asks: the creators' posts saved, its
+ * own posts' numbers read, or the plan changed (now).
+ */
+export async function queueTimes(ctx: AddonScopeContext, inMs: number): Promise<void> {
+  await asWorker(ctx.db, ctx.scope, (tx) =>
+    scheduleAddonJob(
+      tx,
+      { id: ctx.manifest.id, generation: ctx.generation },
+      {
+        kind: TIMES_JOB,
+        dedupeKey: `${TIMES_JOB}:${ctx.scope.workspaceId}`,
+        runAt: new Date(Date.now() + inMs),
+        payload: {},
+        workspaceId: ctx.scope.workspaceId,
+        organizationId: ctx.scope.organizationId,
+      },
+      { pullEarlier: true },
+    ),
+  );
+}
+
+/**
+ * `socialcontent.times` (decision 27): what AI picks learned about the hours, from the creators' posts and then the
+ * business's own, and every post it placed that hasn't gone up, OK'd ones too, moved to the hour it now has for that
+ * day. Posts a person set the time of, ones going up within half an hour, and I pick's networks stay as they are.
+ */
+export const runTimes: AddonJobHandler = async (ctx) => {
+  const here = await hereOf(ctx);
+  const now = Date.now();
+  const moves = await asWorker(ctx.db, ctx.scope, async (tx) =>
+    movesFor({
+      plan: here.plan,
+      times: await learnedTimesOf(tx, ctx.scope.workspaceId, here.timeZone),
+      posts: await postsOnCalendar(tx, ctx.scope.workspaceId, here.timeZone, now),
+      timeZone: here.timeZone,
+      now,
+    }),
+  );
+  if (!moves.length) return;
+  const { output } = await executeCommand(
+    ctx.db,
+    contentRetime,
+    {
+      workspaceId: ctx.scope.workspaceId,
+      moves: moves.slice(0, 500).map((m) => ({
+        postId: m.id,
+        from: new Date(m.from).toISOString(),
+        to: new Date(m.to).toISOString(),
+      })),
+    },
+    ctx.actor,
+    ctx.meta,
+  );
+  ctx.log.info({ moved: output.moved }, 'AI picks moved posts to the hours it learned');
 };
 
 // ------------------------------------------------------------------------------------------------ pictures

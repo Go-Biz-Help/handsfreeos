@@ -8,6 +8,7 @@ import type {
   Work,
 } from '@hfos/core/addons/socialcontent/shapes';
 import type { CalendarView, Content } from '@hfos/core/addons/socialcontent/content-shapes';
+import { planOf } from '@hfos/core/addons/socialcontent/calendar';
 import * as React from 'react';
 import type * as ReactNative from 'react-native';
 
@@ -50,11 +51,7 @@ export function overview(over: Partial<Overview> = {}): Overview {
       watchVideos: false,
       readerSeenAt: ago(2),
       readerVersion: '0.128.2',
-      plan: {
-        instagram: { perWeek: 3, time: '09:00' },
-        facebook: { perWeek: 3, time: '12:00' },
-        linkedin: { perWeek: 2, time: '08:00' },
-      },
+      plan: planOf({}),
       facebookPage: null,
       facebookWhere: ['profile'],
       autoFill: true,
@@ -227,6 +224,7 @@ export function content(n: number, over: Partial<Content> = {}): Content {
     doneWell: null,
     failure: null,
     madeBy: 'ai',
+    placedBy: 'ai',
     ideaId: null,
     stillNeeds: null,
     createdAt: ago(60),
@@ -243,11 +241,7 @@ export function calendarView(over: Partial<CalendarView> = {}): CalendarView {
     today,
     from: today,
     days: 15,
-    plan: {
-      instagram: { perWeek: 3, time: '09:00' },
-      facebook: { perWeek: 3, time: '12:00' },
-      linkedin: { perWeek: 2, time: '08:00' },
-    },
+    plan: planOf({}),
     open: [],
     posts: [],
     undated: [],

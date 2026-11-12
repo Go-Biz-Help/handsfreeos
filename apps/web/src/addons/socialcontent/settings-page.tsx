@@ -15,20 +15,28 @@ import {
 import {
   CALENDAR,
   FACEBOOK_WHERE,
+  PLAN_MODES,
   POSTING_NETWORKS,
   type FacebookWhere,
   type NetworkPlan,
   type PostingNetwork,
 } from '@hfos/core/addons/socialcontent/calendar';
-import { SOCIALCONTENT_WORDS as W, daysAgo } from '@hfos/core/addons/socialcontent/words';
+import type { LearnedShown } from '@hfos/core/addons/socialcontent/schedule';
+import {
+  SOCIALCONTENT_WORDS as W,
+  clockShown,
+  daysAgo,
+  learnedLine,
+} from '@hfos/core/addons/socialcontent/words';
 import { useState } from 'react';
-import { Download } from 'lucide-react';
+import { Download, X } from 'lucide-react';
 import { PageHeader } from '@/components/shell/page-header';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Button, buttonClassName } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input, Select } from '@/components/ui/input';
+import { Segmented } from '@/components/ui/segmented';
 import { Switch } from '@/components/ui/switch';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
@@ -67,7 +75,7 @@ export function SettingsPage({
       networks?: ContentNetwork[];
       readerUserId?: string | null;
       watchVideos?: boolean;
-      plan?: Partial<Record<PostingNetwork, NetworkPlan>>;
+      plan?: Partial<Record<PostingNetwork, Partial<NetworkPlan>>>;
       facebookPage?: string | null;
       facebookWhere?: FacebookWhere[];
       autoFill?: boolean;
@@ -232,6 +240,7 @@ export function SettingsPage({
 
       <PostingCard
         settings={settings}
+        learned={overview.learned}
         mayManage={mayManage}
         busy={busy}
         onSave={(key, body) =>
@@ -320,23 +329,228 @@ function WorkRow({
   );
 }
 
+/** Every half hour of the day, as I pick's times are picked (the phone's post screen picks the same). */
+const HALF_HOURS = Array.from(
+  { length: 48 },
+  (_, k) => `${String(Math.floor(k / 2)).padStart(2, '0')}:${k % 2 ? '30' : '00'}`,
+);
+const HOURS = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, '0')}:00`);
+
 /**
- * Posting (decisions 17 and 18): the calendar's plan, whether it fills on its own (the owner's switch, 11 Nov), the
+ * One network's plan (decisions 21, 22 and 24): AI picks (how many a week, the most a day, the hours it posts
+ * between, and what it learned) or I pick (the times on each weekday, up to 3 a day).
+ */
+function PlanRow({
+  network,
+  plan,
+  learned,
+  off,
+  onChange,
+}: {
+  network: PostingNetwork;
+  plan: NetworkPlan;
+  learned: LearnedShown | undefined;
+  off: boolean;
+  onChange: (change: Partial<NetworkPlan>) => void;
+}) {
+  const name = networkName(network);
+  const S = W.settings;
+  const setDay = (d: number, times: string[]) =>
+    onChange({ week: plan.week.map((t, k) => (k === d ? [...times].sort() : t)) });
+  // More a week than the most a day allows: the most a day goes up with it.
+  const setPerWeek = (perWeek: number) =>
+    onChange(
+      plan.perDay !== null && perWeek > 7 * plan.perDay
+        ? { perWeek, perDay: Math.ceil(perWeek / 7) }
+        : { perWeek },
+    );
+  return (
+    <div
+      className="rounded-[10px] border border-border p-3"
+      data-testid={`socialcontent-plan-${network}`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-[13.5px] font-medium">{name}</span>
+        <Segmented
+          value={plan.mode}
+          onChange={(mode) => {
+            if (mode !== plan.mode) onChange({ mode });
+          }}
+          ariaLabel={S.modeFor(name)}
+          options={PLAN_MODES.map((m) => ({
+            value: m,
+            label: S.modes[m],
+            disabled: off,
+            testId: `socialcontent-plan-${network}-${m}`,
+          }))}
+        />
+      </div>
+      <p className="mt-1 text-[12.5px] text-text-3">{S.modeHints[plan.mode]}</p>
+      {plan.mode === 'ai' ? (
+        <>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Select
+              selectSize="sm"
+              className="w-[130px]"
+              value={plan.perWeek}
+              disabled={off}
+              aria-label={S.perWeek(name)}
+              onChange={(e) => setPerWeek(Number(e.target.value))}
+            >
+              {Array.from({ length: CALENDAR.perWeekMost + 1 }, (_, k) => (
+                <option key={k} value={k}>
+                  {S.perWeekOption(k)}
+                </option>
+              ))}
+            </Select>
+            {plan.perWeek > 0 ? (
+              <>
+                <Select
+                  selectSize="sm"
+                  className="w-[160px]"
+                  value={plan.perDay ?? ''}
+                  disabled={off}
+                  aria-label={S.perDay(name)}
+                  onChange={(e) =>
+                    onChange({ perDay: e.target.value ? Number(e.target.value) : null })
+                  }
+                >
+                  {plan.perWeek <= 7 * CALENDAR.perDayMost ? (
+                    <option value="">{S.perDayOption(null)}</option>
+                  ) : null}
+                  {Array.from({ length: CALENDAR.perDayMost }, (_, k) => k + 1)
+                    .filter((k) => plan.perWeek <= 7 * k)
+                    .map((k) => (
+                      <option key={k} value={k}>
+                        {S.perDayOption(k)}
+                      </option>
+                    ))}
+                </Select>
+                <span className="text-[13px] text-text-3">{S.between}</span>
+                <Select
+                  selectSize="sm"
+                  className="w-[110px]"
+                  value={plan.from}
+                  disabled={off}
+                  aria-label={S.fromFor(name)}
+                  onChange={(e) => onChange({ from: e.target.value })}
+                >
+                  {(HOURS.includes(plan.from) ? HOURS : [plan.from, ...HOURS])
+                    .filter((h) => h < plan.to)
+                    .map((h) => (
+                      <option key={h} value={h}>
+                        {clockShown(h)}
+                      </option>
+                    ))}
+                </Select>
+                <span className="text-[13px] text-text-3">{S.and}</span>
+                <Select
+                  selectSize="sm"
+                  className="w-[110px]"
+                  value={plan.to}
+                  disabled={off}
+                  aria-label={S.toFor(name)}
+                  onChange={(e) => onChange({ to: e.target.value })}
+                >
+                  {(HOURS.includes(plan.to) ? HOURS : [...HOURS, plan.to])
+                    .filter((h) => h > plan.from)
+                    .map((h) => (
+                      <option key={h} value={h}>
+                        {clockShown(h)}
+                      </option>
+                    ))}
+                </Select>
+              </>
+            ) : null}
+          </div>
+          {plan.perWeek > 0 && learned ? (
+            <p
+              className="mt-1.5 text-[12.5px] text-text-2"
+              data-testid={`socialcontent-learned-${network}`}
+            >
+              {learnedLine(learned, plan.time)}
+            </p>
+          ) : null}
+        </>
+      ) : (
+        <ul className="mt-2 space-y-1.5">
+          {S.days.map((day, d) => {
+            const times = plan.week[d] ?? [];
+            return (
+              <li key={day} className="flex flex-wrap items-center gap-1.5">
+                <span className="w-10 text-[13px] text-text-2">{day}</span>
+                {times.length === 0 ? (
+                  <span className="text-[12.5px] text-text-3">{S.noTimes}</span>
+                ) : null}
+                {times.map((t) => (
+                  <span
+                    key={t}
+                    className="inline-flex items-center gap-1 rounded-full border border-border bg-card-2 py-0.5 pl-2 pr-1 text-[12.5px]"
+                  >
+                    {clockShown(t)}
+                    <button
+                      type="button"
+                      className="rounded-full p-0.5 text-text-3 hover:text-text disabled:opacity-50"
+                      aria-label={S.removeTime(day, clockShown(t))}
+                      disabled={off}
+                      onClick={() =>
+                        setDay(
+                          d,
+                          times.filter((x) => x !== t),
+                        )
+                      }
+                    >
+                      <X className="h-3 w-3" aria-hidden />
+                    </button>
+                  </span>
+                ))}
+                {times.length < CALENDAR.perDayMost ? (
+                  <Select
+                    selectSize="sm"
+                    className="w-[130px]"
+                    value=""
+                    disabled={off}
+                    aria-label={S.addTimeFor(day)}
+                    onChange={(e) => {
+                      if (e.target.value) setDay(d, [...times, e.target.value]);
+                    }}
+                  >
+                    <option value="">{S.addTime}</option>
+                    {HALF_HOURS.filter((h) => !times.includes(h)).map((h) => (
+                      <option key={h} value={h}>
+                        {clockShown(h)}
+                      </option>
+                    ))}
+                  </Select>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Posting (decisions 17, 18 and 21 to 27): the calendar's plan, whether it fills on its own (the owner's switch, 11 Nov), the
  * business's Facebook Page, and where Facebook posts go.
  */
 function PostingCard({
   settings,
+  learned,
   mayManage,
   busy,
   onSave,
 }: {
   settings: Overview['settings'];
+  learned: Overview['learned'];
   mayManage: boolean;
   busy: string | null;
   onSave: (
     key: string,
     body: {
-      plan?: Partial<Record<PostingNetwork, NetworkPlan>>;
+      plan?: Partial<Record<PostingNetwork, Partial<NetworkPlan>>>;
       facebookPage?: string | null;
       facebookWhere?: FacebookWhere[];
       autoFill?: boolean;
@@ -345,8 +559,9 @@ function PostingCard({
 }) {
   const [page, setPage] = useState(settings.facebookPage ?? '');
   const off = !mayManage || busy !== null;
+  // Only what changes is sent: the server keeps the rest of the network's plan (and checks it).
   const setPlan = (n: PostingNetwork, change: Partial<NetworkPlan>) =>
-    onSave(`plan:${n}`, { plan: { [n]: { ...settings.plan[n], ...change } } });
+    onSave(`plan:${n}`, { plan: { [n]: change } });
   const where = (w: FacebookWhere, on: boolean) => {
     const next = on
       ? [...settings.facebookWhere, w]
@@ -373,41 +588,14 @@ function PostingCard({
       </div>
       <div className="mt-3 space-y-2.5">
         {POSTING_NETWORKS.map((n) => (
-          <div
+          <PlanRow
             key={n}
-            className="flex flex-wrap items-center gap-2"
-            data-testid={`socialcontent-plan-${n}`}
-          >
-            <span className="w-24 text-[13.5px] font-medium">{networkName(n)}</span>
-            <Select
-              selectSize="sm"
-              className="w-[150px]"
-              value={settings.plan[n].perWeek}
-              disabled={off}
-              aria-label={W.settings.perWeek(networkName(n))}
-              onChange={(e) => setPlan(n, { perWeek: Number(e.target.value) })}
-            >
-              {Array.from({ length: CALENDAR.perWeekMost + 1 }, (_, k) => (
-                <option key={k} value={k}>
-                  {W.settings.perWeekOption(k)}
-                </option>
-              ))}
-            </Select>
-            <span className="text-[13px] text-text-3">{W.settings.at}</span>
-            <Input
-              inputSize="sm"
-              type="time"
-              className="w-[120px]"
-              defaultValue={settings.plan[n].time}
-              disabled={off || settings.plan[n].perWeek === 0}
-              aria-label={W.settings.timeFor(networkName(n))}
-              onBlur={(e) => {
-                const time = e.target.value;
-                if (/^\d{2}:\d{2}$/.test(time) && time !== settings.plan[n].time)
-                  setPlan(n, { time });
-              }}
-            />
-          </div>
+            network={n}
+            plan={settings.plan[n]}
+            learned={learned?.[n]}
+            off={off}
+            onChange={(change) => setPlan(n, change)}
+          />
         ))}
       </div>
       <div className="mt-4">

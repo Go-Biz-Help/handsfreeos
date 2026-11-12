@@ -24,10 +24,13 @@ import {
   PICTURE_ACTION,
   PICTURES_JOB,
   queueFill,
+  queueTimes,
   REWRITE_ACTION,
   rewritePostNow,
   runCalendar,
   runPictures,
+  runTimes,
+  TIMES_JOB,
   WRITE_ACTION,
   writePostNow,
 } from './content';
@@ -48,6 +51,8 @@ const WEEKLY_JOB = 'socialcontent.weekly';
 const MONTHLY_JOB = 'socialcontent.monthly';
 const WEEK_MS = 7 * 86_400_000;
 const MONTH_MS = 30 * 86_400_000;
+/** Learning the hours waits this long after new posts, so a read's many saves make one run. */
+const TIMES_LATER_MS = 10 * 60_000;
 
 /** Arms the weekly read and the monthly search, from now: nothing that came due while it was off runs late. */
 async function armChecks(ctx: AddonScopeContext): Promise<void> {
@@ -101,10 +106,25 @@ const onOfferPublished: AddonSubscriber = async (ctx) => {
   if (s?.filled_at && s.auto_fill) await queueFill(ctx, new Date(), true);
 };
 
-/** Fill on its own turned back on (Settings → Posting, or the Calendar's switch): it fills the open days now. */
+/**
+ * Fill on its own turned back on (Settings → Posting, or the Calendar's switch): it fills the open days now. The plan
+ * changed: AI picks' posts that haven't gone up move to its hours (decision 27).
+ */
 const onSettingsSaved: AddonSubscriber = async (ctx) => {
   const p = (ctx.event.payload ?? {}) as Record<string, unknown>;
+  if (p['planChanged'] === true) await queueTimes(ctx, 0);
   if (p['fillTurnedOn'] === true) await queueFill(ctx, new Date(), true);
+};
+
+/** A creator's posts saved: the notes; and AI picks learns the hours again, a little later (decision 25). */
+const onCreatorPostsSaved: AddonSubscriber = async (ctx) => {
+  await onPostsSaved(ctx);
+  await queueTimes(ctx, TIMES_LATER_MS);
+};
+
+/** Its own post's numbers read: AI picks learns the hours again (decisions 25 and 27). */
+const onOwnNumbersRead: AddonSubscriber = async (ctx) => {
+  await queueTimes(ctx, TIMES_LATER_MS);
 };
 
 /** Each studied creator's posts read again; then the next week's. */
@@ -136,8 +156,9 @@ export const socialcontentAddonWorker: AddonWorkerModule = {
   subscribers: {
     'socialcontent.settings.saved': onSettingsSaved,
     'socialcontent.niche.added': onNicheAdded,
-    'socialcontent.posts.saved': onPostsSaved,
+    'socialcontent.posts.saved': onCreatorPostsSaved,
     'socialcontent.content.done_well': onOwnDoneWell,
+    'socialcontent.content.read': onOwnNumbersRead,
     'main_offer.published': onOfferPublished,
   },
   jobs: {
@@ -146,6 +167,7 @@ export const socialcontentAddonWorker: AddonWorkerModule = {
     [NOTES_JOB]: runNotes,
     [CALENDAR_JOB]: runCalendar,
     [PICTURES_JOB]: runPictures,
+    [TIMES_JOB]: runTimes,
   },
   onEnable,
   actions: {

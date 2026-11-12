@@ -4,16 +4,30 @@ import {
   networkName,
   type ContentNetwork,
 } from '@hfos/core/addons/socialcontent/networks';
+import {
+  CALENDAR,
+  PLAN_MODES,
+  POSTING_NETWORKS,
+  type NetworkPlan,
+  type PostingNetwork,
+} from '@hfos/core/addons/socialcontent/calendar';
+import type { LearnedShown } from '@hfos/core/addons/socialcontent/schedule';
 import type { Overview, Work } from '@hfos/core/addons/socialcontent/shapes';
-import { SOCIALCONTENT_WORDS as W, daysAgo } from '@hfos/core/addons/socialcontent/words';
+import {
+  SOCIALCONTENT_WORDS as W,
+  clockShown,
+  daysAgo,
+  learnedLine,
+} from '@hfos/core/addons/socialcontent/words';
 import * as React from 'react';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { change } from '@/changes';
 import { Screen } from '@/components/shell/screen';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { FilterChip } from '@/components/ui/filter-chip';
 import { Sheet } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
@@ -36,9 +50,11 @@ import {
  * Settings on the phone, as on the web (docs/socialcontent.md, decisions 2, 9, 11 and 12): the networks studied, whose
  * computer reads them, whether the AI watches standout videos (off until someone turns it on, after the notice that
  * it uses a lot more AI, with a way to try it on a few videos first), when it reads on its own, and what that
- * computer was asked to do lately. Owners and admins (`socialcontent.manage`) change the first three; anyone who uses
- * the add-on can stop work that hasn't finished. The extension itself goes on a computer, so the phone says where to
- * get it rather than offering the download. It needs signal.
+ * computer was asked to do lately; and Posting (decisions 21 to 27): Fill on its own, and each network's plan, AI picks
+ * (how many a week, the most a day, the hours, and what it learned) or I pick (the times on each weekday). Owners and
+ * admins (`socialcontent.manage`) change all but the work; anyone who uses the add-on can stop work that hasn't
+ * finished. The extension itself goes on a computer, so the phone says where to get it rather than offering the
+ * download. It needs signal.
  */
 
 const STATE_BADGE: Record<Work['state'], NonNullable<BadgeProps['variant']>> = {
@@ -57,6 +73,9 @@ export interface SettingsActions {
   watch(on: boolean): void;
   tryWatching(): void;
   stop(work: Work): void;
+  /** Only what changes on one network's plan: the server keeps (and checks) the rest. */
+  setPlan(network: PostingNetwork, change: Partial<NetworkPlan>): void;
+  autoFill(on: boolean): void;
 }
 
 export function SettingsScreen() {
@@ -96,7 +115,13 @@ export function settingsActions(
 ): SettingsActions {
   const save = (
     key: string,
-    body: { networks?: ContentNetwork[]; readerUserId?: string | null; watchVideos?: boolean },
+    body: {
+      networks?: ContentNetwork[];
+      readerUserId?: string | null;
+      watchVideos?: boolean;
+      plan?: Partial<Record<PostingNetwork, Partial<NetworkPlan>>>;
+      autoFill?: boolean;
+    },
     done: string = W.settings.saved,
   ) =>
     void act(
@@ -126,6 +151,9 @@ export function settingsActions(
           (await change('socialcontent.work.stop', { workspaceId: ws, workId: w.id })).output,
         W.settings.stopped,
       ),
+    setPlan: (n, plan) => save(`plan:${n}`, { plan: { [n]: plan } }),
+    autoFill: (on) =>
+      save('autoFill', { autoFill: on }, on ? W.calendar.fillStarted : W.calendar.fillStopped),
   };
 }
 
@@ -271,6 +299,37 @@ export function SettingsBody({
         )}
       </Part>
 
+      <Part
+        title={W.settings.posting}
+        about={W.settings.postingIntro}
+        testID="socialcontent-posting"
+      >
+        <View className="flex-row items-center gap-3">
+          <View className="flex-1 gap-0.5">
+            <Text className="text-[14.5px] font-medium">{W.calendar.autoFill}</Text>
+            <Note>{W.calendar.autoFillHint}</Note>
+          </View>
+          <Switch
+            label={W.calendar.autoFill}
+            checked={settings.autoFill}
+            disabled={!online || !mayManage || (busy !== null && busy !== 'autoFill')}
+            onCheckedChange={actions.autoFill}
+            testID="socialcontent-auto-fill"
+          />
+        </View>
+        {POSTING_NETWORKS.map((n) => (
+          <PlanBlock
+            key={n}
+            network={n}
+            plan={settings.plan[n]}
+            learned={overview.learned?.[n]}
+            off={!online || !mayManage || busy !== null}
+            onChange={(c) => actions.setPlan(n, c)}
+          />
+        ))}
+        {managersOnly}
+      </Part>
+
       <Card className="p-4">
         <Note>{W.settings.schedule}</Note>
       </Card>
@@ -378,6 +437,219 @@ function WorkRow({
           {W.settings.stop}
         </Button>
       ) : null}
+    </View>
+  );
+}
+
+/** Every half hour of the day, as a post's time is picked on its screen. */
+const HALF_HOURS = Array.from(
+  { length: 48 },
+  (_, k) => `${String(Math.floor(k / 2)).padStart(2, '0')}:${k % 2 ? '30' : '00'}`,
+);
+const HOURS = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, '0')}:00`);
+
+function Chips({ children }: { children: React.ReactNode }) {
+  return <View className="flex-row flex-wrap gap-1.5">{children}</View>;
+}
+
+/** A row of chips to scroll sideways, starting near the one picked. */
+function ChipRow({ children, startAt = 0 }: { children: React.ReactNode; startAt?: number }) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerClassName="gap-1.5"
+      contentOffset={{ x: Math.max(0, startAt - 1) * 76, y: 0 }}
+    >
+      {children}
+    </ScrollView>
+  );
+}
+
+function Label({ children }: { children: React.ReactNode }) {
+  return <Text className="text-[13px] font-medium text-text-2">{children}</Text>;
+}
+
+/**
+ * One network's plan on the phone, as on the web (decisions 21, 22 and 24): AI picks, with how many a week, the most a
+ * day, the hours it posts between and what it learned; or I pick, with up to 3 times on each weekday.
+ */
+export function PlanBlock({
+  network,
+  plan,
+  learned,
+  off,
+  onChange,
+}: {
+  network: PostingNetwork;
+  plan: NetworkPlan;
+  learned: LearnedShown | undefined;
+  off: boolean;
+  onChange: (change: Partial<NetworkPlan>) => void;
+}) {
+  const S = W.settings;
+  const name = networkName(network);
+  // The weekday whose new time is being picked, in a sheet.
+  const [adding, setAdding] = React.useState<number | null>(null);
+  const setDay = (d: number, times: readonly string[]) =>
+    onChange({ week: plan.week.map((t, k) => (k === d ? [...times].sort() : t)) });
+  const setPerWeek = (perWeek: number) =>
+    onChange(
+      plan.perDay !== null && perWeek > 7 * plan.perDay
+        ? { perWeek, perDay: Math.ceil(perWeek / 7) }
+        : { perWeek },
+    );
+  const tid = `socialcontent-plan-${network}`;
+  return (
+    <View className="gap-2.5 border-t border-border pt-3" testID={tid}>
+      <View className="flex-row flex-wrap items-center gap-2">
+        <Text className="flex-1 text-[14.5px] font-semibold">{name}</Text>
+        {PLAN_MODES.map((m) => (
+          <FilterChip
+            key={m}
+            label={S.modes[m]}
+            on={plan.mode === m}
+            disabled={off}
+            accessibilityLabel={`${S.modeFor(name)}: ${S.modes[m]}`}
+            onPress={() => {
+              if (plan.mode !== m) onChange({ mode: m });
+            }}
+            testID={`${tid}-${m}`}
+          />
+        ))}
+      </View>
+      <Note>{S.modeHints[plan.mode]}</Note>
+      {plan.mode === 'ai' ? (
+        <>
+          <Label>{S.perWeek(name)}</Label>
+          <ChipRow startAt={plan.perWeek}>
+            {Array.from({ length: CALENDAR.perWeekMost + 1 }, (_, k) => (
+              <FilterChip
+                key={k}
+                label={S.perWeekOption(k)}
+                on={plan.perWeek === k}
+                disabled={off}
+                onPress={() => setPerWeek(k)}
+                testID={`${tid}-per-week-${k}`}
+              />
+            ))}
+          </ChipRow>
+          {plan.perWeek > 0 ? (
+            <>
+              <Label>{S.perDay(name)}</Label>
+              <Chips>
+                {[null, ...Array.from({ length: CALENDAR.perDayMost }, (_, k) => k + 1)]
+                  .filter((k) => plan.perWeek <= 7 * (k ?? CALENDAR.perDayMost))
+                  .map((k) => (
+                    <FilterChip
+                      key={k ?? 'any'}
+                      label={S.perDayOption(k)}
+                      on={plan.perDay === k}
+                      disabled={off}
+                      onPress={() => onChange({ perDay: k })}
+                      testID={`${tid}-per-day-${k ?? 'any'}`}
+                    />
+                  ))}
+              </Chips>
+              <Label>{S.fromFor(name)}</Label>
+              <ChipRow startAt={Number(plan.from.slice(0, 2))}>
+                {HOURS.filter((h) => h < plan.to).map((h) => (
+                  <FilterChip
+                    key={h}
+                    label={clockShown(h)}
+                    on={plan.from === h}
+                    disabled={off}
+                    onPress={() => onChange({ from: h })}
+                    testID={`${tid}-from-${h}`}
+                  />
+                ))}
+              </ChipRow>
+              <Label>{S.toFor(name)}</Label>
+              <ChipRow startAt={Number(plan.to.slice(0, 2)) - 4}>
+                {HOURS.filter((h) => h > plan.from).map((h) => (
+                  <FilterChip
+                    key={h}
+                    label={clockShown(h)}
+                    on={plan.to === h}
+                    disabled={off}
+                    onPress={() => onChange({ to: h })}
+                    testID={`${tid}-to-${h}`}
+                  />
+                ))}
+              </ChipRow>
+              {learned ? (
+                <Note testID={`socialcontent-learned-${network}`}>
+                  {learnedLine(learned, plan.time)}
+                </Note>
+              ) : null}
+            </>
+          ) : null}
+        </>
+      ) : (
+        <View className="gap-2">
+          {S.days.map((day, d) => {
+            const times = plan.week[d] ?? [];
+            return (
+              <View key={day} className="flex-row flex-wrap items-center gap-1.5">
+                <Text className="w-10 text-[13.5px] text-text-2">{day}</Text>
+                {times.length === 0 ? (
+                  <Text className="text-[13px] text-text-3">{S.noTimes}</Text>
+                ) : null}
+                {times.map((t) => (
+                  <FilterChip
+                    key={t}
+                    label={`${clockShown(t)} ×`}
+                    on
+                    disabled={off}
+                    accessibilityLabel={S.removeTime(day, clockShown(t))}
+                    onPress={() =>
+                      setDay(
+                        d,
+                        times.filter((x) => x !== t),
+                      )
+                    }
+                    testID={`${tid}-${d}-${t}`}
+                  />
+                ))}
+                {times.length < CALENDAR.perDayMost ? (
+                  <FilterChip
+                    label={`+ ${S.addTime}`}
+                    on={false}
+                    disabled={off}
+                    accessibilityLabel={S.addTimeFor(day)}
+                    onPress={() => setAdding(d)}
+                    testID={`${tid}-${d}-add`}
+                  />
+                ) : null}
+              </View>
+            );
+          })}
+        </View>
+      )}
+      <Sheet
+        open={adding !== null}
+        onClose={() => setAdding(null)}
+        title={adding === null ? S.addTime : S.addTimeFor(S.days[adding])}
+        testID={`${tid}-add-sheet`}
+      >
+        <View className="mt-3 flex-row flex-wrap gap-1.5">
+          {HALF_HOURS.filter((h) => adding === null || !(plan.week[adding] ?? []).includes(h)).map(
+            (h) => (
+              <FilterChip
+                key={h}
+                label={clockShown(h)}
+                on={false}
+                onPress={() => {
+                  const d = adding;
+                  setAdding(null);
+                  if (d !== null) setDay(d, [...(plan.week[d] ?? []), h]);
+                }}
+                testID={`${tid}-add-${h}`}
+              />
+            ),
+          )}
+        </View>
+      </Sheet>
     </View>
   );
 }

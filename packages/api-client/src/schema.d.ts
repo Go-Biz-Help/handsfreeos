@@ -15888,7 +15888,7 @@ export interface paths {
         put?: never;
         /**
          * Extension: what one of the business’s own posts showed in each place it went up, at its read about 2 or 7 days on (views where the network shows them, likes, comments, shares), or why a place couldn’t be read. Kept on the post; at the 7-day read it’s weighed against the business’s own other posts there, and one that did well goes into the Playbook.
-         * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.content.done_well.
+         * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.content.done_well, socialcontent.content.read.
          */
         post: operations["command_socialcontent_own_read"];
         delete?: never;
@@ -15987,7 +15987,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (posts a week on Instagram, Facebook and LinkedIn, and the time they go), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), and whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away). What isn’t given stays as it is.
+         * Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (for each of Instagram, Facebook and LinkedIn: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times on each weekday), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), and whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away). What isn’t given stays as it is.
          * @description Risk level 1. Requires socialcontent.manage. Emits socialcontent.settings.saved.
          */
         post: operations["command_socialcontent_settings_save"];
@@ -25067,7 +25067,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled, whether it fills on its own (autoFill) and when it fills again; whether the main offer is live (offerLive: until it is, the AI writes no posts); and how many ideas are saved to write from.
+         * The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the plan’s open places with no post yet (each AI picks hour, and whether it’s an hour the AI is trying out); the plan itself (for each of Instagram, Facebook and LinkedIn: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times picked on each weekday); what AI picks learned (its best hours so far, from the creators’ posts or the business’s own); when it last filled, whether it fills on its own (autoFill) and when it fills again; whether the main offer is live (offerLive: until it is, the AI writes no posts); and how many ideas are saved to write from.
          * @description Requires socialcontent.use.
          */
         post: operations["query_socialcontent_calendar_get"];
@@ -63343,6 +63343,11 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /**
+                         * @default ai
+                         * @enum {string}
+                         */
+                        placedBy: "ai" | "person";
                         postAt: string | null;
                         postedAt: string | null;
                         postedTo: {
@@ -63486,6 +63491,11 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /**
+                         * @default ai
+                         * @enum {string}
+                         */
+                        placedBy: "ai" | "person";
                         postAt: string | null;
                         postedAt: string | null;
                         postedTo: {
@@ -63648,6 +63658,11 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /**
+                         * @default ai
+                         * @enum {string}
+                         */
+                        placedBy: "ai" | "person";
                         postAt: string | null;
                         postedAt: string | null;
                         postedTo: {
@@ -63757,6 +63772,11 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /**
+                         * @default ai
+                         * @enum {string}
+                         */
+                        placedBy: "ai" | "person";
                         postAt: string | null;
                         postedAt: string | null;
                         postedTo: {
@@ -64278,6 +64298,11 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /**
+                         * @default ai
+                         * @enum {string}
+                         */
+                        placedBy: "ai" | "person";
                         postAt: string | null;
                         postedAt: string | null;
                         postedTo: {
@@ -64447,6 +64472,11 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /**
+                         * @default ai
+                         * @enum {string}
+                         */
+                        placedBy: "ai" | "person";
                         postAt: string | null;
                         postedAt: string | null;
                         postedTo: {
@@ -64580,8 +64610,14 @@ export interface operations {
                     networks?: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
                     plan?: {
                         [key: string]: {
-                            perWeek: number;
-                            time: string;
+                            from?: string;
+                            /** @enum {string} */
+                            mode?: "ai" | "mine";
+                            perDay?: number | null;
+                            perWeek?: number;
+                            time?: string;
+                            to?: string;
+                            week?: string[][];
                         };
                     };
                     readerUserId?: string | null;
@@ -64605,16 +64641,34 @@ export interface operations {
                         networks: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
                         plan: {
                             facebook: {
+                                from: string;
+                                /** @enum {string} */
+                                mode: "ai" | "mine";
+                                perDay: number | null;
                                 perWeek: number;
                                 time: string;
+                                to: string;
+                                week: string[][];
                             };
                             instagram: {
+                                from: string;
+                                /** @enum {string} */
+                                mode: "ai" | "mine";
+                                perDay: number | null;
                                 perWeek: number;
                                 time: string;
+                                to: string;
+                                week: string[][];
                             };
                             linkedin: {
+                                from: string;
+                                /** @enum {string} */
+                                mode: "ai" | "mine";
+                                perDay: number | null;
                                 perWeek: number;
                                 time: string;
+                                to: string;
+                                week: string[][];
                             };
                         };
                         readerName: string | null;
@@ -98659,6 +98713,29 @@ export interface operations {
                         filledAt: string | null;
                         from: string;
                         ideasSaved: number;
+                        learned?: {
+                            facebook: {
+                                best: string[];
+                                creators: number;
+                                /** @enum {string} */
+                                from: "own" | "both" | "creators" | "none";
+                                own: number;
+                            };
+                            instagram: {
+                                best: string[];
+                                creators: number;
+                                /** @enum {string} */
+                                from: "own" | "both" | "creators" | "none";
+                                own: number;
+                            };
+                            linkedin: {
+                                best: string[];
+                                creators: number;
+                                /** @enum {string} */
+                                from: "own" | "both" | "creators" | "none";
+                                own: number;
+                            };
+                        };
                         mayManage: boolean;
                         nextFillAt: string | null;
                         /** @default true */
@@ -98668,19 +98745,39 @@ export interface operations {
                             date: string;
                             /** @enum {string} */
                             network: "instagram" | "facebook" | "linkedin";
+                            /** @default false */
+                            trying: boolean;
                         }[];
                         plan: {
                             facebook: {
+                                from: string;
+                                /** @enum {string} */
+                                mode: "ai" | "mine";
+                                perDay: number | null;
                                 perWeek: number;
                                 time: string;
+                                to: string;
+                                week: string[][];
                             };
                             instagram: {
+                                from: string;
+                                /** @enum {string} */
+                                mode: "ai" | "mine";
+                                perDay: number | null;
                                 perWeek: number;
                                 time: string;
+                                to: string;
+                                week: string[][];
                             };
                             linkedin: {
+                                from: string;
+                                /** @enum {string} */
+                                mode: "ai" | "mine";
+                                perDay: number | null;
                                 perWeek: number;
                                 time: string;
+                                to: string;
+                                week: string[][];
                             };
                         };
                         poster: {
@@ -98744,6 +98841,11 @@ export interface operations {
                             pictureState: "none" | "waiting" | "making" | "made" | "failed";
                             /** @enum {string} */
                             pictureWay: "design" | "photo" | "own";
+                            /**
+                             * @default ai
+                             * @enum {string}
+                             */
+                            placedBy: "ai" | "person";
                             postAt: string | null;
                             postedAt: string | null;
                             postedTo: {
@@ -98825,6 +98927,11 @@ export interface operations {
                             pictureState: "none" | "waiting" | "making" | "made" | "failed";
                             /** @enum {string} */
                             pictureWay: "design" | "photo" | "own";
+                            /**
+                             * @default ai
+                             * @enum {string}
+                             */
+                            placedBy: "ai" | "person";
                             postAt: string | null;
                             postedAt: string | null;
                             postedTo: {
@@ -98906,6 +99013,11 @@ export interface operations {
                             pictureState: "none" | "waiting" | "making" | "made" | "failed";
                             /** @enum {string} */
                             pictureWay: "design" | "photo" | "own";
+                            /**
+                             * @default ai
+                             * @enum {string}
+                             */
+                            placedBy: "ai" | "person";
                             postAt: string | null;
                             postedAt: string | null;
                             postedTo: {
@@ -99014,6 +99126,11 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /**
+                         * @default ai
+                         * @enum {string}
+                         */
+                        placedBy: "ai" | "person";
                         postAt: string | null;
                         postedAt: string | null;
                         postedTo: {
@@ -99126,6 +99243,11 @@ export interface operations {
                             pictureState: "none" | "waiting" | "making" | "made" | "failed";
                             /** @enum {string} */
                             pictureWay: "design" | "photo" | "own";
+                            /**
+                             * @default ai
+                             * @enum {string}
+                             */
+                            placedBy: "ai" | "person";
                             postAt: string | null;
                             postedAt: string | null;
                             postedTo: {
@@ -99343,6 +99465,29 @@ export interface operations {
                             suggested: number;
                             waiting: number;
                         };
+                        learned?: {
+                            facebook: {
+                                best: string[];
+                                creators: number;
+                                /** @enum {string} */
+                                from: "own" | "both" | "creators" | "none";
+                                own: number;
+                            };
+                            instagram: {
+                                best: string[];
+                                creators: number;
+                                /** @enum {string} */
+                                from: "own" | "both" | "creators" | "none";
+                                own: number;
+                            };
+                            linkedin: {
+                                best: string[];
+                                creators: number;
+                                /** @enum {string} */
+                                from: "own" | "both" | "creators" | "none";
+                                own: number;
+                            };
+                        };
                         mayManage: boolean;
                         readerIsMe: boolean;
                         settings: {
@@ -99352,16 +99497,34 @@ export interface operations {
                             networks: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
                             plan: {
                                 facebook: {
+                                    from: string;
+                                    /** @enum {string} */
+                                    mode: "ai" | "mine";
+                                    perDay: number | null;
                                     perWeek: number;
                                     time: string;
+                                    to: string;
+                                    week: string[][];
                                 };
                                 instagram: {
+                                    from: string;
+                                    /** @enum {string} */
+                                    mode: "ai" | "mine";
+                                    perDay: number | null;
                                     perWeek: number;
                                     time: string;
+                                    to: string;
+                                    week: string[][];
                                 };
                                 linkedin: {
+                                    from: string;
+                                    /** @enum {string} */
+                                    mode: "ai" | "mine";
+                                    perDay: number | null;
                                     perWeek: number;
                                     time: string;
+                                    to: string;
+                                    week: string[][];
                                 };
                             };
                             readerName: string | null;
