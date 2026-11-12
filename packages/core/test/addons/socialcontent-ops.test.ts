@@ -821,8 +821,11 @@ describe('the business’s own posts', () => {
       postAt: new Date(slot.at).toISOString(),
       post: written({ title: 'One to remove' }),
     });
+    // LinkedIn's open days: another network may post that day too.
     expect(
-      (await as(member, 'socialcontent.calendar.get')).open.map((o: Any) => o.date),
+      (await as(member, 'socialcontent.calendar.get')).open
+        .filter((o: Any) => o.network === 'linkedin')
+        .map((o: Any) => o.date),
     ).not.toContain(slot.date);
     // Removing archives its record, which is records.archive's: owners and admins.
     expect(await refused(as(member, 'socialcontent.content.remove', { postId }))).toBe(
