@@ -1,4 +1,10 @@
-import { createTurnDetector, speechChunks, VOICE_WORDS, type PhoneVoice } from '@hfos/core';
+import {
+  createTurnDetector,
+  speechChunks,
+  VOICE_WORDS,
+  type PhoneVoice,
+  type TurnDetectorOptions,
+} from '@hfos/core';
 import {
   createAudioPlayer,
   RecordingPresets,
@@ -173,9 +179,10 @@ export class VoiceSession {
 
   /**
    * Hears one turn: records until they stop talking, then answers their words, or null when nothing was said, it
-   * was stopped, or it couldn't be heard (the phase says why).
+   * was stopped, or it couldn't be heard (the phase says why). `turn` changes how long a pause ends it (the
+   * Assistant's ASSISTANT_TURN waits longer than a call).
    */
-  async listen(): Promise<string | null> {
+  async listen(turn: TurnDetectorOptions = {}): Promise<string | null> {
     if (!this.on) return null;
     this.hush();
     this.listening?.stop(false);
@@ -187,7 +194,7 @@ export class VoiceSession {
       this.set('idle', VOICE_WORDS.failed);
       return null;
     }
-    const detector = createTurnDetector();
+    const detector = createTurnDetector(turn);
     this.set('listening');
     const outcome = await new Promise<'done' | 'nothing' | 'cancelled'>((resolve) => {
       let over = false;

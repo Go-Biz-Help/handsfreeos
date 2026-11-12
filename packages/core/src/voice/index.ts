@@ -388,6 +388,13 @@ export interface TurnDetectorOptions {
   readonly maxMs?: number;
 }
 
+/**
+ * How the Assistant hears a turn: it waits 2.5 seconds of quiet before answering, not a phone call's 1.1. Asking it
+ * to do something isn't a back-and-forth, and people stop to think mid-ask ("Add a task for… Dale, to call the
+ * Smiths"). Done sends it straight away. The test console keeps a call's pace.
+ */
+export const ASSISTANT_TURN: TurnDetectorOptions = { silenceMs: 2500 };
+
 /** waiting: nothing said yet; talking: they're saying something; done: they finished; nothing: they never spoke. */
 export type TurnState = 'waiting' | 'talking' | 'done' | 'nothing';
 

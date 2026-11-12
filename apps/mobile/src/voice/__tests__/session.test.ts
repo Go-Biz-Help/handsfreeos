@@ -1,4 +1,4 @@
-import { VOICE_WORDS } from '@hfos/core';
+import { ASSISTANT_TURN, VOICE_WORDS } from '@hfos/core';
 
 import { SpeechError } from '../speech';
 import { VoiceSession } from '../session';
@@ -87,6 +87,22 @@ describe('listening', () => {
     s.speak('Sí, el jueves.');
     await pass(50);
     expect(mockSay.mock.calls[0]![0]).toMatchObject({ language: 'es', voice: null });
+  });
+
+  it('waits longer for the Assistant, so a pause to think doesn’t end the turn', async () => {
+    // Talking, two seconds of quiet, more talking, then quiet.
+    audio.__recorder.meter = (ms) =>
+      (ms > 300 && ms < 900) || (ms > 2900 && ms < 3500) ? -20 : -60;
+    mockHear.mockResolvedValue({ text: 'Add a task for Dale to call the Smiths', language: 'en' });
+    const s = newSession();
+    await s.start();
+    const heard = s.listen(ASSISTANT_TURN);
+    await pass(2800);
+    expect(s.phase).toBe('listening');
+    await pass(2900);
+    expect(s.phase).toBe('listening');
+    await pass(500);
+    expect(await heard).toBe('Add a task for Dale to call the Smiths');
   });
 
   it('gives up when nothing is said', async () => {

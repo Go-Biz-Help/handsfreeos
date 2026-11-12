@@ -5,6 +5,7 @@ import {
   closingSpoken,
   nextSpoken,
   SPOKEN_START,
+  ASSISTANT_TURN,
   createTurnDetector,
   heardSpeechOf,
   levelDb,
@@ -174,6 +175,21 @@ describe('telling when a turn ends', () => {
     expect(d.heard).toBe(true);
     expect(run(d, 1400, 900, -60)).toBe('talking');
     expect(run(d, 2350, 200, -60)).toBe('done');
+  });
+
+  it('the Assistant waits through a pause to think that would end a call’s turn', () => {
+    const call = createTurnDetector();
+    const assistant = createTurnDetector(ASSISTANT_TURN);
+    for (const d of [call, assistant]) {
+      expect(run(d, 0, 500, -60)).toBe('waiting');
+      expect(run(d, 550, 800, -25)).toBe('talking');
+    }
+    // Two seconds of quiet while they think of the rest.
+    expect(run(call, 1400, 2000, -60)).toBe('done');
+    expect(run(assistant, 1400, 2000, -60)).toBe('talking');
+    expect(run(assistant, 3450, 600, -25)).toBe('talking');
+    expect(run(assistant, 4100, 2400, -60)).toBe('talking');
+    expect(run(assistant, 6550, 100, -60)).toBe('done');
   });
 
   it('a click isn’t talking', () => {

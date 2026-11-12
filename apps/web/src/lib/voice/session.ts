@@ -17,6 +17,7 @@ import {
   speechChunks,
   VOICE_WORDS,
   type PhoneVoice,
+  type TurnDetectorOptions,
 } from '@hfos/core';
 import { errorMessage } from '../api/client';
 import { hear, say, speechStops } from './speech';
@@ -210,9 +211,10 @@ export class VoiceSession {
 
   /**
    * Hears one turn: records until they stop talking, then answers their words, or null when nothing was said, it
-   * was stopped, or it couldn't be heard (the phase says why).
+   * was stopped, or it couldn't be heard (the phase says why). `turn` changes how long a pause ends it (the
+   * Assistant's ASSISTANT_TURN waits longer than a call).
    */
-  async listen(): Promise<string | null> {
+  async listen(turn: TurnDetectorOptions = {}): Promise<string | null> {
     const ctx = this.ctx;
     const stream = this.stream;
     if (this.on && ctx && !stream && scripted) return this.listenScripted(scripted);
@@ -236,7 +238,7 @@ export class VoiceSession {
     analyser.fftSize = 1024;
     source.connect(analyser);
     const samples = new Float32Array(analyser.fftSize);
-    const detector = createTurnDetector();
+    const detector = createTurnDetector(turn);
     this.set('listening');
 
     const outcome = await new Promise<'done' | 'nothing' | 'cancelled'>((resolve) => {

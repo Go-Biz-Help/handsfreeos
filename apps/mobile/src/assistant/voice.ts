@@ -1,4 +1,5 @@
 import {
+  ASSISTANT_TURN,
   ASSISTANT_VOICE,
   closingSpoken,
   nextSpoken,
@@ -51,7 +52,7 @@ export function useAssistantVoice(chat: AssistantChat, workspaceId: string) {
   /** Hears one turn and acts on it. */
   const turn = React.useRef(async () => {});
   turn.current = async () => {
-    const words = await session.listen();
+    const words = await session.listen(ASSISTANT_TURN);
     if (!words) return;
     const now = latest.current;
     const waiting = waitingCards(now);

@@ -1,5 +1,6 @@
 'use client';
 import {
+  ASSISTANT_TURN,
   ASSISTANT_VOICE,
   closingSpoken,
   nextSpoken,
@@ -52,7 +53,7 @@ export function useAssistantVoice() {
   /** Hears one turn and acts on it. */
   const turn = useRef(async () => {});
   turn.current = async () => {
-    const words = await session.listen();
+    const words = await session.listen(ASSISTANT_TURN);
     if (!words) return;
     const now = latest.current;
     const waiting = waitingCards(now);
