@@ -124,6 +124,7 @@ import { canBlur, setBlur } from './blur';
 import { keepCallChat } from './call-chat';
 import { useCallData } from './call-data';
 import { ChatPanel, PeoplePanel } from './call-panels';
+import { CoachFloat } from './coach-float';
 import { CallStage } from './call-stage';
 import { MarksProvider } from './screen-marks';
 import { PollOffer, PollPanel } from './poll-panel';
@@ -152,7 +153,7 @@ export interface CallRoomProps {
   readonly color?: string | null;
   /** The team's side; null for a customer or a guest. */
   readonly team?: TeamSide | null;
-  /** For the team: what add-ons show beside the video (the Sales Coach's cards, ./call-coach.tsx). */
+  /** For the team: what add-ons show over the video (the Sales Coach's cards, ./call-coach.tsx, in ./coach-float.tsx). */
   readonly coach?: ReactNode;
   /** For a customer on their own link: the link, which answers the live poll's questions (./poll-popup.tsx). */
   readonly poll?: { readonly token: string; readonly business: string } | null;
@@ -638,6 +639,8 @@ function CallScreen({
             {cc ? <CaptionLines lines={captions} aiOn={aiNotes} /> : null}
             {poll ? <PollPopup token={poll.token} business={poll.business} /> : null}
             {team ? <PollOffer team={team} /> : null}
+            {/* The coach's cards float over the video, under the camera to start with; nothing while there are none. */}
+            {coach ? <CoachFloat>{coach}</CoachFloat> : null}
           </div>
           {panel === 'chat' ? (
             <ChatPanel
@@ -656,14 +659,6 @@ function CallScreen({
             />
           ) : panel === 'poll' && team ? (
             <PollPanel team={team} slides={slides} onClose={() => setPanel(null)} />
-          ) : coach ? (
-            // The coach's cards beside the video, or over its top on a phone; nothing while there are none.
-            <div
-              className="absolute inset-x-2 top-2 z-10 max-h-[45%] overflow-y-auto empty:hidden md:static md:max-h-none md:w-[340px] md:flex-none"
-              data-testid="call-coach"
-            >
-              {coach}
-            </div>
           ) : null}
         </div>
         <StartAudioPrompt />
