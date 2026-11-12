@@ -59,6 +59,7 @@ import {
 } from './common';
 import { registerBookingRoutes } from './booking';
 import { registerUnsubscribeRoutes } from './unsubscribe';
+import { registerWebPersonRoutes } from './web-person';
 import { registerSafetyRoutes } from './safety';
 import { registerAiCallRoutes } from './ai-calls';
 import { registerChatRoutes } from './chat';
@@ -422,6 +423,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerLegalRoutes(app, deps);
   // A business's own policy or terms, given back with the texting section in place (20261027006500).
   await registerPolicyUpdateRoutes(app, deps);
+  // "Email your web person": the files as they'd go, before they're sent (2026-11-12).
+  registerWebPersonRoutes(app, deps);
   // Teammate funnels: the AI's draft from a description (funnels/draft.ts).
   await registerFunnelRoutes(app, deps);
   await registerFoundingRoutes(app, deps);

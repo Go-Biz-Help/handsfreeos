@@ -521,6 +521,7 @@ describe('chat widgets (owners and admins)', () => {
         'dailyCap',
         'paused',
         'pausedAt',
+        'hiddenUntilTexting',
         'install',
         'createdAt',
         'updatedAt',

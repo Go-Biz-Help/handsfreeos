@@ -36,12 +36,13 @@ webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 | The Online place's choice                    | `LocationsModule` and `ServicesModule` in `apps/web/src/components/calendars/modules.tsx`                                         |
 | The switch in /admin                         | `apps/web/src/components/admin/video-calls-block.tsx`                                                                             |
 | The browser test                             | `apps/web/e2e/video-call.spec.ts`, on a real LiveKit server in CI                                                                 |
+| The join and knock sounds                    | `call-sounds.ts` in the web's `components/video-call/` and the phone's `src/video-call/`; `scripts/video-call-sounds.mjs`         |
 | What the AI heard, and the listener's list   | `supabase/migrations/20261027013300_video_call_words.sql` (`app.video_call_lines`, `video_calls_to_hear`)                         |
 | The listener                                 | `apps/worker/src/media.ts` (the `media` process in `fly.toml`), `video-calls/listener.ts`                                         |
 | Hearing each person, captions, lines         | `apps/worker/src/video-calls/hearing.ts`; LiveKit's media library only in `listener-room.ts`                                      |
 | The transcript, once a stretch is over       | `video_call.keep_words` (core), queued by `onVideoCallEnded` in `apps/worker/src/video-calls/handlers.ts`                         |
 | The coach in the call                        | `apps/worker/src/video-calls/coach.ts` (`CallCoach`, `finishCoaching`); `video_call.coach` (core)                                 |
-| The coach's cards beside the video           | `apps/web/src/components/video-call/call-coach.tsx` (the `call.panels` slot), placed by `call-room.tsx`                           |
+| The coach's cards over the video             | `apps/web/src/components/video-call/call-coach.tsx` (the `call.panels` slot), in `coach-float.tsx`'s box                          |
 | The phone's call screen                      | `apps/mobile/src/video-call/` (`phone-call.tsx`, `room.tsx`, `team-call.ts`), at `app/app/w/[workspaceId]/call/`                  |
 | The coach's card on the phone                | `apps/mobile/src/addons/salescoach/call-card.tsx`, the phone registry's `CallCard`                                                |
 | LiveKit in the phone's build                 | `apps/mobile/app.json` (its plugins and the camera and microphone words), `app.config.ts` (no screen share)                       |
@@ -110,8 +111,8 @@ webhook) is "Video calls: LiveKit" in `docs/operations.md`.
    goes to Deepgram only while they talk. The words go to everyone as captions (CC) and are kept as lines, each with
    who said it. Everyone sees **AI notes on**.
 7. **The coach** (part 3), in a business with AI Sales Coach, for someone on the team it's on for. What the listener
-   hears goes to it line by line, as a Zoom meeting's transcript does. Its cards show beside the video, or over the
-   top of it on a phone, and the call is written up and scored once it's over.
+   hears goes to it line by line, as a Zoom meeting's transcript does. Its cards float over the video, under the
+   camera to start with, and the call is written up and scored once it's over.
 8. **After.** The appointment lists who joined and for how long, a customer's attendance is marked from whether they
    were really in, and everyone's minutes go on the business's balance as one line, `video.minute`. A minute after
    the call ends, what the AI heard becomes the appointment's transcript. Today's After the call starts from it, as
@@ -285,9 +286,20 @@ phone number, an address, a link) is no longer lost when the call ends.
   the live meeting live, and the next listener carries on with the same one. When the stretch is over, the job that
   keeps its words (`video_call.keep_words`) first finishes any coaching still live from the lines kept, so the
   write-up has everything that was said.
-- **The cards beside the video** are the add-ons' `call.panels` slot, the same one above the phone's call bar. The
+- **The cards over the video** are the add-ons' `call.panels` slot, the same one above the phone's call bar. The
   call's page sits outside the business's pages, so it brings the business's add-ons, the person's permissions and
   the live updates along itself (`call-coach.tsx`). Only the team sees it.
+- **The coach's box** (`coach-float.tsx`, the owner's picks of 12 Nov 2026) floats over the video, top middle, right
+  under the camera, so reading it looks like looking at the customer. It stays over the video while Chat, People or
+  Polls is open. Its bar moves it anywhere on the video (the grip moves it from the keyboard too, and a double-click
+  puts it back), its corner makes it wider or taller, A− and A+ make its words smaller or bigger
+  (`CALL_COACH_TEXT_SIZES`, by CSS `zoom`, so the words wrap again rather than spill), and it hides down to its bar.
+  Every word of every card shows, wrapped onto more lines as it needs; the panel draws no edge of its own there
+  (`framed`). Where it is and how big are kept in this browser (`hfos.call.coach`).
+- **Pop out** (Chrome and Edge on a computer: Document Picture-in-Picture) moves the box into a window of its own
+  that stays on top of every other one, as when the person switches to another app. It carries the page's look and
+  the same live cards; the call shows where it went, with Back to the call, and leaving the call closes it. Popping
+  out says to share a tab or a window, not the whole screen, since a whole screen would show it.
 
 ### On the phone (part 4)
 
@@ -309,7 +321,9 @@ phone number, an address, a link) is no longer lost when the call ends.
   own picker; on Android speaker, phone or headphones), captions, People, Chat, and Leave or End for everyone. The
   screen stays awake while the call is open.
 - **The coach's newest card sits over the top of the video** for someone with `salescoach.use`: the phone registry's
-  `CallCard`, read from `salescoach.live` every 3 seconds, as the Live call screen does.
+  `CallCard`, read from `salescoach.live` every 3 seconds, as the Live call screen does. Its whole title and words
+  show, scrolling past most of the video's height; A− and A+ beside Got it make them smaller or bigger, kept on the
+  phone (`salescoach.callTextSize`).
 - **LiveKit loads with the first call** (`load-room.ts`), so the app doesn't start it, or its WebRTC, at launch.
 - **While the app is open.** There's no background sound on an iPhone (no `audio` background mode) and no foreground
   service on Android, so the camera and microphone stop when the person leaves the app, and the call carries on when
@@ -585,6 +599,27 @@ extension, the owner's call on 3 November 2026 ("Not yet" below).
   real screen, so while their call tab is hidden its title says who is pointing at their screen until they come back
   to it.
 - **On the phone** the marks show on a shared screen the same way. Making them from the phone comes later.
+
+### Sounds (owner, 12 November 2026)
+
+The owner asked for a sound when someone joins a call, so the team knows without watching the screen.
+
+- **Two sounds**: a soft chime going up as someone comes in, and a door chime going down for the team as someone on
+  the call's link asks to be let in, beside the "asking to join" note. The web and the phone play the same two files,
+  which `scripts/video-call-sounds.mjs` makes.
+- **Who hears the join sound**: everyone in a meeting, as someone else comes in, never for themselves and never for
+  the AI's listener (`joinSoundFor`). In a webinar it plays only as someone from the team comes in, so hundreds of
+  attendees arriving stay quiet. Someone coming into a call hears nothing for the people already in it.
+- **When**: once for several coming in together (`VIDEO_CALL_SOUND_GAP_MS`), and never while a page's own connection
+  comes back, or just after, when LiveKit tells it of everyone already there again (`videoCallSoundGate`).
+- **On the web** they play through Web Audio, which a browser allows once the page has been pressed (Join counts). A
+  browser that still holds sound back gets it on the next press. The files are in `public/sounds`, and `proxy.ts`
+  leaves `.wav` files alone, so a customer's call on a business's own domain loads them from there.
+- **On the phone** they play inside the call's own sound. The players never change the audio mode, and they keep the
+  iPhone's sound on as they end (`keepAudioSessionActive`): otherwise the end of a chime would cut off the call. So
+  a chime comes out wherever the call's sound does. They're only code and two sound files, so they reach phones as
+  an update, with no store build.
+- **There's no switch to turn them off** yet.
 
 ## Running it locally
 

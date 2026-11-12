@@ -1,7 +1,9 @@
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import {
   carrierHasDetails,
+  chatWidgetHideUntilTexting,
   executeCommand,
+  executeCommandIn,
   FAMILY_KINDS,
   familyFor,
   formatPhone,
@@ -364,12 +366,21 @@ export const onNumberArrived: EventHandler = async (ctx) => {
   });
 };
 
-/** Owners and admins hear when texting turns on, or when the carriers want a change. */
+/** Owners and admins hear when texting turns on, or when the carriers want a change; a hidden chat comes back on. */
 export const onRegistrationStatusChanged: EventHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const p = ctx.event.payload as { kind?: string; to?: string };
   const final = p.kind === 'toll_free_verification' || p.kind === 'a2p_campaign';
   if (!(p.to === 'rejected' || (p.to === 'approved' && final))) return;
+  // A chat hidden until texting is approved (2026-11-12) comes back on now.
+  if (p.to === 'approved' && final)
+    await executeCommandIn(
+      ctx.tx,
+      chatWidgetHideUntilTexting,
+      { workspaceId: scope.workspaceId, hide: false },
+      systemActor(scope),
+      metaOf(ctx),
+    );
   const [ws] = await ctx.tx
     .select({ name: workspaces.name })
     .from(workspaces)

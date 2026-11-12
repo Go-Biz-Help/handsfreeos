@@ -19,7 +19,7 @@ import { linkFrom, waitForMail } from './helpers';
  * /admin, a customer books an online visit set to one, opens their own Join link and waits, the owner joins from the
  * appointment, and the customer goes straight in (the owner's 6a). They see each other, chat and raise a hand, the
  * customer points at the owner's shared screen, End for everyone ends it for both, and the appointment says who
- * joined.
+ * joined. The owner hears the customer come in.
  *
  * It needs the worker on LiveKit: CI starts one before the browser tests ("Start a local LiveKit server" in
  * .github/workflows/ci.yml). On the worker's stand-in nothing connects, so it's skipped. Read from apps/worker/.env as
@@ -36,6 +36,16 @@ test.skip(
   videoProvider() !== 'livekit',
   'The worker isn’t on LiveKit. Run one locally as "Video calls: LiveKit" in docs/operations.md says.',
 );
+
+/** Keeps the name of each sound the call plays (`CALL_SOUND_EVENT` in call-sounds.ts) on the page. */
+function heardSounds() {
+  const w = window as unknown as { hfosSounds: string[] };
+  w.hfosSounds = [];
+  window.addEventListener('hfos:call-sound', (e) =>
+    w.hfosSounds.push(String((e as CustomEvent).detail)),
+  );
+}
+const soundsHeard = () => (window as unknown as { hfosSounds?: string[] }).hfosSounds ?? [];
 
 // Chromium's own stand-in camera and microphone, allowed without asking.
 test.use({
@@ -106,9 +116,10 @@ test('a customer and the owner meet in a booked HandsFreeOS video call', async (
   const join = linkFrom(mail.text || mail.html, /http:\/\/localhost:3000\/j\/[0-9A-Za-z]{18}/);
   // It says the AI takes notes, and so does the page before they join.
   expect(mail.text || mail.html).toContain('AI takes notes');
-  const customer = await (
-    await browser.newContext({ permissions: ['camera', 'microphone'] })
-  ).newPage();
+  const customerSide = await browser.newContext({ permissions: ['camera', 'microphone'] });
+  // What each side's call plays (its join and knock sounds), as the call says them.
+  for (const side of [page.context(), customerSide]) await side.addInitScript(heardSounds);
+  const customer = await customerSide.newPage();
   await customer.goto(join);
   await expect(customer.getByTestId('call-heading')).toHaveText('Coaching call');
   await expect(customer.getByTestId('prejoin-name')).toHaveValue('Maya Brooks');
@@ -134,6 +145,9 @@ test('a customer and the owner meet in a booked HandsFreeOS video call', async (
     await expect(p.locator('[data-testid="call-tile"][data-video="on"]')).toHaveCount(2, {
       timeout: 30_000,
     });
+  // The owner hears Maya come in. Maya came into a call the owner was already in, so she hears nothing.
+  await expect.poll(() => team.evaluate(soundsHeard)).toEqual(['join']);
+  expect(await customer.evaluate(soundsHeard)).toEqual([]);
 
   // The owner can turn the AI's notes off for this call.
   const notes = team.getByTestId('call-ai-notes');

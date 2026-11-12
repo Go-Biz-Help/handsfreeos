@@ -1,7 +1,7 @@
 {
   "area": "public-links",
   "title": "Every link a business gives out, and the public pages behind them",
-  "checkedOn": "2026-11-10",
+  "checkedOn": "2026-11-12",
   "files": {
     "apps/web/src/addons/realestate/portal/bits.tsx": "d7b704452b09",
     "apps/web/src/addons/realestate/portal/home-panel.tsx": "94db9d871e1e",
@@ -72,10 +72,10 @@
     "apps/web/src/components/portal/portal-pages.tsx": "6a270ce8937e",
     "apps/web/src/components/portal/portal-shell.tsx": "d896bce81892",
     "apps/web/src/components/safety/contact-page.tsx": "94142f097968",
-    "apps/web/src/components/video-call/call-coach.tsx": "350fc005d02a",
+    "apps/web/src/components/video-call/call-coach.tsx": "e8e2b3273150",
     "apps/web/src/components/video-call/call-frame.tsx": "7b091210e351",
     "apps/web/src/components/video-call/call-panels.tsx": "1aae71877cf4",
-    "apps/web/src/components/video-call/call-room.tsx": "e8cbe7e4dec2",
+    "apps/web/src/components/video-call/call-room.tsx": "1a2f999360a4",
     "apps/web/src/components/video-call/call-stage.tsx": "e9fc079a3b0c",
     "apps/web/src/components/video-call/customer-call.tsx": "95df1e2ea086",
     "apps/web/src/components/video-call/link-call.tsx": "463d1bf669c9",
@@ -916,91 +916,91 @@
     {
       "path": "Video call → room → watching count",
       "kind": "see",
-      "file": "apps/web/src/components/video-call/call-room.tsx:525",
+      "file": "apps/web/src/components/video-call/call-room.tsx:532",
       "covered": "yes",
       "by": "read_video_call_get people connected"
     },
     {
       "path": "Video call → room → attendee video pill",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:539",
+      "file": "apps/web/src/components/video-call/call-room.tsx:546",
       "covered": "yes",
       "by": "do_video_call_set_attendee_video"
     },
     {
       "path": "Video call → room → AI notes pill, turn-off confirm",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:574",
+      "file": "apps/web/src/components/video-call/call-room.tsx:581",
       "covered": "yes",
       "by": "do_video_call_set_ai"
     },
     {
       "path": "Video call → room → reconnecting, joining",
       "kind": "see",
-      "file": "apps/web/src/components/video-call/call-room.tsx:615",
+      "file": "apps/web/src/components/video-call/call-room.tsx:622",
       "covered": "person",
       "by": "the person's own connection"
     },
     {
       "path": "Video call → room → captions",
       "kind": "see",
-      "file": "apps/web/src/components/video-call/call-room.tsx:895",
+      "file": "apps/web/src/components/video-call/call-room.tsx:896",
       "covered": "partly",
       "by": "read_appointment_transcripts after the call"
     },
     {
       "path": "Video call → room → CC toggle",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:762",
+      "file": "apps/web/src/components/video-call/call-room.tsx:763",
       "covered": "person",
       "by": "the person's own view"
     },
     {
       "path": "Video call → room → mic, camera, share screen, blur",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:684",
+      "file": "apps/web/src/components/video-call/call-room.tsx:685",
       "covered": "person",
       "by": "the person's own devices"
     },
     {
       "path": "Video call → room → reactions",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:726",
+      "file": "apps/web/src/components/video-call/call-room.tsx:727",
       "covered": "person",
       "by": "the person in the call"
     },
     {
       "path": "Video call → room → raise hand",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:754",
+      "file": "apps/web/src/components/video-call/call-room.tsx:755",
       "covered": "person",
       "by": "the person in the call"
     },
     {
       "path": "Video call → room → hand-raised toast",
       "kind": "see",
-      "file": "apps/web/src/components/video-call/call-room.tsx:1000",
+      "file": "apps/web/src/components/video-call/call-room.tsx:1001",
       "covered": "no",
       "by": "read_video_call_get has no hand state"
     },
     {
       "path": "Video call → room → knock toast 'Let in'",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:1191",
+      "file": "apps/web/src/components/video-call/call-room.tsx:1192",
       "covered": "yes",
       "by": "do_video_call_admit"
     },
     {
       "path": "Video call → room → Leave / Leave only",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:805",
+      "file": "apps/web/src/components/video-call/call-room.tsx:806",
       "covered": "person",
       "by": "the person leaves"
     },
     {
       "path": "Video call → room → End for everyone",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:840",
+      "file": "apps/web/src/components/video-call/call-room.tsx:841",
       "covered": "yes",
       "by": "do_video_call_end"
     },

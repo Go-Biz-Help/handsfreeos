@@ -117,6 +117,7 @@ import {
   phoneUpdateSettings,
 } from './phone';
 import {
+  registrationEmailWebPerson,
   registrationRecordCheck,
   registrationRequestReview,
   registrationReviewApprove,
@@ -396,6 +397,7 @@ import {
 import { leadRecordAnswers } from './lead.record_answers';
 import {
   chatWidgetCreate,
+  chatWidgetHideUntilTexting,
   chatWidgetPause,
   chatWidgetRecordSeen,
   chatWidgetResume,
@@ -586,6 +588,7 @@ export {
   registrationReviewApprove,
   registrationReviewSendBack,
   registrationSendReviewed,
+  registrationEmailWebPerson,
   callAttachRecording,
   callAttachTranscript,
   callCancelConnect,
@@ -835,6 +838,7 @@ export const commands: readonly CommandDef[] = [
   registrationReviewApprove,
   registrationReviewSendBack,
   registrationSendReviewed,
+  registrationEmailWebPerson,
   conversationOpen,
   conversationMarkRead,
   conversationMarkUnread,
@@ -1083,6 +1087,7 @@ export const commands: readonly CommandDef[] = [
   chatWidgetUpdate,
   chatWidgetPause,
   chatWidgetResume,
+  chatWidgetHideUntilTexting,
   chatWidgetRotateKey,
   chatWidgetRecordSeen,
   chatVisitorStart,

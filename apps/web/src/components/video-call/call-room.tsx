@@ -31,6 +31,8 @@
  *   call is priced by what it really used.
  * - **Marks on a shared screen** (./screen-marks.tsx): someone watching points at it or draws on it, and everyone sees
  *   it. Like reactions, marks travel on their own data topic and aren't kept. In a webinar only the team marks.
+ * - **Sounds** (./call-sounds.ts): a chime as someone comes in, for everyone in the call (in a webinar, only as someone
+ *   from the team does), and for the team a door chime as someone asks to be let in.
  */
 import {
   ATTENDEE_VIDEO_CHOICES,
@@ -122,8 +124,10 @@ import { brandLook } from '@/lib/look';
 import { cn } from '@/lib/utils';
 import { canBlur, setBlur } from './blur';
 import { keepCallChat } from './call-chat';
+import { useCallSounds } from './call-sounds';
 import { useCallData } from './call-data';
 import { ChatPanel, PeoplePanel } from './call-panels';
+import { CoachFloat } from './coach-float';
 import { CallStage } from './call-stage';
 import { MarksProvider } from './screen-marks';
 import { PollOffer, PollPanel } from './poll-panel';
@@ -152,7 +156,7 @@ export interface CallRoomProps {
   readonly color?: string | null;
   /** The team's side; null for a customer or a guest. */
   readonly team?: TeamSide | null;
-  /** For the team: what add-ons show beside the video (the Sales Coach's cards, ./call-coach.tsx). */
+  /** For the team: what add-ons show over the video (the Sales Coach's cards, ./call-coach.tsx, in ./coach-float.tsx). */
   readonly coach?: ReactNode;
   /** For a customer on their own link: the link, which answers the live poll's questions (./poll-popup.tsx). */
   readonly poll?: { readonly token: string; readonly business: string } | null;
@@ -404,14 +408,17 @@ function CallScreen({
 
   // A hand going up says so, for whoever isn't looking at that tile: in a webinar, only to the team.
   useHandsUp(!webinar || !!team);
+  // A sound as someone comes in, and for the team as someone asks to (./call-sounds.ts).
+  const { knock } = useCallSounds(webinar);
 
-  // Someone asking to come in, for the team: who, with Let in right there.
+  // Someone asking to come in, for the team: who, with Let in right there, and the knock.
   const told = useRef(new Set<string>());
   useEffect(() => {
     if (!team || !got) return;
     for (const p of got.people) {
       if (p.state !== 'waiting' || p.kind !== 'guest' || told.current.has(p.id)) continue;
       told.current.add(p.id);
+      knock();
       toast(VIDEO_CALL_WORDS.askingToJoin(p.name), {
         duration: 10_000,
         action: {
@@ -420,7 +427,7 @@ function CallScreen({
         },
       });
     }
-  }, [got, team]);
+  }, [got, team, knock]);
   const asking = got?.people.filter((p) => p.state === 'waiting' && p.kind === 'guest').length ?? 0;
 
   const toggleMic = () =>
@@ -638,6 +645,8 @@ function CallScreen({
             {cc ? <CaptionLines lines={captions} aiOn={aiNotes} /> : null}
             {poll ? <PollPopup token={poll.token} business={poll.business} /> : null}
             {team ? <PollOffer team={team} /> : null}
+            {/* The coach's cards float over the video, under the camera to start with; nothing while there are none. */}
+            {coach ? <CoachFloat>{coach}</CoachFloat> : null}
           </div>
           {panel === 'chat' ? (
             <ChatPanel
@@ -656,14 +665,6 @@ function CallScreen({
             />
           ) : panel === 'poll' && team ? (
             <PollPanel team={team} slides={slides} onClose={() => setPanel(null)} />
-          ) : coach ? (
-            // The coach's cards beside the video, or over its top on a phone; nothing while there are none.
-            <div
-              className="absolute inset-x-2 top-2 z-10 max-h-[45%] overflow-y-auto empty:hidden md:static md:max-h-none md:w-[340px] md:flex-none"
-              data-testid="call-coach"
-            >
-              {coach}
-            </div>
           ) : null}
         </div>
         <StartAudioPrompt />

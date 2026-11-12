@@ -10,7 +10,7 @@
  *   chat, and Leave, which also offers End for everyone. The screen stays awake while the call is open.
  * - **The AI's notes**: the pill under the title says whether the AI hears the call, and turns its notes off or on
  *   for this call. CC shows the listener's captions, which come only from it.
- * - **On top of the video**, what add-ons show the team: the Sales Coach's newest card (`top`).
+ * - **On top of the video**, what add-ons show the team: the Sales Coach's newest card (`top`), every word of it.
  * - **How it ends** is LiveKit's word on why the room let them go (./ends.ts). A dropped connection rejoins on its own
  *   first, and says so meanwhile.
  * - **Not on a phone yet**: sharing its screen, reactions and raising a hand. A hand raised on a computer still shows
@@ -21,6 +21,8 @@
  *   call is priced by what it really used.
  * - **Marks on a shared screen** (./screen-marks.tsx): what people point at and draw on it shows here too. Making
  *   them from the phone comes later.
+ * - **Sounds** (./call-sounds.ts): a chime as someone comes in (in a webinar, only someone from the team), and a door
+ *   chime as someone asks to be let in, the same as on a computer.
  */
 import {
   LISTENER_IDENTITY,
@@ -96,6 +98,7 @@ import { errorMessage } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 import { keepCallChat } from './call-chat';
+import { useCallSounds } from './call-sounds';
 import { ChatText } from './chat-text';
 import { useCallData } from './call-data';
 import { endOf, type CallEnd } from './ends';
@@ -311,18 +314,22 @@ function CallScreen({
     };
   }, [room]);
 
-  // Someone on the call's link asking to come in: who, with Let in right there.
+  // A sound as someone comes in, and as someone asks to (./call-sounds.ts).
+  const { knock } = useCallSounds(room, webinar);
+
+  // Someone on the call's link asking to come in: who, with Let in right there, and the knock.
   const told = React.useRef(new Set<string>());
   React.useEffect(() => {
     if (!got) return;
     for (const p of got.people) {
       if (p.state !== 'waiting' || p.kind !== 'guest' || told.current.has(p.id)) continue;
       told.current.add(p.id);
+      knock();
       toast.show(W.askingToJoin(p.name), {
         action: { label: W.letIn, onPress: () => setSheet('people') },
       });
     }
-  }, [got]);
+  }, [got, knock]);
   const knocking =
     got?.people.filter((p) => p.state === 'waiting' && p.kind === 'guest').length ?? 0;
 
@@ -459,12 +466,15 @@ function CallScreen({
           </View>
         ) : null}
         {top ? (
+          // Its cards grow with their words (A+ on the coach), scrolling past most of the video's height.
           <View
-            className="absolute inset-x-3 top-2 max-h-[45%]"
+            className="absolute inset-x-3 top-2 max-h-[60%]"
             pointerEvents="box-none"
             testID="call-coach"
           >
-            {top}
+            <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
+              {top}
+            </ScrollView>
           </View>
         ) : null}
         {cc ? <CaptionLines lines={captions} aiOn={aiNotes} /> : null}
