@@ -280,13 +280,22 @@ describe('the Assistant', () => {
     expect(await stageOf()).toBe('Contacted');
   });
 
-  it('lets a card lapse when the person asks something else in the same chat', async () => {
-    const first = await ask(ownerToken, 'Move it to Won', { page: { type: 'lead', id: leadId } });
+  it('keeps a card waiting through a follow-up, until a newer answer’s card replaces it', async () => {
+    const page = { type: 'lead', id: leadId } as const;
+    const first = await ask(ownerToken, 'Move it to Won', { page });
     const threadId = first[0]!.type === 'run' ? first[0]!.threadId : '';
     const card = cardsOf(first).find((c) => c.type === 'confirm');
     const id = card!.type === 'confirm' ? card!.toolCallId : '';
+    // A question that shows no card leaves it waiting.
     await ask(ownerToken, 'What needs attention?', { threadId });
+    expect((await toolCall(id)).status).toBe('awaiting_confirmation');
+    // An answer with a card of its own replaces it: only the newest can be confirmed.
+    const again = await ask(ownerToken, 'Move it to Won', { threadId, page });
+    const newer = cardsOf(again).find((c) => c.type === 'confirm');
+    const newerId = newer!.type === 'confirm' ? newer!.toolCallId : '';
+    expect(newerId).not.toBe(id);
     expect((await toolCall(id)).status).toBe('expired');
+    expect((await toolCall(newerId)).status).toBe('awaiting_confirmation');
     expect((await decide(ownerToken, id, 'confirm')).statusCode).toBe(409);
 
     // The chat is saved: both questions, both answers, and the cards.
@@ -297,7 +306,14 @@ describe('the Assistant', () => {
       actor(owner),
       meta(),
     );
-    expect(saved.messages.map((m) => m.role)).toEqual(['user', 'assistant', 'user', 'assistant']);
+    expect(saved.messages.map((m) => m.role)).toEqual([
+      'user',
+      'assistant',
+      'user',
+      'assistant',
+      'user',
+      'assistant',
+    ]);
     expect(saved.toolCalls.find((c) => c.id === id)?.status).toBe('expired');
   });
 

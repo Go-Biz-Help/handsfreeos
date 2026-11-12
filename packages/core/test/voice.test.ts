@@ -5,6 +5,7 @@ import {
   closingSpoken,
   nextSpoken,
   SPOKEN_START,
+  ASSISTANT_TURN,
   createTurnDetector,
   heardSpeechOf,
   levelDb,
@@ -126,10 +127,18 @@ describe('reading an answer out as it arrives', () => {
           { title: 'B', needsReason: false },
         ],
       }),
-    ).toEqual([
-      'The connection dropped.',
-      'Check the cards on the screen, or ask me something else.',
-    ]);
+    ).toEqual(['The connection dropped.', 'Should I go ahead with both? Say yes or no.']);
+  });
+
+  it('asks once for several cards, unless one needs a reason first', () => {
+    const said = { taken: 10, said: 10, cut: false };
+    const card = (title: string, needsReason = false) => ({ title, needsReason });
+    expect(
+      closingSpoken({ state: said, notice: null, waiting: [card('A'), card('B'), card('C')] }),
+    ).toEqual(['Should I go ahead with all of them? Say yes or no.']);
+    expect(
+      closingSpoken({ state: said, notice: null, waiting: [card('A'), card('Lost', true)] }),
+    ).toEqual(['Pick a reason on the cards that need one, then confirm them.']);
   });
 });
 
@@ -174,6 +183,21 @@ describe('telling when a turn ends', () => {
     expect(d.heard).toBe(true);
     expect(run(d, 1400, 900, -60)).toBe('talking');
     expect(run(d, 2350, 200, -60)).toBe('done');
+  });
+
+  it('the Assistant waits through a pause to think that would end a call’s turn', () => {
+    const call = createTurnDetector();
+    const assistant = createTurnDetector(ASSISTANT_TURN);
+    for (const d of [call, assistant]) {
+      expect(run(d, 0, 500, -60)).toBe('waiting');
+      expect(run(d, 550, 800, -25)).toBe('talking');
+    }
+    // Two seconds of quiet while they think of the rest.
+    expect(run(call, 1400, 2000, -60)).toBe('done');
+    expect(run(assistant, 1400, 2000, -60)).toBe('talking');
+    expect(run(assistant, 3450, 600, -25)).toBe('talking');
+    expect(run(assistant, 4100, 2400, -60)).toBe('talking');
+    expect(run(assistant, 6550, 100, -60)).toBe('done');
   });
 
   it('a click isn’t talking', () => {

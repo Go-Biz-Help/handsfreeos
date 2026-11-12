@@ -30,6 +30,7 @@ import { voiceToken } from '../api/worker';
 import { errorMessage } from '../api/client';
 import { createDevice, type VoiceCall, type VoiceDevice } from '../calls/device';
 import { publicEnv } from '../env';
+import { loadMicWorklet, MIC_WORKLET_NAME } from '../voice/mic-worklet';
 import { browserAccessToken } from '../supabase/token';
 
 /** connecting: opening the call; ringing: the call over the phone line is being placed; live: it picked up. */
@@ -51,21 +52,9 @@ const UNREACHABLE = 'The test call couldn’t reach the worker. Try again in a m
 const MIC_BLOCKED = 'Your browser blocked the microphone. Allow it for this site, then try again.';
 const NO_AUDIO = 'This browser can’t make a live call. Try Chrome, Edge, Safari or Firefox.';
 
-/**
- * The microphone's samples, handed over as they come (an audio worklet runs off the page's thread, so nothing is
- * missed while the page is busy). The downsampling and μ-law happen on the page, in @hfos/core.
- */
-const MIC_WORKLET = `
-class HfosPhoneMic extends AudioWorkletProcessor {
-  process(inputs) {
-    const channel = inputs[0] && inputs[0][0];
-    if (channel && channel.length) this.port.postMessage(channel.slice(0));
-    return true;
-  }
-}
-registerProcessor('hfos-phone-mic', HfosPhoneMic);
-`;
-let workletUrl: string | null = null;
+// The microphone's samples are handed over as they come (lib/voice/mic-worklet.ts: an audio worklet runs off the
+// page's thread, so nothing is missed while the page is busy). The downsampling and μ-law happen on the page, in
+// @hfos/core.
 
 type AudioContextClass = typeof AudioContext;
 
@@ -293,12 +282,11 @@ export class LiveTestCall {
       return;
     }
     this.mic = mic;
-    workletUrl ??= URL.createObjectURL(new Blob([MIC_WORKLET], { type: 'text/javascript' }));
-    await ctx.audioWorklet.addModule(workletUrl);
+    await loadMicWorklet(ctx);
     if (this.over) return;
     this.down = new PhoneDownsampler(ctx.sampleRate);
     this.source = ctx.createMediaStreamSource(this.mic);
-    this.worklet = new AudioWorkletNode(ctx, 'hfos-phone-mic', {
+    this.worklet = new AudioWorkletNode(ctx, MIC_WORKLET_NAME, {
       numberOfInputs: 1,
       numberOfOutputs: 1,
       outputChannelCount: [1],

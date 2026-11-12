@@ -370,7 +370,6 @@ export async function ask(
     emit({ type: 'error', code: blocked.code, message: blocked.message });
     return;
   }
-  if (input.threadId) await store.expireWaiting(deps.db, scope, input.threadId);
   const correlationId = randomUUID();
   const run = await store.startRun(deps.db, scope, {
     userId: input.actor.userId,
@@ -438,6 +437,7 @@ export async function ask(
     }
   };
 
+  let replacing: Promise<void> | null = null;
   /** One call: "auto" tools run as the person, "confirm" tools wait as cards, errors go back to the model. */
   const runCall = async (
     call: AiToolCall,
@@ -481,6 +481,9 @@ export async function ask(
     try {
       let answer: ToolLoopAnswer;
       if (tool.autonomy === 'confirm') {
+        // This answer's first card replaces the ones still waiting from earlier answers.
+        replacing ??= store.replaceWaiting(deps.db, scope, run.threadId, run.runId);
+        await replacing;
         const id = await keep(deps.db, scope, {
           ...base,
           status: 'awaiting_confirmation',

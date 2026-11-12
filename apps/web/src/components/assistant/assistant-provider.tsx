@@ -312,12 +312,20 @@ function upsertStep(steps: readonly Step[], step: Step): Step[] {
 const settle = (steps: readonly Step[], finished: boolean): Step[] =>
   steps.map((s) => (s.status === 'running' ? { ...s, status: finished ? 'done' : 'failed' } : s));
 
-/** Cards left waiting lapse once the person asks something else (the worker expires them too). */
-const lapse = (calls: Record<string, CallState>): Record<string, CallState> =>
+/**
+ * Cards waiting from earlier answers once a newer answer shows a card: replaced, so only the newest can be
+ * confirmed. `fresh` holds the newer answer's own.
+ */
+const replaceWaiting = (
+  calls: Record<string, CallState>,
+  fresh: ReadonlySet<string>,
+): Record<string, CallState> =>
   Object.fromEntries(
     Object.entries(calls).map(([id, c]) => [
       id,
-      c.status === 'awaiting_confirmation' ? { ...c, status: 'expired' as const } : c,
+      c.status === 'awaiting_confirmation' && !fresh.has(id)
+        ? { ...c, status: 'expired' as const }
+        : c,
     ]),
   );
 
@@ -524,7 +532,8 @@ export function AssistantProvider({
       const userKey = `q-${crypto.randomUUID()}`;
       const answerKey = `a-${crypto.randomUUID()}`;
       if (loadingRef.current) askedWhileLoadingRef.current = true;
-      if (threadRef.current) setCalls(lapse);
+      /** This answer's own cards: its first replaces the ones still waiting from before (the worker does too). */
+      const fresh = new Set<string>();
       setMessages((all) => [
         ...all,
         { key: userKey, role: 'user', text, createdAt: now },
@@ -595,9 +604,11 @@ export function AssistantProvider({
             break;
           case 'card': {
             const card = event.card;
-            if (card.type === 'confirm')
+            if (card.type === 'confirm') {
+              fresh.add(card.toolCallId);
+              setCalls((all) => replaceWaiting(all, fresh));
               setCall(card.toolCallId, { status: 'awaiting_confirmation', tool: card.tool });
-            else if (card.type === 'done')
+            } else if (card.type === 'done')
               setCall(card.toolCallId, { status: 'done', undone: false });
             patchAnswer(answerKey, (m) => ({ ...m, cards: [...m.cards, card] }));
             break;
@@ -776,7 +787,7 @@ export function AssistantProvider({
             : []),
           ...now,
         ]);
-        setCalls((now) => ({ ...(asked ? lapse(saved) : saved), ...now }));
+        setCalls((now) => ({ ...saved, ...now }));
         if (pending && got.answering) follow(id, pending, got.answering.runId, got);
         else forgetWaiting(workspaceId, id);
       } catch (e) {
