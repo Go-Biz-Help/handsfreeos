@@ -244,8 +244,10 @@ const WATCH_EVERY_MS = 100;
 
 /**
  * Listens to a copy of their microphone on this computer: says when they talk while muted (`onTalkingMuted`), and
- * whether it sends pure silence while on (`onSilent`), which no working microphone does however quiet the room.
- * The copy is never sent anywhere, and stops with the call.
+ * whether it sends pure silence while on (`onSilent`), which no working microphone does however quiet the room. That
+ * is judged only until the microphone has sent anything at all: some headsets send pure silence between words on
+ * purpose, and a dead or switched-off microphone never sends anything. The copy is never sent anywhere, and stops
+ * with the call.
  */
 export function useMicWatch({
   track,
@@ -303,6 +305,8 @@ export function useMicWatch({
     const samples = new Float32Array(analyser.fftSize);
     const gate = mutedTalkGate();
     const judge = silentMicJudge();
+    // Anything at all from this microphone since it started (muted or not): then it works.
+    let heard = false;
     // A page that hasn't been pressed may hold its sound back; the call's Join press usually counts.
     const resume = () => {
       if (ctx.state === 'suspended') void ctx.resume().catch(() => undefined);
@@ -320,13 +324,15 @@ export function useMicWatch({
         if (x !== 0) sound = true;
       }
       const now = Date.now();
+      if (sound) heard = true;
       if (isMuted.current) {
-        judge.reset();
+        if (judge.reset()) silent.current(false);
         if (gate.hear(Math.sqrt(sum / samples.length), now)) talking.current();
       } else {
         gate.reset();
-        const said = judge.hear(!sound, now);
-        if (said) silent.current(said === 'silent');
+        if (heard) {
+          if (judge.reset()) silent.current(false);
+        } else if (judge.hear(true, now) === 'silent') silent.current(true);
       }
     }, WATCH_EVERY_MS);
     return () => {

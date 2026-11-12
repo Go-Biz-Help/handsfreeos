@@ -187,6 +187,15 @@ describe('a microphone that sends nothing', () => {
     expect(judge.hear(false, SILENT_MIC_MS * 2 + 200)).toBeNull();
   });
 
+  it('says whether it had said silent when it starts afresh', () => {
+    const judge = silentMicJudge();
+    expect(judge.reset()).toBe(false);
+    judge.hear(true, 0);
+    judge.hear(true, SILENT_MIC_MS);
+    expect(judge.reset()).toBe(true);
+    expect(judge.reset()).toBe(false);
+  });
+
   it('never for a microphone that sends anything at all', () => {
     const judge = silentMicJudge();
     for (let t = 0; t < 10_000; t += 100) expect(judge.hear(t % 1000 === 0, t)).toBeNull();

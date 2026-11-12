@@ -316,7 +316,8 @@ export function mutedTalkGate(
 /**
  * A microphone that sends nothing (the owner's 4a): fed whether each moment's sound was pure silence (every sample
  * exactly zero, which no working microphone sends, however quiet the room), it says `silent` once that's gone on for
- * a while, and `sound` the moment anything comes through.
+ * a while, and `sound` the moment anything comes through. The web's watch feeds it only until the microphone has sent
+ * anything at all, since some headsets send pure silence between words on purpose.
  */
 export const SILENT_MIC_MS = 3_000;
 
@@ -336,9 +337,12 @@ export function silentMicJudge(ms = SILENT_MIC_MS) {
       silent = true;
       return 'silent';
     },
-    reset() {
+    /** Start afresh; true if it had said `silent`, so the screen can stop saying so. */
+    reset(): boolean {
+      const was = silent;
       since = null;
       silent = false;
+      return was;
     },
   };
 }
