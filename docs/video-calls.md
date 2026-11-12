@@ -36,6 +36,7 @@ webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 | The Online place's choice                    | `LocationsModule` and `ServicesModule` in `apps/web/src/components/calendars/modules.tsx`                                         |
 | The switch in /admin                         | `apps/web/src/components/admin/video-calls-block.tsx`                                                                             |
 | The browser test                             | `apps/web/e2e/video-call.spec.ts`, on a real LiveKit server in CI                                                                 |
+| The join and knock sounds                    | `call-sounds.ts` in the web's `components/video-call/` and the phone's `src/video-call/`; `scripts/video-call-sounds.mjs`         |
 | What the AI heard, and the listener's list   | `supabase/migrations/20261027013300_video_call_words.sql` (`app.video_call_lines`, `video_calls_to_hear`)                         |
 | The listener                                 | `apps/worker/src/media.ts` (the `media` process in `fly.toml`), `video-calls/listener.ts`                                         |
 | Hearing each person, captions, lines         | `apps/worker/src/video-calls/hearing.ts`; LiveKit's media library only in `listener-room.ts`                                      |
@@ -585,6 +586,27 @@ extension, the owner's call on 3 November 2026 ("Not yet" below).
   real screen, so while their call tab is hidden its title says who is pointing at their screen until they come back
   to it.
 - **On the phone** the marks show on a shared screen the same way. Making them from the phone comes later.
+
+### Sounds (owner, 12 November 2026)
+
+The owner asked for a sound when someone joins a call, so the team knows without watching the screen.
+
+- **Two sounds**: a soft chime going up as someone comes in, and a door chime going down for the team as someone on
+  the call's link asks to be let in, beside the "asking to join" note. The web and the phone play the same two files,
+  which `scripts/video-call-sounds.mjs` makes.
+- **Who hears the join sound**: everyone in a meeting, as someone else comes in, never for themselves and never for
+  the AI's listener (`joinSoundFor`). In a webinar it plays only as someone from the team comes in, so hundreds of
+  attendees arriving stay quiet. Someone coming into a call hears nothing for the people already in it.
+- **When**: once for several coming in together (`VIDEO_CALL_SOUND_GAP_MS`), and never while a page's own connection
+  comes back, or just after, when LiveKit tells it of everyone already there again (`videoCallSoundGate`).
+- **On the web** they play through Web Audio, which a browser allows once the page has been pressed (Join counts). A
+  browser that still holds sound back gets it on the next press. The files are in `public/sounds`, and `proxy.ts`
+  leaves `.wav` files alone, so a customer's call on a business's own domain loads them from there.
+- **On the phone** they play inside the call's own sound. The players never change the audio mode, and they keep the
+  iPhone's sound on as they end (`keepAudioSessionActive`): otherwise the end of a chime would cut off the call. So
+  a chime comes out wherever the call's sound does. They're only code and two sound files, so they reach phones as
+  an update, with no store build.
+- **There's no switch to turn them off** yet.
 
 ## Running it locally
 

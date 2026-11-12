@@ -77,7 +77,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
+  // Files skip it: pictures, and a video call's sounds (public/sounds), which a customer's call on a business's own
+  // domain loads from there, not sent on to our address.
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|wav)$).*)',
   ],
 };

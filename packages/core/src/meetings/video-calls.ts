@@ -455,6 +455,66 @@ export function videoCallTranscript(
 export const VIDEO_CALL_REACTIONS = ['👍', '❤️', '😂', '👏', '🎉', '😮'] as const;
 export type VideoCallReaction = (typeof VIDEO_CALL_REACTIONS)[number];
 
+// ---------- the sounds: someone comes in, someone asks to ----------
+/**
+ * A call's two sounds, the same on the web and the phone (scripts/video-call-sounds.mjs makes both copies): `join`
+ * when someone comes into the call, and `knock`, for the team, when someone on the call's link asks to be let in.
+ */
+export const VIDEO_CALL_SOUNDS = ['join', 'knock'] as const;
+export type VideoCallSound = (typeof VIDEO_CALL_SOUNDS)[number];
+
+/** Several people coming in together play one sound: at most one of each kind in this long. */
+export const VIDEO_CALL_SOUND_GAP_MS = 2_000;
+/**
+ * After a page's own connection drops and comes back, LiveKit tells it of everyone already in the room again, as if
+ * they had just come in. It stays quiet that whole time, and this long after.
+ */
+export const VIDEO_CALL_SOUND_SETTLE_MS = 3_000;
+
+/**
+ * Whether someone coming into the room plays the join sound: a person, never the AI's listener, and in a webinar only
+ * someone from the team, so hundreds of attendees arriving stay quiet.
+ */
+export function joinSoundFor(p: {
+  readonly identity: string;
+  readonly attributes?: Readonly<Record<string, string>> | undefined;
+  readonly webinar: boolean;
+}): boolean {
+  if (!isPersonIdentity(p.identity)) return false;
+  return !p.webinar || roomRightsOf(p.attributes).kind === 'team';
+}
+
+/**
+ * When a sound that's due plays, for one page or phone in a call: never while its own connection is coming back
+ * (`quiet`, until a moment after `settled`), and once when several of a kind are due together.
+ */
+export function videoCallSoundGate(
+  gapMs: number = VIDEO_CALL_SOUND_GAP_MS,
+  settleMs: number = VIDEO_CALL_SOUND_SETTLE_MS,
+) {
+  let quietUntil = 0;
+  const last = new Map<VideoCallSound, number>();
+  return {
+    /** The page's connection dropped: nothing plays until it's back. */
+    quiet(): void {
+      quietUntil = Number.POSITIVE_INFINITY;
+    },
+    /** It's back: what LiveKit tells of in the next moment is who was there already. */
+    settled(now: number): void {
+      quietUntil = now + settleMs;
+    },
+    /** Whether to play it now; a yes counts as played. */
+    due(sound: VideoCallSound, now: number): boolean {
+      if (now < quietUntil) return false;
+      const was = last.get(sound);
+      if (was !== undefined && now - was < gapMs) return false;
+      last.set(sound, now);
+      return true;
+    },
+  };
+}
+export type VideoCallSoundGate = ReturnType<typeof videoCallSoundGate>;
+
 /**
  * In-app browsers (Facebook, Instagram, Messenger, TikTok, WeChat, LINE) that can block the camera or the
  * microphone: the join page asks to open the link in Safari or Chrome instead.

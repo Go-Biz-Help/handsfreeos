@@ -21,6 +21,8 @@
  *   call is priced by what it really used.
  * - **Marks on a shared screen** (./screen-marks.tsx): what people point at and draw on it shows here too. Making
  *   them from the phone comes later.
+ * - **Sounds** (./call-sounds.ts): a chime as someone comes in (in a webinar, only someone from the team), and a door
+ *   chime as someone asks to be let in, the same as on a computer.
  */
 import {
   LISTENER_IDENTITY,
@@ -96,6 +98,7 @@ import { errorMessage } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 import { keepCallChat } from './call-chat';
+import { useCallSounds } from './call-sounds';
 import { ChatText } from './chat-text';
 import { useCallData } from './call-data';
 import { endOf, type CallEnd } from './ends';
@@ -311,18 +314,22 @@ function CallScreen({
     };
   }, [room]);
 
-  // Someone on the call's link asking to come in: who, with Let in right there.
+  // A sound as someone comes in, and as someone asks to (./call-sounds.ts).
+  const { knock } = useCallSounds(room, webinar);
+
+  // Someone on the call's link asking to come in: who, with Let in right there, and the knock.
   const told = React.useRef(new Set<string>());
   React.useEffect(() => {
     if (!got) return;
     for (const p of got.people) {
       if (p.state !== 'waiting' || p.kind !== 'guest' || told.current.has(p.id)) continue;
       told.current.add(p.id);
+      knock();
       toast.show(W.askingToJoin(p.name), {
         action: { label: W.letIn, onPress: () => setSheet('people') },
       });
     }
-  }, [got]);
+  }, [got, knock]);
   const knocking =
     got?.people.filter((p) => p.state === 'waiting' && p.kind === 'guest').length ?? 0;
 

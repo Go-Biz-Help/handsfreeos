@@ -31,6 +31,8 @@
  *   call is priced by what it really used.
  * - **Marks on a shared screen** (./screen-marks.tsx): someone watching points at it or draws on it, and everyone sees
  *   it. Like reactions, marks travel on their own data topic and aren't kept. In a webinar only the team marks.
+ * - **Sounds** (./call-sounds.ts): a chime as someone comes in, for everyone in the call (in a webinar, only as someone
+ *   from the team does), and for the team a door chime as someone asks to be let in.
  */
 import {
   ATTENDEE_VIDEO_CHOICES,
@@ -122,6 +124,7 @@ import { brandLook } from '@/lib/look';
 import { cn } from '@/lib/utils';
 import { canBlur, setBlur } from './blur';
 import { keepCallChat } from './call-chat';
+import { useCallSounds } from './call-sounds';
 import { useCallData } from './call-data';
 import { ChatPanel, PeoplePanel } from './call-panels';
 import { CallStage } from './call-stage';
@@ -404,14 +407,17 @@ function CallScreen({
 
   // A hand going up says so, for whoever isn't looking at that tile: in a webinar, only to the team.
   useHandsUp(!webinar || !!team);
+  // A sound as someone comes in, and for the team as someone asks to (./call-sounds.ts).
+  const { knock } = useCallSounds(webinar);
 
-  // Someone asking to come in, for the team: who, with Let in right there.
+  // Someone asking to come in, for the team: who, with Let in right there, and the knock.
   const told = useRef(new Set<string>());
   useEffect(() => {
     if (!team || !got) return;
     for (const p of got.people) {
       if (p.state !== 'waiting' || p.kind !== 'guest' || told.current.has(p.id)) continue;
       told.current.add(p.id);
+      knock();
       toast(VIDEO_CALL_WORDS.askingToJoin(p.name), {
         duration: 10_000,
         action: {
@@ -420,7 +426,7 @@ function CallScreen({
         },
       });
     }
-  }, [got, team]);
+  }, [got, team, knock]);
   const asking = got?.people.filter((p) => p.state === 'waiting' && p.kind === 'guest').length ?? 0;
 
   const toggleMic = () =>
