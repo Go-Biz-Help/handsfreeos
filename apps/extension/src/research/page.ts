@@ -9,8 +9,8 @@
  *   signed-in account, as the page asks for it. Nothing else: it never asks another site.
  * - `post`: puts up one of the business's own posts, OK'd by a person (part 9, ./post-here.ts): its words and its
  *   pictures in the network's own box, then Post. It's the only thing these hands post, and only when the
- *   background asks with a post HandsFreeOS handed it (./posting.ts). `pageId`: a Facebook Page's number, from its
- *   page, for Business Suite. `me`: the signed-in person's Instagram name, from their Profile link, to find the link
+ *   background asks with a post HandsFreeOS handed it (./posting.ts). `pageIds`: the numbers Business Suite might open
+ *   a Facebook Page by, from its page. `me`: the signed-in person's Instagram name, from their Profile link, to find the link
  *   of a post just put up among their own (part 10).
  * - `read`: the page as its network's readers see it (Facebook's and LinkedIn's: a profile, its posts, a search's
  *   people and posts), for the reads that go by the page itself (./page-read.ts). `scroll`: one screen further down,
@@ -30,7 +30,7 @@
 import { kitHere } from '../networks';
 import { HelperHands, type HelperMoveAsk, type HelperMoveDone } from '../networks/helper-view';
 import { heldOn, profileHeldOn, type ResearchHeld } from './held';
-import { instagramMe, pageIdHere, postHere, type PostAsk, type PostDone } from './post-here';
+import { instagramMe, pageIdsHere, postHere, type PostAsk, type PostDone } from './post-here';
 import type { InstagramPageProfile } from './instagram';
 import { INSTAGRAM_APP_ID, INSTAGRAM_READS } from './instagram';
 import { watchVideo, type WatchAsk, type Watched } from './watch';
@@ -75,8 +75,8 @@ export interface ResearchHands {
   profileHeld(username: string): InstagramPageProfile;
   /** Puts up one of the business's own OK'd posts in the box the page shows. */
   post(ask: PostAsk): Promise<PostDone>;
-  /** On a Facebook Page: its number. */
-  pageId(): string | null;
+  /** On a Facebook Page: the numbers Business Suite might open it by, likeliest first. */
+  pageIds(): string[];
   /** On Instagram: the signed-in person's name. */
   me(): string | null;
 }
@@ -166,7 +166,7 @@ if (kit && !here.hfosResearch) {
     },
     profileHeld: (username) => profileHeldOn(document, username),
     post: (ask) => postHere(document, ask),
-    pageId: () => pageIdHere(document, location.href),
+    pageIds: () => pageIdsHere(document, location.href),
     me: () => instagramMe(document),
   };
 }

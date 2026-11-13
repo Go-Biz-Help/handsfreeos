@@ -6,7 +6,7 @@
  */
 import { JSDOM } from 'jsdom';
 import { describe, expect, it, vi } from 'vitest';
-import { instagramMe, pageIdHere, postHere, type PostAsk } from '../src/research/post-here';
+import { instagramMe, pageIdsHere, postHere, type PostAsk } from '../src/research/post-here';
 import { failureFor } from '../src/research/posting';
 
 vi.useFakeTimers({ shouldAdvanceTime: true, advanceTimeDelta: 50 });
@@ -143,6 +143,95 @@ describe('putting one of the business’s posts up', () => {
   });
 });
 
+/**
+ * LinkedIn's newer box: Add media opens a window of its own over it, with a place to drop pictures and Upload from
+ * computer (which asks for a file field), then Next back to the box with the pictures. `drop`: the window takes only
+ * what's dropped on it.
+ */
+function linkedin(opts: { drop?: boolean } = {}) {
+  const made = page('https://www.linkedin.com/feed/', 'Start a post');
+  const { doc } = made;
+  const win = doc.defaultView as unknown as { DragEvent: unknown; Event: typeof Event };
+  // jsdom has no DragEvent: this one carries its files as Chrome's does.
+  win.DragEvent = class extends win.Event {
+    readonly dataTransfer: FakeTransfer | null;
+    constructor(type: string, init: EventInit & { dataTransfer?: FakeTransfer } = {}) {
+      super(type, init);
+      this.dataTransfer = init.dataTransfer ?? null;
+    }
+  };
+  doc.getElementById('start')!.addEventListener('click', () => {
+    const box = doc.querySelector('[role="dialog"]')!;
+    box.setAttribute('data-testid', 'dialog');
+    // The newer box has no file field, and pasting and dropping on it do nothing.
+    const photo = box.querySelector('#photo')!;
+    const media = photo.cloneNode() as HTMLElement;
+    media.setAttribute('aria-label', 'Add media');
+    photo.replaceWith(media);
+    media.addEventListener('click', () => {
+      const window = doc.createElement('div');
+      window.setAttribute('role', 'dialog');
+      window.setAttribute('data-testid', 'dialog');
+      window.innerHTML = `<h2>Editor</h2>
+        <div role="region" data-testid="add-media-drop-zone">
+          <h2>Select files to begin</h2><div>Share images or a single video in your post.</div>
+          <button type="button" id="upload"><span>Upload from computer</span></button>
+        </div>
+        <button type="button">Back</button><button type="button" id="next" disabled>Next</button>`;
+      doc.body.append(window);
+      const took = (count: number) => {
+        window.querySelector('[data-testid="add-media-drop-zone"]')!.remove();
+        for (let i = 0; i < count; i++) {
+          const img = doc.createElement('img');
+          img.setAttribute('src', 'blob:https://www.linkedin.com/2');
+          window.prepend(img);
+        }
+        window.querySelector('#next')!.removeAttribute('disabled');
+      };
+      window.querySelector('#upload')!.addEventListener('click', () => {
+        if (opts.drop) return;
+        const input = doc.createElement('input');
+        input.type = 'file';
+        input.setAttribute('data-hfos-picked', '1');
+        input.addEventListener('change', () => took(1));
+        doc.body.append(input);
+      });
+      window
+        .querySelector('[data-testid="add-media-drop-zone"]')!
+        .addEventListener('drop', (e) =>
+          took((e as unknown as { dataTransfer: FakeTransfer }).dataTransfer.files.length),
+        );
+      window.querySelector('#next')!.addEventListener('click', () => {
+        const pictures = window.querySelectorAll('img');
+        window.remove();
+        box.querySelector('#media')!.append(...pictures);
+      });
+    });
+  });
+  return made;
+}
+
+describe('putting a post up in LinkedIn’s newer box', () => {
+  it('adds the pictures in its own window with Upload from computer, presses Next, then Post', async () => {
+    const li = linkedin();
+    const done = await postHere(li.doc, ask('linkedin'));
+    expect(done).toMatchObject({ result: 'done', pressed: true });
+    expect(done.steps).toEqual(
+      expect.arrayContaining(['media:button', 'window:upload', 'window:field', 'window:next']),
+    );
+    expect(li.posted).toEqual(['Three ways to save time.\n\n#crm']);
+    expect(li.pictures()).toBe(1);
+  });
+
+  it('drops them on the window when its button asks for no file field', async () => {
+    const li = linkedin({ drop: true });
+    const done = await postHere(li.doc, ask('linkedin'));
+    expect(done.result).toBe('done');
+    expect(done.steps).toEqual(expect.arrayContaining(['window:drop', 'window:next']));
+    expect(li.pictures()).toBe(1);
+  });
+});
+
 const VIDEO = { name: 'reel.mp4', type: 'video/mp4', base64: btoa('mp4 bytes') };
 
 /**
@@ -150,7 +239,7 @@ const VIDEO = { name: 'reel.mp4', type: 'video/mp4', base64: btoa('mp4 bytes') }
  * post with its file field; the files lead to a note about reels (a video), cropping and editing, each with Next, then
  * the caption box and Share. `menu`: whether Create asks which kind first.
  */
-function instagram(opts: { menu?: boolean; written?: string; fails?: boolean } = {}) {
+function instagram(opts: { menu?: boolean | 'hidden'; written?: string; fails?: boolean } = {}) {
   const { window } = new JSDOM(
     `<body>
       <div role="navigation">
@@ -222,6 +311,22 @@ function instagram(opts: { menu?: boolean; written?: string; fails?: boolean } =
       } else crop();
     });
   };
+  if (opts.menu === 'hidden') {
+    // Instagram's own: on the page from the start, hidden till Create is pressed, its icons titled as they read.
+    const menu = doc.createElement('div');
+    menu.setAttribute('aria-hidden', 'true');
+    menu.innerHTML = `<a href="#" role="link" id="kind"><svg aria-label="Post"><title>Post</title></svg><span>Post</span></a>
+      <a href="#" role="link"><svg aria-label="AI"><title>AI</title></svg><span>AI</span></a>`;
+    doc.querySelector('[role="navigation"]')!.append(menu);
+    menu.querySelector('#kind')!.addEventListener('click', () => {
+      menu.setAttribute('aria-hidden', 'true');
+      dialog();
+    });
+    doc
+      .getElementById('create')!
+      .addEventListener('click', () => menu.setAttribute('aria-hidden', 'false'));
+    return { doc, shared, commentPressed: () => commentPressed };
+  }
   doc.getElementById('create')!.addEventListener('click', () => {
     if (!opts.menu) return dialog();
     const menu = doc.createElement('div');
@@ -246,6 +351,15 @@ describe('putting one of the business’s posts up on Instagram (part 10)', () =
       expect.arrayContaining(['start', 'kind', 'media:field', 'next', 'typed', 'post']),
     );
     expect(done.steps.filter((s) => s === 'next')).toHaveLength(2);
+  });
+
+  it('picks Post from a menu that was on the page all along, hidden, with icons titled Post', async () => {
+    const ig = instagram({ menu: 'hidden' });
+    const done = await postHere(ig.doc, ask('instagram'));
+    expect(done).toMatchObject({ result: 'done', pressed: true });
+    expect(done.steps).toEqual(expect.arrayContaining(['start', 'kind', 'media:field', 'post']));
+    expect(ig.shared).toHaveLength(1);
+    expect(ig.commentPressed()).toBe(false);
   });
 
   it('presses OK when Instagram says a video goes up as a reel', async () => {
@@ -283,32 +397,38 @@ describe('putting one of the business’s posts up on Instagram (part 10)', () =
   });
 });
 
-describe('a Facebook Page’s number', () => {
-  it('comes from the link, the page’s app links, or its own data', () => {
-    const at = (html: string, url: string) => new JSDOM(html, { url }).window.document;
+describe('a Facebook Page’s numbers', () => {
+  const at = (html: string, url: string) => new JSDOM(html, { url }).window.document;
+  it('come from the link, the page’s app links, or its own data', () => {
+    const link = 'https://www.facebook.com/profile.php?id=61550000000001';
+    expect(pageIdsHere(at('', link), link)).toEqual(['61550000000001']);
     expect(
-      pageIdHere(
-        at('', 'https://www.facebook.com/profile.php?id=61550000000001'),
-        'https://www.facebook.com/profile.php?id=61550000000001',
-      ),
-    ).toBe('61550000000001');
-    expect(
-      pageIdHere(
+      pageIdsHere(
         at(
           '<head><meta property="al:android:url" content="fb://profile/100064000000002"></head>',
           'https://www.facebook.com/example',
         ),
         'https://www.facebook.com/example',
       ),
-    ).toBe('100064000000002');
+    ).toEqual(['100064000000002']);
     expect(
-      pageIdHere(
+      pageIdsHere(
         at('<script>{"pageID":"123456789012"}</script>', 'https://www.facebook.com/example'),
         'https://www.facebook.com/example',
       ),
-    ).toBe('123456789012');
+    ).toEqual(['123456789012']);
     expect(
-      pageIdHere(at('', 'https://www.facebook.com/example'), 'https://www.facebook.com/example'),
-    ).toBeNull();
+      pageIdsHere(at('', 'https://www.facebook.com/example'), 'https://www.facebook.com/example'),
+    ).toEqual([]);
+  });
+
+  it('put a newer Page’s own number before the one in its link, once each', () => {
+    const link = 'https://www.facebook.com/profile.php?id=61550000000001';
+    const doc = at(
+      `<head><meta property="al:android:url" content="fb://profile/61550000000001"></head>
+      <script>{"delegate_page":{"is_business_page_active":true,"id":"109876543210987"},"page_id":"55555555555"}</script>`,
+      link,
+    );
+    expect(pageIdsHere(doc, link)).toEqual(['109876543210987', '61550000000001', '55555555555']);
   });
 });

@@ -200,6 +200,30 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 615,
     said: 'Their new chat’s window showed Facebook’s loading mark where the box goes: the writer waits up to ten seconds more now while a chat window is still drawing its box (0.128.4, #562). Then 6 chat windows were left open over the page, and 5 more in the corner, from earlier messages: each window a message went in is closed once it has gone now (0.134.1, #577). Then one person’s message failed twice, a day apart: the first try left their window open, linking to them by a number HandsFreeOS didn’t keep, and their Message only brought it up again. That window is checked now as one that just opened: their number’s profile is opened, and the message goes once Facebook shows it’s theirs (0.134.3, #595). Then five windows were left open with other people, covering the page, and theirs never showed: every chat window left open is closed before their Message is pressed now, unless the person was writing in it (the owner’s pick).',
   },
+  {
+    area: 'instagram',
+    job: 'post.feed',
+    note: 'Instagram didn’t show the box to write a post',
+    fixedIn: '0.139.2',
+    pr: 619,
+    said: 'Create’s menu is on the page all along, hidden, and its icons carry a title, so its Post read “PostPost” and was never picked: a control’s words are what a person sees now.',
+  },
+  {
+    area: 'linkedin',
+    job: 'post.feed',
+    note: 'LinkedIn didn’t take its pictures',
+    fixedIn: '0.139.2',
+    pr: 619,
+    said: 'LinkedIn’s newer box opens a window of its own for pictures (Upload from computer or a drop place, then Next): the files go in there now.',
+  },
+  {
+    area: 'facebook',
+    job: 'post.page',
+    note: 'Meta Business Suite didn’t show Create post',
+    fixedIn: '0.139.2',
+    pr: 619,
+    said: 'A newer Page’s link has its profile number, which Business Suite won’t open: the Page’s own number (delegate_page) is tried first now, then the others.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */
