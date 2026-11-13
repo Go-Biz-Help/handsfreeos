@@ -9527,7 +9527,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Write a playbook for social outreach, or change one: its name, goal and offer, who it’s for, where to look, the steps it takes, how it sounds, the tags to use, and its short video (videoLink: a video or playlist link that someone who says yes gets before the booking link). The booking link (details.link) is a whole address: for one of the business’s own booking pages, use that calendar’s link exactly as the calendar settings give it, never one put together from a name. A save sends the whole playbook, or only the parts that change.
+         * Write a playbook for social outreach, or change one: its name, goal and offer, who it’s for, where to look, the steps it takes, what it says (script: the words the AI writes every message from), how it sounds, the tags to use, and its short video (videoLink: a video or playlist link that someone who says yes gets before the booking link). The booking link (details.link) is a whole address: for one of the business’s own booking pages, use that calendar’s link exactly as the calendar settings give it, never one put together from a name. A save sends the whole playbook, or only the parts that change.
          * @description Risk level 1. Requires outreach.manage. Emits outreach.playbook.saved.
          */
         post: operations["command_outreach_playbook_save"];
@@ -49975,6 +49975,24 @@ export interface operations {
                         /** Format: uuid */
                         id: string;
                         name: string;
+                        says?: {
+                            birthday: string;
+                            checkIn: string;
+                            comment: string;
+                            first: string[];
+                            followUp: string;
+                            groupReply: string;
+                            later: string;
+                            missed: string;
+                            newJob: string;
+                            no: string;
+                            postReply: string;
+                            question: string;
+                            reconnect: string;
+                            reminder: string;
+                            warmUp: string;
+                            yes: string;
+                        };
                         template: string | null;
                         /** Format: date-time */
                         updatedAt: string;
@@ -50263,6 +50281,24 @@ export interface operations {
                         /** Format: uuid */
                         id: string;
                         name: string;
+                        says?: {
+                            birthday: string;
+                            checkIn: string;
+                            comment: string;
+                            first: string[];
+                            followUp: string;
+                            groupReply: string;
+                            later: string;
+                            missed: string;
+                            newJob: string;
+                            no: string;
+                            postReply: string;
+                            question: string;
+                            reconnect: string;
+                            reminder: string;
+                            warmUp: string;
+                            yes: string;
+                        };
                         template: string | null;
                         /** Format: date-time */
                         updatedAt: string;
@@ -89043,10 +89079,29 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             name: string;
+                            says?: {
+                                birthday: string;
+                                checkIn: string;
+                                comment: string;
+                                first: string[];
+                                followUp: string;
+                                groupReply: string;
+                                later: string;
+                                missed: string;
+                                newJob: string;
+                                no: string;
+                                postReply: string;
+                                question: string;
+                                reconnect: string;
+                                reminder: string;
+                                warmUp: string;
+                                yes: string;
+                            };
                             template: string | null;
                             /** Format: date-time */
                             updatedAt: string;
                         }[];
+                        rules?: string[];
                         templates?: {
                             /** @enum {string} */
                             key: "crm_demos" | "real_estate" | "home_services" | "coaching";

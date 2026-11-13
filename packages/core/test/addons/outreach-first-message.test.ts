@@ -84,15 +84,20 @@ describe('a first message', () => {
     expect(prompt).toMatch(/say “your business”/);
     expect(prompt).toMatch(/leave the name out and keep the greeting \(“Hey,”\)/);
     expect(prompt).toMatch(/never by its brand name/);
-    expect(prompt).toMatch(/Never say how the offer works or the price in it, never promise more info/);
+    expect(prompt).toMatch(
+      /Never say how the offer works or the price in it, never promise more info/,
+    );
     // The old ways are gone: no compliment line, no style, no questions from the old conversation.
-    expect(prompt).not.toMatch(/Word the question in this style|genuinely liked|line about them first/);
+    expect(prompt).not.toMatch(
+      /Word the question in this style|genuinely liked|line about them first/,
+    );
     expect(prompt).not.toMatch(/Conversation:|Questions it may ask:/);
     expect(prompt).not.toMatch(/how business is going\?/);
   });
 
   it('follows the playbook when its words change, and takes the version whose turn it is', () => {
-    const own = 'Hey [first name], quick one: are you taking on new [their kind of business] jobs right now?';
+    const own =
+      'Hey [first name], quick one: are you taking on new [their kind of business] jobs right now?';
     const changed = opener({ playbook: { ...crm, script: { first: [own, 'Second version?'] } } });
     expect(changed).toContain(playbookSays(own));
     expect(changed).not.toContain(playbookSays(CRM_FIRST_MESSAGE));
@@ -142,7 +147,9 @@ describe('a first message', () => {
   it('is the same words to someone’s Requests on Instagram, and once they follow back', () => {
     const task = requestsTask(CRM_FIRST_MESSAGE);
     expect(task).toContain(asMessage('the first message', CRM_FIRST_MESSAGE, true));
-    expect(task).toMatch(/no link, no video and no web address, whatever the playbook’s words have/);
+    expect(task).toMatch(
+      /no link, no video and no web address, whatever the playbook’s words have/,
+    );
     expect(opener({ platform: 'instagram', requests: true })).toContain(task);
     const back = opener({ platform: 'instagram' });
     expect(back).toContain(
@@ -271,7 +278,9 @@ describe('the ask after a yes (decisions 153 and 164)', () => {
     expect(prompt).toContain(asMessage('the ask', says.yes));
     expect(prompt).toMatch(/Never a plan, numbers or results they’ll get from it/);
     expect(prompt).toMatch(/\[open times\] are the times under <times>/);
-    expect(prompt).toMatch(/with none given, leave out the words that offer them and keep the rest/);
+    expect(prompt).toMatch(
+      /with none given, leave out the words that offer them and keep the rest/,
+    );
     expect(prompt).toContain(
       'Put this link in every draft, exactly as written: https://brightbooks.com/book/demo',
     );
@@ -310,7 +319,9 @@ describe('Your messages’ samples', () => {
     // One sample for each version of the first message.
     expect(all).toContain('- first: 1 first message, sent once they accept the friend request.');
     expect(all).toContain(asMessage('the first message', CRM_FIRST_MESSAGE, true));
-    expect(all).toMatch(/\[their kind of business\] the kind of business the playbook’s niche runs/);
+    expect(all).toMatch(
+      /\[their kind of business\] the kind of business the playbook’s niche runs/,
+    );
     expect(all).not.toMatch(/will send more info/);
     expect(all).toContain(playbookSays(says.followUp));
     expect(all).toContain(playbookSays(says.checkIn));

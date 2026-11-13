@@ -36,6 +36,7 @@ import {
 import {
   blankPlaybook,
   CRM_FIRST_MESSAGE,
+  paceOf,
   PLAYBOOK_STEP_KEYS,
   PLAYBOOK_TEMPLATES,
   PlaybookDetails,
@@ -73,14 +74,15 @@ import {
 import { stepOfItem, todayDraftPrompt } from '../../src/addons/outreach/today';
 
 const crm = { name: 'CRM demos', ...PLAYBOOK_TEMPLATES.crm_demos.details };
-const pace = blankPlaybook().pace;
+const pace = paceOf(blankPlaybook().pace);
 
 describe('what a playbook says', () => {
   it('has starting words for every part, for every goal, that the editor can save', () => {
     for (const goal of ['demo', 'consult', 'estimate', 'appointment', 'call', 'sale'] as const) {
       const start = startingScript(goal);
       expect(start.first).toEqual([STARTING_FIRST_MESSAGE]);
-      for (const p of SCRIPT_TEXT_PARTS) expect(start[p].length, `${goal} ${p}`).toBeGreaterThan(20);
+      for (const p of SCRIPT_TEXT_PARTS)
+        expect(start[p].length, `${goal} ${p}`).toBeGreaterThan(20);
       expect(PlaybookScript.safeParse(start).success, goal).toBe(true);
     }
     expect(Object.keys(SCRIPT_INFO)).toEqual([...SCRIPT_PARTS]);
@@ -99,7 +101,11 @@ describe('what a playbook says', () => {
     expect(scriptOf({ goal: 'demo', script: {} })).toEqual(start);
     const own = scriptOf({
       goal: 'demo',
-      script: { first: [' Hey [first name], quick question. ', ''], later: '  No rush at all.  ', no: '  ' },
+      script: {
+        first: [' Hey [first name], quick question. ', ''],
+        later: '  No rush at all.  ',
+        no: '  ',
+      },
     });
     expect(own.first).toEqual(['Hey [first name], quick question.']);
     expect(own.later).toBe('No rush at all.');
@@ -186,7 +192,9 @@ describe('what a playbook says', () => {
   it('shows the rules no playbook changes, in plain words (the owner’s 4a)', () => {
     expect(LOCKED_RULES.length).toBeGreaterThanOrEqual(8);
     expect(LOCKED_RULES.join('\n')).toMatch(/Never names a group you’re both in/);
-    expect(LOCKED_RULES.join('\n')).toMatch(/Never messages anyone before they accept your request/);
+    expect(LOCKED_RULES.join('\n')).toMatch(
+      /Never messages anyone before they accept your request/,
+    );
     expect(LOCKED_RULES.join('\n')).toMatch(/only when they ask/);
     for (const rule of LOCKED_RULES) expect(rule).not.toMatch(/'|—|decision|_/);
   });
@@ -215,7 +223,10 @@ describe('what the AI is told', () => {
       kind: 'opener',
       ...base,
       recent: [],
-      playbook: { ...crm, script: { first: [CRM_FIRST_MESSAGE, 'Hey [first name], got a minute?'] } },
+      playbook: {
+        ...crm,
+        script: { first: [CRM_FIRST_MESSAGE, 'Hey [first name], got a minute?'] },
+      },
       opener: { kind: 'own', text: 'Hey [first name], got a minute?' },
       lists,
     });
@@ -234,7 +245,12 @@ describe('what the AI is told', () => {
   });
 
   it('answers a reply from the main offer’s lists for content, and never from a list for posts', () => {
-    const reply = todayDraftPrompt({ kind: 'reply', ...base, recent: theirs('What is it?'), lists });
+    const reply = todayDraftPrompt({
+      kind: 'reply',
+      ...base,
+      recent: theirs('What is it?'),
+      lists,
+    });
     expect(reply).toContain('<content_lists>');
     expect(reply).toContain('- No setup fee');
     expect(reply).toContain('- Is it hard to learn? No, most owners are up in a day.');
@@ -395,9 +411,7 @@ describe('the Test console', () => {
   it('names which version a first message is only when there’s more than one', () => {
     expect(testLabel('opener')).toBe('First message');
     expect(testLabel('opener', { version: 0, versions: 1 })).toBe('First message');
-    expect(testLabel('opener', { version: 1, versions: 3 })).toBe(
-      'First message, version 2 of 3',
-    );
+    expect(testLabel('opener', { version: 1, versions: 3 })).toBe('First message, version 2 of 3');
     expect(testLabel('reconnect')).toBe('Reconnect');
     expect(testLabel('check_in')).toBe('Monthly check-in');
   });
@@ -448,7 +462,9 @@ describe('the Test console', () => {
     expect(prompt.endsWith('Write their reply.')).toBe(true);
     expect(checkedPlay({ reply: ' Them: What is it? ' })).toBe('What is it?');
     expect(checkedPlay({ reply: '  ' })).toBeNull();
-    expect(testPersonLines({ name: 'Sam', platform: 'facebook', business: '', page: '', known: 'new' })).toEqual({
+    expect(
+      testPersonLines({ name: 'Sam', platform: 'facebook', business: '', page: '', known: 'new' }),
+    ).toEqual({
       facts: [],
       lookup: [],
     });
@@ -491,7 +507,17 @@ describe('the Test console', () => {
     expect(testAdds(out, 'reply').lines[0]).toMatchObject({ played: false });
     // Nothing went: only why, and what's next.
     const nothing = testAdds(
-      { ...out, theirs: null, read: null, kind: null, label: null, message: null, others: [], unanswered: null, note: 'Start the chat first.' },
+      {
+        ...out,
+        theirs: null,
+        read: null,
+        kind: null,
+        label: null,
+        message: null,
+        others: [],
+        unanswered: null,
+        note: 'Start the chat first.',
+      },
       'quiet',
     );
     expect(nothing.said).toEqual([]);
@@ -506,7 +532,9 @@ describe('the Test console', () => {
     expect(testLinesAfter(before, added.lines, 'reply')).toHaveLength(1 + added.lines.length);
     // Starting over clears the chat.
     expect(testLinesAfter(before, added.lines, 'start')).toEqual(added.lines);
-    expect(testFull(Array.from({ length: TEST_LIMITS.turns - 1 }, () => ({ fromMe: true, text: 'Hi' })))).toBe(true);
+    expect(
+      testFull(Array.from({ length: TEST_LIMITS.turns - 1 }, () => ({ fromMe: true, text: 'Hi' }))),
+    ).toBe(true);
     expect(testFull([])).toBe(false);
     expect(testFirstName({ name: '  Sam  Rivera ' })).toBe('Sam');
     expect(testFirstName({ name: ' ' })).toBe(TEST_WORDS.them);

@@ -1893,7 +1893,11 @@ function scriptedTodayDraft(message: string) {
   }
   // A reply to a question in one of the owner's groups (decision 114): answers it; one with a link, for the checks to
   // drop.
-  if (message.includes('Write the owner’s public reply under it. The owner’s playbook says how it goes'))
+  if (
+    message.includes(
+      'Write the owner’s public reply under it. The owner’s playbook says how it goes',
+    )
+  )
     return {
       simple: false,
       answer: 'none',

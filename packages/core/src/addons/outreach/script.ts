@@ -160,7 +160,10 @@ export const SCRIPT_GROUPS: readonly {
 /** The words in brackets a part can hold, and what goes in each for a person. */
 export const SCRIPT_BLANKS = [
   { blank: '[first name]', fills: 'Their first name' },
-  { blank: '[their kind of business]', fills: 'What they do, from their page: roofing, real estate' },
+  {
+    blank: '[their kind of business]',
+    fills: 'What they do, from their page: roofing, real estate',
+  },
   {
     blank: '[what your offer gets them]',
     fills: 'What your main offer does for them, in a few words',
@@ -213,6 +216,15 @@ export type PlaybookScript = z.output<typeof PlaybookScript>;
 export type FullScript = { readonly first: readonly string[] } & {
   readonly [P in ScriptTextPart]: string;
 };
+
+/** A script in full as the operations give it (`Playbook.says`): for reading, so nothing is checked. */
+export const FullScriptOut = z.object({
+  first: z.array(z.string()),
+  ...(Object.fromEntries(SCRIPT_TEXT_PARTS.map((p) => [p, z.string()])) as Record<
+    ScriptTextPart,
+    z.ZodString
+  >),
+});
 
 /** What a goal's booking is called in the starting words: "a quick demo". */
 const MEETING: Readonly<Record<PlaybookGoal, string>> = {
@@ -343,6 +355,20 @@ export function ownScript(
 }
 
 /**
+ * A script with some of its parts changed (the Assistant changing how one message goes): the parts given are laid
+ * over what's saved and the rest stay, and what's kept is only what differs from the starting words, so a part put
+ * back to them follows them again.
+ */
+export function withScriptChanges(
+  goal: PlaybookGoal,
+  saved: PlaybookScript | undefined,
+  changes: PlaybookScript,
+): PlaybookScript {
+  const given = Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== undefined));
+  return ownScript(goal, scriptOf({ goal, script: { ...(saved ?? {}), ...given } }));
+}
+
+/**
  * One of the business's own openers from before decision 164, as a first message: its `{first name}` and
  * `{outcome}` in today's brackets. Null for one that names the guarantee, which no message carries any more (the
  * owner, 26 Oct 2026).
@@ -391,7 +417,11 @@ export function partChanged(goal: PlaybookGoal, own: ScriptDraft, part: ScriptPa
 }
 
 /** The draft with a part's words typed, or put back to the starting words (`null`). */
-export function withPart(own: ScriptDraft, part: ScriptTextPart, words: string | null): ScriptDraft {
+export function withPart(
+  own: ScriptDraft,
+  part: ScriptTextPart,
+  words: string | null,
+): ScriptDraft {
   const { [part]: _was, ...rest } = own;
   return words === null ? rest : { ...rest, [part]: words };
 }
@@ -420,7 +450,12 @@ export const partsChanged = (goal: PlaybookGoal, own: ScriptDraft): number =>
 
 /** A part's words inside a task, on one line, with nothing in them that could close their tag or open another. */
 const said = (words: string) =>
-  words.trim().replace(/\s+/g, ' ').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  words
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 
 /** A part's words as a task quotes them. */
 export const playbookSays = (words: string): string =>
@@ -455,7 +490,8 @@ export const FILL_BLANKS = [
 ].join(' ');
 
 /** Whether a part's words have a blank to fill. */
-export const hasBlanks = (...words: readonly string[]): boolean => words.some((w) => /\[[^\]]+\]/.test(w));
+export const hasBlanks = (...words: readonly string[]): boolean =>
+  words.some((w) => /\[[^\]]+\]/.test(w));
 
 /** How the playbook's words rank: inside the rules, above everything else the draft is told. */
 export const FOLLOW_SCRIPT =

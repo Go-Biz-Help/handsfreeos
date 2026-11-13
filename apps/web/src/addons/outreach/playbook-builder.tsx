@@ -92,7 +92,6 @@ import {
   CheckCircle2,
   ExternalLink,
   FlaskConical,
-  Info,
   Lock,
   MessageCircleQuestion,
   Plus,
@@ -1632,7 +1631,9 @@ function ScriptStep({
                     type="button"
                     className="ml-auto inline-flex items-center gap-1 text-[12.5px] text-accent-text hover:underline"
                     onClick={() =>
-                      onChange(part === 'first' ? withFirsts(script, null) : withPart(script, part, null))
+                      onChange(
+                        part === 'first' ? withFirsts(script, null) : withPart(script, part, null),
+                      )
                     }
                     data-testid={`playbook-script-reset-${part}`}
                   >

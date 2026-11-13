@@ -19,6 +19,8 @@ import {
   forPartners,
   Playbook as PlaybookOut,
   PlaybookDetails as PlaybookDetailsSchema,
+  PLAYBOOK_GOAL_KEYS,
+  type PlaybookChanges,
   followUpGapsFor,
   paceOf,
   PLAYBOOK_KEPT_KEYS,
@@ -35,20 +37,42 @@ import {
   type WordsPlatform,
 } from '../playbooks';
 import { hashtagOf } from '../posts';
+import {
+  type FullScriptOut,
+  LOCKED_RULES,
+  PlaybookScript,
+  scriptOf,
+  withScriptChanges,
+} from '../script';
 import { playbooks } from '../tables';
 import { cleanFindWords, PlaybookWordsInput, PlaybookWordsOutput, wordsDue } from '../topics';
 import { inWorkspace, type Ctx } from './common';
 
-const playbookOut = (p: typeof playbooks.$inferSelect): z.input<typeof PlaybookOut> => ({
-  id: p.id,
-  name: p.name,
-  template: p.template,
+const playbookOut = (p: typeof playbooks.$inferSelect): z.input<typeof PlaybookOut> => {
   // One saved before its questions had answers reads in today's shape (data version 2).
-  details: upgradePlaybookDetails(p.details) as z.input<typeof PlaybookDetails>,
-  archivedAt: p.archivedAt?.toISOString() ?? null,
-  createdAt: p.createdAt.toISOString(),
-  updatedAt: p.updatedAt.toISOString(),
-});
+  const details = upgradePlaybookDetails(p.details) as z.input<typeof PlaybookDetails>;
+  return {
+    id: p.id,
+    name: p.name,
+    template: p.template,
+    details,
+    // Every part's words, its own or the starting ones (decision 164).
+    says: saysOf(details),
+    archivedAt: p.archivedAt?.toISOString() ?? null,
+    createdAt: p.createdAt.toISOString(),
+    updatedAt: p.updatedAt.toISOString(),
+  };
+};
+
+/** A playbook's script in full, or nothing for details too old or odd to read a goal from. */
+function saysOf(details: unknown): z.input<typeof FullScriptOut> | undefined {
+  const d = (details ?? {}) as { goal?: unknown; script?: unknown };
+  const goal = PLAYBOOK_GOAL_KEYS.find((g) => g === d.goal);
+  if (!goal) return undefined;
+  const script = PlaybookScript.safeParse(d.script ?? {});
+  const says = scriptOf({ goal, script: script.success ? script.data : {} });
+  return { ...says, first: [...says.first] };
+}
 
 async function loadPlaybook(ctx: Ctx, playbookId: string) {
   const [p] = await ctx.tx
@@ -144,7 +168,7 @@ export const playbookList = defineAddonQuery(outreachAddon, {
   ai: {
     tool: 'outreach_playbooks',
     description:
-      'The business’s playbooks for social outreach (Social Outreach → Playbooks), each whole, the ones in use first, then any archived: one alone with playbookId (a long list reads better a playbook at a time), only those in use with archived false. And the ready-made ones New playbook starts from (templates: CRM demos and the others, each with its line).',
+      'The business’s playbooks for social outreach (Social Outreach → Playbooks), each whole, the ones in use first, then any archived: one alone with playbookId (a long list reads better a playbook at a time), only those in use with archived false. Each one’s says is What it says in full: the words the AI writes every message from (first: the first message’s versions; yes, question, later, no, followUp, checkIn and the rest), the business’s own where it changed them and the starting words where it didn’t. rules are the rules every message keeps whatever a playbook says. And the ready-made ones New playbook starts from (templates: CRM demos and the others, each with its line).',
     keywords: ['playbook', 'niche', 'who to reach', 'offer', 'playbook templates'],
   },
   scope: inWorkspace,
@@ -173,6 +197,7 @@ export const playbookList = defineAddonQuery(outreachAddon, {
         name: PLAYBOOK_TEMPLATES[key].name,
         summary: PLAYBOOK_TEMPLATES[key].summary,
       })),
+      rules: [...LOCKED_RULES],
     };
   },
 });
@@ -191,9 +216,12 @@ function detailsToSave(
     : input.template
       ? PLAYBOOK_TEMPLATES[input.template].details
       : blankPlaybook();
+  const changes = givenOnly(input.changes);
   const checked = PlaybookDetailsSchema.safeParse({
     ...(base as object),
-    ...givenOnly(input.changes),
+    ...changes,
+    // What it says changes a part at a time too (decision 164): the parts given, over the ones saved.
+    ...(changes.script ? { script: scriptChanged(base, changes) } : {}),
   });
   if (checked.success) return checked.data;
   const issues = checked.error.issues.map((i) => ({
@@ -206,10 +234,23 @@ function detailsToSave(
   );
 }
 
+/**
+ * A change to some parts of what a playbook says, on the ones saved, kept as only what differs from the starting
+ * words for the goal it will have. Parts that don't read are left for the whole playbook's check to refuse.
+ */
+function scriptChanged(base: unknown, changes: Partial<PlaybookChanges>): unknown {
+  const was = (base ?? {}) as { goal?: unknown; script?: unknown };
+  const goal = PLAYBOOK_GOAL_KEYS.find((g) => g === (changes.goal ?? was.goal));
+  const given = PlaybookScript.safeParse(changes.script);
+  const saved = PlaybookScript.safeParse(was.script ?? {});
+  if (!goal || !given.success) return changes.script;
+  return withScriptChanges(goal, saved.success ? saved.data : {}, given.data);
+}
+
 export const playbookSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.playbook.save',
   description:
-    'Write a playbook for social outreach, or change one: its name, goal and offer, who it’s for, where to look, the steps it takes, how it sounds, the tags to use, and its short video (videoLink: a video or playlist link that someone who says yes gets before the booking link). The booking link (details.link) is a whole address: for one of the business’s own booking pages, use that calendar’s link exactly as the calendar settings give it, never one put together from a name. A save sends the whole playbook, or only the parts that change.',
+    'Write a playbook for social outreach, or change one: its name, goal and offer, who it’s for, where to look, the steps it takes, what it says (script: the words the AI writes every message from), how it sounds, the tags to use, and its short video (videoLink: a video or playlist link that someone who says yes gets before the booking link). The booking link (details.link) is a whole address: for one of the business’s own booking pages, use that calendar’s link exactly as the calendar settings give it, never one put together from a name. A save sends the whole playbook, or only the parts that change.',
   risk: 1,
   input: PlaybookSaveInput,
   output: PlaybookOut,
@@ -221,7 +262,7 @@ export const playbookSave = defineAddonCommand(outreachAddon, {
         ? 'Change this outreach playbook'
         : 'Write a new outreach playbook',
     description:
-      'Write a playbook for social outreach (Social Outreach → Playbooks), or change one: its name, goal and offer, who it’s for, where to look, the steps it takes, how it sounds, the tags to use, and its short video (videoLink: a video or playlist link that someone who says yes gets before the booking link). To change one, read it with outreach_playbooks (playbookId), then send its id, its name and only the parts that change in changes, by their names there: every part left out stays as it is. A new one can start from a ready-made one (template, from outreach_playbooks’ templates): it starts as that one, with changes laid over it. The booking link (link) is a whole address: for one of the business’s own booking pages, copy that calendar’s booking link from get_settings (area calendars) exactly, never one put together from a name.',
+      'Write a playbook for social outreach (Social Outreach → Playbooks), or change one: its name, goal and offer, who it’s for, where to look, the steps it takes (a step left out of steps is not done on the networks where no other playbook in use has it), what it says, how it sounds, the tags to use, and its short video (videoLink: a video or playlist link that someone who says yes gets before the booking link). What it says is script: the AI writes every message from these words. script.first is the first message, up to 3 versions that take turns, kept close to and fitted to each person; yes is the message after they say yes; the rest say how a message goes (reconnect, question, later, no, followUp, checkIn, reminder, missed, comment, warmUp, postReply, groupReply, birthday, newJob). Words in [square brackets] are filled in for each person: [first name], [their kind of business], [what your offer gets them], [what your offer is], [open times], [booking link]. Send only the parts of script that change: the rest stay, and a part never changed follows the starting words (outreach_playbooks gives every part’s words under says, and the rules no playbook changes under rules). Try a change with outreach_test_playbook before saving it. To change one, read it with outreach_playbooks (playbookId), then send its id, its name and only the parts that change in changes, by their names there: every part left out stays as it is. A new one can start from a ready-made one (template, from outreach_playbooks’ templates): it starts as that one, with changes laid over it. The booking link (link) is a whole address: for one of the business’s own booking pages, copy that calendar’s booking link from get_settings (area calendars) exactly, never one put together from a name.',
     autonomy: 'confirm',
     keywords: ['write a playbook', 'change a playbook', 'new playbook', 'start from a template'],
   },

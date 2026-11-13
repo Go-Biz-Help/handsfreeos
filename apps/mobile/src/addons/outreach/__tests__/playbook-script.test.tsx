@@ -85,7 +85,8 @@ const answer = (over: Partial<PlaybookTestOutput> = {}): PlaybookTestOutput => (
   read: null,
   kind: 'opener',
   label: 'First message',
-  message: 'Hey Sam, if I could get you more jobs for your roofing business, would you be interested?',
+  message:
+    'Hey Sam, if I could get you more jobs for your roofing business, would you be interested?',
   others: [],
   note: null,
   next: 'If they stay quiet, the first follow-up goes in 2 days.',
@@ -100,9 +101,7 @@ describe('What it says, on the phone', () => {
     expect(sectionWords(PLAYBOOK.details, 'script')).toContain(
       `First message\n${STARTING_FIRST_MESSAGE}`,
     );
-    expect(sectionWords(PLAYBOOK.details, 'script')).toContain(
-      `When they say yes\n${start.yes}`,
-    );
+    expect(sectionWords(PLAYBOOK.details, 'script')).toContain(`When they say yes\n${start.yes}`);
     // Versions of the first message are numbered once there's more than one.
     expect(
       sectionWords({ ...PLAYBOOK.details, script: { first: ['One?', 'Two?'] } }, 'script'),

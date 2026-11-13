@@ -4194,6 +4194,12 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         the web's `ScriptStep` in the builder and `playbook-test.tsx`, and the phone's `playbook-script.tsx` and
         `playbook-test.tsx`. The migration gives a playbook started from the CRM demos template its first message
         and takes out its old opener styles and CRM questions.
+      - **The Assistant does it too**: `outreach_playbooks` gives each playbook's words in full (`says`: its own
+        where it changed them, the starting words where it didn't) and the locked rules (`rules`);
+        `outreach_save_playbook` changes what it says a part at a time (`changes.script`: the parts given are laid
+        over the ones saved, `withScriptChanges`); and `outreach_test_playbook` runs Test it, on a saved playbook or
+        on changes not saved yet. Your messages shows a sample for each version of the first message
+        (`SAMPLES_MOST.first` is 3).
 
 ## Rules worth knowing before changing anything
 

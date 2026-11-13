@@ -266,8 +266,7 @@ export function withMineKept(next: MessageSamples, kept: MessageSamples | null):
   if (!before || before.playbookId !== next.playbookId) return next;
   return slotsOf(before)
     .filter(
-      (slot) =>
-        isMine(before, slot) && !playbookWorded(slot.part) && sampleAt(next, slot) !== null,
+      (slot) => isMine(before, slot) && !playbookWorded(slot.part) && sampleAt(next, slot) !== null,
     )
     .reduce((s, slot) => withSample(s, slot, sampleAt(before, slot)!, true), next);
 }

@@ -248,17 +248,24 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   await expect(page.getByText('Office orders is saved.')).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/a/outreach/playbooks$`));
 
-  // A template's conversation comes with it, and answers lead further down.
+  // A template comes with what it says (its own first messages, decision 164) and its conversation, where answers
+  // lead further down.
   await page.getByTestId('playbook-new').click();
-  await page.getByTestId('template-crm_demos').click();
-  await expect(page).toHaveURL(new RegExp(`/a/outreach/playbooks/new\\?template=crm_demos$`));
-  for (let i = 0; i < 9; i++) await builder.getByTestId('playbook-next').click();
-  await expect(builder.getByTestId('question-1-text')).toHaveValue('Do you use a CRM?');
-  await expect(builder.getByLabel('After answer 2 to question 1')).toHaveValue('q4');
+  await page.getByTestId('template-real_estate').click();
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/playbooks/new\\?template=real_estate$`));
+  for (let i = 0; i < 7; i++) await builder.getByTestId('playbook-next').click();
+  await expect(builder.getByTestId('playbook-script-first-2')).toHaveValue(
+    'Hey [first name], if I could show you what your home is worth today, would you be interested?',
+  );
   for (let i = 0; i < 3; i++) await builder.getByTestId('playbook-next').click();
-  await expect(builder.getByTestId('playbook-name')).toHaveValue('CRM demos');
+  await expect(builder.getByTestId('question-1-text')).toHaveValue(
+    'Are you thinking about buying, selling, or both?',
+  );
+  await expect(builder.getByLabel('After answer 2 to question 1')).toHaveValue('q4');
+  for (let i = 0; i < 2; i++) await builder.getByTestId('playbook-next').click();
+  await expect(builder.getByTestId('playbook-name')).toHaveValue('Home buyers and sellers');
   await expect(script).toContainText(
-    '“No”, then ask question 4: “How do you keep track of follow-ups now?”',
+    '“In the next 3 months” adds Moving soon, then ask question 5: “Are you working with an agent yet?”',
   );
 });
 

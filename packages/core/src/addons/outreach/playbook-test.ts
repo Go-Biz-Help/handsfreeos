@@ -25,7 +25,7 @@ import {
   stepAfterYes,
   type Answer,
 } from './conversation';
-import { messagesOn, NETWORKS, PLATFORM_KEYS, type Platform } from './networks';
+import { messagesOn, NETWORKS, PLATFORM_KEYS } from './networks';
 import { PLAYBOOK_LIMITS, type Pace } from './playbooks';
 import { quoteData } from '../../knowledge/prompt';
 import { PLAIN_WRITING } from './voice';
@@ -139,7 +139,10 @@ export const PlaybookTestInput = z
     /** The chat so far, oldest first. */
     chat: z
       .array(TestMessage)
-      .max(TEST_LIMITS.turns, `A test chat holds ${TEST_LIMITS.turns} messages. Start over to go on.`)
+      .max(
+        TEST_LIMITS.turns,
+        `A test chat holds ${TEST_LIMITS.turns} messages. Start over to go on.`,
+      )
       .default([]),
     state: TestState.default(TEST_START),
     move: z.enum(TEST_MOVES),
@@ -253,8 +256,7 @@ export function testMove(
       state: { step: 'first', sent: 0, answer: null, stopped: false },
     };
   }
-  if (state.step === null)
-    return { kind: null, note: 'Start the chat first.', gapDays: 0, state };
+  if (state.step === null) return { kind: null, note: 'Start the chat first.', gapDays: 0, state };
   if (state.stopped)
     return {
       kind: null,
@@ -300,7 +302,12 @@ export function testAnswered(
 /** What a message is called over it in the console. */
 export function testLabel(
   kind: TestKind,
-  o: { readonly version?: number; readonly versions?: number; readonly followUp?: number; readonly followUps?: number } = {},
+  o: {
+    readonly version?: number;
+    readonly versions?: number;
+    readonly followUp?: number;
+    readonly followUps?: number;
+  } = {},
 ): string {
   switch (kind) {
     case 'opener':
@@ -399,7 +406,11 @@ export type TestLine =
       /** The AI's other drafts of it. */
       readonly others: readonly string[];
     }
-  | { readonly kind: 'them'; readonly text: string; /** The AI wrote it as them. */ readonly played: boolean }
+  | {
+      readonly kind: 'them';
+      readonly text: string;
+      /** The AI wrote it as them. */ readonly played: boolean;
+    }
   | { readonly kind: 'read'; readonly text: string }
   | { readonly kind: 'note'; readonly text: string }
   | { readonly kind: 'next'; readonly text: string };

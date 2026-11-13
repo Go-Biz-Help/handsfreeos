@@ -777,7 +777,9 @@ const NO_PLAYBOOK_GOAL = 'demo' as const;
 
 /** What a playbook says for each message (decision 164): its own words, and the starting ones for the rest. */
 export const draftScript = (p: Pick<DraftPlaybook, 'goal' | 'script'> | null): FullScript =>
-  p ? scriptOf({ goal: p.goal ?? NO_PLAYBOOK_GOAL, script: p.script }) : startingScript(NO_PLAYBOOK_GOAL);
+  p
+    ? scriptOf({ goal: p.goal ?? NO_PLAYBOOK_GOAL, script: p.script })
+    : startingScript(NO_PLAYBOOK_GOAL);
 
 /**
  * What a draft is told about the main offer (docs/main-offer.md): the version they were first pitched with, or the
@@ -1120,7 +1122,10 @@ export const DRAFT_LISTS: readonly OfferList[] = [
 const DRAFT_LISTS_CHARS = 6_000;
 
 /** The lists as a draft is told them, with how to use them: none when the business wrote none of them. */
-export function draftListsLines(lists: MainOfferLists | null | undefined, inPublic: boolean): string[] {
+export function draftListsLines(
+  lists: MainOfferLists | null | undefined,
+  inPublic: boolean,
+): string[] {
   if (!lists) return [];
   const told: MainOfferLists = {};
   for (const k of DRAFT_LISTS) if (lists[k]?.length) told[k] = lists[k];

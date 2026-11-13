@@ -112,14 +112,7 @@ import { VOICE_DEFAULTS } from '@hfos/core/addons/outreach/voice';
 import { groupNamesIn, namesAGroup, withoutGroupLines } from '@hfos/core/addons/outreach/no-groups';
 import { businessKnows } from './knows';
 import { partnerDraft } from './partner-drafts';
-import {
-  bookingOf,
-  draftTimes,
-  keepTimes,
-  meetingFor,
-  offeredWords,
-  type Meeting,
-} from './times';
+import { bookingOf, draftTimes, keepTimes, meetingFor, offeredWords, type Meeting } from './times';
 
 export const TODAY_DRAFT_ACTION = 'outreach.today.draft';
 

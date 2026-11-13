@@ -140,9 +140,7 @@ export function PlaybookTest({
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent title={`${T.title}: ${name || 'this playbook'}`} description={T.blurb}>
         <div className="space-y-4" data-testid="playbook-test">
-          {details !== undefined ? (
-            <p className="text-[12.5px] text-text-3">{T.unsaved}</p>
-          ) : null}
+          {details !== undefined ? <p className="text-[12.5px] text-text-3">{T.unsaved}</p> : null}
           <fieldset className="space-y-3" disabled={busy !== null}>
             <legend className="mb-1 text-[13px] font-semibold">{T.person}</legend>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -198,9 +196,7 @@ export function PlaybookTest({
                 <Select
                   id="pt-known"
                   value={person.known}
-                  onChange={(e) =>
-                    setPerson((p) => ({ ...p, known: e.target.value as TestKnown }))
-                  }
+                  onChange={(e) => setPerson((p) => ({ ...p, known: e.target.value as TestKnown }))}
                 >
                   {TEST_KNOWN_KEYS.map((k) => (
                     <option key={k} value={k}>

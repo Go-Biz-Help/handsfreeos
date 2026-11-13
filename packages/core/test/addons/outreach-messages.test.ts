@@ -357,9 +357,9 @@ describe('in a business', () => {
       'Ask an owner of this business to change it under Playbooks → “CRM demos” → What it says.',
     );
     // Nothing of theirs changed.
-    expect(
-      (await runAs(owner, ws, 'outreach.readiness', {})).messages.samples.first,
-    ).toEqual(kept.first);
+    expect((await runAs(owner, ws, 'outreach.readiness', {})).messages.samples.first).toEqual(
+      kept.first,
+    );
 
     // The playbook keeps its words to avoid out of every message: the owner can change them, a member asks.
     const avoided = (u: TestUser) =>

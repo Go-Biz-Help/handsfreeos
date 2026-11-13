@@ -90032,7 +90032,7 @@
     "/v1/commands/outreach.playbook.save": {
       "post": {
         "operationId": "command_outreach_playbook_save",
-        "summary": "Write a playbook for social outreach, or change one: its name, goal and offer, who it’s for, where to look, the steps it takes, how it sounds, the tags to use, and its short video (videoLink: a video or playlist link that someone who says yes gets before the booking link). The booking link (details.link) is a whole address: for one of the business’s own booking pages, use that calendar’s link exactly as the calendar settings give it, never one put together from a name. A save sends the whole playbook, or only the parts that change.",
+        "summary": "Write a playbook for social outreach, or change one: its name, goal and offer, who it’s for, where to look, the steps it takes, what it says (script: the words the AI writes every message from), how it sounds, the tags to use, and its short video (videoLink: a video or playlist link that someone who says yes gets before the booking link). The booking link (details.link) is a whole address: for one of the business’s own booking pages, use that calendar’s link exactly as the calendar settings give it, never one put together from a name. A save sends the whole playbook, or only the parts that change.",
         "tags": [
           "commands"
         ],
@@ -92002,6 +92002,81 @@
                       ],
                       "additionalProperties": false
                     },
+                    "says": {
+                      "type": "object",
+                      "properties": {
+                        "first": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "reconnect": {
+                          "type": "string"
+                        },
+                        "yes": {
+                          "type": "string"
+                        },
+                        "question": {
+                          "type": "string"
+                        },
+                        "later": {
+                          "type": "string"
+                        },
+                        "no": {
+                          "type": "string"
+                        },
+                        "followUp": {
+                          "type": "string"
+                        },
+                        "checkIn": {
+                          "type": "string"
+                        },
+                        "reminder": {
+                          "type": "string"
+                        },
+                        "missed": {
+                          "type": "string"
+                        },
+                        "comment": {
+                          "type": "string"
+                        },
+                        "warmUp": {
+                          "type": "string"
+                        },
+                        "postReply": {
+                          "type": "string"
+                        },
+                        "groupReply": {
+                          "type": "string"
+                        },
+                        "birthday": {
+                          "type": "string"
+                        },
+                        "newJob": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "first",
+                        "reconnect",
+                        "yes",
+                        "question",
+                        "later",
+                        "no",
+                        "followUp",
+                        "checkIn",
+                        "reminder",
+                        "missed",
+                        "comment",
+                        "warmUp",
+                        "postReply",
+                        "groupReply",
+                        "birthday",
+                        "newJob"
+                      ],
+                      "additionalProperties": false
+                    },
                     "archivedAt": {
                       "anyOf": [
                         {
@@ -92744,6 +92819,81 @@
                         "avoid",
                         "disclaimer",
                         "tags"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "says": {
+                      "type": "object",
+                      "properties": {
+                        "first": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "reconnect": {
+                          "type": "string"
+                        },
+                        "yes": {
+                          "type": "string"
+                        },
+                        "question": {
+                          "type": "string"
+                        },
+                        "later": {
+                          "type": "string"
+                        },
+                        "no": {
+                          "type": "string"
+                        },
+                        "followUp": {
+                          "type": "string"
+                        },
+                        "checkIn": {
+                          "type": "string"
+                        },
+                        "reminder": {
+                          "type": "string"
+                        },
+                        "missed": {
+                          "type": "string"
+                        },
+                        "comment": {
+                          "type": "string"
+                        },
+                        "warmUp": {
+                          "type": "string"
+                        },
+                        "postReply": {
+                          "type": "string"
+                        },
+                        "groupReply": {
+                          "type": "string"
+                        },
+                        "birthday": {
+                          "type": "string"
+                        },
+                        "newJob": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "first",
+                        "reconnect",
+                        "yes",
+                        "question",
+                        "later",
+                        "no",
+                        "followUp",
+                        "checkIn",
+                        "reminder",
+                        "missed",
+                        "comment",
+                        "warmUp",
+                        "postReply",
+                        "groupReply",
+                        "birthday",
+                        "newJob"
                       ],
                       "additionalProperties": false
                     },
@@ -106619,7 +106769,7 @@
                                 },
                                 "first": {
                                   "minItems": 1,
-                                  "maxItems": 2,
+                                  "maxItems": 3,
                                   "type": "array",
                                   "items": {
                                     "type": "string",
@@ -107976,7 +108126,7 @@
                                 },
                                 "first": {
                                   "minItems": 1,
-                                  "maxItems": 2,
+                                  "maxItems": 3,
                                   "type": "array",
                                   "items": {
                                     "type": "string",
@@ -110190,7 +110340,7 @@
                                 },
                                 "first": {
                                   "minItems": 1,
-                                  "maxItems": 2,
+                                  "maxItems": 3,
                                   "type": "array",
                                   "items": {
                                     "type": "string",
@@ -111553,7 +111703,7 @@
                                 },
                                 "first": {
                                   "minItems": 1,
-                                  "maxItems": 2,
+                                  "maxItems": 3,
                                   "type": "array",
                                   "items": {
                                     "type": "string",
@@ -112910,7 +113060,7 @@
                                 },
                                 "first": {
                                   "minItems": 1,
-                                  "maxItems": 2,
+                                  "maxItems": 3,
                                   "type": "array",
                                   "items": {
                                     "type": "string",
@@ -229048,6 +229198,81 @@
                             ],
                             "additionalProperties": false
                           },
+                          "says": {
+                            "type": "object",
+                            "properties": {
+                              "first": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "reconnect": {
+                                "type": "string"
+                              },
+                              "yes": {
+                                "type": "string"
+                              },
+                              "question": {
+                                "type": "string"
+                              },
+                              "later": {
+                                "type": "string"
+                              },
+                              "no": {
+                                "type": "string"
+                              },
+                              "followUp": {
+                                "type": "string"
+                              },
+                              "checkIn": {
+                                "type": "string"
+                              },
+                              "reminder": {
+                                "type": "string"
+                              },
+                              "missed": {
+                                "type": "string"
+                              },
+                              "comment": {
+                                "type": "string"
+                              },
+                              "warmUp": {
+                                "type": "string"
+                              },
+                              "postReply": {
+                                "type": "string"
+                              },
+                              "groupReply": {
+                                "type": "string"
+                              },
+                              "birthday": {
+                                "type": "string"
+                              },
+                              "newJob": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "first",
+                              "reconnect",
+                              "yes",
+                              "question",
+                              "later",
+                              "no",
+                              "followUp",
+                              "checkIn",
+                              "reminder",
+                              "missed",
+                              "comment",
+                              "warmUp",
+                              "postReply",
+                              "groupReply",
+                              "birthday",
+                              "newJob"
+                            ],
+                            "additionalProperties": false
+                          },
                           "archivedAt": {
                             "anyOf": [
                               {
@@ -229110,6 +229335,12 @@
                           "summary"
                         ],
                         "additionalProperties": false
+                      }
+                    },
+                    "rules": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
                       }
                     }
                   },
@@ -242379,7 +242610,7 @@
                                 },
                                 "first": {
                                   "minItems": 1,
-                                  "maxItems": 2,
+                                  "maxItems": 3,
                                   "type": "array",
                                   "items": {
                                     "type": "string",

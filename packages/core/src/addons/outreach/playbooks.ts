@@ -8,7 +8,7 @@
 import { z } from 'zod';
 import { PLATFORM_KEYS, PLATFORMS, type Platform, WORKING_PLATFORMS } from './networks';
 import { loosened } from './loose';
-import { openerAsFirst, PlaybookScript, SCRIPT_LIMITS } from './script';
+import { FullScriptOut, openerAsFirst, PlaybookScript, SCRIPT_LIMITS } from './script';
 import { VideoLink, VideoScript } from './video';
 
 /** The social networks it knows, each with its kit in ./networks.ts. */
@@ -110,7 +110,10 @@ export const PLAYBOOK_STEPS = {
     label: 'Comment on posts',
     hint: 'On posts about what you do, and questions in your groups. It offers to show them only when a post asks for someone who does what you do.',
   },
-  post: { label: 'Post in groups', hint: 'A helpful post: a question, a tip or a poll. Nothing salesy.' },
+  post: {
+    label: 'Post in groups',
+    hint: 'A helpful post: a question, a tip or a poll. Nothing salesy.',
+  },
 } as const;
 export type PlaybookStep = keyof typeof PLAYBOOK_STEPS;
 export const PLAYBOOK_STEP_KEYS = Object.keys(PLAYBOOK_STEPS) as [PlaybookStep, ...PlaybookStep[]];
@@ -1233,6 +1236,12 @@ export const Playbook = z.object({
   name: z.string(),
   template: z.string().nullable(),
   details: PlaybookDetails,
+  /**
+   * What it says in full (decision 164, ./script.ts `scriptOf`): every part's words as the AI follows them, the
+   * business's own where `details.script` has them and the starting words for the rest, so whoever reads a playbook
+   * (the Assistant, most of all) sees what each message is written from. Left out by servers from before it.
+   */
+  says: FullScriptOut.optional(),
   archivedAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -1255,6 +1264,11 @@ export const PlaybookListOutput = z.object({
   templates: z
     .array(z.object({ key: z.enum(PLAYBOOK_TEMPLATE_KEYS), name: z.string(), summary: z.string() }))
     .optional(),
+  /**
+   * The rules every message keeps whatever a playbook says (./script.ts `LOCKED_RULES`), as What it says shows them,
+   * locked. Left out by servers from before them.
+   */
+  rules: z.array(z.string()).optional(),
 });
 export type PlaybookListOutput = z.output<typeof PlaybookListOutput>;
 

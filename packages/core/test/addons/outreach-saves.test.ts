@@ -11,10 +11,8 @@ import { rows, sql } from '@hfos/db/client';
 import { workspaceMemberships } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import {
-  PLAYBOOK_TEMPLATES,
-  type PlaybookQuestion,
-} from '../../src/addons/outreach/playbooks';
+import { PLAYBOOK_TEMPLATES, type PlaybookQuestion } from '../../src/addons/outreach/playbooks';
+import { LOCKED_RULES, startingScript } from '../../src/addons/outreach/script';
 import { outreachBusiness, refused, runAs, setOutreach } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
@@ -382,6 +380,64 @@ describe('playbooks', () => {
       name: PLAYBOOK_TEMPLATES.crm_demos.name,
       summary: PLAYBOOK_TEMPLATES.crm_demos.summary,
     });
+  });
+
+  it('give what it says in full, and change it a part at a time, as the Assistant does (decision 164)', async () => {
+    const home = PLAYBOOK_TEMPLATES.home_services;
+    const start = startingScript(home.details.goal);
+    const made = await runAs(owner, ws, 'outreach.playbook.save', {
+      name: 'Repairs',
+      template: 'home_services',
+    });
+    // Every part's words: the template's own first messages, and the starting words for the rest.
+    expect(made.says).toEqual({ ...start, first: home.details.script!.first });
+    expect(made.details.script).toEqual(home.details.script);
+
+    // One part changes: the first messages stay, and so does every other part.
+    const later = await runAs(owner, ws, 'outreach.playbook.save', {
+      playbookId: made.id,
+      name: 'Repairs',
+      changes: { script: { later: '  No rush. I’ll check back next month.  ' } },
+    });
+    expect(later.details.script).toEqual({
+      first: home.details.script!.first,
+      later: 'No rush. I’ll check back next month.',
+    });
+    expect(later.says.later).toBe('No rush. I’ll check back next month.');
+    expect(later.says.followUp).toBe(start.followUp);
+    // The first message changes on its own too, and a part put back to its starting words follows them again.
+    const first = await runAs(owner, ws, 'outreach.playbook.save', {
+      playbookId: made.id,
+      name: 'Repairs',
+      changes: {
+        script: { first: ['Hey [first name], need a hand with that repair?'], later: start.later },
+      },
+    });
+    expect(first.details.script).toEqual({
+      first: ['Hey [first name], need a hand with that repair?'],
+    });
+    expect(first.says.later).toBe(start.later);
+    // A change that doesn't fit is refused whole, saying why, and nothing changes.
+    const many = await runAs(owner, ws, 'outreach.playbook.save', {
+      playbookId: made.id,
+      name: 'Repairs',
+      changes: { script: { first: ['One?', 'Two?', 'Three?', 'Four?'] } },
+    }).catch((e: unknown) => e as { code: string; details: unknown });
+    expect(many).toMatchObject({ code: 'validation' });
+    expect(JSON.stringify((many as { details: unknown }).details)).toContain(
+      'Up to 3 first messages.',
+    );
+    expect(
+      (await runAs(member, ws, 'outreach.playbook.list', { playbookId: made.id })).playbooks[0]
+        .details.script,
+    ).toEqual(first.details.script);
+
+    const read = await runAs(member, ws, 'outreach.playbook.list', { playbookId: made.id });
+    expect(read.playbooks[0].says.first).toEqual([
+      'Hey [first name], need a hand with that repair?',
+    ]);
+    // The rules no playbook changes, as What it says shows them.
+    expect(read.rules).toEqual(LOCKED_RULES);
   });
 });
 

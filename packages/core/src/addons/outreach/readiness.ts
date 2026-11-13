@@ -719,7 +719,8 @@ export const READY_WORDS = {
     howTo:
       'Tell the AI what’s not quite right about any message, or put a follow-up or the check-in in your own words. Your real messages follow what you say.',
     /** Under the first message and the message after a yes, which are the playbook's own words (decision 164). */
-    fromPlaybook: 'These words come from your playbook. Change them under Playbooks → What it says.',
+    fromPlaybook:
+      'These words come from your playbook. Change them under Playbooks → What it says.',
     change: 'Change',
     save: 'Save',
     cancel: 'Cancel',
