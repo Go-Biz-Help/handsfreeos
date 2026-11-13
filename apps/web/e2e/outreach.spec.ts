@@ -1123,7 +1123,9 @@ test('Settings opens You, LinkedIn’s page, Facebook’s and Team from its menu
   await expect(page.getByTestId('outreach-settings-part-linkedin-state')).toHaveText('Off');
   await expect(page.getByTestId('outreach-settings-part-instagram-state')).toHaveText('Off');
   await expect(page.getByTestId('outreach-settings-part-alignable-state')).toHaveText('Off');
-  await expect(page.getByTestId('outreach-settings-soon-threads')).toContainText('Soon');
+  await expect(page.getByTestId('outreach-settings-part-threads-state')).toHaveText('Off');
+  await expect(page.getByTestId('outreach-settings-part-x-state')).toHaveText('Off');
+  await expect(page.getByTestId('outreach-settings-soon-tiktok')).toContainText('Soon');
 
   // An emoji now and then: saved by itself, and still ticked after a reload.
   const emojiSaved = saved('outreach.automation.save');
