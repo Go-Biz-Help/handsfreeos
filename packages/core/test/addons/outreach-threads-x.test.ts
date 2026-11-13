@@ -240,9 +240,10 @@ describe('replies to the person’s comments, in a business (decision 163, 8a)',
       sql`select payload from app.events where workspace_id = ${ws}
             and event_type = 'outreach.comment.replied' order by created_at`,
     );
-    expect(said.map((e) => [e.payload.platform, e.payload.yes])).toEqual([
-      ['threads', true],
+    // Both went in one save, so they share a moment: compared in either order.
+    expect(said.map((e) => [e.payload.platform, e.payload.yes]).sort()).toEqual([
       ['threads', false],
+      ['threads', true],
     ]);
   });
 
