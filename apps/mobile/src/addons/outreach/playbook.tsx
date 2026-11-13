@@ -35,6 +35,7 @@ import {
   PLAYBOOK_GOALS,
   PLAYBOOK_STEP_KEYS,
   PLAYBOOK_STEPS,
+  STEPS_HINT,
   PlaybookSaveInput,
   type Playbook,
   type PlaybookDetails,
@@ -814,6 +815,7 @@ function SectionEditor({
               </View>
             );
           })}
+          <Note testID="playbook-steps-hint">{STEPS_HINT}</Note>
         </View>
       );
     case 'pace': {

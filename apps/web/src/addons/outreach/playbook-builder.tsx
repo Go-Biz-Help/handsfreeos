@@ -36,6 +36,7 @@ import {
   PLAYBOOK_LIMITS,
   PLAYBOOK_STEP_KEYS,
   PLAYBOOK_STEPS,
+  STEPS_HINT,
   PLAYBOOK_SUGGESTIONS,
   PLAYBOOK_TEMPLATES,
   PlaybookDetails,
@@ -1255,6 +1256,9 @@ export function PlaybookBuilder({
               <FieldError>{issueIn('steps') ?? issueIn('pace')}</FieldError>
             </div>
           ) : null}
+          <div className="p-3.5 text-[13px] text-text-2" data-testid="playbook-steps-hint">
+            {STEPS_HINT}
+          </div>
         </div>
       );
       break;

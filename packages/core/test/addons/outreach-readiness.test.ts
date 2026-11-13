@@ -10,6 +10,7 @@ import { rows, sql } from '@hfos/db/client';
 import { workspaceMemberships } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { SAMPLES_RULES } from '../../src/addons/outreach/conversation';
 import { withNetwork } from '../../src/addons/outreach/network-words';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { PROFILE_ITEMS } from '../../src/addons/outreach/readiness';
@@ -45,6 +46,8 @@ const samplesSeen = (userId: string, playbookId: string, version: number) =>
       checkIn: 'Here’s a checklist you might like.',
       at: new Date().toISOString(),
       version,
+      // Written from the playbook's own words (decision 164), as the worker stamps them.
+      rules: SAMPLES_RULES,
     },
   });
 

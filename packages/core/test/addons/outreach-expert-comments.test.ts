@@ -7,6 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { blankPlaybook, type PlaybookDetails } from '../../src/addons/outreach/playbooks';
+import { playbookSays, startingScript } from '../../src/addons/outreach/script';
 import {
   POST_CHECK_SYSTEM,
   postCheckPrompt,
@@ -141,17 +142,20 @@ describe('comments that sound like someone who knows the owner’s own field', (
     expect(facebook).toContain('Never open with praise or thanks');
     expect(facebook).toContain('Never invent experience, numbers or results');
     expect(facebook).not.toContain('friendly local');
-    // The owner's own comment (2 Nov 2026): a bold take that challenges the usual way, never the person, and an offer to
-    // show them only when the post asks for someone who offers it, with no link (decisions 144 and 163).
-    expect(facebook).toContain('Take a clear stand from the owner’s field');
+    // The owner's own comment (2 Nov 2026): a bold take that challenges the usual way, never the person. How a comment
+    // goes is the playbook's own words now (decision 164), so the business can change it; the starting words are these.
+    const says = startingScript('demo').comment;
+    expect(facebook).toContain(playbookSays(says));
+    expect(says).toContain('Often a bold take on what most people get wrong or do the hard way');
+    expect(says).toContain('Sometimes one useful tip');
+    expect(says).toContain('Challenge the usual way, never the person.');
+    expect(says).toContain('end with “I can show you a demo if you’re interested.”');
+    // What no playbook changes: an offer to show them only when the post asks for someone who offers it, with no link
+    // (decisions 144 and 163).
     expect(facebook).toContain(
-      'often a bold take on what most people get wrong or do the hard way',
+      'Only when the post asks for someone who offers what the business offers, or for a recommendation of one (“anyone know a good …?”, “looking for someone to …”, “who do you use for …?”), end with the short, easy offer to show them, with no link, no web address and no price. A post that asks for help or tips with the topic, or complains about it, gets a take or a tip and no offer. Otherwise offer nothing and pitch nothing.',
     );
-    expect(facebook).toContain('sometimes one specific tip');
-    expect(facebook).toContain('Challenge the usual way, never the person');
-    expect(facebook).toContain(
-      'Only when the post asks for someone who offers what the business offers, or for a recommendation of one (“anyone know a good …?”, “looking for someone to …”, “who do you use for …?”), end with a short, easy offer to show them, such as “I can show you a demo if you’re interested”, with no link, no web address and no price. A post that asks for help or tips with the topic, or complains about it, gets a take or a tip and no offer. Otherwise offer nothing and pitch nothing.',
-    );
+    expect(facebook).toContain('Never call them wrong, talk down to them or make fun of them.');
     // What the post check found (decision 163, 5a): asking for what the business offers, or not.
     const post = (asking: boolean) => ({
       post: { text: 'Anyone know a good CRM?', group: null, asking },

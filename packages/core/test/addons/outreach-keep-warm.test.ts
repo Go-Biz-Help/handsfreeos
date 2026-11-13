@@ -22,11 +22,12 @@ import {
 } from '../../src/addons/outreach/keep-warm';
 import { endedWarmUp } from '../../src/addons/outreach/ops/keep-warm';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
+import { startingScript } from '../../src/addons/outreach/script';
 import { CANCEL_AFTER_WEEKS } from '../../src/addons/outreach/tidy';
 import {
   todayDraftPrompt,
   todayDraftSystem,
-  WARM_COMMENT_TASK,
+  warmCommentTask,
   type TodayItem,
 } from '../../src/addons/outreach/today';
 import { computerOn, outreachBusiness, runAs, yesterdayNoon } from './outreach-fixture';
@@ -126,7 +127,8 @@ describe('a visit, in words and picks', () => {
       },
       platform: 'instagram',
     });
-    expect(prompt).toContain(WARM_COMMENT_TASK);
+    // In the playbook's own way for a warm-up comment (decision 164), inside the fixed limits.
+    expect(prompt).toContain(warmCommentTask(startingScript('demo').warmUp));
     expect(prompt).not.toContain('https://cal.com/robin/demo');
     expect(prompt).toContain('<owner_comments>');
     expect(prompt).toContain('Congrats on the new truck!');
@@ -141,7 +143,7 @@ describe('a visit, in words and picks', () => {
       post: { text: 'We just opened our second shop on Main Street!', group: null },
       platform: 'instagram',
     });
-    expect(plain).not.toContain(WARM_COMMENT_TASK);
+    expect(plain).not.toContain(warmCommentTask(startingScript('demo').warmUp));
     expect(plain).not.toContain('<owner_comments>');
     expect(todayDraftSystem('instagram', { warm: true })).not.toEqual(
       todayDraftSystem('instagram'),

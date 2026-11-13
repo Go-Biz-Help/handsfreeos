@@ -49,7 +49,7 @@ import {
   type ConversationStep,
   type FollowUpNext,
 } from '../conversation';
-import { paceOf, type Platform } from '../playbooks';
+import { paceOf, takesStep, type Platform } from '../playbooks';
 import {
   leftToday,
   RECOMMEND_PER_DAY,
@@ -57,6 +57,7 @@ import {
   requestsHeldOn,
   requestsLimitHeld,
   SAY_HI_WHY,
+  stepOfItem,
   TODAY_KIND_KEYS,
   TODAY_LIMIT,
   TODAY_MOST,
@@ -1778,6 +1779,8 @@ export async function todayFor(
     );
     askingLeft = Math.min(commentsLeft, Math.max(0, answersCap - (answered?.n ?? 0)));
   }
+  // The answers to someone who replied to the person's comment (decision 163): they go whatever the steps.
+  const replyPosts = new Set<string>();
   if (commentsLeft) {
     const good = await rows<{
       id: string;
@@ -1785,6 +1788,7 @@ export async function todayFor(
       posted: string | null;
       body: string;
       check_why: string | null;
+      reply: boolean;
       profile_id: string;
       name: string;
       profile_url: string;
@@ -1818,7 +1822,8 @@ export async function todayFor(
             where not good.strong or good.nth <= ${askingLeft}
             order by good.reply desc, good.strong desc, good.seen_at desc limit ${commentsLeft}`,
     );
-    for (const po of good)
+    for (const po of good) {
+      if (po.reply) replyPosts.add(po.id);
       items.push(
         item({
           kind: 'comment',
@@ -1838,6 +1843,7 @@ export async function todayFor(
           playbookName: po.playbook_name,
         }),
       );
+    }
   }
 
   // The day's reply in one of the person's groups (decision 114): a question there their computer kept for it, in the
@@ -2053,6 +2059,13 @@ export async function todayFor(
   const okd = gate ? await okdAmong(ctx, me, items) : null;
   const passes = (i: Pick<TodayItem, 'kind' | 'profileId'>) =>
     okd === null || !waitsForPeopleOk(i.kind) || (i.profileId !== null && okd.has(i.profileId));
+  // A step no playbook in use here ticks isn't done (decision 164): its kinds stay off the list. An answer to
+  // someone who replied to the person's comment is a reply, so it goes whatever the steps.
+  const onStep = (i: TodayItem) => {
+    const step = stepOfItem(i);
+    if (step === null || (i.postId !== null && replyPosts.has(i.postId))) return true;
+    return takesStep(playbooks, step);
+  };
   const listedItems = [
     ...items.filter((i) => i.asking),
     ...items.filter((i) => !i.asking).sort(byKind),
@@ -2060,6 +2073,7 @@ export async function todayFor(
     .filter(
       (i) =>
         passes(i) &&
+        onStep(i) &&
         !drafted.off(i.profileId, i.kind, underAPost(i.kind) ? i.postId : null) &&
         !commentOpenElsewhere(i),
     )

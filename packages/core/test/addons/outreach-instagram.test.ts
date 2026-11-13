@@ -32,12 +32,12 @@ import {
   todayKindsOn,
   tidyWordsOn,
 } from '../../src/addons/outreach/network-words';
-import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
+import { CRM_FIRST_MESSAGE, PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { hashtagOf, postLooks, TAG_LOOKS_PER_DAY } from '../../src/addons/outreach/posts';
 import {
   fitsComment,
   fitsRequests,
-  REQUESTS_TASK,
+  requestsTask,
   todayDraftPrompt,
   todayDraftSystem,
   type TodayItem,
@@ -143,7 +143,7 @@ describe('Instagram’s kit and words', () => {
       platform: 'instagram',
       requests: true,
     });
-    expect(prompt).toContain(REQUESTS_TASK);
+    expect(prompt).toContain(requestsTask(CRM_FIRST_MESSAGE));
     expect(prompt).not.toContain('cal.com');
     expect(prompt).toContain('Write it as one message, with no blank lines.');
     // A first message once they follow back is told so, and carries the link as on any network.
@@ -163,7 +163,7 @@ describe('Instagram’s kit and words', () => {
     expect(back).toContain(
       'They and the owner haven’t talked yet, so this is the owner’s first message to them.',
     );
-    expect(back).not.toContain(REQUESTS_TASK);
+    expect(back).not.toContain(requestsTask(CRM_FIRST_MESSAGE));
     expect(back).toContain('cal.com');
     expect(fitsRequests('Hi Sam, are you open to more booked calls?')).toBe(true);
     expect(fitsRequests('Hi Sam, book here: https://cal.com/bright')).toBe(false);

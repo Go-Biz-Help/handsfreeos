@@ -238,8 +238,11 @@ describe('what the AI is told', () => {
     expect(lines).toContain('The link for any other time');
     expect(lines).toContain('https://acme.com/book/acme/demo?ref=d_1');
     expect(lines).not.toContain('<open_times');
-    // In the owner's ask for the demo, just before its "how's that sound?" (decision 153).
-    expect(lines).toMatch(/just before “how’s that sound\?”/);
+    // In the owner's ask, where the playbook's words have [open times] (decisions 153 and 164), or just before its
+    // closing question when they have none.
+    expect(lines).toContain('where the playbook’s words have [open times]');
+    expect(lines).toContain('or just before the ask’s closing question when they have none');
+    expect(lines).toContain('where they have [booking link]');
   });
 
   it('gives a reply what’s open, and asks for the email before it confirms', () => {
@@ -261,14 +264,16 @@ describe('what the AI is told', () => {
   const prompt = { business: 'Acme', name: 'Jane Doe', facts: [], recent: [], playbook: null };
 
   it('puts them in Send the link’s prompt, and never to someone who said no', () => {
+    // The block of times itself: how the blanks are filled names “<times>” whether or not there are any.
+    const block = '<times>\n- ';
     const offered = todayDraftPrompt({ ...prompt, kind: 'pitch', times });
-    expect(offered).toContain('<times>');
+    expect(offered).toContain(block);
     expect(offered).toContain('tomorrow at 11am ct');
-    expect(todayDraftPrompt({ ...prompt, kind: 'reply', times })).toContain('<times>');
+    expect(todayDraftPrompt({ ...prompt, kind: 'reply', times })).toContain(block);
     expect(
       todayDraftPrompt({ ...prompt, kind: 'reply', times, declined: { why: null } }),
-    ).not.toContain('<times>');
-    expect(todayDraftPrompt({ ...prompt, kind: 'pitch', times: null })).not.toContain('<times>');
+    ).not.toContain(block);
+    expect(todayDraftPrompt({ ...prompt, kind: 'pitch', times: null })).not.toContain(block);
   });
 
   it('offers them in a follow-up only after the link', () => {

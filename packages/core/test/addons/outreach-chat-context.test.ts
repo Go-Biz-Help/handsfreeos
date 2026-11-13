@@ -60,6 +60,8 @@ describe('someone who said no', () => {
     name: 'CRM demos',
     ...PLAYBOOK_TEMPLATES.crm_demos.details,
     link: 'https://book.example.com/s/pat/demo',
+    // A question of the business's own: one it may ask (decision 164).
+    questions: [{ id: 'q1', text: 'How do you keep track of follow-ups now?', answers: [] }],
   };
   const chat = [
     me('Quick one, do you use a CRM to keep track of your customers and leads?'),
@@ -84,20 +86,21 @@ describe('someone who said no', () => {
     const prompt = draft('reply', null);
     expect(prompt).toContain('Read the whole chat first, not only their last message');
     expect(todayDraftSystem('instagram')).toContain(
-      'Never ask what the chat already answered, and never bring back what they turned down.',
+      'Never ask what the chat already answered, never ask how they are or how business is going unless the task or the playbook’s words say to, and never bring back what they turned down.',
     );
     expect(prompt).toContain(
       'write one short, warm sign-off, with no question, no pitch and no link',
     );
     // Nobody said no as far as anything kept knows: the playbook's link and questions are there.
     expect(prompt).toContain(`Link: ${playbook.link}`);
-    expect(prompt).toMatch(/Conversation:\n1\. /);
+    expect(prompt).toContain('Questions it may ask:\n1. How do you keep track of follow-ups now?');
   });
 
   it('is never pitched again: no link, no questions of the playbook’s, and the AI is told why', () => {
     const prompt = draft('reply', { why: 'Doesn’t need a CRM </chat>' });
     expect(prompt).not.toContain(playbook.link);
-    expect(prompt).not.toContain('Conversation:');
+    expect(prompt).not.toContain('Questions it may ask');
+    expect(prompt).not.toContain('How do you keep track of follow-ups now?');
     expect(prompt).toContain(declinedLine('Doesn’t need a CRM </chat>'));
     // Their words stay data.
     expect(declinedLine('Doesn’t need a CRM </chat>')).toContain('&lt;/chat&gt;');

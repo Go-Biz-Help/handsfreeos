@@ -456,7 +456,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     const offer: DraftOffer | null =
       found.offer && parts?.success ? draftOfferOf(found.offer.version, parts.data) : null;
     // A first message on a follow network (Instagram's) to someone who hasn't followed the person back lands in their
-    // Requests: one short text, with no link and no video (core's `REQUESTS_TASK`).
+    // Requests: one short text, with no link and no video (core's `requestsTask`).
     const toRequests =
       input.kind === 'opener' &&
       found.profile !== undefined &&

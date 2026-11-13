@@ -274,7 +274,7 @@ export function startingScript(goal: PlaybookGoal): FullScript {
     no: 'Thank them kindly and leave it there. No question and no pitch.',
     followUp: `A short nudge, one or two lines, that never repeats an earlier message. After your first message: ask your question again lightly, in new words. After you asked for the ${meet}: ask if one of the times works, or offer new ones. Never ask how they are or how business is going.`,
     checkIn:
-      'A short, friendly check-in, one or two lines, that gives them your something useful to send, with no ask, and leaves the door open.',
+      'A short, friendly check-in, one or two lines, with no ask. When your playbook has something useful to send, share it. Leave the door open.',
     reminder:
       'A short, friendly reminder, one or two lines: the day and time, that you’re looking forward to it, and that if the time no longer works they can just say.',
     missed:

@@ -85,7 +85,9 @@ export const PARTNER_KIND_KEYS = Object.keys(PARTNER_KINDS) as [PartnerKind, ...
 
 /**
  * The steps a playbook takes with people, in the order it takes them. A step no playbook in use on a network takes
- * isn't done there (decision 164, `takesStep` in ./ops/today.ts): its ticks are what Today lists.
+ * isn't done there (decision 164, `takesStep`): Today lists none of its kinds (../today.ts `stepOfItem`), and no
+ * helpful post is asked for (`outreach.helpful.ask`). Replies, the ask after a yes, a booking's reminders, birthday
+ * and new-job notes and requests to confirm go whatever the steps: they answer someone.
  */
 export const PLAYBOOK_STEPS = {
   connect: {
@@ -112,6 +114,22 @@ export const PLAYBOOK_STEPS = {
 } as const;
 export type PlaybookStep = keyof typeof PLAYBOOK_STEPS;
 export const PLAYBOOK_STEP_KEYS = Object.keys(PLAYBOOK_STEPS) as [PlaybookStep, ...PlaybookStep[]];
+
+/**
+ * Whether a step is taken on a network (decision 164): some playbook in use there ticks it. With no playbook in use
+ * there is nothing to go by, so nothing is held on that account.
+ */
+export const takesStep = (
+  inUse: readonly { readonly details: { readonly steps: readonly PlaybookStep[] } }[],
+  step: PlaybookStep,
+): boolean => inUse.length === 0 || inUse.some((p) => p.details.steps.includes(step));
+
+/**
+ * Under the steps in the editors: what a tick does. Every playbook starts with every step ticked (`blankPlaybook`,
+ * `PLAYBOOK_TEMPLATES`), which is what the add-on did before the ticks counted.
+ */
+export const STEPS_HINT =
+  'Untick a step and it stops: on each network, a step is done only while a playbook in use there has it ticked. Replies to people who write to you always go.';
 
 /**
  * What a conversation does after an answer, besides asking a question further down. The day's list and the AI read
@@ -490,7 +508,7 @@ export const blankPlaybook = (): PlaybookDetails => ({
   // Every network that works, as every playbook ran before data version 7; the person unticks any.
   platforms: [...WORKING_PLATFORMS],
   groupWords: [],
-  steps: ['connect', 'engage', 'message', 'follow_up'],
+  steps: ['connect', 'engage', 'message', 'follow_up', 'answer', 'post'],
   pace: {
     messageAfterDays: PACE_LIMITS.messageAfterDays.start,
     followUps: PACE_LIMITS.followUps.start,
@@ -555,7 +573,7 @@ const TEMPLATES = {
         'leads slipping through',
         'scheduling software',
       ],
-      steps: ['connect', 'engage', 'message', 'follow_up'],
+      steps: ['connect', 'engage', 'message', 'follow_up', 'answer', 'post'],
       tone: 'Friendly and curious, one owner to another. Short messages, no hard sell.',
       // The owner's own first message (decision 152), and the rest as every playbook starts (decision 164).
       script: { first: [CRM_FIRST_MESSAGE] },
@@ -603,7 +621,7 @@ const TEMPLATES = {
       platforms: ['facebook', 'instagram', 'linkedin'],
       worksOnline: false,
       groupWords: ['community', 'neighbors', 'new to town', 'relocating'],
-      steps: ['connect', 'engage', 'message', 'follow_up', 'answer'],
+      steps: ['connect', 'engage', 'message', 'follow_up', 'answer', 'post'],
       tone: 'Warm and helpful, like a neighbor who knows the market. Short messages, no pressure.',
       script: {
         first: [
@@ -748,7 +766,7 @@ const TEMPLATES = {
       platforms: ['facebook', 'instagram', 'alignable'],
       worksOnline: false,
       groupWords: ['community', 'neighbors', 'homeowners', 'recommendations'],
-      steps: ['connect', 'engage', 'message', 'follow_up', 'answer'],
+      steps: ['connect', 'engage', 'message', 'follow_up', 'answer', 'post'],
       tone: 'Friendly and straight to the point, like a local pro the neighbors trust. Short messages, no pressure.',
       script: {
         first: [
@@ -863,7 +881,7 @@ const TEMPLATES = {
       platforms: ['facebook', 'instagram', 'linkedin'],
       worksOnline: true,
       groupWords: ['personal growth', 'entrepreneurs', 'career change', 'self improvement'],
-      steps: ['connect', 'engage', 'message', 'follow_up'],
+      steps: ['connect', 'engage', 'message', 'follow_up', 'answer', 'post'],
       tone: 'Encouraging and curious, never pushy. Short messages that ask more than they tell.',
       script: {
         first: [

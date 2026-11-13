@@ -24,12 +24,17 @@ import {
   nextOpener,
   openerKey,
   openersOf,
-  ownOpenerText,
   rateWords,
   type Opener,
 } from '../../src/addons/outreach/openers';
 import { checkedAssist, PlaybookAssistInput } from '../../src/addons/outreach/playbook-assist';
-import { PLAYBOOK_TEMPLATES, PlaybookDetails } from '../../src/addons/outreach/playbooks';
+import {
+  CRM_FIRST_MESSAGE,
+  PLAYBOOK_TEMPLATES,
+  PlaybookDetails,
+  upgradePlaybookDetails,
+} from '../../src/addons/outreach/playbooks';
+import { openerAsFirst, STARTING_FIRST_MESSAGE } from '../../src/addons/outreach/script';
 import { linkRefOf } from '../../src/schemas/calendar';
 import { executeCommand, type SystemActor } from '../../src/server';
 import {
@@ -77,34 +82,57 @@ describe('openers', () => {
     );
   });
 
-  it('puts their first name in the business’s own opener', () => {
-    expect(ownOpenerText(own.text, 'Dana Reyes')).toBe('Hi Dana, how’s business?');
-    expect(ownOpenerText('Hey { First_Name } !', 'Sam')).toBe('Hey Sam!');
-  });
-
-  it('are kept in the playbook, two or three styles and up to three of the business’s own', () => {
+  it('are the playbook’s first messages: up to three versions that take turns (decision 164)', () => {
     const crm = PLAYBOOK_TEMPLATES.crm_demos.details;
-    expect(openersOf(crm).map((o) => o.kind)).toEqual(['style', 'style', 'style']);
-    // A playbook saved before openers has none.
-    const { openerStyles: _s, ownOpeners: _o, ...old } = crm;
-    const parsed = PlaybookDetails.parse(old);
-    expect([parsed.openerStyles, parsed.ownOpeners]).toEqual([[], []]);
-    const twice = PlaybookDetails.safeParse({ ...crm, ownOpeners: ['Hi!', ' hi! '] });
-    expect(twice.success).toBe(false);
+    expect(openersOf(crm)).toEqual([{ kind: 'own', text: CRM_FIRST_MESSAGE }]);
+    // A playbook that never wrote its own starts with the starting one.
+    expect(openersOf({ goal: 'demo', script: {} })).toEqual([
+      { kind: 'own', text: STARTING_FIRST_MESSAGE },
+    ]);
+    const three = { goal: 'demo' as const, script: { first: ['One?', 'Two?', 'Three?'] } };
+    expect(openersOf(three).map((o) => o.text)).toEqual(['One?', 'Two?', 'Three?']);
+    expect(PlaybookDetails.safeParse({ ...crm, script: { first: ['Hi!', ' hi! '] } }).success).toBe(
+      false,
+    );
+    expect(
+      PlaybookDetails.safeParse({ ...crm, script: { first: ['1?', '2?', '3?', '4?'] } }).success,
+    ).toBe(false);
   });
 
-  it('the AI’s own openers keep their lines', () => {
+  it('turns a business’s own openers from before into first messages, in today’s brackets', () => {
+    expect(openerAsFirst(own.text)).toBe('Hi [first name], how’s business?');
+    expect(openerAsFirst('Hey { First_Name }, open to {outcome}?')).toBe(
+      'Hey [first name], open to [what your offer gets them]?',
+    );
+    // The guarantee goes in no message any more.
+    expect(openerAsFirst('Open to {outcome} on {guarantee}?')).toBeNull();
+    // A playbook saved before decision 164 reads with them as its first messages; the AI's old styles are let go.
+    const { script: _s, ...before } = PLAYBOOK_TEMPLATES.crm_demos.details;
+    const old = {
+      ...before,
+      openerStyles: ['Say one thing you genuinely liked on their page'],
+      ownOpeners: [own.text, 'Open to {outcome} on {guarantee}?'],
+    };
+    const now = PlaybookDetails.parse(upgradePlaybookDetails(old));
+    expect(now.script).toEqual({ first: ['Hi [first name], how’s business?'] });
+    expect(openersOf(now)).toEqual([{ kind: 'own', text: 'Hi [first name], how’s business?' }]);
+    // One with neither follows the starting words.
+    const plain = PlaybookDetails.parse(upgradePlaybookDetails({ ...before, ownOpeners: [] }));
+    expect(openersOf(plain)).toEqual([{ kind: 'own', text: STARTING_FIRST_MESSAGE }]);
+  });
+
+  it('the AI’s first messages keep their lines, and leave out one the playbook has', () => {
     const input = PlaybookAssistInput.parse({
-      part: 'ownOpeners',
+      part: 'firsts',
       mode: 'suggest',
-      draft: { name: 'CRM demos', ownOpeners: ['Hi {first name}!'] },
+      draft: { name: 'CRM demos', firsts: ['Hi [first name]!'] },
     });
     expect(
       checkedAssist(
-        { options: ['Hi {first name}!', 'Hey {first name},\nquick question.'], questions: [] },
+        { options: ['Hi [first name]!', 'Hey [first name],\nquick question.'], questions: [] },
         input,
       ).options,
-    ).toEqual(['Hey {first name},\nquick question.']);
+    ).toEqual(['Hey [first name],\nquick question.']);
   });
 
   it('says how one did', () => {
@@ -311,8 +339,9 @@ describe('replies, openers and demos in a business', () => {
     await message(owner, 'casey.m', 'Casey Moreno', ago(30 * MIN));
     const sam = await profileOf('sam.lee.1');
     const casey = await profileOf('casey.m');
-    const style = PLAYBOOK_TEMPLATES.crm_demos.details.openerStyles[0]!;
-    const own = 'Hi {first name}! Do you run your own business?';
+    // One of the AI's styles from before decision 164, kept for its numbers, and the playbook's own first message.
+    const style = 'Say it could get them more deals while saving them time.';
+    const own = CRM_FIRST_MESSAGE;
     // Copied before the message was noted (the draft is copied, then sent).
     await rows(
       admin(),
@@ -345,7 +374,11 @@ describe('replies, openers and demos in a business', () => {
       demos: number;
       current: boolean;
     }[];
-    expect(openers.map((o) => o.kind)).toEqual(['style', 'style', 'style', 'own']);
+    // The playbook's own first, then the one that's no longer in it, with its numbers to show.
+    expect(openers.map((o) => [o.kind, o.current])).toEqual([
+      ['own', true],
+      ['style', false],
+    ]);
     expect(openers.find((o) => o.text === style)).toMatchObject({ sent: 1, replies: 1, demos: 0 });
     expect(openers.find((o) => o.text === own)).toMatchObject({ sent: 1, replies: 0, demos: 1 });
     // The mark comes off; the look-up says so.
@@ -375,7 +408,7 @@ describe('replies, openers and demos in a business', () => {
     const sentWith = async (period: string) =>
       (await runAs(owner, ws, 'outreach.openers', { period })).playbooks[0].openers.find(
         (o: { text: string }) => o.text === style,
-      ).sent;
+      )?.sent ?? 0;
     expect(await sentWith('week')).toBe(0);
     expect(await sentWith('all')).toBe(1);
   });

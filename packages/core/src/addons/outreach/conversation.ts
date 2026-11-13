@@ -23,7 +23,7 @@ import { z } from 'zod';
 import { quoteData as quote } from '../../knowledge/prompt';
 import type { Pace } from './playbooks';
 import { PROFILE_NOTE_MOST } from './profile-check';
-import { asHow, asMessage, FOLLOW_SCRIPT, type FullScript } from './script';
+import { asHow, asMessage, FOLLOW_SCRIPT, SCRIPT_LIMITS, type FullScript } from './script';
 import { BUSINESS_NAMES, noDashes, PLAIN_WRITING } from './voice';
 
 /** Where a conversation is: the last step sent. */
@@ -99,8 +99,8 @@ export function stepAfterYes(step: ConversationStep): 'pitch' | null {
 
 // ---- Your messages (Get ready, decision 63) ----
 
-/** The most samples of each kind Your messages shows. */
-export const SAMPLES_MOST = { first: 2, followUps: 7 } as const;
+/** The most samples of each kind Your messages shows: a first message for each version a playbook holds (decision 164). */
+export const SAMPLES_MOST = { first: SCRIPT_LIMITS.first.most, followUps: 7 } as const;
 const sample = z.string().trim().min(1).max(600);
 /**
  * The rules samples are written under: 164 since the playbook's own words drive every message (decision 164,

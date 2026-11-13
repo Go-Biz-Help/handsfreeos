@@ -398,11 +398,15 @@ became.
   (`morningPushHour`, 8 AM to start, or off; Social Outreach → Settings → General, For your team, in the business's time
   zone) each person who noted a step in the last 14 days and has something on their list hears how much ("6 on your list for today").
   Both are add-on pushes (`pushAddonNotice`), on the person's add-ons switch, and open Today.
-- **Which openers work** (decision 23, `openers.ts`, `ops/openers.ts`): each playbook keeps two or three styles the
-  AI words a first message's one short question in (decisions 137 and 152), and up to three of the business's own openers,
-  sent as written with the first name filled in. A first message's drafts take the opener the person has used least, and copying one notes which it was
-  (`outreach.opener.use`). The Playbooks tab's **Which openers work** card counts, for each, the first messages sent
-  with it, who wrote back and who booked a demo; owners and admins see everyone's.
+- **Which first messages work** (decisions 23 and 164, `openers.ts`, `ops/openers.ts`): a playbook's first message
+  has up to three versions in the business's own words (What it says, `script.first`). A first message's drafts take
+  the version the person has used least, the AI keeps close to its words and fits it to the person, and copying one
+  notes which it was (`outreach.opener.use`). Results' **Which first messages work** card counts, for each, the first
+  messages sent with it, who wrote back and who booked a demo; owners and admins see everyone's. The AI styles and
+  own openers from before decision 164 stay on the card for their numbers, as ones not in the playbook now.
+- **What it says, and Test it** (decision 164, `script.ts`, `playbook-test.ts`): the playbook holds its own words for
+  every message the AI writes, each draft is written from them, the rules no playbook changes are shown locked, and
+  a Test console plays a chat out with the real draft writer, sending nothing.
 - **The demo link** (decision 24, `demos.ts`, `ops/demos.ts`, the worker's `demos.ts`): each person's own link to the
   playbook's booking page for someone they reached (**Copy demo link** on Today), with a
   `ref` naming who sent it to whom and nothing else. A booking page keeps the `ref` on the booking
@@ -896,7 +900,8 @@ openers on group posts") and answered its questions the same day. These are sett
     start). Built (the third of three parts). The morning push counts every network the person works, as Today's
     strip shows them: one network in its own words, more than one named ("on Facebook and Alignable").
 23. **Which openers work:** each playbook has two or three AI opener styles and the person's own openers. Drafts
-    take turns with them, and a results card shows the replies and demos for each. Built.
+    take turns with them, and a results card shows the replies and demos for each. Built. (Since decision 164 the
+    openers are the playbook's first message, up to three versions in the business's own words; the styles are gone.)
 24. **The demo link is built now,** so a booking through it counts by itself. The "Demo booked" mark stays too.
     Built.
 25. **On a Facebook warning,** the daily limits are halved for 7 days, a red note shows in the panel and on the Today
@@ -4124,6 +4129,72 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         header is its cover, made at 1500 by 500). Nothing goes in for them yet, so the bios are there to copy. An item
         a network has no words for falls back to Facebook's, then a plain name, so a page never breaks on one again.
 
+164.  **The playbook is what the AI follows, and a Test console shows it** (Chris, 13 Nov 2026: "i went to make changes
+      to my playbook in the social outreach add on and I noticed it has the old methods in there and isn't currently
+      following the playbook as written ... the system should follow the playbook also we should have a test console
+      to understand the first messages it will send depending on different information and then how the rest of the
+      conversation will go"). What was wrong: the newer ways (decisions 152 to 155, 144, 161 and 163) lived in code,
+      while the playbook still showed opener styles that added a compliment or named the group, the old CRM
+      questions went into every reply, and a follow-up was fed the check's "first step" ("ask how business is
+      going"). He answered "1a 2a 3(use the stuff in the offer and the stuff for social content if there is any) 4a
+      5a 6c 7a":
+      - **What it says** (`script.ts`, `details.script`): a playbook holds its own words for every message the AI
+        writes, grouped by when it goes: the first message and Reconnect; when they say yes, ask something, say not
+        now or say no; follow-ups and the monthly check-in; the reminder and a missed booking; comments, warm-up
+        comments, replies on the person's posts and answers in their groups; birthdays and new jobs. A part nobody
+        changed follows the **starting words** (`startingScript`, by the playbook's goal), which are the owner's
+        latest way, so a playbook saved before needs nothing. A save keeps only the parts that differ
+        (`scriptToSave`), and **Back to the starting words** drops a part again.
+      - **Close to the words, fitted to each person** (1a): the first message and the ask after a yes are the message
+        itself (`asMessage`): the same ask, in the same order, at about the same length, with small changes so no
+        two people get the very same text. Every other part says how the message goes (`asHow`). Words in
+        [brackets] are filled in for each person (`SCRIPT_BLANKS`, `FILL_BLANKS`): [first name], [their kind of
+        business], [what your offer gets them], [what your offer is], [open times] and [booking link].
+      - **Up to three first messages that take turns** (2a): `script.first` holds one to three versions; a draft takes
+        the one the person has used least (decision 23's turns), and Results shows which gets more replies. The AI
+        opener styles are gone, and nothing is sent as written any more. A business's own openers from before become
+        its first messages when the playbook is read (`openerAsFirst`: `{first name}` and `{outcome}` in today's
+        brackets; one with `{guarantee}` is let go).
+      - **Replies answer from the main offer and its lists** (3): the template's old CRM questions are gone. A reply,
+        the ask after a yes, a follow-up, a check-in, a comment and an answer to a comment are told the main offer's
+        lists for content under `<content_lists>` (`draftListsLines`: what makes it different, benefits, problems,
+        questions with answers, before and after, the story, myths, and what never to say), to answer from in a
+        sentence or two. A playbook's own questions are still there (**Questions it may ask**, optional) and are
+        asked only when they fit.
+      - **The rules no playbook changes are shown, locked** (4a, `LOCKED_RULES`): never names a group, never
+        messages before they accept or follow back, the price and guarantee only when asked, no pitch after a no,
+        nothing made up, never says it's AI, a comment offers only when a post asks, notes and warm-ups say nothing
+        of the business, the words to avoid, and never a pitch to a client. Each is held in code as before; the
+        playbook's words rank above everything else a draft is told and below these (`FOLLOW_SCRIPT`).
+      - **Drafts not sent yet are written again** (5a): `RULES_VERSION` is 2. **Your messages** samples written
+        before are read as none (`samplesNow`, `SAMPLES_RULES`) without holding the day, and are written from the
+        playbook when asked. There the first message and the message after a yes can't be put in a person's own
+        words any more (`playbookWorded`, rule `outreach_message_playbook`): they're the playbook's, changed under
+        What it says; **Not quite right?** notes still apply, and follow-ups and the check-in can still be the
+        person's own.
+      - **Test it** (6c and 7a, `playbook-test.ts`, the worker's `outreach.playbook.test`): on each playbook's card,
+        in the builder (with what's on screen, saved or not) and on the phone. The person makes someone up (name,
+        what they do, what their page says, the network, how they know them), sees the first message, then plays the
+        chat out: types their reply, taps a quick one (Yes, What is it?, How much?, Not now, No), lets them go quiet,
+        or has the AI play them as someone interested, skeptical, busy or not interested. Each move shows the
+        message that would go, what the AI read in the reply, and what happens next and when. It uses the same
+        writer as Today's drafts (`writeDrafts`), with the real main offer, Knowledge, videos and open times.
+        Nothing is sent, kept or booked, and each message counts against the daily AI limit.
+      - **The step ticks are real** (`takesStep`, `stepOfItem`): on each network a step is done only while a playbook
+        in use there has it ticked. Send friend requests holds requests and the like before one; Warm up holds the
+        visits while they decide; Send a first message holds first messages and Reconnect; Follow up holds
+        follow-ups and check-ins; Comment on posts holds comments and answers in groups; Post in groups holds the
+        helpful post (rule `outreach_helpful_step_off`). Replies, the ask after a yes, a booking's reminders,
+        birthday and new-job notes and requests to confirm always go. With no playbook in use on a network, nothing
+        is held on that account.
+      - **How it's built** (migration 027100, no extension change): `script.ts` (parts, starting words, the editors'
+        state, what a draft is told), `today.ts` (`taskFor` writes every customer draft's task from the script;
+        `firstStepFact` feeds the check's first step to Reconnect only), `conversation.ts` (samples from the script),
+        `playbook-test.ts` in core (the moves, what each adds to the chat, the words) and in the worker (the action),
+        the web's `ScriptStep` in the builder and `playbook-test.tsx`, and the phone's `playbook-script.tsx` and
+        `playbook-test.tsx`. The migration gives a playbook started from the CRM demos template its first message
+        and takes out its old opener styles and CRM questions.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -4157,6 +4228,11 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   out to other members. A new line of facts for a draft that could name a group goes through `withoutGroupLines`, a new
   prompt that writes to a customer carries `NO_GROUPS` (`todayDraftSystem` does), and what comes back goes through
   `namesAGroup`. Only a partner's messages to someone who runs a group may speak of it.
+- **What a customer message says comes from the playbook** (decision 164, `script.ts`): a new kind of message, or a
+  new way an old one reads, goes in `SCRIPT_PARTS` with starting words, and its task quotes the playbook's part
+  (`asMessage` or `asHow`), so the business can see and change it under What it says. Only what no playbook may
+  change is a rule in code, and each of those is in `LOCKED_RULES` for the editors to show. Never put how a message
+  reads only in a prompt.
 - **A change to what the AI writes can reach messages already drafted** (decision 157): raise `RULES_VERSION` in
   `sends.ts`, and every message waiting for an OK or OK'd and not yet sent is written again.
 - **A message's texts are its parts between blank lines** (`messageParts`), when the person sends a few

@@ -89,7 +89,7 @@ import { WarningState } from './tidy';
 import { TodayGoal } from './goal';
 import { inNetworkWords, NETWORKS, type Platform } from './networks';
 import { VISIT_LIKES } from './keep-warm';
-import { PLATFORM_KEYS, type PlaybookDetails } from './playbooks';
+import { PLATFORM_KEYS, type PlaybookDetails, type PlaybookStep } from './playbooks';
 import { COMMENT_DRAFTS } from './posts';
 import { RECENT_SHOWN, RecentMessage } from './sends';
 import {
@@ -140,6 +140,33 @@ export const TODAY_KINDS = {
 } as const;
 export type TodayKind = keyof typeof TODAY_KINDS;
 export const TODAY_KIND_KEYS = Object.keys(TODAY_KINDS) as [TodayKind, ...TodayKind[]];
+
+/**
+ * The playbook step each of the day's kinds is part of (decision 164, ./playbooks.ts `takesStep`): a kind whose step
+ * no playbook in use on the network takes isn't listed. A kind not here goes whatever the steps: it answers someone
+ * (a reply, the ask after a yes, a comment on the person's own post), keeps a booking, marks their day, or is the
+ * person's own to decide.
+ */
+const KIND_STEPS: Partial<Record<TodayKind, PlaybookStep>> = {
+  friend_request: 'connect',
+  opener: 'message',
+  reconnect: 'message',
+  follow_up: 'follow_up',
+  check_in: 'follow_up',
+  comment: 'answer',
+  group_reply: 'answer',
+};
+/**
+ * The step an item on the day's list is part of, or null when it goes whatever the steps. A like is Warm up's when it
+ * is a visit while they decide (`keepWarm`, decision 161); the like that goes a day before a request is the request's.
+ */
+export function stepOfItem(item: {
+  readonly kind: TodayKind;
+  readonly keepWarm?: unknown;
+}): PlaybookStep | null {
+  if (item.kind === 'warm_up') return item.keepWarm ? 'engage' : 'connect';
+  return KIND_STEPS[item.kind] ?? null;
+}
 
 /**
  * A partner's steps (decision 81): a like first, then the ask, follow-ups, the details after a yes, and replies. Each
@@ -1132,7 +1159,7 @@ export function todayDraftPrompt(input: {
     readonly text: string;
     readonly group: string | null;
     /**
-     * A post a warm-up visit liked (decision 161, `posts.warm_up`): its comment is a person's (`WARM_COMMENT_TASK`), with
+     * A post a warm-up visit liked (decision 161, `posts.warm_up`): its comment is a person's (`warmCommentTask`), with
      * nothing of the business's offer, and never the words of the owner's latest comments (`said`).
      */
     readonly warm?: boolean;
@@ -1238,7 +1265,7 @@ export function todayDraftPrompt(input: {
     ? [
         `Name: ${p.name}`,
         p.offer && !plain ? `Offer: ${p.offer}` : null,
-        // A message to their Requests carries no link (`REQUESTS_TASK`), nor does a note, a public comment (decision 144)
+        // A message to their Requests carries no link (`requestsTask`), nor does a note, a public comment (decision 144)
         // or anything to someone who turned the offer down (decision 134).
         p.link && !requests && !plain && !helping && input.kind !== 'comment' && !declined
           ? `Link: ${p.link}`

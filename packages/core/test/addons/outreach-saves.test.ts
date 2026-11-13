@@ -11,7 +11,10 @@ import { rows, sql } from '@hfos/db/client';
 import { workspaceMemberships } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
+import {
+  PLAYBOOK_TEMPLATES,
+  type PlaybookQuestion,
+} from '../../src/addons/outreach/playbooks';
 import { outreachBusiness, refused, runAs, setOutreach } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
@@ -249,8 +252,30 @@ describe('playbooks', () => {
   });
 
   it('read one saved before its questions had answers in today’s shape, and save questions as q1, q2…', async () => {
-    const { questions, pace, ...rest } = crm.details;
+    const { pace, ...rest } = crm.details;
     void pace;
+    // A conversation of questions a business wrote for itself, as the CRM demos template had one before decision 164.
+    const questions: PlaybookQuestion[] = [
+      {
+        id: 'q1',
+        text: 'Do you use a CRM?',
+        answers: [
+          { label: 'Yes', tag: 'Uses a CRM', next: 'continue' },
+          { label: 'No', tag: null, next: 'q4' },
+        ],
+      },
+      { id: 'q2', text: 'Which one?', answers: [] },
+      {
+        id: 'q3',
+        text: 'Is it doing what you need?',
+        answers: [{ label: 'Not really', tag: 'Unhappy with CRM', next: 'offer' }],
+      },
+      {
+        id: 'q4',
+        text: 'How do you keep track of follow-ups now?',
+        answers: [{ label: 'I don’t, really', tag: null, next: 'offer' }],
+      },
+    ];
     const [old] = await rows<{ id: string }>(
       admin(),
       sql`insert into addon_outreach.playbooks (workspace_id, name, details)

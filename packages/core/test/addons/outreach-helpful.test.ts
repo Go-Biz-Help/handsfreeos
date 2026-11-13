@@ -376,4 +376,33 @@ describe('helpful posts, and the people who engage', () => {
     ).toBe('outreach_helpful_not_approved');
     expect(await runAs(riley, ws, 'outreach.helpful', {})).toMatchObject({ posts: [], today: 0 });
   });
+
+  it('writes none while no playbook in use ticks Post in groups, saying where to tick it (decision 164)', async () => {
+    const [playbook] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from addon_outreach.playbooks where workspace_id = ${ws} and archived_at is null`,
+    );
+    const ticked = (steps: readonly string[]) =>
+      runAs(owner, ws, 'outreach.playbook.save', {
+        playbookId: playbook!.id,
+        name: 'CRM demos',
+        details: { ...crm, groupWords: ['contractors', 'business owners'], steps },
+      });
+    await ticked(crm.steps.filter((s) => s !== 'post'));
+    // Riley has had none today: nothing is written, and a member is told who can turn it on.
+    const off = (await runAs(riley, ws, 'outreach.helpful.ask', {}).catch((e: unknown) => e)) as {
+      rule?: string;
+      message: string;
+    };
+    expect(off.rule).toBe('outreach_helpful_step_off');
+    expect(off.message).toBe(
+      'None of your playbooks on Facebook posts, so no helpful post is written there. To turn it on, ask an owner of this business to tick “Post in groups” under Social Outreach → Playbooks → “CRM demos” → Steps and pace.',
+    );
+    expect(await runAs(riley, ws, 'outreach.helpful', {})).toMatchObject({ posts: [], today: 0 });
+    // Ticked again, the step no longer stops it: Riley is only told they're in no group that fits yet.
+    await ticked(crm.steps);
+    expect(await refused(runAs(riley, ws, 'outreach.helpful.ask', {}))).toBe(
+      'outreach_helpful_no_group',
+    );
+  });
 });
