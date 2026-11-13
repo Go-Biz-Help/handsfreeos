@@ -1,13 +1,21 @@
 /**
  * The networks AI Social Media Content Creator studies (HANDSFREEOS_CONTENT_CREATOR_IMPLEMENTATION_PLAN.md, decision
- * 2): Instagram, Facebook and LinkedIn first, then TikTok and YouTube. Each has its name, whether a business can pick
- * it yet, the words its search uses, and how a link to someone's page there reads. Its own copy, never Social
- * Outreach's: add-ons never share code or data.
+ * 2): Instagram, Facebook and LinkedIn first, then Threads and X (decision 41: posted on, and their creators studied
+ * from extension 0.139.0), TikTok and YouTube. Each has its name, whether a business can pick it yet, the words its
+ * search uses, and how a link to someone's page there reads. Its own copy, never Social Outreach's: add-ons never share code or data.
  *
  * Browser-safe and pure: the web, the phone, the extension and the worker read it.
  */
 
-export const CONTENT_NETWORKS = ['instagram', 'facebook', 'linkedin', 'tiktok', 'youtube'] as const;
+export const CONTENT_NETWORKS = [
+  'instagram',
+  'facebook',
+  'linkedin',
+  'threads',
+  'x',
+  'tiktok',
+  'youtube',
+] as const;
 export type ContentNetwork = (typeof CONTENT_NETWORKS)[number];
 
 export interface ContentNetworkInfo {
@@ -40,6 +48,19 @@ export const CONTENT_NETWORK_INFO: Readonly<Record<ContentNetwork, ContentNetwor
     name: 'LinkedIn',
     ready: true,
     searchWords: 'search words for people and posts',
+    watches: false,
+  },
+  // Decision 41: posted on (part 16), and their creators found and read (part 17).
+  threads: {
+    name: 'Threads',
+    ready: true,
+    searchWords: 'search words for posts and people',
+    watches: false,
+  },
+  x: {
+    name: 'X',
+    ready: true,
+    searchWords: 'search words for posts and people',
     watches: false,
   },
   tiktok: {
@@ -118,10 +139,31 @@ const FACEBOOK_NOT_PEOPLE = new Set([
 const USERNAME = /^[A-Za-z0-9._]{1,30}$/;
 const FACEBOOK_NAME = /^[A-Za-z0-9.-]{1,80}$/;
 const SLUG = /^[A-Za-z0-9_%-]{1,100}$/;
+/** An X handle: letters, numbers and underscores, up to 15. */
+const X_HANDLE = /^[A-Za-z0-9_]{1,15}$/;
+/** X's own pages, never someone's. */
+const X_NOT_PEOPLE = new Set([
+  'home',
+  'explore',
+  'search',
+  'notifications',
+  'messages',
+  'i',
+  'settings',
+  'compose',
+  'login',
+  'signup',
+  'tos',
+  'privacy',
+  'hashtag',
+  'intent',
+  'share',
+]);
 
 /**
  * Reads a link to someone's page on one of the networks: instagram.com/name, facebook.com/name or
- * profile.php?id=…, linkedin.com/in/name or /company/name, tiktok.com/@name, youtube.com/@name or /channel/….
+ * profile.php?id=…, linkedin.com/in/name or /company/name, threads.com/@name, x.com/name, tiktok.com/@name,
+ * youtube.com/@name or /channel/….
  * A bare "@name" counts when the network is given. Null when it isn't a page of a person or a business.
  */
 export function creatorFromLink(raw: string, network?: ContentNetwork): CreatorLink | null {
@@ -131,7 +173,9 @@ export function creatorFromLink(raw: string, network?: ContentNetwork): CreatorL
     const name = text.slice(1);
     if (network === 'instagram' && USERNAME.test(name))
       return creatorOn('instagram', name.toLowerCase());
-    if (network === 'tiktok' && USERNAME.test(name)) return creatorOn('tiktok', name.toLowerCase());
+    if ((network === 'tiktok' || network === 'threads') && USERNAME.test(name))
+      return creatorOn(network, name.toLowerCase());
+    if (network === 'x' && X_HANDLE.test(name)) return creatorOn('x', name.toLowerCase());
     if (network === 'youtube' && /^[A-Za-z0-9._-]{3,30}$/.test(name))
       return creatorOn('youtube', `@${name.toLowerCase()}`);
     return null;
@@ -166,6 +210,15 @@ export function creatorFromLink(raw: string, network?: ContentNetwork): CreatorL
       return creatorOn('linkedin', `${where}/${decodeURIComponent(slug).toLowerCase()}`);
     return null;
   }
+  if (host === 'threads.com' || host === 'threads.net') {
+    if (!first.startsWith('@')) return null;
+    const name = first.slice(1);
+    return USERNAME.test(name) ? creatorOn('threads', name.toLowerCase()) : null;
+  }
+  if (host === 'x.com' || host === 'twitter.com') {
+    if (!first || X_NOT_PEOPLE.has(first.toLowerCase()) || !X_HANDLE.test(first)) return null;
+    return creatorOn('x', first.toLowerCase());
+  }
   if (host === 'tiktok.com') {
     if (!first.startsWith('@')) return null;
     const name = first.slice(1);
@@ -199,6 +252,10 @@ export function creatorLink(network: ContentNetwork, handle: string): string {
         : `https://www.facebook.com/${handle}`;
     case 'linkedin':
       return `https://www.linkedin.com/${handle}/`;
+    case 'threads':
+      return `https://www.threads.com/@${handle}`;
+    case 'x':
+      return `https://x.com/${handle}`;
     case 'tiktok':
       return `https://www.tiktok.com/@${handle}`;
     case 'youtube':
@@ -208,7 +265,8 @@ export function creatorLink(network: ContentNetwork, handle: string): string {
 
 /** How a creator is shown: "@name" where the network has usernames, else their name there. */
 export function handleShown(network: ContentNetwork, handle: string): string {
-  if (network === 'instagram' || network === 'tiktok') return `@${handle}`;
+  if (network === 'instagram' || network === 'tiktok' || network === 'threads' || network === 'x')
+    return `@${handle}`;
   if (network === 'youtube')
     return handle.startsWith('@') ? handle : (handle.split('/')[1] ?? handle);
   if (network === 'linkedin') return handle.split('/')[1] ?? handle;

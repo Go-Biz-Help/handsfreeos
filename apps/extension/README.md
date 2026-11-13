@@ -1269,14 +1269,14 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
-### Event hosts, Facebook's new Like, and a liked post's Likes box (0.137.1)
+### Event hosts, Facebook's new Like, and a liked post's Likes box (0.139.1)
 
 The problem check of 13 Nov 2026 found three things the readers didn't know yet:
 
 - **An Alignable event showed nobody** (five events in one week's read). A group's event draws its hosts in a part of
   their own (`hosts`), twice (a wide screen's and a narrow one's), under a one-word label that isn't a heading, and its
   guests only as faces and a count. A row around a host's links spanned both copies and took in the event's name, so
-  no host was read and the event had no name. From 0.137.1 (`hostsShown` in `src/networks/alignable/read.ts`) each
+  no host was read and the event had no name. From 0.139.1 (`hostsShown` in `src/networks/alignable/read.ts`) each
   host is read from that part once, by their business: their name from its title, their business and town under it,
   and their business's id from their Connect; the event's name is its details' heading. Only with the event's details
   shown, as a list of events has a part like it on each tile. A link that opened Alignable's own search of events
@@ -1285,11 +1285,11 @@ The problem check of 13 Nov 2026 found three things the readers didn't know yet:
 - **A Facebook like on a visit didn't go** (three on 13 Nov, more from 10 Nov). On a post with no count in it,
   Facebook labels the post's Like with whose post it is, "Like Dana Reyes's post" (the outlines showed three or four
   words before "'s post", the post's only button), which wasn't a Like the reader knew, so it was never pressed. From
-  0.137.1 it's a Like ("Unlike Dana Reyes's post" once pressed), never a comment's ("Like Dana Reyes's comment"). Page
+  0.139.1 it's a Like ("Unlike Dana Reyes's post" once pressed), never a comment's ("Like Dana Reyes's comment"). Page
   outlines keep the words around a name on a post's buttons now ("React with Like to [2 words]'s post"), and
   Facebook's own mark on its Like, so the next change of words shows.
 - **An Instagram post's Likes box wasn't opened** on a post the person had liked: its bar says Unlike, then the count,
-  and only a Like before the count was looked for. From 0.137.1 an Unlike counts too.
+  and only a Like before the count was looked for. From 0.139.1 an Unlike counts too.
 
 ### Likes on reels, in the reels player on Instagram (0.136.1)
 
@@ -1405,6 +1405,45 @@ minute after posting and before any reading:
 - It says what each place showed (`socialcontent.own.read`), or why it couldn't be read ("didn't show the post at its
   link"). A warning keeps the network's words for the day, for both social add-ons, and says nothing: the read is
   asked for again later, since one handed out is put off half an hour.
+
+### Studying creators on Threads and X (0.139.0)
+
+AI Social Media Content Creator's part 17 (`docs/socialcontent.md`, "How it works"; decision 41 in
+`HANDSFREEOS_CONTENT_CREATOR_IMPLEMENTATION_PLAN.md`). Threads and X join the networks it reads (`RESEARCH_NETWORKS`
+in `src/research/run.ts`), by their pages and the readers their kits already have for Social Outreach
+(`src/networks/follows`, the `found` of the tab's `read`), in `src/research/follow-read.ts`:
+
+- **Find creators:** for each of the niche's searches, the network's top posts for it (X's Top, not Latest; Threads'
+  default search), scrolled twice, whose writers are gathered with when they posted; then on X its people search
+  (`&f=user`). Those known and the person's own account are passed over. Up to `most` profiles are then opened and
+  read, and sent ten at a time.
+- **A profile:** its name (none when it's the username), its bio with its link, its followers, when they last posted
+  (from the posts it shows) and their latest posts' likes and replies (`recent`, as Instagram's are sent).
+- **Their posts,** back to `since`: their profile, scrolled until the last of their posts on screen is older than
+  `since`, or three screens bring nothing new. Only their own posts, never a repost or a reply to someone else. The
+  first post is taken as pinned when it went up before the one under it, and never stops the scrolling. A post's key
+  is its number on X (`status/<id>`) and its code on Threads (`post/<code>`); its likes and replies are kept, views
+  aren't read.
+- A sign-in page says to sign in; a page that doesn't show what's read has the AI helper look, then a report, as on
+  Facebook and LinkedIn. Older builds never take Threads or X work: they ask only for the networks they read.
+
+### Putting the business's own posts up on Threads and X (0.138.0)
+
+AI Social Media Content Creator's part 16 (`docs/socialcontent.md`, "Posting"; decision 41 in
+`HANDSFREEOS_CONTENT_CREATOR_IMPLEMENTATION_PLAN.md`). Threads and X join the networks it posts on, from the reading
+window on that network (`src/research/post-short.ts`, called from `postHere`):
+
+- **X:** x.com/compose/post opens X's box over the page: the words in its first box (`tweetTextarea_0`, only while
+  it's empty), the pictures in its file field, then each post of the chain after **Add post** (`addButton`;
+  `tweetTextarea_1`, `_2`…), then **Post** (**Post all** with a chain; `tweetButton`). Its link comes from the note
+  "Your post was sent" (its **View**).
+- **Threads:** its home page's "What's new?" (else **Create** in the side menu) opens its box over the page: the words
+  in its first box, the pictures, each post of the chain after **Add to thread**, then its own **Post**. Its link comes
+  from the note that it posted (its **View**).
+- **Else its link** comes from the top of the person's own profile (their name from the menu's link to it) by its
+  first words. A **Post** the network keeps off (the words run past what it takes) is never pressed: it's said.
+- **How it did** (`src/research/own.ts`): the post's own page, by the network's reader, gives its likes and replies.
+- Older builds never take a Threads or X post: they ask only for the networks they post on.
 
 ### Putting the business's own posts up on Instagram (0.133.0)
 

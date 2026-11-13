@@ -516,6 +516,10 @@ export const SOCIALCONTENT_WORDS = {
       'How many of your own posts the AI writes for each network, and when they go, in your business’s time zone. The Calendar fills two weeks ahead from this. Posts go up from the reading computer, so a time only works while Chrome is open there.',
     perWeek: (network: string) => `Posts a week on ${network}`,
     perWeekOption: (n: number) => (n ? `${n} a week` : 'Off'),
+    /** Threads and X start off, with 5 a week suggested (decision 41). */
+    shortOff: (network: string, n: number) =>
+      `Off for now. About ${n} a week works well on ${network}: short posts, words alone about half the time.`,
+    shortOn: (n: number) => `Post ${n} a week`,
     at: 'at',
     timeFor: (network: string) => `Time for ${network}`,
     /** AI picks or I pick, on each network (decision 21). */
@@ -702,6 +706,14 @@ export const SOCIALCONTENT_WORDS = {
     slides: 'Slides',
     slide: (n: number) => `Slide ${n}`,
     addSlide: 'Add a slide',
+    /** What a post on Threads or X takes, with its tags (decision 41). */
+    characters: (used: number, most: number) => `${used} of ${most} characters, with the tags`,
+    chain: 'More posts under it',
+    chainHint: (network: string) =>
+      `For a longer tip: each goes under the one before, as a thread on ${network}. Up to 4.`,
+    chainPost: (n: number) => `Post ${n}`,
+    addChainPost: 'Add a post under it',
+    removeChainPost: (n: number) => `Remove post ${n}`,
     script: 'Script',
     lines: 'What to say',
     shots: 'What to film',

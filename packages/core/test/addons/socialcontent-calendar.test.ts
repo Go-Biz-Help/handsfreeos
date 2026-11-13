@@ -9,12 +9,14 @@ import {
   AI_FORMATS,
   CALENDAR,
   DEFAULT_PLAN,
+  chainFor,
   formatFor,
   placesFor,
   placesLeft,
   planOf,
   POSTING,
   postsAWeek,
+  SHORT_POSTS,
   postText,
   stillNeeds,
   weekOf,
@@ -35,6 +37,7 @@ import {
   checkedPost,
   designOf,
   photoPromptFor,
+  shortWords,
   tidyHashtags,
   WRITE_SCHEMA,
   WRITE_SYSTEM,
@@ -178,6 +181,22 @@ describe('checking what the AI writes', () => {
     expect(post.words).toBe('Here’s how to get it back.\n\nSave this for later.');
     expect(post.hashtags).toEqual(['CRM', 'smallbusiness', 'automation']);
     expect(tidyHashtags(['a', 'b', 'c'], 2)).toEqual(['a', 'b']);
+  });
+
+  it('keeps a post on X or Threads within what it takes, with its tag or two and its chain (decision 41)', () => {
+    const long =
+      'Texts pile up while you work. ' +
+      'Answer them in one place and stop missing jobs. '.repeat(8);
+    const onX = checkedPost(answer({ words: long, chain: ['Step one.', 'Step two.'] }), 'x')!;
+    expect(onX.hashtags).toEqual(['CRM', 'smallbusiness']);
+    expect(postText('x', onX.words, onX.hashtags).length).toBeLessThanOrEqual(280);
+    expect(onX.words.endsWith('.')).toBe(true);
+    expect(onX.chain).toEqual(['Step one.', 'Step two.']);
+    const onThreads = checkedPost(answer({ format: 'carousel' }), 'threads')!;
+    expect(onThreads.hashtags).toEqual(['CRM']);
+    expect(onThreads.format).toBe('photo');
+    expect(shortWords('linkedin', long, [])).toBe(long);
+    expect(checkedPost(answer({ chain: ['More'] }), 'instagram')!.chain).toEqual([]);
   });
 
   it('turns words alone into a picture post on Instagram', () => {
@@ -325,8 +344,8 @@ describe('putting posts up (part 9)', () => {
     expect(long.endsWith('…\n\n#tag')).toBe(true);
   });
 
-  it('posts on Facebook and LinkedIn (part 9), and Instagram (part 10)', () => {
-    expect(POSTING.networks).toEqual(['facebook', 'linkedin', 'instagram']);
+  it('posts on Facebook and LinkedIn (part 9), Instagram (part 10), and Threads and X (decision 41)', () => {
+    expect(POSTING.networks).toEqual(['facebook', 'linkedin', 'instagram', 'threads', 'x']);
   });
 
   it('says whose computer puts the OK’d posts up, and warns when it’s quiet or there’s none', () => {
@@ -428,5 +447,57 @@ describe('the Calendar’s days and times, as the web and the phone both show th
     expect(planShown(plan, ['instagram', 'facebook', 'linkedin'], name)).toBe(
       'Your plan: Instagram: 10 posts a week, up to 2 a day, at the times the AI picks · Facebook: 3 posts a week at your times · Linkedin: off. Change the plan in Settings.',
     );
+  });
+});
+
+describe('Threads and X (decision 41)', () => {
+  const ready: ReadyCheck = {
+    network: 'x',
+    format: 'text',
+    words: 'Three ways to save time this week.',
+    slides: [],
+    fileIds: [],
+    videos: 0,
+    postAt: '2026-11-11T15:00:00Z',
+    facebookWhere: [],
+  };
+
+  it('takes 280 characters on X and 500 on Threads, with a tag or two', () => {
+    expect(POSTING.textMost.x).toBe(280);
+    expect(POSTING.textMost.threads).toBe(500);
+    expect(SHORT_POSTS.tagsMost).toEqual({ threads: 1, x: 2 });
+    expect(SHORT_POSTS.suggestedPerWeek).toBe(5);
+    const long = postText('x', 'y'.repeat(400), ['crm']);
+    expect(long.length).toBeLessThanOrEqual(280);
+    expect(long.endsWith('…\n\n#crm')).toBe(true);
+  });
+
+  it('never makes a carousel there: a picture instead', () => {
+    expect(formatFor('x', 'carousel')).toBe('photo');
+    expect(formatFor('threads', 'carousel')).toBe('photo');
+    expect(formatFor('instagram', 'carousel')).toBe('carousel');
+    expect(formatFor('x', 'text')).toBe('text');
+  });
+
+  it('keeps a chain of up to 4 more posts, each within what the network takes, and none elsewhere', () => {
+    const chain = chainFor('x', [' One ', '', 'z'.repeat(300), 'Three', 'Four', 'Five']);
+    expect(chain).toHaveLength(SHORT_POSTS.chainMost);
+    expect(chain[0]).toBe('One');
+    expect(chain[1]!.length).toBeLessThanOrEqual(280);
+    expect(chainFor('threads', ['More'])).toEqual(['More']);
+    expect(chainFor('linkedin', ['More'])).toEqual([]);
+  });
+
+  it('won’t OK words and tags, or a post in the chain, longer than the network takes', () => {
+    expect(stillNeeds(ready)).toBeNull();
+    expect(stillNeeds({ ...ready, words: 'w'.repeat(275), hashtags: ['crm'] })).toMatch(
+      /run past the 280 characters X takes/,
+    );
+    expect(stillNeeds({ ...ready, words: 'w'.repeat(270), hashtags: ['crm'] })).toBeNull();
+    expect(stillNeeds({ ...ready, network: 'threads', chain: ['ok', 't'.repeat(501)] })).toMatch(
+      /Post 3 in its chain runs past the 500 characters Threads takes/,
+    );
+    // Elsewhere the words are cut to fit when posted, as before.
+    expect(stillNeeds({ ...ready, network: 'linkedin', words: 'w'.repeat(4_000) })).toBeNull();
   });
 });

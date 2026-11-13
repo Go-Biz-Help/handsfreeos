@@ -6,8 +6,11 @@ import {
 } from '@hfos/core/addons/socialcontent/networks';
 import {
   CALENDAR,
+  isShortNetwork,
   PLAN_MODES,
   POSTING_NETWORKS,
+  postsAWeek,
+  SHORT_POSTS,
   type NetworkPlan,
   type PostingNetwork,
 } from '@hfos/core/addons/socialcontent/calendar';
@@ -540,6 +543,23 @@ export function PlanBlock({
         ))}
       </View>
       <Note>{S.modeHints[plan.mode]}</Note>
+      {isShortNetwork(network) && postsAWeek(plan) === 0 ? (
+        <View className="gap-2" testID={`${tid}-off`}>
+          <Text className="text-[13px] text-text-2">
+            {S.shortOff(name, SHORT_POSTS.suggestedPerWeek)}
+          </Text>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="self-start"
+            disabled={off}
+            onPress={() => onChange({ mode: 'ai', perWeek: SHORT_POSTS.suggestedPerWeek })}
+            testID={`${tid}-on`}
+          >
+            {S.shortOn(SHORT_POSTS.suggestedPerWeek)}
+          </Button>
+        </View>
+      ) : null}
       {plan.mode === 'ai' ? (
         <>
           <Label>{S.perWeek(name)}</Label>

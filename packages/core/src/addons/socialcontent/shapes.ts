@@ -309,6 +309,8 @@ export const PlanShape = z.object({
   instagram: NetworkPlanShape,
   facebook: NetworkPlanShape,
   linkedin: NetworkPlanShape,
+  threads: NetworkPlanShape,
+  x: NetworkPlanShape,
 });
 /** A change to the plan: for each network given, only the parts that change. */
 export const PlanSaveShape = z.partialRecord(z.enum(POSTING_NETWORKS), NetworkPlanShape.partial());
@@ -324,6 +326,8 @@ export const LearnedPlanShape = z.object({
   instagram: LearnedShape,
   facebook: LearnedShape,
   linkedin: LearnedShape,
+  threads: LearnedShape,
+  x: LearnedShape,
 });
 
 export const Settings = z.object({

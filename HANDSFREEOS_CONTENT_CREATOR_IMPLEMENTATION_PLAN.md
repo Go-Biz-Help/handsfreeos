@@ -201,3 +201,29 @@ whole graphics and a check on every picture (decision 40).
     whole graphics (`check-ai.ts`). Migration 026500 adds the kind and topic
     to posts and ideas, an idea's source, the search's price, and runs the calendar half an hour later so the drafts
     are written again.
+
+## Threads and X (Chris, 2026-11-13)
+
+The owner asked (14:32 UTC): "I want to add Threads and X to the social media outreach and social media content creator
+add ons". Social Outreach's side is decision 163 in docs/outreach.md. For this add-on three questions went back, and the
+owner picked "9a 10b 11a" (16:xx UTC, beside the outreach picks): posting first, then studying creators there; short
+posts with a picture about half the time and chains of posts for a longer tip; both start off.
+
+| Question                 | Answer                                                                                                                                                                                                                                         |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 41. What comes first     | **Posting the business's own posts on Threads and X first** (part 16), **then studying creators there** (part 17).                                                                                                                             |
+| 41. What a post there is | **X up to 280 characters, Threads up to 500, tags included.** Words alone about half the time and one picture otherwise, never a carousel; one topic tag on Threads, 1 or 2 hashtags on X; **a chain of up to 4 more posts** for a longer tip. |
+| 41. How they start       | **Both off.** A person turns one on in Settings → Posting, where **5 a week** is suggested, still at most 3 a day.                                                                                                                             |
+
+### The parts
+
+16. **Posting on Threads and X.** The networks join the posting plan (off, 5 a week suggested), the writer's ways for
+    each (short, a tag or two, a chain for a longer tip), their own mix of words alone and pictures, a character count
+    and the chain on the post's screen, a refusal to OK words that run past what the network takes, and the extension
+    (0.138.0) putting posts up there, chains included, and reading their likes and replies. Migration 026900 lets
+    every table name the two networks and adds `content.chain`.
+17. **Studying creators on Threads and X.** Threads and X turned on under Settings → Networks (`ready`), and the
+    extension (0.139.0, `follow-read.ts`) finding creators there by the niche's top posts (and X's people search),
+    reading their profiles (followers, bio, when they last posted, their latest posts' likes and replies) and their own
+    posts back 12 months, a pinned one kept as pinned. New niches get searches for both; an older one's name is
+    searched there until it's written again. Needs part 16's migration 026900 for the settings to take the two.

@@ -15,8 +15,11 @@ import {
 import {
   CALENDAR,
   FACEBOOK_WHERE,
+  isShortNetwork,
   PLAN_MODES,
   POSTING_NETWORKS,
+  postsAWeek,
+  SHORT_POSTS,
   type FacebookWhere,
   type NetworkPlan,
   type PostingNetwork,
@@ -407,6 +410,25 @@ function PlanRow({
         />
       </div>
       <p className="mt-1 text-[12.5px] text-text-3">{S.modeHints[plan.mode]}</p>
+      {isShortNetwork(network) && postsAWeek(plan) === 0 ? (
+        <div
+          className="mt-2 flex flex-wrap items-center gap-2"
+          data-testid={`socialcontent-plan-${network}-off`}
+        >
+          <p className="min-w-0 flex-1 text-[12.5px] text-text-2">
+            {S.shortOff(name, SHORT_POSTS.suggestedPerWeek)}
+          </p>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={off}
+            data-testid={`socialcontent-plan-${network}-on`}
+            onClick={() => onChange({ mode: 'ai', perWeek: SHORT_POSTS.suggestedPerWeek })}
+          >
+            {S.shortOn(SHORT_POSTS.suggestedPerWeek)}
+          </Button>
+        </div>
+      ) : null}
       {plan.mode === 'ai' ? (
         <>
           <div className="mt-2 flex flex-wrap items-center gap-2">

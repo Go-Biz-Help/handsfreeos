@@ -299,6 +299,7 @@ async function keep(
         words: post.words,
         hashtags: post.hashtags,
         slides: post.slides,
+        chain: post.chain,
         script: post.script,
         picture: post.picture,
         pictureWay: post.pictureWay,
@@ -705,6 +706,7 @@ async function writePlanned(
       fact: !!idea?.source_url,
       format: post.format,
       photo: post.pictureWay === 'photo',
+      network: p.slot.network,
     });
     written++;
   }

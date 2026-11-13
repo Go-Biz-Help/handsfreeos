@@ -15940,7 +15940,7 @@
           },
           "network": {
             "type": "string",
-            "enum": ["instagram", "facebook", "linkedin"]
+            "enum": ["instagram", "facebook", "linkedin", "threads", "x"]
           },
           "format": {
             "type": "string",
@@ -15967,6 +15967,14 @@
             "items": {
               "type": "string",
               "maxLength": 41
+            }
+          },
+          "chain": {
+            "maxItems": 4,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 500
             }
           },
           "slides": {
@@ -16095,7 +16103,7 @@
           },
           "network": {
             "type": "string",
-            "enum": ["instagram", "facebook", "linkedin", "tiktok", "youtube"]
+            "enum": ["instagram", "facebook", "linkedin", "threads", "x", "tiktok", "youtube"]
           }
         },
         "required": ["workspaceId", "link"]
@@ -16132,7 +16140,7 @@
           },
           "network": {
             "type": "string",
-            "enum": ["instagram", "facebook", "linkedin", "tiktok", "youtube"]
+            "enum": ["instagram", "facebook", "linkedin", "threads", "x", "tiktok", "youtube"]
           }
         },
         "required": ["workspaceId"]
@@ -16226,11 +16234,11 @@
           },
           "networks": {
             "minItems": 1,
-            "maxItems": 5,
+            "maxItems": 7,
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["instagram", "facebook", "linkedin", "tiktok", "youtube"]
+              "enum": ["instagram", "facebook", "linkedin", "threads", "x", "tiktok", "youtube"]
             }
           },
           "readerUserId": {
@@ -16251,7 +16259,7 @@
             "type": "object",
             "propertyNames": {
               "type": "string",
-              "enum": ["instagram", "facebook", "linkedin"]
+              "enum": ["instagram", "facebook", "linkedin", "threads", "x"]
             },
             "additionalProperties": {
               "type": "object",
@@ -18548,7 +18556,7 @@
           },
           "network": {
             "type": "string",
-            "enum": ["instagram", "facebook", "linkedin", "tiktok", "youtube"]
+            "enum": ["instagram", "facebook", "linkedin", "threads", "x", "tiktok", "youtube"]
           }
         },
         "required": ["workspaceId"]
@@ -18624,7 +18632,7 @@
           },
           "network": {
             "type": "string",
-            "enum": ["instagram", "facebook", "linkedin", "tiktok", "youtube"]
+            "enum": ["instagram", "facebook", "linkedin", "threads", "x", "tiktok", "youtube"]
           },
           "before": {
             "type": "string",

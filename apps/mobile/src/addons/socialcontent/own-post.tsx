@@ -9,10 +9,14 @@ import {
 import {
   CONTENT_FORMATS,
   FACEBOOK_WHERE,
+  formatFor,
   hasPictures,
+  isShortNetwork,
   POSTING,
   POSTING_NETWORKS,
+  postLength,
   postText,
+  SHORT_POSTS,
   type ContentFormat,
   type FacebookWhere,
   type PostingNetwork,
@@ -280,6 +284,8 @@ export interface PostDraft {
   readonly hook: string;
   readonly hashtags: string;
   readonly slides: readonly { heading: string; body: string }[];
+  /** The posts under the first on Threads and X (decision 41). */
+  readonly chain: readonly string[];
   readonly lines: string;
   readonly shots: string;
   readonly facebookWhere: readonly FacebookWhere[];
@@ -299,6 +305,7 @@ export function draftOf(p: Content, timeZone: string): PostDraft {
     hook: p.hook ?? '',
     hashtags: p.hashtags.join(' '),
     slides: p.slides.map((s) => ({ ...s })),
+    chain: [...(p.chain ?? [])],
     lines: p.script?.lines.join('\n') ?? '',
     shots: p.script?.shots.join('\n') ?? '',
     facebookWhere: [...p.facebookWhere],
@@ -306,6 +313,8 @@ export function draftOf(p: Content, timeZone: string): PostDraft {
     time: p.postAt ? clockOf(p.postAt, timeZone) : '09:00',
   };
 }
+
+const hashtagsOf = (s: string) => s.split(/[\s,]+/).filter(Boolean);
 
 const lines = (s: string) =>
   s
@@ -324,6 +333,7 @@ export function saveInput(p: Content, d: PostDraft, timeZone: string) {
     hook: d.hook.trim() || null,
     hashtags: d.hashtags.split(/[\s,]+/).filter(Boolean),
     slides: d.slides.map((s) => ({ ...s })),
+    chain: isShortNetwork(d.network) ? d.chain.filter((t) => t.trim()) : [],
     script: d.format === 'video' ? { lines: lines(d.lines), shots: lines(d.shots) } : null,
     facebookWhere: [...d.facebookWhere],
     postAt: d.day ? new Date(localInstant(d.day, d.time || '09:00', timeZone)).toISOString() : null,
@@ -718,7 +728,10 @@ export function PostBody({
                 label={networkName(n)}
                 on={d.network === n}
                 disabled={!changeable}
-                onPress={() => set('network', n)}
+                // A format the network doesn't take turns into one it does (no carousel on Threads or X).
+                onPress={() =>
+                  setD((x) => (x ? { ...x, network: n, format: formatFor(n, x.format) } : x))
+                }
                 testID={`socialcontent-post-network-${n}`}
               />
             ))}
@@ -726,18 +739,20 @@ export function PostBody({
         </Field>
         <Field label={W.post.format}>
           <Chips>
-            {CONTENT_FORMATS.filter((f) => !(f === 'text' && d.network === 'instagram')).map(
-              (f) => (
-                <FilterChip
-                  key={f}
-                  label={W.post.formats[f]}
-                  on={d.format === f}
-                  disabled={!changeable}
-                  onPress={() => set('format', f)}
-                  testID={`socialcontent-post-format-${f}`}
-                />
-              ),
-            )}
+            {CONTENT_FORMATS.filter(
+              (f) =>
+                !(f === 'text' && d.network === 'instagram') &&
+                !(f === 'carousel' && isShortNetwork(d.network)),
+            ).map((f) => (
+              <FilterChip
+                key={f}
+                label={W.post.formats[f]}
+                on={d.format === f}
+                disabled={!changeable}
+                onPress={() => set('format', f)}
+                testID={`socialcontent-post-format-${f}`}
+              />
+            ))}
           </Chips>
         </Field>
         <Field label={W.post.when} hint={d.day ? null : W.post.noDay}>
@@ -839,7 +854,84 @@ export function PostBody({
             testID="socialcontent-post-hashtags"
           />
         </Field>
+        {isShortNetwork(d.network) ? (
+          <Text
+            className={cn(
+              'text-[12.5px]',
+              postLength(d.words, hashtagsOf(d.hashtags)) > POSTING.textMost[d.network]
+                ? 'text-danger-text'
+                : 'text-text-3',
+            )}
+            testID="socialcontent-post-characters"
+          >
+            {W.post.characters(
+              postLength(d.words, hashtagsOf(d.hashtags)),
+              POSTING.textMost[d.network],
+            )}
+          </Text>
+        ) : null}
       </Card>
+
+      {isShortNetwork(d.network) ? (
+        <Card className="gap-3 p-4" testID="socialcontent-post-chain">
+          <View className="gap-0.5">
+            <Group>{W.post.chain}</Group>
+            <Text className="text-[12.5px] text-text-3">
+              {W.post.chainHint(networkName(d.network))}
+            </Text>
+          </View>
+          {d.chain.map((t, i) => (
+            <View key={i} className="gap-2 rounded-card border border-border p-3">
+              <View className="flex-row items-center">
+                <Text className="flex-1 text-[12.5px] text-text-3">
+                  {W.post.chainPost(i + 2)} · {t.trim().length}/{POSTING.textMost[d.network]}
+                </Text>
+                {changeable ? (
+                  <Pressable
+                    role="button"
+                    accessibilityLabel={W.post.removeChainPost(i + 2)}
+                    hitSlop={8}
+                    onPress={() =>
+                      set(
+                        'chain',
+                        d.chain.filter((_, j) => j !== i),
+                      )
+                    }
+                  >
+                    <Icon as={X} className="size-4 text-text-3" />
+                  </Pressable>
+                ) : null}
+              </View>
+              <Input
+                value={t}
+                maxLength={POSTING.textMost[d.network]}
+                multiline
+                editable={changeable}
+                className="min-h-[64px] py-2.5"
+                textAlignVertical="top"
+                onChangeText={(v) =>
+                  set(
+                    'chain',
+                    d.chain.map((x, j) => (j === i ? v : x)),
+                  )
+                }
+                testID={`socialcontent-post-chain-${i}`}
+              />
+            </View>
+          ))}
+          {changeable && d.chain.length < SHORT_POSTS.chainMost ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="self-start"
+              onPress={() => set('chain', [...d.chain, ''])}
+              testID="socialcontent-post-chain-add"
+            >
+              {W.post.addChainPost}
+            </Button>
+          ) : null}
+        </Card>
+      ) : null}
 
       {d.format === 'carousel' ? (
         <Card className="gap-3 p-4" testID="socialcontent-post-slides">

@@ -20,6 +20,7 @@ import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand } from '../../server';
 import {
+  chainFor,
   hasPictures,
   isPostingNetwork,
   placesFor,
@@ -103,6 +104,8 @@ export const postNext = defineAddonCommand(socialcontentAddon, {
             failure = case network
               when 'facebook' then ${W.posting.unsure(networkName('facebook'))}
               when 'linkedin' then ${W.posting.unsure(networkName('linkedin'))}
+              when 'threads' then ${W.posting.unsure(networkName('threads'))}
+              when 'x' then ${W.posting.unsure(networkName('x'))}
               else ${W.posting.unsure(networkName('instagram'))} end
           where workspace_id = ${ws} and state = 'posting'
             and coalesce(posting_at, updated_at) < now() - make_interval(secs => ${POSTING.postingForMs / 1000})
@@ -177,6 +180,8 @@ export const postNext = defineAddonCommand(socialcontentAddon, {
           network,
           format: c.format,
           text: postText(network, c.words, c.hashtags),
+          // Threads and X (decision 41): the posts under it, as a chain.
+          chain: chainFor(network, c.chain ?? []),
           // A video post sends its video; the rest send their pictures, in order.
           files: (c.format === 'video'
             ? files.filter((f) => f.mimeType?.startsWith('video/')).slice(0, 1)
@@ -316,6 +321,8 @@ export const contentPostNow = defineAddonCommand(socialcontentAddon, {
       network: c.network,
       format: c.format,
       words: c.words,
+      hashtags: c.hashtags,
+      chain: c.chain ?? [],
       slides: Array.isArray(c.slides) ? c.slides : [],
       fileIds: shown!.pictures.map((p) => p.fileId),
       videos: shown!.pictures.filter((p) => p.mimeType?.startsWith('video/')).length,

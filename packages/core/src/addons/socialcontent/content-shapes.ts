@@ -12,7 +12,9 @@ import {
   PICTURE_STATES,
   PICTURE_WAYS,
   POST_PLACES,
+  POSTING,
   POSTING_NETWORKS,
+  SHORT_POSTS,
 } from './calendar';
 import { OWN_READS } from './own';
 import { POST_LIMITS } from './posts-ai';
@@ -84,6 +86,8 @@ export const Content = z.object({
   words: z.string(),
   hook: z.string().nullable(),
   hashtags: z.array(z.string()),
+  /** Threads and X (decision 41): the posts under the first in a chain, in order; empty everywhere else. */
+  chain: z.array(z.string()),
   slides: z.array(z.object({ heading: z.string(), body: z.string() })),
   script: z.object({ lines: z.array(z.string()), shots: z.array(z.string()) }).nullable(),
   /** What its picture shows, or what to shoot. */
@@ -207,6 +211,8 @@ export const ContentSaveInput = z.object({
     .array(z.string().max(POST_LIMITS.hashtag + 1))
     .max(30)
     .optional(),
+  /** Threads and X (decision 41): the posts under the first, in order; an empty one is left out. */
+  chain: z.array(z.string().max(POSTING.textMost.threads)).max(SHORT_POSTS.chainMost).optional(),
   slides: z.array(SlideShape).max(CALENDAR.slidesMost).optional(),
   script: ScriptShape.nullable().optional(),
   picture: z.string().trim().max(POST_LIMITS.picture).nullable().optional(),
@@ -272,6 +278,8 @@ export const DuePost = z.object({
   format: ContentFormat,
   /** The words as they go up, hashtags at the end. */
   text: z.string(),
+  /** Threads and X (decision 41): the posts that go under it, in order, as a chain. */
+  chain: z.array(z.string()).default([]),
   files: z.array(PostFile),
   /** Where it still goes up, in order: places it went up already are left out. */
   places: z.array(PostPlace),
@@ -351,6 +359,7 @@ export const WrittenPostShape = z.object({
   hook: z.string().max(POST_LIMITS.hook).nullable(),
   words: z.string().max(3000),
   hashtags: z.array(z.string().max(POST_LIMITS.hashtag)).max(30),
+  chain: z.array(z.string().max(POSTING.textMost.threads)).max(SHORT_POSTS.chainMost).default([]),
   slides: z.array(SlideShape).max(CALENDAR.slidesMost),
   script: ScriptShape.nullable(),
   picture: z.string().max(POST_LIMITS.picture).nullable(),

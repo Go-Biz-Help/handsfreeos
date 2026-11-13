@@ -20,8 +20,12 @@ import { noDashes, PLAIN_WRITING } from '../../writing';
 import {
   AI_FORMATS,
   CALENDAR,
+  chainFor,
   formatFor,
+  isShortNetwork,
   PICTURE_WAYS,
+  POSTING,
+  SHORT_POSTS,
   type ContentFormat,
   type PictureWay,
 } from './calendar';
@@ -73,6 +77,9 @@ const NETWORK_WAYS: Readonly<Record<ContentNetwork, string>> = {
     'Facebook: talk like a neighbour. A story or a question works well. A clear ask at the end. Up to 3 hashtags, or none.',
   linkedin:
     'LinkedIn: open with one strong line, then short paragraphs with a lesson or result from the business’s work. End with a question. Up to 3 hashtags.',
+  threads:
+    'Threads: talk like a person in a conversation, plain and friendly. One short post of at most 450 characters with its tag, the hook as its first line, often ending with a question that starts replies. One topic tag (one hashtag) that fits the business and its niche, or none.',
+  x: 'X: one sharp post of at most 250 characters with its hashtags: the hook, then the point, nothing padded. 1 or 2 hashtags, or none.',
   tiktok: 'TikTok: a quick hook, then the point. Up to 5 hashtags.',
   youtube: 'YouTube: a title-like first line, then what the video covers.',
 };
@@ -84,7 +91,8 @@ const STYLE = [
 
 export const WRITE_SYSTEM = [
   'You write social media posts for a small business, using what it knows about itself and a Playbook of what works for creators in its niche.',
-  'You write one post for one network. Pick its format: photo (one picture), carousel (2 to 10 slides people swipe), or text (words alone, Facebook and LinkedIn only). Never a video: every post is words with pictures, or words alone. When the idea or the post before was a video or a reel, make it a photo or carousel post that makes the same point.',
+  'You write one post for one network. Pick its format: photo (one picture), carousel (2 to 10 slides people swipe, never on Threads or X), or text (words alone: Facebook, LinkedIn, Threads and X only). Never a video: every post is words with pictures, or words alone. When the idea or the post before was a video or a reel, make it a photo or carousel post that makes the same point.',
+  'On Threads and X a tip with steps, or a story, that won’t fit one short post can be a chain: the first post as its words, then up to 4 more posts in chain, each one short post that reads on its own and follows from the one before, with no hashtags and no numbering like "1/5". Keep most posts single; use a chain only when the post truly needs the room. Everywhere else chain is empty.',
   'Give it a short title to know it by; its hook; its words (the caption, with the hook as the first line); its hashtags, without the # sign; and for a carousel, each slide’s heading and a line or two of body.',
   `For its picture, say what it shows in one or two sentences, and how it's made: "design" for a picture with words on it (tips, steps, a quote, a big claim, a carousel's slides); "photo" for a lifelike scene an image AI makes from your photoPrompt, with a few words laid over it like a Canva design (people, places, objects, never a real person or brand by name; on a carousel, the photo goes under the first slide); "own" when only a real photo of the business, its team or its work will do, so the person takes it.`,
   'When you’re told how to show it (a carousel, one picture or words alone, and whether its picture has a photo), show it that way.',
@@ -114,6 +122,7 @@ export const WRITE_SCHEMA: Record<string, unknown> = {
     'pictureWay',
     'photoPrompt',
     'angle',
+    'chain',
   ],
   properties: {
     title: { type: 'string' },
@@ -134,6 +143,7 @@ export const WRITE_SCHEMA: Record<string, unknown> = {
     pictureWay: { type: 'string', enum: [...PICTURE_WAYS] },
     photoPrompt: { type: 'string' },
     angle: { type: 'string', enum: [...ANGLES] },
+    chain: { type: 'array', items: { type: 'string' } },
   },
 };
 
@@ -150,6 +160,8 @@ export const WriteAnswer = z.object({
   pictureWay: z.string().catch('design'),
   photoPrompt: z.string().nullable().catch(null),
   angle: z.string().nullable().catch(null),
+  /** Threads and X (decision 41): the posts under the first, for a longer tip. */
+  chain: z.array(z.string()).catch([]).optional(),
 });
 export type WriteAnswer = z.infer<typeof WriteAnswer>;
 
@@ -177,6 +189,8 @@ export interface WrittenPost {
   readonly photoPrompt: string | null;
   /** The kind of post it is in the mix (decision 36): the one asked for, else the one the AI says it wrote. */
   readonly angle: Angle | null;
+  /** Threads and X (decision 41): the posts under the first in a chain; empty everywhere else. */
+  readonly chain: string[];
 }
 
 export interface WriteInput {
@@ -337,7 +351,15 @@ export function checkedPost(
   kind: Angle | null = null,
   look: Look | null = null,
 ): WrittenPost | null {
-  const words = tidyLines(withoutTrailingTags(answer.words), POST_LIMITS.words);
+  // Threads and X (decision 41): their few tags, and the words with them within what the network takes.
+  const hashtags = isShortNetwork(network)
+    ? tidyHashtags(answer.hashtags, SHORT_POSTS.tagsMost[network])
+    : tidyHashtags(answer.hashtags);
+  const words = shortWords(
+    network,
+    tidyLines(withoutTrailingTags(answer.words), POST_LIMITS.words),
+    hashtags,
+  );
   // The planned look's format, when there is one (decision 39), else the one the AI picked.
   const format = formatFor(
     network,
@@ -372,14 +394,38 @@ export function checkedPost(
     format: tooFew ? 'photo' : format,
     hook: tidy(answer.hook, POST_LIMITS.hook),
     words,
-    hashtags: tidyHashtags(answer.hashtags),
+    hashtags,
     slides: tooFew ? [] : slides,
     script: null,
     picture: tidy(answer.picture, POST_LIMITS.picture),
     pictureWay: pictureWay === 'photo' && !photoPrompt ? 'design' : pictureWay,
     photoPrompt,
     angle: kind ?? (isAngle(answer.angle) ? answer.angle : null),
+    chain: chainFor(
+      network,
+      (answer.chain ?? []).map((t) => tidyLines(withoutTrailingTags(t), POST_LIMITS.words)),
+    ),
   };
+}
+
+/**
+ * A short network's words (decision 41), cut at a sentence or a word to fit beside its tags, so the post goes up whole;
+ * any other network's as they are.
+ */
+export function shortWords(
+  network: ContentNetwork,
+  words: string,
+  hashtags: readonly string[],
+): string {
+  if (!isShortNetwork(network)) return words;
+  const tags = hashtags.length ? 2 + hashtags.reduce((n, t) => n + t.length + 2, -1) : 0;
+  const room = POSTING.textMost[network] - tags;
+  if (words.length <= room) return words;
+  const cut = words.slice(0, room - 1);
+  const sentence = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('? '), cut.lastIndexOf('! '));
+  if (sentence > room / 2) return cut.slice(0, sentence + 1).trim();
+  const space = cut.lastIndexOf(' ');
+  return `${(space > room / 2 ? cut.slice(0, space) : cut).trimEnd()}…`;
 }
 
 // ------------------------------------------------------------------------------------------------ designs

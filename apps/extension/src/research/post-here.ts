@@ -13,6 +13,7 @@
  * - **Instagram (part 10):** **Create** in its side menu (then **Post**, when Instagram asks which kind), the pictures
  *   or the person's video into Create new post's file field, **OK** when Instagram says a video goes up as a reel,
  *   **Next** past cropping and editing, then the words in its caption box (only while it's empty) and **Share**.
+ * - **Threads and X (decision 41):** their own box, with each post of a chain in a box of its own (./post-short.ts).
  *
  * Pictures and the person's video come in as files from HandsFreeOS (the background fetches them). They're added the
  * ways a person can: the box's own file field (`input[type=file]`), pasting them into the words, the network's photo
@@ -25,6 +26,7 @@
 import { clean, labelOf } from '../networks/facebook/dom';
 import { shown } from '../networks/facebook/fetch';
 import { putPostIn } from '../networks/post-text';
+import { postShort } from './post-short';
 
 /** A file to add, as the background fetched it. */
 export interface PostFileIn {
@@ -33,13 +35,18 @@ export interface PostFileIn {
   readonly base64: string;
 }
 
-/** Which composer: Facebook's over its feed, Business Suite's for a Page, LinkedIn's over its feed, or Instagram's. */
-export type PostWhere = 'facebook' | 'business' | 'linkedin' | 'instagram';
+/**
+ * Which composer: Facebook's over its feed, Business Suite's for a Page, LinkedIn's over its feed, Instagram's, or
+ * Threads' or X's (decision 41, ./post-short.ts).
+ */
+export type PostWhere = 'facebook' | 'business' | 'linkedin' | 'instagram' | 'threads' | 'x';
 
 export interface PostAsk {
   readonly where: PostWhere;
   readonly text: string;
   readonly files: readonly PostFileIn[];
+  /** On Threads and X: the posts that go under the first, each in a box of its own. */
+  readonly chain?: readonly string[];
 }
 
 /**
@@ -557,6 +564,17 @@ export async function postHere(doc: Document, ask: PostAsk): Promise<PostDone> {
     steps,
   });
   if (ask.where === 'instagram') return instagramPost(doc, ask, steps, end);
+  if (ask.where === 'threads' || ask.where === 'x')
+    return postShort(
+      doc,
+      { where: ask.where, text: ask.text, chain: ask.chain ?? [], files: ask.files },
+      {
+        addFiles: (box, writing, files) => addFiles(doc, box, writing, files, steps),
+        filesOf: (files) => filesOf(doc, files),
+        end,
+        steps,
+      },
+    );
   const find = ask.where === 'business' ? businessComposer : composerIn;
   let box = find(doc);
   if (!box && ask.where !== 'business') {

@@ -117347,7 +117347,7 @@
     "/v1/commands/socialcontent.settings.save": {
       "post": {
         "operationId": "command_socialcontent_settings_save",
-        "summary": "Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (for each of Instagram, Facebook and LinkedIn: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times on each weekday), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away), and whether it picks niches and creators on its own (the business’s own niche and the 2 closest, and the best 10 creators on each network, swapped once a month). What isn’t given stays as it is.",
+        "summary": "Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (for each of Instagram, Facebook, LinkedIn, Threads and X: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times on each weekday), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away), and whether it picks niches and creators on its own (the business’s own niche and the 2 closest, and the best 10 creators on each network, swapped once a month). What isn’t given stays as it is.",
         "tags": [
           "commands"
         ],
@@ -117366,7 +117366,7 @@
                   },
                   "networks": {
                     "minItems": 1,
-                    "maxItems": 5,
+                    "maxItems": 7,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -117374,6 +117374,8 @@
                         "instagram",
                         "facebook",
                         "linkedin",
+                        "threads",
+                        "x",
                         "tiktok",
                         "youtube"
                       ]
@@ -117401,7 +117403,9 @@
                       "enum": [
                         "instagram",
                         "facebook",
-                        "linkedin"
+                        "linkedin",
+                        "threads",
+                        "x"
                       ]
                     },
                     "additionalProperties": {
@@ -117513,6 +117517,8 @@
                           "instagram",
                           "facebook",
                           "linkedin",
+                          "threads",
+                          "x",
                           "tiktok",
                           "youtube"
                         ]
@@ -117745,12 +117751,142 @@
                             "week"
                           ],
                           "additionalProperties": false
+                        },
+                        "threads": {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "ai",
+                                "mine"
+                              ]
+                            },
+                            "perWeek": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 21
+                            },
+                            "perDay": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 3
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "from": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "to": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "time": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "week": {
+                              "minItems": 7,
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "maxItems": 3,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                }
+                              }
+                            }
+                          },
+                          "required": [
+                            "mode",
+                            "perWeek",
+                            "perDay",
+                            "from",
+                            "to",
+                            "time",
+                            "week"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "x": {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "ai",
+                                "mine"
+                              ]
+                            },
+                            "perWeek": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 21
+                            },
+                            "perDay": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 3
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "from": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "to": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "time": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "week": {
+                              "minItems": 7,
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "maxItems": 3,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                }
+                              }
+                            }
+                          },
+                          "required": [
+                            "mode",
+                            "perWeek",
+                            "perDay",
+                            "from",
+                            "to",
+                            "time",
+                            "week"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
                         "instagram",
                         "facebook",
-                        "linkedin"
+                        "linkedin",
+                        "threads",
+                        "x"
                       ],
                       "additionalProperties": false
                     },
@@ -117875,6 +118011,8 @@
                           "instagram",
                           "facebook",
                           "linkedin",
+                          "threads",
+                          "x",
                           "tiktok",
                           "youtube"
                         ]
@@ -118002,6 +118140,8 @@
                           "instagram",
                           "facebook",
                           "linkedin",
+                          "threads",
+                          "x",
                           "tiktok",
                           "youtube"
                         ]
@@ -118076,6 +118216,8 @@
                       "instagram",
                       "facebook",
                       "linkedin",
+                      "threads",
+                      "x",
                       "tiktok",
                       "youtube"
                     ]
@@ -118108,6 +118250,8 @@
                         "instagram",
                         "facebook",
                         "linkedin",
+                        "threads",
+                        "x",
                         "tiktok",
                         "youtube"
                       ]
@@ -118353,6 +118497,8 @@
                         "instagram",
                         "facebook",
                         "linkedin",
+                        "threads",
+                        "x",
                         "tiktok",
                         "youtube"
                       ]
@@ -118567,6 +118713,8 @@
                       "instagram",
                       "facebook",
                       "linkedin",
+                      "threads",
+                      "x",
                       "tiktok",
                       "youtube"
                     ]
@@ -118600,6 +118748,8 @@
                           "instagram",
                           "facebook",
                           "linkedin",
+                          "threads",
+                          "x",
                           "tiktok",
                           "youtube"
                         ]
@@ -118744,6 +118894,8 @@
                         "instagram",
                         "facebook",
                         "linkedin",
+                        "threads",
+                        "x",
                         "tiktok",
                         "youtube"
                       ]
@@ -119018,6 +119170,8 @@
                             "instagram",
                             "facebook",
                             "linkedin",
+                            "threads",
+                            "x",
                             "tiktok",
                             "youtube"
                           ]
@@ -119255,7 +119409,9 @@
                     "enum": [
                       "instagram",
                       "facebook",
-                      "linkedin"
+                      "linkedin",
+                      "threads",
+                      "x"
                     ]
                   },
                   "format": {
@@ -119288,6 +119444,14 @@
                     "items": {
                       "type": "string",
                       "maxLength": 41
+                    }
+                  },
+                  "chain": {
+                    "maxItems": 4,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 500
                     }
                   },
                   "slides": {
@@ -119421,6 +119585,8 @@
                         "instagram",
                         "facebook",
                         "linkedin",
+                        "threads",
+                        "x",
                         "tiktok",
                         "youtube"
                       ]
@@ -119444,6 +119610,12 @@
                       ]
                     },
                     "hashtags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "chain": {
                       "type": "array",
                       "items": {
                         "type": "string"
@@ -119913,6 +120085,7 @@
                     "words",
                     "hook",
                     "hashtags",
+                    "chain",
                     "slides",
                     "script",
                     "picture",
@@ -120008,6 +120181,8 @@
                         "instagram",
                         "facebook",
                         "linkedin",
+                        "threads",
+                        "x",
                         "tiktok",
                         "youtube"
                       ]
@@ -120031,6 +120206,12 @@
                       ]
                     },
                     "hashtags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "chain": {
                       "type": "array",
                       "items": {
                         "type": "string"
@@ -120500,6 +120681,7 @@
                     "words",
                     "hook",
                     "hashtags",
+                    "chain",
                     "slides",
                     "script",
                     "picture",
@@ -120678,6 +120860,8 @@
                         "instagram",
                         "facebook",
                         "linkedin",
+                        "threads",
+                        "x",
                         "tiktok",
                         "youtube"
                       ]
@@ -120701,6 +120885,12 @@
                       ]
                     },
                     "hashtags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "chain": {
                       "type": "array",
                       "items": {
                         "type": "string"
@@ -121170,6 +121360,7 @@
                     "words",
                     "hook",
                     "hashtags",
+                    "chain",
                     "slides",
                     "script",
                     "picture",
@@ -121297,14 +121488,16 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "networks": {
-                    "maxItems": 3,
+                    "maxItems": 5,
                     "type": "array",
                     "items": {
                       "type": "string",
                       "enum": [
                         "instagram",
                         "facebook",
-                        "linkedin"
+                        "linkedin",
+                        "threads",
+                        "x"
                       ]
                     }
                   },
@@ -121347,7 +121540,9 @@
                               "enum": [
                                 "instagram",
                                 "facebook",
-                                "linkedin"
+                                "linkedin",
+                                "threads",
+                                "x"
                               ]
                             },
                             "format": {
@@ -121361,6 +121556,13 @@
                             },
                             "text": {
                               "type": "string"
+                            },
+                            "chain": {
+                              "default": [],
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
                             },
                             "files": {
                               "type": "array",
@@ -121422,6 +121624,7 @@
                             "network",
                             "format",
                             "text",
+                            "chain",
                             "files",
                             "places",
                             "facebookPage",
@@ -121568,6 +121771,8 @@
                         "instagram",
                         "facebook",
                         "linkedin",
+                        "threads",
+                        "x",
                         "tiktok",
                         "youtube"
                       ]
@@ -121591,6 +121796,12 @@
                       ]
                     },
                     "hashtags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "chain": {
                       "type": "array",
                       "items": {
                         "type": "string"
@@ -122060,6 +122271,7 @@
                     "words",
                     "hook",
                     "hashtags",
+                    "chain",
                     "slides",
                     "script",
                     "picture",
@@ -122151,6 +122363,8 @@
                         "instagram",
                         "facebook",
                         "linkedin",
+                        "threads",
+                        "x",
                         "tiktok",
                         "youtube"
                       ]
@@ -122174,6 +122388,12 @@
                       ]
                     },
                     "hashtags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "chain": {
                       "type": "array",
                       "items": {
                         "type": "string"
@@ -122643,6 +122863,7 @@
                     "words",
                     "hook",
                     "hashtags",
+                    "chain",
                     "slides",
                     "script",
                     "picture",
@@ -122699,14 +122920,16 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "networks": {
-                    "maxItems": 3,
+                    "maxItems": 5,
                     "type": "array",
                     "items": {
                       "type": "string",
                       "enum": [
                         "instagram",
                         "facebook",
-                        "linkedin"
+                        "linkedin",
+                        "threads",
+                        "x"
                       ]
                     }
                   }
@@ -122742,7 +122965,9 @@
                               "enum": [
                                 "instagram",
                                 "facebook",
-                                "linkedin"
+                                "linkedin",
+                                "threads",
+                                "x"
                               ]
                             },
                             "read": {
@@ -122955,6 +123180,8 @@
                         "instagram",
                         "facebook",
                         "linkedin",
+                        "threads",
+                        "x",
                         "tiktok",
                         "youtube"
                       ]
@@ -122978,6 +123205,12 @@
                       ]
                     },
                     "hashtags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "chain": {
                       "type": "array",
                       "items": {
                         "type": "string"
@@ -123447,6 +123680,7 @@
                     "words",
                     "hook",
                     "hashtags",
+                    "chain",
                     "slides",
                     "script",
                     "picture",
@@ -123503,7 +123737,7 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "reads": {
-                    "maxItems": 5,
+                    "maxItems": 7,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -123511,13 +123745,15 @@
                         "instagram",
                         "facebook",
                         "linkedin",
+                        "threads",
+                        "x",
                         "tiktok",
                         "youtube"
                       ]
                     }
                   },
                   "searchOn": {
-                    "maxItems": 5,
+                    "maxItems": 7,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -123525,6 +123761,8 @@
                         "instagram",
                         "facebook",
                         "linkedin",
+                        "threads",
+                        "x",
                         "tiktok",
                         "youtube"
                       ]
@@ -123577,6 +123815,8 @@
                                 "instagram",
                                 "facebook",
                                 "linkedin",
+                                "threads",
+                                "x",
                                 "tiktok",
                                 "youtube"
                               ]
@@ -253745,6 +253985,8 @@
                               "instagram",
                               "facebook",
                               "linkedin",
+                              "threads",
+                              "x",
                               "tiktok",
                               "youtube"
                             ]
@@ -253977,12 +254219,142 @@
                                 "week"
                               ],
                               "additionalProperties": false
+                            },
+                            "threads": {
+                              "type": "object",
+                              "properties": {
+                                "mode": {
+                                  "type": "string",
+                                  "enum": [
+                                    "ai",
+                                    "mine"
+                                  ]
+                                },
+                                "perWeek": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 21
+                                },
+                                "perDay": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 3
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "from": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                },
+                                "to": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                },
+                                "time": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                },
+                                "week": {
+                                  "minItems": 7,
+                                  "maxItems": 7,
+                                  "type": "array",
+                                  "items": {
+                                    "maxItems": 3,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                    }
+                                  }
+                                }
+                              },
+                              "required": [
+                                "mode",
+                                "perWeek",
+                                "perDay",
+                                "from",
+                                "to",
+                                "time",
+                                "week"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "x": {
+                              "type": "object",
+                              "properties": {
+                                "mode": {
+                                  "type": "string",
+                                  "enum": [
+                                    "ai",
+                                    "mine"
+                                  ]
+                                },
+                                "perWeek": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 21
+                                },
+                                "perDay": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 3
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "from": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                },
+                                "to": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                },
+                                "time": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                },
+                                "week": {
+                                  "minItems": 7,
+                                  "maxItems": 7,
+                                  "type": "array",
+                                  "items": {
+                                    "maxItems": 3,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                    }
+                                  }
+                                }
+                              },
+                              "required": [
+                                "mode",
+                                "perWeek",
+                                "perDay",
+                                "from",
+                                "to",
+                                "time",
+                                "week"
+                              ],
+                              "additionalProperties": false
                             }
                           },
                           "required": [
                             "instagram",
                             "facebook",
-                            "linkedin"
+                            "linkedin",
+                            "threads",
+                            "x"
                           ],
                           "additionalProperties": false
                         },
@@ -254094,6 +254466,8 @@
                               "instagram",
                               "facebook",
                               "linkedin",
+                              "threads",
+                              "x",
                               "tiktok",
                               "youtube"
                             ]
@@ -254396,12 +254770,88 @@
                             "creators"
                           ],
                           "additionalProperties": false
+                        },
+                        "threads": {
+                          "type": "object",
+                          "properties": {
+                            "best": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "from": {
+                              "type": "string",
+                              "enum": [
+                                "own",
+                                "both",
+                                "creators",
+                                "none"
+                              ]
+                            },
+                            "own": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "creators": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "best",
+                            "from",
+                            "own",
+                            "creators"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "x": {
+                          "type": "object",
+                          "properties": {
+                            "best": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "from": {
+                              "type": "string",
+                              "enum": [
+                                "own",
+                                "both",
+                                "creators",
+                                "none"
+                              ]
+                            },
+                            "own": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "creators": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "best",
+                            "from",
+                            "own",
+                            "creators"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
                         "instagram",
                         "facebook",
-                        "linkedin"
+                        "linkedin",
+                        "threads",
+                        "x"
                       ],
                       "additionalProperties": false
                     },
@@ -254624,6 +255074,8 @@
                                 "instagram",
                                 "facebook",
                                 "linkedin",
+                                "threads",
+                                "x",
                                 "tiktok",
                                 "youtube"
                               ]
@@ -254709,6 +255161,8 @@
                       "instagram",
                       "facebook",
                       "linkedin",
+                      "threads",
+                      "x",
                       "tiktok",
                       "youtube"
                     ]
@@ -254745,6 +255199,8 @@
                               "instagram",
                               "facebook",
                               "linkedin",
+                              "threads",
+                              "x",
                               "tiktok",
                               "youtube"
                             ]
@@ -254975,6 +255431,8 @@
                       "instagram",
                       "facebook",
                       "linkedin",
+                      "threads",
+                      "x",
                       "tiktok",
                       "youtube"
                     ]
@@ -255036,6 +255494,8 @@
                               "instagram",
                               "facebook",
                               "linkedin",
+                              "threads",
+                              "x",
                               "tiktok",
                               "youtube"
                             ]
@@ -255461,6 +255921,8 @@
                               "instagram",
                               "facebook",
                               "linkedin",
+                              "threads",
+                              "x",
                               "tiktok",
                               "youtube"
                             ]
@@ -255581,6 +256043,8 @@
                                   "instagram",
                                   "facebook",
                                   "linkedin",
+                                  "threads",
+                                  "x",
                                   "tiktok",
                                   "youtube"
                                 ]
@@ -255744,6 +256208,8 @@
                               "instagram",
                               "facebook",
                               "linkedin",
+                              "threads",
+                              "x",
                               "tiktok",
                               "youtube"
                             ]
@@ -256047,12 +256513,142 @@
                             "week"
                           ],
                           "additionalProperties": false
+                        },
+                        "threads": {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "ai",
+                                "mine"
+                              ]
+                            },
+                            "perWeek": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 21
+                            },
+                            "perDay": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 3
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "from": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "to": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "time": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "week": {
+                              "minItems": 7,
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "maxItems": 3,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                }
+                              }
+                            }
+                          },
+                          "required": [
+                            "mode",
+                            "perWeek",
+                            "perDay",
+                            "from",
+                            "to",
+                            "time",
+                            "week"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "x": {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "ai",
+                                "mine"
+                              ]
+                            },
+                            "perWeek": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 21
+                            },
+                            "perDay": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 3
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "from": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "to": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "time": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "week": {
+                              "minItems": 7,
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "maxItems": 3,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                }
+                              }
+                            }
+                          },
+                          "required": [
+                            "mode",
+                            "perWeek",
+                            "perDay",
+                            "from",
+                            "to",
+                            "time",
+                            "week"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
                         "instagram",
                         "facebook",
-                        "linkedin"
+                        "linkedin",
+                        "threads",
+                        "x"
                       ],
                       "additionalProperties": false
                     },
@@ -256169,12 +256765,88 @@
                             "creators"
                           ],
                           "additionalProperties": false
+                        },
+                        "threads": {
+                          "type": "object",
+                          "properties": {
+                            "best": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "from": {
+                              "type": "string",
+                              "enum": [
+                                "own",
+                                "both",
+                                "creators",
+                                "none"
+                              ]
+                            },
+                            "own": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "creators": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "best",
+                            "from",
+                            "own",
+                            "creators"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "x": {
+                          "type": "object",
+                          "properties": {
+                            "best": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "from": {
+                              "type": "string",
+                              "enum": [
+                                "own",
+                                "both",
+                                "creators",
+                                "none"
+                              ]
+                            },
+                            "own": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "creators": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "best",
+                            "from",
+                            "own",
+                            "creators"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
                         "instagram",
                         "facebook",
-                        "linkedin"
+                        "linkedin",
+                        "threads",
+                        "x"
                       ],
                       "additionalProperties": false
                     },
@@ -256188,7 +256860,9 @@
                             "enum": [
                               "instagram",
                               "facebook",
-                              "linkedin"
+                              "linkedin",
+                              "threads",
+                              "x"
                             ]
                           },
                           "date": {
@@ -256231,6 +256905,8 @@
                               "instagram",
                               "facebook",
                               "linkedin",
+                              "threads",
+                              "x",
                               "tiktok",
                               "youtube"
                             ]
@@ -256254,6 +256930,12 @@
                             ]
                           },
                           "hashtags": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "chain": {
                             "type": "array",
                             "items": {
                               "type": "string"
@@ -256723,6 +257405,7 @@
                           "words",
                           "hook",
                           "hashtags",
+                          "chain",
                           "slides",
                           "script",
                           "picture",
@@ -256772,6 +257455,8 @@
                               "instagram",
                               "facebook",
                               "linkedin",
+                              "threads",
+                              "x",
                               "tiktok",
                               "youtube"
                             ]
@@ -256795,6 +257480,12 @@
                             ]
                           },
                           "hashtags": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "chain": {
                             "type": "array",
                             "items": {
                               "type": "string"
@@ -257264,6 +257955,7 @@
                           "words",
                           "hook",
                           "hashtags",
+                          "chain",
                           "slides",
                           "script",
                           "picture",
@@ -257313,6 +258005,8 @@
                               "instagram",
                               "facebook",
                               "linkedin",
+                              "threads",
+                              "x",
                               "tiktok",
                               "youtube"
                             ]
@@ -257336,6 +258030,12 @@
                             ]
                           },
                           "hashtags": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "chain": {
                             "type": "array",
                             "items": {
                               "type": "string"
@@ -257805,6 +258505,7 @@
                           "words",
                           "hook",
                           "hashtags",
+                          "chain",
                           "slides",
                           "script",
                           "picture",
@@ -257911,7 +258612,9 @@
                         "enum": [
                           "instagram",
                           "facebook",
-                          "linkedin"
+                          "linkedin",
+                          "threads",
+                          "x"
                         ]
                       }
                     },
@@ -258010,6 +258713,8 @@
                         "instagram",
                         "facebook",
                         "linkedin",
+                        "threads",
+                        "x",
                         "tiktok",
                         "youtube"
                       ]
@@ -258033,6 +258738,12 @@
                       ]
                     },
                     "hashtags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "chain": {
                       "type": "array",
                       "items": {
                         "type": "string"
@@ -258502,6 +259213,7 @@
                     "words",
                     "hook",
                     "hashtags",
+                    "chain",
                     "slides",
                     "script",
                     "picture",
@@ -258574,6 +259286,8 @@
                       "instagram",
                       "facebook",
                       "linkedin",
+                      "threads",
+                      "x",
                       "tiktok",
                       "youtube"
                     ]
@@ -258619,6 +259333,8 @@
                               "instagram",
                               "facebook",
                               "linkedin",
+                              "threads",
+                              "x",
                               "tiktok",
                               "youtube"
                             ]
@@ -258642,6 +259358,12 @@
                             ]
                           },
                           "hashtags": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "chain": {
                             "type": "array",
                             "items": {
                               "type": "string"
@@ -259111,6 +259833,7 @@
                           "words",
                           "hook",
                           "hashtags",
+                          "chain",
                           "slides",
                           "script",
                           "picture",
