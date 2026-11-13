@@ -11,12 +11,14 @@ import {
   fixAsk,
   graphicDue,
   graphicPromptFor,
+  pageToCheck,
   PICTURE_CHECK_SYSTEM,
   pictureCheckPrompt,
+  withCutWords,
   wordsOfPage,
   type GraphicTry,
 } from '../../src/addons/socialcontent/check-ai';
-import type { DesignPage } from '../../src/addons/socialcontent/posts-ai';
+import { withoutSideLabel, type DesignPage } from '../../src/addons/socialcontent/posts-ai';
 
 const page = (over: Partial<DesignPage> = {}): DesignPage => ({
   layout: 'photo',
@@ -31,20 +33,95 @@ const page = (over: Partial<DesignPage> = {}): DesignPage => ({
 
 describe('checking each picture before it’s kept', () => {
   it('tells the check every word each page should say, and to be strict about them', () => {
-    expect(wordsOfPage(page({ items: ['One', 'Two'], mark: '78%' }))).toEqual([
+    expect(
+      wordsOfPage(page({ layout: 'number', items: ['One', 'Two'], mark: '78%', body: 'Most do.' })),
+    ).toEqual([
       'Winter tip',
       'Your pipes can freeze tonight',
       '78%',
-      'One',
-      'Two',
+      'Most do.',
       'Example Plumbing',
     ]);
-    const prompt = pictureCheckPrompt([['Hello'], ['There', 'Friend']]);
+    expect(wordsOfPage(page({ layout: 'list', items: ['One', 'Two'], body: 'Do these.' }))).toEqual(
+      [
+        'Winter tip',
+        'Your pipes can freeze tonight',
+        'One',
+        'Two',
+        'Do these.',
+        'Example Plumbing',
+      ],
+    );
+    const prompt = pictureCheckPrompt([{ words: ['Hello'] }, { words: ['There', 'Friend'] }]);
     expect(prompt).toContain('are 2 pages');
     expect(prompt).toContain('<words page="2">');
     expect(prompt).toContain('- There');
     expect(PICTURE_CHECK_SYSTEM).toMatch(/misspelt/);
     expect(PICTURE_CHECK_SYSTEM).toMatch(/Canva/);
+  });
+
+  // 13 Nov: 9 of the first 39 designs failed only for a mark or items their layout never draws.
+  it('never tells the check words a layout leaves out', () => {
+    expect(
+      wordsOfPage(page({ layout: 'bold', items: ['One', 'Two'], mark: 'no upgrade tax' })),
+    ).toEqual(['Winter tip', 'Your pipes can freeze tonight', 'Example Plumbing']);
+    // A highlight's mark is words of its heading, already there.
+    expect(
+      wordsOfPage(
+        page({ layout: 'highlight', mark: 'freeze tonight', kicker: null, footer: null }),
+      ),
+    ).toEqual(['Your pipes can freeze tonight']);
+    // A before and after side's own "Before:" goes, since its card says it.
+    expect(
+      wordsOfPage(
+        page({
+          layout: 'beforeAfter',
+          items: ['Before: pay per seat', 'After: one price', 'Extra'],
+        }),
+      ),
+    ).toEqual([
+      'Winter tip',
+      'Your pipes can freeze tonight',
+      'Pay per seat',
+      'One price',
+      'Example Plumbing',
+    ]);
+  });
+
+  it('tells the check what a layout draws on purpose, such as a crossed-out myth', () => {
+    const myth = pageToCheck(page({ layout: 'myth', body: 'They don’t.' }));
+    expect(myth.drawn).toMatch(/crossed out/);
+    const prompt = pictureCheckPrompt([pageToCheck(page({ layout: 'bold' })), myth]);
+    expect(prompt).toMatch(/Page 2’s layout: The heading is a common myth, crossed out/);
+    expect(prompt).not.toContain('Page 1’s layout');
+    expect(PICTURE_CHECK_SYSTEM).toMatch(/never fail a page for that/);
+  });
+
+  it('fails a page whose words didn’t fit when drawn, even when the check couldn’t be asked', () => {
+    const passed = { passes: true, problems: [] };
+    expect(withCutWords(passed, [false, false])).toBe(passed);
+    expect(withCutWords(null, [false])).toBeNull();
+    expect(withCutWords(passed, [false, true])).toEqual({
+      passes: false,
+      problems: ['Page 2: too many words to fit, so some were left out; use fewer'],
+    });
+    expect(withCutWords(null, [true])).toEqual({
+      passes: false,
+      problems: ['too many words to fit, so some were left out; use fewer'],
+    });
+    expect(
+      withCutWords({ passes: false, problems: ['Page 1: blurry'] }, [true, false])?.problems,
+    ).toEqual([
+      'Page 1: too many words to fit, so some were left out; use fewer',
+      'Page 1: blurry',
+    ]);
+  });
+
+  it('drops a before and after side’s own label, and keeps words that only start like one', () => {
+    expect(withoutSideLabel('Before: capped contacts')).toBe('Capped contacts');
+    expect(withoutSideLabel('after – one price')).toBe('One price');
+    expect(withoutSideLabel('Afterwards it books itself')).toBe('Afterwards it books itself');
+    expect(withoutSideLabel('Before:')).toBe('Before:');
   });
 
   it('passes only when every page was looked at and passed', () => {

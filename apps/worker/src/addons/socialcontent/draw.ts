@@ -12,11 +12,12 @@
  * shipped with the worker (@fontsource): the server has no fonts of its own.
  */
 import { createRequire } from 'node:module';
-import type {
-  Design,
-  DesignFont,
-  DesignPage,
-  DesignStyle,
+import {
+  withoutSideLabel,
+  type Design,
+  type DesignFont,
+  type DesignPage,
+  type DesignStyle,
 } from '@hfos/core/addons/socialcontent/posts-ai';
 import type * as CanvasLib from '@napi-rs/canvas';
 
@@ -147,26 +148,54 @@ function wrap(ctx: Ctx2d, text: string, width: number): string[] {
 interface Fitted {
   readonly size: number;
   readonly lines: string[];
+  /** Words were left out: they didn't fit even at the smallest size. */
+  readonly cut: boolean;
 }
 
-/** The biggest size, from `most` down to `least`, at which `text` fits `width` in at most `maxLines` lines. */
-function fit(
-  ctx: Ctx2d,
-  text: string,
-  weight: number,
-  family: string,
-  most: number,
-  least: number,
-  width: number,
-  maxLines: number,
-): Fitted {
-  for (let size = most; size >= least; size -= 4) {
-    ctx.font = font(weight, size, family);
-    const lines = wrap(ctx, text, width);
-    if (lines.length <= maxLines) return { size, lines };
+interface FitTo {
+  readonly weight: number;
+  readonly family: string;
+  /** The size it's drawn at when it fits. */
+  readonly most: number;
+  /** The size it's meant to shrink to at most… */
+  readonly least: number;
+  /** …and how far it may shrink past that before words are left out: by default 70% of `least`. */
+  readonly floor?: number;
+  readonly width: number;
+  /** The room it has, top of the first line to the bottom of the last, lines `lead` sizes apart. */
+  readonly height: number;
+  readonly lead: number;
+  readonly maxLines?: number;
+}
+
+/**
+ * The biggest size at which `text` fits the room: from `most` down to `least`, then on down to the floor rather than
+ * leave words out. Only when it doesn't fit even there are the last lines left out, and it says so.
+ */
+function fit(ctx: Ctx2d, text: string, o: FitTo): Fitted {
+  const floor = Math.min(o.least, o.floor ?? Math.max(20, Math.round(o.least * 0.7)));
+  const linesAt = (size: number) =>
+    Math.min(
+      o.maxLines ?? Number.POSITIVE_INFINITY,
+      o.height < size ? 0 : Math.floor((o.height - size) / (size * o.lead)) + 1,
+    );
+  for (let size = o.most; size > floor; size -= size > o.least ? 4 : 2) {
+    ctx.font = font(o.weight, size, o.family);
+    const lines = wrap(ctx, text, o.width);
+    if (lines.length <= linesAt(size)) return { size, lines, cut: false };
   }
-  ctx.font = font(weight, least, family);
-  return { size: least, lines: wrap(ctx, text, width).slice(0, Math.max(1, maxLines)) };
+  ctx.font = font(o.weight, floor, o.family);
+  const lines = wrap(ctx, text, o.width);
+  const keep = Math.max(1, linesAt(floor));
+  return { size: floor, lines: lines.slice(0, keep), cut: lines.length > keep };
+}
+
+/** Whether the page being drawn left any words out, so the design can be made again with fewer. */
+const drawing = { cut: false };
+/** `f` as drawn: when it left words out, the page says so. */
+function drawnFit(f: Fitted): Fitted {
+  if (f.cut) drawing.cut = true;
+  return f;
 }
 
 const linesHeight = (f: Fitted, lead: number) => f.size + (f.lines.length - 1) * f.size * lead;
@@ -281,6 +310,8 @@ interface Block {
   readonly align?: 'left' | 'center';
   readonly valign?: 'top' | 'middle' | 'bottom';
   readonly headMost?: number;
+  /** The size the heading shrinks to before going smaller still: 40, or less for a body drawn as the heading. */
+  readonly headLeast?: number;
   readonly headFamily?: string;
   readonly headWeight?: number;
   readonly upper?: boolean;
@@ -302,41 +333,52 @@ function textBlock(ctx: Ctx2d, t: Type, b: Block): number {
   const kicker = (b.kicker ?? '').toUpperCase();
 
   ctx.font = font(t.strong, 32, t.body);
-  const kickerLines = kicker && !b.kickerPill ? wrap(ctx, kicker, b.width).slice(0, 2) : [];
+  const kickerAll = kicker && !b.kickerPill ? wrap(ctx, kicker, b.width) : [];
+  const kickerLines = kickerAll.slice(0, 2);
   const kickerHeight = kicker
     ? b.kickerPill
       ? 58 + 32
       : 32 + (kickerLines.length - 1) * 32 * 1.3 + 28
     : 0;
   const most = b.headMost ?? (b.body ? 100 : 124);
+  const headLeast = b.headLeast ?? 40;
   const bodyMost = b.bodyMost ?? 44;
-  const bodyReserve = b.body ? Math.min(room * 0.42, bodyMost * 1.4 * 4) : 0;
-  const headRoom = Math.max(most, room - kickerHeight - bodyReserve);
-  const h = fit(
-    ctx,
-    heading,
-    headWeight,
-    headFamily,
-    most,
-    40,
-    b.width,
-    Math.max(2, Math.floor(headRoom / (most * t.lead))),
-  );
-  const headHeight = linesHeight(h, t.lead);
-  let body: Fitted | null = null;
-  if (b.body) {
-    const bodyRoom = room - kickerHeight - headHeight - 40;
-    body = fit(
-      ctx,
-      b.body,
-      b.bodyWeight ?? t.bodyWeight,
-      b.bodyFamily ?? t.body,
-      bodyMost,
-      28,
-      b.width,
-      Math.max(1, Math.floor(bodyRoom / (bodyMost * 1.4))),
-    );
+  const words = room - kickerHeight;
+  const headFit = (height: number) =>
+    fit(ctx, heading, {
+      weight: headWeight,
+      family: headFamily,
+      most,
+      least: headLeast,
+      width: b.width,
+      height,
+      lead: t.lead,
+    });
+  const bodyFit = (body: string, height: number) =>
+    fit(ctx, body, {
+      weight: b.bodyWeight ?? t.bodyWeight,
+      family: b.bodyFamily ?? t.body,
+      most: bodyMost,
+      least: 28,
+      width: b.width,
+      height,
+      lead: 1.4,
+    });
+  let h = headFit(b.body ? words - Math.min(words * 0.42, bodyMost * 1.4 * 4) - 40 : words);
+  let body = b.body ? bodyFit(b.body, words - linesHeight(h, t.lead) - 40) : null;
+  // A long body takes room from the heading, a step at a time, before it's drawn small or cut.
+  for (
+    let step = 1, headRoom = linesHeight(h, t.lead);
+    step <= 6 && b.body && body && (body.cut || body.size < 28);
+    step++
+  ) {
+    headRoom *= 0.85;
+    const smaller = headFit(headRoom);
+    if (smaller.cut) break;
+    h = smaller;
+    body = bodyFit(b.body, words - linesHeight(h, t.lead) - 40);
   }
+  const headHeight = linesHeight(h, t.lead);
   const total = kickerHeight + headHeight + (body ? 40 + linesHeight(body, 1.4) : 0);
   const valign = b.valign ?? 'middle';
   if (b.dry) return (valign === 'top' ? b.top : b.bottom) + (valign === 'top' ? total : 0);
@@ -356,6 +398,9 @@ function textBlock(ctx: Ctx2d, t: Type, b: Block): number {
     ctx.fillStyle = b.kickerColor;
     y = drawLines(ctx, kickerLines, x, y, 32, 1.3) + 28;
   }
+  drawnFit(h);
+  if (body) drawnFit(body);
+  if (kickerAll.length > kickerLines.length) drawing.cut = true;
   ctx.font = font(headWeight, h.size, headFamily);
   ctx.fillStyle = b.headColor;
   y = drawLines(ctx, h.lines, x, y, h.size, t.lead);
@@ -371,12 +416,23 @@ function textBlock(ctx: Ctx2d, t: Type, b: Block): number {
 function footerLine(p: Page, color: string, align: 'left' | 'center' = 'left'): void {
   if (!p.footer) return;
   const { ctx, type } = p;
-  ctx.font = font(type.strong, 30, type.body);
+  const line = drawnFit(
+    fit(ctx, p.footer, {
+      weight: type.strong,
+      family: type.body,
+      most: 30,
+      least: 24,
+      floor: 20,
+      width: INNER,
+      height: 30,
+      lead: 1,
+    }),
+  );
+  ctx.font = font(type.strong, line.size, type.body);
   ctx.fillStyle = color;
   ctx.globalAlpha = 0.85;
   ctx.textAlign = align;
-  const [line] = wrap(ctx, p.footer, INNER);
-  ctx.fillText(line ?? '', align === 'center' ? W / 2 : PAD, H - PAD + 10);
+  ctx.fillText(line.lines[0] ?? '', align === 'center' ? W / 2 : PAD, H - PAD + 10);
   ctx.textAlign = 'left';
   ctx.globalAlpha = 1;
 }
@@ -524,6 +580,7 @@ function drawSplit(p: Page): void {
       kickerColor: d.text,
       valign: 'top',
       headMost: 46,
+      headLeast: 28,
       headFamily: p.type.body,
       headWeight: p.type.bodyWeight,
       upper: false,
@@ -536,7 +593,19 @@ function drawNumber(p: Page): void {
   const big = accentOn(d.accent, d.background, d.text);
   let y = PAD + 60;
   if (p.kicker) y = pill(ctx, type, p.kicker.toUpperCase(), W / 2, y, d.accent, 'center') + 40;
-  const mark = fit(ctx, p.mark, type.headWeight, type.head, 320, 120, INNER, 1);
+  const mark = drawnFit(
+    fit(ctx, p.mark, {
+      weight: type.headWeight,
+      family: type.head,
+      most: 320,
+      least: 120,
+      floor: 64,
+      width: INNER,
+      height: 320,
+      lead: 1,
+      maxLines: 1,
+    }),
+  );
   ctx.font = font(type.headWeight, mark.size, type.head);
   ctx.fillStyle = big;
   ctx.textAlign = 'center';
@@ -574,14 +643,16 @@ function drawList(p: Page): void {
       x: PAD,
       width: INNER,
       top,
-      bottom: top + H * 0.34,
+      bottom: top + H * (p.body ? 0.42 : 0.34),
       heading: p.heading,
       kicker: p.kicker,
+      body: p.body,
       headColor: d.text,
       bodyColor: d.text,
       kickerColor: box,
       valign: 'top',
       headMost: 88,
+      bodyMost: 38,
       dry,
     });
   const headHeight = heading(0, true);
@@ -589,11 +660,16 @@ function drawList(p: Page): void {
   const textX = PAD + 84;
   const width = INNER - 84;
   const room = (bottom - (PAD + 40 + headHeight + 64)) / p.items.length;
-  let size = p.items.length <= 3 ? 52 : 46;
-  for (; size > 28; size -= 2) {
+  const fits = (size: number) => {
     ctx.font = font(type.strong, size, type.body);
-    if (p.items.every((i) => wrap(ctx, i, width).length * size * 1.3 <= room - 24)) break;
-  }
+    return p.items.every((i) => {
+      const lines = wrap(ctx, i, width).length;
+      return lines <= 3 && size + (lines - 1) * size * 1.3 <= room - 24;
+    });
+  };
+  let size = p.items.length <= 3 ? 52 : 46;
+  while (size > 22 && !fits(size)) size -= 2;
+  if (!fits(size)) drawing.cut = true;
   ctx.font = font(type.strong, size, type.body);
   const tallest = Math.max(...p.items.map((i) => wrap(ctx, i, width).slice(0, 3).length));
   const each = Math.min(room, Math.max(56, tallest * size * 1.3) + 56);
@@ -653,7 +729,18 @@ function drawMyth(p: Page): void {
   const { ctx, d, type } = p;
   fill(ctx, d.background);
   const muted = mix(d.text, d.background, 0.45);
-  const myth = fit(ctx, p.heading, type.headWeight, type.head, 76, 40, INNER, 4);
+  const myth = drawnFit(
+    fit(ctx, p.heading, {
+      weight: type.headWeight,
+      family: type.head,
+      most: 76,
+      least: 40,
+      width: INNER,
+      height: 76 * (1 + 3 * type.lead),
+      lead: type.lead,
+      maxLines: 5,
+    }),
+  );
   const onCard = wordsOn(d.accent);
   const truth = (top: number, bottom: number, dry: boolean) =>
     textBlock(ctx, type, {
@@ -670,6 +757,7 @@ function drawMyth(p: Page): void {
       kickerColor: onCard,
       valign: 'top',
       headMost: 56,
+      headLeast: 28,
       upper: false,
       dry,
     });
@@ -707,22 +795,28 @@ function drawBeforeAfter(p: Page): void {
     x: PAD,
     width: INNER,
     top: PAD + 30,
-    bottom: H * 0.3,
+    bottom: H * (p.body ? 0.4 : 0.3),
     heading: p.heading,
     kicker: p.kicker,
+    body: p.body,
     headColor: d.text,
     bodyColor: d.text,
     kickerColor: accentOn(d.accent, d.background, d.text),
     valign: 'top',
     headMost: 80,
+    bodyMost: 36,
   });
   const top = end + 56;
   const bottom = H - PAD - (p.footer ? 80 : 0);
   const gap = 90;
   const cardH = (bottom - top - gap) / 2;
   const sides = [
-    { label: 'Before', text: p.items[0] ?? '', bg: mix(d.background, d.text, 0.08) },
-    { label: 'After', text: p.items[1] ?? '', bg: d.accent },
+    {
+      label: 'Before',
+      text: withoutSideLabel(p.items[0] ?? ''),
+      bg: mix(d.background, d.text, 0.08),
+    },
+    { label: 'After', text: withoutSideLabel(p.items[1] ?? ''), bg: d.accent },
   ];
   for (const [i, side] of sides.entries()) {
     const y = top + i * (cardH + gap);
@@ -826,7 +920,18 @@ function drawHighlight(p: Page): void {
     ctx.fillText(p.kicker.toUpperCase(), PAD, y + 30, INNER);
     y += 80;
   }
-  const h = fit(ctx, heading, type.headWeight, type.head, 120, 48, INNER, 6);
+  const h = drawnFit(
+    fit(ctx, heading, {
+      weight: type.headWeight,
+      family: type.head,
+      most: 120,
+      least: 48,
+      width: INNER,
+      height: H - PAD - 90 - y - (p.body ? 340 : 0),
+      lead: type.lead,
+      maxLines: 6,
+    }),
+  );
   const blockH = linesHeight(h, type.lead) + (p.body ? 300 : 0);
   y = Math.max(y, (H - blockH) / 2 - 40);
   ctx.font = font(type.headWeight, h.size, type.head);
@@ -866,6 +971,7 @@ function drawHighlight(p: Page): void {
       kickerColor: d.text,
       valign: 'top',
       headMost: 44,
+      headLeast: 28,
       headFamily: type.body,
       headWeight: type.bodyWeight,
       upper: false,
@@ -948,6 +1054,7 @@ function drawPage(
 ): void {
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
+  drawing.cut = false;
   const p: Page = {
     ctx,
     d,
@@ -1021,6 +1128,8 @@ function drawPage(
 export interface Drawn {
   readonly bytes: Buffer;
   readonly mimeType: 'image/png' | 'image/jpeg';
+  /** Some of its words didn't fit even at the smallest size, so they were left out. */
+  readonly cut?: boolean;
 }
 
 /** Each page of the design, in order; `photo` is what OpenAI made, drawn under the first page's words. */
@@ -1032,10 +1141,11 @@ export async function drawDesign(d: Design, photo: Buffer | null = null): Promis
     const canvas = lib.createCanvas(PICTURE_WIDTH, PICTURE_HEIGHT);
     const withPhoto = i === 0 && img && (page.layout === 'photo' || page.layout === 'framed');
     drawPage(canvas.getContext('2d'), d, page, i + 1, d.pages.length, i === 0 ? img : null);
+    const cut = drawing.cut;
     out.push(
       withPhoto
-        ? { bytes: await canvas.encode('jpeg', 90), mimeType: 'image/jpeg' }
-        : { bytes: await canvas.encode('png'), mimeType: 'image/png' },
+        ? { bytes: await canvas.encode('jpeg', 90), mimeType: 'image/jpeg', cut }
+        : { bytes: await canvas.encode('png'), mimeType: 'image/png', cut },
     );
   }
   return out;
