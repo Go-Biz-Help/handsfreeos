@@ -541,6 +541,18 @@ describe('the invoice a customer pays', () => {
     expect(await invoiceRow(inv.id)).toMatchObject({ status: 'paid', balance_cents: 0 });
   });
 
+  it('shows an invoice paid outside HandsFreeOS with no Pay button, and refuses to take it online', async () => {
+    const inv = await sentInvoice(w, { payOutside: true });
+    const res = await get(w, `/public/invoice/${inv.token}`);
+    expect(res.statusCode, res.body).toBe(200);
+    const body = res.json() as InvoiceView;
+    expect(body.pay).toMatchObject({ canPay: false, reason: 'outside' });
+    const tried = await post(w, `/public/invoice/${inv.token}/pay`, { clientId: randomUUID() });
+    expect(tried.statusCode).toBe(409);
+    expect(errorOf(tried)).toMatchObject({ rule: 'payment_unavailable' });
+    expect(errorOf(tried).message).toContain('isn’t paid online');
+  });
+
   it('shows a paid invoice as a receipt, and refuses to take more', async () => {
     const inv = await sentInvoice(w);
     await payWithStripe(inv, FAKE_CARDS.succeeds);

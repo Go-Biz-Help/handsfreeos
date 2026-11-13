@@ -1,5 +1,5 @@
 'use client';
-import { invoiceDueLabel, invoicesEmpty, money, purposeLabel } from '@hfos/core';
+import { invoiceDueLabel, invoicesEmpty, money, PAY_OUTSIDE_LABEL, purposeLabel } from '@hfos/core';
 import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
@@ -54,7 +54,11 @@ export function InvoicesList({
   const items = [...initial.invoices, ...more.items];
   const href = (inv: InvoiceSummary) => `/app/w/${workspaceId}/money/invoices/${inv.id}`;
   const paidInto = (inv: InvoiceSummary) =>
-    inv.connectionId ? (accountNames?.[inv.connectionId] ?? '—') : 'No account';
+    inv.payOutside
+      ? PAY_OUTSIDE_LABEL
+      : inv.connectionId
+        ? (accountNames?.[inv.connectionId] ?? '—')
+        : 'No account';
 
   if (items.length === 0) {
     const filtered = !!(filters.q || filters.status || filters.account);
@@ -164,7 +168,7 @@ export function InvoicesList({
                 ) : null}
                 {accountNames ? (
                   <span className="truncate text-[13px] text-text-3">
-                    {inv.connectionId ? `Paid into ${paidInto(inv)}` : 'No account'}
+                    {inv.connectionId ? `Paid into ${paidInto(inv)}` : paidInto(inv)}
                   </span>
                 ) : null}
                 <span className="flex items-baseline justify-between gap-3">

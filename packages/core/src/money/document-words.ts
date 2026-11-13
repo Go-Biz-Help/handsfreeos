@@ -8,9 +8,9 @@
  */
 import { dayLabel } from '../attention/wording';
 import { money } from './format';
-import type { EstimateState, InvoiceState } from './status';
+import type { EstimateState, InvoiceState, PaymentMethod } from './status';
 import { refundShares } from './totals';
-import { dueWording, expiryPhrase } from './words';
+import { dueWording, expiryPhrase, PAYMENT_METHOD_LABELS } from './words';
 
 const at = (iso: string | null | undefined): number | null => (iso ? Date.parse(iso) : null);
 
@@ -272,8 +272,35 @@ export const recordCashNote = (balanceCents: number): string =>
 
 export const HOW_MUCH_LABEL = 'How much';
 export const HOW_PAID_LABEL = 'How it was paid';
-export const REFERENCE_LABEL = 'Reference';
+/** The note box was "Reference" until the note was kept (20261027026700); the hint is the same. */
+export const REFERENCE_LABEL = 'Note';
 export const REFERENCE_HINT = 'A check number, say. Optional.';
+export const PAYMENT_NOTE_LABEL = REFERENCE_LABEL;
+export const PAYMENT_NOTE_HINT = REFERENCE_HINT;
+export const PAID_THROUGH_LABEL = 'Paid through';
+export const PAID_THROUGH_HINT =
+  'Where it went through, like Chase QuickAccept or Zelle. Optional.';
+export const PAID_ON_LABEL = 'When it was paid';
+export const RECEIPT_LABEL = 'Send them a receipt';
+
+/** On a draft: the button, and what it does, said before it is pressed. */
+export const MARK_PAID_TITLE = 'Mark paid';
+export const markPaidNote = (totalCents: number): string =>
+  `It gives this ${money(totalCents)} invoice its number and records the payment, without sending them the invoice.`;
+
+/** "Paid into" when the invoice is kept off every connected account (`invoices.pay_outside`). */
+export const PAY_OUTSIDE_LABEL = 'Outside HandsFreeOS';
+export const PAY_OUTSIDE_HINT =
+  'No Pay button for the customer. Record the payment here once you have it.';
+
+/** How a payment taken by hand reads in a list: "Card (other machine) · Chase QuickAccept". */
+export function paymentMethodLine(method: PaymentMethod, paidThrough?: string | null): string {
+  const label = PAYMENT_METHOD_LABELS[method] ?? method;
+  return paidThrough?.trim() ? `${label} · ${paidThrough.trim()}` : label;
+}
+
+/** A day in the future isn't when anything was paid. */
+export const PAID_ON_FUTURE_PROBLEM = 'That day hasn’t happened yet. Pick the day it was paid.';
 
 /** More than is owed: the same sentence the API refuses with, said before it is sent. */
 export const overBalanceProblem = (balanceCents: number): string =>

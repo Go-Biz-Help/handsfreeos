@@ -19,6 +19,7 @@ import { and, desc, eq, sql as dsql } from 'drizzle-orm';
 import type { z } from 'zod';
 import { rows, sql } from '@hfos/db/client';
 import { invoices, payments, paymentConnections } from '@hfos/db/schema';
+import { localInstant } from '../calendar/engine/zoned';
 import { requirePerson, workspaceTimezone } from '../crm/records';
 import { HfosError } from '../errors';
 import { FRESH_MINUTES } from '../mobile';
@@ -28,6 +29,7 @@ import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
 import { accountForPerson, assertAccountUsable } from './payment-connection';
 import {
+  PAID_ON_FUTURE_PROBLEM,
   TERMS_WORDS,
   canPaymentMove,
   dueDateFor,
@@ -164,6 +166,9 @@ async function announcePayment(
     failureCode?: string | null;
     by: 'person' | 'provider';
     reference?: string | null;
+    /** Taken by hand: where it went through, and whether the customer is sent a receipt (they are unless told not). */
+    paidThrough?: string | null;
+    receipt?: boolean;
   },
 ): Promise<InvoiceRow> {
   const after = await requireInvoice(ctx, invoiceId);
@@ -187,12 +192,15 @@ async function announcePayment(
       failureCode: payment.failureCode ?? null,
       by: payment.by,
       reference: payment.reference ?? null,
+      paidThrough: payment.paidThrough ?? null,
+      receipt: payment.receipt !== false,
     },
     before: { balance: money(Number(before.balance_cents)), status: before.status },
     after: {
       invoice: nameOf(after),
       amount: money(payment.amountCents),
       by: payment.method,
+      ...(payment.paidThrough ? { through: payment.paidThrough } : {}),
       status: payment.status,
       balance: money(Number(after.balance_cents)),
     },
@@ -226,6 +234,8 @@ export async function createInvoice(
   await requireBillable(ctx, input);
   const settings = await loadMoneySettings(ctx.tx, ws);
   const draft = draftOf(input.lines, settings, { discount: input.discount });
+  // Paid outside HandsFreeOS: never paid into an account, so it has none.
+  const outside = input.payOutside === true;
   const [row] = await ctx.tx
     .insert(invoices)
     .values({
@@ -241,7 +251,8 @@ export async function createInvoice(
       subscriptionId: input.subscriptionId ?? null,
       purpose: input.purpose,
       origin: input.origin,
-      connectionId: await accountOf(ctx, input.connectionId),
+      connectionId: outside ? null : await accountOf(ctx, input.connectionId),
+      payOutside: outside,
       dueOn: input.dueOn ?? null,
       terms: input.terms ?? TERMS_WORDS[settings.terms],
       ...totalsColumns(draft),
@@ -255,11 +266,17 @@ export async function createInvoice(
     type: 'invoice.created',
     entityType: 'invoice',
     entityId: fresh.id,
-    payload: { ...subjectOf(fresh), purpose: input.purpose, origin: input.origin },
+    payload: {
+      ...subjectOf(fresh),
+      purpose: input.purpose,
+      origin: input.origin,
+      payOutside: outside,
+    },
     after: {
       total: money(Number(fresh.total_cents)),
       lines: input.lines.length,
       for: input.purpose,
+      ...(outside ? { paid: 'outside HandsFreeOS' } : {}),
     },
   });
   return stateOut(fresh, true);
@@ -268,7 +285,7 @@ export async function createInvoice(
 export const invoiceCreate = defineCommand({
   name: 'invoice.create',
   description:
-    'Start an invoice for a customer: its lines, a discount, what it is for and which connected account it is paid into. It stays a draft until it is sent. A deposit at booking, a plan’s cycle and a quick payment all make one of these.',
+    'Start an invoice for a customer: its lines, a discount, what it is for and which connected account it is paid into, or that it is paid outside HandsFreeOS (no account, no Pay button: the payment is recorded by hand). It stays a draft until it is sent or marked paid. A deposit at booking, a plan’s cycle and a quick payment all make one of these.',
   risk: 1,
   input: InvoiceCreateInput,
   output: InvoiceStateOutput,
@@ -310,6 +327,7 @@ export const invoiceUpdate = defineCommand({
         lines: input.lines,
         discount: input.discount,
         connectionId: input.connectionId,
+        payOutside: input.payOutside,
         dueOn: input.dueOn,
         terms: input.terms,
       }),
@@ -320,8 +338,17 @@ export const invoiceUpdate = defineCommand({
         409,
         'An invoice stays with the customer it was written for. Make a new one instead.',
       );
-    if (input.connectionId && input.connectionId !== before.connection_id)
+    // Kept off every account, put back on one (the one named, or their usual one), or left as it was.
+    const outside = input.payOutside ?? before.pay_outside;
+    if (!outside && input.connectionId && input.connectionId !== before.connection_id)
       await assertAccountUsable(ctx, requireHuman(ctx).userId, input.connectionId);
+    const connectionId = outside
+      ? null
+      : input.connectionId
+        ? input.connectionId
+        : before.pay_outside
+          ? await accountOf(ctx, null)
+          : before.connection_id;
     // Moved to another lead: still one they may bill (0106).
     if ((input.leadId ?? null) !== before.lead_id)
       await requireBillable(ctx, {
@@ -338,7 +365,8 @@ export const invoiceUpdate = defineCommand({
         assigneeUserId: input.assigneeUserId ?? before.assignee_user_id,
         title: input.title ?? null,
         notes: input.notes ?? null,
-        connectionId: input.connectionId ?? before.connection_id,
+        connectionId,
+        payOutside: outside,
         dueOn: input.dueOn ?? null,
         terms: input.terms ?? before.terms,
         ...totalsColumns(draft),
@@ -350,16 +378,34 @@ export const invoiceUpdate = defineCommand({
       type: 'invoice.updated',
       entityType: 'invoice',
       entityId: fresh.id,
-      payload: { ...subjectOf(fresh), lines: input.lines.length },
-      before: { total: money(Number(before.total_cents)) },
-      after: { total: money(Number(fresh.total_cents)), lines: input.lines.length },
+      payload: { ...subjectOf(fresh), lines: input.lines.length, payOutside: outside },
+      before: {
+        total: money(Number(before.total_cents)),
+        ...(outside !== before.pay_outside
+          ? { paid: before.pay_outside ? 'outside HandsFreeOS' : 'online' }
+          : {}),
+      },
+      after: {
+        total: money(Number(fresh.total_cents)),
+        lines: input.lines.length,
+        ...(outside !== before.pay_outside
+          ? { paid: outside ? 'outside HandsFreeOS' : 'online' }
+          : {}),
+      },
     });
     return stateOut(fresh, true);
   },
 });
 
-/** Sends a draft invoice: its number, its due date, when it went, and the worker's text or email with the link. */
-export async function sendInvoice(ctx: CommandContext, input: z.infer<typeof InvoiceSendInput>) {
+/**
+ * Sends a draft invoice: its number, its due date, when it went, and the worker's text or email with the link.
+ * Marking a draft paid issues it the same way with no channels, so nobody is sent it (`onInvoiceSent`).
+ */
+export async function sendInvoice(
+  ctx: CommandContext,
+  input: z.infer<typeof InvoiceSendInput>,
+  why: 'send' | 'mark_paid' = 'send',
+) {
   const ws = ctx.scope.workspaceId!;
   const before = await requireInvoice(ctx, input.invoiceId);
   assertMove(before, 'sent');
@@ -368,7 +414,7 @@ export async function sendInvoice(ctx: CommandContext, input: z.infer<typeof Inv
     throw HfosError.rule(
       'money_document_empty',
       409,
-      'This invoice has no lines yet. Add at least one line before sending it.',
+      `This invoice has no lines yet. Add at least one line before ${why === 'send' ? 'sending it' : 'marking it paid'}.`,
     );
   const settings = await loadMoneySettings(ctx.tx, ws);
   const tz = await workspaceTimezone(ctx.tx, ws);
@@ -397,13 +443,15 @@ export async function sendInvoice(ctx: CommandContext, input: z.infer<typeof Inv
       message: input.message,
       dueOn,
       connectionId: fresh.connection_id,
+      payOutside: fresh.pay_outside,
+      markedPaid: why === 'mark_paid',
     },
     before: { status: before.status },
     after: {
       invoice: number,
       total: money(Number(fresh.total_cents)),
       due: dueOn,
-      sentBy: input.channels.join(', '),
+      sentBy: why === 'mark_paid' ? 'nobody: marked paid' : input.channels.join(', '),
     },
   });
   return stateOut(fresh, true);
@@ -495,21 +543,24 @@ export const invoiceVoid = defineCommand({
 
 // ---------- money landing ----------
 
-/** An invoice money can be taken against: out, not void, and something still owed. */
-function assertPayable(row: InvoiceRow): void {
+/**
+ * An invoice money can be taken against: out, not void, and something still owed. A draft only by hand, where
+ * recording the payment is Mark paid (`invoice.record_cash_payment` issues it first); a provider never pays one.
+ */
+function assertPayable(row: InvoiceRow, draftOk = false): void {
   if (row.status === 'void')
     throw HfosError.rule(
       'invoice_voided',
       409,
       'That invoice was voided, so it can’t take a payment. Record the payment on a new invoice instead.',
     );
-  if (row.status === 'draft')
+  if (row.status === 'draft' && !draftOk)
     throw HfosError.rule(
       'invoice_not_sent',
       409,
       'This invoice is still a draft. Send it before recording a payment on it.',
     );
-  if (Number(row.balance_cents) <= 0)
+  if (row.status !== 'draft' && Number(row.balance_cents) <= 0)
     throw HfosError.rule(
       'invoice_settled',
       409,
@@ -517,21 +568,49 @@ function assertPayable(row: InvoiceRow): void {
     );
 }
 
+/** The moment a payment by hand was taken: now, the moment named, or midday on an earlier day it was paid. */
+async function receivedAtOf(
+  ctx: CommandContext,
+  input: z.infer<typeof InvoiceRecordCashPaymentInput>,
+): Promise<Date> {
+  // Taken when the person recorded it (on a phone, perhaps before it had signal), unless they said when.
+  const now = input.receivedAt ? new Date(input.receivedAt) : changeMoment(ctx.meta);
+  if (!input.paidOn) return now;
+  const tz = await workspaceTimezone(ctx.tx, ctx.scope.workspaceId!);
+  const today = businessToday(tz, now.getTime());
+  if (input.paidOn > today)
+    throw HfosError.rule('payment_date_future', 422, PAID_ON_FUTURE_PROBLEM);
+  return input.paidOn === today ? now : new Date(localInstant(input.paidOn, '12:00', tz));
+}
+
+const textOrNull = (v: string | null | undefined) => (v?.trim() ? v.trim() : null);
+
 export const invoiceRecordCashPayment = defineCommand({
   name: 'invoice.record_cash_payment',
   description:
-    'Record money taken off the system: cash, a cheque, or another way. It lands as a payment in your name and the invoice recounts itself — nobody marks an invoice paid by hand.',
+    'Record money taken off the system: cash, a check, a card on the business’s own machine (Chase QuickAccept, say), or another way, with where it went through, the day it was paid and a note. It lands as a payment in your name and the invoice recounts itself. On a draft this is Mark paid: the invoice takes its number first and nobody is sent it. The customer gets a receipt unless receipt is false.',
   risk: 2,
   input: InvoiceRecordCashPaymentInput,
   output: PaymentStateOutput,
   permission: 'money.bill',
   scope: inWorkspace,
-  emits: ['payment.recorded', 'invoice.paid'],
+  emits: ['invoice.sent', 'payment.recorded', 'invoice.paid'],
   offline: 'anytime',
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
-    const before = await requireInvoice(ctx, input.invoiceId);
-    assertPayable(before);
+    let before = await requireInvoice(ctx, input.invoiceId);
+    assertPayable(before, true);
+    const receivedAt = await receivedAtOf(ctx, input);
+    if (before.status === 'draft') {
+      // Mark paid: it takes its number and its due date as a send would, with nobody sent it.
+      await sendInvoice(
+        ctx,
+        { workspaceId: input.workspaceId, invoiceId: before.id, channels: [], message: null },
+        'mark_paid',
+      );
+      before = await requireInvoice(ctx, before.id);
+      assertPayable(before);
+    }
     const owed = Number(before.balance_cents);
     if (input.amountCents > owed)
       throw HfosError.rule(
@@ -539,6 +618,9 @@ export const invoiceRecordCashPayment = defineCommand({
         409,
         `That’s more than the ${owedWording(owed)}. Record what was actually taken.`,
       );
+    const paidThrough = textOrNull(input.paidThrough);
+    // The note box was "Reference" on phones from before; what they typed is the note.
+    const note = textOrNull(input.note) ?? textOrNull(input.reference);
     // The insert policy allows a person only this: an off-system method, succeeded, in their own name.
     const [row] = await ctx.tx
       .insert(payments)
@@ -548,9 +630,10 @@ export const invoiceRecordCashPayment = defineCommand({
         amountCents: input.amountCents,
         method: input.method,
         status: 'succeeded',
-        // Taken when the person recorded it (on a phone, perhaps before it had signal), unless they said when.
-        receivedAt: input.receivedAt ? new Date(input.receivedAt) : changeMoment(ctx.meta),
+        receivedAt,
         recordedBy: me,
+        paidThrough,
+        note,
       })
       .returning({ id: payments.id });
     if (!row) throw HfosError.forbidden();
@@ -561,7 +644,9 @@ export const invoiceRecordCashPayment = defineCommand({
       provider: null,
       status: 'succeeded',
       by: 'person',
-      reference: input.reference ?? null,
+      reference: note,
+      paidThrough,
+      receipt: input.receipt,
     });
     return {
       paymentId: row.id,

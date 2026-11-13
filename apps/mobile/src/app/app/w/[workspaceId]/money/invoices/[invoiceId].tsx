@@ -1,6 +1,7 @@
 import {
   dayLabel,
   invoiceStanding,
+  MARK_PAID_TITLE,
   money,
   MONEY_LINK_WHAT_IT_DOES,
   paidWording,
@@ -65,6 +66,7 @@ export default function Invoice() {
     );
 
   const owes = invoice.balanceCents > 0 && invoice.status !== 'void' && invoice.status !== 'draft';
+  const draftPayable = invoice.status === 'draft' && invoice.totalCents > 0 && !invoice.pending;
   const standing = invoiceStanding(
     {
       status: invoice.status,
@@ -129,6 +131,12 @@ export default function Invoice() {
           {owes ? (
             <Button icon={HandCoins} onPress={() => setRecording(true)} testID="record-cash-open">
               Record cash or a check
+            </Button>
+          ) : null}
+          {/* A draft the customer already paid (Chase QuickAccept, cash): its number and its payment, nobody sent it. */}
+          {draftPayable ? (
+            <Button icon={HandCoins} onPress={() => setRecording(true)} testID="mark-paid-open">
+              {MARK_PAID_TITLE}
             </Button>
           ) : null}
           {invoice.status !== 'draft' && invoice.status !== 'void' ? (
@@ -220,7 +228,8 @@ export default function Invoice() {
         open={recording}
         onClose={() => setRecording(false)}
         invoiceId={invoiceId}
-        balanceCents={invoice.balanceCents}
+        balanceCents={draftPayable ? invoice.totalCents : invoice.balanceCents}
+        markPaid={draftPayable}
       />
 
       <SendSheet

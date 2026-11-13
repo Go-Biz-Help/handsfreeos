@@ -621,6 +621,20 @@ export function PublicInvoice({ token }: { token: string }) {
               <Honeypot id="pay-website" value={website} onChange={setWebsite} />
             </div>
           </div>
+        ) : payBlock.reason === 'outside' ? (
+          <div
+            className="flex items-start gap-2.5 rounded-card bg-card-2 p-3.5 text-[13.5px] leading-[1.5] text-text-2"
+            data-testid="pay-outside"
+            data-print="hide"
+          >
+            <Landmark size={19} className="mt-px flex-none" aria-hidden />
+            <span className="min-w-0 flex-1">
+              <b className="font-semibold">
+                {business.name} takes payment for this invoice directly.
+              </b>{' '}
+              It isn’t paid online. If you’re not sure how to pay, {callPhrase(business)}.
+            </span>
+          </div>
         ) : payBlock.reason && payBlock.reason !== 'paid' ? (
           <div
             className="flex items-start gap-2.5 rounded-card bg-warning-soft p-3.5 text-[13.5px] leading-[1.5] text-warning-text"

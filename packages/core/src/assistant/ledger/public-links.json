@@ -1,7 +1,7 @@
 {
   "area": "public-links",
   "title": "Every link a business gives out, and the public pages behind them",
-  "checkedOn": "2026-11-12",
+  "checkedOn": "2026-11-13",
   "files": {
     "apps/web/src/addons/realestate/portal/bits.tsx": "d7b704452b09",
     "apps/web/src/addons/realestate/portal/home-panel.tsx": "94db9d871e1e",
@@ -65,7 +65,7 @@
     "apps/web/src/components/forms/question-field.tsx": "bbe8e1dd9aab",
     "apps/web/src/components/members/accept-invite.tsx": "26df3014e711",
     "apps/web/src/components/money/public-estimate.tsx": "82083d4d8a40",
-    "apps/web/src/components/money/public-invoice.tsx": "a3891c54f7e0",
+    "apps/web/src/components/money/public-invoice.tsx": "71edaaf05241",
     "apps/web/src/components/money/public-plan.tsx": "1364906433dc",
     "apps/web/src/components/money/public-shell.tsx": "1b339f253ab5",
     "apps/web/src/components/portal/partner-page.tsx": "1e5fbe8cd600",
@@ -1741,9 +1741,16 @@
       "by": "get_money_document payments"
     },
     {
-      "path": "Invoice → pay blocked",
+      "path": "Invoice → paid outside HandsFreeOS: ‘takes payment for this invoice directly’",
       "kind": "see",
       "file": "apps/web/src/components/money/public-invoice.tsx:624",
+      "covered": "yes",
+      "by": "get_money_document → paidInto Outside HandsFreeOS"
+    },
+    {
+      "path": "Invoice → pay blocked",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-invoice.tsx:637",
       "covered": "partly",
       "by": "get_settings payments"
     },

@@ -137,6 +137,18 @@ describe('what an invoice says', () => {
     expect(email.body).toContain(`Pay it here: ${I_URL}`);
   });
 
+  it('says "See it here" when it is paid outside HandsFreeOS, since there is nothing to pay online', () => {
+    const outside = { ...invoice, payOutside: true };
+    expect(invoiceSentText(outside)).toBe(
+      `Lone Star HVAC: Invoice INV-1001 for an AC tune-up is ready, $180. It's due Fri. See it here: ${I_URL}`,
+    );
+    expect(invoiceSentEmail(outside).body).toContain(`See it here: ${I_URL}`);
+    expect(invoiceSentEmail(outside).body).not.toContain('Pay it here');
+    expect(
+      invoiceReminderText({ ...outside, dueOn: '2026-09-16', step: { when: 'on', days: 0 } }),
+    ).toBe(`Lone Star HVAC: Invoice INV-1001 for $180 is due today. See it here: ${I_URL}`);
+  });
+
   it('shows what is still owed when part of it is paid', () => {
     const email = invoiceSentEmail({ ...invoice, balanceCents: 10_000 });
     expect(email.body).toContain('Amount: $180');

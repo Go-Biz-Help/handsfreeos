@@ -13,6 +13,7 @@ import { randomUUID } from 'node:crypto';
 import {
   addDays,
   executeCommand,
+  invoiceCreate,
   invoiceRecordCashPayment,
   invoiceRecordPayment,
   localDateOf,
@@ -187,6 +188,32 @@ describe('an invoice and its reminder ladder', () => {
     const state = await rungs(invoice.id);
     expect(state['on_due']).toMatchObject({ status: 'skipped', reason: 'paid' });
     expect(state['after_7']).toMatchObject({ status: 'skipped', reason: 'paid' });
+  }, 120_000);
+
+  it('marks a draft paid without a word to the customer when the receipt is left off', async () => {
+    const created = (await run(w, invoiceCreate, {
+      workspaceId: w.workspaceId,
+      personId: w.person.id,
+      title: 'Paid at the truck',
+      lines: [{ name: 'AC tune-up', quantity: 1, unitPriceCents: 18_000, taxable: false }],
+    })) as { invoiceId: string };
+    const before = texts().length;
+    const paid = (await run(w, invoiceRecordCashPayment, {
+      workspaceId: w.workspaceId,
+      invoiceId: created.invoiceId,
+      amountCents: 18_000,
+      method: 'card_outside',
+      paidThrough: 'Chase QuickAccept',
+      receipt: false,
+    })) as { paymentId: string };
+    await drain(w);
+    // Neither the invoice nor a receipt went out: no text, and no receipt job armed for an email either.
+    expect(texts()).toHaveLength(before);
+    const armed = await rows(
+      admin(),
+      sql`select 1 from app.scheduled_jobs where dedupe_key like ${`%${paid.paymentId}%`}`,
+    );
+    expect(armed).toHaveLength(0);
   }, 120_000);
 
   it('sends one message however many times the same job runs', async () => {

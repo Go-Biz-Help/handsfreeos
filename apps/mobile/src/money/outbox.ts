@@ -47,8 +47,9 @@ export function withOwnChanges(
   if (paid === (row.amount_paid_cents ?? 0)) return { ...row, pending };
   const total = row.total_cents ?? 0;
   const refunded = row.amount_refunded_cents ?? 0;
+  // A draft marked paid on this phone takes its number when HandsFreeOS hears, and reads as paid until then.
   const status =
-    row.status === 'draft' || row.status === 'void'
+    row.status === 'void'
       ? row.status
       : total > 0 && paid >= total
         ? 'paid'

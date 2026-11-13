@@ -53,6 +53,7 @@ export default async function InvoicePage({
         nextNumber={shell.nextInvoiceNumber}
         startedBy={inv.assignee?.fullName ?? null}
         startedAt={inv.createdAt}
+        paidThroughNames={data.paidThroughNames}
       />
     </>
   );

@@ -36,16 +36,18 @@ function MethodCell({
 }) {
   const method = payment.method as PaymentMethod;
   const Icon =
-    method === 'card'
+    method === 'card' || method === 'card_outside'
       ? CreditCard
       : method === 'ach'
         ? Banknote
         : method === 'check'
           ? Receipt
           : HandCoins;
+  // An account's or provider's name, or where a payment taken by hand went through ("Chase QuickAccept").
   const where =
     (payment.connectionId ? names?.[payment.connectionId] : undefined) ??
-    (payment.provider ? (PROVIDER_WORDS[payment.provider] ?? payment.provider) : null);
+    (payment.provider ? (PROVIDER_WORDS[payment.provider] ?? payment.provider) : null) ??
+    (payment.paidThrough?.trim() || null);
   return (
     <span className="flex items-center gap-1.5 text-text-2">
       <Icon className="h-3.5 w-3.5 flex-none" strokeWidth={1.5} />

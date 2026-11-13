@@ -194,7 +194,13 @@ export interface InvoiceMessageInput {
   /** The customer's own page: `${WEB_URL}/i/<token>`. */
   readonly url: string;
   readonly first: boolean;
+  /** Paid outside HandsFreeOS: its page has no Pay button, so the link is to see it, not to pay it. */
+  readonly payOutside?: boolean;
 }
+
+/** "Pay it here: <link>", or "See it here: <link>" for one the business takes payment for itself. */
+const linkLine = (i: InvoiceMessageInput): string =>
+  `${i.payOutside ? 'See it here' : 'Pay it here'}: ${i.url}`;
 
 const dueSentence = (i: InvoiceMessageInput): string | null =>
   i.dueOn ? `It's due ${dayWord(i.dueOn, i.now, i.timeZone)}.` : null;
@@ -205,7 +211,7 @@ export function invoiceSentText(i: InvoiceMessageInput): string {
     [
       `${i.business.name}: ${capital(invoiceNoun(i.number))}${forWhat(i.title)} is ready, ${money(i.totalCents)}.`,
       dueSentence(i),
-      `Pay it here: ${i.url}`,
+      linkLine(i),
     ],
     i.first,
   );
@@ -224,7 +230,7 @@ export function invoiceSentEmail(i: InvoiceMessageInput): EmailText {
         i.balanceCents !== i.totalCents ? `Owed: ${money(i.balanceCents)}` : null,
         i.dueOn ? `Due: ${dayFull(i.dueOn, i.timeZone)}` : null,
       ]),
-      `Pay it here: ${i.url}`,
+      linkLine(i),
       footer(i.business),
     ]),
   };
@@ -246,7 +252,7 @@ export function invoiceReminderText(i: InvoiceReminderInput): string {
       : i.step.when === 'on'
         ? `${i.business.name}: ${capital(noun)} for ${owed} is due today.`
         : `${i.business.name}: ${capital(noun)} for ${owed} was due${when ? ` ${when}` : ''} and is still unpaid.`;
-  return text([lead, `Pay it here: ${i.url}`], i.first);
+  return text([lead, linkLine(i)], i.first);
 }
 
 export function invoiceReminderEmail(i: InvoiceReminderInput): EmailText {
@@ -274,7 +280,7 @@ export function invoiceReminderEmail(i: InvoiceReminderInput): EmailText {
         `Owed: ${owed}`,
         i.dueOn ? `Due: ${dayFull(i.dueOn, i.timeZone)}` : null,
       ]),
-      `Pay it here: ${i.url}`,
+      linkLine(i),
       'If you’ve already sent it, thank you — this crossed in the post.',
       footer(i.business),
     ]),

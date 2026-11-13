@@ -90,6 +90,8 @@ export interface DocumentDraft {
   expiresOn: string | null;
   /** Invoices only. */
   connectionId: string | null;
+  /** Invoices only: paid outside HandsFreeOS, so no account and no Pay button. */
+  payOutside: boolean;
   dueOn: string | null;
   terms: string | null;
 }
@@ -188,6 +190,7 @@ function base(settings: MoneySettings): DocumentDraft {
     depositAmountCents: settings.deposit.amountCents,
     expiresOn: null,
     connectionId: null,
+    payOutside: false,
     dueOn: null,
     terms: null,
   };
@@ -270,6 +273,7 @@ export function draftOfInvoice(inv: InvoiceDetail, settings: MoneySettings): Doc
     lines: inv.lines.map(lineOf),
     ...discountOf(inv.totals),
     connectionId: inv.connectionId,
+    payOutside: inv.payOutside,
     dueOn: inv.dueOn,
     terms: inv.terms,
   };
