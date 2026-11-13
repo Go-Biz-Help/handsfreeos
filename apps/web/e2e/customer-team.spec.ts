@@ -283,11 +283,12 @@ test('an account kept to one person is the only one they bill into, and Money sp
     'and only this account for them',
   );
 
-  // A new invoice offers only that account.
+  // A new invoice offers only that account, and keeping it outside HandsFreeOS.
   await page.goto(`/app/w/${owner.workspaceId}/money/invoices/new`);
   const paidInto = page.getByTestId('document-connection');
-  await expect(paidInto.locator('option')).toHaveCount(1);
+  await expect(paidInto.locator('option')).toHaveCount(2);
   await expect(paidInto).toContainText('SEO');
+  await expect(paidInto).toContainText('Outside HandsFreeOS');
   await expect(paidInto).not.toContainText('Automations');
 
   // Money splits the invoices by the account they are paid into.
