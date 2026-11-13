@@ -210,7 +210,8 @@ export interface PublicInvoiceView {
   }[];
   readonly pay: {
     readonly canPay: boolean;
-    readonly reason: 'withdrawn' | 'paid' | 'no_account' | null;
+    /** `outside`: the business takes this one itself (Chase QuickAccept, cash) and records it by hand. */
+    readonly reason: 'withdrawn' | 'paid' | 'no_account' | 'outside' | null;
     readonly amountCents: number;
     readonly payLabel: string;
     /** In the order they are offered: bank transfer leads when the business takes one. */

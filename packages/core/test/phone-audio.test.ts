@@ -6,6 +6,7 @@ import {
   mulawOf,
   PHONE_RATE,
   PhoneDownsampler,
+  encodeLinear16,
 } from '../src/index';
 
 /**
@@ -94,5 +95,28 @@ describe('bringing a microphone down to a phone line', () => {
 
   it('refuses a microphone slower than a phone line', () => {
     expect(() => new PhoneDownsampler(4000)).toThrow();
+  });
+
+  it('brings it down to 16 kHz for the Assistant, keeping what a voice needs', () => {
+    const down = new PhoneDownsampler(48_000, 16_000);
+    const out = down.push(tone(3000, 48_000, 1));
+    expect(out.length).toBeGreaterThan(16_000 - 80);
+    expect(out.length).toBeLessThanOrEqual(16_000);
+    // 3 kHz is above a phone line, but clear sound keeps it; 9 kHz is past 16 kHz's reach.
+    expect(rms(out)).toBeCloseTo(0.8 / Math.SQRT2, 1);
+    expect(rms(new PhoneDownsampler(48_000, 16_000).push(tone(9000, 48_000, 0.5)))).toBeLessThan(
+      0.02,
+    );
+  });
+});
+
+describe('16-bit sound', () => {
+  it('writes samples as little-endian 16-bit PCM', () => {
+    const bytes = encodeLinear16([0, 1, -1, 0.5, 2]);
+    const view = new DataView(bytes.buffer);
+    expect(bytes.length).toBe(10);
+    expect([0, 1, 2, 3, 4].map((i) => view.getInt16(i * 2, true))).toEqual([
+      0, 32767, -32768, 16384, 32767,
+    ]);
   });
 });

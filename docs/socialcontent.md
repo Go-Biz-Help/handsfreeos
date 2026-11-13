@@ -11,7 +11,9 @@ pages (part 5); reading Facebook and LinkedIn (part 6); and writing the business
 designed, photo-style and its own pictures (part 8, below under "Making posts"); and putting OK'd posts up on
 Facebook and LinkedIn through the extension (part 9, "Posting"), and on Instagram with the person's videos (part 10);
 and reading how its own posts did, with the ones that did well in the Playbook (part 11, "Its own posts' numbers");
-and the Calendar and its posts on the phone (part 12, under "On the phone").
+and the Calendar and its posts on the phone (part 12, under "On the phone"); and a schedule it learns, AI picks or
+I pick on each network (part 13, "The schedule"); and setting itself up with no press, from niches to the
+best creators to writing (part 14, "Setting up on its own").
 The add-on is in `development`,
 offered to nobody; staff give it to a business from Admin → Businesses.
 
@@ -53,7 +55,13 @@ offered to nobody; staff give it to a business from Admin → Businesses.
 | Posting: the next post due, how it went, Post it now     | `ops/posting.ts`; `supabase/migrations/20261027025100_socialcontent_posting.sql` |
 | The extension putting a post up                          | `apps/extension/src/research/posting.ts` and `post-here.ts`                      |
 | Its own posts' numbers: when they're read, doing well    | `own.ts` (pure); `ops/own.ts`; `20261027025200_socialcontent_own_numbers.sql`    |
+| The schedule: open places, the hours it learned, moves   | `schedule.ts` (pure); `ops/schedule.ts`; the worker's `socialcontent.times` job  |
+| Who set a post's time (`placed_by`)                      | `supabase/migrations/20261027026200_socialcontent_schedule.sql`                  |
 | The extension reading its own posts' numbers             | `apps/extension/src/research/own.ts`                                             |
+| Setting up on its own: who it picks, swaps, the steps    | `picking.ts` (pure; web, phone, server and worker); `ops/setup.ts`               |
+| What the AI is asked about how close a creator is        | `match-ai.ts`; the asks run in the worker's `socialcontent/setup.ts`             |
+| The setup steps, who picked a creator, their match       | `supabase/migrations/20261027026300_socialcontent_setup.sql`                     |
+| The setup steps on the Creators page                     | `setup-card.tsx` in the web's folder; `setup.tsx` in the phone's                 |
 
 ## How it works
 
@@ -160,13 +168,13 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   slides or script, what its picture shows and how it's made, its pictures (file ids, in order), where on Facebook it
   goes, when it goes, and its state (waiting for an OK, OK'd, posting, posted, didn't post, skipped). The kind is made
   when the add-on is turned on; the migration made it for businesses that already had it.
-- **The plan** is in Settings → Posting (owners and admins): posts a week on Instagram, Facebook and LinkedIn (0 to
-  7; 3, 3 and 2 at first) and a time for each, in the business's time zone. 1 a week lands on Wednesday, 2 on Tuesday
-  and Thursday, 3 on Monday, Wednesday and Friday, and so on (`WEEKDAYS_FOR`). Settings also takes the Facebook Page's
-  link and where Facebook posts go (the profile, the Page or both), which each Facebook post starts with, and the
-  **Fill on its own** switch (below).
+- **The plan** is in Settings → Posting (owners and admins), on the web and the phone: for each of Instagram, Facebook
+  and LinkedIn, **AI picks** or **I pick** (part 13, below under "The schedule"). Settings also takes the Facebook
+  Page's link and where Facebook posts go (the profile, the Page or both), which each Facebook post starts with, and
+  the **Fill on its own** switch (below).
 - **The Calendar** shows today and the next 14 days, day by day: each post with its picture, title, first line and
-  state, and each open day in the plan (a network's day with no post, or only a skipped one) with **Write one**.
+  state, and each open place in the plan (a place with no post, or only a skipped one) with **Write one**, saying when
+  AI picks is trying a new time there.
   **Fill the calendar** has the worker write a post for every open day from tomorrow on: 5 at a time, 30 seconds
   apart, from saved ideas first, then new ones, then the Playbook alone. After the first fill it tops up once a week
   on its own (`socialcontent.calendar`, re-armed when the add-on is turned back on). **Write a post** takes the next
@@ -197,17 +205,35 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   answers from the Knowledge base (FAQs and facts, `businessText`), the live main offer (its parts, never the price)
   and the lists for content (what makes you different, features and benefits, your voice, never say and the rest),
   the Playbook and the idea it's written from. Ideas read the offer and the lists too.
-- **Pictures** (decision 14), made in the worker's `socialcontent.pictures` job, one post at a time:
-  - **Designed by the AI** (the default for tips, steps, quotes, claims and every carousel slide): Claude picks a
-    layout (bold, clean or split), the colours (from the business's colour, kept readable) and the words for each page;
-    the worker draws each page as a 1080 by 1350 PNG with Inter. Words are drawn, never left to an image model, so
-    they're spelled right; emoji are left out. Charged as the AI's words, like any ask.
-  - **Photo-style, by the AI**: OpenAI's image model (`OPENAI_IMAGE_MODEL`, GPT-Image-2.6 Sunburst) makes a lifelike
-    picture with no words from the AI's description, cropped to 1080 by 1350. When it's busy, GPT-Image-2.6 Flare
-    tries once (`OPENAI_IMAGE_BACKUP_MODEL`); it plans at `medium` (`OPENAI_IMAGE_COMPLEXITY`). Charged 9¢ each on
-    the balance (`ai.image`), and only when the balance has room; the charge keeps OpenAI's real cost beside it.
-    Without `OPENAI_API_KEY` posts get designed pictures only. See "Photo-style pictures: the image models" in
-    docs/operations.md.
+- **Pictures** (decisions 14, 39 and 40), made in the worker's `socialcontent.pictures` job, one post at a time:
+  - **Designed by the AI** (tips, steps, quotes, claims and a carousel's slides): Claude picks one font and three
+    colours for the whole design (from colours that go with the business's colour, `paletteFor`, kept readable) and
+    a layout and words for each page; the worker draws each page as a 1080 by 1350 PNG (`draw.ts`). The layouts and
+    fonts are under "Variety" below. Words are drawn, never left to an image model, so they're spelled right; emoji
+    are left out. Charged as the AI's words, like any ask.
+  - **Photo with words, by the AI**: OpenAI's image model (`OPENAI_IMAGE_MODEL`, GPT-Image-2.6 Sunburst) makes a
+    lifelike photo with no words from the AI's description, cropped to 1080 by 1350, and Claude designs the words over
+    it in the photo or framed layout, like a picture made in Canva (decision 39); on a carousel it goes under the first
+    slide. When it's busy, GPT-Image-2.6 Flare tries once (`OPENAI_IMAGE_BACKUP_MODEL`); it plans at `medium`
+    (`OPENAI_IMAGE_COMPLEXITY`). Charged 9¢ each on the balance (`ai.image`), and only when the balance has room; the
+    charge keeps OpenAI's real cost beside it. A photo that still can't be made on the last try leaves the picture
+    designed without it. Without `OPENAI_API_KEY` posts get designed pictures only. See "Photo-style pictures: the
+    image models" in docs/operations.md.
+  - **OpenAI's whole graphic** (decision 40): now and then a single picture with a photo is made by OpenAI words and
+    all, like a Canva graphic, with the exact words and the business's colours (`graphicPromptFor`). It's kept only
+    when the check passes it; otherwise the photo is made again without words and the words are drawn over it. Each
+    OpenAI picture is charged 9¢ when it's made, kept or not. Under "Variety" below.
+  - **Checked before it's kept** (decision 40, `check-ai.ts`): Claude looks at every picture made, made smaller
+    (540 by 675), beside the words each page should say, and fails one with a word misspelt, garbled, extra, cut off
+    or too small, words overlapping, anything strange in a photo, or a look no business owner would post. A drawn
+    design that fails is designed once more, told each problem, and the one with fewer problems is kept. The answer
+    is kept on the design (`check`). When the check can't be asked, a drawn design is kept and a graphic isn't.
+    The check is told only the words a page's layout draws (items only on list and before and after pages, a mark
+    only on number pages: `wordsOfPage`) and what the layout draws on purpose, such as a myth's crossed-out heading
+    (`pageToCheck`). Words are shrunk to fit their room, past their usual smallest size if need be, before any are
+    left out; a page that still can't fit them all fails as if the check had said so (`withCutWords`). After the
+    first 39 posts (13 Nov), 9 designs had failed only for a mark or items their layout never draws, or for the body
+    that list and before and after pages left out; they now draw it.
   - **Your own**: **Add your photo** uploads to the post's files. A video post needs the person's own video: they
     record it from the script and add it with **Add your video** (up to 25 MB, core's most for a file), which takes
     the place of one it had (part 10). Core's files take MP4, QuickTime and WebM videos for this (`ATTACHMENT_TYPES`,
@@ -228,6 +254,129 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   has Skip it, and the refusal says so (`socialcontent_remove_forbidden`). A post that went up or is going up can't be
   removed. The Assistant removes one on a Confirm card (`socialcontent_remove_own_post`). It's an online command on
   the phone.
+
+## Variety
+
+Decisions 34 to 40 (the owner, 12 Nov: "the calendar is mostly the same topic ... we need more variety", then "the
+designs always look the same", then the picks of 19:00 UTC, "1a 2a 3a 4a 5a&b depending on results ... 6a 7a 8a").
+The plans are pure, in core (`variety.ts`, `research-ai.ts`, the designs in `posts-ai.ts`, the check and graphics in
+`check-ai.ts`); the worker asks.
+
+- **A kind for each post** (decision 36): of every 10, about 4 **tips**, 2 **customer problems**, 2 **stories** and 2
+  about **the offer**, each the kind furthest behind its share of the last 10, never the same kind twice in a row
+  (`nextAngles`). The AI is told what each kind does (`ANGLE_FOR_AI`).
+- **A topic for each post** (decision 34): a line from the main offer's For your content lists, the kind's lists
+  taking turns (`ANGLE_LISTS`), a list with a line not used lately first, then its line used longest ago
+  (`pickTopic`). The writer sees the business's last 20 posts (`<recent_posts>`) and never opens the way one did.
+  Posts and ideas keep their kind and topic (`angle`, `topic_list`, `topic`), shown as a badge and an About line on
+  the post and the idea, on the web and the phone.
+- **What each open day is written from** (`planWrites`): a saved idea for the network first; otherwise the kind the
+  mix needs, then a waiting idea of that kind, then a line from the lists, then an older idea with no kind.
+- **Ideas refill on their own** (decision 35): when fewer than 5 wait, the calendar and the nightly job have 10 more
+  written, each planned as a kind and a line first (`planIdeas`, one idea a slot).
+- **The drafts from before are written again** (decision 37): the AI's drafts with no kind that nobody changed, ahead
+  or with no day, 5 a run, on the same days and times (`oldDrafts`). Migration 026500 runs the calendar half an hour
+  after it's applied, and Fill the calendar runs while any wait.
+- **News and facts found online** (decision 38): once a week (`socialcontent.research`, the first time before the
+  first fill) Claude's own web search looks up to 5 times for news and true facts in the business's line of work and
+  its customers' world (the plain search, `web_search_20250305`: the newer one filters results in code, so they never
+  came back as pages, and the first week's look kept nothing), then a second ask turns its notes into up to 10 ideas, each a tip pointing at a page the
+  search really found (`checkedFacts`), so a link is never made up. An idea keeps its page (`source_url`,
+  `source_name`, shown as "Found on"), and a post written from one names the source in plain words. Every other tip
+  is one while one waits, so about 2 in 10 posts. Each search is charged 2¢ (`ai.web_search`); with the search off
+  for the organisation, it keeps nothing.
+- **Creators' posts that match** (decision 38): the writer is shown the 3 studied creators' posts sharing the most
+  words with its topic and idea, standouts first (`examplesFor`), to learn hooks and shape from, never to copy.
+- **How it's shown** (decision 39, `nextLook`): words alone on Facebook or LinkedIn when none of the last 9 posts was;
+  otherwise a carousel or one picture, taking turns, about half each; and a photo under the words when photos are
+  behind 3 in 10 posts with pictures and the post before had none. A person's Write a post with words of what they
+  want leaves it to the AI.
+- **Layouts** (decision 39): bold, clean, split, number (one big stat), list (items with ticks), quote, myth
+  (crossed out, then the truth), before and after, note (a handwritten sticky note), highlight (words painted over),
+  and with a photo, photo (it fills the page) or framed (above a band of words). A carousel keeps one font and set
+  of colours and mixes layouts. A layout missing what it needs is drawn bold or clean (`checkedDesign`).
+- **Fonts** (decision 39): modern (Inter), classic (Playfair Display headings), loud (Oswald, in capitals) and
+  friendly (Poppins), with Caveat for notes, all shipped with the worker (@fontsource).
+- **Never the same twice in a row** (decision 39, `designChoices`): the design AI is told the first layouts of the
+  business's last two pictures, never to start with them, a shuffled few others to try (so pictures made at the same
+  time differ too) and a font unlike the last. `checkedDesign` swaps a repeat anyway.
+- **OpenAI's whole graphics, depending on how they do** (decision 40, the owner: "open ai doesn’t misspell words much
+  anymore (the system should have built in quality control though to make sure things look right)"): a single picture
+  with a photo, with a heading of up to 9 words and a kicker of up to 4 (`fitsGraphic`), is OpenAI's whole graphic
+  every other time while fewer than 2 of the last 4 tries failed the check; after 2 fail, it waits 4 photo posts
+  before trying again (`graphicDue`, from each design's `graphic`). Carousels and longer words are always drawn.
+
+## The schedule
+
+Part 13 (decisions 21 to 27, the owner's picks of 12 Nov). Each network's plan is one of two, picked in Settings →
+Posting on the web and the phone (`NetworkPlan` in `calendar.ts`; the math in `schedule.ts`, which the web, the phone
+and the worker share):
+
+- **I pick**: the times on each weekday, up to 3 a day (`week`, Sunday first). Each time is a place on the Calendar,
+  less the nearest one for each post already that day.
+- **AI picks** (the start, 3, 3 and 2 a week, between 7 AM and 8 PM): how many a week (0 to 21), the most a day (1 to 3,
+  or spread out: one a day until there are more posts than days), and the hours it posts between (at least an hour
+  apart). Each week, Monday to Sunday, gets its number, spread out weekdays first (`perWeekday`, from `WEEKDAYS_FOR`);
+  each post already in that week takes the nearest spread day's place, so a post moved by hand isn't written again, and
+  spread days already past are let go. Each open place goes at the best hour it knows that day (`timesFor`), two on a
+  day at least 2 hours apart when the hours have room.
+- **What it learns** (decisions 23 and 25): each hour's average of how many times its normal a post did there, in the
+  business's time zone (`learnTimes`). A creator's post counts by its views against its neighbours where Instagram
+  shows them, else likes plus comments (as standouts are weighed); the business's own by its latest read (7 days,
+  else 2) against the middle of its own latest posts in that place on the same number (`ownSamples`). One of its own
+  counts as 3 of the creators'; from 10 of its own with numbers on a network, only its own count there. Each hour
+  starts as if one post did its normal there, a post at the next hour counts half, one post counts for 5 times its
+  normal at most, and an hour needs about 2 posts to be trusted. With nothing learned it starts near the plan's one
+  time from before (9 AM, 12 PM and 8 AM). It's worked out again from the posts each time, never kept, so every screen
+  and the worker agree (`learnedTimesOf` in `ops/schedule.ts`). Settings shows its best hours so far and what from.
+- **Still learning** (decision 26): about 1 in 5 of the AI's places go at the hour between the plan's hours it knows
+  least about. Which ones is fixed by the network, the day and the place's number (`seedOf`), so the same day gives the
+  same hours everywhere; the Calendar says "A new time, to keep learning" on them.
+- **Moving to a better hour** (decision 27): the worker's `socialcontent.times` job puts each post AI picks placed that
+  hasn't gone up, OK'd ones too (keeping the OK), at the hour it now has for that day (`movesFor`, then
+  `socialcontent.content.retime`). It runs 10 minutes after a creator's posts are saved or one of its own posts'
+  numbers are read (`socialcontent.content.read`), and right after the plan is saved. A post a person set the time of
+  (`placed_by = 'person'`: changing its time on its sheet or screen, or writing one at a time that isn't a plan's
+  place), one going up within half an hour, and I pick's networks are never moved; a post changed meanwhile isn't
+  either, as the move names the time it had.
+
+## Setting up on its own
+
+Part 14 (decisions 28 to 33, the owner's picks of 12 Nov: "the initial setup should be more autonomous ... this should
+all be adjustable by the user"). The worker's `socialcontent.setup` job (`advanceSetup` in its `socialcontent/setup.ts`)
+takes the next step each time something it waits on happens, and checks again every 6 hours until it has written:
+
+1. **Starts** once the add-on is on and an owner or admin picks the reading computer (decision 28;
+   `socialcontent.settings.saved` with `readerPicked`, and on turning the add-on on).
+2. **Niches** (decision 29): with none ticked, it has the AI suggest them and ticks the business's own and the 2
+   closest (`socialcontent.niches.put` with `pickClosest: 2`), never the one about its customers' world. The rest wait
+   for a person.
+3. **Finding creators**: it searches each ticked niche, as Find creators now does.
+4. **Picking the best 10** (decision 30) once no search or profile read is left. The AI scores how close each
+   suggested creator is to what the business does, 0 to 10, from their bio and latest posts' captions (`match-ai.ts`,
+   12 to an ask, up to 120 a run; kept in `creators.match` and `match_why`). Of those 6 or closer on a network, the
+   closest 20 are weighed: their profiles are read first when not in the last 14 days (or never with their latest
+   posts, from extension 0.136.0), then those with 5,000+ followers and a post in the last 30 days are scored by how
+   close plus up to 3 for the best likes and comments for their followers among them (`engagement`: the middle of
+   their latest posts', from at least 3), and the best are studied, up to 10 on each network counting those already
+   studied (`pickCreators`, then `socialcontent.creators.pick`). Creator research stays Instagram only for now.
+5. **Notes and the Playbook** come as they always do, once the posts are read.
+6. **Writing** (decision 32) starts once the Playbook is written or 3 days have passed since setup started, and only
+   once the main offer is live and its For your content lists are all filled (`writeWaitsOn`). With no Playbook and
+   no idea yet, the first fill writes from the main offer's lists. Each post still waits for an OK (decision 33).
+
+Each step taken is marked once, with its first time, in `settings.setup` (`socialcontent.setup.mark`), so it never runs
+twice; businesses that had niches or a fill before part 14 were marked as set up by the migration. The Creators page
+shows the steps on the web and the phone (`setupSteps`, worked out in core from `overview.setup`), each with where it
+stands and a button to fix what one waits on (Settings, Main offer, For your content), until every step is done or off.
+
+- **Swapping out quiet creators** (decision 31): each month, before the search, the creators the AI picked whose
+  posts were read and who haven't posted in 45 days, or have fewer than 1 standout in 30 posts once 30 are read, are
+  skipped, with why ("Swapped out by the AI: …"), their waiting reads stopped, and others picked once the searches
+  end (`swapsFor`).
+- **Adjustable** (the owner's ask): Settings → Picking creators → **Pick creators on its own** (`settings.auto_pick`,
+  on to start). Off, it neither ticks niches nor picks or swaps creators: people tick who to study, and the step says
+  so. Fill on its own still decides whether it writes. Anyone can study, skip or stop studying any creator as before.
 
 ## Posting
 
@@ -342,6 +491,15 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
 - **Only networks the extension reads can be picked** (`CONTENT_NETWORK_INFO[n].ready`: Instagram, Facebook and
   LinkedIn). The rest show as coming later (decision 2). LinkedIn's creators are read weekly and monthly on their own,
   like the others (the owner's pick, 8 Nov).
+- **A creator a person ticked, added or skipped is theirs** (decision 31): `creators.picked_by` says who picked one
+  (`ai` or `person`; ticking one the AI picked makes it the person's). The AI picks only from Suggested and swaps
+  out only its own picks, so it never drops one a person chose or brings back one they skipped.
+- **Setting up never writes before the main offer is live and its lists are filled** (decision 32), and every post
+  it writes waits for an OK (decision 33).
+- **A time a person set is theirs** (decision 27): AI picks moves only the posts it placed, never one a person set
+  the time of, and never on I pick's networks. Moving keeps a post's OK, by the owner's pick (7b, 12 Nov).
+- **At most 3 posts a day on one network**, whoever picks (decision 21): more from one account risks a network's
+  limits.
 - **Nothing the business posts goes up without a person's OK** (decision 15). The AI writes drafts; OKing one is risk
   2, so the Assistant asks first. Changing an OK'd post takes its OK back. The worker writes posts and pictures only
   through its own commands (`socialcontent.content.put`, `.pictured`), which make the record through core's
@@ -349,8 +507,16 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
 - **Every post and idea is built on the main offer and its lists** (`OFFER_FOR_CONTENT`, in both `WRITE_SYSTEM` and
   `IDEAS_SYSTEM`): they're quoted as data in their own blocks, the price is never quoted, and never say is a hard
   rule. Nothing is written until the offer is live; the add-on reads the offer and never writes it.
-- **Words on pictures are drawn by the worker, never by an image model** (decision 14): OpenAI's pictures are asked
-  for with no words in them.
+- **Words on pictures are drawn by the worker, except OpenAI's whole graphics** (decisions 14 and 40): OpenAI's
+  photos are asked for with no words in them and the words are laid over them (decision 39); a whole graphic, words
+  and all, is kept only when the check passes it, and how often one is tried follows how the last ones did.
+- **Every picture is checked before it's kept** (decision 40): a design that fails is designed once more, a graphic
+  that fails is never kept, and a graphic the check couldn't look at isn't kept either.
+- **A fact found online always keeps the page the search really found** (decision 38): the facts ask may only point
+  at pages from the search's own results, and a post names its source in plain words, never adding a number or claim
+  the fact doesn't give.
+- **The mix, topics and looks are worked out in core, not left to the AI** (decisions 34 to 40): the AI is told the
+  kind, topic and look, and what comes back is held to them (`checkedPost`, `checkedDesign`).
 - **A post goes up once in each place** (part 9). Once Post is pressed in a place it's never pressed there again on
   its own; one that may have gone up is the person's to look at, and Post it now leaves out the places it went up in.
 - **A Page's post never switches the person's profile:** it goes through Meta Business Suite, so Social Outreach,

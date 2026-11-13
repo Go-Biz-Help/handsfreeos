@@ -10,7 +10,7 @@
  *   chat, and Leave, which also offers End for everyone. The screen stays awake while the call is open.
  * - **The AI's notes**: the pill under the title says whether the AI hears the call, and turns its notes off or on
  *   for this call. CC shows the listener's captions, which come only from it.
- * - **On top of the video**, what add-ons show the team: the Sales Coach's newest card (`top`).
+ * - **On top of the video**, what add-ons show the team: the Sales Coach's newest card (`top`), every word of it.
  * - **How it ends** is LiveKit's word on why the room let them go (./ends.ts). A dropped connection rejoins on its own
  *   first, and says so meanwhile.
  * - **Not on a phone yet**: sharing its screen, reactions and raising a hand. A hand raised on a computer still shows
@@ -21,14 +21,22 @@
  *   call is priced by what it really used.
  * - **Marks on a shared screen** (./screen-marks.tsx): what people point at and draw on it shows here too. Making
  *   them from the phone comes later.
+ * - **Sounds** (./call-sounds.ts): a chime as someone comes in (in a webinar, only someone from the team), and a door
+ *   chime as someone asks to be let in, the same as on a computer.
+ * - **Microphone trouble** (docs/video-calls.md, "Microphone trouble"): a microphone the phone won't let the app use
+ *   gets a note that stays, with Settings, and coming back from Settings tries it again. Turning the microphone on
+ *   starts it again when the phone had paused it, and they're told when the team muted them. Someone else's blocked
+ *   or silent microphone shows on their tile and in People, as on a computer.
  */
 import {
   LISTENER_IDENTITY,
+  MIC_WORDS,
   VIDEO_CALL_ATTRIBUTES,
   VIDEO_CALL_CAPTIONS_TOPIC,
   VIDEO_CALL_WORDS as W,
   captionOf,
   isPersonIdentity,
+  micStateOf,
   roomAiOn,
   roomRightsOf,
   type VideoCallCaption,
@@ -57,15 +65,18 @@ import { StatusBar } from 'expo-status-bar';
 import {
   ConnectionState,
   DisconnectReason,
+  ParticipantEvent,
   Room,
   RoomEvent,
   Track,
   VideoPresets,
+  type LocalAudioTrack,
   type LocalVideoTrack,
   type Participant,
+  type TrackPublication,
 } from 'livekit-client';
 import * as React from 'react';
-import { Linking, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { AppState, Linking, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -79,6 +90,7 @@ import {
   PhoneOff,
   Send,
   SwitchCamera,
+  TriangleAlert,
   Users,
   Video,
   VideoOff,
@@ -96,6 +108,7 @@ import { errorMessage } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 import { keepCallChat } from './call-chat';
+import { useCallSounds } from './call-sounds';
 import { ChatText } from './chat-text';
 import { useCallData } from './call-data';
 import { endOf, type CallEnd } from './ends';
@@ -169,6 +182,19 @@ export default function CallRoom({
   const ending = React.useRef(onEnd);
   ending.current = onEnd;
   const first = React.useRef(choices);
+  // A microphone the phone won't let the app use: a note that stays until it works, with Settings.
+  const [micBlocked, setMicBlocked] = React.useState<string | null>(null);
+  // LiveKit tells the room about a device's error and throws it too: the same error, told once.
+  const told = React.useRef(new WeakSet<object>());
+  const report = React.useRef((e: unknown, device: 'camera' | 'microphone') => {
+    if (e && typeof e === 'object') {
+      if (told.current.has(e)) return;
+      told.current.add(e);
+    }
+    const problem = mediaProblem(e, device);
+    if (device === 'microphone' && problem.settings) setMicBlocked(problem.message);
+    else say(problem);
+  });
   // Joining and leaving take turns, so a screen drawn twice (as React does while developing) never overlaps them.
   const turns = React.useRef<Promise<void>>(Promise.resolve());
   useKeepAwake();
@@ -180,8 +206,17 @@ export default function CallRoom({
     };
     const gone = (reason?: DisconnectReason) =>
       ending.current(endOf(reason === undefined ? undefined : DisconnectReason[reason]));
-    const failed = (e: Error) =>
-      say(mediaProblem(e, /audio|microphone/i.test(e.message) ? 'microphone' : 'camera'));
+    const failed = (e: Error, kind?: MediaDeviceKind) =>
+      report.current(
+        e,
+        kind === 'audioinput'
+          ? 'microphone'
+          : kind === 'videoinput'
+            ? 'camera'
+            : /audio|microphone/i.test(e.message)
+              ? 'microphone'
+              : 'camera',
+      );
     room.on(RoomEvent.Disconnected, gone);
     room.on(RoomEvent.MediaDevicesError, failed);
     inTurn(async () => {
@@ -198,10 +233,10 @@ export default function CallRoom({
       const want = first.current;
       await room.localParticipant
         .setMicrophoneEnabled(want.mic)
-        .catch((e: unknown) => say(mediaProblem(e, 'microphone')));
+        .catch((e: unknown) => report.current(e, 'microphone'));
       await room.localParticipant
         .setCameraEnabled(want.camera)
-        .catch((e: unknown) => say(mediaProblem(e, 'camera')));
+        .catch((e: unknown) => report.current(e, 'camera'));
     });
     return () => {
       live = false;
@@ -223,6 +258,9 @@ export default function CallRoom({
         detail={detail}
         team={team}
         top={top}
+        micBlocked={micBlocked}
+        onMicWorks={() => setMicBlocked(null)}
+        report={(e, device) => report.current(e, device)}
         onLeave={() => void room.disconnect()}
         onChatSent={(id, text) => keepCallChat(ticket.token, id, text)}
       />
@@ -238,6 +276,9 @@ function CallScreen({
   detail,
   team,
   top,
+  micBlocked,
+  onMicWorks,
+  report,
   onLeave,
   onChatSent,
 }: {
@@ -245,6 +286,10 @@ function CallScreen({
   detail: string | null;
   team: TeamSide;
   top: React.ReactNode;
+  /** Why the phone won't let the app use the microphone, while it won't. */
+  micBlocked: string | null;
+  onMicWorks: () => void;
+  report: (e: unknown, device: 'camera' | 'microphone') => void;
   onLeave: () => void;
   /** A chat message this phone just sent, so the call keeps it. */
   onChatSent: (id: string, text: string) => void;
@@ -252,7 +297,8 @@ function CallScreen({
   const insets = useSafeAreaInsets();
   const room = useRoomContext();
   const state = useConnectionState();
-  const { localParticipant, isMicrophoneEnabled, isCameraEnabled } = useLocalParticipant();
+  const { localParticipant, isMicrophoneEnabled, isCameraEnabled, microphoneTrack } =
+    useLocalParticipant();
   const webinar = roomRightsOf(localParticipant.attributes).format === 'webinar';
   const { got, reload } = useVideoCall(team.workspaceId, team.callId);
   const heard = roomAiOn(useRoomInfo().metadata);
@@ -311,29 +357,71 @@ function CallScreen({
     };
   }, [room]);
 
-  // Someone on the call's link asking to come in: who, with Let in right there.
+  // A sound as someone comes in, and as someone asks to (./call-sounds.ts).
+  const { knock } = useCallSounds(room, webinar);
+
+  // Someone on the call's link asking to come in: who, with Let in right there, and the knock.
   const told = React.useRef(new Set<string>());
   React.useEffect(() => {
     if (!got) return;
     for (const p of got.people) {
       if (p.state !== 'waiting' || p.kind !== 'guest' || told.current.has(p.id)) continue;
       told.current.add(p.id);
+      knock();
       toast.show(W.askingToJoin(p.name), {
         action: { label: W.letIn, onPress: () => setSheet('people') },
       });
     }
-  }, [got]);
+  }, [got, knock]);
   const knocking =
     got?.people.filter((p) => p.state === 'waiting' && p.kind === 'guest').length ?? 0;
 
-  const toggleMic = () =>
-    void localParticipant
-      .setMicrophoneEnabled(!isMicrophoneEnabled)
-      .catch((e: unknown) => say(mediaProblem(e, 'microphone')));
+  // When this phone last turned its own microphone off, so the team muting it can be told apart.
+  const ownMicChange = React.useRef(0);
+  const micTrack = microphoneTrack?.track as LocalAudioTrack | undefined;
+  const turnMicOn = React.useCallback(async () => {
+    // Unmuting alone doesn't wake a microphone the phone paused or ended: it starts again first.
+    if (micTrack && (micTrack.isUpstreamPaused || micTrack.mediaStreamTrack.readyState !== 'live'))
+      await micTrack.restartTrack();
+    await localParticipant.setMicrophoneEnabled(true);
+    onMicWorks();
+  }, [micTrack, localParticipant, onMicWorks]);
+  const toggleMic = () => {
+    if (isMicrophoneEnabled && !micTrack?.isUpstreamPaused) {
+      ownMicChange.current = Date.now();
+      void localParticipant
+        .setMicrophoneEnabled(false)
+        .catch((e: unknown) => report(e, 'microphone'));
+    } else void turnMicOn().catch((e: unknown) => report(e, 'microphone'));
+  };
+  // Back from Settings with the microphone allowed: it turns on by itself.
+  React.useEffect(() => {
+    if (!micBlocked) return;
+    const sub = AppState.addEventListener('change', (now) => {
+      if (now === 'active') void turnMicOn().catch(() => undefined);
+    });
+    return () => sub.remove();
+  }, [micBlocked, turnMicOn]);
+  // Muted by the team (or the Assistant for them): said, so it doesn't look broken.
+  React.useEffect(() => {
+    const muted = (pub: TrackPublication, p: Participant) => {
+      if (!p.isLocal || pub.source !== Track.Source.Microphone) return;
+      if (Date.now() - ownMicChange.current < 2000) return;
+      toast.show(
+        pub.track?.mediaStreamTrack.readyState === 'live'
+          ? MIC_WORDS.mutedByTeam
+          : MIC_WORDS.stopped,
+      );
+    };
+    room.on(RoomEvent.TrackMuted, muted);
+    return () => {
+      room.off(RoomEvent.TrackMuted, muted);
+    };
+  }, [room]);
   const toggleCamera = () =>
     void localParticipant
       .setCameraEnabled(!isCameraEnabled, { facingMode: front ? 'user' : 'environment' })
-      .catch((e: unknown) => say(mediaProblem(e, 'camera')));
+      .catch((e: unknown) => report(e, 'camera'));
   const flip = async () => {
     const camera = cameraOf(room);
     if (!camera) return;
@@ -341,7 +429,7 @@ function CallScreen({
       await camera.restartTrack({ facingMode: front ? 'environment' : 'user' });
       setFront(!front);
     } catch (e) {
-      say(mediaProblem(e, 'camera'));
+      report(e, 'camera');
     }
   };
   // An iPhone has its own picker for where sound goes (speaker, the phone, AirPods); Android gets ours.
@@ -459,16 +547,38 @@ function CallScreen({
           </View>
         ) : null}
         {top ? (
+          // Its cards grow with their words (A+ on the coach), scrolling past most of the video's height.
           <View
-            className="absolute inset-x-3 top-2 max-h-[45%]"
+            className="absolute inset-x-3 top-2 max-h-[60%]"
             pointerEvents="box-none"
             testID="call-coach"
           >
-            {top}
+            <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
+              {top}
+            </ScrollView>
           </View>
         ) : null}
         {cc ? <CaptionLines lines={captions} aiOn={aiNotes} /> : null}
       </View>
+
+      {micBlocked ? (
+        <View
+          className="mx-3 mt-2 flex-row items-center gap-2.5 rounded-[12px] bg-warning-soft px-3 py-2.5"
+          role="alert"
+          testID="call-mic-blocked"
+        >
+          <Icon as={TriangleAlert} className="size-4 text-warning-text" />
+          <Text className="min-w-0 flex-1 text-[13.5px] text-warning-text">{micBlocked}</Text>
+          <Button
+            variant="secondary"
+            size="sm"
+            onPress={() => void Linking.openSettings()}
+            testID="call-mic-settings"
+          >
+            Settings
+          </Button>
+        </View>
+      ) : null}
 
       <View
         className="flex-row justify-around px-2 pt-3"
@@ -693,6 +803,22 @@ function Stage({ front }: { front: boolean }) {
   );
 }
 
+/** Someone's microphone trouble (blocked, or on and silent), from their attribute in the room, kept up to date. */
+function useMicState(p: Participant) {
+  const [state, setState] = React.useState(() =>
+    micStateOf(p.attributes[VIDEO_CALL_ATTRIBUTES.mic]),
+  );
+  React.useEffect(() => {
+    const changed = () => setState(micStateOf(p.attributes[VIDEO_CALL_ATTRIBUTES.mic]));
+    changed();
+    p.on(ParticipantEvent.AttributesChanged, changed);
+    return () => {
+      p.off(ParticipantEvent.AttributesChanged, changed);
+    };
+  }, [p]);
+  return state;
+}
+
 function Tile({
   trackRef,
   small = false,
@@ -714,6 +840,8 @@ function Tile({
   const videoOff = useIsMuted(trackRef);
   const video = isTrackReference(trackRef) && !videoOff;
   const label = screen ? `${name}’s screen` : p.isLocal ? `${name} (you)` : name;
+  // Their microphone's trouble, said on their own screen (docs/video-calls.md, "Microphone trouble").
+  const mic = useMicState(p);
   return (
     <View
       className={cn(
@@ -738,6 +866,17 @@ function Tile({
       )}
       {screen && video && !small && isTrackReference(trackRef) ? (
         <ScreenMarks on={p.identity} picture={trackRef.publication.dimensions} />
+      ) : null}
+      {mic && !screen && !small && !p.isLocal ? (
+        <View
+          className="absolute left-2 top-2 max-w-[80%] flex-row items-center gap-1 rounded-full bg-[#f0a93b] px-2 py-0.5"
+          testID="call-tile-mic"
+        >
+          <Icon as={TriangleAlert} className="size-3 text-[#191d25]" />
+          <Text className="text-[11.5px] font-medium text-[#191d25]" numberOfLines={1}>
+            {MIC_WORDS.state[mic]}
+          </Text>
+        </View>
       ) : null}
       {small ? null : (
         <View className="absolute bottom-2 left-2 max-w-[90%] flex-row items-center gap-1 rounded-full bg-black/55 px-2 py-0.5">
@@ -1116,6 +1255,7 @@ function InCall({
   onAct: (what: 'mute' | 'remove') => void;
 }) {
   const micOff = useIsMuted({ participant: p, source: Track.Source.Microphone });
+  const mic = useMicState(p);
   const name = p.name || row?.name || 'Guest';
   return (
     <View className="flex-row items-center gap-2.5 py-2" testID="call-person">
@@ -1125,6 +1265,11 @@ function InCall({
           {p.isLocal ? `${name} (you)` : name}
         </Text>
         {row ? <Text className="text-[12.5px] text-text-3">{KIND_LABEL[row.kind]}</Text> : null}
+        {mic && !p.isLocal ? (
+          <Text className="text-[12.5px] text-warning-text" testID="call-person-mic">
+            {MIC_WORDS.state[mic]}. {MIC_WORDS.stateHint[mic]}
+          </Text>
+        ) : null}
       </View>
       {micOff ? (
         <Icon as={MicOff} className="size-4 text-text-3" accessibilityLabel="Microphone off" />

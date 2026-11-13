@@ -109,6 +109,11 @@ export const USAGE_KEYS = [
    * Creator, 20261027025000). A picture Claude designs is drawn by the worker and costs only the AI's words.
    */
   'ai.image',
+  /**
+   * One web search the AI makes to look up news and facts for a business's own posts (AI Social Media Content
+   * Creator, 20261027026500): Claude's own search tool, paid for beside the tokens.
+   */
+  'ai.web_search',
 ] as const;
 export type UsageKey = (typeof USAGE_KEYS)[number];
 
@@ -163,6 +168,7 @@ export const USAGE_KEY_UNITS: Readonly<Record<UsageKey, UsageUnit>> = {
   'lookup.line_type': 'fee',
   'lookup.caller_name': 'fee',
   'ai.image': 'fee',
+  'ai.web_search': 'fee',
 };
 
 /**
@@ -604,6 +610,15 @@ export const SEED_RATES: readonly {
     roundUpTo: 'none',
     notes:
       'One photo-style picture from OpenAI’s image model (portrait, medium quality), about $0.06. Charged 9¢.',
+  },
+  {
+    key: 'ai.web_search',
+    costMicros: 10_000,
+    markupBp: 15_000,
+    minChargeCents: 1,
+    roundUpTo: 'none',
+    notes:
+      'One web search the AI makes to look up news and facts for a business’s own posts, $0.01. Charged 2¢.',
   },
 ];
 

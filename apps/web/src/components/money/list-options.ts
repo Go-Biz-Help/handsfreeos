@@ -138,6 +138,7 @@ export const PAYMENT_STATUS_CHOICES: readonly FilterChoice[] = [
 export const PAYMENT_METHOD_CHOICES: readonly FilterChoice[] = [
   { value: '', label: 'Any way' },
   { value: 'card', label: PAYMENT_METHOD_LABELS.card },
+  { value: 'card_outside', label: PAYMENT_METHOD_LABELS.card_outside },
   { value: 'ach', label: PAYMENT_METHOD_LABELS.ach },
   { value: 'cash', label: PAYMENT_METHOD_LABELS.cash },
   { value: 'check', label: PAYMENT_METHOD_LABELS.check },

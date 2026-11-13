@@ -3836,6 +3836,8 @@ export const chatWidgets = app.table('chat_widgets', {
   smsConsent: boolean('sms_consent').notNull().default(true),
   dailyCap: integer('daily_cap').notNull().default(200),
   pausedAt: ts('paused_at'),
+  /** Paused until the business's texting is approved, then turned back on by the worker (2026-11-12). */
+  hiddenUntilTexting: boolean('hidden_until_texting').notNull().default(false),
   /** What the business calls it in Forms; null: its first site. */
   name: text('name'),
   /** right, left on a phone; null: the same as position. */
@@ -4134,7 +4136,14 @@ export const paymentAccountUse = app.enum('payment_account_use', [
   'chosen',
   'only_theirs',
 ]);
-export const paymentMethod = app.enum('payment_method', ['card', 'ach', 'cash', 'check', 'other']);
+export const paymentMethod = app.enum('payment_method', [
+  'card',
+  'ach',
+  'cash',
+  'check',
+  'other',
+  'card_outside',
+]);
 export const paymentStatus = app.enum('payment_status', [
   'requires_payment',
   'processing',
@@ -4356,6 +4365,8 @@ export const invoices = app.table('invoices', {
   connectionId: uuid('connection_id').references((): AnyPgColumn => paymentConnections.id, {
     onDelete: 'set null',
   }),
+  /** Paid outside HandsFreeOS: no account, and no Pay button on the customer's page. */
+  payOutside: boolean('pay_outside').notNull().default(false),
   subtotalCents: cents('subtotal_cents').notNull().default(0),
   discountCents: cents('discount_cents').notNull().default(0),
   discountPercentBp: integer('discount_percent_bp'),
@@ -4489,6 +4500,10 @@ export const payments = app.table('payments', {
   cardLast4: text('card_last4'),
   /** The person who recorded a cash or cheque payment. */
   recordedBy: userRef('recorded_by'),
+  /** Where a payment taken by hand went through ("Chase QuickAccept", "Zelle"), as the person typed it. */
+  paidThrough: text('paid_through'),
+  /** Anything the person wrote about a payment taken by hand: a check number, say. */
+  note: text('note'),
   /** Written before the provider is called; a unique index behind it makes charging twice impossible. */
   idempotencyKey: text('idempotency_key'),
   ...timestamps(),

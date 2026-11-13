@@ -14,6 +14,7 @@ import type { z } from 'zod';
 import { socialcontentAddon } from '../../src/addons/socialcontent/manifest';
 import { socialcontentAddonServer } from '../../src/addons/socialcontent/server';
 import { SOCIALCONTENT_TABLES } from '../../src/addons/socialcontent/tables';
+import { clockOf } from '../../src/addons/socialcontent/words';
 import {
   addonRef,
   executeCommand,
@@ -426,11 +427,28 @@ describe('studying creators', () => {
       why: 'Questions work.',
       basedOn: [c2.id],
     });
+    // A fact found online keeps its kind, topic and page (decisions 34 and 38).
+    const fact = {
+      ...idea('One fix'),
+      angle: 'tip',
+      topic: { list: 'topics', line: 'Small leaks' },
+      source: { url: 'https://example.com/leaks', name: 'Example News' },
+    };
     expect(
-      await worker('socialcontent.ideas.put', { ideas: [idea('Leak or not?'), idea('One fix')] }),
+      await worker('socialcontent.ideas.put', { ideas: [idea('Leak or not?'), fact] }),
     ).toEqual({ added: 2 });
     const listed = await as(member, 'socialcontent.idea.list');
     expect(listed.ideas.map((i: Any) => i.state)).toEqual(['new', 'new']);
+    expect(listed.ideas.find((i: Any) => i.title === 'One fix')).toMatchObject({
+      angle: 'tip',
+      topic: { list: 'topics', line: 'Small leaks' },
+      source: { url: 'https://example.com/leaks', name: 'Example News' },
+    });
+    expect(listed.ideas.find((i: Any) => i.title === 'Leak or not?')).toMatchObject({
+      angle: null,
+      topic: null,
+      source: null,
+    });
     expect(listed.examples.map((e: Any) => e.id)).toEqual([c2.id]);
     const first = listed.ideas[0];
     expect(
@@ -651,28 +669,67 @@ describe('the business’s own posts', () => {
   it('lets owners and admins, not the team, set the plan and the Facebook Page', async () => {
     expect(
       await refused(
-        as(member, 'socialcontent.settings.save', {
-          plan: { linkedin: { perWeek: 5, time: '08:00' } },
-        }),
+        as(member, 'socialcontent.settings.save', { plan: { linkedin: { perWeek: 5 } } }),
       ),
     ).toBe('forbidden');
     const saved = await as(owner, 'socialcontent.settings.save', {
-      plan: { linkedin: { perWeek: 5, time: '07:30' } },
+      plan: { linkedin: { mode: 'ai', perWeek: 5, from: '07:30', to: '18:00' } },
       facebookPage: 'https://www.facebook.com/pipedreams',
       facebookWhere: ['profile', 'page'],
     });
     expect(saved).toMatchObject({
-      plan: { linkedin: { perWeek: 5, time: '07:30' }, instagram: { perWeek: 3 } },
+      plan: {
+        linkedin: { mode: 'ai', perWeek: 5, perDay: null, from: '07:30', to: '18:00' },
+        instagram: { mode: 'ai', perWeek: 3 },
+      },
       facebookPage: 'https://www.facebook.com/pipedreams',
       facebookWhere: ['profile', 'page'],
     });
     const cal = await as(member, 'socialcontent.calendar.get');
-    expect(cal.plan.linkedin).toEqual({ perWeek: 5, time: '07:30' });
+    expect(cal.plan.linkedin).toMatchObject({ mode: 'ai', perWeek: 5, from: '07:30' });
+    // None of its own posts went up yet: what it knows comes from the creators' posts read above.
+    expect(cal.learned.linkedin).toMatchObject({ own: 0 });
     expect(cal.filledAt).toBeNull();
-    // Five a week on LinkedIn is every weekday in the two weeks shown, none of them today.
+    // Five a week on LinkedIn is every weekday in the two weeks shown, none of them today, between its hours.
     const linkedin = cal.open.filter((o: Any) => o.network === 'linkedin');
     expect(linkedin.length).toBeGreaterThanOrEqual(9);
     expect(linkedin.some((o: Any) => o.date === cal.today)).toBe(false);
+    for (const o of linkedin) {
+      const hour = Number(clockOf(o.at, cal.timeZone).slice(0, 2));
+      expect(hour).toBeGreaterThanOrEqual(8);
+      expect(hour).toBeLessThanOrEqual(18);
+    }
+  });
+
+  it('refuses a plan whose hours or most a day don’t work, saying what to change', async () => {
+    expect(
+      await refused(
+        as(owner, 'socialcontent.settings.save', {
+          plan: { instagram: { from: '09:00', to: '09:30' } },
+        }),
+      ),
+    ).toBe('socialcontent_plan_hours');
+    expect(
+      await refused(
+        as(owner, 'socialcontent.settings.save', {
+          plan: { instagram: { perWeek: 10, perDay: 1 } },
+        }),
+      ),
+    ).toBe('socialcontent_plan_per_day');
+    // I pick keeps its own times, and AI picks' number waits for when it's switched back.
+    const mine = await as(owner, 'socialcontent.settings.save', {
+      plan: {
+        facebook: { mode: 'mine', week: [[], ['09:00', '16:00'], [], ['12:00'], [], [], []] },
+      },
+    });
+    expect(mine.plan.facebook).toMatchObject({ mode: 'mine', perWeek: 3 });
+    const cal = await as(member, 'socialcontent.calendar.get');
+    const facebook = cal.open.filter((o: Any) => o.network === 'facebook');
+    expect(facebook.length).toBeGreaterThanOrEqual(4);
+    expect(
+      facebook.every((o: Any) => ['09:00', '16:00', '12:00'].includes(clockOf(o.at, cal.timeZone))),
+    ).toBe(true);
+    await as(owner, 'socialcontent.settings.save', { plan: { facebook: { mode: 'ai' } } });
   });
 
   it('keeps what the AI writes as a Social post waiting for an OK, on its day, and marks its idea used', async () => {
@@ -688,7 +745,7 @@ describe('the business’s own posts', () => {
       network: 'linkedin',
       ideaId: idea.id,
       postAt: new Date(slot.at).toISOString(),
-      post: written(),
+      post: written({ angle: 'problem', topic: { list: 'problems', line: 'Drips at night' } }),
       askedBy: member.id,
     });
     expect(made).toMatchObject({ created: true });
@@ -701,6 +758,9 @@ describe('the business’s own posts', () => {
       state: 'draft',
       ideaId: idea.id,
       stillNeeds: null,
+      placedBy: 'ai',
+      angle: 'problem',
+      topic: { list: 'problems', line: 'Drips at night' },
     });
     const after = await as(member, 'socialcontent.calendar.get');
     expect(after.posts.map((p: Any) => p.id)).toContain(linkedinId);
@@ -717,6 +777,32 @@ describe('the business’s own posts', () => {
           where r.id = ${linkedinId}`,
     );
     expect(rec).toEqual({ name: 'Is that drip a leak?', key: 'socialcontent_post' });
+  });
+
+  it('moves the AI’s post to a better hour on its day, keeping its OK, but never one changed meanwhile', async () => {
+    expect(await refused(as(member, 'socialcontent.content.retime', { moves: [] }))).toBe(
+      'forbidden',
+    );
+    const was = await as(member, 'socialcontent.content.approve', { postId: linkedinId });
+    expect(was.state).toBe('ready');
+    const later = new Date(Date.parse(was.postAt) + 3_600_000).toISOString();
+    expect(
+      await worker('socialcontent.content.retime', {
+        moves: [{ postId: linkedinId, from: later, to: was.postAt }],
+      }),
+    ).toEqual({ moved: 0 });
+    expect(
+      await worker('socialcontent.content.retime', {
+        moves: [{ postId: linkedinId, from: was.postAt, to: later }],
+      }),
+    ).toEqual({ moved: 1 });
+    const moved = await as(member, 'socialcontent.content.get', { postId: linkedinId });
+    expect(Date.parse(moved.postAt)).toBe(Date.parse(later));
+    expect(moved).toMatchObject({ state: 'ready', placedBy: 'ai' });
+    await worker('socialcontent.content.retime', {
+      moves: [{ postId: linkedinId, from: later, to: was.postAt }],
+    });
+    await as(member, 'socialcontent.content.approve', { postId: linkedinId, ok: false });
   });
 
   it('OKs a post with everything it needs, and takes the OK back when it changes', async () => {
@@ -775,10 +861,23 @@ describe('the business’s own posts', () => {
     expect(await refused(as(member, 'socialcontent.content.approve', { postId: linkedinId }))).toBe(
       'socialcontent_post_not_ready',
     );
-    await as(member, 'socialcontent.content.save', {
+    const set = await as(member, 'socialcontent.content.save', {
       postId: linkedinId,
       postAt: new Date(cal.open.find((o: Any) => o.network === 'linkedin').at).toISOString(),
     });
+    // A time a person set is theirs: AI picks never moves it.
+    expect(set.placedBy).toBe('person');
+    expect(
+      await worker('socialcontent.content.retime', {
+        moves: [
+          {
+            postId: linkedinId,
+            from: set.postAt,
+            to: new Date(Date.parse(set.postAt) + 3_600_000).toISOString(),
+          },
+        ],
+      }),
+    ).toEqual({ moved: 0 });
   });
 
   it('OKs the week: every post ready to go, and says which still need something', async () => {

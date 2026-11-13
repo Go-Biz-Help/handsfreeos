@@ -221,6 +221,7 @@ describe('ideas', () => {
       {
         ideas: [
           {
+            slot: null,
             title: 'leak or not?',
             hook: null,
             format: null,
@@ -230,6 +231,7 @@ describe('ideas', () => {
             basedOn: [],
           },
           {
+            slot: null,
             title: 'One fix — fast',
             hook: 'Got a leak?',
             format: 'How to',
@@ -253,6 +255,9 @@ describe('ideas', () => {
         outline: 'Ask.\n\nAnswer.',
         why: 'Questions work.',
         basedOn: [A],
+        angle: null,
+        topic: null,
+        source: null,
       },
     ]);
   });

@@ -5,7 +5,8 @@
  * business, decision 12): **Suggest niches** has the AI find the business's own niche (what it sells, never its
  * customers' trade) and 3 to 5 like it, **Find creators now** asks the reading computer to search the ticked ones, and
  * **Add a creator** studies someone from a link. A studied creator's posts open under them, each with how many times
- * the posts around it it did.
+ * the posts around it it did. On top, setting up on its own (./setup-card.tsx); a creator the AI picked says so, with
+ * how close it found them and their likes and comments for their followers.
  */
 import { CONTENT_NETWORK_INFO, networkName } from '@hfos/core/addons/socialcontent/networks';
 import { DONE_WELL } from '@hfos/core/addons/socialcontent/standouts';
@@ -25,6 +26,7 @@ import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { ActivityCard } from './activity-card';
 import { PostCard } from './post-card';
+import { SetupCard } from './setup-card';
 import type { Creator, Niche, Overview, Post } from './types';
 import { useAct } from './use-act';
 
@@ -98,6 +100,7 @@ export function CreatorsPage({
           ) : null}
         </Card>
       ) : null}
+      <SetupCard workspaceId={workspaceId} overview={overview} />
       <ActivityCard overview={overview} />
       <NichesCard workspaceId={workspaceId} niches={niches} />
       <Card className="p-4 md:p-5">
@@ -374,10 +377,22 @@ function CreatorRow({
             </a>
             {c.name ? <span className="text-[13px] text-text-3">{c.shown}</span> : null}
             {c.reading ? <Badge variant="pending">{W.creators.reading}</Badge> : null}
+            {c.pickedBy === 'ai' && c.state === 'studying' ? (
+              <Badge variant="accent">{W.creators.byAi}</Badge>
+            ) : null}
           </div>
           <div className="text-[12.5px] text-text-3">{facts.join(' · ')}</div>
-          {c.state === 'suggested' && c.why ? (
+          {(c.state === 'suggested' || (c.state === 'skipped' && c.pickedBy === 'ai')) && c.why ? (
             <div className="mt-1 text-[13px] text-text-2">{c.why}</div>
+          ) : null}
+          {c.match !== null && c.state !== 'didnt_fit' ? (
+            <div
+              className="mt-1 text-[13px] text-text-2"
+              data-testid={`socialcontent-match-${c.handle}`}
+            >
+              {W.creators.match(c.match, c.matchWhy)}
+              {c.engagement !== null ? ` · ${W.creators.engagement(c.engagement)}` : ''}
+            </div>
           ) : null}
           {read.map((r) => (
             <div key={r} className="mt-1 text-[13px] text-text-2">

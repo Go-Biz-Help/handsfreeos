@@ -12,6 +12,7 @@ import { MoneySettings } from '../money/settings';
 import {
   ESTIMATE_STATUSES,
   INVOICE_STATUSES,
+  MANUAL_PAYMENT_METHODS,
   PAYMENT_METHODS,
   PAYMENT_STATUSES,
   REFUND_STATUSES,
@@ -728,6 +729,11 @@ export const InvoiceCreateInput = z.object({
   subscriptionId: uuid.nullable().optional(),
   /** Which connected account it is paid into; left out, the business's default is used. */
   connectionId: uuid.nullable().optional(),
+  /**
+   * Paid outside HandsFreeOS (Chase QuickAccept, cash at the counter): no account, so the customer's page has no
+   * Pay button, and the payment is recorded by hand once it's in.
+   */
+  payOutside: z.boolean().optional(),
   dueOn: localDate.nullable().optional(),
   /** The wording shown ("Net 15"). Left out, the business's terms are used. */
   terms: z.string().trim().max(2_000).nullable().optional(),
@@ -737,6 +743,8 @@ export const InvoiceUpdateInput = z.object({
   invoiceId: uuid,
   ...documentHeader,
   connectionId: uuid.nullable().optional(),
+  /** True keeps it off every account; false puts it back on one (the one named, or the person's usual one). */
+  payOutside: z.boolean().optional(),
   dueOn: localDate.nullable().optional(),
   terms: z.string().trim().max(2_000).nullable().optional(),
   baseRevision: z.int().min(1),
@@ -767,15 +775,27 @@ export const InvoiceStateOutput = z.object({
   changed: z.boolean(),
 });
 
-/** A person records cash, a cheque, or money taken some other way off the system. */
+/**
+ * A person records cash, a cheque, a card taken on their own machine, or money taken some other way off the system.
+ * On a draft it is Mark paid: the invoice takes its number first, and nobody is sent it.
+ */
 export const InvoiceRecordCashPaymentInput = z.object({
   ...inWorkspace,
   invoiceId: uuid,
   amountCents: cents.min(1, 'How much was paid?'),
-  method: z.enum(['cash', 'check', 'other']).default('cash'),
+  method: z.enum(MANUAL_PAYMENT_METHODS).default('cash'),
   /** When it was taken, if it wasn't just now. */
   receivedAt: isoDateTime.optional(),
+  /** The day it was paid, in the business's own days: today is now, an earlier day is midday then. */
+  paidOn: localDate.optional(),
+  /** Where it went through: "Chase QuickAccept", "Zelle". */
+  paidThrough: z.string().trim().max(80).nullable().optional(),
+  /** Anything worth keeping with it: a check number, say. */
+  note: z.string().trim().max(500).nullable().optional(),
+  /** The note box's old name, still sent by phones from before; kept as the note when there is none. */
   reference: z.string().trim().max(120).nullable().optional(),
+  /** Whether the customer gets a receipt for it. They always did, so it's on unless turned off. */
+  receipt: z.boolean().default(true),
 });
 
 /** Worker: what a provider said about a payment. Its status only ever moves forward. */
@@ -846,6 +866,8 @@ export const InvoiceSummaryOut = z.object({
   estimateId: uuid.nullable(),
   subscriptionId: uuid.nullable(),
   connectionId: uuid.nullable(),
+  /** Paid outside HandsFreeOS: no account and no Pay button. */
+  payOutside: z.boolean(),
   assignee: userOut.nullable(),
   totals: MoneyTotalsOut,
   amountPaidCents: z.number(),
@@ -901,6 +923,9 @@ export const PaymentOut = z.object({
   /** What the card was, where the provider said so: "Visa", "4242". Never the number, and null for anything else. */
   cardBrand: z.string().nullable(),
   cardLast4: z.string().nullable(),
+  /** Taken by hand: where it went through ("Chase QuickAccept") and the note kept with it. */
+  paidThrough: z.string().nullable(),
+  note: z.string().nullable(),
   createdAt: isoDateTime,
 });
 export const RefundOut = z.object({
@@ -924,9 +949,13 @@ export const InvoiceGetOutput = z.object({
     linkVersion: z.int(),
     voidReason: z.string().nullable(),
     lines: z.array(MoneyLineOut),
+    /** A draft marked paid: it took its number with its first payment by hand, and nobody was sent it. */
+    markedPaid: z.boolean(),
   }),
   payments: z.array(PaymentOut),
   refunds: z.array(RefundOut),
+  /** The places this business's payments by hand went through before, most used first, for the Paid through box. */
+  paidThroughNames: z.array(z.string()),
 });
 
 export const PaymentListInput = z.object({

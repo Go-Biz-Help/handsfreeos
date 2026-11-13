@@ -286,7 +286,7 @@ export const ASSISTANT_CONFIRM_WORDS = {
   close: 'Close',
   done: 'Done.',
   failed: 'That didn’t work. Nothing was changed.',
-  expired: 'Expired. You asked something else first, so nothing happened.',
+  expired: 'Replaced by a newer card, so nothing happened.',
   whyLost: 'Why was it lost?',
   chooseReason: 'Choose a reason',
   /**

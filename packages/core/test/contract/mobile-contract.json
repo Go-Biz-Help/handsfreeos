@@ -4525,6 +4525,9 @@
               }
             ]
           },
+          "payOutside": {
+            "type": "boolean"
+          },
           "dueOn": {
             "anyOf": [
               {
@@ -4572,11 +4575,37 @@
           "method": {
             "default": "cash",
             "type": "string",
-            "enum": ["cash", "check", "other"]
+            "enum": ["cash", "check", "card_outside", "other"]
           },
           "receivedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "paidOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "paidThrough": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "reference": {
             "anyOf": [
@@ -4588,6 +4617,10 @@
                 "type": "null"
               }
             ]
+          },
+          "receipt": {
+            "default": true,
+            "type": "boolean"
           }
         },
         "required": ["workspaceId", "invoiceId", "amountCents"]
@@ -4791,6 +4824,9 @@
                 "type": "null"
               }
             ]
+          },
+          "payOutside": {
+            "type": "boolean"
           },
           "dueOn": {
             "anyOf": [
@@ -15962,17 +15998,53 @@
             "additionalProperties": {
               "type": "object",
               "properties": {
+                "mode": {
+                  "type": "string",
+                  "enum": ["ai", "mine"]
+                },
                 "perWeek": {
                   "type": "integer",
                   "minimum": 0,
-                  "maximum": 7
+                  "maximum": 21
+                },
+                "perDay": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 3
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "from": {
+                  "type": "string",
+                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                },
+                "to": {
+                  "type": "string",
+                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
                 },
                 "time": {
                   "type": "string",
                   "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                },
+                "week": {
+                  "minItems": 7,
+                  "maxItems": 7,
+                  "type": "array",
+                  "items": {
+                    "maxItems": 3,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                    }
+                  }
                 }
-              },
-              "required": ["perWeek", "time"]
+              }
             }
           },
           "facebookPage": {
@@ -15997,6 +16069,9 @@
             }
           },
           "autoFill": {
+            "type": "boolean"
+          },
+          "autoPick": {
             "type": "boolean"
           }
         },

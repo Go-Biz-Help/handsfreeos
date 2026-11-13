@@ -82,9 +82,14 @@ export interface ListenOptions {
   readonly listener?: PhoneListener | null;
   /**
    * What the audio is: a phone call's 8 kHz μ-law (`phone`, the default), or a HandsFreeOS video call's 16 kHz
-   * 16-bit sound (`wide`, little-endian), which is heard better. Wide sound is always heard by Nova-3.
+   * 16-bit sound (`wide`, little-endian), which is heard better. Wide sound is heard by Nova-3 unless `smartTurns`.
    */
   readonly audio?: 'phone' | 'wide';
+  /**
+   * Flux whatever the audio and the listener (the Assistant's live listening): it decides when they've finished
+   * from what they said and how, not only from a pause.
+   */
+  readonly smartTurns?: boolean;
 }
 
 export interface Listening {

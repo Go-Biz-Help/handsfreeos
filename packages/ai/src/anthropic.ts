@@ -13,6 +13,7 @@ import {
   type AiStreamOptions,
   type AiTurn,
   type AiUsage,
+  type AiWebSource,
 } from './types';
 
 export interface AnthropicOptions {
@@ -282,6 +283,14 @@ export class AnthropicProvider implements AiProvider {
       ...(searching && t.deferred ? { defer_loading: true } : {}),
     }));
     if (searching) tools.unshift(TOOL_SEARCH);
+    // The plain search, not the newer one that filters its results in code first: those results never come back as
+    // results or citations, so an answer couldn't say which page each thing it found came from.
+    if (request.webSearch)
+      tools.push({
+        type: 'web_search_20250305',
+        name: 'web_search',
+        max_uses: request.webSearch.maxUses,
+      });
     return tools;
   }
 }
@@ -372,6 +381,7 @@ const PASSTHROUGH = new Set([
   'redacted_thinking',
   'server_tool_use',
   'tool_search_tool_result',
+  'web_search_tool_result',
 ]);
 
 function toAnthropic(m: AiMessage): Anthropic.MessageParam {
@@ -447,11 +457,30 @@ const STOP: Record<string, AiStopReason> = {
 
 function fromAnthropic(message: Anthropic.Message): AiTurn {
   let text = '';
+  let citedText = '';
   const toolCalls: AiTurn['toolCalls'][number][] = [];
   const content: AiContent[] = [];
+  const sources: AiWebSource[] = [];
+  const placeOf = (url: string, title: string, age: string | null): number => {
+    const at = sources.findIndex((s) => s.url === url);
+    if (at >= 0) return at + 1;
+    sources.push({ url, title, age });
+    return sources.length;
+  };
   for (const block of message.content) {
+    if (block.type === 'web_search_tool_result' && Array.isArray(block.content))
+      for (const r of block.content) placeOf(r.url, r.title, r.page_age ?? null);
     if (block.type === 'text') {
       text += block.text;
+      // Each claim taken from a page, marked with the page's place among the sources.
+      const marks = [
+        ...new Set(
+          (block.citations ?? []).flatMap((c) =>
+            c.type === 'web_search_result_location' ? [placeOf(c.url, c.title ?? c.url, null)] : [],
+          ),
+        ),
+      ];
+      citedText += block.text + (marks.length ? ` ${marks.map((m) => `[${m}]`).join('')}` : '');
       content.push({ type: 'text', text: block.text });
     } else if (block.type === 'tool_use') {
       const call = {
@@ -464,12 +493,15 @@ function fromAnthropic(message: Anthropic.Message): AiTurn {
     } else if (PASSTHROUGH.has(block.type))
       content.push({ type: 'passthrough', block: { ...block } });
   }
+  const searches = message.usage.server_tool_use?.web_search_requests ?? 0;
   return {
     text,
     toolCalls,
     content,
     stopReason: STOP[message.stop_reason ?? ''] ?? 'other',
     usage: usageOf(message.usage),
+    ...(sources.length ? { webSources: sources, citedText } : {}),
+    ...(searches ? { webSearches: searches } : {}),
   };
 }
 

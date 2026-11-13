@@ -12,10 +12,12 @@
  * shared screen, sit beside them.
  */
 import {
+  MIC_WORDS,
   SLIDE_WORDS,
   VIDEO_CALL_ATTRIBUTES,
   WEBINAR_WORDS,
   isPersonIdentity,
+  micStateOf,
   roomRightsOf,
   type AttendeeVideo,
 } from '@hfos/core';
@@ -30,7 +32,7 @@ import {
   type TrackReferenceOrPlaceholder,
 } from '@livekit/components-react';
 import { Track, type Participant } from 'livekit-client';
-import { Hand, MicOff } from 'lucide-react';
+import { AlertTriangle, Hand, MicOff } from 'lucide-react';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { Avatar } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -283,6 +285,8 @@ function Tile({ trackRef, big = false }: { trackRef: TrackReferenceOrPlaceholder
   const micOff = useIsMuted({ participant: p, source: Track.Source.Microphone });
   const videoOff = useIsMuted(trackRef);
   const hand = useParticipantAttribute(VIDEO_CALL_ATTRIBUTES.hand, { participant: p }) === 'up';
+  // Their microphone's trouble, for everyone else (they see the steps themselves).
+  const mic = micStateOf(useParticipantAttribute(VIDEO_CALL_ATTRIBUTES.mic, { participant: p }));
   const label = screen ? `${name}’s screen` : p.isLocal ? `${name} (you)` : name;
   return (
     <div
@@ -317,6 +321,16 @@ function Tile({ trackRef, big = false }: { trackRef: TrackReferenceOrPlaceholder
         ) : null}
         <span className="truncate">{label}</span>
       </span>
+      {mic && !screen && !p.isLocal ? (
+        <span
+          className="absolute left-2 top-2 inline-flex max-w-[calc(100%-56px)] items-center gap-1 rounded-full bg-[#f0a93b] px-2 py-0.5 text-[11.5px] font-medium text-[#191d25]"
+          title={MIC_WORDS.stateHint[mic]}
+          data-testid="call-tile-mic"
+        >
+          <AlertTriangle size={12} aria-hidden className="flex-none" />
+          <span className="truncate">{MIC_WORDS.state[mic]}</span>
+        </span>
+      ) : null}
       {hand && !screen ? (
         <span
           className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#f0a93b] text-[#191d25]"

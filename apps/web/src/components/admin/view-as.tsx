@@ -44,15 +44,20 @@ export function ViewAsButton({
   ticketId,
   founder = false,
   person,
+  to,
 }: {
   workspaceId: string;
   businessName: string;
   ticketId?: string;
   founder?: boolean;
   person?: Person;
+  /** For the founder: a page inside the business to land on, with the button saying so (`label`). */
+  to?: { readonly path: string; readonly label: string };
 }) {
   if (founder)
-    return <OpenAsOwnerButton workspaceId={workspaceId} ticketId={ticketId} person={person} />;
+    return (
+      <OpenAsOwnerButton workspaceId={workspaceId} ticketId={ticketId} person={person} to={to} />
+    );
   return (
     <LookButton
       workspaceId={workspaceId}
@@ -67,10 +72,12 @@ function OpenAsOwnerButton({
   workspaceId,
   ticketId,
   person,
+  to,
 }: {
   workspaceId: string;
   ticketId?: string;
   person?: Person;
+  to?: { readonly path: string; readonly label: string };
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -86,7 +93,7 @@ function OpenAsOwnerButton({
         }),
       );
       await viewAs(workspaceId, person);
-      router.push(`/app/w/${workspaceId}`);
+      router.push(`/app/w/${workspaceId}${to?.path ?? ''}`);
     } catch (e) {
       setError(errorMessage(e));
       setBusy(false);
@@ -107,9 +114,14 @@ function OpenAsOwnerButton({
           {VIEW_AS_WORDS.startShort}
         </Button>
       ) : (
-        <Button variant="secondary" onClick={start} disabled={busy} data-testid="view-as-open">
+        <Button
+          variant="secondary"
+          onClick={start}
+          disabled={busy}
+          data-testid={to ? 'view-as-open-to' : 'view-as-open'}
+        >
           <KeyRound className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          Open as owner
+          {to?.label ?? 'Open as owner'}
         </Button>
       )}
       {error ? <p className="text-[13px] text-danger-text">{error}</p> : null}

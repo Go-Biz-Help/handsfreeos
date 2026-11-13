@@ -215,3 +215,10 @@ export const lineCheckUsageKey = (checkId: string, what: 'line_type' | 'caller_n
  */
 export const aiImageUsageKey = (fileId: string): string =>
   `ai-image:${need(fileId, 'picture file id')}`;
+
+/**
+ * The web searches one AI answer made (`ai.web_search`), by the answer's own id: the provider bills each search, so
+ * an answer asked again (a retry) is its own charge, as the provider charges it again.
+ */
+export const aiWebSearchUsageKey = (answerId: string): string =>
+  `ai-web-search:${need(answerId, 'answer id')}`;

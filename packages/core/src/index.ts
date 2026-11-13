@@ -15,6 +15,7 @@ export * from './meetings/review';
 export * from './meetings/google';
 // HandsFreeOS video calls: the rules and words the worker, the web and the phone share.
 export * from './meetings/video-calls';
+export * from './meetings/mic-help';
 // What a call really used: the data each call screen downloaded (20261027022000).
 export * from './meetings/call-data';
 // Links in a call's chat, pressable on the web and the phone.
@@ -57,6 +58,9 @@ export * from './messaging/policies';
 // A business's own policy or terms, given back with the texting section in place.
 export * from './messaging/policy-update';
 export * from './messaging/preflight';
+// The page a website's host shows a bot instead of the page asked for.
+export * from './websites/robot-check';
+export * from './messaging/website-fixes';
 export * from './messaging/sms';
 export * from './messaging/rcs';
 // Facebook Messenger and Instagram direct messages (20261025000200).

@@ -1,4 +1,4 @@
-import type { MoneyLinkKind } from '@hfos/core';
+import type { ManualPaymentMethod, MoneyLinkKind } from '@hfos/core';
 
 import { change } from '@/changes';
 import { appFetch } from '@/lib/network';
@@ -21,19 +21,31 @@ export interface RecordCash {
   readonly workspaceId: string;
   readonly invoiceId: string;
   readonly amountCents: number;
-  readonly method: 'cash' | 'check' | 'other';
+  readonly method: ManualPaymentMethod;
+  /** Where it went through: "Chase QuickAccept". */
+  readonly paidThrough?: string | null;
   /** A check number, say. */
-  readonly reference: string | null;
+  readonly note: string | null;
+  /** The business's own day it was paid; left out, the moment it was pressed. */
+  readonly paidOn?: string | null;
+  /** Whether the customer is sent a receipt. */
+  readonly receipt?: boolean;
 }
 
-/** Record cash or a check against an unpaid invoice, in this person's name, from the doorstep. */
+/**
+ * Record cash, a check or a card on another machine against an invoice, in this person's name, from the doorstep. On
+ * a draft it is Mark paid: HandsFreeOS gives it its number when the change arrives, and nobody is sent it.
+ */
 export function recordCash(input: RecordCash): Promise<{ id: string }> {
   return change('invoice.record_cash_payment', {
     workspaceId: input.workspaceId,
     invoiceId: input.invoiceId,
     amountCents: input.amountCents,
     method: input.method,
-    reference: input.reference?.trim() || null,
+    paidThrough: input.paidThrough?.trim() || null,
+    note: input.note?.trim() || null,
+    ...(input.paidOn ? { paidOn: input.paidOn } : {}),
+    receipt: input.receipt ?? true,
   });
 }
 

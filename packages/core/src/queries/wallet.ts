@@ -343,6 +343,7 @@ export const usagePrices = defineQuery({
         say('lookup.line_type', 'Checking what kind of line a number is', 'each'),
         say('lookup.caller_name', 'Checking who a landline belongs to', 'each'),
         say('ai.image', 'A photo-style picture the AI makes for a post', 'each'),
+        say('ai.web_search', 'A web search the AI makes to look up news for posts', 'each'),
         { key: null, what: 'An AI reply', unit: 'about', cents: Math.max(1, aiReply) },
         {
           key: null,

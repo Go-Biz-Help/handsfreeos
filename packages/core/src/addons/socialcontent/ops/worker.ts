@@ -40,7 +40,7 @@ import { loadContent, needChangeable } from './content';
 export const nichesPut = defineAddonCommand(socialcontentAddon, {
   name: 'socialcontent.niches.put',
   description:
-    'Worker: the niches the AI suggested from the business’s profile. Its own niche is kept, ticked, when there isn’t one yet or the one there was skipped (that one stays, skipped, as a niche like it); when it’s one already kept, that one becomes the own one. Each similar one not already there is suggested for someone to tick.',
+    'Worker: the niches the AI suggested from the business’s profile. Its own niche is kept, ticked, when there isn’t one yet or the one there was skipped (that one stays, skipped, as a niche like it); when it’s one already kept, that one becomes the own one. Each similar one not already there is suggested for someone to tick; setting up on its own ticks the closest few too (decision 29), never one about its customers’ world.',
   risk: 0,
   input: NichesPutInput,
   output: NichesPutOutput,
@@ -59,8 +59,8 @@ export const nichesPut = defineAddonCommand(socialcontentAddon, {
     const add = async (
       niche: z.output<typeof NichesPutInput>['similar'][number],
       own: boolean,
-    ): Promise<void> => {
-      if (room <= 0) return;
+    ): Promise<string | null> => {
+      if (room <= 0) return null;
       const made = await rows<{ id: string }>(
         ctx.tx,
         sql`insert into addon_socialcontent.niches (workspace_id, name, own, state, why, searches)
@@ -69,10 +69,10 @@ export const nichesPut = defineAddonCommand(socialcontentAddon, {
             on conflict do nothing
             returning id`,
       );
-      if (made.length) {
-        added++;
-        room--;
-      }
+      if (!made.length) return null;
+      added++;
+      room--;
+      return made[0]!.id;
     };
     // Its own niche, skipped: the new one takes its place as the business's own (the owner, 9 Nov 2026: "I really
     // need to grow as my niche"), and the old one stays, skipped, among the ones like it.
@@ -95,7 +95,17 @@ export const nichesPut = defineAddonCommand(socialcontentAddon, {
               and not own and state <> 'skipped'
               and not exists (select 1 from addon_socialcontent.niches o where o.workspace_id = ${ws} and o.own)`,
       );
-    for (const s of input.similar) await add(s, false);
+    // Setting up on its own (decision 29): the closest new ones are ticked too, never one about its customers' world.
+    let toPick = input.pickClosest;
+    for (const s of input.similar) {
+      const id = await add(s, false);
+      if (!id || toPick <= 0 || /^your customers/i.test(s.why ?? '')) continue;
+      await rows(
+        ctx.tx,
+        sql`update addon_socialcontent.niches set state = 'picked' where id = ${id} and state = 'suggested'`,
+      );
+      toPick--;
+    }
     await ctx.emit({
       type: 'socialcontent.niches.suggested',
       entityType: 'socialcontent_niche',
@@ -127,7 +137,7 @@ export const nicheSearchesPut = defineAddonCommand(socialcontentAddon, {
 export const workQueue = defineAddonCommand(socialcontentAddon, {
   name: 'socialcontent.work.queue',
   description:
-    'Worker: the weekly read of every studied creator’s posts (new ones, and the last 60 days’ numbers), or the monthly search of every ticked niche on every network studied. Nothing is queued while no computer reads.',
+    'Worker: the weekly read of every studied creator’s posts (new ones, and the last 60 days’ numbers), or the monthly search of every ticked niche on every network studied, or that search for setting up on its own. Nothing is queued while no computer reads.',
   risk: 0,
   input: WorkQueueInput,
   output: z.object({ asked: z.number().int() }),
@@ -292,7 +302,16 @@ export const ideasPut = defineAddonCommand(socialcontentAddon, {
     const ws = ctx.scope.workspaceId!;
     const made = await ctx.tx
       .insert(ideas)
-      .values(input.ideas.map((i) => ({ ...i, workspaceId: ws })))
+      .values(
+        input.ideas.map(({ topic, source, ...i }) => ({
+          ...i,
+          topicList: topic?.list ?? null,
+          topic: topic?.line ?? null,
+          sourceUrl: source?.url ?? null,
+          sourceName: source?.name ?? null,
+          workspaceId: ws,
+        })),
+      )
       .returning({ id: ideas.id });
     await ctx.emit({
       type: 'socialcontent.ideas.added',
@@ -323,7 +342,7 @@ export async function postKindId(ctx: Ctx): Promise<string> {
 export const contentPut = defineAddonCommand(socialcontentAddon, {
   name: 'socialcontent.content.put',
   description:
-    'Worker: a post the AI wrote for the business, kept as a Social post record waiting for an OK, for a day in the calendar or none; or a post written again, which takes its OK back. The idea it came from is marked used.',
+    'Worker: a post the AI wrote for the business, kept as a Social post record waiting for an OK, for a day in the calendar or none, with its kind in the weekly mix and the line from the lists it’s about; or a post written again, which takes its OK back. The idea it came from is marked used.',
   risk: 0,
   input: ContentPutInput,
   output: ContentPutOutput,
@@ -349,6 +368,9 @@ export const contentPut = defineAddonCommand(socialcontentAddon, {
       picture: p.picture,
       pictureWay: p.pictureWay,
       pictureFailure: null,
+      angle: p.angle,
+      topicList: p.topic?.list ?? null,
+      topic: p.topic?.line ?? null,
       updatedAt: changeMoment(ctx.meta),
     };
     let postId = input.postId ?? null;
@@ -366,6 +388,8 @@ export const contentPut = defineAddonCommand(socialcontentAddon, {
         .update(content)
         .set({
           ...fields,
+          // A draft from before written again from an idea (decision 37) now comes from that idea.
+          ...(input.ideaId ? { ideaId: input.ideaId } : {}),
           // Its pictures stay until new ones are made (or, for its own, until the person changes them).
           pictureState:
             pictureState === 'waiting' ? 'waiting' : was.fileIds.length ? 'made' : 'none',
@@ -393,11 +417,12 @@ export const contentPut = defineAddonCommand(socialcontentAddon, {
         pictureState,
         facebookWhere: input.network === 'facebook' ? s.facebookWhere : [],
         postAt: input.postAt ? new Date(input.postAt) : null,
+        placedBy: input.placedBy,
         madeBy: 'ai',
         createdBy: input.askedBy,
       });
     }
-    if (created && input.ideaId) {
+    if (input.ideaId) {
       const used = await ctx.tx
         .update(ideas)
         .set({

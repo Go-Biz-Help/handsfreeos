@@ -12,8 +12,11 @@ import {
   formatKnowledgeForPrompt,
   groundingBrief,
   HfosError,
+  listsFilled,
   listsOf,
   MainOfferParts,
+  OFFER_LISTS,
+  type MainOfferLists,
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import { shortKnowledge } from '../../knowledge/find';
@@ -76,4 +79,19 @@ export async function offerIsLive(ctx: AddonScopeContext): Promise<boolean> {
 export async function requireLiveOffer(ctx: AddonScopeContext): Promise<void> {
   if (!(await offerIsLive(ctx)))
     throw HfosError.rule('socialcontent_offer_not_live', 409, W.offer.notLive);
+}
+
+/** The main offer's lists for content, each a few lines: what each post's topic is taken from (decision 34). */
+export async function listsHere(ctx: AddonScopeContext): Promise<MainOfferLists> {
+  const { lists } = await asWorker(ctx.db, ctx.scope, (tx) => offerHere(tx, ctx.scope.workspaceId));
+  return lists;
+}
+
+/**
+ * Whether every one of the main offer's lists for content has something in it: setting up on its own writes only then
+ * (decision 32), and the calendar writes from them when there's no Playbook or idea yet.
+ */
+export async function listsAllFilled(ctx: AddonScopeContext): Promise<boolean> {
+  const { lists } = await asWorker(ctx.db, ctx.scope, (tx) => offerHere(tx, ctx.scope.workspaceId));
+  return listsFilled(lists) >= OFFER_LISTS.length;
 }

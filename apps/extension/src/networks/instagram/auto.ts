@@ -107,20 +107,74 @@ export function theirPosts(doc: Document, href: string, them: ProfileRef): Their
   }));
 }
 
+/**
+ * Whether a part holds a post's Comment: by its name, or by its icon's label where its count names it, as the reels
+ * player's does ("2" beside the icon, in the same button).
+ */
+function holdsComment(part: Element): boolean {
+  if (says(part, COMMENT)) return true;
+  return [...part.querySelectorAll('svg[aria-label]')].some(
+    (icon) =>
+      COMMENT.test(clean(icon.getAttribute('aria-label'))) &&
+      !!icon.closest('button, [role="button"]') &&
+      part.contains(icon.closest('button, [role="button"]')),
+  );
+}
+
+/** The bar a post's own Like sits in, with its Comment, a part or three out; null for a comment's, by its Reply. */
+function postLikeBar(control: Element): Element | null {
+  let bar: Element | null = control.parentElement;
+  for (let n = 0; bar && n < 3 && !holdsComment(bar); n++) bar = bar.parentElement;
+  return bar && holdsComment(bar) && !says(bar, REPLY) ? bar : null;
+}
+
 /** The post's own Like (or Unlike): in the bar with its Comment, never a comment's, which has its Reply beside it. */
 export function postLikeOf(root: Element): HTMLElement | null {
-  return (
-    controlsSaying(root, /^(like|unlike)$/i, true).find((control) => {
-      let bar: Element | null = control.parentElement;
-      for (let n = 0; bar && n < 3 && !says(bar, COMMENT); n++) bar = bar.parentElement;
-      return !!bar && says(bar, COMMENT) && !says(bar, REPLY);
-    }) ?? null
-  );
+  return controlsSaying(root, /^(like|unlike)$/i, true).find((c) => postLikeBar(c)) ?? null;
+}
+
+/**
+ * The reel the reels player opened on (/reels/<code>/): Instagram draws reels there one under another, with no article
+ * around each and no link to the reel itself in it, the one in the address first and the next after it (the owner's
+ * problem reports of 12 Nov 2026: no like on a reel ever went, as no post's author was found, and its Comment, named
+ * by its count, didn't say Comment). Each reel's part holds its video, its account's links (to /<name>/reels/) over it
+ * and the bar with its Like and Comment beside it: the first post Like's part, out to where it holds an account's link,
+ * while that holds no other Like. Null anywhere else.
+ */
+export function openedReelOf(doc: Document, href: string): Element | null {
+  const page = instagramUrl(href);
+  if (!page || partsOf(page)[0]?.toLowerCase() !== 'reels' || kindOf(page) !== 'post') return null;
+  const main = mainOf(doc);
+  if (main.querySelector('article')) return null;
+  const like = postLikeOf(main);
+  for (let up = like?.parentElement ?? null; up && main.contains(up); up = up.parentElement) {
+    if (!linksIn(up, href).some(({ url }) => profileOf(url))) continue;
+    return reelLikes(up) === 1 ? up : null;
+  }
+  return null;
+}
+
+/** How many reels' own Likes a part holds: each by the bar it shares with a Comment. */
+function reelLikes(part: Element): number {
+  return controlsSaying(part, /^(like|unlike)$/i, true).filter((control) => {
+    const bar = postLikeBar(control);
+    return !!bar && part.contains(bar);
+  }).length;
+}
+
+/** Who posted the reel: the first account its part links to, over its video, before any name in its words. */
+function reelAuthorOf(reel: Element, href: string): string | null {
+  for (const { url } of linksIn(reel, href)) {
+    const account = profileOf(url);
+    if (account) return account.username;
+  }
+  return null;
 }
 
 /**
  * Likes the post the tab shows, when it's theirs (its own link names them) and the one picked: `done` once it says
  * Unlike, `already` when it did, `none` when it isn't theirs or has no Like, `not_sent` when Instagram didn't take it.
+ * In the reels player, it's the reel it opened on, and its account's links over it name them (`openedReelOf`).
  */
 export async function likeTheirPost(
   doc: Document,
@@ -132,9 +186,12 @@ export async function likeTheirPost(
   const url = page && kindOf(page) === 'post' ? postOf(page) : null;
   if (!url || (pick.url && postOf(new URL(pick.url)) !== url))
     return { result: 'none', postUrl: pick.url };
-  const root = postRootOf(doc);
-  if (!isThem(authorOf(root, href, partsOf(new URL(url))[1]!)?.username, them))
-    return { result: 'none', postUrl: url };
+  const reel = openedReelOf(doc, href);
+  const root = reel ?? postRootOf(doc);
+  const author = reel
+    ? reelAuthorOf(reel, href)
+    : (authorOf(root, href, partsOf(new URL(url))[1]!)?.username ?? null);
+  if (!isThem(author, them)) return { result: 'none', postUrl: url };
   const like = postLikeOf(root);
   if (!like) return { result: 'none', postUrl: url };
   if (LIKED.test(nameOf(like))) return { result: 'already', postUrl: url };
@@ -142,7 +199,7 @@ export async function likeTheirPost(
   like.click();
   // Instagram may draw the bar again: its Like is found again each look.
   const went = await waitFor(() => {
-    const now = postLikeOf(postRootOf(doc));
+    const now = postLikeOf((reel ? openedReelOf(doc, href) : null) ?? postRootOf(doc));
     return now && LIKED.test(nameOf(now)) ? true : null;
   }, WENT_MS);
   return { result: went ? 'done' : 'not_sent', postUrl: url };

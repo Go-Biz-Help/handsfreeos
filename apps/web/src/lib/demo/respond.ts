@@ -679,6 +679,7 @@ function invoiceRow(w: DemoWorld, inv: DemoInvoice, bill: Bill) {
     estimateId: inv.estimateId ?? null,
     subscriptionId: null,
     connectionId: STRIPE,
+    payOutside: false,
     assignee: { id: w.state.me.id, fullName: w.state.me.name },
     totals,
     amountPaidCents: paid ? totals.totalCents : 0,
@@ -766,6 +767,7 @@ function invoice(w: DemoWorld, inv: DemoInvoice): InvoiceGet | null {
       linkVersion: 1,
       voidReason: null,
       lines: moneyLines(bill.lines, 0xd100),
+      markedPaid: false,
     },
     // Paid by card from the link on their phone, through the business's Stripe account.
     payments: paid
@@ -787,11 +789,14 @@ function invoice(w: DemoWorld, inv: DemoInvoice): InvoiceGet | null {
             refundedCents: 0,
             recordedBy: null,
             receivedAt: iso(paid.at),
+            paidThrough: null,
+            note: null,
             createdAt: iso(paid.at - 20_000),
           },
         ]
       : [],
     refunds: [],
+    paidThroughNames: [],
   };
 }
 

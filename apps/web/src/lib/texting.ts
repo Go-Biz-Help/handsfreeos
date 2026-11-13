@@ -114,6 +114,17 @@ export async function loadTexting(
       bookingEnabled: site.site?.enabled ?? false,
       // The chat's code loads from the business's own domain once one is serving, as Settings → Website chat's does.
       snippetOrigin: brandedOrigin,
+      // For "Email your web person": the forms a website could show, and every chat (hidden ones too) for its switch.
+      liveForms: forms.items
+        .filter((f) => f.status === 'live' && f.mode === 'form')
+        .map((f) => ({ formId: f.formId, name: f.name, embedOrigins: f.embedOrigins })),
+      chats: widgets.items.map((w) => ({
+        id: w.id,
+        allowedOrigins: w.allowedOrigins,
+        smsConsent: w.smsConsent,
+        paused: w.paused,
+        hiddenUntilTexting: w.hiddenUntilTexting,
+      })),
     },
   };
 }

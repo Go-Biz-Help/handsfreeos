@@ -289,6 +289,11 @@ export const VIDEO_CALL_ATTRIBUTES = {
   video: 'hfos.video',
   /** A webinar: `on` for an attendee the team brought on stage. */
   stage: 'hfos.stage',
+  /**
+   * Their microphone's trouble (`blocked` or `silent`, mic-help.ts), set by their own page so everyone else sees it on
+   * their tile and in People. Empty once it works.
+   */
+  mic: 'hfos.mic',
 } as const;
 
 /**
@@ -455,12 +460,73 @@ export function videoCallTranscript(
 export const VIDEO_CALL_REACTIONS = ['👍', '❤️', '😂', '👏', '🎉', '😮'] as const;
 export type VideoCallReaction = (typeof VIDEO_CALL_REACTIONS)[number];
 
+// ---------- the sounds: someone comes in, someone asks to ----------
 /**
- * In-app browsers (Facebook, Instagram, Messenger, TikTok, WeChat, LINE) that can block the camera or the
- * microphone: the join page asks to open the link in Safari or Chrome instead.
+ * A call's two sounds, the same on the web and the phone (scripts/video-call-sounds.mjs makes both copies): `join`
+ * when someone comes into the call, and `knock`, for the team, when someone on the call's link asks to be let in.
+ */
+export const VIDEO_CALL_SOUNDS = ['join', 'knock'] as const;
+export type VideoCallSound = (typeof VIDEO_CALL_SOUNDS)[number];
+
+/** Several people coming in together play one sound: at most one of each kind in this long. */
+export const VIDEO_CALL_SOUND_GAP_MS = 2_000;
+/**
+ * After a page's own connection drops and comes back, LiveKit tells it of everyone already in the room again, as if
+ * they had just come in. It stays quiet that whole time, and this long after.
+ */
+export const VIDEO_CALL_SOUND_SETTLE_MS = 3_000;
+
+/**
+ * Whether someone coming into the room plays the join sound: a person, never the AI's listener, and in a webinar only
+ * someone from the team, so hundreds of attendees arriving stay quiet.
+ */
+export function joinSoundFor(p: {
+  readonly identity: string;
+  readonly attributes?: Readonly<Record<string, string>> | undefined;
+  readonly webinar: boolean;
+}): boolean {
+  if (!isPersonIdentity(p.identity)) return false;
+  return !p.webinar || roomRightsOf(p.attributes).kind === 'team';
+}
+
+/**
+ * When a sound that's due plays, for one page or phone in a call: never while its own connection is coming back
+ * (`quiet`, until a moment after `settled`), and once when several of a kind are due together.
+ */
+export function videoCallSoundGate(
+  gapMs: number = VIDEO_CALL_SOUND_GAP_MS,
+  settleMs: number = VIDEO_CALL_SOUND_SETTLE_MS,
+) {
+  let quietUntil = 0;
+  const last = new Map<VideoCallSound, number>();
+  return {
+    /** The page's connection dropped: nothing plays until it's back. */
+    quiet(): void {
+      quietUntil = Number.POSITIVE_INFINITY;
+    },
+    /** It's back: what LiveKit tells of in the next moment is who was there already. */
+    settled(now: number): void {
+      quietUntil = now + settleMs;
+    },
+    /** Whether to play it now; a yes counts as played. */
+    due(sound: VideoCallSound, now: number): boolean {
+      if (now < quietUntil) return false;
+      const was = last.get(sound);
+      if (was !== undefined && now - was < gapMs) return false;
+      last.set(sound, now);
+      return true;
+    },
+  };
+}
+export type VideoCallSoundGate = ReturnType<typeof videoCallSoundGate>;
+
+/**
+ * In-app browsers (Facebook, Instagram, Threads, Messenger, TikTok, WeChat, LINE, LinkedIn, Snapchat, Pinterest, X, and
+ * any Android app's own web view) that can block the camera or the microphone: the join page asks to open the link
+ * in Safari or Chrome instead. Joining still works where the app allows it.
  */
 const IN_APP_BROWSER =
-  /FBAN|FBAV|FB_IAB|FBIOS|Instagram|Messenger|musical_ly|TikTok|MicroMessenger|\bLine\//i;
+  /FBAN|FBAV|FB_IAB|FBIOS|Instagram|Barcelona|Messenger|musical_ly|TikTok|MicroMessenger|\bLine\/|LinkedInApp|Snapchat|Pinterest|Twitter for|; wv\)/i;
 export const isInAppBrowser = (userAgent: string | null | undefined): boolean =>
   !!userAgent && IN_APP_BROWSER.test(userAgent);
 
@@ -506,8 +572,6 @@ export const VIDEO_CALL_WORDS = {
   full: `This call is full: it has room for ${VIDEO_CALL_MAX_PEOPLE} people. Try again when someone leaves.`,
   inAppBrowser:
     'This app’s own browser can block your camera and microphone. Open this link in Safari or Chrome to join.',
-  noCamera:
-    'Your browser didn’t let this page use your camera or microphone. Allow them in your browser’s settings for this page, then try again.',
   poweredBy: 'Powered by HandsFreeOS',
   endForEveryone: 'End for everyone',
   endForEveryoneConfirm: 'End the call for everyone?',
@@ -590,7 +654,46 @@ export const VIDEO_CALL_WORDS = {
   notes: 'Notes from the call',
   notesSoon:
     'The summary and suggestions show here a minute after the call ends, when its AI notes were on.',
+  /** The coach's box over the call, for the team (the owner's picks, 12 Nov 2026). */
+  coach: {
+    label: 'Coach',
+    move: 'Drag to move the coach. Double-click to put it back under your camera.',
+    smaller: 'Smaller text',
+    bigger: 'Bigger text',
+    hide: 'Hide the coach',
+    show: 'Show the coach',
+    resize: 'Drag to make the coach wider or taller',
+    popOut: 'Pop out: keep the coach on top of every window',
+    /** Once it's popped out: it's seen by whatever shares the whole screen. */
+    poppedOutTip:
+      'The coach stays on top of every window now. When you share, share a tab or a window, not your whole screen, so the customer doesn’t see it.',
+    popOutFailed:
+      'Your browser couldn’t pop the coach out. Chrome and Edge on a computer can; here it stays over the call.',
+    /** In the call, while it's in its own window. */
+    poppedOut: 'The coach is in its own window.',
+    backIn: 'Back to the call',
+    /** In its own window, before the coach has anything to show. */
+    waiting: 'The coach’s cards show here once it hears the call.',
+  },
 } as const;
+
+/**
+ * How big the coach's words can go over a call, a step at a time (A− and A+), on the web and the phone: each a
+ * multiple of its usual size. Each screen keeps its own choice.
+ */
+export const CALL_COACH_TEXT_SIZES = [0.85, 1, 1.15, 1.3, 1.5, 1.75, 2] as const;
+/** The usual size's place in CALL_COACH_TEXT_SIZES. */
+export const CALL_COACH_TEXT_SIZE_START = 1;
+
+/** A kept step, read back as one that exists: the usual size for anything else. */
+export function callCoachTextStep(kept: unknown): number {
+  return typeof kept === 'number' &&
+    Number.isInteger(kept) &&
+    kept >= 0 &&
+    kept < CALL_COACH_TEXT_SIZES.length
+    ? kept
+    : CALL_COACH_TEXT_SIZE_START;
+}
 
 /** A webinar's words (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md), one copy for the web and the phone. */
 export const WEBINAR_WORDS = {

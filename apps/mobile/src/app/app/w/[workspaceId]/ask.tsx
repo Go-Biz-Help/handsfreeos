@@ -16,6 +16,7 @@ import { Screen } from '@/components/shell/screen';
 import { Icon } from '@/components/ui/icon';
 import { setupIsOff, useAssistantChat, type ChatMessage } from '@/assistant/chat';
 import { deviceChangesOf } from '@/assistant/device-changes';
+import { answerWaiting } from '@/assistant/decide';
 import { pageRecordOf, screenPathOf } from '@/assistant/page-record';
 import { useAssistantVoice } from '@/assistant/voice';
 import { useChangeList } from '@/changes/hooks';
@@ -57,8 +58,12 @@ export default function Ask() {
 
   const send = () => {
     if (!draft.trim()) return;
-    chat.ask(draft);
+    const text = draft;
     setDraft('');
+    // A plain yes or no answers the cards waiting for an OK, as their buttons do; anything else is a question.
+    void answerWaiting(chat, business.id, text).then((answered) => {
+      if (answered === null) chat.ask(text);
+    });
   };
 
   // A new answer scrolls into view, so what came back is what you see.

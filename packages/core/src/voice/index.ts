@@ -22,6 +22,15 @@
  *   A refusal is the API's JSON error, { error: { code, message, rule } }: 401 or 403, 400 for an empty or
  *   unreadable recording, 413 when it's too long, and 503 with rule `speech_not_configured` when the worker has no
  *   one to listen and speak (production without a Deepgram key).
+ *
+ *   GET {worker}/v1/speech/listen (a websocket): the Assistant's smart listening on the web. Instead of recording a
+ *   turn and sending it, the microphone streams live and Deepgram Flux says when they've finished a thought, from
+ *   what they said and how, not only from a pause.
+ *   → first message ListenClientMessage `start` { token, workspaceId }; then 16 kHz 16-bit little-endian mono PCM
+ *     as binary frames (LISTEN_RATE); `done` when they press Done.
+ *   ← ListenServerMessage: `ready` once it's listening (send what was recorded meanwhile), `talking` when they
+ *     start, `turn` { text, language } when they've finished (text is '' when nothing was said), then it closes;
+ *     or `error` { message, rule } and it closes (the same rules as hear's refusals).
  */
 import { z } from 'zod';
 import { PHONE_VOICES, type PhoneVoice } from '../ai-team/voices';
@@ -52,6 +61,51 @@ export const SpeechSayInput = z.object({
 });
 export type SpeechSayInput = z.infer<typeof SpeechSayInput>;
 export type SpeechSayBody = z.input<typeof SpeechSayInput>;
+
+/** The sample rate the Assistant's live listening streams at: clear speech, more than a phone line carries. */
+export const LISTEN_RATE = 16_000;
+
+export const ListenClientMessage = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('start'), token: z.string().min(1), workspaceId: z.uuid() }),
+  /** Done was pressed: what's been heard so far is the turn. */
+  z.object({ type: z.literal('done') }),
+]);
+export type ListenClientMessage = z.infer<typeof ListenClientMessage>;
+
+export type ListenServerMessage =
+  | { readonly type: 'ready' }
+  | { readonly type: 'talking' }
+  | { readonly type: 'turn'; readonly text: string; readonly language: string | null }
+  | { readonly type: 'error'; readonly message: string; readonly rule: string };
+
+/** One of the worker's messages on the live listening socket, or null when it isn't one. */
+export function parseListenMessage(raw: unknown): ListenServerMessage | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const m = raw as Record<string, unknown>;
+  switch (m['type']) {
+    case 'ready':
+    case 'talking':
+      return { type: m['type'] };
+    case 'turn':
+      return typeof m['text'] === 'string'
+        ? {
+            type: 'turn',
+            text: m['text'],
+            language: typeof m['language'] === 'string' ? m['language'] : null,
+          }
+        : null;
+    case 'error':
+      return typeof m['message'] === 'string'
+        ? {
+            type: 'error',
+            message: m['message'],
+            rule: typeof m['rule'] === 'string' ? m['rule'] : 'speech_failed',
+          }
+        : null;
+    default:
+      return null;
+  }
+}
 
 /** What the worker heard. */
 export interface HeardSpeech {
@@ -242,8 +296,8 @@ export function nextSpoken(
 }
 
 /**
- * What's said once an answer is finished: that there's more on the screen, why it stopped short, and, when one
- * card waits for an OK, the question a yes or a no answers.
+ * What's said once an answer is finished: that there's more on the screen, why it stopped short, and, when cards
+ * wait for an OK, the question a yes or a no answers.
  */
 export function closingSpoken(input: {
   readonly state: SpokenAnswer;
@@ -256,7 +310,15 @@ export function closingSpoken(input: {
   if (input.state.cut) out.push(VOICE_WORDS.more);
   if (input.notice) out.push(input.notice);
   const [only, ...others] = input.waiting;
-  if (only && others.length) out.push(VOICE_WORDS.manyCards);
+  // Several cards: a yes or a no answers them all, unless one needs a reason picked first.
+  if (only && others.length)
+    out.push(
+      input.waiting.some((c) => c.needsReason)
+        ? VOICE_WORDS.manyCards
+        : others.length === 1
+          ? VOICE_WORDS.askOkBoth
+          : VOICE_WORDS.askOkAll,
+    );
   else if (only?.needsReason) out.push(VOICE_WORDS.askOkReason);
   else if (only)
     out.push(
@@ -388,6 +450,13 @@ export interface TurnDetectorOptions {
   readonly maxMs?: number;
 }
 
+/**
+ * How the Assistant hears a turn: it waits 2.5 seconds of quiet before answering, not a phone call's 1.1. Asking it
+ * to do something isn't a back-and-forth, and people stop to think mid-ask ("Add a task for… Dale, to call the
+ * Smiths"). Done sends it straight away. The test console keeps a call's pace.
+ */
+export const ASSISTANT_TURN: TurnDetectorOptions = { silenceMs: 2500 };
+
 /** waiting: nothing said yet; talking: they're saying something; done: they finished; nothing: they never spoke. */
 export type TurnState = 'waiting' | 'talking' | 'done' | 'nothing';
 
@@ -492,7 +561,10 @@ export const VOICE_WORDS = {
   /** Asked after an answer whose card waits for an OK. */
   askOk: 'Should I go ahead? Say yes or no.',
   askOkReason: 'Pick a reason on the card, then confirm it.',
-  manyCards: 'Check the cards on the screen, or ask me something else.',
+  /** Asked after an answer with several cards, none needing a reason: a yes or a no answers them all. */
+  askOkBoth: 'Should I go ahead with both? Say yes or no.',
+  askOkAll: 'Should I go ahead with all of them? Say yes or no.',
+  manyCards: 'Pick a reason on the cards that need one, then confirm them.',
   more: 'There’s more on the screen.',
   done: 'Done.',
   cancelled: 'OK, I won’t.',

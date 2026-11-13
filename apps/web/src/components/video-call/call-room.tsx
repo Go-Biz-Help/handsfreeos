@@ -31,10 +31,18 @@
  *   call is priced by what it really used.
  * - **Marks on a shared screen** (./screen-marks.tsx): someone watching points at it or draws on it, and everyone sees
  *   it. Like reactions, marks travel on their own data topic and aren't kept. In a webinar only the team marks.
+ * - **Sounds** (./call-sounds.ts): a chime as someone comes in, for everyone in the call (in a webinar, only as someone
+ *   from the team does), and for the team a door chime as someone asks to be let in.
+ * - **Microphone trouble** (./mic.tsx): a blocked microphone (or camera) gets a box with the steps for this browser
+ *   and device until it works; the arrow beside the microphone picks another one, or a speaker; turning the
+ *   microphone on starts it again when the phone paused it; and they're told when the team muted them, when they talk
+ *   while muted, and when it sends nothing at all. Everyone else sees "Mic blocked" or "No sound from their mic" on
+ *   them (their `hfos.mic` attribute).
  */
 import {
   ATTENDEE_VIDEO_CHOICES,
   LISTENER_IDENTITY,
+  MIC_WORDS,
   POLL_WORDS,
   VIDEO_CALL_ATTRIBUTES,
   VIDEO_CALL_CAPTIONS_TOPIC,
@@ -49,6 +57,8 @@ import {
   roomRightsOf,
   videoCallTitle,
   type AttendeeVideo,
+  type MediaKind,
+  type MicState,
   type VideoCallCaption,
 } from '@hfos/core';
 import {
@@ -73,9 +83,11 @@ import {
   RoomEvent,
   Track,
   VideoPresets,
+  type LocalAudioTrack,
   type LocalTrackPublication,
   type LocalVideoTrack,
   type Participant,
+  type TrackPublication,
 } from 'livekit-client';
 import {
   Camera,
@@ -122,14 +134,29 @@ import { brandLook } from '@/lib/look';
 import { cn } from '@/lib/utils';
 import { canBlur, setBlur } from './blur';
 import { keepCallChat } from './call-chat';
+import { useCallSounds } from './call-sounds';
 import { useCallData } from './call-data';
 import { ChatPanel, PeoplePanel } from './call-panels';
+import { CoachFloat } from './coach-float';
 import { CallStage } from './call-stage';
 import { MarksProvider } from './screen-marks';
 import { PollOffer, PollPanel } from './poll-panel';
 import { PollPopup } from './poll-popup';
 import { SlideBar, useSlides } from './slides';
-import { mediaProblem } from './pre-join';
+import {
+  ANY_DEVICE,
+  helpFor,
+  MediaHelpBox,
+  MicMenu,
+  MicNote,
+  micNeedsRestart,
+  useCallDevice,
+  useMediaTroubles,
+  useMicPaused,
+  useMicWatch,
+  useWhenAllowed,
+  type MediaTroubles,
+} from './mic';
 import {
   actOn,
   endForEveryone,
@@ -152,7 +179,7 @@ export interface CallRoomProps {
   readonly color?: string | null;
   /** The team's side; null for a customer or a guest. */
   readonly team?: TeamSide | null;
-  /** For the team: what add-ons show beside the video (the Sales Coach's cards, ./call-coach.tsx). */
+  /** For the team: what add-ons show over the video (the Sales Coach's cards, ./call-coach.tsx, in ./coach-float.tsx). */
   readonly coach?: ReactNode;
   /** For a customer on their own link: the link, which answers the live poll's questions (./poll-popup.tsx). */
   readonly poll?: { readonly token: string; readonly business: string } | null;
@@ -204,9 +231,14 @@ function LiveRoom({ ticket, choices, heading, color, team, coach, poll, onEnd }:
           autoGainControl: true,
           ...(choices.audioDeviceId ? { deviceId: choices.audioDeviceId } : {}),
         },
+        ...(choices.audioOutputId ? { audioOutput: { deviceId: choices.audioOutputId } } : {}),
       }),
   );
   const { connect, disconnect } = useSequentialRoomConnectDisconnect(room);
+  // What didn't start, and why: the microphone's trouble from before joining carries in.
+  const troubles = useMediaTroubles(choices.micTrouble);
+  const report = useRef(troubles.report);
+  report.current = troubles.report;
   const ending = useRef(onEnd);
   ending.current = onEnd;
   const first = useRef(choices);
@@ -216,10 +248,18 @@ function LiveRoom({ ticket, choices, heading, color, team, coach, poll, onEnd }:
 
   useEffect(() => {
     const gone = (reason?: DisconnectReason) => ending.current(endOf(reason));
-    const failed = (e: Error) => {
-      const kind = /audio|microphone/i.test(e.message) ? 'microphone' : 'camera';
-      toast.error(mediaProblem(e, kind));
-    };
+    // LiveKit says which device it was; told once even though the call that failed hears of it too (./mic.tsx).
+    const failed = (e: Error, kind?: MediaDeviceKind) =>
+      report.current(
+        e,
+        kind === 'audioinput'
+          ? 'microphone'
+          : kind === 'videoinput'
+            ? 'camera'
+            : /audio|microphone/i.test(e.message)
+              ? 'microphone'
+              : 'camera',
+      );
     // A camera that starts later (turned on in the call) gets the blur they asked for.
     const published = (pub: LocalTrackPublication) => {
       if (pub.source === Track.Source.Camera && blurWanted.current && pub.track)
@@ -237,10 +277,10 @@ function LiveRoom({ ticket, choices, heading, color, team, coach, poll, onEnd }:
         const may = roomRightsOf(room.localParticipant.attributes).publish;
         await room.localParticipant
           .setMicrophoneEnabled(want.mic && may.microphone)
-          .catch((e: unknown) => toast.error(mediaProblem(e, 'microphone')));
+          .catch((e: unknown) => report.current(e, 'microphone'));
         await room.localParticipant
           .setCameraEnabled(want.camera && may.camera)
-          .catch((e: unknown) => toast.error(mediaProblem(e, 'camera')));
+          .catch((e: unknown) => report.current(e, 'camera'));
       })
       .catch(() => {
         // Never got in: the page offers to join again, with a new ticket.
@@ -282,6 +322,7 @@ function LiveRoom({ ticket, choices, heading, color, team, coach, poll, onEnd }:
         poll={team ? null : (poll ?? null)}
         blur={blur}
         onBlur={(on) => void toggleBlur(on)}
+        troubles={troubles}
         onLeave={() => void room.disconnect()}
         onChatSent={(id, text) => keepCallChat(ticket.token, id, text)}
       />
@@ -305,6 +346,7 @@ function CallScreen({
   poll,
   blur,
   onBlur,
+  troubles,
   onLeave,
   onChatSent,
 }: {
@@ -315,13 +357,21 @@ function CallScreen({
   poll: CallRoomProps['poll'];
   blur: boolean;
   onBlur: (on: boolean) => void;
+  /** What didn't start, and why (./mic.tsx). */
+  troubles: MediaTroubles;
   onLeave: () => void;
   /** A chat message this screen just sent, so the call keeps it. */
   onChatSent: (id: string, text: string) => void;
 }) {
   const state = useConnectionState();
-  const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } =
-    useLocalParticipant();
+  const room = useRoomContext();
+  const {
+    localParticipant,
+    isMicrophoneEnabled,
+    isCameraEnabled,
+    isScreenShareEnabled,
+    microphoneTrack,
+  } = useLocalParticipant();
   const people = useParticipants().filter((p) => isPersonIdentity(p.identity));
   const [panel, setPanel] = useState<'chat' | 'people' | 'poll' | null>(null);
   const chat = useChat();
@@ -404,14 +454,17 @@ function CallScreen({
 
   // A hand going up says so, for whoever isn't looking at that tile: in a webinar, only to the team.
   useHandsUp(!webinar || !!team);
+  // A sound as someone comes in, and for the team as someone asks to (./call-sounds.ts).
+  const { knock } = useCallSounds(webinar);
 
-  // Someone asking to come in, for the team: who, with Let in right there.
+  // Someone asking to come in, for the team: who, with Let in right there, and the knock.
   const told = useRef(new Set<string>());
   useEffect(() => {
     if (!team || !got) return;
     for (const p of got.people) {
       if (p.state !== 'waiting' || p.kind !== 'guest' || told.current.has(p.id)) continue;
       told.current.add(p.id);
+      knock();
       toast(VIDEO_CALL_WORDS.askingToJoin(p.name), {
         duration: 10_000,
         action: {
@@ -420,17 +473,120 @@ function CallScreen({
         },
       });
     }
-  }, [got, team]);
+  }, [got, team, knock]);
   const asking = got?.people.filter((p) => p.state === 'waiting' && p.kind === 'guest').length ?? 0;
 
-  const toggleMic = () =>
-    void localParticipant
-      .setMicrophoneEnabled(!isMicrophoneEnabled)
-      .catch((e: unknown) => toast.error(mediaProblem(e, 'microphone')));
+  // The microphone (./mic.tsx): on only if it's really sending, since a phone can pause it while it still looks on.
+  const micTrack = microphoneTrack?.track as LocalAudioTrack | undefined;
+  const paused = useMicPaused(micTrack);
+  const micOn = isMicrophoneEnabled && !paused;
+  const device = useCallDevice();
+  const [micMenu, setMicMenu] = useState(false);
+  const [micBusy, setMicBusy] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [talkingMuted, setTalkingMuted] = useState(false);
+  const [silent, setSilent] = useState(false);
+  // When this page last turned its own microphone off, so the team muting them can be told apart.
+  const ownMicChange = useRef(0);
+  const turnMicOn = async () => {
+    // Unmuting alone doesn't wake a microphone the phone paused or the computer ended: it starts again first.
+    if (micTrack && micNeedsRestart(micTrack)) await micTrack.restartTrack();
+    await localParticipant.setMicrophoneEnabled(true);
+    troubles.clear('microphone');
+  };
+  const toggleMic = async () => {
+    if (micBusy) return;
+    setMicBusy(true);
+    try {
+      if (micOn) {
+        ownMicChange.current = Date.now();
+        await localParticipant.setMicrophoneEnabled(false);
+      } else await turnMicOn();
+    } catch (e) {
+      troubles.report(e, 'microphone');
+    } finally {
+      setMicBusy(false);
+    }
+  };
   const toggleCamera = () =>
     void localParticipant
       .setCameraEnabled(!isCameraEnabled)
-      .catch((e: unknown) => toast.error(mediaProblem(e, 'camera')));
+      .then(() => troubles.clear('camera'))
+      .catch((e: unknown) => troubles.report(e, 'camera'));
+  // Try again in the box, or the browser saying yes at last: start whatever had trouble.
+  const retry = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    const tried: [MediaKind, () => Promise<unknown>][] = [];
+    if (troubles.mic) tried.push(['microphone', turnMicOn]);
+    if (troubles.camera)
+      tried.push([
+        'camera',
+        async () => {
+          await localParticipant.setCameraEnabled(true);
+          troubles.clear('camera');
+        },
+      ]);
+    for (const [kind, start] of tried)
+      await start().catch((e: unknown) => {
+        troubles.report(e, kind);
+        // The same trouble again: the box opens again, in case they'd closed it.
+        troubles.setOpen(true);
+      });
+    setRetrying(false);
+  };
+  useWhenAllowed(
+    [
+      ...(troubles.mic === 'blocked' || troubles.mic === 'system' ? (['microphone'] as const) : []),
+      ...(troubles.camera ? (['camera'] as const) : []),
+    ],
+    () => void retry(),
+  );
+  // Talking while muted, and a microphone that sends nothing: not on an iPhone or iPad (./mic.tsx).
+  const talkTimer = useRef<number | null>(null);
+  useMicWatch({
+    track: micTrack,
+    muted: !isMicrophoneEnabled,
+    on: state === ConnectionState.Connected && !!device && device.os !== 'ios',
+    onTalkingMuted: () => {
+      setTalkingMuted(true);
+      if (talkTimer.current) window.clearTimeout(talkTimer.current);
+      talkTimer.current = window.setTimeout(() => setTalkingMuted(false), 5000);
+    },
+    onSilent: setSilent,
+  });
+  useEffect(() => {
+    if (isMicrophoneEnabled) setTalkingMuted(false);
+  }, [isMicrophoneEnabled]);
+  // Muted by someone else: the team (or the Assistant for them), or LiveKit when the microphone ended for good.
+  useEffect(() => {
+    const muted = (pub: TrackPublication, p: Participant) => {
+      if (!p.isLocal || pub.source !== Track.Source.Microphone) return;
+      if (Date.now() - ownMicChange.current < 2000) return;
+      const still = pub.track?.mediaStreamTrack.readyState === 'live';
+      toast(still ? MIC_WORDS.mutedByTeam : MIC_WORDS.stopped, { duration: 8000 });
+    };
+    room.on(RoomEvent.TrackMuted, muted);
+    return () => {
+      room.off(RoomEvent.TrackMuted, muted);
+    };
+  }, [room]);
+  // What everyone else sees on them: blocked, or on and silent (their own attribute in the room).
+  const micState: MicState | null =
+    troubles.mic === 'blocked' || troubles.mic === 'system'
+      ? 'blocked'
+      : silent && isMicrophoneEnabled
+        ? 'silent'
+        : null;
+  useEffect(() => {
+    if (state !== ConnectionState.Connected || !mine.publish.microphone) return;
+    const want = micState ?? '';
+    if ((localParticipant.attributes[VIDEO_CALL_ATTRIBUTES.mic] ?? '') === want) return;
+    void localParticipant
+      .setAttributes({ [VIDEO_CALL_ATTRIBUTES.mic]: want })
+      .catch(() => undefined);
+  }, [state, micState, localParticipant, mine.publish.microphone]);
+  const help = helpFor(troubles, device ?? ANY_DEVICE);
   const toggleShare = async () => {
     if (sharing) return;
     setSharing(true);
@@ -638,6 +794,20 @@ function CallScreen({
             {cc ? <CaptionLines lines={captions} aiOn={aiNotes} /> : null}
             {poll ? <PollPopup token={poll.token} business={poll.business} /> : null}
             {team ? <PollOffer team={team} /> : null}
+            {/* The coach's cards float over the video, under the camera to start with; nothing while there are none. */}
+            {coach ? <CoachFloat>{coach}</CoachFloat> : null}
+            {troubles.open && help ? (
+              <div className="absolute inset-x-0 bottom-3 z-20 flex justify-center px-3">
+                <MediaHelpBox
+                  className="w-full max-w-[460px]"
+                  title={help.title}
+                  steps={help.steps}
+                  retrying={retrying}
+                  onRetry={() => void retry()}
+                  onClose={() => troubles.setOpen(false)}
+                />
+              </div>
+            ) : null}
           </div>
           {panel === 'chat' ? (
             <ChatPanel
@@ -656,17 +826,30 @@ function CallScreen({
             />
           ) : panel === 'poll' && team ? (
             <PollPanel team={team} slides={slides} onClose={() => setPanel(null)} />
-          ) : coach ? (
-            // The coach's cards beside the video, or over its top on a phone; nothing while there are none.
-            <div
-              className="absolute inset-x-2 top-2 z-10 max-h-[45%] overflow-y-auto empty:hidden md:static md:max-h-none md:w-[340px] md:flex-none"
-              data-testid="call-coach"
-            >
-              {coach}
-            </div>
           ) : null}
         </div>
         <StartAudioPrompt />
+        {mine.publish.microphone && !troubles.mic ? (
+          paused ? (
+            <MicNote
+              text={MIC_WORDS.paused}
+              action={{ label: 'Turn it on', onClick: () => void toggleMic() }}
+              testId="call-mic-paused"
+            />
+          ) : silent && isMicrophoneEnabled ? (
+            <MicNote
+              text={MIC_WORDS.silent}
+              action={{ label: MIC_WORDS.pickAnother, onClick: () => setMicMenu(true) }}
+              testId="call-mic-silent"
+            />
+          ) : talkingMuted && !isMicrophoneEnabled ? (
+            <MicNote
+              text={MIC_WORDS.talkingMuted}
+              action={{ label: 'Unmute', onClick: () => void toggleMic() }}
+              testId="call-talking-muted"
+            />
+          ) : null
+        ) : null}
         {webinar && !mine.publish.microphone ? (
           <p
             className="mx-auto max-w-[560px] px-4 pt-2 text-center text-[12.5px] text-text-3"
@@ -680,14 +863,33 @@ function CallScreen({
           aria-label="Call controls"
         >
           {mine.publish.microphone ? (
-            <Control
-              label={isMicrophoneEnabled ? 'Turn off microphone' : 'Turn on microphone'}
-              off={!isMicrophoneEnabled}
-              onClick={toggleMic}
-              testId="call-mic"
-            >
-              {isMicrophoneEnabled ? <Mic size={19} /> : <MicOff size={19} />}
-            </Control>
+            <div className="flex flex-none items-center rounded-full bg-[#2c3139]">
+              <MicMenu
+                room={room}
+                track={micTrack}
+                open={micMenu}
+                onOpenChange={setMicMenu}
+                onPicked={() => {
+                  // A new microphone for one that had trouble, or was paused: turned on.
+                  if (troubles.mic || paused)
+                    void turnMicOn().catch((e: unknown) => troubles.report(e, 'microphone'));
+                }}
+                onError={(e) => troubles.report(e, 'microphone')}
+              />
+              <Control
+                label={micOn ? 'Turn off microphone' : 'Turn on microphone'}
+                off={!micOn}
+                alert={!!troubles.mic}
+                onClick={() => {
+                  // Their microphone has trouble: the steps come back, and it tries once more.
+                  if (troubles.mic) troubles.setOpen(true);
+                  void toggleMic();
+                }}
+                testId="call-mic"
+              >
+                {micOn ? <Mic size={19} /> : <MicOff size={19} />}
+              </Control>
+            </div>
           ) : null}
           {mine.publish.camera ? (
             <Control
@@ -1075,6 +1277,7 @@ function Control({
   active,
   badge,
   badgeTone = 'plain',
+  alert,
   onClick,
   testId,
   children,
@@ -1086,6 +1289,8 @@ function Control({
   active?: boolean;
   badge?: number;
   badgeTone?: 'plain' | 'warning';
+  /** Something's wrong with it (a blocked microphone): a "!" that says to press it. */
+  alert?: boolean;
   onClick: () => void;
   testId?: string;
   children: ReactNode;
@@ -1101,7 +1306,15 @@ function Control({
       data-testid={testId}
     >
       {children}
-      {badge ? (
+      {alert ? (
+        <span
+          className="absolute -right-0.5 -top-0.5 inline-flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#f0a93b] text-[12px] font-bold text-[#191d25]"
+          aria-hidden
+          data-testid={testId ? `${testId}-alert` : undefined}
+        >
+          !
+        </span>
+      ) : badge ? (
         <span
           className={cn(
             'absolute -right-0.5 -top-0.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[11px] font-semibold',

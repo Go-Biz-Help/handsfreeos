@@ -20,14 +20,13 @@ import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import {
   CALENDAR,
-  emptySlots,
   formatFor,
   hasPictures,
   POSTING,
-  slotsAhead,
   stillNeeds,
   type ContentState,
 } from '../calendar';
+import { learnedShown, openSlots } from '../schedule';
 import {
   CalendarGetInput,
   CalendarGetOutput,
@@ -47,9 +46,12 @@ import {
 } from '../content-shapes';
 import { socialcontentAddon } from '../manifest';
 import { tidyHashtags } from '../posts-ai';
+import { isAngle } from '../variety';
+import { isOfferList } from '../../../main-offer/lists';
 import { content } from '../tables';
 import { SOCIALCONTENT_WORDS as W } from '../words';
 import { inWorkspace, mayManage, offerLiveOf, settingsOf, timeZoneOf, type Ctx } from './common';
+import { learnedTimesOf, postsOnCalendar } from './schedule';
 
 const PATH = 'a/socialcontent/calendar';
 /** An OK needs its time at least this far ahead: a post OK'd for a minute ago would never go. */
@@ -158,6 +160,10 @@ function fromRaw(r: RawRow): ContentRow {
     postLink: (r['post_link'] as string | null) ?? null,
     failure: (r['failure'] as string | null) ?? null,
     madeBy: r['made_by'] as ContentRow['madeBy'],
+    placedBy: r['placed_by'] === 'person' ? 'person' : 'ai',
+    angle: isAngle(r['angle']) ? r['angle'] : null,
+    topicList: isOfferList(r['topic_list']) ? r['topic_list'] : null,
+    topic: (r['topic'] as string | null) ?? null,
     postingAt: asDate(r['posting_at']),
     postedTo: Array.isArray(r['posted_to']) ? (r['posted_to'] as ContentRow['postedTo']) : [],
     numbers: isPlainObject(r['numbers']) ? (r['numbers'] as ContentRow['numbers']) : {},
@@ -252,6 +258,9 @@ export async function contentOut(ctx: Ctx, list: readonly ContentRow[]): Promise
       doneWell: c.doneWell ?? null,
       failure: c.failure,
       madeBy: c.madeBy,
+      placedBy: c.placedBy,
+      angle: c.angle,
+      topic: c.topicList && c.topic ? { list: c.topicList, line: c.topic } : null,
       ideaId: c.ideaId,
       stillNeeds: stillNeeds({
         network: c.network,
@@ -297,7 +306,7 @@ const RECENT_DAYS = 30;
 export const calendarGet = defineAddonQuery(socialcontentAddon, {
   name: 'socialcontent.calendar.get',
   description:
-    'The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled, whether it fills on its own (autoFill) and when it fills again; whether the main offer is live (offerLive: until it is, the AI writes no posts); and how many ideas are saved to write from.',
+    'The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the plan’s open places with no post yet (each AI picks hour, and whether it’s an hour the AI is trying out); the plan itself (for each of Instagram, Facebook and LinkedIn: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times picked on each weekday); what AI picks learned (its best hours so far, from the creators’ posts or the business’s own); when it last filled, whether it fills on its own (autoFill) and when it fills again; whether the main offer is live (offerLive: until it is, the AI writes no posts); and how many ideas are saved to write from.',
   input: CalendarGetInput,
   output: CalendarGetOutput,
   permission: 'socialcontent.use',
@@ -329,9 +338,15 @@ export const calendarGet = defineAddonQuery(socialcontentAddon, {
           order by coalesce(c.posted_at, c.updated_at) desc limit 20`,
     );
     const ahead = Math.max(0, daysBetween(today, end) - 1);
-    const open = emptySlots(slotsAhead(s.plan, timeZone, now, ahead), inRange, timeZone).filter(
-      (slot) => slot.date >= from && slot.date < end,
-    );
+    const times = await learnedTimesOf(ctx.tx, ws, timeZone);
+    const open = openSlots({
+      plan: s.plan,
+      times,
+      taken: await postsOnCalendar(ctx.tx, ws, timeZone, now),
+      timeZone,
+      now,
+      days: ahead,
+    }).filter((slot) => slot.date >= from && slot.date < end);
     const [counts] = await rows<{ saved: number; ready: number }>(
       ctx.tx,
       sql`select
@@ -346,6 +361,7 @@ export const calendarGet = defineAddonQuery(socialcontentAddon, {
       from,
       days: input.days,
       plan: s.plan,
+      learned: learnedShown(s.plan, times),
       open: open.map((o) => ({ ...o, at: new Date(o.at).toISOString() })),
       posts: await contentOut(ctx, inRange),
       undated: await contentOut(ctx, undated),
@@ -517,6 +533,10 @@ export const contentSave = defineAddonCommand(socialcontentAddon, {
           pictureState: hasPictures(format) ? was.pictureState : 'none',
           ...(unOk
             ? { state: 'draft' as const, approvedBy: null, approvedAt: null, failure: null }
+            : {}),
+          // A time a person set is theirs: AI picks never moves it to a better hour (decision 27).
+          ...((next.postAt?.getTime() ?? null) !== (was.postAt?.getTime() ?? null)
+            ? { placedBy: 'person' as const }
             : {}),
           updatedAt: changeMoment(ctx.meta),
         })

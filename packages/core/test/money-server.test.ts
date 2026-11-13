@@ -52,6 +52,7 @@ import {
   invoiceRecordCashPayment,
   invoiceRecordPayment,
   invoiceSend,
+  invoiceUpdate,
   invoiceVoid,
   moneyForRecord,
   moneySaveSettings,
@@ -957,6 +958,180 @@ describe('an invoice', () => {
     // From the web, now.
     const web = await run(invoiceRecordCashPayment, input, w.owner);
     expect(Math.abs(Date.now() - Date.parse(await receivedAt(web.paymentId)))).toBeLessThan(60_000);
+  });
+
+  /** A draft invoice for $1,000, never sent. */
+  const draftInvoice = (over: Record<string, unknown> = {}) =>
+    run(
+      invoiceCreate,
+      {
+        workspaceId: w.wsId,
+        personId: w.personId,
+        title: 'Paid at the truck',
+        lines: [{ name: 'Job', quantity: 1, unitPriceCents: 100_000, taxable: false }],
+        ...over,
+      },
+      w.owner,
+    );
+
+  it('marks a draft paid: it takes its number and nobody is sent it', async () => {
+    const draft = await draftInvoice();
+    const paid = await run(
+      invoiceRecordCashPayment,
+      {
+        workspaceId: w.wsId,
+        invoiceId: draft.invoiceId,
+        amountCents: 100_000,
+        method: 'card_outside',
+        paidThrough: '  Chase QuickAccept ',
+        note: 'Paid at the truck',
+      },
+      w.owner,
+    );
+    expect(paid.invoiceStatus).toBe('paid');
+    expect(paid.invoiceBalanceCents).toBe(0);
+    const got = await ask(invoiceGet, { workspaceId: w.wsId, invoiceId: draft.invoiceId }, w.owner);
+    expect(got.invoice.number).toMatch(/^INV-\d{4}$/);
+    expect(got.invoice.markedPaid).toBe(true);
+    expect(got.payments).toHaveLength(1);
+    expect(got.payments[0]).toMatchObject({
+      method: 'card_outside',
+      paidThrough: 'Chase QuickAccept',
+      note: 'Paid at the truck',
+    });
+    expect(got.paidThroughNames).toContain('Chase QuickAccept');
+    // Sent to nobody, and the receipt still goes out by default.
+    const evs = await rows<{ event_type: string; payload: Record<string, unknown> }>(
+      admin(),
+      sql`select event_type, payload from app.events where entity_id = ${draft.invoiceId}
+          order by occurred_at, created_at`,
+    );
+    const sentEv = evs.find((e) => e.event_type === 'invoice.sent');
+    expect(sentEv?.payload).toMatchObject({ channels: [], markedPaid: true });
+    const recorded = await rows<{ payload: Record<string, unknown> }>(
+      admin(),
+      sql`select payload from app.events
+          where event_type = 'payment.recorded' and entity_id = ${paid.paymentId}`,
+    );
+    expect(recorded[0]?.payload).toMatchObject({ paidThrough: 'Chase QuickAccept', receipt: true });
+    // An invoice sent the usual way and paid later is not "marked paid".
+    const sent = await sentInvoice();
+    await run(
+      invoiceRecordCashPayment,
+      { workspaceId: w.wsId, invoiceId: sent.invoiceId, amountCents: 100_000 },
+      w.owner,
+    );
+    const later = await ask(
+      invoiceGet,
+      { workspaceId: w.wsId, invoiceId: sent.invoiceId },
+      w.owner,
+    );
+    expect(later.invoice.markedPaid).toBe(false);
+  });
+
+  it('marks part of a draft paid, and refuses more than its total', async () => {
+    const draft = await draftInvoice();
+    await expectHfos(
+      () =>
+        run(
+          invoiceRecordCashPayment,
+          { workspaceId: w.wsId, invoiceId: draft.invoiceId, amountCents: 100_001 },
+          w.owner,
+        ),
+      'rule_violation',
+      'payment_over_balance',
+    );
+    // The refusal undid the numbering too: it is still a draft.
+    const still = await ask(
+      invoiceGet,
+      { workspaceId: w.wsId, invoiceId: draft.invoiceId },
+      w.owner,
+    );
+    expect(still.invoice.status).toBe('draft');
+    const part = await run(
+      invoiceRecordCashPayment,
+      { workspaceId: w.wsId, invoiceId: draft.invoiceId, amountCents: 30_000, receipt: false },
+      w.owner,
+    );
+    expect(part.invoiceStatus).toBe('partly_paid');
+    expect(part.invoiceBalanceCents).toBe(70_000);
+    const recorded = await rows<{ payload: Record<string, unknown> }>(
+      admin(),
+      sql`select payload from app.events
+          where event_type = 'payment.recorded' and entity_id = ${part.paymentId}`,
+    );
+    expect(recorded[0]?.payload).toMatchObject({ receipt: false });
+  });
+
+  it('keeps the day it was paid, and refuses a day that hasn’t come yet', async () => {
+    const sent = await sentInvoice();
+    const input = { workspaceId: w.wsId, invoiceId: sent.invoiceId, amountCents: 10_000 };
+    const chicagoDay = (ms: number) =>
+      new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(new Date(ms));
+    const twoDaysAgo = chicagoDay(Date.now() - 2 * DAY);
+    const back = await run(invoiceRecordCashPayment, { ...input, paidOn: twoDaysAgo }, w.owner);
+    const [row] = await rows<{ day: string; hour: number }>(
+      admin(),
+      sql`select to_char(received_at at time zone 'America/Chicago', 'YYYY-MM-DD') as day,
+            extract(hour from received_at at time zone 'America/Chicago')::int as hour
+          from app.payments where id = ${back.paymentId}`,
+    );
+    expect(row).toMatchObject({ day: twoDaysAgo, hour: 12 });
+    await expectHfos(
+      () =>
+        run(
+          invoiceRecordCashPayment,
+          { ...input, paidOn: chicagoDay(Date.now() + 2 * DAY) },
+          w.owner,
+        ),
+      'rule_violation',
+      'payment_date_future',
+    );
+  });
+
+  it('can be kept off Stripe and Square, and put back on them', async () => {
+    const draft = await draftInvoice({ payOutside: true });
+    const kept = await rows<{ pay_outside: boolean; connection_id: string | null }>(
+      admin(),
+      sql`select pay_outside, connection_id from app.invoices where id = ${draft.invoiceId}`,
+    );
+    expect(kept[0]).toEqual({ pay_outside: true, connection_id: null });
+    const got = await ask(invoiceGet, { workspaceId: w.wsId, invoiceId: draft.invoiceId }, w.owner);
+    expect(got.invoice.payOutside).toBe(true);
+    await run(
+      invoiceUpdate,
+      {
+        workspaceId: w.wsId,
+        invoiceId: draft.invoiceId,
+        personId: w.personId,
+        lines: [{ name: 'Job', quantity: 1, unitPriceCents: 100_000, taxable: false }],
+        payOutside: false,
+        baseRevision: got.invoice.revision,
+      },
+      w.owner,
+    );
+    const back = await ask(
+      invoiceGet,
+      { workspaceId: w.wsId, invoiceId: draft.invoiceId },
+      w.owner,
+    );
+    expect(back.invoice.payOutside).toBe(false);
+    // The database holds the rule too: an invoice paid outside has no account. (A disconnected account, so it
+    // can't become the business's default for the tests after this one.)
+    const [gone] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.payment_connections (workspace_id, provider, environment, status,
+            disconnected_at, disconnected_reason)
+          values (${w.wsId}, 'square', 'live', 'disconnected', now(), 'person')
+          returning id`,
+    );
+    await expect(
+      rows(
+        admin(),
+        sql`update app.invoices set pay_outside = true, connection_id = ${gone!.id}
+            where id = ${draft.invoiceId}`,
+      ),
+    ).rejects.toMatchObject({ cause: { constraint_name: 'invoices_pay_outside_no_account' } });
   });
 
   it('a provider payment moves it too, and its status only goes forward', async () => {

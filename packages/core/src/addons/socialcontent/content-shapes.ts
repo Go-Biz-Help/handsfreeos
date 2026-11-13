@@ -16,7 +16,7 @@ import {
 } from './calendar';
 import { OWN_READS } from './own';
 import { POST_LIMITS } from './posts-ai';
-import { Network, PlanShape, uuid } from './shapes';
+import { AngleShape, LearnedPlanShape, Network, PlanShape, TopicShape, uuid } from './shapes';
 
 export const PostingNetwork = z.enum(POSTING_NETWORKS);
 export const ContentFormat = z.enum(CONTENT_FORMATS);
@@ -106,6 +106,11 @@ export const Content = z.object({
   doneWell: DoneWellShape.nullable(),
   failure: z.string().nullable(),
   madeBy: z.enum(['ai', 'person']),
+  /** Who set its time: AI picks may move one it set to a better hour (decision 27). Defaults, for an older API. */
+  placedBy: z.enum(['ai', 'person']).default('ai'),
+  /** Its kind in the weekly mix and the line from the lists it's about (decisions 34 to 36). Default for an older API. */
+  angle: AngleShape.nullable().default(null),
+  topic: TopicShape.nullable().default(null),
   ideaId: uuid.nullable(),
   /** What it still needs before it can be OK'd, in words to show; null when nothing. */
   stillNeeds: z.string().nullable(),
@@ -114,7 +119,13 @@ export const Content = z.object({
 });
 export type Content = z.infer<typeof Content>;
 
-export const SlotShape = z.object({ network: PostingNetwork, date: LocalDate, at: z.string() });
+export const SlotShape = z.object({
+  network: PostingNetwork,
+  date: LocalDate,
+  at: z.string(),
+  /** An hour AI picks is trying out, to keep learning (decision 26). Defaults, for an older API. */
+  trying: z.boolean().default(false),
+});
 
 // ------------------------------------------------------------------------------------------------ inputs
 
@@ -136,7 +147,9 @@ export const CalendarGetOutput = z.object({
   from: LocalDate,
   days: z.number().int(),
   plan: PlanShape,
-  /** The plan's times in these days with no post on that network that day yet. */
+  /** What AI picks learned about the hours on each network. Defaults, for an older API. */
+  learned: LearnedPlanShape.optional(),
+  /** The plan's places in these days with no post yet (decisions 21 and 22). */
   open: z.array(SlotShape),
   /** Posts going in these days, soonest first, and drafts with no day yet. */
   posts: z.array(Content),
@@ -342,6 +355,8 @@ export const WrittenPostShape = z.object({
   script: ScriptShape.nullable(),
   picture: z.string().max(POST_LIMITS.picture).nullable(),
   pictureWay: PictureWay,
+  angle: AngleShape.nullable().default(null),
+  topic: TopicShape.nullable().default(null),
 });
 
 export const ContentPutInput = z.object({
@@ -351,6 +366,8 @@ export const ContentPutInput = z.object({
   network: PostingNetwork,
   ideaId: uuid.nullable().default(null),
   postAt: z.iso.datetime().nullable().default(null),
+  /** Who picked its time: the AI, into the plan's place (AI picks may move it later), or the person who asked. */
+  placedBy: z.enum(['ai', 'person']).default('ai'),
   post: WrittenPostShape,
   /** Who asked for it: kept as who made it. Null when the calendar filled on its own. */
   askedBy: uuid.nullable().default(null),

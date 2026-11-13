@@ -162,8 +162,14 @@ describe('a payment’s status', () => {
   });
 
   it('knows which methods a person records by hand', () => {
-    expect(PAYMENT_METHODS).toEqual(['card', 'ach', 'cash', 'check', 'other']);
-    expect(PAYMENT_METHODS.filter(isManualPaymentMethod)).toEqual(['cash', 'check', 'other']);
+    expect(PAYMENT_METHODS).toEqual(['card', 'ach', 'cash', 'check', 'other', 'card_outside']);
+    // A card on the business's own machine (Chase QuickAccept, say) is written down by hand too.
+    expect(PAYMENT_METHODS.filter(isManualPaymentMethod)).toEqual([
+      'cash',
+      'check',
+      'other',
+      'card_outside',
+    ]);
   });
 });
 

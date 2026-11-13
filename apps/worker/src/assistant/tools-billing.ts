@@ -38,6 +38,7 @@ import {
   planPriceLabel,
   purposeLabel,
   SUBSCRIPTION_WORDS,
+  PAY_OUTSIDE_LABEL,
   TERMS_WORDS,
   totalsRows,
   type AssistantCard,
@@ -228,6 +229,7 @@ interface Invoice {
   person: Person;
   leadId: string | null;
   connectionId: string | null;
+  payOutside: boolean;
   totals: Totals;
   amountPaidCents: number;
   amountRefundedCents: number;
@@ -256,6 +258,8 @@ interface Payment {
   refundedCents: number;
   cardBrand: string | null;
   cardLast4: string | null;
+  paidThrough: string | null;
+  note: string | null;
   receivedAt: string | null;
   createdAt: string;
 }
@@ -674,7 +678,7 @@ const ESTIMATE_CHANGES = [
   'depositDollars',
   'goodUntil',
 ] as const;
-const INVOICE_CHANGES = [...CHANGES, 'dueOn', 'terms', 'connectionId'] as const;
+const INVOICE_CHANGES = [...CHANGES, 'dueOn', 'terms', 'connectionId', 'payOutside'] as const;
 
 interface Draft {
   kind: 'estimate' | 'invoice';
@@ -686,6 +690,8 @@ interface Draft {
     totalCents: number;
     /** How many options it has now. */
     options: number;
+    /** Invoices: paid outside HandsFreeOS as it stands. */
+    payOutside: boolean;
   } | null;
   person: Person;
   lines: LineIn[];
@@ -709,6 +715,8 @@ interface Draft {
   day: string | null;
   /** Invoices: the account it is paid into, when one is named. */
   connectionId: string | undefined;
+  /** Invoices: paid outside HandsFreeOS (true), back on an account (false), or as it was. */
+  payOutside: boolean | undefined;
   /** Invoices: their own terms' words ("Net 7"), when they change; left out, they stay as they are. */
   terms: string | undefined;
   /** A new one opened from a lead is with the lead's owner, as the screen starts it; left out, the asker. */
@@ -794,6 +802,7 @@ async function draftOf(
       leadId,
       day: (args[dayKey] as string | null | undefined) ?? null,
       connectionId: str(args['connectionId']),
+      payOutside: typeof args['payOutside'] === 'boolean' ? args['payOutside'] : undefined,
       terms: terms?.words,
       assigneeUserId: leadId ? (owner?.id ?? null) : undefined,
       startedBy: owner && owner.id !== ctx.actor.userId ? owner.fullName : null,
@@ -847,6 +856,7 @@ async function draftOf(
         revision: doc.revision,
         totalCents: doc.totals.totalCents,
         options: est?.options.length ?? 0,
+        payOutside: kind === 'invoice' && (doc as Invoice).payOutside === true,
       },
       person: doc.person,
       lines,
@@ -870,6 +880,7 @@ async function draftOf(
             : (doc as Invoice).dueOn
           : ((args[dayKey] as string | null) ?? null),
       connectionId: str(args['connectionId']),
+      payOutside: typeof args['payOutside'] === 'boolean' ? args['payOutside'] : undefined,
       terms: terms.words,
       assigneeUserId: undefined,
       startedBy: null,
@@ -900,7 +911,10 @@ async function draftOf(
   if (problem) throw HfosError.validation([{ path: 'deposit', message: problem }], problem);
 
   let account: string | null = null;
-  if (kind === 'invoice') {
+  if (kind === 'invoice' && (draft.payOutside ?? draft.before?.payOutside ?? false)) {
+    // Paid outside HandsFreeOS: no account to name or to be refused.
+    account = PAY_OUTSIDE_LABEL;
+  } else if (kind === 'invoice') {
     const mine = usableAccounts(accounts);
     if (draft.connectionId) {
       const named = mine.find((c) => c.id === draft.connectionId);
@@ -1250,6 +1264,7 @@ function writeTool(kind: 'estimate' | 'invoice'): SettingsConfirmTool {
             dueOn: d.day,
             ...(d.terms ? { terms: d.terms } : {}),
             ...(d.connectionId ? { connectionId: d.connectionId } : {}),
+            ...(d.payOutside !== undefined ? { payOutside: d.payOutside } : {}),
           })
         : await command<{ invoiceId: string }>(
             db,
@@ -1261,6 +1276,7 @@ function writeTool(kind: 'estimate' | 'invoice'): SettingsConfirmTool {
               dueOn: d.day,
               terms: d.terms,
               connectionId: d.connectionId,
+              payOutside: d.payOutside,
               // Where it came from, for reporting and the timeline: the Assistant, on this person's say-so.
               origin: 'assistant',
               // Invoice this visit: tied to the customer's seat, and the balance when a deposit was paid.
@@ -1557,7 +1573,10 @@ const manageInvoice: SettingsConfirmTool = {
               value: `${dayWords(due, ctx.timezone)}${i.dueOn ? '' : ` · ${TERMS_WORDS[settings.terms]}`}`,
             },
             { label: 'Number', value: nextInvoiceNumber },
-            { label: 'Paid into', value: account ? accountLabel(account) : '' },
+            {
+              label: 'Paid into',
+              value: i.payOutside ? PAY_OUTSIDE_LABEL : account ? accountLabel(account) : '',
+            },
           ],
           body: str(args['message']) ?? null,
           confirmLabel: blocked ? '' : 'Send it',
@@ -2914,7 +2933,11 @@ async function invoiceDocument(db: Db, ctx: ToolContext, invoiceId: string): Pro
       leadId: i.leadId,
       ...(i.estimateId ? { fromEstimateId: i.estimateId } : {}),
       ...(i.subscriptionId ? { fromPlanSubscriptionId: i.subscriptionId } : {}),
-      ...(paidInto ? { paidInto: accountLabel(paidInto) } : {}),
+      ...(i.payOutside
+        ? { paidInto: PAY_OUTSIDE_LABEL }
+        : paidInto
+          ? { paidInto: accountLabel(paidInto) }
+          : {}),
       startedBy: i.assignee?.fullName ?? null,
       lines: linesResult(i.lines),
       ...totalsResult(i.totals),
@@ -2936,6 +2959,7 @@ async function invoiceDocument(db: Db, ctx: ToolContext, invoiceId: string): Pro
         paymentId: p.id,
         amount: money(p.amountCents),
         by: paymentWords(p),
+        ...(p.note ? { note: p.note } : {}),
         status: p.status,
         when: p.receivedAt ?? p.createdAt,
         refunded: money(p.refundedCents),

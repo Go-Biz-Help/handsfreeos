@@ -12,6 +12,8 @@ import { OWN_EXTENSION, ownCommands } from './ops/own';
 import { POSTING_EXTENSION, postingCommands } from './ops/posting';
 import { EXTENSION, readingCommands } from './ops/reading';
 import { researchCommands, researchQueries } from './ops/research';
+import { scheduleCommands } from './ops/schedule';
+import { setupCommands } from './ops/setup';
 import { workerCommands } from './ops/worker';
 
 export const socialcontentAddonServer: AddonServerModule = {
@@ -24,6 +26,8 @@ export const socialcontentAddonServer: AddonServerModule = {
     ...ownCommands,
     ...readingCommands,
     ...workerCommands,
+    ...scheduleCommands,
+    ...setupCommands,
   ],
   queries: [...researchQueries, ...notesQueries, ...contentQueries],
   notForTheAssistant: {

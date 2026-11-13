@@ -45,6 +45,12 @@ const page = (over: Partial<FetchedPage> = {}): FetchedPage => ({
   ...over,
 });
 
+/** What SiteGround's robot check sends our server instead of a page (Full Spectrum, 13 Nov 2026). */
+const robotChecked = (path: string): Partial<FetchedPage> => ({
+  status: 202,
+  html: `<html><head><link rel="icon" href="data:;"><meta http-equiv="refresh" content="0;/.well-known/sgcaptcha/?r=${encodeURIComponent(path)}&y=ipr:203.0.113.7:1762990000.123"></meta></head></html>`,
+});
+
 describe('reading a page', () => {
   it('drops scripts and markup rather than matching inside them', () => {
     const text = pageText('<script>var reply = "STOP";</script><p>Hello&nbsp;there</p>');
@@ -105,6 +111,26 @@ describe('the privacy policy', () => {
     expect(checkPolicy(null).ok).toBe(false);
   });
 
+  it('says a robot check stopped us, rather than that the policy never mentions texting', () => {
+    const check = checkPolicy(page(robotChecked('/privacy-policy/')));
+    expect(check.ok).toBe(false);
+    expect(check.severity).toBe('blocker');
+    expect(check.detail).toMatch(/robot check .*\(SiteGround\)/);
+    expect(check.detail).toMatch(/Ask HandsFreeOS to check it/);
+    expect(check.detail).not.toMatch(/never mentions/);
+  });
+
+  it('says the same for a robot check that answers 403, rather than that the page is broken', () => {
+    const check = checkPolicy(
+      page({
+        status: 403,
+        html: '<html><head><title>Just a moment...</title></head><body>Verifying you are human.</body></html>',
+      }),
+    );
+    expect(check.detail).toMatch(/robot check .*\(Cloudflare\)/);
+    expect(check.detail).not.toMatch(/answered 403/);
+  });
+
   it('recognises our own clause verbatim', () => {
     expect(promisesNotToShare(pageText(MOBILE_DATA_CLAUSE))).toBe(true);
   });
@@ -117,6 +143,13 @@ describe('the website', () => {
 
   it('fails a page that will not open', () => {
     expect(checkWebsite(page({ status: null, error: 'dns' })).ok).toBe(false);
+  });
+
+  it('says a robot check stopped us, rather than that the site opens onto almost nothing', () => {
+    const check = checkWebsite(page(robotChecked('/')));
+    expect(check.ok).toBe(false);
+    expect(check.detail).toMatch(/robot check/);
+    expect(check.detail).not.toMatch(/almost nothing/i);
   });
 
   it('fails a page that opens onto almost nothing', () => {
@@ -177,6 +210,12 @@ describe('the terms', () => {
   it('passes the ones we write ourselves', () => {
     const html = `<html><body>${policyAsText(termsOfService({ name: 'Lone Star HVAC', phone: '(512) 555-0100' }))}</body></html>`;
     expect(checkTerms(page({ html })).ok).toBe(true);
+  });
+
+  it('keeps terms behind a robot check a warning, as terms that never mention texting would be', () => {
+    const check = checkTerms(page(robotChecked('/terms-of-service/')));
+    expect(check).toMatchObject({ ok: false, severity: 'warning' });
+    expect(check.detail).toMatch(/robot check .*\(SiteGround\)/);
   });
 
   it('names what terms that mention texting leave out, without blocking', () => {

@@ -142,6 +142,18 @@ export const ChatWidgetUpdateOutput = z.object({
 });
 export const ChatWidgetRefInput = z.object({ workspaceId: uuid, widgetId: uuid });
 export const ChatWidgetPauseOutput = z.object({ widgetId: uuid, paused: z.boolean() });
+
+/**
+ * "Hide the website chat until texting is approved" (the owner, 2026-11-12): every chat the business has, paused while
+ * the carriers review a registration whose customers agree on a form, and back on by itself once it's approved. The
+ * code stays on the site; a paused chat's code shows nothing.
+ */
+export const ChatWidgetHideUntilTextingInput = z.object({ workspaceId: uuid, hide: z.boolean() });
+export const ChatWidgetHideUntilTextingOutput = z.object({
+  /** The chats it hid, or showed again. */
+  widgetIds: z.array(uuid),
+  hidden: z.boolean(),
+});
 export const ChatWidgetRotateKeyOutput = z.object({ widgetId: uuid, publicKey: z.string() });
 
 /** Worker: the chat window loaded on a site (the install check). */
@@ -201,6 +213,8 @@ export const ChatWidgetOut = z.object({
   dailyCap: z.number().int(),
   paused: z.boolean(),
   pausedAt: isoDateTime.nullable(),
+  /** Paused only until the business's texting is approved, when it comes back on by itself (2026-11-12). */
+  hiddenUntilTexting: z.boolean(),
   /** The install check: "Seen on acme.com 3 min ago". */
   install: z.object({
     seen: z.boolean(),

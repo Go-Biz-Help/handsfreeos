@@ -99,7 +99,7 @@ export const creatorsFound = (workspaceId: string, workId: string, found: FoundC
 export const creatorRead = (
   workspaceId: string,
   creatorId: string,
-  read: Pick<FoundCreator, 'name' | 'bio' | 'followers' | 'lastPostAt'>,
+  read: Pick<FoundCreator, 'name' | 'bio' | 'followers' | 'lastPostAt' | 'recent'>,
 ) =>
   got(
     api().POST('/v1/commands/socialcontent.creator.read', {

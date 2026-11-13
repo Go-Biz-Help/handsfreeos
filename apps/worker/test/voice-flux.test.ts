@@ -64,12 +64,15 @@ interface Heard {
   readonly errors: Error[];
 }
 
-async function listening(): Promise<{ l: Listening; heard: Heard; stream: Stream }> {
+async function listening(
+  audio?: 'phone' | 'wide',
+): Promise<{ l: Listening; heard: Heard; stream: Stream }> {
   const heard: Heard = { words: [], started: 0, errors: [] };
   const l = await listenWithFlux({
     apiKey: 'test-key',
     log,
     url,
+    ...(audio ? { audio } : {}),
     handlers: {
       onWords: (w) => heard.words.push(w),
       onSpeechStarted: () => heard.started++,
@@ -101,6 +104,25 @@ describe('listening with Flux', () => {
     expect(params.get('sample_rate')).toBe('8000');
     expect(params.getAll('language_hint')).toEqual(['en', 'es']);
     expect(stream.auth).toBe('Token test-key');
+    await l.close();
+  });
+
+  it('hears the Assistant’s clear 16 kHz sound as linear16, in 80 ms pieces', async () => {
+    const { l, heard, stream } = await listening('wide');
+    const params = new URL(stream.url, 'ws://x').searchParams;
+    expect(params.get('encoding')).toBe('linear16');
+    expect(params.get('sample_rate')).toBe('16000');
+    expect(params.get('model')).toBe('flux-general-multi');
+    // 20 ms of 16 kHz 16-bit is 640 bytes; four of them are 80 ms.
+    for (let i = 0; i < 4; i++) l.send(Buffer.alloc(640));
+    await vi.waitFor(() => expect(stream.audio).toHaveLength(1));
+    expect(stream.audio[0]!.length).toBe(2560);
+    // A second of it in, Flux's clock reads in wide seconds.
+    for (let i = 0; i < 46; i++) l.send(Buffer.alloc(640));
+    stream.ws.send(turn('EndOfTurn', 'Block off today', { words: [{ word: 'today', end: 0.5 }] }));
+    await vi.waitFor(() => expect(heard.words).toHaveLength(1));
+    expect(heard.words[0]).toMatchObject({ text: 'Block off today', endOfTurn: true });
+    expect(heard.words[0]!.endOfTurnMs).toBe(500);
     await l.close();
   });
 

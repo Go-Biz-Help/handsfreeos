@@ -9,6 +9,7 @@ import {
   jsonb,
   numeric,
   pgSchema,
+  smallint,
   text,
   timestamp,
   unique,
@@ -26,6 +27,9 @@ import type {
 } from './calendar';
 import type { ContentNetwork } from './networks';
 import type { DoneWell, OwnNumbers } from './own';
+import type { RecentPost, SetupMarks } from './picking';
+import type { Angle } from './variety';
+import type { OfferList } from '../../main-offer/lists';
 import type {
   CreatorState,
   IdeaState,
@@ -71,6 +75,10 @@ export const settings = addonSocialcontent.table('settings', {
   filledAt: ts('filled_at'),
   /** Whether the AI fills the calendar on its own (the owner's switch, 11 Nov): off stops it, and any fill under way. */
   autoFill: boolean('auto_fill').notNull().default(true),
+  /** Whether it picks niches and creators on its own (decisions 29 and 30): on until an owner or admin turns it off. */
+  autoPick: boolean('auto_pick').notNull().default(true),
+  /** The steps of setting itself up it has taken (decision 28; `SetupMarks`). */
+  setup: jsonb('setup').notNull().$type<SetupMarks>().default({}),
   updatedBy: userRef('updated_by'),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),
@@ -118,6 +126,16 @@ export const creators = addonSocialcontent.table(
     postsReadAt: ts('posts_read_at'),
     postsCount: integer('posts_count').notNull().default(0),
     standoutsCount: integer('standouts_count').notNull().default(0),
+    /** Who ticked or skipped them: the AI or a person (decision 31). */
+    pickedBy: text('picked_by').$type<'ai' | 'person'>(),
+    /** How close the AI found them to what the business does, 0 to 10, and why (decision 30). */
+    match: smallint('match'),
+    matchWhy: text('match_why'),
+    matchedAt: ts('matched_at'),
+    /** Likes and comments for their followers, the middle of their latest posts'. */
+    engagement: numeric('engagement', { precision: 9, scale: 6, mode: 'number' }),
+    /** Their latest posts as their profile showed them (`RecentPost`); null until read with them. */
+    recent: jsonb('recent').$type<RecentPost[]>(),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -211,6 +229,13 @@ export const ideas = addonSocialcontent.table(
     outline: text('outline'),
     why: text('why'),
     basedOn: uuid('based_on').array().notNull().default([]),
+    /** Its kind in the weekly mix and the line from the lists it's about (decisions 34 to 36). */
+    angle: text('angle').$type<Angle>(),
+    topicList: text('topic_list').$type<OfferList>(),
+    topic: text('topic'),
+    /** Where an idea found online came from. */
+    sourceUrl: text('source_url'),
+    sourceName: text('source_name'),
     state: text('state').notNull().$type<IdeaState>().default('new'),
     decidedBy: userRef('decided_by'),
     decidedAt: ts('decided_at'),
@@ -252,6 +277,15 @@ export const content = addonSocialcontent.table(
     postLink: text('post_link'),
     failure: text('failure'),
     madeBy: text('made_by').notNull().$type<'ai' | 'person'>().default('ai'),
+    /**
+     * Its kind in the weekly mix and the line from the lists it's about (decisions 34 to 36). An AI draft with no kind
+     * was written before them, and is written again (decision 37).
+     */
+    angle: text('angle').$type<Angle>(),
+    topicList: text('topic_list').$type<OfferList>(),
+    topic: text('topic'),
+    /** Who set its time: the AI, writing it into the plan's place (AI picks may move it), or a person (decision 27). */
+    placedBy: text('placed_by').notNull().$type<'ai' | 'person'>().default('ai'),
     postingAt: ts('posting_at'),
     postedTo: jsonb('posted_to').notNull().$type<PostedTo[]>().default([]),
     numbers: jsonb('numbers').notNull().$type<OwnNumbers>().default({}),

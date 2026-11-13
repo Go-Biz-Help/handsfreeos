@@ -2257,6 +2257,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/chat_widget.hide_until_texting": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hide every website chat until the business’s texting is approved, when they come back on by themselves (the code stays on the site and shows nothing meanwhile); or turn the chats it hid back on now. Refused while the chat is how customers agree to texts.
+         * @description Risk level 1. Requires channels.manage. Emits chat_widget.paused, chat_widget.resumed.
+         */
+        post: operations["command_chat_widget_hide_until_texting"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/chat_widget.pause": {
         parameters: {
             query?: never;
@@ -6067,7 +6087,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Start an invoice for a customer: its lines, a discount, what it is for and which connected account it is paid into. It stays a draft until it is sent. A deposit at booking, a plan’s cycle and a quick payment all make one of these.
+         * Start an invoice for a customer: its lines, a discount, what it is for and which connected account it is paid into, or that it is paid outside HandsFreeOS (no account, no Pay button: the payment is recorded by hand). It stays a draft until it is sent or marked paid. A deposit at booking, a plan’s cycle and a quick payment all make one of these.
          * @description Risk level 1. Requires money.bill. Emits invoice.created.
          */
         post: operations["command_invoice_create"];
@@ -6087,8 +6107,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Record money taken off the system: cash, a cheque, or another way. It lands as a payment in your name and the invoice recounts itself — nobody marks an invoice paid by hand.
-         * @description Risk level 2. Requires money.bill. Emits payment.recorded, invoice.paid. Can wait on a phone with no signal.
+         * Record money taken off the system: cash, a check, a card on the business’s own machine (Chase QuickAccept, say), or another way, with where it went through, the day it was paid and a note. It lands as a payment in your name and the invoice recounts itself. On a draft this is Mark paid: the invoice takes its number first and nobody is sent it. The customer gets a receipt unless receipt is false.
+         * @description Risk level 2. Requires money.bill. Emits invoice.sent, payment.recorded, invoice.paid. Can wait on a phone with no signal.
          */
         post: operations["command_invoice_record_cash_payment"];
         delete?: never;
@@ -14737,6 +14757,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/registration.email_web_person": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email whoever looks after the business’s website the changes it needs before the carriers approve its texting, each in its own text file: add the sign-up form (one of the business’s published forms, or the box and its words for a form of their own), the privacy policy and terms’ part about texts, and the website chat’s code. Sent from HandsFreeOS in the business’s name; replies go to the person sending it, who gets a copy.
+         * @description Risk level 2. Requires channels.manage. Emits registration.web_person_emailed.
+         */
+        post: operations["command_registration_email_web_person"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/registration.request_review": {
         parameters: {
             query?: never;
@@ -15888,7 +15928,7 @@ export interface paths {
         put?: never;
         /**
          * Extension: what one of the business’s own posts showed in each place it went up, at its read about 2 or 7 days on (views where the network shows them, likes, comments, shares), or why a place couldn’t be read. Kept on the post; at the 7-day read it’s weighed against the business’s own other posts there, and one that did well goes into the Playbook.
-         * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.content.done_well.
+         * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.content.done_well, socialcontent.content.read.
          */
         post: operations["command_socialcontent_own_read"];
         delete?: never;
@@ -15987,7 +16027,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (posts a week on Instagram, Facebook and LinkedIn, and the time they go), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), and whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away). What isn’t given stays as it is.
+         * Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (for each of Instagram, Facebook and LinkedIn: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times on each weekday), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away), and whether it picks niches and creators on its own (the business’s own niche and the 2 closest, and the best 10 creators on each network, swapped once a month). What isn’t given stays as it is.
          * @description Risk level 1. Requires socialcontent.manage. Emits socialcontent.settings.saved.
          */
         post: operations["command_socialcontent_settings_save"];
@@ -21107,7 +21147,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * One invoice: its lines, its totals, what has been paid and refunded, and every payment against it with its method and where it stands.
+         * One invoice: its lines, its totals, whether it is paid outside HandsFreeOS, what has been paid and refunded, and every payment against it with its method, where a payment by hand went through, its note and where it stands.
          * @description Requires money.read.
          */
         post: operations["query_invoice_get"];
@@ -25067,7 +25107,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled, whether it fills on its own (autoFill) and when it fills again; whether the main offer is live (offerLive: until it is, the AI writes no posts); and how many ideas are saved to write from.
+         * The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the plan’s open places with no post yet (each AI picks hour, and whether it’s an hour the AI is trying out); the plan itself (for each of Instagram, Facebook and LinkedIn: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times picked on each weekday); what AI picks learned (its best hours so far, from the creators’ posts or the business’s own); when it last filled, whether it fills on its own (autoFill) and when it fills again; whether the main offer is live (offerLive: until it is, the AI writes no posts); and how many ideas are saved to write from.
          * @description Requires socialcontent.use.
          */
         post: operations["query_socialcontent_calendar_get"];
@@ -25187,7 +25227,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * How content research stands: the networks studied, whose computer reads them, how many creators are suggested, studied and skipped, how many standout posts there are, and what the reading computer was asked to do lately (each with how it went).
+         * How content research stands: the networks studied, whose computer reads them, how many creators are suggested, studied and skipped, how many standout posts there are, what the reading computer was asked to do lately (each with how it went), and how setting up on its own stands.
          * @description Requires socialcontent.use.
          */
         post: operations["query_socialcontent_overview"];
@@ -31768,6 +31808,37 @@ export interface operations {
                         publicKey: string;
                         /** Format: uuid */
                         widgetId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_chat_widget_hide_until_texting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    hide: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        hidden: boolean;
+                        widgetIds: string[];
                     };
                 };
             };
@@ -39803,6 +39874,7 @@ export interface operations {
                      * @enum {string}
                      */
                     origin?: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form" | "ai_teammate";
+                    payOutside?: boolean;
                     /** Format: uuid */
                     personId: string;
                     /**
@@ -39858,7 +39930,13 @@ export interface operations {
                      * @default cash
                      * @enum {string}
                      */
-                    method?: "cash" | "check" | "other";
+                    method?: "cash" | "check" | "card_outside" | "other";
+                    note?: string | null;
+                    /** Format: date */
+                    paidOn?: string;
+                    paidThrough?: string | null;
+                    /** @default true */
+                    receipt?: boolean;
                     /** Format: date-time */
                     receivedAt?: string;
                     reference?: string | null;
@@ -39982,6 +40060,7 @@ export interface operations {
                         unitPriceCents: number;
                     }[];
                     notes?: string | null;
+                    payOutside?: boolean;
                     /** Format: uuid */
                     personId: string;
                     terms?: string | null;
@@ -61376,6 +61455,42 @@ export interface operations {
             };
         };
     };
+    command_registration_email_web_person: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    fixes: ("form" | "policy" | "chat")[];
+                    formId?: string | null;
+                    name?: string;
+                    note?: string;
+                    /** Format: email */
+                    to: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        files: string[];
+                        sentTo: string;
+                    };
+                };
+            };
+        };
+    };
     command_registration_request_review: {
         parameters: {
             query?: never;
@@ -63289,6 +63404,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default null */
+                        angle: ("tip" | "problem" | "story" | "offer") | null;
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
@@ -63343,6 +63460,11 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /**
+                         * @default ai
+                         * @enum {string}
+                         */
+                        placedBy: "ai" | "person";
                         postAt: string | null;
                         postedAt: string | null;
                         postedTo: {
@@ -63364,6 +63486,12 @@ export interface operations {
                         state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                         stillNeeds: string | null;
                         title: string;
+                        /** @default null */
+                        topic: {
+                            line: string;
+                            /** @enum {string} */
+                            list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                        } | null;
                         updatedAt: string;
                         words: string;
                     };
@@ -63432,6 +63560,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default null */
+                        angle: ("tip" | "problem" | "story" | "offer") | null;
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
@@ -63486,6 +63616,11 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /**
+                         * @default ai
+                         * @enum {string}
+                         */
+                        placedBy: "ai" | "person";
                         postAt: string | null;
                         postedAt: string | null;
                         postedTo: {
@@ -63507,6 +63642,12 @@ export interface operations {
                         state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                         stillNeeds: string | null;
                         title: string;
+                        /** @default null */
+                        topic: {
+                            line: string;
+                            /** @enum {string} */
+                            list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                        } | null;
                         updatedAt: string;
                         words: string;
                     };
@@ -63594,6 +63735,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default null */
+                        angle: ("tip" | "problem" | "story" | "offer") | null;
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
@@ -63648,6 +63791,11 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /**
+                         * @default ai
+                         * @enum {string}
+                         */
+                        placedBy: "ai" | "person";
                         postAt: string | null;
                         postedAt: string | null;
                         postedTo: {
@@ -63669,6 +63817,12 @@ export interface operations {
                         state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                         stillNeeds: string | null;
                         title: string;
+                        /** @default null */
+                        topic: {
+                            line: string;
+                            /** @enum {string} */
+                            list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                        } | null;
                         updatedAt: string;
                         words: string;
                     };
@@ -63703,6 +63857,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default null */
+                        angle: ("tip" | "problem" | "story" | "offer") | null;
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
@@ -63757,6 +63913,11 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /**
+                         * @default ai
+                         * @enum {string}
+                         */
+                        placedBy: "ai" | "person";
                         postAt: string | null;
                         postedAt: string | null;
                         postedTo: {
@@ -63778,6 +63939,12 @@ export interface operations {
                         state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                         stillNeeds: string | null;
                         title: string;
+                        /** @default null */
+                        topic: {
+                            line: string;
+                            /** @enum {string} */
+                            list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                        } | null;
                         updatedAt: string;
                         words: string;
                     };
@@ -63813,6 +63980,8 @@ export interface operations {
                     "application/json": {
                         bio: string | null;
                         createdAt: string;
+                        /** @default null */
+                        engagement: number | null;
                         followers: number | null;
                         /** @enum {string} */
                         foundBy: "search" | "person";
@@ -63821,11 +63990,17 @@ export interface operations {
                         id: string;
                         lastPostAt: string | null;
                         link: string;
+                        /** @default null */
+                        match: number | null;
+                        /** @default null */
+                        matchWhy: string | null;
                         name: string | null;
                         /** @enum {string} */
                         network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
                         nicheId: string | null;
                         nicheName: string | null;
+                        /** @default null */
+                        pickedBy: ("ai" | "person") | null;
                         postsCount: number;
                         postsReadAt: string | null;
                         profileReadAt: string | null;
@@ -63868,6 +64043,8 @@ export interface operations {
                     "application/json": {
                         bio: string | null;
                         createdAt: string;
+                        /** @default null */
+                        engagement: number | null;
                         followers: number | null;
                         /** @enum {string} */
                         foundBy: "search" | "person";
@@ -63876,11 +64053,17 @@ export interface operations {
                         id: string;
                         lastPostAt: string | null;
                         link: string;
+                        /** @default null */
+                        match: number | null;
+                        /** @default null */
+                        matchWhy: string | null;
                         name: string | null;
                         /** @enum {string} */
                         network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
                         nicheId: string | null;
                         nicheName: string | null;
+                        /** @default null */
+                        pickedBy: ("ai" | "person") | null;
                         postsCount: number;
                         postsReadAt: string | null;
                         profileReadAt: string | null;
@@ -63913,6 +64096,15 @@ export interface operations {
                     /** @default null */
                     lastPostAt?: string | null;
                     name?: string | null;
+                    recent?: {
+                        caption?: string | null;
+                        /** @default null */
+                        comments?: number | null;
+                        /** @default null */
+                        likes?: number | null;
+                        /** @default null */
+                        views?: number | null;
+                    }[] | null;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -63951,6 +64143,15 @@ export interface operations {
                         /** @default null */
                         lastPostAt?: string | null;
                         name?: string | null;
+                        recent?: {
+                            caption?: string | null;
+                            /** @default null */
+                            comments?: number | null;
+                            /** @default null */
+                            likes?: number | null;
+                            /** @default null */
+                            views?: number | null;
+                        }[] | null;
                     }[];
                     /** Format: uuid */
                     workId: string;
@@ -64034,6 +64235,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default null */
+                        angle: ("tip" | "problem" | "story" | "offer") | null;
                         basedOn: string[];
                         createdAt: string;
                         format: string | null;
@@ -64042,9 +64245,21 @@ export interface operations {
                         id: string;
                         network: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube") | null;
                         outline: string | null;
+                        /** @default null */
+                        source: {
+                            name: string;
+                            /** Format: uri */
+                            url: string;
+                        } | null;
                         /** @enum {string} */
                         state: "new" | "saved" | "used" | "skipped";
                         title: string;
+                        /** @default null */
+                        topic: {
+                            line: string;
+                            /** @enum {string} */
+                            list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                        } | null;
                         why: string | null;
                     };
                 };
@@ -64224,6 +64439,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default null */
+                        angle: ("tip" | "problem" | "story" | "offer") | null;
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
@@ -64278,6 +64495,11 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /**
+                         * @default ai
+                         * @enum {string}
+                         */
+                        placedBy: "ai" | "person";
                         postAt: string | null;
                         postedAt: string | null;
                         postedTo: {
@@ -64299,6 +64521,12 @@ export interface operations {
                         state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                         stillNeeds: string | null;
                         title: string;
+                        /** @default null */
+                        topic: {
+                            line: string;
+                            /** @enum {string} */
+                            list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                        } | null;
                         updatedAt: string;
                         words: string;
                     };
@@ -64393,6 +64621,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default null */
+                        angle: ("tip" | "problem" | "story" | "offer") | null;
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
@@ -64447,6 +64677,11 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /**
+                         * @default ai
+                         * @enum {string}
+                         */
+                        placedBy: "ai" | "person";
                         postAt: string | null;
                         postedAt: string | null;
                         postedTo: {
@@ -64468,6 +64703,12 @@ export interface operations {
                         state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                         stillNeeds: string | null;
                         title: string;
+                        /** @default null */
+                        topic: {
+                            line: string;
+                            /** @enum {string} */
+                            list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                        } | null;
                         updatedAt: string;
                         words: string;
                     };
@@ -64575,13 +64816,20 @@ export interface operations {
             content: {
                 "application/json": {
                     autoFill?: boolean;
+                    autoPick?: boolean;
                     facebookPage?: string | null;
                     facebookWhere?: ("profile" | "page")[];
                     networks?: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
                     plan?: {
                         [key: string]: {
-                            perWeek: number;
-                            time: string;
+                            from?: string;
+                            /** @enum {string} */
+                            mode?: "ai" | "mine";
+                            perDay?: number | null;
+                            perWeek?: number;
+                            time?: string;
+                            to?: string;
+                            week?: string[][];
                         };
                     };
                     readerUserId?: string | null;
@@ -64600,21 +64848,41 @@ export interface operations {
                 content: {
                     "application/json": {
                         autoFill: boolean;
+                        /** @default true */
+                        autoPick: boolean;
                         facebookPage: string | null;
                         facebookWhere: ("profile" | "page")[];
                         networks: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
                         plan: {
                             facebook: {
+                                from: string;
+                                /** @enum {string} */
+                                mode: "ai" | "mine";
+                                perDay: number | null;
                                 perWeek: number;
                                 time: string;
+                                to: string;
+                                week: string[][];
                             };
                             instagram: {
+                                from: string;
+                                /** @enum {string} */
+                                mode: "ai" | "mine";
+                                perDay: number | null;
                                 perWeek: number;
                                 time: string;
+                                to: string;
+                                week: string[][];
                             };
                             linkedin: {
+                                from: string;
+                                /** @enum {string} */
+                                mode: "ai" | "mine";
+                                perDay: number | null;
                                 perWeek: number;
                                 time: string;
+                                to: string;
+                                week: string[][];
                             };
                         };
                         readerName: string | null;
@@ -74763,6 +75031,7 @@ export interface operations {
                             dailyCap: number;
                             greeting: string | null;
                             headerColor: string | null;
+                            hiddenUntilTexting: boolean;
                             /** Format: uuid */
                             id: string;
                             install: {
@@ -74866,6 +75135,7 @@ export interface operations {
                             dailyCap: number;
                             greeting: string | null;
                             headerColor: string | null;
+                            hiddenUntilTexting: boolean;
                             /** Format: uuid */
                             id: string;
                             install: {
@@ -80856,11 +81126,13 @@ export interface operations {
                                 unitPriceCents: number;
                             }[];
                             linkVersion: number;
+                            markedPaid: boolean;
                             notes: string | null;
                             number: string | null;
                             /** @enum {string} */
                             origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form" | "ai_teammate";
                             paidAt: string | null;
+                            payOutside: boolean;
                             person: {
                                 email: string | null;
                                 fullName: string;
@@ -80893,6 +81165,7 @@ export interface operations {
                             voidedAt: string | null;
                             voidReason: string | null;
                         };
+                        paidThroughNames: string[];
                         payments: {
                             amountCents: number;
                             cardBrand: string | null;
@@ -80907,8 +81180,10 @@ export interface operations {
                             /** Format: uuid */
                             invoiceId: string;
                             /** @enum {string} */
-                            method: "card" | "ach" | "cash" | "check" | "other";
+                            method: "card" | "ach" | "cash" | "check" | "other" | "card_outside";
                             netCents: number | null;
+                            note: string | null;
+                            paidThrough: string | null;
                             provider: ("stripe" | "square" | "paypal" | "nmi" | "authorize_net") | null;
                             providerStatus: string | null;
                             receivedAt: string | null;
@@ -81010,6 +81285,7 @@ export interface operations {
                             /** @enum {string} */
                             origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form" | "ai_teammate";
                             paidAt: string | null;
+                            payOutside: boolean;
                             person: {
                                 email: string | null;
                                 fullName: string;
@@ -83273,6 +83549,7 @@ export interface operations {
                             /** @enum {string} */
                             origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form" | "ai_teammate";
                             paidAt: string | null;
+                            payOutside: boolean;
                             person: {
                                 email: string | null;
                                 fullName: string;
@@ -90365,7 +90642,7 @@ export interface operations {
                     invoiceId?: string;
                     /** @default 25 */
                     limit?: number;
-                    method?: ("card" | "ach" | "cash" | "check" | "other")[];
+                    method?: ("card" | "ach" | "cash" | "check" | "other" | "card_outside")[];
                     /** Format: uuid */
                     personId?: string;
                     /** Format: date-time */
@@ -90402,8 +90679,10 @@ export interface operations {
                             invoiceId: string;
                             invoiceNumber: string | null;
                             /** @enum {string} */
-                            method: "card" | "ach" | "cash" | "check" | "other";
+                            method: "card" | "ach" | "cash" | "check" | "other" | "card_outside";
                             netCents: number | null;
+                            note: string | null;
+                            paidThrough: string | null;
                             person: {
                                 email: string | null;
                                 fullName: string;
@@ -98659,6 +98938,29 @@ export interface operations {
                         filledAt: string | null;
                         from: string;
                         ideasSaved: number;
+                        learned?: {
+                            facebook: {
+                                best: string[];
+                                creators: number;
+                                /** @enum {string} */
+                                from: "own" | "both" | "creators" | "none";
+                                own: number;
+                            };
+                            instagram: {
+                                best: string[];
+                                creators: number;
+                                /** @enum {string} */
+                                from: "own" | "both" | "creators" | "none";
+                                own: number;
+                            };
+                            linkedin: {
+                                best: string[];
+                                creators: number;
+                                /** @enum {string} */
+                                from: "own" | "both" | "creators" | "none";
+                                own: number;
+                            };
+                        };
                         mayManage: boolean;
                         nextFillAt: string | null;
                         /** @default true */
@@ -98668,19 +98970,39 @@ export interface operations {
                             date: string;
                             /** @enum {string} */
                             network: "instagram" | "facebook" | "linkedin";
+                            /** @default false */
+                            trying: boolean;
                         }[];
                         plan: {
                             facebook: {
+                                from: string;
+                                /** @enum {string} */
+                                mode: "ai" | "mine";
+                                perDay: number | null;
                                 perWeek: number;
                                 time: string;
+                                to: string;
+                                week: string[][];
                             };
                             instagram: {
+                                from: string;
+                                /** @enum {string} */
+                                mode: "ai" | "mine";
+                                perDay: number | null;
                                 perWeek: number;
                                 time: string;
+                                to: string;
+                                week: string[][];
                             };
                             linkedin: {
+                                from: string;
+                                /** @enum {string} */
+                                mode: "ai" | "mine";
+                                perDay: number | null;
                                 perWeek: number;
                                 time: string;
+                                to: string;
+                                week: string[][];
                             };
                         };
                         poster: {
@@ -98690,6 +99012,8 @@ export interface operations {
                             version: string | null;
                         } | null;
                         posts: {
+                            /** @default null */
+                            angle: ("tip" | "problem" | "story" | "offer") | null;
                             approvedAt: string | null;
                             approvedBy: string | null;
                             createdAt: string;
@@ -98744,6 +99068,11 @@ export interface operations {
                             pictureState: "none" | "waiting" | "making" | "made" | "failed";
                             /** @enum {string} */
                             pictureWay: "design" | "photo" | "own";
+                            /**
+                             * @default ai
+                             * @enum {string}
+                             */
+                            placedBy: "ai" | "person";
                             postAt: string | null;
                             postedAt: string | null;
                             postedTo: {
@@ -98765,12 +99094,20 @@ export interface operations {
                             state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                             stillNeeds: string | null;
                             title: string;
+                            /** @default null */
+                            topic: {
+                                line: string;
+                                /** @enum {string} */
+                                list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                            } | null;
                             updatedAt: string;
                             words: string;
                         }[];
                         postsOn: ("instagram" | "facebook" | "linkedin")[];
                         ready: number;
                         recent: {
+                            /** @default null */
+                            angle: ("tip" | "problem" | "story" | "offer") | null;
                             approvedAt: string | null;
                             approvedBy: string | null;
                             createdAt: string;
@@ -98825,6 +99162,11 @@ export interface operations {
                             pictureState: "none" | "waiting" | "making" | "made" | "failed";
                             /** @enum {string} */
                             pictureWay: "design" | "photo" | "own";
+                            /**
+                             * @default ai
+                             * @enum {string}
+                             */
+                            placedBy: "ai" | "person";
                             postAt: string | null;
                             postedAt: string | null;
                             postedTo: {
@@ -98846,12 +99188,20 @@ export interface operations {
                             state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                             stillNeeds: string | null;
                             title: string;
+                            /** @default null */
+                            topic: {
+                                line: string;
+                                /** @enum {string} */
+                                list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                            } | null;
                             updatedAt: string;
                             words: string;
                         }[];
                         timeZone: string;
                         today: string;
                         undated: {
+                            /** @default null */
+                            angle: ("tip" | "problem" | "story" | "offer") | null;
                             approvedAt: string | null;
                             approvedBy: string | null;
                             createdAt: string;
@@ -98906,6 +99256,11 @@ export interface operations {
                             pictureState: "none" | "waiting" | "making" | "made" | "failed";
                             /** @enum {string} */
                             pictureWay: "design" | "photo" | "own";
+                            /**
+                             * @default ai
+                             * @enum {string}
+                             */
+                            placedBy: "ai" | "person";
                             postAt: string | null;
                             postedAt: string | null;
                             postedTo: {
@@ -98927,6 +99282,12 @@ export interface operations {
                             state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                             stillNeeds: string | null;
                             title: string;
+                            /** @default null */
+                            topic: {
+                                line: string;
+                                /** @enum {string} */
+                                list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                            } | null;
                             updatedAt: string;
                             words: string;
                         }[];
@@ -98960,6 +99321,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default null */
+                        angle: ("tip" | "problem" | "story" | "offer") | null;
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
@@ -99014,6 +99377,11 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /**
+                         * @default ai
+                         * @enum {string}
+                         */
+                        placedBy: "ai" | "person";
                         postAt: string | null;
                         postedAt: string | null;
                         postedTo: {
@@ -99035,6 +99403,12 @@ export interface operations {
                         state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                         stillNeeds: string | null;
                         title: string;
+                        /** @default null */
+                        topic: {
+                            line: string;
+                            /** @enum {string} */
+                            list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                        } | null;
                         updatedAt: string;
                         words: string;
                     };
@@ -99072,6 +99446,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         posts: {
+                            /** @default null */
+                            angle: ("tip" | "problem" | "story" | "offer") | null;
                             approvedAt: string | null;
                             approvedBy: string | null;
                             createdAt: string;
@@ -99126,6 +99502,11 @@ export interface operations {
                             pictureState: "none" | "waiting" | "making" | "made" | "failed";
                             /** @enum {string} */
                             pictureWay: "design" | "photo" | "own";
+                            /**
+                             * @default ai
+                             * @enum {string}
+                             */
+                            placedBy: "ai" | "person";
                             postAt: string | null;
                             postedAt: string | null;
                             postedTo: {
@@ -99147,6 +99528,12 @@ export interface operations {
                             state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                             stillNeeds: string | null;
                             title: string;
+                            /** @default null */
+                            topic: {
+                                line: string;
+                                /** @enum {string} */
+                                list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                            } | null;
                             updatedAt: string;
                             words: string;
                         }[];
@@ -99185,6 +99572,8 @@ export interface operations {
                         creators: {
                             bio: string | null;
                             createdAt: string;
+                            /** @default null */
+                            engagement: number | null;
                             followers: number | null;
                             /** @enum {string} */
                             foundBy: "search" | "person";
@@ -99193,11 +99582,17 @@ export interface operations {
                             id: string;
                             lastPostAt: string | null;
                             link: string;
+                            /** @default null */
+                            match: number | null;
+                            /** @default null */
+                            matchWhy: string | null;
                             name: string | null;
                             /** @enum {string} */
                             network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
                             nicheId: string | null;
                             nicheName: string | null;
+                            /** @default null */
+                            pickedBy: ("ai" | "person") | null;
                             postsCount: number;
                             postsReadAt: string | null;
                             profileReadAt: string | null;
@@ -99249,6 +99644,8 @@ export interface operations {
                             network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
                         }[];
                         ideas: {
+                            /** @default null */
+                            angle: ("tip" | "problem" | "story" | "offer") | null;
                             basedOn: string[];
                             createdAt: string;
                             format: string | null;
@@ -99257,9 +99654,21 @@ export interface operations {
                             id: string;
                             network: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube") | null;
                             outline: string | null;
+                            /** @default null */
+                            source: {
+                                name: string;
+                                /** Format: uri */
+                                url: string;
+                            } | null;
                             /** @enum {string} */
                             state: "new" | "saved" | "used" | "skipped";
                             title: string;
+                            /** @default null */
+                            topic: {
+                                line: string;
+                                /** @enum {string} */
+                                list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                            } | null;
                             why: string | null;
                         }[];
                         /** @default true */
@@ -99343,25 +99752,68 @@ export interface operations {
                             suggested: number;
                             waiting: number;
                         };
+                        learned?: {
+                            facebook: {
+                                best: string[];
+                                creators: number;
+                                /** @enum {string} */
+                                from: "own" | "both" | "creators" | "none";
+                                own: number;
+                            };
+                            instagram: {
+                                best: string[];
+                                creators: number;
+                                /** @enum {string} */
+                                from: "own" | "both" | "creators" | "none";
+                                own: number;
+                            };
+                            linkedin: {
+                                best: string[];
+                                creators: number;
+                                /** @enum {string} */
+                                from: "own" | "both" | "creators" | "none";
+                                own: number;
+                            };
+                        };
                         mayManage: boolean;
                         readerIsMe: boolean;
                         settings: {
                             autoFill: boolean;
+                            /** @default true */
+                            autoPick: boolean;
                             facebookPage: string | null;
                             facebookWhere: ("profile" | "page")[];
                             networks: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
                             plan: {
                                 facebook: {
+                                    from: string;
+                                    /** @enum {string} */
+                                    mode: "ai" | "mine";
+                                    perDay: number | null;
                                     perWeek: number;
                                     time: string;
+                                    to: string;
+                                    week: string[][];
                                 };
                                 instagram: {
+                                    from: string;
+                                    /** @enum {string} */
+                                    mode: "ai" | "mine";
+                                    perDay: number | null;
                                     perWeek: number;
                                     time: string;
+                                    to: string;
+                                    week: string[][];
                                 };
                                 linkedin: {
+                                    from: string;
+                                    /** @enum {string} */
+                                    mode: "ai" | "mine";
+                                    perDay: number | null;
                                     perWeek: number;
                                     time: string;
+                                    to: string;
+                                    week: string[][];
                                 };
                             };
                             readerName: string | null;
@@ -99369,6 +99821,33 @@ export interface operations {
                             readerUserId: string | null;
                             readerVersion: string | null;
                             watchVideos: boolean;
+                        };
+                        setup?: {
+                            autoFill: boolean;
+                            autoPick: boolean;
+                            filledAt: string | null;
+                            findsLeft: number;
+                            listsAll: number;
+                            listsFilled: number;
+                            /** @default {} */
+                            marks: {
+                                findAt?: string;
+                                nichesAt?: string;
+                                startedAt?: string;
+                                writeAt?: string;
+                            };
+                            networks: {
+                                byAi: number;
+                                network: string;
+                                pickable: number;
+                                studying: number;
+                            }[];
+                            nichesPicked: number;
+                            noted: number;
+                            offerLive: boolean;
+                            playbookAt: string | null;
+                            readerSet: boolean;
+                            readsLeft: number;
                         };
                         work: {
                             /** @enum {string} */

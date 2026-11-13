@@ -8,10 +8,12 @@
  * audience; an attendee sees only who's presenting and how many are watching, never the other attendees.
  */
 import {
+  MIC_WORDS,
   VIDEO_CALL_ATTRIBUTES,
   VIDEO_CALL_WORDS,
   WEBINAR_WORDS,
   isPersonIdentity,
+  micStateOf,
   roomRightsOf,
 } from '@hfos/core';
 import {
@@ -341,6 +343,7 @@ function InCall({
 }) {
   const micOff = useIsMuted({ participant: p, source: Track.Source.Microphone });
   const hand = useParticipantAttribute(VIDEO_CALL_ATTRIBUTES.hand, { participant: p }) === 'up';
+  const mic = micStateOf(useParticipantAttribute(VIDEO_CALL_ATTRIBUTES.mic, { participant: p }));
   const name = p.name || row?.name || 'Guest';
   return (
     <div className="flex items-center gap-2.5 py-1.5" data-testid="call-person" data-name={name}>
@@ -353,6 +356,16 @@ function InCall({
         {row ? (
           <span className="text-[12px] text-text-3">
             {stage === 'on' ? WEBINAR_WORDS.onStage : KIND_LABEL[row.kind]}
+          </span>
+        ) : null}
+        {mic && !p.isLocal ? (
+          <span
+            className="text-[12px] text-warning-text"
+            title={MIC_WORDS.stateHint[mic]}
+            data-testid="call-person-mic"
+          >
+            {MIC_WORDS.state[mic]}
+            {team ? `. ${MIC_WORDS.stateHint[mic]}` : ''}
           </span>
         ) : null}
       </span>

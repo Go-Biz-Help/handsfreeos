@@ -11,7 +11,8 @@ import { createBusiness, signUpAndConfirm } from './helpers';
  * rises and falls like speech for a second and a half, then quiet, over and over), and the worker's stand-in
  * speech hears any recording as "Hello, can you hear me?" and answers each clip with a quiet WAV. So the whole
  * loop runs for real — the microphone, noticing the end of a turn, the recording going to the worker, the answer
- * played through the page's audio — without anyone speaking.
+ * played through the page's audio — without anyone speaking. The Assistant listens live instead: the microphone
+ * streams to the worker, and the stand-in hears talking and then a pause as the same words.
  *
  * A live test call runs the same way, streamed: the microphone goes to the worker as phone audio while it talks,
  * the stand-in hears talking and then a pause as "Hello, can you hear me?", and what the teammate says streams
@@ -101,7 +102,16 @@ test('talking out loud: a test call in the teammate’s voice, and the Assistant
   await expect(talk).toHaveAttribute('aria-pressed', 'false');
   await testConsole.getByRole('button', { name: 'Close' }).click();
 
-  // The Assistant: the mic listens, asks what was said (out loud), reads the answer, and listens again.
+  // The Assistant: the mic listens, asks what was said (out loud), reads the answer, and listens again. It
+  // listens live: the microphone streams to the worker, which says when the turn is over.
+  const live: string[] = [];
+  page.on('websocket', (ws) => {
+    if (ws.url().includes('/v1/speech/listen')) live.push(ws.url());
+  });
+  const heardClips: string[] = [];
+  page.on('request', (r) => {
+    if (r.url().includes('/v1/speech/hear')) heardClips.push(r.url());
+  });
   await page.getByTestId('ask-assistant').click();
   const panel = page.getByTestId('assistant-panel');
   await panel.getByTestId('assistant-talk').click();
@@ -118,6 +128,9 @@ test('talking out loud: a test call in the teammate’s voice, and the Assistant
   await expect(panel.getByTestId('assistant-question')).toHaveCount(2, { timeout: 30_000 });
   await panel.getByTestId('assistant-talk').click();
   await expect(assistantBar).toBeHidden();
+  // Each turn was heard live, with nothing recorded and sent afterwards.
+  expect(live.length).toBeGreaterThanOrEqual(2);
+  expect(heardClips).toEqual([]);
 });
 
 test('a live test call from this browser: it picks up, hears the caller, answers, and hangs up', async ({

@@ -17,6 +17,16 @@ import type { CommandContext } from '../kernel/types';
 import { checkDraft, draftFromProfile } from '../messaging/a2p';
 import { confirmationsFor } from '../messaging/preflight';
 import {
+  refuseUnwritable,
+  websiteFixFactsFrom,
+  websiteFixSourcesOf,
+} from '../messaging/web-person';
+import {
+  WEB_PERSON_EMAILS_A_DAY,
+  WEBSITE_FIX_IDS,
+  WEBSITE_FIXES,
+} from '../messaging/website-fixes';
+import {
   REGISTRATION_CHECK_TTL_MS,
   registrationFingerprint,
 } from '../messaging/registration-fingerprint';
@@ -50,6 +60,8 @@ import {
   RegistrationSubmitOutput,
   RegistrationUpdateStatusInput,
   RegistrationUpdateStatusOutput,
+  RegistrationEmailWebPersonInput,
+  RegistrationEmailWebPersonOutput,
 } from '../schemas/telephony';
 import { replyOnTicket } from './support';
 
@@ -628,6 +640,64 @@ export const registrationSaveDraft = defineCommand({
         set: { answers: input.answers, updatedBy: userIdOf(ctx.actor), updatedAt: now },
       });
     return { savedAt: now.toISOString() };
+  },
+});
+
+/**
+ * "Email your web person" (the owner, 2026-11-12): what the business's website needs before the carriers approve its
+ * texting, each fix in its own text file, emailed to whoever looks after the site. The worker writes the files and
+ * sends it (from HandsFreeOS, in the business's name, replies to whoever sent it, who gets a copy). Refused here when a
+ * file couldn't be written as it would go, so the person reads why while they can still fix it.
+ */
+export const registrationEmailWebPerson = defineCommand({
+  name: 'registration.email_web_person',
+  description:
+    'Email whoever looks after the business’s website the changes it needs before the carriers approve its texting, each in its own text file: add the sign-up form (one of the business’s published forms, or the box and its words for a form of their own), the privacy policy and terms’ part about texts, and the website chat’s code. Sent from HandsFreeOS in the business’s name; replies go to the person sending it, who gets a copy.',
+  risk: 2,
+  input: RegistrationEmailWebPersonInput,
+  output: RegistrationEmailWebPersonOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: ['registration.web_person_emailed'],
+  async handler(ctx, input) {
+    const workspaceId = ctx.scope.workspaceId!;
+    const userId = userIdOf(ctx.actor);
+    const fixes = WEBSITE_FIX_IDS.filter((id) => input.fixes.includes(id));
+    // A few a day each: it goes from HandsFreeOS's own address, to anyone.
+    const [sent] = await rows<{ n: number }>(
+      ctx.tx,
+      sql`select count(*)::int as n from app.events
+          where workspace_id = ${workspaceId} and event_type = 'registration.web_person_emailed'
+            and actor_id = ${userId} and created_at > now() - interval '1 day'`,
+    );
+    if ((sent?.n ?? 0) >= WEB_PERSON_EMAILS_A_DAY)
+      throw HfosError.rule(
+        'web_person_limit',
+        429,
+        `You’ve sent ${WEB_PERSON_EMAILS_A_DAY} of these today for this business, which is the most for a day. Try again tomorrow, or reply on one you’ve sent.`,
+      );
+    const sources = await websiteFixSourcesOf(ctx.tx, workspaceId, fixes, input.formId);
+    // The addresses don't change what can be written, only where its links point.
+    refuseUnwritable(
+      websiteFixFactsFrom(sources, { app: 'https://app.invalid', pages: 'https://app.invalid' }),
+      fixes,
+    );
+    const files = fixes.map((id) => WEBSITE_FIXES[id].filename);
+    await ctx.emit({
+      type: 'registration.web_person_emailed',
+      entityType: 'workspace',
+      entityId: workspaceId,
+      payload: {
+        to: input.to,
+        name: input.name || null,
+        fixes,
+        // The form the worker writes about: the one checked here, or null for a form of their own.
+        formId: fixes.includes('form') ? (sources.form?.id ?? null) : null,
+        note: input.note || null,
+      },
+      after: { to: input.to, files },
+    });
+    return { sentTo: input.to, files };
   },
 });
 

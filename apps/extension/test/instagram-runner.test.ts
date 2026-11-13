@@ -649,6 +649,84 @@ describe('a warm-up on Instagram', () => {
     expect(missedPosted()).toEqual([]);
   });
 
+  it('likes a reel of theirs in the reels player, the one it opened on, never the next one under it', async () => {
+    // The owner's problem reports of 12 Nov 2026: a reel's link opens the reels player at /reels/<code>/, which draws
+    // the reel and the next one under it with no article round each and no link to the reel itself, so its author was
+    // never found and no like on a reel went.
+    const REEL = `${IG}/reel/C4ddddddd/`;
+    const reelPart = (by: string, id: string) => `<div>
+      <div><img aria-hidden="true" alt=""><div><video></video><div role="group" aria-label="Video player">
+        <div role="presentation"><div role="button"><div>
+          <a role="link" aria-label="${by} reels" href="/${by}/reels/"><span role="link"><img alt="${by}'s profile picture"></span></a>
+          <div><span dir="auto"><a role="link" aria-label="${by} reels" href="/${by}/reels/">${by}</a></span></div>
+          <div role="button">Following</div>
+          <div role="button"><div dir="auto"><span>Fixing a leak in thirty seconds</span></div></div>
+        </div></div></div></div></div></div>
+      <div><div><div role="button" id="${id}"><svg role="img" aria-label="Like"></svg></div>
+          <div role="button"><span dir="auto"><span>74</span></span></div></div>
+        <div role="button" aria-expanded="false"><div><svg role="img" aria-label="Comment"></svg><span>2</span></div></div>
+        <div role="button"><div role="button"><svg role="img" aria-label="Save"></svg></div></div>
+        <div role="button" aria-expanded="false"><svg role="img" aria-label="More"></svg></div>
+        <a role="link" href="/reels/audio/1234567/"><div><img alt="Original audio"></div></a></div>
+    </div>`;
+    const player = (first: string, next: string) =>
+      `${MENU}<main role="main"><div>${reelPart(first, 'opened')}${reelPart(next, 'next')}</div></main>`;
+    const pressed: string[] = [];
+    const visitWith = async (first: string, next: string) => {
+      pressed.length = 0;
+      world.opened = [];
+      world.noted = [];
+      world.posted = [];
+      world.pages = (url) =>
+        url === DANA
+          ? {
+              html: accountHtml({ posts: [['C4ddddddd', 'A reel']] }).replace(
+                '/dana.reyes/p/C4ddddddd/',
+                '/dana.reyes/reel/C4ddddddd/',
+              ),
+            }
+          : url === REEL
+            ? { html: player(first, next), at: `${IG}/reels/C4ddddddd/` }
+            : null;
+      world.behave = (doc) => {
+        for (const id of ['opened', 'next']) {
+          const like = doc.getElementById(id);
+          like?.addEventListener('click', () => {
+            like.querySelector('svg')!.setAttribute('aria-label', 'Unlike');
+            pressed.push(id);
+          });
+        }
+      };
+      return doWork(
+        {
+          do: 'step',
+          item: item({
+            kind: 'warm_up',
+            keepWarm: { likes: 1, until: '2026-11-26T06:00:00.000Z' },
+          }),
+        },
+        ME.businessId,
+        true,
+        0,
+      );
+    };
+    expect(await visitWith('dana.reyes', 'sam.lee')).toEqual({
+      done: true,
+      line: 'Liked a post of Dana Reyes’s while they decide on following you back',
+    });
+    expect(world.opened).toEqual([DANA, REEL]);
+    expect(pressed).toEqual(['opened']);
+    expect(notedAs().map((n) => n.postUrl)).toEqual([REEL]);
+    // The player opened on someone else's reel, hers next: neither is liked.
+    expect(await visitWith('sam.lee', 'dana.reyes')).toEqual({
+      done: false,
+      line: 'Couldn’t like Dana Reyes’s post on this visit',
+      look: true,
+    });
+    expect(pressed).toEqual([]);
+    expect(world.noted).toEqual([]);
+  });
+
   it('counts a visit with no post of theirs to like, and tells HandsFreeOS (decision 161)', async () => {
     pagesFor([]);
     const outcome = await doWork(

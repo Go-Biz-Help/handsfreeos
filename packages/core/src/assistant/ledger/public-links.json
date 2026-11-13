@@ -1,7 +1,7 @@
 {
   "area": "public-links",
   "title": "Every link a business gives out, and the public pages behind them",
-  "checkedOn": "2026-11-10",
+  "checkedOn": "2026-11-13",
   "files": {
     "apps/web/src/addons/realestate/portal/bits.tsx": "d7b704452b09",
     "apps/web/src/addons/realestate/portal/home-panel.tsx": "94db9d871e1e",
@@ -65,23 +65,24 @@
     "apps/web/src/components/forms/question-field.tsx": "bbe8e1dd9aab",
     "apps/web/src/components/members/accept-invite.tsx": "26df3014e711",
     "apps/web/src/components/money/public-estimate.tsx": "82083d4d8a40",
-    "apps/web/src/components/money/public-invoice.tsx": "a3891c54f7e0",
+    "apps/web/src/components/money/public-invoice.tsx": "71edaaf05241",
     "apps/web/src/components/money/public-plan.tsx": "1364906433dc",
     "apps/web/src/components/money/public-shell.tsx": "1b339f253ab5",
     "apps/web/src/components/portal/partner-page.tsx": "1e5fbe8cd600",
     "apps/web/src/components/portal/portal-pages.tsx": "6a270ce8937e",
     "apps/web/src/components/portal/portal-shell.tsx": "d896bce81892",
     "apps/web/src/components/safety/contact-page.tsx": "94142f097968",
-    "apps/web/src/components/video-call/call-coach.tsx": "350fc005d02a",
+    "apps/web/src/components/video-call/call-coach.tsx": "e8e2b3273150",
     "apps/web/src/components/video-call/call-frame.tsx": "7b091210e351",
-    "apps/web/src/components/video-call/call-panels.tsx": "1aae71877cf4",
-    "apps/web/src/components/video-call/call-room.tsx": "e8cbe7e4dec2",
-    "apps/web/src/components/video-call/call-stage.tsx": "e9fc079a3b0c",
+    "apps/web/src/components/video-call/call-panels.tsx": "327306ddc841",
+    "apps/web/src/components/video-call/call-room.tsx": "27b4235b2483",
+    "apps/web/src/components/video-call/call-stage.tsx": "6640fa5416c2",
     "apps/web/src/components/video-call/customer-call.tsx": "95df1e2ea086",
     "apps/web/src/components/video-call/link-call.tsx": "463d1bf669c9",
+    "apps/web/src/components/video-call/mic.tsx": "87d8aebc2eba",
     "apps/web/src/components/video-call/poll-panel.tsx": "e0c0aae73199",
     "apps/web/src/components/video-call/poll-popup.tsx": "e772074533b3",
-    "apps/web/src/components/video-call/pre-join.tsx": "d79b98a9e2b0",
+    "apps/web/src/components/video-call/pre-join.tsx": "0951bedd2674",
     "apps/web/src/components/video-call/screen-marks.tsx": "e383c8990504",
     "apps/web/src/components/video-call/slides.tsx": "9123d85f0cfd",
     "apps/web/src/components/video-link/upload-page.tsx": "98f2f05c3ef5"
@@ -895,175 +896,175 @@
     {
       "path": "Video call → pre-join: camera preview, mic, camera, blur",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/pre-join.tsx:198",
+      "file": "apps/web/src/components/video-call/pre-join.tsx:224",
       "covered": "person",
       "by": "the person's own devices"
     },
     {
       "path": "Video call → pre-join: device pickers",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/pre-join.tsx:253",
+      "file": "apps/web/src/components/video-call/pre-join.tsx:280",
       "covered": "person",
       "by": "the person's own devices"
     },
     {
       "path": "Video call → pre-join: media problem, in-app browser, Copy the link",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/pre-join.tsx:283",
+      "file": "apps/web/src/components/video-call/pre-join.tsx:318",
       "covered": "person",
       "by": "the person's own browser"
     },
     {
       "path": "Video call → room → watching count",
       "kind": "see",
-      "file": "apps/web/src/components/video-call/call-room.tsx:525",
+      "file": "apps/web/src/components/video-call/call-room.tsx:681",
       "covered": "yes",
       "by": "read_video_call_get people connected"
     },
     {
       "path": "Video call → room → attendee video pill",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:539",
+      "file": "apps/web/src/components/video-call/call-room.tsx:695",
       "covered": "yes",
       "by": "do_video_call_set_attendee_video"
     },
     {
       "path": "Video call → room → AI notes pill, turn-off confirm",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:574",
+      "file": "apps/web/src/components/video-call/call-room.tsx:730",
       "covered": "yes",
       "by": "do_video_call_set_ai"
     },
     {
       "path": "Video call → room → reconnecting, joining",
       "kind": "see",
-      "file": "apps/web/src/components/video-call/call-room.tsx:615",
+      "file": "apps/web/src/components/video-call/call-room.tsx:771",
       "covered": "person",
       "by": "the person's own connection"
     },
     {
       "path": "Video call → room → captions",
       "kind": "see",
-      "file": "apps/web/src/components/video-call/call-room.tsx:895",
+      "file": "apps/web/src/components/video-call/call-room.tsx:1097",
       "covered": "partly",
       "by": "read_appointment_transcripts after the call"
     },
     {
       "path": "Video call → room → CC toggle",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:762",
+      "file": "apps/web/src/components/video-call/call-room.tsx:964",
       "covered": "person",
       "by": "the person's own view"
     },
     {
       "path": "Video call → room → mic, camera, share screen, blur",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:684",
+      "file": "apps/web/src/components/video-call/call-room.tsx:880",
       "covered": "person",
       "by": "the person's own devices"
     },
     {
       "path": "Video call → room → reactions",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:726",
+      "file": "apps/web/src/components/video-call/call-room.tsx:928",
       "covered": "person",
       "by": "the person in the call"
     },
     {
       "path": "Video call → room → raise hand",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:754",
+      "file": "apps/web/src/components/video-call/call-room.tsx:956",
       "covered": "person",
       "by": "the person in the call"
     },
     {
       "path": "Video call → room → hand-raised toast",
       "kind": "see",
-      "file": "apps/web/src/components/video-call/call-room.tsx:1000",
+      "file": "apps/web/src/components/video-call/call-room.tsx:1202",
       "covered": "no",
       "by": "read_video_call_get has no hand state"
     },
     {
       "path": "Video call → room → knock toast 'Let in'",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:1191",
+      "file": "apps/web/src/components/video-call/call-room.tsx:1404",
       "covered": "yes",
       "by": "do_video_call_admit"
     },
     {
       "path": "Video call → room → Leave / Leave only",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:805",
+      "file": "apps/web/src/components/video-call/call-room.tsx:1007",
       "covered": "person",
       "by": "the person leaves"
     },
     {
       "path": "Video call → room → End for everyone",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-room.tsx:840",
+      "file": "apps/web/src/components/video-call/call-room.tsx:1042",
       "covered": "yes",
       "by": "do_video_call_end"
     },
     {
       "path": "Video call → People → Let in / Turn away",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-panels.tsx:246",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:248",
       "covered": "yes",
       "by": "do_video_call_admit, do_video_call_turn_away"
     },
     {
       "path": "Video call → People → Presenting, Audience, watching",
       "kind": "see",
-      "file": "apps/web/src/components/video-call/call-panels.tsx:266",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:268",
       "covered": "yes",
       "by": "read_video_call_get people state, onStage"
     },
     {
       "path": "Video call → People → hand and mic-off marks",
       "kind": "see",
-      "file": "apps/web/src/components/video-call/call-panels.tsx:351",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:354",
       "covered": "no",
       "by": "read_video_call_get has no hand or mic state"
     },
     {
       "path": "Video call → People → Bring on stage / Back to audience",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-panels.tsx:372",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:385",
       "covered": "yes",
       "by": "do_video_call_stage"
     },
     {
       "path": "Video call → People → Mute",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-panels.tsx:382",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:395",
       "covered": "yes",
       "by": "do_video_call_mute"
     },
     {
       "path": "Video call → People → Remove",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-panels.tsx:392",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:405",
       "covered": "yes",
       "by": "do_video_call_remove"
     },
     {
       "path": "Video call → Chat → messages, 'chat kept'",
       "kind": "see",
-      "file": "apps/web/src/components/video-call/call-panels.tsx:98",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:100",
       "covered": "yes",
       "by": "read_video_call_chat"
     },
     {
       "path": "Video call → Chat → Send a message to everyone",
       "kind": "do",
-      "file": "apps/web/src/components/video-call/call-panels.tsx:140",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:142",
       "covered": "no",
       "by": "no tool posts in the call's chat"
     },
     {
       "path": "Video call → stage → tiles, slide 'n of m', mic off, hand",
       "kind": "see",
-      "file": "apps/web/src/components/video-call/call-stage.tsx:108",
+      "file": "apps/web/src/components/video-call/call-stage.tsx:110",
       "covered": "partly",
       "by": "read_video_call_get people; no slide position, mic or hand"
     },
@@ -1199,6 +1200,41 @@
       "file": "apps/web/src/components/video-call/call-coach.tsx:1",
       "covered": "partly",
       "by": "the Sales Coach add-on's own ops"
+    },
+    {
+      "path": "Video call → pre-join: mic trouble steps for this browser, Try again",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/pre-join.tsx:302",
+      "covered": "person",
+      "by": "the person's own browser"
+    },
+    {
+      "path": "Video call → room → mic trouble box, Try again",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-room.tsx:799",
+      "covered": "person",
+      "by": "the person's own browser and devices"
+    },
+    {
+      "path": "Video call → room → mic menu: microphone, speaker, level",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/mic.tsx:347",
+      "covered": "person",
+      "by": "the person's own devices"
+    },
+    {
+      "path": "Video call → room → mic notes: paused, no sound, you're muted, muted by the team",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-room.tsx:834",
+      "covered": "person",
+      "by": "the person's own microphone"
+    },
+    {
+      "path": "Video call → People and tiles → 'Mic blocked', 'No sound from their mic'",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:365",
+      "covered": "no",
+      "by": "read_video_call_get has no mic state"
     },
     {
       "path": "Website chat link (/chat/<key>) and site snippet",
@@ -1705,9 +1741,16 @@
       "by": "get_money_document payments"
     },
     {
-      "path": "Invoice → pay blocked",
+      "path": "Invoice → paid outside HandsFreeOS: ‘takes payment for this invoice directly’",
       "kind": "see",
       "file": "apps/web/src/components/money/public-invoice.tsx:624",
+      "covered": "yes",
+      "by": "get_money_document → paidInto Outside HandsFreeOS"
+    },
+    {
+      "path": "Invoice → pay blocked",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-invoice.tsx:637",
       "covered": "partly",
       "by": "get_settings payments"
     },

@@ -1,22 +1,22 @@
 {
   "area": "salescoach",
   "title": "The AI Sales Coach add-on and any add-on page drawn by the generic add-on route",
-  "checkedOn": "2026-11-12",
+  "checkedOn": "2026-11-13",
   "files": {
     "apps/mobile/src/addons/gate.tsx": "7be28a0fe47e",
-    "apps/mobile/src/addons/salescoach/call-card.tsx": "e11b62dde145",
-    "apps/mobile/src/addons/salescoach/live.tsx": "d4318f640442",
+    "apps/mobile/src/addons/salescoach/call-card.tsx": "72ed05fc772a",
+    "apps/mobile/src/addons/salescoach/live.tsx": "9ed095a084b8",
     "apps/mobile/src/addons/salescoach/more.tsx": "6375527d5542",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/salescoach/_layout.tsx": "a70094e99ef9",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/salescoach/index.tsx": "fc20cb64c8ce",
-    "apps/web/src/addons/registry.ts": "c596d9461fd5",
-    "apps/web/src/addons/salescoach/call-panel.tsx": "04eeac0b46c2",
+    "apps/web/src/addons/registry.ts": "c925198a00a2",
+    "apps/web/src/addons/salescoach/call-panel.tsx": "f7ad6d8b8bcd",
     "apps/web/src/addons/salescoach/calls-view.tsx": "9df2ca234691",
     "apps/web/src/addons/salescoach/composer-suggestions.tsx": "aa5c423c9d4e",
     "apps/web/src/addons/salescoach/delete-call.tsx": "f236f073c63c",
     "apps/web/src/addons/salescoach/home.tsx": "1f6ded1922cd",
     "apps/web/src/addons/salescoach/lessons-view.tsx": "ba36d5b35818",
-    "apps/web/src/addons/salescoach/live-coach.tsx": "609a80f8d052",
+    "apps/web/src/addons/salescoach/live-coach.tsx": "e7159eabb412",
     "apps/web/src/addons/salescoach/playbooks-view.tsx": "13c7aeeb4a26",
     "apps/web/src/addons/salescoach/script-builder.tsx": "ec31067d4412",
     "apps/web/src/addons/salescoach/trends-view.tsx": "ad456906d697",
@@ -30,7 +30,7 @@
     {
       "path": "Side menu → AI Sales Coach (opens Live call)",
       "kind": "do",
-      "file": "apps/web/src/addons/registry.ts:275",
+      "file": "apps/web/src/addons/registry.ts:276",
       "covered": "yes",
       "by": "add-on directory line in the prompt; salescoach_live reads the page"
     },
@@ -58,103 +58,103 @@
     {
       "path": "Live call → no call: 'No call right now…' and where the coach shows (call bar, phone app); phone shows the read's error instead",
       "kind": "see",
-      "file": "apps/web/src/addons/salescoach/live-coach.tsx:214",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:226",
       "covered": "yes",
       "by": "salescoach_live call: null; its description and the Live call place say where the coach shows (above the call bar, the phone app)"
     },
     {
       "path": "Live call → status: Listening / Writing up the call… / Coach stopped for this call / Call ended",
       "kind": "see",
-      "file": "apps/web/src/addons/salescoach/live-coach.tsx:220",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:233",
       "covered": "yes",
       "by": "salescoach_live call.state"
     },
     {
       "path": "Live call → the customer's name",
       "kind": "see",
-      "file": "apps/web/src/addons/salescoach/live-coach.tsx:264",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:277",
       "covered": "yes",
       "by": "salescoach_live call.person.name"
     },
     {
       "path": "Live call → Stage: <stage>, n of m (scripts with stages)",
       "kind": "see",
-      "file": "apps/web/src/addons/salescoach/live-coach.tsx:77",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:78",
       "covered": "yes",
       "by": "salescoach_live call.stage { name, n, of }, from the script’s steps, ahead of the cards"
     },
     {
       "path": "Live call → Where you are: step title, n/m",
       "kind": "see",
-      "file": "apps/web/src/addons/salescoach/live-coach.tsx:105",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:106",
       "covered": "yes",
       "by": "salescoach_live call.step { title, n, of }"
     },
     {
       "path": "Live call → each card: kind (Objection, They asked, Next step, Ask this, Heads up), title, words to say",
       "kind": "see",
-      "file": "apps/web/src/addons/salescoach/live-coach.tsx:158",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:164",
       "covered": "yes",
       "by": "salescoach_live cards[] kind, title, say; the playbook’s words are left out of the answer, so nothing cuts them"
     },
     {
       "path": "Live call → card → How: the tip",
       "kind": "see",
-      "file": "apps/web/src/addons/salescoach/live-coach.tsx:172",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:181",
       "covered": "yes",
       "by": "salescoach_live cards[].tip"
     },
     {
       "path": "Live call → newest card → They said: '…'",
       "kind": "see",
-      "file": "apps/web/src/addons/salescoach/live-coach.tsx:177",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:186",
       "covered": "yes",
       "by": "salescoach_live cards[].heard"
     },
     {
       "path": "Live call → card → Got it",
       "kind": "do",
-      "file": "apps/web/src/addons/salescoach/live-coach.tsx:162",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:169",
       "covered": "yes",
       "by": "salescoach_card_dismiss input cardId (runs on its own)"
     },
     {
       "path": "Live call → no cards yet: the coach is listening, or no playbook yet (ask an owner… Playbooks)",
       "kind": "see",
-      "file": "apps/web/src/addons/salescoach/live-coach.tsx:276",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:289",
       "covered": "yes",
       "by": "salescoach_live playbook null / cards []; the Live call place names AI Sales Coach → Playbooks"
     },
     {
       "path": "Live call → Stop coaching this call",
       "kind": "do",
-      "file": "apps/web/src/addons/salescoach/live-coach.tsx:281",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:294",
       "covered": "yes",
       "by": "salescoach_call_stop input coachedCallId (card to confirm)"
     },
     {
       "path": "Live call → Start coaching again (stopped, call still going)",
       "kind": "do",
-      "file": "apps/web/src/addons/salescoach/live-coach.tsx:292",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:305",
       "covered": "yes",
       "by": "salescoach_call_resume input coachedCallId (card to confirm)"
     },
     {
       "path": "Live call → See the write-up (call over; phone opens it on the web)",
       "kind": "do",
-      "file": "apps/web/src/addons/salescoach/live-coach.tsx:303",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:316",
       "covered": "yes",
       "by": "salescoach_get_call input coachedCallId from salescoach_live call.id"
     },
     {
       "path": "Live call → refusals: not your call, call is over",
       "kind": "see",
-      "file": "apps/web/src/addons/salescoach/live-coach.tsx:242",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:255",
       "covered": "yes",
       "by": "same rules from salescoach_call_stop/_resume, rehearsed before the card"
     },
     {
-      "path": "Call bar / beside a video call → coach cards: status, customer, stage, step, newest two cards",
+      "path": "Call bar / over a video call → coach cards: status, customer, stage, step, newest two cards, every word shown",
       "kind": "see",
       "file": "apps/web/src/addons/salescoach/call-panel.tsx:11",
       "covered": "yes",
@@ -170,30 +170,37 @@
     {
       "path": "Phone → AI Sales Coach → Live call: status, customer, Stage, Where you are, cards (newest in big type)",
       "kind": "see",
-      "file": "apps/mobile/src/addons/salescoach/live.tsx:161",
+      "file": "apps/mobile/src/addons/salescoach/live.tsx:196",
       "covered": "yes",
       "by": "salescoach_live state, person, stage, step and cards"
     },
     {
       "path": "Phone → AI Sales Coach → Live call: Got it, Stop coaching this call, Start coaching again",
       "kind": "do",
-      "file": "apps/mobile/src/addons/salescoach/live.tsx:105",
+      "file": "apps/mobile/src/addons/salescoach/live.tsx:138",
       "covered": "yes",
       "by": "salescoach_card_dismiss, salescoach_call_stop, salescoach_call_resume"
     },
     {
       "path": "Phone → video call → newest coach card over the video",
       "kind": "see",
-      "file": "apps/mobile/src/addons/salescoach/call-card.tsx:25",
+      "file": "apps/mobile/src/addons/salescoach/call-card.tsx:21",
       "covered": "yes",
       "by": "salescoach_live cards[0]"
     },
     {
       "path": "Phone → video call → coach card → Got it",
       "kind": "do",
-      "file": "apps/mobile/src/addons/salescoach/call-card.tsx:25",
+      "file": "apps/mobile/src/addons/salescoach/call-card.tsx:21",
       "covered": "yes",
       "by": "salescoach_card_dismiss input cardId"
+    },
+    {
+      "path": "Phone → video call → coach card → A− / A+ text size",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/salescoach/call-card.tsx:21",
+      "covered": "person",
+      "by": "own screen layout, kept on the phone"
     },
     {
       "path": "Conversation → reply box → Suggested replies: each label and reply",

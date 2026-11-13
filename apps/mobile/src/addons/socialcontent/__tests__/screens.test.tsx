@@ -28,6 +28,7 @@ import {
   overview,
   playbook,
   post,
+  setupFacts,
   work,
   WS,
 } from './mocks';
@@ -79,6 +80,7 @@ function creatorsActionsMock(): jest.Mocked<CreatorsActions> {
     readAgain: jest.fn(),
     posts: jest.fn(async (_creator: Creator): Promise<readonly Post[] | null> => [post(10)]),
     openSettings: jest.fn(),
+    openFix: jest.fn(),
   };
 }
 
@@ -177,6 +179,53 @@ describe('Creators', () => {
     expect(screen.getByText('1 more thing waiting')).toBeTruthy();
     expect(screen.getByTestId(`socialcontent-lately-${id(71)}`)).toHaveTextContent(
       /Done · 30 minutes ago.*Read 12 profiles.*3 suggested, 9 didn’t fit/,
+    );
+  });
+
+  it('shows how setting up on its own stands, and opens what writing waits on (decision 32)', async () => {
+    const actions = creatorsActionsMock();
+    await render(
+      body({ actions, data: { ...data, overview: { ...data.overview, setup: setupFacts() } } }),
+    );
+    expect(screen.getByTestId('socialcontent-setup-niches')).toHaveTextContent(
+      'Niches3 niches ticked to search.',
+    );
+    expect(screen.getByTestId('socialcontent-setup-pick')).toHaveTextContent(
+      /Picking the best 10\s*Instagram 4 of 10\. More after the next search\./,
+    );
+    expect(screen.getByTestId('socialcontent-setup-write')).toHaveTextContent(
+      /For your content in Settings → Main offer: 8 of 11 lists filled/,
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-setup-fix-write'));
+    expect(actions.openFix).toHaveBeenCalledWith('main-offer-lists');
+  });
+
+  it('hides setting up once every step is done', async () => {
+    const done = setupFacts({
+      networks: [{ network: 'instagram', studying: 10, byAi: 8, pickable: 3 }],
+      noted: 6,
+      playbookAt: ago(600),
+      filledAt: ago(60),
+      listsFilled: 11,
+    });
+    await render(body({ data: { ...data, overview: { ...data.overview, setup: done } } }));
+    expect(screen.queryByTestId('socialcontent-setup')).toBeNull();
+  });
+
+  it('says which creators the AI picked, how close they are and how their posts do', async () => {
+    const picked = creator(4, {
+      state: 'studying',
+      pickedBy: 'ai',
+      match: 8,
+      matchWhy: 'Posts CRM tips for contractors.',
+      engagement: 0.031,
+    });
+    await render(body({ data: { ...data, creators: [...data.creators, picked] } }));
+    await fireEvent.press(screen.getByTestId('socialcontent-tab-studying'));
+    const card = screen.getByTestId('socialcontent-creator-creator_4');
+    expect(card).toHaveTextContent(/Picked by the AI/);
+    expect(within(card).getByTestId('socialcontent-creator-match')).toHaveTextContent(
+      '8 of 10 close: Posts CRM tips for contractors. · 3.1% likes and comments for their followers',
     );
   });
 
@@ -492,6 +541,9 @@ describe('Settings', () => {
       watch: jest.fn(),
       tryWatching: jest.fn(),
       stop: jest.fn(),
+      setPlan: jest.fn(),
+      autoFill: jest.fn(),
+      autoPick: jest.fn(),
     };
   }
   const body = (props: Partial<React.ComponentProps<typeof SettingsBody>> = {}) => (
@@ -584,6 +636,94 @@ describe('Settings', () => {
     // The last network on is never turned off.
     actions.setNetwork('instagram', false);
     expect(change).toHaveBeenCalledTimes(2);
+    // Only what changes on a network's plan is sent (decisions 21 to 24).
+    actions.setPlan('linkedin', { mode: 'mine' });
+    actions.autoFill(false);
+    await waitFor(() => expect(change).toHaveBeenCalledTimes(4));
+    expect(change).toHaveBeenCalledWith('socialcontent.settings.save', {
+      workspaceId: WS,
+      plan: { linkedin: { mode: 'mine' } },
+    });
+    expect(change).toHaveBeenCalledWith('socialcontent.settings.save', {
+      workspaceId: WS,
+      autoFill: false,
+    });
+  });
+
+  it('changes each network’s plan: AI picks’ numbers and hours, and what it learned (decisions 21 to 26)', async () => {
+    const actions = settingsActionsMock();
+    await render(
+      body({
+        actions,
+        overview: overview({
+          learned: {
+            instagram: { best: ['18:00', '09:00'], from: 'creators', own: 0, creators: 24 },
+            facebook: { best: [], from: 'none', own: 0, creators: 0 },
+            linkedin: { best: [], from: 'none', own: 0, creators: 0 },
+          },
+        }),
+      }),
+    );
+    expect(screen.getByTestId('socialcontent-learned-instagram')).toHaveTextContent(
+      /^Best times so far: 6:00 PM and 9:00 AM, from 24 posts by the creators you study/,
+    );
+    expect(screen.getByTestId('socialcontent-learned-facebook')).toHaveTextContent(
+      /^Nothing learned yet: it starts near 12:00 PM/,
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-plan-instagram-per-week-10'));
+    expect(actions.setPlan).toHaveBeenCalledWith('instagram', { perWeek: 10 });
+    await fireEvent.press(screen.getByTestId('socialcontent-plan-instagram-per-day-2'));
+    expect(actions.setPlan).toHaveBeenCalledWith('instagram', { perDay: 2 });
+    await fireEvent.press(screen.getByTestId('socialcontent-plan-instagram-from-08:00'));
+    expect(actions.setPlan).toHaveBeenCalledWith('instagram', { from: '08:00' });
+    await fireEvent.press(screen.getByTestId('socialcontent-plan-linkedin-mine'));
+    expect(actions.setPlan).toHaveBeenCalledWith('linkedin', { mode: 'mine' });
+    await fireEvent.press(screen.getByTestId('socialcontent-auto-fill'));
+    expect(actions.autoFill).toHaveBeenCalledWith(false);
+  });
+
+  it('turns picking niches and creators on its own off (decisions 29 to 31)', async () => {
+    const actions = settingsActionsMock();
+    await render(body({ actions }));
+    expect(screen.getByTestId('socialcontent-picking')).toHaveTextContent(
+      /Pick niches and creators on its own|best 10 creators on each network/,
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-auto-pick'));
+    expect(actions.autoPick).toHaveBeenCalledWith(false);
+  });
+
+  it('picks I pick’s times on each weekday, up to 3 a day, and takes one off', async () => {
+    const actions = settingsActionsMock();
+    const settings = overview().settings;
+    const week = [[], ['09:00'], [], ['08:00', '12:00', '17:00'], [], [], []];
+    await render(
+      body({
+        actions,
+        overview: overview({
+          settings: {
+            ...settings,
+            plan: { ...settings.plan, facebook: { ...settings.plan.facebook, mode: 'mine', week } },
+          },
+        }),
+      }),
+    );
+    // Wednesday has its 3: no more to add there.
+    expect(screen.queryByTestId('socialcontent-plan-facebook-3-add')).toBeNull();
+    await fireEvent.press(screen.getByTestId('socialcontent-plan-facebook-1-add'));
+    await fireEvent.press(screen.getByTestId('socialcontent-plan-facebook-add-07:30'));
+    expect(actions.setPlan).toHaveBeenCalledWith('facebook', {
+      week: [[], ['07:30', '09:00'], [], ['08:00', '12:00', '17:00'], [], [], []],
+    });
+    await fireEvent.press(screen.getByTestId('socialcontent-plan-facebook-3-12:00'));
+    expect(actions.setPlan).toHaveBeenCalledWith('facebook', {
+      week: [[], ['09:00'], [], ['08:00', '17:00'], [], [], []],
+    });
+  });
+
+  it('leaves the plan to owners and admins', async () => {
+    await render(body({ overview: overview({ mayManage: false }) }));
+    expect(screen.getByTestId('socialcontent-plan-instagram-mine')).toBeDisabled();
+    expect(screen.getByTestId('socialcontent-auto-fill')).toBeDisabled();
   });
 });
 
@@ -605,7 +745,9 @@ describe('the Calendar', () => {
       data={calendarView({
         posts: [content(30, { title: 'Porch season' })],
         undated: [content(31, { title: 'Moving checklist', postAt: null })],
-        open: [{ network: 'facebook', date: tomorrow, at: `${tomorrow}T12:00:00.000Z` }],
+        open: [
+          { network: 'facebook', date: tomorrow, at: `${tomorrow}T12:00:00.000Z`, trying: false },
+        ],
         recent: [went],
       })}
       error={null}

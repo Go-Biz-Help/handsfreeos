@@ -730,6 +730,136 @@ describe('AnthropicProvider', () => {
     expect(messages.at(-1)!.content).toEqual([search, found]);
   });
 
+  it('looks things up on the web when asked: the search tool, the pages found, each claim marked with its page', async () => {
+    const search = {
+      type: 'server_tool_use',
+      id: 'srvtoolu_2',
+      name: 'web_search',
+      input: { query: 'lead response time study' },
+    };
+    const found = {
+      type: 'web_search_tool_result',
+      tool_use_id: 'srvtoolu_2',
+      content: [
+        {
+          type: 'web_search_result',
+          url: 'https://example.org/study',
+          title: 'Lead response study',
+          encrypted_content: 'enc',
+          page_age: '2 weeks ago',
+        },
+        {
+          type: 'web_search_result',
+          url: 'https://example.com/other',
+          title: 'Other page',
+          encrypted_content: 'enc2',
+          page_age: null,
+        },
+      ],
+    };
+    const cite = {
+      type: 'web_search_result_location',
+      url: 'https://example.com/other',
+      title: 'Other page',
+      encrypted_index: 'idx',
+      cited_text: 'Leads answered in 5 minutes are 21 times likelier to buy.',
+    };
+    const [start] = TOOL_TURN;
+    const events = [
+      start,
+      [
+        'content_block_start',
+        { type: 'content_block_start', index: 0, content_block: { ...search, input: {} } },
+      ],
+      [
+        'content_block_delta',
+        {
+          type: 'content_block_delta',
+          index: 0,
+          delta: { type: 'input_json_delta', partial_json: '{"query":"lead response time study"}' },
+        },
+      ],
+      ['content_block_stop', { type: 'content_block_stop', index: 0 }],
+      ['content_block_start', { type: 'content_block_start', index: 1, content_block: found }],
+      ['content_block_stop', { type: 'content_block_stop', index: 1 }],
+      [
+        'content_block_start',
+        { type: 'content_block_start', index: 2, content_block: { type: 'text', text: '' } },
+      ],
+      [
+        'content_block_delta',
+        {
+          type: 'content_block_delta',
+          index: 2,
+          delta: { type: 'text_delta', text: 'Here is what I found. ' },
+        },
+      ],
+      ['content_block_stop', { type: 'content_block_stop', index: 2 }],
+      [
+        'content_block_start',
+        {
+          type: 'content_block_start',
+          index: 3,
+          content_block: { type: 'text', text: '', citations: [] },
+        },
+      ],
+      [
+        'content_block_delta',
+        {
+          type: 'content_block_delta',
+          index: 3,
+          delta: { type: 'citations_delta', citation: cite },
+        },
+      ],
+      [
+        'content_block_delta',
+        {
+          type: 'content_block_delta',
+          index: 3,
+          delta: { type: 'text_delta', text: 'Fast replies win: 21 times likelier to buy.' },
+        },
+      ],
+      ['content_block_stop', { type: 'content_block_stop', index: 3 }],
+      [
+        'message_delta',
+        {
+          type: 'message_delta',
+          delta: { stop_reason: 'end_turn', stop_sequence: null },
+          usage: { output_tokens: 40, server_tool_use: { web_search_requests: 1 } },
+        },
+      ],
+      ['message_stop', { type: 'message_stop' }],
+    ] as const;
+    const { sent, fetch } = recording(() => sse(events));
+    const provider = new AnthropicProvider({
+      apiKey: 'k',
+      model: 'claude-opus-5-5',
+      fetch,
+      maxRetries: 0,
+    });
+    const turn = await provider.stream({ ...REQUEST, tools: [], webSearch: { maxUses: 5 } });
+    expect(sent[0]!.body['tools']).toEqual([
+      { type: 'web_search_20250305', name: 'web_search', max_uses: 5 },
+    ]);
+    expect(turn.webSources).toEqual([
+      { url: 'https://example.org/study', title: 'Lead response study', age: '2 weeks ago' },
+      { url: 'https://example.com/other', title: 'Other page', age: null },
+    ]);
+    expect(turn.citedText).toBe(
+      'Here is what I found. Fast replies win: 21 times likelier to buy. [2]',
+    );
+    expect(turn.text).toBe('Here is what I found. Fast replies win: 21 times likelier to buy.');
+    expect(turn.webSearches).toBe(1);
+    // The search and its results go back as they came when a paused turn carries on.
+    expect(turn.content!.slice(0, 2)).toEqual([
+      { type: 'passthrough', block: search },
+      { type: 'passthrough', block: found },
+    ]);
+    // A request that doesn't ask sends no search tool.
+    await provider.stream(REQUEST);
+    expect(JSON.stringify(sent[1]!.body['tools'])).not.toContain('web_search');
+  });
+
   it('turns API errors into codes the runtime can act on', async () => {
     const answer = (status: number, type: string) => () =>
       new Response(JSON.stringify({ type: 'error', error: { type, message: type } }), {

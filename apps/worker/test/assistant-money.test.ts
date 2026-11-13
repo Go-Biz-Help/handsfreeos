@@ -445,11 +445,7 @@ describe('what the cards say before anyone presses, as the screens do', () => {
     expect(sent?.payload.channels).toEqual(['email']);
   });
 
-  it('won’t write down a payment on a draft, a voided invoice or one already paid', async () => {
-    const draft = await invoiceFor(10_000, false);
-    await expect(prepare('record_payment', { invoiceId: draft })).rejects.toMatchObject({
-      rule: 'invoice_not_sent',
-    });
+  it('won’t write down a payment on a voided invoice or one already paid', async () => {
     const voided = await invoiceFor(10_000, false);
     await run(invoiceVoid, { workspaceId, invoiceId: voided }, owner);
     await expect(prepare('record_payment', { invoiceId: voided })).rejects.toMatchObject({
@@ -476,7 +472,60 @@ describe('what the cards say before anyone presses, as the screens do', () => {
     expect(p.result).toMatchObject({ blocked: true });
     const ok = await prepare('record_payment', { invoiceId, amount: 40, method: 'check' });
     expect(ok.card.confirmLabel).toBe('Record it');
-    expect(ok.card.fields).toContainEqual({ label: 'How', value: 'check' });
+    expect(ok.card.fields).toContainEqual({ label: 'How', value: 'Check' });
+  });
+
+  it('marks a draft paid, card on another machine, on the day it was paid, with no receipt', async () => {
+    const draft = await invoiceFor(10_000, false);
+    const yesterday = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(
+      new Date(Date.now() - 86_400_000),
+    );
+    const p = await prepare('record_payment', {
+      invoiceId: draft,
+      method: 'card_outside',
+      paidThrough: 'Chase QuickAccept',
+      paidOn: yesterday,
+      note: 'Paid at the truck',
+      receipt: false,
+    });
+    expect(p.card.title).toMatch(/^Mark .* paid$/);
+    expect(p.card.confirmLabel).toBe('Mark paid');
+    expect(p.card.fields).toContainEqual({
+      label: 'How',
+      value: 'Card (other machine) · Chase QuickAccept',
+    });
+    expect(p.card.fields).toContainEqual({ label: 'Receipt', value: 'Not sent' });
+    expect(p.card.fields.map((f) => f.label)).toContain('Paid on');
+    expect(p.result).toMatchObject({ marksPaid: true, amount: '$100' });
+    const done = await p.confirm();
+    expect(done.outcome).toBe('Marked paid — $100');
+    const [row] = await rows<{
+      status: string;
+      number: string | null;
+      method: string;
+      paid_through: string;
+      note: string;
+      day: string;
+    }>(
+      admin(),
+      sql`select i.status::text as status, i.number, p.method::text as method, p.paid_through, p.note,
+            to_char(p.received_at at time zone 'America/Chicago', 'YYYY-MM-DD') as day
+          from app.invoices i join app.payments p on p.invoice_id = i.id
+          where i.id = ${draft}::uuid`,
+    );
+    expect(row).toMatchObject({
+      status: 'paid',
+      method: 'card_outside',
+      paid_through: 'Chase QuickAccept',
+      note: 'Paid at the truck',
+      day: yesterday,
+    });
+    expect(row?.number).not.toBeNull();
+    // A day still to come keeps Mark paid off, as the dialog does.
+    const later = await invoiceFor(10_000, false);
+    const ahead = await prepare('record_payment', { invoiceId: later, paidOn: '2999-01-01' });
+    expect(ahead.card.confirmLabel).toBe('');
+    expect(ahead.result).toMatchObject({ blocked: true });
   });
 
   it('counts what is owed and overdue as the Summary does, and says who paid', async () => {

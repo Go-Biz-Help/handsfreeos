@@ -8,6 +8,7 @@ import { useMatches } from '@/lib/use-media';
 import { cn } from '@/lib/utils';
 import { useAssistant } from './assistant-provider';
 import { useAssistantVoice } from './voice';
+import { answerWaiting } from './waiting';
 
 /** The box when the Assistant can't take questions: not set up, or today's limit is spent. */
 function OffComposer({ phone, paused }: { phone: boolean; paused: boolean }) {
@@ -78,8 +79,12 @@ export function AssistantComposer({ phone }: { phone: boolean }) {
 
   function send() {
     if (!canSend) return;
-    a.ask(a.draft);
+    const text = a.draft;
     a.setDraft('');
+    // A plain yes or no answers the cards waiting for an OK, as their buttons do; anything else is a question.
+    void answerWaiting(a, text).then((answered) => {
+      if (answered === null) a.ask(text);
+    });
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {

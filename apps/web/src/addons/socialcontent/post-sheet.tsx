@@ -19,6 +19,7 @@ import {
   type PostingNetwork,
 } from '@hfos/core/addons/socialcontent/calendar';
 import { networkName } from '@hfos/core/addons/socialcontent/networks';
+import { ANGLE_LABELS } from '@hfos/core/addons/socialcontent/variety';
 import {
   SOCIALCONTENT_WORDS as W,
   clockOf,
@@ -476,9 +477,15 @@ export function PostSheet({
           <span className="flex flex-wrap items-center gap-2">
             <span>{networkName(p.network)}</span>
             <Badge variant={STATE_BADGE[p.state]}>{W.post.states[p.state]}</Badge>
+            {p.angle ? <Badge variant="accent">{ANGLE_LABELS[p.angle]}</Badge> : null}
             {p.state === 'ready' && p.approvedAt
               ? W.post.approvedBy(p.approvedBy, daysAgo(p.approvedAt))
               : null}
+            {p.topic ? (
+              <span className="basis-full text-[12.5px]" data-testid="socialcontent-post-topic">
+                {W.post.about(p.topic.line)}
+              </span>
+            ) : null}
           </span>
         }
       >

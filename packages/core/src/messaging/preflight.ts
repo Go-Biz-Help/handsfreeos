@@ -12,6 +12,7 @@
  *
  * Browser-safe, so the wizard renders the results and the same rules can be described before running.
  */
+import { robotCheck, robotCheckWho } from '../websites/robot-check';
 
 /** The things worth going and looking at. Ids are stable: the wizard keys its rows on them. */
 export type PreflightId =
@@ -327,6 +328,17 @@ const unreachable = (page: FetchedPage, what: string): string =>
     : `${page.url} answered ${page.status}. ${what}`;
 
 /**
+ * What a check says when the page showed us a robot check instead of itself (`robotCheck`): nothing about the page
+ * is known, so it is neither passed nor failed on its words. A reviewer in a browser gets past the check, so the
+ * business isn't told to change anything; HandsFreeOS looks at the page for it instead.
+ */
+function robotChecked(page: FetchedPage, what: string): string | null {
+  const check = robotCheck(page);
+  if (!check) return null;
+  return `${page.finalUrl ?? page.url} showed us a robot check from ${robotCheckWho(check)} instead of ${what}, so we couldn’t check it. A reviewer opening it in a browser gets past the check. Press “Ask HandsFreeOS to check it” below and we’ll look at it ourselves.`;
+}
+
+/**
  * Did the business's own website load, is there something on it, and is it this business's?
  *
  * `names` are the ways the business is known (its name and its legal name). A site that never says either
@@ -353,6 +365,9 @@ export function checkWebsite(
       detail: 'No website was given. A registration without one is turned down.',
       url: null,
     };
+  // Before the status: some checks answer 403 or 503, which would otherwise read as a broken page.
+  const blocked = robotChecked(page, 'your website');
+  if (blocked) return { ...base, ok: false, detail: blocked, url: page.finalUrl ?? page.url };
   if (page.status === null || page.status >= 400)
     return {
       ...base,
@@ -414,6 +429,8 @@ export function checkPolicy(page: FetchedPage | null): PreflightCheck {
       detail: 'No privacy policy was found. Let us host one, or give us the address of yours.',
       url: null,
     };
+  const blocked = robotChecked(page, 'your privacy policy');
+  if (blocked) return { ...base, ok: false, detail: blocked, url: page.finalUrl ?? page.url };
   if (page.status === null || page.status >= 400)
     return {
       ...base,
@@ -500,6 +517,16 @@ export function checkTerms(page: FetchedPage | null): PreflightCheck {
       detail:
         'No terms were given to check. In the “Your privacy policy and terms” step, choose “Use the terms we write for you”, or give the address of yours.',
       url: null,
+    };
+  // Never worse than terms that don't mention texting would be: a warning.
+  const blocked = robotChecked(page, 'your terms');
+  if (blocked)
+    return {
+      ...base,
+      severity: 'warning',
+      ok: false,
+      detail: blocked,
+      url: page.finalUrl ?? page.url,
     };
   if (page.status === null || page.status >= 400)
     return {
@@ -616,6 +643,9 @@ export function checkOptInSurface(
           : 'No page was given to check. Enter the address of the page with your tick box in the “How customers agree” step.',
       url: null,
     };
+  const url = page.finalUrl ?? page.url;
+  const blocked = robotChecked(page, 'the page with your tick box');
+  if (blocked) return { ...base, ok: false, detail: blocked, url };
   if (page.status === null || page.status >= 400)
     return {
       ...base,
@@ -623,7 +653,6 @@ export function checkOptInSurface(
       detail: unreachable(page, 'This is the address we are about to give the carrier.'),
       url: page.url,
     };
-  const url = page.finalUrl ?? page.url;
   const box = readConsentBox(page.html, names);
   if (!box.found)
     return {
@@ -799,10 +828,13 @@ export function checkChatOnSite(
       detail: `The chat has opened on ${site}, so its code is there.`,
       url,
     };
+  const blocked = website ? robotCheck(website) : null;
   return {
     ...base,
     ok: false,
-    detail: `We couldn’t find the chat on ${site ?? 'your website'}. Paste the code from “How customers agree” into your site’s footer and publish, then open your site and click the chat button once.`,
+    detail: blocked
+      ? `${site ?? 'Your website'} showed us a robot check from ${robotCheckWho(blocked)}, so we couldn’t look for the chat’s code. Open your site in a browser and click the chat button once, and we’ll see it there.`
+      : `We couldn’t find the chat on ${site ?? 'your website'}. Paste the code from “How customers agree” into your site’s footer and publish, then open your site and click the chat button once.`,
     url,
   };
 }

@@ -155,9 +155,10 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     area: 'facebook',
     job: 'draft',
     note: 'The AI couldn’t write that just now',
-    fixedIn: '0.130.1',
-    pr: 565,
-    said: 'About 1 in 25 of the AI’s answers for outreach came back with no words at all, and the draft said it couldn’t write one: the worker asks the AI once more first now.',
+    // The worker's fix, not the extension's: by when it was made, as for a tool without versions.
+    before: '2026-11-13T02:00:00Z',
+    pr: 609,
+    said: 'About 1 in 25 of the AI’s answers for outreach came back with no words at all (#565 asks once more), and some came back empty twice: on that second try the backup AI writes the draft now (decision 162).',
   },
   {
     area: 'instagram',
@@ -166,6 +167,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     fixedIn: '0.131.0',
     pr: 566,
     said: 'Neither of Instagram’s lists of a creator’s posts comes any more (404 by number and by name), so their posts are read one at a time from their grid, scrolled for up to 50: the usual way now, so a read done that way isn’t reported.',
+  },
+  {
+    area: 'instagram',
+    job: 'warm_up',
+    note: 'Couldn’t like (their name)’s post on this visit',
+    fixedIn: '0.136.1',
+    pr: 607,
+    said: 'A reel opens in the reels player, with the next reel under it, no article and a Comment named by its count, so no author was found and no like on a reel ever went: the reel it opened on is found by its own Like and its account’s links.',
   },
 ];
 

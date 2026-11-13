@@ -1,4 +1,5 @@
 import { networkName } from '@hfos/core/addons/socialcontent/networks';
+import { ANGLE_LABELS } from '@hfos/core/addons/socialcontent/variety';
 import type { Idea, StandoutRef } from '@hfos/core/addons/socialcontent/shapes';
 import { SOCIALCONTENT_WORDS as W, daysAgo } from '@hfos/core/addons/socialcontent/words';
 import * as React from 'react';
@@ -19,6 +20,7 @@ import {
   NeedsSignal,
   Note,
   OfferNotLive,
+  openOutside,
   useAct,
   useSocialcontentAnswer,
   useSocialcontentContext,
@@ -216,9 +218,16 @@ function IdeaCard({
     <Card className="gap-2 p-4" testID={`socialcontent-idea-${i.id}`}>
       <View className="flex-row flex-wrap items-center gap-x-2 gap-y-1">
         <Text className="text-[12.5px] text-text-3">{facts.join(' · ')}</Text>
+        {i.angle ? <Badge variant="accent">{ANGLE_LABELS[i.angle]}</Badge> : null}
         {i.format ? <Badge>{i.format}</Badge> : null}
       </View>
       <Text className="text-[15px] font-semibold leading-[20px]">{i.title}</Text>
+      {i.topic ? (
+        <Text className="text-[13px] leading-[18px] text-text-2" testID="socialcontent-idea-topic">
+          <Text className="text-text-3">{W.ideas.about}: </Text>
+          {i.topic.line}
+        </Text>
+      ) : null}
       {i.hook ? (
         <Text className="text-[13.5px] leading-[19px]">
           <Text className="text-text-3">{W.ideas.hook}: </Text>“{i.hook}”
@@ -234,6 +243,17 @@ function IdeaCard({
         <Text className="text-[13px] leading-[18px] text-text-2">
           <Text className="text-text-3">{W.ideas.why}: </Text>
           {i.why}
+        </Text>
+      ) : null}
+      {i.source ? (
+        <Text
+          className="text-[13px] leading-[18px] text-text-2"
+          testID="socialcontent-idea-source"
+          onPress={() => openOutside(i.source?.url ?? null)}
+          accessibilityRole="link"
+        >
+          <Text className="text-text-3">{W.ideas.source}: </Text>
+          <Text className="text-accent">{i.source.name}</Text>
         </Text>
       ) : null}
       <StandoutLinks

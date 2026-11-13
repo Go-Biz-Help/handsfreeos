@@ -7,7 +7,10 @@ import {
   lineSubtotalCents,
   localDateOf,
   localInstant,
+  MARK_PAID_TITLE,
   money,
+  PAY_OUTSIDE_HINT,
+  PAY_OUTSIDE_LABEL,
   TERMS_DAYS,
   TERMS_OPTIONS,
   TERMS_WORDS,
@@ -29,7 +32,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ApiError, apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { PaymentConnectionRow, ProductRow } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
-import { connectionLabel, SendDialog, VoidDialog } from './document-actions';
+import { CashPaymentDialog, connectionLabel, SendDialog, VoidDialog } from './document-actions';
 import {
   accountsFor,
   addOption,
@@ -58,6 +61,8 @@ import { StatusBadge } from './status-badge';
 import { MoneyNote, percentLabel, TotalRow } from './totals';
 
 const GRID = 'grid-cols-[minmax(0,1fr)_78px_104px_44px_96px_32px]';
+/** The Paid into choice that keeps an invoice off every account. */
+const OUTSIDE = 'outside';
 /** The canvas is drawn at 1440: below that the totals column sits under the lines rather than squeezing them. */
 const SPLIT = 'grid grid-cols-1 items-start gap-5 min-[1360px]:grid-cols-[minmax(0,1fr)_340px]';
 
@@ -76,6 +81,8 @@ export interface DocumentEditorProps {
   nextNumber: string;
   startedBy?: string | null;
   startedAt?: string | null;
+  /** Where this business's payments by hand went through before, for Mark paid's Paid through box. */
+  paidThroughNames?: readonly string[];
 }
 
 /**
@@ -103,6 +110,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [conflict, setConflict] = useState(false);
   const [sending, setSending] = useState(false);
+  const [markingPaid, setMarkingPaid] = useState(false);
   const [voiding, setVoiding] = useState(false);
   const [picker, setPicker] = useState(false);
   const [sheetKey, setSheetKey] = useState<string | null>(null);
@@ -219,7 +227,8 @@ export function DocumentEditor(props: DocumentEditorProps) {
         return out.estimateId;
       }
       const ends = {
-        connectionId: draft.connectionId,
+        connectionId: draft.payOutside ? null : draft.connectionId,
+        payOutside: draft.payOutside,
         dueOn: draft.dueOn,
         terms: draft.terms,
       };
@@ -283,6 +292,12 @@ export function DocumentEditor(props: DocumentEditorProps) {
     if (id) setSending(true);
   }
 
+  /** Mark paid: saved first, then the payment it was paid with, and nobody is sent it. */
+  async function saveThenMarkPaid() {
+    const id = dirty || !documentId ? await save() : documentId;
+    if (id) setMarkingPaid(true);
+  }
+
   /** Everything above the total: what the phone's bar shows when it is opened, under its own big Total. */
   const totalsBreakdown = (
     <>
@@ -342,6 +357,17 @@ export function DocumentEditor(props: DocumentEditorProps) {
           >
             Save draft
           </Button>
+          {kind === 'invoice' ? (
+            <Button
+              variant="secondary"
+              loading={saving && markingPaid}
+              disabled={!!problem || totals.totalCents < 1}
+              onClick={() => void saveThenMarkPaid()}
+              data-testid="document-mark-paid"
+            >
+              {MARK_PAID_TITLE}
+            </Button>
+          ) : null}
           <Button
             loading={saving && sending}
             disabled={!!problem}
@@ -427,23 +453,60 @@ export function DocumentEditor(props: DocumentEditorProps) {
               ) : null}
             </Row>
             <Row label="Paid into">
-              {kind === 'invoice' && payable.length > 0 ? (
-                <Select
-                  selectSize="sm"
-                  aria-label="Paid into"
-                  value={draft.connectionId ?? ''}
-                  onChange={(e) => set({ connectionId: e.target.value || null })}
-                  data-testid="document-connection"
-                >
-                  {payable.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {connectionLabel(c)}
-                      {c.isDefault ? ' · default' : ''}
-                      {c.usableByMe ? '' : ' · not yours'}
-                      {c.status === 'active' ? '' : ' · not connected'}
-                    </option>
-                  ))}
-                </Select>
+              {kind === 'invoice' ? (
+                <div className="flex flex-1 flex-col gap-1">
+                  {/* An account, or outside HandsFreeOS: Chase QuickAccept, cash at the counter, recorded by hand. */}
+                  <Select
+                    selectSize="sm"
+                    aria-label="Paid into"
+                    value={draft.payOutside ? OUTSIDE : (draft.connectionId ?? '')}
+                    onChange={(e) =>
+                      set(
+                        e.target.value === OUTSIDE
+                          ? { payOutside: true, connectionId: null }
+                          : {
+                              payOutside: false,
+                              connectionId: e.target.value || (theirs?.id ?? null),
+                            },
+                      )
+                    }
+                    data-testid="document-connection"
+                  >
+                    {payable.length === 0 ? (
+                      <option value="">
+                        {connections.some((c) => c.status === 'active')
+                          ? 'None of the accounts is yours'
+                          : 'No account connected yet'}
+                      </option>
+                    ) : null}
+                    {payable.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {connectionLabel(c)}
+                        {c.isDefault ? ' · default' : ''}
+                        {c.usableByMe ? '' : ' · not yours'}
+                        {c.status === 'active' ? '' : ' · not connected'}
+                      </option>
+                    ))}
+                    <option value={OUTSIDE}>{PAY_OUTSIDE_LABEL}</option>
+                  </Select>
+                  {draft.payOutside ? (
+                    <span className="text-[12.5px] text-text-3" data-testid="document-pay-outside">
+                      {PAY_OUTSIDE_HINT}
+                    </span>
+                  ) : payable.length === 0 ? (
+                    <span className="text-[12.5px] text-text-3" data-testid="document-no-account">
+                      <Link
+                        href={`/app/w/${workspaceId}/settings/payments`}
+                        className="font-medium text-accent-text hover:underline"
+                      >
+                        {connections.some((c) => c.status === 'active')
+                          ? 'See who uses them'
+                          : 'Connect one'}
+                      </Link>{' '}
+                      to take card and bank payments, or pick {PAY_OUTSIDE_LABEL}.
+                    </span>
+                  ) : null}
+                </div>
               ) : theirs ? (
                 <span className="flex flex-1 items-center gap-2 text-[13px]">
                   <span className="font-semibold">{connectionLabel(theirs)}</span>
@@ -784,8 +847,9 @@ export function DocumentEditor(props: DocumentEditorProps) {
               value={<span className="font-mono text-[12.5px]">{nextNumber}</span>}
             />
             <p className="mt-1.5 text-[12.5px] text-text-3">
-              The number is taken the moment you press Send, so numbers stay in order and are never
-              reused.
+              The number is taken the moment you press{' '}
+              {kind === 'invoice' ? 'Send or Mark paid' : 'Send'}, so numbers stay in order and are
+              never reused.
             </p>
           </Card>
         </div>
@@ -839,6 +903,18 @@ export function DocumentEditor(props: DocumentEditorProps) {
           >
             Save draft
           </Button>
+          {kind === 'invoice' ? (
+            <Button
+              variant="secondary"
+              size="lg"
+              className="flex-1"
+              disabled={!!problem || totals.totalCents < 1}
+              onClick={() => void saveThenMarkPaid()}
+              data-testid="document-mark-paid-phone"
+            >
+              {MARK_PAID_TITLE}
+            </Button>
+          ) : null}
           <Button
             size="lg"
             className="flex-[1.3]"
@@ -880,6 +956,22 @@ export function DocumentEditor(props: DocumentEditorProps) {
               `/app/w/${workspaceId}/money/${kind === 'estimate' ? 'estimates' : 'invoices'}/${documentId}`,
             )
           }
+        />
+      ) : null}
+      {documentId && kind === 'invoice' ? (
+        <CashPaymentDialog
+          key={`mark-paid-${totals.totalCents}`}
+          open={markingPaid}
+          onOpenChange={setMarkingPaid}
+          workspaceId={workspaceId}
+          invoiceId={documentId}
+          balanceCents={totals.totalCents}
+          markPaid
+          paidThroughNames={props.paidThroughNames ?? []}
+          timeZone={timeZone}
+          // Paid, it's read-only: the invoice's own page takes over, by a real navigation for the same reason
+          // Send uses one.
+          onDone={() => router.replace(`/app/w/${workspaceId}/money/invoices/${documentId}`)}
         />
       ) : null}
       {documentId ? (

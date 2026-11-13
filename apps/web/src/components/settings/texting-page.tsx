@@ -39,6 +39,7 @@ import { Callout } from '@/components/crm/chips';
 import { InboxVisibilityCard } from '@/components/settings/inbox-visibility-card';
 import { NumbersCard, type Ringable } from '@/components/settings/numbers-card';
 import { A2pWizard, CopyButton, type HostedSurfaces } from '@/components/settings/a2p-wizard';
+import { HideChatSwitch, WebPersonButton } from '@/components/settings/web-person';
 import type { LetterProfile } from '@/components/settings/port-letter';
 import {
   BringNumberStep,
@@ -436,13 +437,16 @@ export function TextingPage({
             workspaceId={workspaceId}
             status={status}
             businessName={businessName}
+            surfaces={surfaces}
             onFix={() => setFixing(true)}
             onViewSent={() => setShowSent(true)}
           />
         ) : (
           <Review
+            workspaceId={workspaceId}
             status={status}
             businessName={businessName}
+            surfaces={surfaces}
             onViewSent={() => setShowSent(true)}
           />
         )}
@@ -1013,14 +1017,72 @@ function latestOf(
     .sort((a, b) => (b.submittedAt ?? '').localeCompare(a.submittedAt ?? ''))[0];
 }
 
+const pathOf = (v: unknown): 'hosted' | 'own_site' | 'in_person' | null =>
+  v === 'hosted' || v === 'own_site' || v === 'in_person' ? v : null;
+
+/**
+ * While the carriers look: "Email your web person" for what the website needs, and, for a business whose customers
+ * agree on a form, the switch that hides its chat until texting is approved (2026-11-12).
+ */
+function WebsiteHelp({
+  workspaceId,
+  status,
+  surfaces,
+}: {
+  workspaceId: string;
+  status: Status;
+  surfaces: HostedSurfaces;
+}) {
+  const sent = latestSubmission(status.registrations);
+  const path = pathOf(sent?.['optInPath']);
+  const others = Array.isArray(sent?.['otherWays'])
+    ? (sent['otherWays'] as { path?: unknown }[])
+    : [];
+  const chatAgrees = path === 'hosted' || others.some((w) => w?.path === 'hosted');
+  return (
+    <div
+      className="mt-5 space-y-3 rounded-card border border-border p-4"
+      data-testid="website-help"
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[13.5px] font-medium">Your website</p>
+          <p className="mt-0.5 text-[12.5px] text-text-3">
+            The reviewer opens it. Someone else looks after it? Send them what it needs, each change
+            in its own file.
+          </p>
+        </div>
+        <WebPersonButton
+          workspaceId={workspaceId}
+          website={text(sent?.['website']) || null}
+          forms={surfaces.liveForms ?? []}
+          chats={surfaces.chats ?? []}
+          path={path}
+        />
+      </div>
+      {chatAgrees ? null : (
+        <HideChatSwitch
+          workspaceId={workspaceId}
+          chats={surfaces.chats ?? []}
+          className="border-t border-border pt-3"
+        />
+      )}
+    </div>
+  );
+}
+
 function Review({
+  workspaceId,
   status,
   businessName,
+  surfaces,
   onViewSent,
   ahead,
 }: {
+  workspaceId: string;
   status: Status;
   businessName: string;
+  surfaces: HostedSurfaces;
   onViewSent: () => void;
   /**
    * Sent ahead of the number: the business is moving its own here, or has none yet. Always 10DLC, and the
@@ -1106,6 +1168,7 @@ function Review({
         )}
         <ReviewRow title="Texting turns on" sub="We email you the moment it does" state="next" />
       </div>
+      <WebsiteHelp workspaceId={workspaceId} status={status} surfaces={surfaces} />
       <div className="mt-5 flex flex-wrap items-center gap-2">
         <Button variant="secondary" onClick={onViewSent}>
           View what we sent
@@ -1322,8 +1385,10 @@ function RegisterAhead({
   else if (step === 'awaiting_approval')
     body = (
       <Review
+        workspaceId={workspaceId}
         status={status}
         businessName={businessName}
+        surfaces={surfaces}
         onViewSent={onViewSent}
         ahead={{ display: arriving }}
       />
@@ -1334,6 +1399,7 @@ function RegisterAhead({
         workspaceId={workspaceId}
         status={status}
         businessName={businessName}
+        surfaces={surfaces}
         onFix={() => setFixing(true)}
         onViewSent={onViewSent}
         ahead
@@ -1400,6 +1466,7 @@ function Rejected({
   workspaceId,
   status,
   businessName,
+  surfaces,
   onFix,
   onViewSent,
   ahead = false,
@@ -1407,6 +1474,7 @@ function Rejected({
   workspaceId: string;
   status: Status;
   businessName: string;
+  surfaces: HostedSurfaces;
   onFix: () => void;
   onViewSent: () => void;
   /** Sent ahead of the number, so it is 10DLC and there are no calls yet to keep working. */
@@ -1473,6 +1541,13 @@ function Rejected({
         <Button onClick={onFix} data-testid="fix-registration">
           Fix and send again
         </Button>
+        <WebPersonButton
+          workspaceId={workspaceId}
+          website={text(latestSubmission(status.registrations)?.['website']) || null}
+          forms={surfaces.liveForms ?? []}
+          chats={surfaces.chats ?? []}
+          path={pathOf(latestSubmission(status.registrations)?.['optInPath'])}
+        />
         <Button variant="ghost" onClick={onViewSent}>
           View what we sent
         </Button>

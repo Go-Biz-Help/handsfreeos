@@ -104,6 +104,7 @@ import {
   AI_BUSY_MESSAGE,
   AI_UNAVAILABLE_MESSAGE,
   AiAskError,
+  askedTwice,
   askStructured,
 } from '../../ai/ask';
 import type { AddonWorkerAction } from '../types';
@@ -557,7 +558,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       kind: CustomerDraftKind,
       again: readonly string[] | null = null,
     ): Promise<{ value: TodayDraftAnswer; drafts: string[] }> => {
-      const { value } = await askedTwice(() =>
+      const { value } = await askedTwice((last) =>
         askStructured(ctx, ctx.scope, {
           system: todayDraftSystem(platform, {
             warm: found.post?.warm_up === true && kind === 'comment',
@@ -618,6 +619,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
           zod: TodayDraftAnswer,
           maxTokens: 800,
           usage: { source: 'addon', addonId: ctx.manifest.id },
+          backupWhenDeclined: last,
         }),
       );
       // A first message is one text (decision 137), as a comment is.
@@ -740,20 +742,6 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     }
   },
 };
-
-/**
- * A draft asked for once more when the AI's answer came back unusable. The AI service sometimes answers with nothing at
- * all, no words written (about 1 call in 25 on 9 Nov 2026, behind the owner's problem reports of "The AI couldn’t
- * write that just now"), and asked again it writes one. A second unusable answer is the person's to hear about.
- */
-async function askedTwice<T>(ask: () => Promise<T>): Promise<T> {
-  try {
-    return await ask();
-  } catch (e) {
-    if (!(e instanceof AiAskError) || e.code !== 'bad_output') throw e;
-    return ask();
-  }
-}
 
 /** What the person reads when the AI couldn't write a draft, and what to do. */
 function draftRefusal(e: unknown): unknown {

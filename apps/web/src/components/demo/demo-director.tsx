@@ -224,6 +224,10 @@ export function DemoDirector({
       business: businessName,
       me,
       timeZone,
+      // Read when a step asks: this player outlives a scene, and each scene loaded starts its own clock.
+      get startedAt() {
+        return stateRef.current?.startedAt ?? Date.now();
+      },
       async go(path) {
         // A page can carry its state in the address (the calendar's `?view=&date=&appt=`): that counts as another page.
         const href = pageOf(path);

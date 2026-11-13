@@ -1,9 +1,9 @@
 import {
+  ASSISTANT_TURN,
   ASSISTANT_VOICE,
   closingSpoken,
   nextSpoken,
   SPOKEN_START,
-  spokenDecision,
   type SpokenAnswer,
 } from '@hfos/core';
 import * as React from 'react';
@@ -11,7 +11,7 @@ import * as React from 'react';
 import { useVoice } from '@/voice/use-voice';
 
 import type { AnswerMessage, AssistantChat } from './chat';
-import { decideCard, type ConfirmCardData } from './decide';
+import { answerWaiting, waitingCards } from './decide';
 
 /** The answer being read out: where it starts in the chat, and how much of it has been said. */
 interface Following {
@@ -20,27 +20,11 @@ interface Following {
   done: boolean;
 }
 
-/** The cards still waiting for an OK that a yes could give (not ones a rule stops). */
-function waitingCards(chat: AssistantChat, answer?: AnswerMessage): ConfirmCardData[] {
-  const answers = answer
-    ? [answer]
-    : chat.messages.filter((m): m is AnswerMessage => m.role === 'assistant').slice(-1);
-  return answers.flatMap((m) =>
-    m.cards.flatMap((c) =>
-      c.type === 'confirm' &&
-      !!c.confirmLabel &&
-      (chat.calls[c.toolCallId]?.status ?? 'awaiting_confirmation') === 'awaiting_confirmation'
-        ? [c]
-        : [],
-    ),
-  );
-}
-
 /**
  * Ask HandsFreeOS out loud and hands-free, as on the web (apps/web/src/components/assistant/voice.ts): it listens,
  * asks what was said, reads the answer as it's written (in its own voice), and listens again. When a card waits for
- * an OK it asks "Should I go ahead?", and a plain yes or no confirms or cancels it, just as the buttons do. Anything
- * else is a new question. Talk cuts it off to speak; Stop turns it off.
+ * an OK it asks "Should I go ahead?", and a plain yes or no confirms or cancels them all, just as the buttons do.
+ * Anything else is a new question, and the cards keep waiting. Talk cuts it off to speak; Stop turns it off.
  */
 export function useAssistantVoice(chat: AssistantChat, workspaceId: string) {
   const { session, snap } = useVoice(workspaceId, ASSISTANT_VOICE);
@@ -51,25 +35,12 @@ export function useAssistantVoice(chat: AssistantChat, workspaceId: string) {
   /** Hears one turn and acts on it. */
   const turn = React.useRef(async () => {});
   turn.current = async () => {
-    const words = await session.listen();
+    const words = await session.listen(ASSISTANT_TURN);
     if (!words) return;
     const now = latest.current;
-    const waiting = waitingCards(now);
-    const only = waiting.length === 1 && !waiting[0]!.reasons.length ? waiting[0]! : null;
-    const decision = only ? spokenDecision(words) : null;
-    if (only && decision) {
-      const cut = session.generation;
-      let said: string;
-      try {
-        said = await decideCard(
-          workspaceId,
-          now.setCall,
-          only,
-          decision === 'yes' ? 'confirm' : 'cancel',
-        );
-      } catch (e) {
-        said = e instanceof Error ? e.message : 'That didn’t work. Try again.';
-      }
+    const cut = session.generation;
+    const said = await answerWaiting(now, workspaceId, words);
+    if (said !== null) {
       if (!session.on || session.generation !== cut) return;
       session.speak(said);
       await session.finishSpeaking();
@@ -116,7 +87,7 @@ export function useAssistantVoice(chat: AssistantChat, workspaceId: string) {
     const closing = closingSpoken({
       state: f.spoken,
       notice: answer.notice && answer.notice.code !== 'stopped' ? answer.notice.message : null,
-      waiting: waitingCards(chat, answer).map((c) => ({
+      waiting: waitingCards(chat).map((c) => ({
         title: c.title,
         needsReason: c.reasons.length > 0,
       })),

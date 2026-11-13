@@ -42,17 +42,34 @@ type Call = NonNullable<Live['call']>;
 export const readLive = async (workspaceId: string) =>
   unwrap(await api.POST('/v1/queries/salescoach.live', { body: { workspaceId } }));
 
-/** One of the coach's cards; the newest (`top`) in big type, with what was heard. */
+/** Its words at `scale` times their usual size (the video call's A− and A+): size and line height alike. */
+const sized = (scale: number, fontSize: number, lineHeight?: number) =>
+  scale === 1
+    ? undefined
+    : {
+        fontSize: Math.round(fontSize * scale),
+        ...(lineHeight ? { lineHeight: Math.round(lineHeight * scale) } : {}),
+      };
+
+/**
+ * One of the coach's cards; the newest (`top`) in big type, with what was heard. Every word shows, wrapped onto more
+ * lines as it needs. Over a video call its words can be bigger or smaller (`scale`), with the buttons for that
+ * (`extra`) beside Got it.
+ */
 export function CoachCard({
   workspaceId,
   card,
   top,
   onGone,
+  scale = 1,
+  extra,
 }: {
   workspaceId: string;
   card: Call['cards'][number];
   top: boolean;
   onGone: () => void;
+  scale?: number;
+  extra?: React.ReactNode;
 }) {
   const dismiss = async () => {
     try {
@@ -77,34 +94,52 @@ export function CoachCard({
       }
       testID="coach-card"
     >
-      <View className="flex-row items-center gap-2">
+      <View className="flex-row items-start gap-2">
         <Icon
           as={KIND_ICON[card.kind]}
-          className={card.kind === 'nudge' ? 'size-4 text-warning-text' : 'size-4 text-accent-text'}
+          className={
+            card.kind === 'nudge'
+              ? 'mt-0.5 size-4 text-warning-text'
+              : 'mt-0.5 size-4 text-accent-text'
+          }
         />
         <Badge variant={card.kind === 'objection' || card.kind === 'nudge' ? 'pending' : 'accent'}>
           <Text>{W.cardKinds[card.kind]}</Text>
         </Badge>
-        <Text className="flex-1 text-[15px] font-semibold" numberOfLines={1}>
+        <Text
+          className="flex-1 text-[15px] font-semibold"
+          style={sized(scale, 15, 20)}
+          testID="coach-title"
+        >
           {card.title}
         </Text>
       </View>
-      <Text className={top ? 'text-[20px] leading-[28px]' : 'text-[15px] leading-[21px]'}>
+      <Text
+        className={top ? 'text-[20px] leading-[28px]' : 'text-[15px] leading-[21px]'}
+        style={top ? sized(scale, 20, 28) : sized(scale, 15, 21)}
+        testID="coach-say"
+      >
         {card.say}
       </Text>
       {card.tip ? (
-        <Text className="text-[14px] text-text-2" testID="coach-tip">
-          <Text className="text-[14px] font-semibold">{W.live.how}:</Text> {card.tip}
+        <Text className="text-[14px] text-text-2" style={sized(scale, 14)} testID="coach-tip">
+          <Text className="text-[14px] font-semibold" style={sized(scale, 14)}>
+            {W.live.how}:
+          </Text>{' '}
+          {card.tip}
         </Text>
       ) : null}
       {top && card.heard ? (
-        <Text className="text-[13px] text-text-3">
+        <Text className="text-[13px] text-text-3" style={sized(scale, 13)}>
           {W.live.heard}: “{card.heard}”
         </Text>
       ) : null}
-      <Button variant="ghost" size="sm" className="self-start" onPress={() => void dismiss()}>
-        <Text>{W.live.dismiss}</Text>
-      </Button>
+      <View className="flex-row items-center gap-1">
+        <Button variant="ghost" size="sm" onPress={() => void dismiss()}>
+          <Text>{W.live.dismiss}</Text>
+        </Button>
+        {extra}
+      </View>
     </Card>
   );
 }

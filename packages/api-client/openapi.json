@@ -9274,6 +9274,105 @@
         }
       }
     },
+    "/v1/commands/registration.email_web_person": {
+      "post": {
+        "operationId": "command_registration_email_web_person",
+        "summary": "Email whoever looks after the business’s website the changes it needs before the carriers approve its texting, each in its own text file: add the sign-up form (one of the business’s published forms, or the box and its words for a form of their own), the privacy policy and terms’ part about texts, and the website chat’s code. Sent from HandsFreeOS in the business’s name; replies go to the person sending it, who gets a copy.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires channels.manage. Emits registration.web_person_emailed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "to": {
+                    "type": "string",
+                    "maxLength": 254,
+                    "format": "email",
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "fixes": {
+                    "minItems": 1,
+                    "maxItems": 3,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "form",
+                        "policy",
+                        "chat"
+                      ]
+                    }
+                  },
+                  "formId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 1000
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "to",
+                  "fixes"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sentTo": {
+                      "type": "string"
+                    },
+                    "files": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "sentTo",
+                    "files"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/conversation.open": {
       "post": {
         "operationId": "command_conversation_open",
@@ -32893,6 +32992,70 @@
         }
       }
     },
+    "/v1/commands/chat_widget.hide_until_texting": {
+      "post": {
+        "operationId": "command_chat_widget_hide_until_texting",
+        "summary": "Hide every website chat until the business’s texting is approved, when they come back on by themselves (the code stays on the site and shows nothing meanwhile); or turn the chats it hid back on now. Refused while the chat is how customers agree to texts.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires channels.manage. Emits chat_widget.paused, chat_widget.resumed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "hide": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "hide"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "widgetIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      }
+                    },
+                    "hidden": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "widgetIds",
+                    "hidden"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/chat_widget.rotate_key": {
       "post": {
         "operationId": "command_chat_widget_rotate_key",
@@ -42527,7 +42690,7 @@
     "/v1/commands/invoice.create": {
       "post": {
         "operationId": "command_invoice_create",
-        "summary": "Start an invoice for a customer: its lines, a discount, what it is for and which connected account it is paid into. It stays a draft until it is sent. A deposit at booking, a plan’s cycle and a quick payment all make one of these.",
+        "summary": "Start an invoice for a customer: its lines, a discount, what it is for and which connected account it is paid into, or that it is paid outside HandsFreeOS (no account, no Pay button: the payment is recorded by hand). It stays a draft until it is sent or marked paid. A deposit at booking, a plan’s cycle and a quick payment all make one of these.",
         "tags": [
           "commands"
         ],
@@ -42764,6 +42927,9 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "payOutside": {
+                    "type": "boolean"
                   },
                   "dueOn": {
                     "anyOf": [
@@ -43055,6 +43221,9 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "payOutside": {
+                    "type": "boolean"
                   },
                   "dueOn": {
                     "anyOf": [
@@ -43428,11 +43597,11 @@
     "/v1/commands/invoice.record_cash_payment": {
       "post": {
         "operationId": "command_invoice_record_cash_payment",
-        "summary": "Record money taken off the system: cash, a cheque, or another way. It lands as a payment in your name and the invoice recounts itself — nobody marks an invoice paid by hand.",
+        "summary": "Record money taken off the system: cash, a check, a card on the business’s own machine (Chase QuickAccept, say), or another way, with where it went through, the day it was paid and a note. It lands as a payment in your name and the invoice recounts itself. On a draft this is Mark paid: the invoice takes its number first and nobody is sent it. The customer gets a receipt unless receipt is false.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires money.bill. Emits payment.recorded, invoice.paid. Can wait on a phone with no signal.",
+        "description": "Risk level 2. Requires money.bill. Emits invoice.sent, payment.recorded, invoice.paid. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -43461,6 +43630,7 @@
                     "enum": [
                       "cash",
                       "check",
+                      "card_outside",
                       "other"
                     ]
                   },
@@ -43468,6 +43638,33 @@
                     "type": "string",
                     "format": "date-time",
                     "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  "paidOn": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "paidThrough": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 80
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "note": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 500
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "reference": {
                     "anyOf": [
@@ -43479,6 +43676,10 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "receipt": {
+                    "default": true,
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -115845,7 +116046,7 @@
     "/v1/commands/socialcontent.settings.save": {
       "post": {
         "operationId": "command_socialcontent_settings_save",
-        "summary": "Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (posts a week on Instagram, Facebook and LinkedIn, and the time they go), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), and whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away). What isn’t given stays as it is.",
+        "summary": "Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (for each of Instagram, Facebook and LinkedIn: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times on each weekday), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away), and whether it picks niches and creators on its own (the business’s own niche and the 2 closest, and the best 10 creators on each network, swapped once a month). What isn’t given stays as it is.",
         "tags": [
           "commands"
         ],
@@ -115905,20 +116106,56 @@
                     "additionalProperties": {
                       "type": "object",
                       "properties": {
+                        "mode": {
+                          "type": "string",
+                          "enum": [
+                            "ai",
+                            "mine"
+                          ]
+                        },
                         "perWeek": {
                           "type": "integer",
                           "minimum": 0,
-                          "maximum": 7
+                          "maximum": 21
+                        },
+                        "perDay": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 3
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "from": {
+                          "type": "string",
+                          "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                        },
+                        "to": {
+                          "type": "string",
+                          "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
                         },
                         "time": {
                           "type": "string",
                           "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                        },
+                        "week": {
+                          "minItems": 7,
+                          "maxItems": 7,
+                          "type": "array",
+                          "items": {
+                            "maxItems": 3,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            }
+                          }
                         }
-                      },
-                      "required": [
-                        "perWeek",
-                        "time"
-                      ]
+                      }
                     }
                   },
                   "facebookPage": {
@@ -115946,6 +116183,9 @@
                     }
                   },
                   "autoFill": {
+                    "type": "boolean"
+                  },
+                  "autoPick": {
                     "type": "boolean"
                   }
                 },
@@ -116016,57 +116256,192 @@
                         "instagram": {
                           "type": "object",
                           "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "ai",
+                                "mine"
+                              ]
+                            },
                             "perWeek": {
                               "type": "integer",
                               "minimum": 0,
-                              "maximum": 7
+                              "maximum": 21
+                            },
+                            "perDay": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 3
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "from": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "to": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
                             },
                             "time": {
                               "type": "string",
                               "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "week": {
+                              "minItems": 7,
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "maxItems": 3,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                }
+                              }
                             }
                           },
                           "required": [
+                            "mode",
                             "perWeek",
-                            "time"
+                            "perDay",
+                            "from",
+                            "to",
+                            "time",
+                            "week"
                           ],
                           "additionalProperties": false
                         },
                         "facebook": {
                           "type": "object",
                           "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "ai",
+                                "mine"
+                              ]
+                            },
                             "perWeek": {
                               "type": "integer",
                               "minimum": 0,
-                              "maximum": 7
+                              "maximum": 21
+                            },
+                            "perDay": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 3
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "from": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "to": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
                             },
                             "time": {
                               "type": "string",
                               "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "week": {
+                              "minItems": 7,
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "maxItems": 3,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                }
+                              }
                             }
                           },
                           "required": [
+                            "mode",
                             "perWeek",
-                            "time"
+                            "perDay",
+                            "from",
+                            "to",
+                            "time",
+                            "week"
                           ],
                           "additionalProperties": false
                         },
                         "linkedin": {
                           "type": "object",
                           "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "ai",
+                                "mine"
+                              ]
+                            },
                             "perWeek": {
                               "type": "integer",
                               "minimum": 0,
-                              "maximum": 7
+                              "maximum": 21
+                            },
+                            "perDay": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 3
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "from": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "to": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
                             },
                             "time": {
                               "type": "string",
                               "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "week": {
+                              "minItems": 7,
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "maxItems": 3,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                }
+                              }
                             }
                           },
                           "required": [
+                            "mode",
                             "perWeek",
-                            "time"
+                            "perDay",
+                            "from",
+                            "to",
+                            "time",
+                            "week"
                           ],
                           "additionalProperties": false
                         }
@@ -116096,6 +116471,10 @@
                     },
                     "autoFill": {
                       "type": "boolean"
+                    },
+                    "autoPick": {
+                      "default": true,
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -116108,7 +116487,8 @@
                     "plan",
                     "facebookPage",
                     "facebookWhere",
-                    "autoFill"
+                    "autoFill",
+                    "autoPick"
                   ],
                   "additionalProperties": false
                 }
@@ -116537,6 +116917,48 @@
                     },
                     "createdAt": {
                       "type": "string"
+                    },
+                    "pickedBy": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "ai",
+                            "person"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "match": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "matchWhy": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "engagement": {
+                      "default": null,
+                      "type": [
+                        "number",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -116559,7 +116981,11 @@
                     "postsCount",
                     "standoutsCount",
                     "reading",
-                    "createdAt"
+                    "createdAt",
+                    "pickedBy",
+                    "match",
+                    "matchWhy",
+                    "engagement"
                   ],
                   "additionalProperties": false
                 }
@@ -116736,6 +117162,48 @@
                     },
                     "createdAt": {
                       "type": "string"
+                    },
+                    "pickedBy": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "ai",
+                            "person"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "match": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "matchWhy": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "engagement": {
+                      "default": null,
+                      "type": [
+                        "number",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -116758,7 +117226,11 @@
                     "postsCount",
                     "standoutsCount",
                     "reading",
-                    "createdAt"
+                    "createdAt",
+                    "pickedBy",
+                    "match",
+                    "matchWhy",
+                    "engagement"
                   ],
                   "additionalProperties": false
                 }
@@ -117274,6 +117746,90 @@
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                       }
                     },
+                    "angle": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "tip",
+                            "problem",
+                            "story",
+                            "offer"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "topic": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "list": {
+                              "type": "string",
+                              "enum": [
+                                "different",
+                                "benefits",
+                                "problems",
+                                "questions",
+                                "beforeAfter",
+                                "story",
+                                "topics",
+                                "myths",
+                                "voice",
+                                "asks",
+                                "never"
+                              ]
+                            },
+                            "line": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "list",
+                            "line"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "url": {
+                              "type": "string",
+                              "maxLength": 2000,
+                              "format": "uri"
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 120
+                            }
+                          },
+                          "required": [
+                            "url",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "state": {
                       "type": "string",
                       "enum": [
@@ -117296,6 +117852,9 @@
                     "outline",
                     "why",
                     "basedOn",
+                    "angle",
+                    "topic",
+                    "source",
                     "state",
                     "createdAt"
                   ],
@@ -117956,6 +118515,70 @@
                         "person"
                       ]
                     },
+                    "placedBy": {
+                      "default": "ai",
+                      "type": "string",
+                      "enum": [
+                        "ai",
+                        "person"
+                      ]
+                    },
+                    "angle": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "tip",
+                            "problem",
+                            "story",
+                            "offer"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "topic": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "list": {
+                              "type": "string",
+                              "enum": [
+                                "different",
+                                "benefits",
+                                "problems",
+                                "questions",
+                                "beforeAfter",
+                                "story",
+                                "topics",
+                                "myths",
+                                "voice",
+                                "asks",
+                                "never"
+                              ]
+                            },
+                            "line": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "list",
+                            "line"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "ideaId": {
                       "anyOf": [
                         {
@@ -118008,6 +118631,9 @@
                     "doneWell",
                     "failure",
                     "madeBy",
+                    "placedBy",
+                    "angle",
+                    "topic",
                     "ideaId",
                     "stillNeeds",
                     "createdAt",
@@ -118476,6 +119102,70 @@
                         "person"
                       ]
                     },
+                    "placedBy": {
+                      "default": "ai",
+                      "type": "string",
+                      "enum": [
+                        "ai",
+                        "person"
+                      ]
+                    },
+                    "angle": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "tip",
+                            "problem",
+                            "story",
+                            "offer"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "topic": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "list": {
+                              "type": "string",
+                              "enum": [
+                                "different",
+                                "benefits",
+                                "problems",
+                                "questions",
+                                "beforeAfter",
+                                "story",
+                                "topics",
+                                "myths",
+                                "voice",
+                                "asks",
+                                "never"
+                              ]
+                            },
+                            "line": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "list",
+                            "line"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "ideaId": {
                       "anyOf": [
                         {
@@ -118528,6 +119218,9 @@
                     "doneWell",
                     "failure",
                     "madeBy",
+                    "placedBy",
+                    "angle",
+                    "topic",
                     "ideaId",
                     "stillNeeds",
                     "createdAt",
@@ -119079,6 +119772,70 @@
                         "person"
                       ]
                     },
+                    "placedBy": {
+                      "default": "ai",
+                      "type": "string",
+                      "enum": [
+                        "ai",
+                        "person"
+                      ]
+                    },
+                    "angle": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "tip",
+                            "problem",
+                            "story",
+                            "offer"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "topic": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "list": {
+                              "type": "string",
+                              "enum": [
+                                "different",
+                                "benefits",
+                                "problems",
+                                "questions",
+                                "beforeAfter",
+                                "story",
+                                "topics",
+                                "myths",
+                                "voice",
+                                "asks",
+                                "never"
+                              ]
+                            },
+                            "line": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "list",
+                            "line"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "ideaId": {
                       "anyOf": [
                         {
@@ -119131,6 +119888,9 @@
                     "doneWell",
                     "failure",
                     "madeBy",
+                    "placedBy",
+                    "angle",
+                    "topic",
                     "ideaId",
                     "stillNeeds",
                     "createdAt",
@@ -119902,6 +120662,70 @@
                         "person"
                       ]
                     },
+                    "placedBy": {
+                      "default": "ai",
+                      "type": "string",
+                      "enum": [
+                        "ai",
+                        "person"
+                      ]
+                    },
+                    "angle": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "tip",
+                            "problem",
+                            "story",
+                            "offer"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "topic": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "list": {
+                              "type": "string",
+                              "enum": [
+                                "different",
+                                "benefits",
+                                "problems",
+                                "questions",
+                                "beforeAfter",
+                                "story",
+                                "topics",
+                                "myths",
+                                "voice",
+                                "asks",
+                                "never"
+                              ]
+                            },
+                            "line": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "list",
+                            "line"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "ideaId": {
                       "anyOf": [
                         {
@@ -119954,6 +120778,9 @@
                     "doneWell",
                     "failure",
                     "madeBy",
+                    "placedBy",
+                    "angle",
+                    "topic",
                     "ideaId",
                     "stillNeeds",
                     "createdAt",
@@ -120418,6 +121245,70 @@
                         "person"
                       ]
                     },
+                    "placedBy": {
+                      "default": "ai",
+                      "type": "string",
+                      "enum": [
+                        "ai",
+                        "person"
+                      ]
+                    },
+                    "angle": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "tip",
+                            "problem",
+                            "story",
+                            "offer"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "topic": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "list": {
+                              "type": "string",
+                              "enum": [
+                                "different",
+                                "benefits",
+                                "problems",
+                                "questions",
+                                "beforeAfter",
+                                "story",
+                                "topics",
+                                "myths",
+                                "voice",
+                                "asks",
+                                "never"
+                              ]
+                            },
+                            "line": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "list",
+                            "line"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "ideaId": {
                       "anyOf": [
                         {
@@ -120470,6 +121361,9 @@
                     "doneWell",
                     "failure",
                     "madeBy",
+                    "placedBy",
+                    "angle",
+                    "topic",
                     "ideaId",
                     "stillNeeds",
                     "createdAt",
@@ -120618,7 +121512,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 0. Requires socialcontent.use. Emits socialcontent.content.done_well.",
+        "description": "Risk level 0. Requires socialcontent.use. Emits socialcontent.content.done_well, socialcontent.content.read.",
         "requestBody": {
           "required": true,
           "content": {
@@ -121155,6 +122049,70 @@
                         "person"
                       ]
                     },
+                    "placedBy": {
+                      "default": "ai",
+                      "type": "string",
+                      "enum": [
+                        "ai",
+                        "person"
+                      ]
+                    },
+                    "angle": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "tip",
+                            "problem",
+                            "story",
+                            "offer"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "topic": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "list": {
+                              "type": "string",
+                              "enum": [
+                                "different",
+                                "benefits",
+                                "problems",
+                                "questions",
+                                "beforeAfter",
+                                "story",
+                                "topics",
+                                "myths",
+                                "voice",
+                                "asks",
+                                "never"
+                              ]
+                            },
+                            "line": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "list",
+                            "line"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "ideaId": {
                       "anyOf": [
                         {
@@ -121207,6 +122165,9 @@
                     "doneWell",
                     "failure",
                     "madeBy",
+                    "placedBy",
+                    "angle",
+                    "topic",
                     "ideaId",
                     "stillNeeds",
                     "createdAt",
@@ -121719,6 +122680,67 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "recent": {
+                          "anyOf": [
+                            {
+                              "maxItems": 12,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "likes": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "comments": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "views": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "caption": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -121824,6 +122846,67 @@
                         "type": "string",
                         "format": "date-time",
                         "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "recent": {
+                    "anyOf": [
+                      {
+                        "maxItems": 12,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "likes": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "comments": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "views": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "caption": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          }
+                        }
                       },
                       {
                         "type": "null"
@@ -180491,6 +181574,9 @@
                               }
                             ]
                           },
+                          "hiddenUntilTexting": {
+                            "type": "boolean"
+                          },
                           "install": {
                             "type": "object",
                             "properties": {
@@ -180557,6 +181643,7 @@
                           "dailyCap",
                           "paused",
                           "pausedAt",
+                          "hiddenUntilTexting",
                           "install",
                           "createdAt",
                           "updatedAt"
@@ -180871,6 +181958,9 @@
                             }
                           ]
                         },
+                        "hiddenUntilTexting": {
+                          "type": "boolean"
+                        },
                         "install": {
                           "type": "object",
                           "properties": {
@@ -180937,6 +182027,7 @@
                         "dailyCap",
                         "paused",
                         "pausedAt",
+                        "hiddenUntilTexting",
                         "install",
                         "createdAt",
                         "updatedAt"
@@ -186316,6 +187407,9 @@
                               }
                             ]
                           },
+                          "payOutside": {
+                            "type": "boolean"
+                          },
                           "assignee": {
                             "anyOf": [
                               {
@@ -186487,6 +187581,7 @@
                           "estimateId",
                           "subscriptionId",
                           "connectionId",
+                          "payOutside",
                           "assignee",
                           "totals",
                           "amountPaidCents",
@@ -186525,7 +187620,7 @@
     "/v1/queries/invoice.get": {
       "post": {
         "operationId": "query_invoice_get",
-        "summary": "One invoice: its lines, its totals, what has been paid and refunded, and every payment against it with its method and where it stands.",
+        "summary": "One invoice: its lines, its totals, whether it is paid outside HandsFreeOS, what has been paid and refunded, and every payment against it with its method, where a payment by hand went through, its note and where it stands.",
         "tags": [
           "queries"
         ],
@@ -186716,6 +187811,9 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "payOutside": {
+                          "type": "boolean"
                         },
                         "assignee": {
                           "anyOf": [
@@ -186972,6 +188070,9 @@
                             ],
                             "additionalProperties": false
                           }
+                        },
+                        "markedPaid": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -186989,6 +188090,7 @@
                         "estimateId",
                         "subscriptionId",
                         "connectionId",
+                        "payOutside",
                         "assignee",
                         "totals",
                         "amountPaidCents",
@@ -187005,7 +188107,8 @@
                         "revision",
                         "linkVersion",
                         "voidReason",
-                        "lines"
+                        "lines",
+                        "markedPaid"
                       ],
                       "additionalProperties": false
                     },
@@ -187034,7 +188137,8 @@
                               "ach",
                               "cash",
                               "check",
-                              "other"
+                              "other",
+                              "card_outside"
                             ]
                           },
                           "provider": {
@@ -187151,6 +188255,18 @@
                               "null"
                             ]
                           },
+                          "paidThrough": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "createdAt": {
                             "type": "string",
                             "format": "date-time",
@@ -187174,6 +188290,8 @@
                           "refundedCents",
                           "cardBrand",
                           "cardLast4",
+                          "paidThrough",
+                          "note",
                           "createdAt"
                         ],
                         "additionalProperties": false
@@ -187279,12 +188397,19 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "paidThroughNames": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   },
                   "required": [
                     "invoice",
                     "payments",
-                    "refunds"
+                    "refunds",
+                    "paidThroughNames"
                   ],
                   "additionalProperties": false
                 }
@@ -187338,7 +188463,7 @@
                     }
                   },
                   "method": {
-                    "maxItems": 5,
+                    "maxItems": 6,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -187347,7 +188472,8 @@
                         "ach",
                         "cash",
                         "check",
-                        "other"
+                        "other",
+                        "card_outside"
                       ]
                     }
                   },
@@ -187423,7 +188549,8 @@
                               "ach",
                               "cash",
                               "check",
-                              "other"
+                              "other",
+                              "card_outside"
                             ]
                           },
                           "provider": {
@@ -187540,6 +188667,18 @@
                               "null"
                             ]
                           },
+                          "paidThrough": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "createdAt": {
                             "type": "string",
                             "format": "date-time",
@@ -187608,6 +188747,8 @@
                           "refundedCents",
                           "cardBrand",
                           "cardLast4",
+                          "paidThrough",
+                          "note",
                           "createdAt",
                           "person",
                           "invoiceNumber"
@@ -189153,6 +190294,9 @@
                               }
                             ]
                           },
+                          "payOutside": {
+                            "type": "boolean"
+                          },
                           "assignee": {
                             "anyOf": [
                               {
@@ -189324,6 +190468,7 @@
                           "estimateId",
                           "subscriptionId",
                           "connectionId",
+                          "payOutside",
                           "assignee",
                           "totals",
                           "amountPaidCents",
@@ -248967,7 +250112,7 @@
     "/v1/queries/socialcontent.overview": {
       "post": {
         "operationId": "query_socialcontent_overview",
-        "summary": "How content research stands: the networks studied, whose computer reads them, how many creators are suggested, studied and skipped, how many standout posts there are, and what the reading computer was asked to do lately (each with how it went).",
+        "summary": "How content research stands: the networks studied, whose computer reads them, how many creators are suggested, studied and skipped, how many standout posts there are, what the reading computer was asked to do lately (each with how it went), and how setting up on its own stands.",
         "tags": [
           "queries"
         ],
@@ -249055,57 +250200,192 @@
                             "instagram": {
                               "type": "object",
                               "properties": {
+                                "mode": {
+                                  "type": "string",
+                                  "enum": [
+                                    "ai",
+                                    "mine"
+                                  ]
+                                },
                                 "perWeek": {
                                   "type": "integer",
                                   "minimum": 0,
-                                  "maximum": 7
+                                  "maximum": 21
+                                },
+                                "perDay": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 3
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "from": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                },
+                                "to": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
                                 },
                                 "time": {
                                   "type": "string",
                                   "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                },
+                                "week": {
+                                  "minItems": 7,
+                                  "maxItems": 7,
+                                  "type": "array",
+                                  "items": {
+                                    "maxItems": 3,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                    }
+                                  }
                                 }
                               },
                               "required": [
+                                "mode",
                                 "perWeek",
-                                "time"
+                                "perDay",
+                                "from",
+                                "to",
+                                "time",
+                                "week"
                               ],
                               "additionalProperties": false
                             },
                             "facebook": {
                               "type": "object",
                               "properties": {
+                                "mode": {
+                                  "type": "string",
+                                  "enum": [
+                                    "ai",
+                                    "mine"
+                                  ]
+                                },
                                 "perWeek": {
                                   "type": "integer",
                                   "minimum": 0,
-                                  "maximum": 7
+                                  "maximum": 21
+                                },
+                                "perDay": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 3
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "from": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                },
+                                "to": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
                                 },
                                 "time": {
                                   "type": "string",
                                   "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                },
+                                "week": {
+                                  "minItems": 7,
+                                  "maxItems": 7,
+                                  "type": "array",
+                                  "items": {
+                                    "maxItems": 3,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                    }
+                                  }
                                 }
                               },
                               "required": [
+                                "mode",
                                 "perWeek",
-                                "time"
+                                "perDay",
+                                "from",
+                                "to",
+                                "time",
+                                "week"
                               ],
                               "additionalProperties": false
                             },
                             "linkedin": {
                               "type": "object",
                               "properties": {
+                                "mode": {
+                                  "type": "string",
+                                  "enum": [
+                                    "ai",
+                                    "mine"
+                                  ]
+                                },
                                 "perWeek": {
                                   "type": "integer",
                                   "minimum": 0,
-                                  "maximum": 7
+                                  "maximum": 21
+                                },
+                                "perDay": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 3
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "from": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                },
+                                "to": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
                                 },
                                 "time": {
                                   "type": "string",
                                   "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                },
+                                "week": {
+                                  "minItems": 7,
+                                  "maxItems": 7,
+                                  "type": "array",
+                                  "items": {
+                                    "maxItems": 3,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                    }
+                                  }
                                 }
                               },
                               "required": [
+                                "mode",
                                 "perWeek",
-                                "time"
+                                "perDay",
+                                "from",
+                                "to",
+                                "time",
+                                "week"
                               ],
                               "additionalProperties": false
                             }
@@ -249135,6 +250415,10 @@
                         },
                         "autoFill": {
                           "type": "boolean"
+                        },
+                        "autoPick": {
+                          "default": true,
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -249147,7 +250431,8 @@
                         "plan",
                         "facebookPage",
                         "facebookWhere",
-                        "autoFill"
+                        "autoFill",
+                        "autoPick"
                       ],
                       "additionalProperties": false
                     },
@@ -249408,6 +250693,256 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "learned": {
+                      "type": "object",
+                      "properties": {
+                        "instagram": {
+                          "type": "object",
+                          "properties": {
+                            "best": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "from": {
+                              "type": "string",
+                              "enum": [
+                                "own",
+                                "both",
+                                "creators",
+                                "none"
+                              ]
+                            },
+                            "own": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "creators": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "best",
+                            "from",
+                            "own",
+                            "creators"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "facebook": {
+                          "type": "object",
+                          "properties": {
+                            "best": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "from": {
+                              "type": "string",
+                              "enum": [
+                                "own",
+                                "both",
+                                "creators",
+                                "none"
+                              ]
+                            },
+                            "own": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "creators": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "best",
+                            "from",
+                            "own",
+                            "creators"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "linkedin": {
+                          "type": "object",
+                          "properties": {
+                            "best": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "from": {
+                              "type": "string",
+                              "enum": [
+                                "own",
+                                "both",
+                                "creators",
+                                "none"
+                              ]
+                            },
+                            "own": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "creators": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "best",
+                            "from",
+                            "own",
+                            "creators"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "instagram",
+                        "facebook",
+                        "linkedin"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "setup": {
+                      "type": "object",
+                      "properties": {
+                        "autoPick": {
+                          "type": "boolean"
+                        },
+                        "autoFill": {
+                          "type": "boolean"
+                        },
+                        "marks": {
+                          "default": {},
+                          "type": "object",
+                          "properties": {
+                            "startedAt": {
+                              "type": "string"
+                            },
+                            "nichesAt": {
+                              "type": "string"
+                            },
+                            "findAt": {
+                              "type": "string"
+                            },
+                            "writeAt": {
+                              "type": "string"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "readerSet": {
+                          "type": "boolean"
+                        },
+                        "nichesPicked": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "findsLeft": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "readsLeft": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "networks": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "network": {
+                                "type": "string"
+                              },
+                              "studying": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "byAi": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "pickable": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "network",
+                              "studying",
+                              "byAi",
+                              "pickable"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "noted": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "playbookAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "filledAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "offerLive": {
+                          "type": "boolean"
+                        },
+                        "listsFilled": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "listsAll": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "autoPick",
+                        "autoFill",
+                        "marks",
+                        "readerSet",
+                        "nichesPicked",
+                        "findsLeft",
+                        "readsLeft",
+                        "networks",
+                        "noted",
+                        "playbookAt",
+                        "filledAt",
+                        "offerLive",
+                        "listsFilled",
+                        "listsAll"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -249731,6 +251266,48 @@
                           },
                           "createdAt": {
                             "type": "string"
+                          },
+                          "pickedBy": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "ai",
+                                  "person"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "match": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "matchWhy": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "engagement": {
+                            "default": null,
+                            "type": [
+                              "number",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -249753,7 +251330,11 @@
                           "postsCount",
                           "standoutsCount",
                           "reading",
-                          "createdAt"
+                          "createdAt",
+                          "pickedBy",
+                          "match",
+                          "matchWhy",
+                          "engagement"
                         ],
                         "additionalProperties": false
                       }
@@ -250440,6 +252021,90 @@
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                             }
                           },
+                          "angle": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "tip",
+                                  "problem",
+                                  "story",
+                                  "offer"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "topic": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "list": {
+                                    "type": "string",
+                                    "enum": [
+                                      "different",
+                                      "benefits",
+                                      "problems",
+                                      "questions",
+                                      "beforeAfter",
+                                      "story",
+                                      "topics",
+                                      "myths",
+                                      "voice",
+                                      "asks",
+                                      "never"
+                                    ]
+                                  },
+                                  "line": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  }
+                                },
+                                "required": [
+                                  "list",
+                                  "line"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "source": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "url": {
+                                    "type": "string",
+                                    "maxLength": 2000,
+                                    "format": "uri"
+                                  },
+                                  "name": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 120
+                                  }
+                                },
+                                "required": [
+                                  "url",
+                                  "name"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "state": {
                             "type": "string",
                             "enum": [
@@ -250462,6 +252127,9 @@
                           "outline",
                           "why",
                           "basedOn",
+                          "angle",
+                          "topic",
+                          "source",
                           "state",
                           "createdAt"
                         ],
@@ -250537,7 +252205,7 @@
     "/v1/queries/socialcontent.calendar.get": {
       "post": {
         "operationId": "query_socialcontent_calendar_get",
-        "summary": "The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled, whether it fills on its own (autoFill) and when it fills again; whether the main offer is live (offerLive: until it is, the AI writes no posts); and how many ideas are saved to write from.",
+        "summary": "The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the plan’s open places with no post yet (each AI picks hour, and whether it’s an hour the AI is trying out); the plan itself (for each of Instagram, Facebook and LinkedIn: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times picked on each weekday); what AI picks learned (its best hours so far, from the creators’ posts or the business’s own); when it last filled, whether it fills on its own (autoFill) and when it fills again; whether the main offer is live (offerLive: until it is, the AI writes no posts); and how many ideas are saved to write from.",
         "tags": [
           "queries"
         ],
@@ -250602,57 +252270,314 @@
                         "instagram": {
                           "type": "object",
                           "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "ai",
+                                "mine"
+                              ]
+                            },
                             "perWeek": {
                               "type": "integer",
                               "minimum": 0,
-                              "maximum": 7
+                              "maximum": 21
+                            },
+                            "perDay": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 3
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "from": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "to": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
                             },
                             "time": {
                               "type": "string",
                               "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "week": {
+                              "minItems": 7,
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "maxItems": 3,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                }
+                              }
                             }
                           },
                           "required": [
+                            "mode",
                             "perWeek",
-                            "time"
+                            "perDay",
+                            "from",
+                            "to",
+                            "time",
+                            "week"
                           ],
                           "additionalProperties": false
                         },
                         "facebook": {
                           "type": "object",
                           "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "ai",
+                                "mine"
+                              ]
+                            },
                             "perWeek": {
                               "type": "integer",
                               "minimum": 0,
-                              "maximum": 7
+                              "maximum": 21
+                            },
+                            "perDay": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 3
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "from": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "to": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
                             },
                             "time": {
                               "type": "string",
                               "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "week": {
+                              "minItems": 7,
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "maxItems": 3,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                }
+                              }
                             }
                           },
                           "required": [
+                            "mode",
                             "perWeek",
-                            "time"
+                            "perDay",
+                            "from",
+                            "to",
+                            "time",
+                            "week"
                           ],
                           "additionalProperties": false
                         },
                         "linkedin": {
                           "type": "object",
                           "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "ai",
+                                "mine"
+                              ]
+                            },
                             "perWeek": {
                               "type": "integer",
                               "minimum": 0,
-                              "maximum": 7
+                              "maximum": 21
+                            },
+                            "perDay": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 3
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "from": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "to": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
                             },
                             "time": {
                               "type": "string",
                               "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            },
+                            "week": {
+                              "minItems": 7,
+                              "maxItems": 7,
+                              "type": "array",
+                              "items": {
+                                "maxItems": 3,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                }
+                              }
                             }
                           },
                           "required": [
+                            "mode",
                             "perWeek",
-                            "time"
+                            "perDay",
+                            "from",
+                            "to",
+                            "time",
+                            "week"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "instagram",
+                        "facebook",
+                        "linkedin"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "learned": {
+                      "type": "object",
+                      "properties": {
+                        "instagram": {
+                          "type": "object",
+                          "properties": {
+                            "best": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "from": {
+                              "type": "string",
+                              "enum": [
+                                "own",
+                                "both",
+                                "creators",
+                                "none"
+                              ]
+                            },
+                            "own": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "creators": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "best",
+                            "from",
+                            "own",
+                            "creators"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "facebook": {
+                          "type": "object",
+                          "properties": {
+                            "best": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "from": {
+                              "type": "string",
+                              "enum": [
+                                "own",
+                                "both",
+                                "creators",
+                                "none"
+                              ]
+                            },
+                            "own": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "creators": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "best",
+                            "from",
+                            "own",
+                            "creators"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "linkedin": {
+                          "type": "object",
+                          "properties": {
+                            "best": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "from": {
+                              "type": "string",
+                              "enum": [
+                                "own",
+                                "both",
+                                "creators",
+                                "none"
+                              ]
+                            },
+                            "own": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "creators": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "best",
+                            "from",
+                            "own",
+                            "creators"
                           ],
                           "additionalProperties": false
                         }
@@ -250683,12 +252608,17 @@
                           },
                           "at": {
                             "type": "string"
+                          },
+                          "trying": {
+                            "default": false,
+                            "type": "boolean"
                           }
                         },
                         "required": [
                           "network",
                           "date",
-                          "at"
+                          "at",
+                          "trying"
                         ],
                         "additionalProperties": false
                       }
@@ -251107,6 +253037,70 @@
                               "person"
                             ]
                           },
+                          "placedBy": {
+                            "default": "ai",
+                            "type": "string",
+                            "enum": [
+                              "ai",
+                              "person"
+                            ]
+                          },
+                          "angle": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "tip",
+                                  "problem",
+                                  "story",
+                                  "offer"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "topic": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "list": {
+                                    "type": "string",
+                                    "enum": [
+                                      "different",
+                                      "benefits",
+                                      "problems",
+                                      "questions",
+                                      "beforeAfter",
+                                      "story",
+                                      "topics",
+                                      "myths",
+                                      "voice",
+                                      "asks",
+                                      "never"
+                                    ]
+                                  },
+                                  "line": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  }
+                                },
+                                "required": [
+                                  "list",
+                                  "line"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "ideaId": {
                             "anyOf": [
                               {
@@ -251159,6 +253153,9 @@
                           "doneWell",
                           "failure",
                           "madeBy",
+                          "placedBy",
+                          "angle",
+                          "topic",
                           "ideaId",
                           "stillNeeds",
                           "createdAt",
@@ -251581,6 +253578,70 @@
                               "person"
                             ]
                           },
+                          "placedBy": {
+                            "default": "ai",
+                            "type": "string",
+                            "enum": [
+                              "ai",
+                              "person"
+                            ]
+                          },
+                          "angle": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "tip",
+                                  "problem",
+                                  "story",
+                                  "offer"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "topic": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "list": {
+                                    "type": "string",
+                                    "enum": [
+                                      "different",
+                                      "benefits",
+                                      "problems",
+                                      "questions",
+                                      "beforeAfter",
+                                      "story",
+                                      "topics",
+                                      "myths",
+                                      "voice",
+                                      "asks",
+                                      "never"
+                                    ]
+                                  },
+                                  "line": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  }
+                                },
+                                "required": [
+                                  "list",
+                                  "line"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "ideaId": {
                             "anyOf": [
                               {
@@ -251633,6 +253694,9 @@
                           "doneWell",
                           "failure",
                           "madeBy",
+                          "placedBy",
+                          "angle",
+                          "topic",
                           "ideaId",
                           "stillNeeds",
                           "createdAt",
@@ -252055,6 +254119,70 @@
                               "person"
                             ]
                           },
+                          "placedBy": {
+                            "default": "ai",
+                            "type": "string",
+                            "enum": [
+                              "ai",
+                              "person"
+                            ]
+                          },
+                          "angle": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "tip",
+                                  "problem",
+                                  "story",
+                                  "offer"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "topic": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "list": {
+                                    "type": "string",
+                                    "enum": [
+                                      "different",
+                                      "benefits",
+                                      "problems",
+                                      "questions",
+                                      "beforeAfter",
+                                      "story",
+                                      "topics",
+                                      "myths",
+                                      "voice",
+                                      "asks",
+                                      "never"
+                                    ]
+                                  },
+                                  "line": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  }
+                                },
+                                "required": [
+                                  "list",
+                                  "line"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "ideaId": {
                             "anyOf": [
                               {
@@ -252107,6 +254235,9 @@
                           "doneWell",
                           "failure",
                           "madeBy",
+                          "placedBy",
+                          "angle",
+                          "topic",
                           "ideaId",
                           "stillNeeds",
                           "createdAt",
@@ -252685,6 +254816,70 @@
                         "person"
                       ]
                     },
+                    "placedBy": {
+                      "default": "ai",
+                      "type": "string",
+                      "enum": [
+                        "ai",
+                        "person"
+                      ]
+                    },
+                    "angle": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "tip",
+                            "problem",
+                            "story",
+                            "offer"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "topic": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "list": {
+                              "type": "string",
+                              "enum": [
+                                "different",
+                                "benefits",
+                                "problems",
+                                "questions",
+                                "beforeAfter",
+                                "story",
+                                "topics",
+                                "myths",
+                                "voice",
+                                "asks",
+                                "never"
+                              ]
+                            },
+                            "line": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "list",
+                            "line"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "ideaId": {
                       "anyOf": [
                         {
@@ -252737,6 +254932,9 @@
                     "doneWell",
                     "failure",
                     "madeBy",
+                    "placedBy",
+                    "angle",
+                    "topic",
                     "ideaId",
                     "stillNeeds",
                     "createdAt",
@@ -253227,6 +255425,70 @@
                               "person"
                             ]
                           },
+                          "placedBy": {
+                            "default": "ai",
+                            "type": "string",
+                            "enum": [
+                              "ai",
+                              "person"
+                            ]
+                          },
+                          "angle": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "tip",
+                                  "problem",
+                                  "story",
+                                  "offer"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "topic": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "list": {
+                                    "type": "string",
+                                    "enum": [
+                                      "different",
+                                      "benefits",
+                                      "problems",
+                                      "questions",
+                                      "beforeAfter",
+                                      "story",
+                                      "topics",
+                                      "myths",
+                                      "voice",
+                                      "asks",
+                                      "never"
+                                    ]
+                                  },
+                                  "line": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  }
+                                },
+                                "required": [
+                                  "list",
+                                  "line"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "ideaId": {
                             "anyOf": [
                               {
@@ -253279,6 +255541,9 @@
                           "doneWell",
                           "failure",
                           "madeBy",
+                          "placedBy",
+                          "angle",
+                          "topic",
                           "ideaId",
                           "stillNeeds",
                           "createdAt",
