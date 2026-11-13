@@ -5,7 +5,13 @@
  */
 import { describe, expect, it } from 'vitest';
 import { checkedNiches, cleanSearches } from '../../src/addons/socialcontent/niches-ai';
-import { creatorFromLink, handleShown } from '../../src/addons/socialcontent/networks';
+import {
+  CONTENT_NETWORKS,
+  creatorFromLink,
+  handleShown,
+  networkName,
+  type ContentNetwork,
+} from '../../src/addons/socialcontent/networks';
 import {
   doneWell,
   median,
@@ -133,6 +139,15 @@ describe('creators who did well', () => {
       doneWell({ followers: 90_000, lastPostAt: new Date(NOW - 31 * DAY).toISOString() }, NOW),
     ).toBe(false);
     expect(doneWell({ followers: 90_000, lastPostAt: null }, NOW)).toBe(false);
+  });
+});
+
+describe('a network’s name', () => {
+  it('names each, and shows one it doesn’t know as sent rather than breaking (the owner’s Calendar, 13 Nov)', () => {
+    for (const n of CONTENT_NETWORKS) expect(networkName(n)).toBeTruthy();
+    expect(networkName('threads')).toBe('Threads');
+    expect(networkName('x')).toBe('X');
+    expect(networkName('bluesky' as ContentNetwork)).toBe('bluesky');
   });
 });
 

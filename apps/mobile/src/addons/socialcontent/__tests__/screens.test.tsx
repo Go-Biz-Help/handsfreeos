@@ -805,6 +805,29 @@ describe('the Calendar', () => {
     );
   });
 
+  it('shows Threads’ and X’s posts and open days (decision 41; the owner’s Calendar, 13 Nov)', async () => {
+    await render(
+      body({
+        data: calendarView({
+          posts: [
+            content(33, { title: 'A thread on pricing', network: 'threads', format: 'text' }),
+            content(34, { title: 'One quick tip', network: 'x', format: 'text', chain: ['More.'] }),
+          ],
+          open: [
+            { network: 'threads', date: tomorrow, at: `${tomorrow}T15:00:00.000Z`, trying: false },
+            { network: 'x', date: tomorrow, at: `${tomorrow}T16:00:00.000Z`, trying: false },
+          ],
+          postsOn: ['facebook', 'linkedin', 'instagram', 'threads', 'x'],
+        }),
+      }),
+    );
+    const day = screen.getByTestId(`socialcontent-day-${tomorrow}`);
+    expect(within(day).getByText('A thread on pricing')).toBeTruthy();
+    expect(within(day).getByText('One quick tip')).toBeTruthy();
+    expect(within(day).getByText('Threads at 3:00 PM')).toBeTruthy();
+    expect(within(day).getByText('X at 4:00 PM')).toBeTruthy();
+  });
+
   it('fills, OKs the week while there are drafts, and writes one', async () => {
     const onFill = jest.fn();
     const onOkWeek = jest.fn();

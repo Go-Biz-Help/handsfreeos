@@ -84,7 +84,12 @@ export const READY_NETWORKS: readonly ContentNetwork[] = CONTENT_NETWORKS.filter
 export const isContentNetwork = (v: unknown): v is ContentNetwork =>
   typeof v === 'string' && (CONTENT_NETWORKS as readonly string[]).includes(v);
 
-export const networkName = (n: ContentNetwork): string => CONTENT_NETWORK_INFO[n].name;
+/**
+ * A network's name. One this build doesn't know yet (the API was updated before the phone was, as with Threads and X on
+ * 13 Nov 2026) shows as it's sent rather than breaking the screen.
+ */
+export const networkName = (n: ContentNetwork): string =>
+  (CONTENT_NETWORK_INFO as Partial<Record<string, ContentNetworkInfo>>)[n]?.name ?? n;
 
 /** A creator's page, from a link to it: the network, their name there, and the link written the one way. */
 export interface CreatorLink {
