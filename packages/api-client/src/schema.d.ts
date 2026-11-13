@@ -8497,6 +8497,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.comment_replies.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep the replies to the person’s comments on Threads or X that their computer read in their notifications: each new one from someone they commented to, or shown answering one of their comments, waits on Today for an answer the AI drafts, which waits for their OK. A reply that says yes to a demo pushes to their phone. Nobody goes in Contacts.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.comment.replied.
+         */
+        post: operations["command_outreach_comment_replies_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.computer.remove": {
         parameters: {
             query?: never;
@@ -45117,7 +45137,7 @@ export interface operations {
                              * @default facebook
                              * @enum {string}
                              */
-                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             reply: ("carry_on" | "skip") | null;
                             result: {
                                 drafts: string[];
@@ -45193,7 +45213,7 @@ export interface operations {
                              * @default facebook
                              * @enum {string}
                              */
-                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             reply: ("carry_on" | "skip") | null;
                             result: {
                                 drafts: string[];
@@ -45426,7 +45446,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -45455,7 +45475,7 @@ export interface operations {
                              * @default facebook
                              * @enum {string}
                              */
-                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             reply: ("carry_on" | "skip") | null;
                             result: {
                                 drafts: string[];
@@ -45570,7 +45590,7 @@ export interface operations {
                              * @default facebook
                              * @enum {string}
                              */
-                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             reply: ("carry_on" | "skip") | null;
                             result: {
                                 drafts: string[];
@@ -45618,7 +45638,7 @@ export interface operations {
                     /** Format: uuid */
                     installId: string;
                     /** @enum {string} */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** @default null */
                     underway?: string | null;
                     /** Format: uuid */
@@ -45646,7 +45666,7 @@ export interface operations {
                              * @default facebook
                              * @enum {string}
                              */
-                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             task: {
                                 /** @enum {string} */
                                 kind: "file_request";
@@ -45898,6 +45918,46 @@ export interface operations {
                                 watchPosts?: boolean;
                                 young?: boolean;
                             };
+                            threads?: {
+                                collect?: boolean;
+                                confirmRequests?: boolean;
+                                fullSpeed?: boolean;
+                                joinGroups?: boolean;
+                                on?: boolean;
+                                /** @enum {string} */
+                                posting?: "copy" | "after_ok" | "own";
+                                /** @enum {string} */
+                                replies?: "draft" | "simple" | "everything";
+                                /** @enum {string} */
+                                requests?: "fits" | "fits_delete" | "all" | "delete";
+                                /** @enum {string} */
+                                sending?: "off" | "steps" | "approve_all" | "everything";
+                                /** @enum {string} */
+                                tidy?: "off" | "cancel" | "unfriend";
+                                warmUp?: boolean;
+                                watchPosts?: boolean;
+                                young?: boolean;
+                            };
+                            x?: {
+                                collect?: boolean;
+                                confirmRequests?: boolean;
+                                fullSpeed?: boolean;
+                                joinGroups?: boolean;
+                                on?: boolean;
+                                /** @enum {string} */
+                                posting?: "copy" | "after_ok" | "own";
+                                /** @enum {string} */
+                                replies?: "draft" | "simple" | "everything";
+                                /** @enum {string} */
+                                requests?: "fits" | "fits_delete" | "all" | "delete";
+                                /** @enum {string} */
+                                sending?: "off" | "steps" | "approve_all" | "everything";
+                                /** @enum {string} */
+                                tidy?: "off" | "cancel" | "unfriend";
+                                warmUp?: boolean;
+                                watchPosts?: boolean;
+                                young?: boolean;
+                            };
                         };
                         noting?: boolean;
                         /** @enum {string} */
@@ -45936,23 +45996,6 @@ export interface operations {
                         /** @default true */
                         markPosts?: boolean;
                         networks?: {
-                            /**
-                             * @default {
-                             *       "on": false,
-                             *       "sending": "off",
-                             *       "replies": "draft",
-                             *       "warmUp": true,
-                             *       "confirmRequests": true,
-                             *       "collect": true,
-                             *       "joinGroups": true,
-                             *       "watchPosts": true,
-                             *       "posting": "after_ok",
-                             *       "young": false,
-                             *       "fullSpeed": false,
-                             *       "tidy": "cancel",
-                             *       "requests": "fits"
-                             *     }
-                             */
                             alignable?: {
                                 /** @default true */
                                 collect?: boolean;
@@ -45996,15 +46039,6 @@ export interface operations {
                                 /** @default false */
                                 young?: boolean;
                             };
-                            /**
-                             * @default {
-                             *       "on": true,
-                             *       "young": false,
-                             *       "fullSpeed": false,
-                             *       "tidy": "cancel",
-                             *       "requests": "fits"
-                             *     }
-                             */
                             facebook?: {
                                 /** @default false */
                                 fullSpeed?: boolean;
@@ -46023,23 +46057,6 @@ export interface operations {
                                 /** @default false */
                                 young?: boolean;
                             };
-                            /**
-                             * @default {
-                             *       "on": false,
-                             *       "sending": "off",
-                             *       "replies": "draft",
-                             *       "warmUp": true,
-                             *       "confirmRequests": true,
-                             *       "collect": true,
-                             *       "joinGroups": true,
-                             *       "watchPosts": true,
-                             *       "posting": "after_ok",
-                             *       "young": false,
-                             *       "fullSpeed": false,
-                             *       "tidy": "cancel",
-                             *       "requests": "fits"
-                             *     }
-                             */
                             instagram?: {
                                 /** @default true */
                                 collect?: boolean;
@@ -46083,24 +46100,93 @@ export interface operations {
                                 /** @default false */
                                 young?: boolean;
                             };
-                            /**
-                             * @default {
-                             *       "on": false,
-                             *       "sending": "off",
-                             *       "replies": "draft",
-                             *       "warmUp": true,
-                             *       "confirmRequests": true,
-                             *       "collect": true,
-                             *       "joinGroups": true,
-                             *       "watchPosts": true,
-                             *       "posting": "after_ok",
-                             *       "young": false,
-                             *       "fullSpeed": false,
-                             *       "tidy": "cancel",
-                             *       "requests": "fits"
-                             *     }
-                             */
                             linkedin?: {
+                                /** @default true */
+                                collect?: boolean;
+                                /** @default true */
+                                confirmRequests?: boolean;
+                                /** @default false */
+                                fullSpeed?: boolean;
+                                /** @default true */
+                                joinGroups?: boolean;
+                                /** @default false */
+                                on?: boolean;
+                                /**
+                                 * @default after_ok
+                                 * @enum {string}
+                                 */
+                                posting?: "copy" | "after_ok" | "own";
+                                /**
+                                 * @default draft
+                                 * @enum {string}
+                                 */
+                                replies?: "draft" | "simple" | "everything";
+                                /**
+                                 * @default fits
+                                 * @enum {string}
+                                 */
+                                requests?: "fits" | "fits_delete" | "all" | "delete";
+                                /**
+                                 * @default off
+                                 * @enum {string}
+                                 */
+                                sending?: "off" | "steps" | "approve_all" | "everything";
+                                /**
+                                 * @default cancel
+                                 * @enum {string}
+                                 */
+                                tidy?: "off" | "cancel" | "unfriend";
+                                /** @default true */
+                                warmUp?: boolean;
+                                /** @default true */
+                                watchPosts?: boolean;
+                                /** @default false */
+                                young?: boolean;
+                            };
+                            threads?: {
+                                /** @default true */
+                                collect?: boolean;
+                                /** @default true */
+                                confirmRequests?: boolean;
+                                /** @default false */
+                                fullSpeed?: boolean;
+                                /** @default true */
+                                joinGroups?: boolean;
+                                /** @default false */
+                                on?: boolean;
+                                /**
+                                 * @default after_ok
+                                 * @enum {string}
+                                 */
+                                posting?: "copy" | "after_ok" | "own";
+                                /**
+                                 * @default draft
+                                 * @enum {string}
+                                 */
+                                replies?: "draft" | "simple" | "everything";
+                                /**
+                                 * @default fits
+                                 * @enum {string}
+                                 */
+                                requests?: "fits" | "fits_delete" | "all" | "delete";
+                                /**
+                                 * @default off
+                                 * @enum {string}
+                                 */
+                                sending?: "off" | "steps" | "approve_all" | "everything";
+                                /**
+                                 * @default cancel
+                                 * @enum {string}
+                                 */
+                                tidy?: "off" | "cancel" | "unfriend";
+                                /** @default true */
+                                warmUp?: boolean;
+                                /** @default true */
+                                watchPosts?: boolean;
+                                /** @default false */
+                                young?: boolean;
+                            };
+                            x?: {
                                 /** @default true */
                                 collect?: boolean;
                                 /** @default true */
@@ -46305,8 +46391,22 @@ export interface operations {
                                     friend_request?: number;
                                     like?: number;
                                 };
+                                threads?: {
+                                    comment?: number;
+                                    first_message?: number;
+                                    follow_up?: number;
+                                    friend_request?: number;
+                                    like?: number;
+                                };
+                                x?: {
+                                    comment?: number;
+                                    first_message?: number;
+                                    follow_up?: number;
+                                    friend_request?: number;
+                                    like?: number;
+                                };
                             };
-                            networksAllowed: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            networksAllowed: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[];
                             postingAllowed: ("copy" | "after_ok" | "own")[];
                             repliesAllowed: ("draft" | "simple" | "everything")[];
                             sendingAllowed: ("off" | "steps" | "approve_all" | "everything")[];
@@ -46372,6 +46472,36 @@ export interface operations {
                              *         "requests": "fits"
                              *       },
                              *       "alignable": {
+                             *         "on": false,
+                             *         "sending": "off",
+                             *         "replies": "draft",
+                             *         "warmUp": true,
+                             *         "confirmRequests": true,
+                             *         "collect": true,
+                             *         "joinGroups": true,
+                             *         "watchPosts": true,
+                             *         "posting": "after_ok",
+                             *         "young": false,
+                             *         "fullSpeed": false,
+                             *         "tidy": "cancel",
+                             *         "requests": "fits"
+                             *       },
+                             *       "threads": {
+                             *         "on": false,
+                             *         "sending": "off",
+                             *         "replies": "draft",
+                             *         "warmUp": true,
+                             *         "confirmRequests": true,
+                             *         "collect": true,
+                             *         "joinGroups": true,
+                             *         "watchPosts": true,
+                             *         "posting": "after_ok",
+                             *         "young": false,
+                             *         "fullSpeed": false,
+                             *         "tidy": "cancel",
+                             *         "requests": "fits"
+                             *       },
+                             *       "x": {
                              *         "on": false,
                              *         "sending": "off",
                              *         "replies": "draft",
@@ -46596,6 +46726,126 @@ export interface operations {
                                     /** @default false */
                                     young: boolean;
                                 };
+                                /**
+                                 * @default {
+                                 *       "on": false,
+                                 *       "sending": "off",
+                                 *       "replies": "draft",
+                                 *       "warmUp": true,
+                                 *       "confirmRequests": true,
+                                 *       "collect": true,
+                                 *       "joinGroups": true,
+                                 *       "watchPosts": true,
+                                 *       "posting": "after_ok",
+                                 *       "young": false,
+                                 *       "fullSpeed": false,
+                                 *       "tidy": "cancel",
+                                 *       "requests": "fits"
+                                 *     }
+                                 */
+                                threads: {
+                                    /** @default true */
+                                    collect: boolean;
+                                    /** @default true */
+                                    confirmRequests: boolean;
+                                    /** @default false */
+                                    fullSpeed: boolean;
+                                    /** @default true */
+                                    joinGroups: boolean;
+                                    /** @default false */
+                                    on: boolean;
+                                    /**
+                                     * @default after_ok
+                                     * @enum {string}
+                                     */
+                                    posting: "copy" | "after_ok" | "own";
+                                    /**
+                                     * @default draft
+                                     * @enum {string}
+                                     */
+                                    replies: "draft" | "simple" | "everything";
+                                    /**
+                                     * @default fits
+                                     * @enum {string}
+                                     */
+                                    requests: "fits" | "fits_delete" | "all" | "delete";
+                                    /**
+                                     * @default off
+                                     * @enum {string}
+                                     */
+                                    sending: "off" | "steps" | "approve_all" | "everything";
+                                    /**
+                                     * @default cancel
+                                     * @enum {string}
+                                     */
+                                    tidy: "off" | "cancel" | "unfriend";
+                                    /** @default true */
+                                    warmUp: boolean;
+                                    /** @default true */
+                                    watchPosts: boolean;
+                                    /** @default false */
+                                    young: boolean;
+                                };
+                                /**
+                                 * @default {
+                                 *       "on": false,
+                                 *       "sending": "off",
+                                 *       "replies": "draft",
+                                 *       "warmUp": true,
+                                 *       "confirmRequests": true,
+                                 *       "collect": true,
+                                 *       "joinGroups": true,
+                                 *       "watchPosts": true,
+                                 *       "posting": "after_ok",
+                                 *       "young": false,
+                                 *       "fullSpeed": false,
+                                 *       "tidy": "cancel",
+                                 *       "requests": "fits"
+                                 *     }
+                                 */
+                                x: {
+                                    /** @default true */
+                                    collect: boolean;
+                                    /** @default true */
+                                    confirmRequests: boolean;
+                                    /** @default false */
+                                    fullSpeed: boolean;
+                                    /** @default true */
+                                    joinGroups: boolean;
+                                    /** @default false */
+                                    on: boolean;
+                                    /**
+                                     * @default after_ok
+                                     * @enum {string}
+                                     */
+                                    posting: "copy" | "after_ok" | "own";
+                                    /**
+                                     * @default draft
+                                     * @enum {string}
+                                     */
+                                    replies: "draft" | "simple" | "everything";
+                                    /**
+                                     * @default fits
+                                     * @enum {string}
+                                     */
+                                    requests: "fits" | "fits_delete" | "all" | "delete";
+                                    /**
+                                     * @default off
+                                     * @enum {string}
+                                     */
+                                    sending: "off" | "steps" | "approve_all" | "everything";
+                                    /**
+                                     * @default cancel
+                                     * @enum {string}
+                                     */
+                                    tidy: "off" | "cancel" | "unfriend";
+                                    /** @default true */
+                                    warmUp: boolean;
+                                    /** @default true */
+                                    watchPosts: boolean;
+                                    /** @default false */
+                                    young: boolean;
+                                };
                             };
                             /** @default true */
                             noting: boolean;
@@ -46766,7 +47016,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -46904,6 +47154,51 @@ export interface operations {
                         profileId: string;
                         skipped: number;
                         tagged: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_comment_replies_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
+                    replies: {
+                        author: {
+                            id: string | null;
+                            url: string;
+                            username: string | null;
+                        };
+                        name: string;
+                        text: string;
+                        /** @default false */
+                        toComment?: boolean;
+                        url: string;
+                        /** @default null */
+                        when?: string | null;
+                    }[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        kept: number;
                     };
                 };
             };
@@ -47124,7 +47419,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -47165,7 +47460,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -47206,7 +47501,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     profile?: {
                         id: string | null;
                         url: string;
@@ -47319,7 +47614,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -47379,7 +47674,7 @@ export interface operations {
                         when?: string | null;
                     }[];
                     /** @enum {string} */
-                    platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -47471,7 +47766,7 @@ export interface operations {
                     /** @default null */
                     place?: string | null;
                     /** @enum {string} */
-                    platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** @default null */
                     postId?: string | null;
                     /** @default null */
@@ -47562,7 +47857,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     profile: {
                         id: string | null;
                         url: string;
@@ -47611,7 +47906,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     profile: {
                         id: string | null;
                         url: string;
@@ -47658,7 +47953,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     profile?: {
                         id: string | null;
                         url: string;
@@ -47713,7 +48008,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -47762,7 +48057,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -47870,7 +48165,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** @default null */
                     privacy?: ("public" | "private") | null;
                     /** @default null */
@@ -47928,7 +48223,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -47964,7 +48259,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -48403,7 +48698,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -48445,7 +48740,7 @@ export interface operations {
                     active?: boolean;
                     computer: {
                         /** @default null */
-                        allowed?: ("facebook" | "linkedin" | "instagram" | "alignable")[] | null;
+                        allowed?: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[] | null;
                         /** @default false */
                         fresh?: boolean;
                         /** Format: uuid */
@@ -48644,12 +48939,12 @@ export interface operations {
                             days: number[];
                             goal: number | null;
                             /** @default [] */
-                            more: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            more: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[];
                             /** @default [] */
                             networks: {
                                 canSend: number;
                                 /** @enum {string} */
-                                platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                                platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             }[];
                         };
                         offer: {
@@ -48657,7 +48952,7 @@ export interface operations {
                             version: number;
                         } | null;
                         /** @enum {string} */
-                        platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                        platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                         profile: {
                             [key: string]: {
                                 /** Format: date-time */
@@ -48864,12 +49159,12 @@ export interface operations {
                             days: number[];
                             goal: number | null;
                             /** @default [] */
-                            more: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            more: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[];
                             /** @default [] */
                             networks: {
                                 canSend: number;
                                 /** @enum {string} */
-                                platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                                platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             }[];
                         };
                         offer: {
@@ -48877,7 +49172,7 @@ export interface operations {
                             version: number;
                         } | null;
                         /** @enum {string} */
-                        platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                        platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                         profile: {
                             [key: string]: {
                                 /** Format: date-time */
@@ -49148,7 +49443,7 @@ export interface operations {
                         };
                     }[];
                     /** @enum {string} */
-                    platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -49281,7 +49576,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     words: string;
                     /** Format: uuid */
                     workspaceId: string;
@@ -49467,7 +49762,7 @@ export interface operations {
                                 messageAfterDays: number;
                             };
                             partnerKinds?: ("group_admin" | "creator" | "business")[];
-                            platforms: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            platforms: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[];
                             postSearches?: string[];
                             problem?: string | null;
                             proof?: string[];
@@ -49485,6 +49780,7 @@ export interface operations {
                             skip: string[];
                             steps: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
                             tags: string[];
+                            threadsSearches?: string[];
                             tone: string | null;
                             usefulLink?: string | null;
                             usefulWhat?: string | null;
@@ -49500,8 +49796,9 @@ export interface operations {
                                 }[];
                                 version: number | null;
                             } | null;
-                            wordsWritten?: ("facebook" | "instagram" | "linkedin" | "alignable")[];
+                            wordsWritten?: ("facebook" | "instagram" | "linkedin" | "alignable" | "threads" | "x")[];
                             worksOnline?: boolean | null;
+                            xSearches?: string[];
                         };
                         /** Format: uuid */
                         id: string;
@@ -49549,7 +49846,7 @@ export interface operations {
                             messageAfterDays: number;
                         };
                         partnerKinds?: ("group_admin" | "creator" | "business")[];
-                        platforms?: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                        platforms?: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[];
                         postSearches?: string[];
                         problem?: string | null;
                         proof?: string[];
@@ -49567,6 +49864,7 @@ export interface operations {
                         skip?: string[];
                         steps?: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
                         tags?: string[];
+                        threadsSearches?: string[];
                         tone?: string | null;
                         usefulLink?: string | null;
                         usefulWhat?: string | null;
@@ -49582,8 +49880,9 @@ export interface operations {
                             }[];
                             version: number | null;
                         } | null;
-                        wordsWritten?: ("facebook" | "instagram" | "linkedin" | "alignable")[];
+                        wordsWritten?: ("facebook" | "instagram" | "linkedin" | "alignable" | "threads" | "x")[];
                         worksOnline?: boolean | null;
+                        xSearches?: string[];
                     };
                     details?: {
                         area: string | null;
@@ -49612,7 +49911,7 @@ export interface operations {
                             messageAfterDays: number;
                         };
                         partnerKinds?: ("group_admin" | "creator" | "business")[];
-                        platforms: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                        platforms: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[];
                         postSearches?: string[];
                         problem?: string | null;
                         proof?: string[];
@@ -49630,6 +49929,7 @@ export interface operations {
                         skip: string[];
                         steps: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
                         tags: string[];
+                        threadsSearches?: string[];
                         tone: string | null;
                         usefulLink?: string | null;
                         usefulWhat?: string | null;
@@ -49645,8 +49945,9 @@ export interface operations {
                             }[];
                             version: number | null;
                         } | null;
-                        wordsWritten?: ("facebook" | "instagram" | "linkedin" | "alignable")[];
+                        wordsWritten?: ("facebook" | "instagram" | "linkedin" | "alignable" | "threads" | "x")[];
                         worksOnline?: boolean | null;
+                        xSearches?: string[];
                     };
                     name: string;
                     /** Format: uuid */
@@ -49695,7 +49996,7 @@ export interface operations {
                                 messageAfterDays: number;
                             };
                             partnerKinds?: ("group_admin" | "creator" | "business")[];
-                            platforms: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            platforms: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[];
                             postSearches?: string[];
                             problem?: string | null;
                             proof?: string[];
@@ -49713,6 +50014,7 @@ export interface operations {
                             skip: string[];
                             steps: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
                             tags: string[];
+                            threadsSearches?: string[];
                             tone: string | null;
                             usefulLink?: string | null;
                             usefulWhat?: string | null;
@@ -49728,8 +50030,9 @@ export interface operations {
                                 }[];
                                 version: number | null;
                             } | null;
-                            wordsWritten?: ("facebook" | "instagram" | "linkedin" | "alignable")[];
+                            wordsWritten?: ("facebook" | "instagram" | "linkedin" | "alignable" | "threads" | "x")[];
                             worksOnline?: boolean | null;
+                            xSearches?: string[];
                         };
                         /** Format: uuid */
                         id: string;
@@ -49801,7 +50104,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     posts: {
                         author: {
                             id: string | null;
@@ -49902,7 +50205,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -50109,12 +50412,12 @@ export interface operations {
                             days: number[];
                             goal: number | null;
                             /** @default [] */
-                            more: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            more: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[];
                             /** @default [] */
                             networks: {
                                 canSend: number;
                                 /** @enum {string} */
-                                platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                                platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             }[];
                         };
                         offer: {
@@ -50122,7 +50425,7 @@ export interface operations {
                             version: number;
                         } | null;
                         /** @enum {string} */
-                        platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                        platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                         profile: {
                             [key: string]: {
                                 /** Format: date-time */
@@ -50328,12 +50631,12 @@ export interface operations {
                             days: number[];
                             goal: number | null;
                             /** @default [] */
-                            more: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            more: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[];
                             /** @default [] */
                             networks: {
                                 canSend: number;
                                 /** @enum {string} */
-                                platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                                platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             }[];
                         };
                         offer: {
@@ -50341,7 +50644,7 @@ export interface operations {
                             version: number;
                         } | null;
                         /** @enum {string} */
-                        platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                        platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                         profile: {
                             [key: string]: {
                                 /** Format: date-time */
@@ -50489,7 +50792,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -50553,12 +50856,12 @@ export interface operations {
                             days: number[];
                             goal: number | null;
                             /** @default [] */
-                            more: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            more: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[];
                             /** @default [] */
                             networks: {
                                 canSend: number;
                                 /** @enum {string} */
-                                platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                                platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             }[];
                         };
                         offer: {
@@ -50566,7 +50869,7 @@ export interface operations {
                             version: number;
                         } | null;
                         /** @enum {string} */
-                        platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                        platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                         profile: {
                             [key: string]: {
                                 /** Format: date-time */
@@ -50713,7 +51016,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     seen: {
                         name: string;
                         /** @default false */
@@ -50861,7 +51164,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     words: string[];
                     /** Format: uuid */
                     workspaceId: string;
@@ -50894,7 +51197,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -51220,7 +51523,7 @@ export interface operations {
                         } | null;
                         networks: {
                             /** @enum {string} */
-                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             steps: {
                                 left: string | null;
                                 optional: boolean;
@@ -51236,7 +51539,7 @@ export interface operations {
                             step: "offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "networks" | "numbers";
                         } | {
                             /** @enum {string} */
-                            net: "facebook" | "linkedin" | "instagram" | "alignable";
+                            net: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             /** @enum {string} */
                             step: "allow" | "playbook" | "profile" | "choices" | "start";
                         }) | null;
@@ -51245,7 +51548,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             name: string;
-                            networks: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            networks: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[];
                             niche: boolean;
                             template: string | null;
                             video: boolean;
@@ -51336,7 +51639,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** @default null */
                     postText?: string | null;
                     /** @default null */
@@ -51423,7 +51726,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** @default null */
                     url?: string | null;
                     words: string[];
@@ -51470,7 +51773,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     userId: string;
                     /** Format: uuid */
@@ -85283,7 +85586,7 @@ export interface operations {
                              * @default facebook
                              * @enum {string}
                              */
-                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             /** Format: uuid */
                             profileId: string;
                             repliedAt: string | null;
@@ -85304,7 +85607,7 @@ export interface operations {
                             friendRequests: number;
                             people: number;
                             /** @enum {string} */
-                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             replies: number;
                             warmedUp: number;
                             words: string;
@@ -85432,7 +85735,7 @@ export interface operations {
                              * @default facebook
                              * @enum {string}
                              */
-                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             reply: ("carry_on" | "skip") | null;
                             result: {
                                 drafts: string[];
@@ -85463,7 +85766,7 @@ export interface operations {
                             via: "web" | "mobile" | "extension";
                         }[];
                         computer: {
-                            allowed?: ("facebook" | "linkedin" | "instagram" | "alignable")[] | null;
+                            allowed?: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[] | null;
                             /** Format: uuid */
                             computerId: string;
                             /** Format: date-time */
@@ -85618,8 +85921,22 @@ export interface operations {
                                     friend_request?: number;
                                     like?: number;
                                 };
+                                threads?: {
+                                    comment?: number;
+                                    first_message?: number;
+                                    follow_up?: number;
+                                    friend_request?: number;
+                                    like?: number;
+                                };
+                                x?: {
+                                    comment?: number;
+                                    first_message?: number;
+                                    follow_up?: number;
+                                    friend_request?: number;
+                                    like?: number;
+                                };
                             };
-                            networksAllowed: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            networksAllowed: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[];
                             postingAllowed: ("copy" | "after_ok" | "own")[];
                             repliesAllowed: ("draft" | "simple" | "everything")[];
                             sendingAllowed: ("off" | "steps" | "approve_all" | "everything")[];
@@ -85685,6 +86002,36 @@ export interface operations {
                              *         "requests": "fits"
                              *       },
                              *       "alignable": {
+                             *         "on": false,
+                             *         "sending": "off",
+                             *         "replies": "draft",
+                             *         "warmUp": true,
+                             *         "confirmRequests": true,
+                             *         "collect": true,
+                             *         "joinGroups": true,
+                             *         "watchPosts": true,
+                             *         "posting": "after_ok",
+                             *         "young": false,
+                             *         "fullSpeed": false,
+                             *         "tidy": "cancel",
+                             *         "requests": "fits"
+                             *       },
+                             *       "threads": {
+                             *         "on": false,
+                             *         "sending": "off",
+                             *         "replies": "draft",
+                             *         "warmUp": true,
+                             *         "confirmRequests": true,
+                             *         "collect": true,
+                             *         "joinGroups": true,
+                             *         "watchPosts": true,
+                             *         "posting": "after_ok",
+                             *         "young": false,
+                             *         "fullSpeed": false,
+                             *         "tidy": "cancel",
+                             *         "requests": "fits"
+                             *       },
+                             *       "x": {
                              *         "on": false,
                              *         "sending": "off",
                              *         "replies": "draft",
@@ -85909,6 +86256,126 @@ export interface operations {
                                     /** @default false */
                                     young: boolean;
                                 };
+                                /**
+                                 * @default {
+                                 *       "on": false,
+                                 *       "sending": "off",
+                                 *       "replies": "draft",
+                                 *       "warmUp": true,
+                                 *       "confirmRequests": true,
+                                 *       "collect": true,
+                                 *       "joinGroups": true,
+                                 *       "watchPosts": true,
+                                 *       "posting": "after_ok",
+                                 *       "young": false,
+                                 *       "fullSpeed": false,
+                                 *       "tidy": "cancel",
+                                 *       "requests": "fits"
+                                 *     }
+                                 */
+                                threads: {
+                                    /** @default true */
+                                    collect: boolean;
+                                    /** @default true */
+                                    confirmRequests: boolean;
+                                    /** @default false */
+                                    fullSpeed: boolean;
+                                    /** @default true */
+                                    joinGroups: boolean;
+                                    /** @default false */
+                                    on: boolean;
+                                    /**
+                                     * @default after_ok
+                                     * @enum {string}
+                                     */
+                                    posting: "copy" | "after_ok" | "own";
+                                    /**
+                                     * @default draft
+                                     * @enum {string}
+                                     */
+                                    replies: "draft" | "simple" | "everything";
+                                    /**
+                                     * @default fits
+                                     * @enum {string}
+                                     */
+                                    requests: "fits" | "fits_delete" | "all" | "delete";
+                                    /**
+                                     * @default off
+                                     * @enum {string}
+                                     */
+                                    sending: "off" | "steps" | "approve_all" | "everything";
+                                    /**
+                                     * @default cancel
+                                     * @enum {string}
+                                     */
+                                    tidy: "off" | "cancel" | "unfriend";
+                                    /** @default true */
+                                    warmUp: boolean;
+                                    /** @default true */
+                                    watchPosts: boolean;
+                                    /** @default false */
+                                    young: boolean;
+                                };
+                                /**
+                                 * @default {
+                                 *       "on": false,
+                                 *       "sending": "off",
+                                 *       "replies": "draft",
+                                 *       "warmUp": true,
+                                 *       "confirmRequests": true,
+                                 *       "collect": true,
+                                 *       "joinGroups": true,
+                                 *       "watchPosts": true,
+                                 *       "posting": "after_ok",
+                                 *       "young": false,
+                                 *       "fullSpeed": false,
+                                 *       "tidy": "cancel",
+                                 *       "requests": "fits"
+                                 *     }
+                                 */
+                                x: {
+                                    /** @default true */
+                                    collect: boolean;
+                                    /** @default true */
+                                    confirmRequests: boolean;
+                                    /** @default false */
+                                    fullSpeed: boolean;
+                                    /** @default true */
+                                    joinGroups: boolean;
+                                    /** @default false */
+                                    on: boolean;
+                                    /**
+                                     * @default after_ok
+                                     * @enum {string}
+                                     */
+                                    posting: "copy" | "after_ok" | "own";
+                                    /**
+                                     * @default draft
+                                     * @enum {string}
+                                     */
+                                    replies: "draft" | "simple" | "everything";
+                                    /**
+                                     * @default fits
+                                     * @enum {string}
+                                     */
+                                    requests: "fits" | "fits_delete" | "all" | "delete";
+                                    /**
+                                     * @default off
+                                     * @enum {string}
+                                     */
+                                    sending: "off" | "steps" | "approve_all" | "everything";
+                                    /**
+                                     * @default cancel
+                                     * @enum {string}
+                                     */
+                                    tidy: "off" | "cancel" | "unfriend";
+                                    /** @default true */
+                                    warmUp: boolean;
+                                    /** @default true */
+                                    watchPosts: boolean;
+                                    /** @default false */
+                                    young: boolean;
+                                };
                             };
                             /** @default true */
                             noting: boolean;
@@ -86045,7 +86512,7 @@ export interface operations {
                             neverContact: boolean;
                             personId: string | null;
                             /** @enum {string} */
-                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             /** Format: uuid */
                             profileId: string;
                             spare: boolean;
@@ -86075,7 +86542,7 @@ export interface operations {
                     page?: number;
                     pageSize?: number;
                     /** @enum {string} */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     search?: string;
                     tag?: string;
                     /**
@@ -86113,7 +86580,7 @@ export interface operations {
                              * @default facebook
                              * @enum {string}
                              */
-                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             profileId: string | null;
                             prospect: boolean | null;
                             /** @enum {string} */
@@ -86158,7 +86625,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     profileId?: string;
                     /** Format: uuid */
@@ -86288,7 +86755,7 @@ export interface operations {
                             kind: "friend_request" | "like" | "comment" | "message" | "recommend" | "accepted" | "post_up" | "profile" | "post" | "chat" | "found" | "listed" | "occasion" | "event" | "group" | "joined" | "member" | "group_listed" | "cancelled" | "unfriended" | "declined" | "drafted";
                             n: number;
                             /** @enum {string} */
-                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                         }[];
                         everyone: boolean;
                         from: string;
@@ -86298,7 +86765,7 @@ export interface operations {
                                 kind: "friend_request" | "like" | "comment" | "message" | "recommend" | "accepted" | "post_up" | "profile" | "post" | "chat" | "found" | "listed" | "occasion" | "event" | "group" | "joined" | "member" | "group_listed" | "cancelled" | "unfriended" | "declined" | "drafted";
                                 n: number;
                                 /** @enum {string} */
-                                platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                                platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             }[];
                             name: string;
                             /** Format: uuid */
@@ -86362,7 +86829,7 @@ export interface operations {
                     /** @default 40 */
                     most?: number;
                     /** @enum {string} */
-                    platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -86407,7 +86874,7 @@ export interface operations {
                      * @default alignable
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** @default 0 */
                     round?: number;
                     /** Format: uuid */
@@ -86474,7 +86941,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -86526,7 +86993,7 @@ export interface operations {
                             how: "posted" | "commented" | "liked" | "member" | "event" | "follows" | "searched";
                             maybe: number;
                             /** @enum {string} */
-                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                         }[];
                     };
                 };
@@ -86549,7 +87016,7 @@ export interface operations {
                      * @default instagram
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -86627,7 +87094,7 @@ export interface operations {
                     page?: number;
                     pageSize?: number;
                     /** @enum {string} */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     search?: string;
                     /**
                      * @default friends
@@ -86733,7 +87200,7 @@ export interface operations {
                              * @default facebook
                              * @enum {string}
                              */
-                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             /** Format: uuid */
                             profileId: string;
                             since: string | null;
@@ -86760,7 +87227,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -86968,7 +87435,7 @@ export interface operations {
                                 you: boolean;
                             } | null;
                             /** @enum {string} */
-                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             url: string;
                         };
                         moveTo: {
@@ -87014,7 +87481,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     search?: string;
                     /**
                      * @default work
@@ -87108,7 +87575,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -87150,7 +87617,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -87181,7 +87648,7 @@ export interface operations {
                             how: "copy" | "after_ok" | "own";
                             picture: string | null;
                             /** @enum {string} */
-                            platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             playbookName: string | null;
                             postedAt: string | null;
                             postUrl: string | null;
@@ -87214,7 +87681,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -87265,7 +87732,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** @default 0 */
                     round?: number;
                     /** Format: uuid */
@@ -87401,7 +87868,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -87443,7 +87910,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -87460,7 +87927,7 @@ export interface operations {
                         canSend: boolean;
                         computer: {
                             activeAt: string | null;
-                            allowed?: ("facebook" | "linkedin" | "instagram" | "alignable")[] | null;
+                            allowed?: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[] | null;
                             /** Format: uuid */
                             id: string;
                             /** Format: date-time */
@@ -87473,7 +87940,7 @@ export interface operations {
                         } | null;
                         computers: {
                             activeAt: string | null;
-                            allowed?: ("facebook" | "linkedin" | "instagram" | "alignable")[] | null;
+                            allowed?: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[] | null;
                             /** Format: uuid */
                             id: string;
                             /** Format: date-time */
@@ -87582,7 +88049,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -87647,7 +88114,7 @@ export interface operations {
                             warned: boolean;
                         }[];
                         /** @enum {string} */
-                        platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                        platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                         timezone: string;
                     };
                 };
@@ -87670,7 +88137,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** @default [] */
                     profiles?: {
                         id: string | null;
@@ -87847,7 +88314,7 @@ export interface operations {
                     /** @default 1 */
                     page?: number;
                     /** @default null */
-                    platform?: ("facebook" | "linkedin" | "instagram" | "alignable") | null;
+                    platform?: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x") | null;
                     /**
                      * @default all
                      * @enum {string}
@@ -87890,7 +88357,7 @@ export interface operations {
                             /** Format: uuid */
                             partnerId: string;
                             /** @enum {string} */
-                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             playbook: {
                                 /** Format: uuid */
                                 id: string;
@@ -87926,7 +88393,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -87969,7 +88436,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -88037,7 +88504,7 @@ export interface operations {
                             }[];
                             ownerName: string | null;
                             /** @enum {string} */
-                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             savedMessages: number;
                             url: string;
                         }[];
@@ -88099,7 +88566,7 @@ export interface operations {
                                 you: boolean;
                             } | null;
                             /** @enum {string} */
-                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             url: string;
                         }[];
                     };
@@ -88164,7 +88631,7 @@ export interface operations {
                                     messageAfterDays: number;
                                 };
                                 partnerKinds?: ("group_admin" | "creator" | "business")[];
-                                platforms: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                                platforms: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[];
                                 postSearches?: string[];
                                 problem?: string | null;
                                 proof?: string[];
@@ -88182,6 +88649,7 @@ export interface operations {
                                 skip: string[];
                                 steps: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
                                 tags: string[];
+                                threadsSearches?: string[];
                                 tone: string | null;
                                 usefulLink?: string | null;
                                 usefulWhat?: string | null;
@@ -88197,8 +88665,9 @@ export interface operations {
                                     }[];
                                     version: number | null;
                                 } | null;
-                                wordsWritten?: ("facebook" | "instagram" | "linkedin" | "alignable")[];
+                                wordsWritten?: ("facebook" | "instagram" | "linkedin" | "alignable" | "threads" | "x")[];
                                 worksOnline?: boolean | null;
+                                xSearches?: string[];
                             };
                             /** Format: uuid */
                             id: string;
@@ -88229,7 +88698,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -88275,7 +88744,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** @default 0 */
                     round?: number;
                     /** Format: uuid */
@@ -88410,7 +88879,7 @@ export interface operations {
                         partnerHint?: string | null;
                         personId: string | null;
                         /** @enum {string} */
-                        platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                        platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                         /** Format: uuid */
                         profileId: string;
                         url: string;
@@ -88447,6 +88916,8 @@ export interface operations {
                             facebook: string | null;
                             instagram: string | null;
                             linkedin: string | null;
+                            threads: string | null;
+                            x: string | null;
                         };
                         checks: {
                             alignable: {
@@ -88917,6 +89388,240 @@ export interface operations {
                                     words: string | null;
                                 } | null;
                             } | null;
+                            threads: {
+                                aboutDraft?: string | null;
+                                /** Format: date-time */
+                                at: string;
+                                bios: string[];
+                                coverLine: string | null;
+                                coverLines?: string[];
+                                earlier?: {
+                                    about?: string[];
+                                    bio?: string[];
+                                    cover?: string[];
+                                    name?: string[];
+                                };
+                                feature: string[];
+                                featurePost?: string | null;
+                                idealDraft?: {
+                                    customer: string | null;
+                                    partner: string | null;
+                                } | null;
+                                items: {
+                                    about?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    bio?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    cover?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    featured?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    link?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    name?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    picture?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    posts?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    work?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                };
+                                linkChanges?: {
+                                    link: string;
+                                    to: string | null;
+                                    why: string;
+                                }[];
+                                look?: {
+                                    clashes: string[];
+                                    ok: boolean;
+                                    /** @enum {string} */
+                                    reads: "person" | "personal" | "brand" | "unclear";
+                                    title: string;
+                                    /** @default [] */
+                                    unlike: ("name" | "username" | "line" | "link")[];
+                                    /** @default null */
+                                    work: ("same" | "other" | "none") | null;
+                                } | null;
+                                nameDraft?: string | null;
+                                nameOff?: boolean;
+                                names?: string[];
+                                notes?: {
+                                    about?: string[];
+                                    bio?: string[];
+                                    cover?: string[];
+                                    name?: string[];
+                                    username?: string[];
+                                };
+                                own?: boolean;
+                                recommendations?: number | null;
+                                recommendNote?: string | null;
+                                seen?: {
+                                    line: string | null;
+                                    links: string[];
+                                    name: string | null;
+                                    url: string | null;
+                                    username: string | null;
+                                } | null;
+                                services?: {
+                                    name: string;
+                                    words: string | null;
+                                }[];
+                                usernames?: {
+                                    free: boolean | null;
+                                    value: string;
+                                }[];
+                                version: number | null;
+                                workDraft?: {
+                                    company: string;
+                                    title: string;
+                                    words: string | null;
+                                } | null;
+                            } | null;
+                            x: {
+                                aboutDraft?: string | null;
+                                /** Format: date-time */
+                                at: string;
+                                bios: string[];
+                                coverLine: string | null;
+                                coverLines?: string[];
+                                earlier?: {
+                                    about?: string[];
+                                    bio?: string[];
+                                    cover?: string[];
+                                    name?: string[];
+                                };
+                                feature: string[];
+                                featurePost?: string | null;
+                                idealDraft?: {
+                                    customer: string | null;
+                                    partner: string | null;
+                                } | null;
+                                items: {
+                                    about?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    bio?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    cover?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    featured?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    link?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    name?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    picture?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    posts?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    work?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                };
+                                linkChanges?: {
+                                    link: string;
+                                    to: string | null;
+                                    why: string;
+                                }[];
+                                look?: {
+                                    clashes: string[];
+                                    ok: boolean;
+                                    /** @enum {string} */
+                                    reads: "person" | "personal" | "brand" | "unclear";
+                                    title: string;
+                                    /** @default [] */
+                                    unlike: ("name" | "username" | "line" | "link")[];
+                                    /** @default null */
+                                    work: ("same" | "other" | "none") | null;
+                                } | null;
+                                nameDraft?: string | null;
+                                nameOff?: boolean;
+                                names?: string[];
+                                notes?: {
+                                    about?: string[];
+                                    bio?: string[];
+                                    cover?: string[];
+                                    name?: string[];
+                                    username?: string[];
+                                };
+                                own?: boolean;
+                                recommendations?: number | null;
+                                recommendNote?: string | null;
+                                seen?: {
+                                    line: string | null;
+                                    links: string[];
+                                    name: string | null;
+                                    url: string | null;
+                                    username: string | null;
+                                } | null;
+                                services?: {
+                                    name: string;
+                                    words: string | null;
+                                }[];
+                                usernames?: {
+                                    free: boolean | null;
+                                    value: string;
+                                }[];
+                                version: number | null;
+                                workDraft?: {
+                                    company: string;
+                                    title: string;
+                                    words: string | null;
+                                } | null;
+                            } | null;
                         };
                         website: string | null;
                     };
@@ -88938,7 +89643,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -89002,12 +89707,12 @@ export interface operations {
                             days: number[];
                             goal: number | null;
                             /** @default [] */
-                            more: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            more: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[];
                             /** @default [] */
                             networks: {
                                 canSend: number;
                                 /** @enum {string} */
-                                platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                                platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             }[];
                         };
                         offer: {
@@ -89015,7 +89720,7 @@ export interface operations {
                             version: number;
                         } | null;
                         /** @enum {string} */
-                        platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                        platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                         profile: {
                             [key: string]: {
                                 /** Format: date-time */
@@ -89277,7 +89982,7 @@ export interface operations {
                         } | null;
                         networks: {
                             /** @enum {string} */
-                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             steps: {
                                 left: string | null;
                                 optional: boolean;
@@ -89293,7 +89998,7 @@ export interface operations {
                             step: "offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "networks" | "numbers";
                         } | {
                             /** @enum {string} */
-                            net: "facebook" | "linkedin" | "instagram" | "alignable";
+                            net: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             /** @enum {string} */
                             step: "allow" | "playbook" | "profile" | "choices" | "start";
                         }) | null;
@@ -89302,7 +90007,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             name: string;
-                            networks: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            networks: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[];
                             niche: boolean;
                             template: string | null;
                             video: boolean;
@@ -89339,7 +90044,7 @@ export interface operations {
                     /** @default 1 */
                     page?: number;
                     /** @enum {string} */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     search?: string;
                     /**
                      * @default all
@@ -89390,7 +90095,7 @@ export interface operations {
                              * @default facebook
                              * @enum {string}
                              */
-                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             /** Format: uuid */
                             profileId: string;
                             /** @enum {string} */
@@ -89430,7 +90135,7 @@ export interface operations {
                     "application/json": {
                         computer: {
                             activeAt: string | null;
-                            allowed?: ("facebook" | "linkedin" | "instagram" | "alignable")[] | null;
+                            allowed?: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[] | null;
                             /** Format: uuid */
                             id: string;
                             /** Format: date-time */
@@ -89481,7 +90186,7 @@ export interface operations {
                      * @default facebook
                      * @enum {string}
                      */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -89768,7 +90473,7 @@ export interface operations {
                             booked: number;
                             messages: number;
                             /** @enum {string} */
-                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             positive: number;
                         }[];
                         byPlaybook: {
@@ -89855,7 +90560,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        commentHolds: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                        commentHolds: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[];
                         count: number;
                         hours: {
                             days: number[];
@@ -89879,7 +90584,7 @@ export interface operations {
                                  * @default facebook
                                  * @enum {string}
                                  */
-                                platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                                platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                                 reply: ("carry_on" | "skip") | null;
                                 result: {
                                     drafts: string[];
@@ -90009,7 +90714,7 @@ export interface operations {
                                 /** Format: uuid */
                                 needId: string;
                                 /** @enum {string} */
-                                platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                                platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                                 postId: string | null;
                                 /** Format: uuid */
                                 profileId: string;
@@ -90111,7 +90816,7 @@ export interface operations {
                              * @default facebook
                              * @enum {string}
                              */
-                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             /** Format: uuid */
                             userId: string;
                             wheels: {

@@ -90307,6 +90307,24 @@
                           "maxLength": 80
                         }
                       },
+                      "threadsSearches": {
+                        "maxItems": 12,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 60
+                        }
+                      },
+                      "xSearches": {
+                        "maxItems": 12,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 60
+                        }
+                      },
                       "worksOnline": {
                         "type": [
                           "boolean",
@@ -90321,7 +90339,9 @@
                             "facebook",
                             "instagram",
                             "linkedin",
-                            "alignable"
+                            "alignable",
+                            "threads",
+                            "x"
                           ]
                         }
                       },
@@ -90376,7 +90396,9 @@
                             "facebook",
                             "linkedin",
                             "instagram",
-                            "alignable"
+                            "alignable",
+                            "threads",
+                            "x"
                           ]
                         }
                       },
@@ -90831,6 +90853,24 @@
                           "maxLength": 80
                         }
                       },
+                      "threadsSearches": {
+                        "maxItems": 12,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 60
+                        }
+                      },
+                      "xSearches": {
+                        "maxItems": 12,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 60
+                        }
+                      },
                       "worksOnline": {
                         "type": [
                           "boolean",
@@ -90845,7 +90885,9 @@
                             "facebook",
                             "instagram",
                             "linkedin",
-                            "alignable"
+                            "alignable",
+                            "threads",
+                            "x"
                           ]
                         }
                       },
@@ -90900,7 +90942,9 @@
                             "facebook",
                             "linkedin",
                             "instagram",
-                            "alignable"
+                            "alignable",
+                            "threads",
+                            "x"
                           ]
                         }
                       },
@@ -91367,6 +91411,24 @@
                             "maxLength": 80
                           }
                         },
+                        "threadsSearches": {
+                          "maxItems": 12,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 60
+                          }
+                        },
+                        "xSearches": {
+                          "maxItems": 12,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 60
+                          }
+                        },
                         "worksOnline": {
                           "type": [
                             "boolean",
@@ -91381,7 +91443,9 @@
                               "facebook",
                               "instagram",
                               "linkedin",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           }
                         },
@@ -91436,7 +91500,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           }
                         },
@@ -91999,6 +92065,24 @@
                             "maxLength": 80
                           }
                         },
+                        "threadsSearches": {
+                          "maxItems": 12,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 60
+                          }
+                        },
+                        "xSearches": {
+                          "maxItems": 12,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 60
+                          }
+                        },
                         "worksOnline": {
                           "type": [
                             "boolean",
@@ -92013,7 +92097,9 @@
                               "facebook",
                               "instagram",
                               "linkedin",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           }
                         },
@@ -92068,7 +92154,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           }
                         },
@@ -92458,7 +92546,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "kind": {
@@ -92729,7 +92819,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "answer": {
@@ -92874,7 +92966,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "list": {
@@ -93029,7 +93123,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "profileId": {
@@ -93217,7 +93313,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "importId": {
@@ -93489,7 +93587,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "chats": {
@@ -93664,7 +93764,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "groups": {
@@ -93935,7 +94037,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "people": {
@@ -94100,7 +94204,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "kind": {
@@ -94218,7 +94324,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "words": {
@@ -94337,7 +94445,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "on": {
@@ -94422,7 +94532,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "words": {
@@ -94498,7 +94610,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   }
                 },
@@ -94560,7 +94674,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "group": {
@@ -94889,6 +95005,145 @@
         }
       }
     },
+    "/v1/commands/outreach.comment_replies.save": {
+      "post": {
+        "operationId": "command_outreach_comment_replies_save",
+        "summary": "Keep the replies to the person’s comments on Threads or X that their computer read in their notifications: each new one from someone they commented to, or shown answering one of their comments, waits on Today for an answer the AI drafts, which waits for their OK. A reply that says yes to a demo pushes to their phone. Nobody goes in Contacts.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.comment.replied.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin",
+                      "instagram",
+                      "alignable",
+                      "threads",
+                      "x"
+                    ]
+                  },
+                  "replies": {
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "type": "string",
+                          "maxLength": 500
+                        },
+                        "author": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "username": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "url": {
+                              "type": "string",
+                              "maxLength": 500
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "username",
+                            "url"
+                          ]
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "text": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2000
+                        },
+                        "when": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "toComment": {
+                          "default": false,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "url",
+                        "author",
+                        "name",
+                        "text"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "platform",
+                  "replies"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "kept": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "kept"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/outreach.replies.note": {
       "post": {
         "operationId": "command_outreach_replies_note",
@@ -94916,7 +95171,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "seen": {
@@ -95148,7 +95405,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "profileId": {
@@ -95388,13 +95647,6 @@
                         "type": "object",
                         "properties": {
                           "facebook": {
-                            "default": {
-                              "on": true,
-                              "young": false,
-                              "fullSpeed": false,
-                              "tidy": "cancel",
-                              "requests": "fits"
-                            },
                             "type": "object",
                             "properties": {
                               "on": {
@@ -95431,21 +95683,6 @@
                             }
                           },
                           "linkedin": {
-                            "default": {
-                              "on": false,
-                              "sending": "off",
-                              "replies": "draft",
-                              "warmUp": true,
-                              "confirmRequests": true,
-                              "collect": true,
-                              "joinGroups": true,
-                              "watchPosts": true,
-                              "posting": "after_ok",
-                              "young": false,
-                              "fullSpeed": false,
-                              "tidy": "cancel",
-                              "requests": "fits"
-                            },
                             "type": "object",
                             "properties": {
                               "on": {
@@ -95530,21 +95767,6 @@
                             }
                           },
                           "instagram": {
-                            "default": {
-                              "on": false,
-                              "sending": "off",
-                              "replies": "draft",
-                              "warmUp": true,
-                              "confirmRequests": true,
-                              "collect": true,
-                              "joinGroups": true,
-                              "watchPosts": true,
-                              "posting": "after_ok",
-                              "young": false,
-                              "fullSpeed": false,
-                              "tidy": "cancel",
-                              "requests": "fits"
-                            },
                             "type": "object",
                             "properties": {
                               "on": {
@@ -95629,21 +95851,174 @@
                             }
                           },
                           "alignable": {
-                            "default": {
-                              "on": false,
-                              "sending": "off",
-                              "replies": "draft",
-                              "warmUp": true,
-                              "confirmRequests": true,
-                              "collect": true,
-                              "joinGroups": true,
-                              "watchPosts": true,
-                              "posting": "after_ok",
-                              "young": false,
-                              "fullSpeed": false,
-                              "tidy": "cancel",
-                              "requests": "fits"
-                            },
+                            "type": "object",
+                            "properties": {
+                              "on": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "sending": {
+                                "default": "off",
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "steps",
+                                  "approve_all",
+                                  "everything"
+                                ]
+                              },
+                              "replies": {
+                                "default": "draft",
+                                "type": "string",
+                                "enum": [
+                                  "draft",
+                                  "simple",
+                                  "everything"
+                                ]
+                              },
+                              "warmUp": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "confirmRequests": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "collect": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "joinGroups": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "watchPosts": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "posting": {
+                                "default": "after_ok",
+                                "type": "string",
+                                "enum": [
+                                  "copy",
+                                  "after_ok",
+                                  "own"
+                                ]
+                              },
+                              "young": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "fullSpeed": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "tidy": {
+                                "default": "cancel",
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "cancel",
+                                  "unfriend"
+                                ]
+                              },
+                              "requests": {
+                                "default": "fits",
+                                "type": "string",
+                                "enum": [
+                                  "fits",
+                                  "fits_delete",
+                                  "all",
+                                  "delete"
+                                ]
+                              }
+                            }
+                          },
+                          "threads": {
+                            "type": "object",
+                            "properties": {
+                              "on": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "sending": {
+                                "default": "off",
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "steps",
+                                  "approve_all",
+                                  "everything"
+                                ]
+                              },
+                              "replies": {
+                                "default": "draft",
+                                "type": "string",
+                                "enum": [
+                                  "draft",
+                                  "simple",
+                                  "everything"
+                                ]
+                              },
+                              "warmUp": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "confirmRequests": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "collect": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "joinGroups": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "watchPosts": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "posting": {
+                                "default": "after_ok",
+                                "type": "string",
+                                "enum": [
+                                  "copy",
+                                  "after_ok",
+                                  "own"
+                                ]
+                              },
+                              "young": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "fullSpeed": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "tidy": {
+                                "default": "cancel",
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "cancel",
+                                  "unfriend"
+                                ]
+                              },
+                              "requests": {
+                                "default": "fits",
+                                "type": "string",
+                                "enum": [
+                                  "fits",
+                                  "fits_delete",
+                                  "all",
+                                  "delete"
+                                ]
+                              }
+                            }
+                          },
+                          "x": {
                             "type": "object",
                             "properties": {
                               "on": {
@@ -96101,6 +96476,148 @@
                                 ]
                               }
                             }
+                          },
+                          "threads": {
+                            "type": "object",
+                            "properties": {
+                              "on": {
+                                "type": "boolean"
+                              },
+                              "sending": {
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "steps",
+                                  "approve_all",
+                                  "everything"
+                                ]
+                              },
+                              "replies": {
+                                "type": "string",
+                                "enum": [
+                                  "draft",
+                                  "simple",
+                                  "everything"
+                                ]
+                              },
+                              "warmUp": {
+                                "type": "boolean"
+                              },
+                              "confirmRequests": {
+                                "type": "boolean"
+                              },
+                              "collect": {
+                                "type": "boolean"
+                              },
+                              "joinGroups": {
+                                "type": "boolean"
+                              },
+                              "watchPosts": {
+                                "type": "boolean"
+                              },
+                              "posting": {
+                                "type": "string",
+                                "enum": [
+                                  "copy",
+                                  "after_ok",
+                                  "own"
+                                ]
+                              },
+                              "young": {
+                                "type": "boolean"
+                              },
+                              "fullSpeed": {
+                                "type": "boolean"
+                              },
+                              "tidy": {
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "cancel",
+                                  "unfriend"
+                                ]
+                              },
+                              "requests": {
+                                "type": "string",
+                                "enum": [
+                                  "fits",
+                                  "fits_delete",
+                                  "all",
+                                  "delete"
+                                ]
+                              }
+                            }
+                          },
+                          "x": {
+                            "type": "object",
+                            "properties": {
+                              "on": {
+                                "type": "boolean"
+                              },
+                              "sending": {
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "steps",
+                                  "approve_all",
+                                  "everything"
+                                ]
+                              },
+                              "replies": {
+                                "type": "string",
+                                "enum": [
+                                  "draft",
+                                  "simple",
+                                  "everything"
+                                ]
+                              },
+                              "warmUp": {
+                                "type": "boolean"
+                              },
+                              "confirmRequests": {
+                                "type": "boolean"
+                              },
+                              "collect": {
+                                "type": "boolean"
+                              },
+                              "joinGroups": {
+                                "type": "boolean"
+                              },
+                              "watchPosts": {
+                                "type": "boolean"
+                              },
+                              "posting": {
+                                "type": "string",
+                                "enum": [
+                                  "copy",
+                                  "after_ok",
+                                  "own"
+                                ]
+                              },
+                              "young": {
+                                "type": "boolean"
+                              },
+                              "fullSpeed": {
+                                "type": "boolean"
+                              },
+                              "tidy": {
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "cancel",
+                                  "unfriend"
+                                ]
+                              },
+                              "requests": {
+                                "type": "string",
+                                "enum": [
+                                  "fits",
+                                  "fits_delete",
+                                  "all",
+                                  "delete"
+                                ]
+                              }
+                            }
                           }
                         }
                       }
@@ -96310,6 +96827,36 @@
                               "requests": "fits"
                             },
                             "alignable": {
+                              "on": false,
+                              "sending": "off",
+                              "replies": "draft",
+                              "warmUp": true,
+                              "confirmRequests": true,
+                              "collect": true,
+                              "joinGroups": true,
+                              "watchPosts": true,
+                              "posting": "after_ok",
+                              "young": false,
+                              "fullSpeed": false,
+                              "tidy": "cancel",
+                              "requests": "fits"
+                            },
+                            "threads": {
+                              "on": false,
+                              "sending": "off",
+                              "replies": "draft",
+                              "warmUp": true,
+                              "confirmRequests": true,
+                              "collect": true,
+                              "joinGroups": true,
+                              "watchPosts": true,
+                              "posting": "after_ok",
+                              "young": false,
+                              "fullSpeed": false,
+                              "tidy": "cancel",
+                              "requests": "fits"
+                            },
+                            "x": {
                               "on": false,
                               "sending": "off",
                               "replies": "draft",
@@ -96722,13 +97269,245 @@
                                 "requests"
                               ],
                               "additionalProperties": false
+                            },
+                            "threads": {
+                              "default": {
+                                "on": false,
+                                "sending": "off",
+                                "replies": "draft",
+                                "warmUp": true,
+                                "confirmRequests": true,
+                                "collect": true,
+                                "joinGroups": true,
+                                "watchPosts": true,
+                                "posting": "after_ok",
+                                "young": false,
+                                "fullSpeed": false,
+                                "tidy": "cancel",
+                                "requests": "fits"
+                              },
+                              "type": "object",
+                              "properties": {
+                                "on": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "sending": {
+                                  "default": "off",
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "steps",
+                                    "approve_all",
+                                    "everything"
+                                  ]
+                                },
+                                "replies": {
+                                  "default": "draft",
+                                  "type": "string",
+                                  "enum": [
+                                    "draft",
+                                    "simple",
+                                    "everything"
+                                  ]
+                                },
+                                "warmUp": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "confirmRequests": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "collect": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "joinGroups": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "watchPosts": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "posting": {
+                                  "default": "after_ok",
+                                  "type": "string",
+                                  "enum": [
+                                    "copy",
+                                    "after_ok",
+                                    "own"
+                                  ]
+                                },
+                                "young": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "fullSpeed": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "tidy": {
+                                  "default": "cancel",
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "cancel",
+                                    "unfriend"
+                                  ]
+                                },
+                                "requests": {
+                                  "default": "fits",
+                                  "type": "string",
+                                  "enum": [
+                                    "fits",
+                                    "fits_delete",
+                                    "all",
+                                    "delete"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "on",
+                                "sending",
+                                "replies",
+                                "warmUp",
+                                "confirmRequests",
+                                "collect",
+                                "joinGroups",
+                                "watchPosts",
+                                "posting",
+                                "young",
+                                "fullSpeed",
+                                "tidy",
+                                "requests"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "x": {
+                              "default": {
+                                "on": false,
+                                "sending": "off",
+                                "replies": "draft",
+                                "warmUp": true,
+                                "confirmRequests": true,
+                                "collect": true,
+                                "joinGroups": true,
+                                "watchPosts": true,
+                                "posting": "after_ok",
+                                "young": false,
+                                "fullSpeed": false,
+                                "tidy": "cancel",
+                                "requests": "fits"
+                              },
+                              "type": "object",
+                              "properties": {
+                                "on": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "sending": {
+                                  "default": "off",
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "steps",
+                                    "approve_all",
+                                    "everything"
+                                  ]
+                                },
+                                "replies": {
+                                  "default": "draft",
+                                  "type": "string",
+                                  "enum": [
+                                    "draft",
+                                    "simple",
+                                    "everything"
+                                  ]
+                                },
+                                "warmUp": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "confirmRequests": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "collect": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "joinGroups": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "watchPosts": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "posting": {
+                                  "default": "after_ok",
+                                  "type": "string",
+                                  "enum": [
+                                    "copy",
+                                    "after_ok",
+                                    "own"
+                                  ]
+                                },
+                                "young": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "fullSpeed": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "tidy": {
+                                  "default": "cancel",
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "cancel",
+                                    "unfriend"
+                                  ]
+                                },
+                                "requests": {
+                                  "default": "fits",
+                                  "type": "string",
+                                  "enum": [
+                                    "fits",
+                                    "fits_delete",
+                                    "all",
+                                    "delete"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "on",
+                                "sending",
+                                "replies",
+                                "warmUp",
+                                "confirmRequests",
+                                "collect",
+                                "joinGroups",
+                                "watchPosts",
+                                "posting",
+                                "young",
+                                "fullSpeed",
+                                "tidy",
+                                "requests"
+                              ],
+                              "additionalProperties": false
                             }
                           },
                           "required": [
                             "facebook",
                             "linkedin",
                             "instagram",
-                            "alignable"
+                            "alignable",
+                            "threads",
+                            "x"
                           ],
                           "additionalProperties": false
                         }
@@ -97261,7 +98040,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           }
                         },
@@ -97357,6 +98138,68 @@
                                   "type": "integer",
                                   "minimum": 0,
                                   "maximum": 30
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "threads": {
+                              "type": "object",
+                              "properties": {
+                                "friend_request": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 20
+                                },
+                                "first_message": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 0
+                                },
+                                "follow_up": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 0
+                                },
+                                "comment": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 30
+                                },
+                                "like": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 80
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "x": {
+                              "type": "object",
+                              "properties": {
+                                "friend_request": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 20
+                                },
+                                "first_message": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 0
+                                },
+                                "follow_up": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 0
+                                },
+                                "comment": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 30
+                                },
+                                "like": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 80
                                 }
                               },
                               "additionalProperties": false
@@ -97552,7 +98395,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   }
                 },
@@ -98464,7 +99309,7 @@
                         "default": null,
                         "anyOf": [
                           {
-                            "maxItems": 4,
+                            "maxItems": 6,
                             "type": "array",
                             "items": {
                               "type": "string",
@@ -98472,7 +99317,9 @@
                                 "facebook",
                                 "linkedin",
                                 "instagram",
-                                "alignable"
+                                "alignable",
+                                "threads",
+                                "x"
                               ]
                             }
                           },
@@ -98971,7 +99818,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "installId": {
@@ -99090,7 +99939,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "installId": {
@@ -99398,7 +100249,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "list": {
@@ -99999,7 +100852,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "ask": {
@@ -100713,7 +101568,9 @@
                             "facebook",
                             "linkedin",
                             "instagram",
-                            "alignable"
+                            "alignable",
+                            "threads",
+                            "x"
                           ]
                         },
                         "kind": {
@@ -101031,7 +101888,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   }
                 },
@@ -101068,7 +101927,9 @@
                                 "facebook",
                                 "linkedin",
                                 "instagram",
-                                "alignable"
+                                "alignable",
+                                "threads",
+                                "x"
                               ]
                             },
                             "kind": {
@@ -102353,7 +103214,9 @@
                             "facebook",
                             "linkedin",
                             "instagram",
-                            "alignable"
+                            "alignable",
+                            "threads",
+                            "x"
                           ]
                         },
                         "kind": {
@@ -102684,7 +103547,9 @@
                             "facebook",
                             "linkedin",
                             "instagram",
-                            "alignable"
+                            "alignable",
+                            "threads",
+                            "x"
                           ]
                         },
                         "kind": {
@@ -103011,7 +103876,9 @@
                             "facebook",
                             "linkedin",
                             "instagram",
-                            "alignable"
+                            "alignable",
+                            "threads",
+                            "x"
                           ]
                         },
                         "kind": {
@@ -103541,7 +104408,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           },
                           "steps": {
@@ -103634,7 +104503,9 @@
                                     "facebook",
                                     "linkedin",
                                     "instagram",
-                                    "alignable"
+                                    "alignable",
+                                    "threads",
+                                    "x"
                                   ]
                                 },
                                 "step": {
@@ -103770,7 +104641,9 @@
                                 "facebook",
                                 "linkedin",
                                 "instagram",
-                                "alignable"
+                                "alignable",
+                                "threads",
+                                "x"
                               ]
                             }
                           }
@@ -103961,7 +104834,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "item": {
@@ -104005,7 +104880,9 @@
                         "facebook",
                         "linkedin",
                         "instagram",
-                        "alignable"
+                        "alignable",
+                        "threads",
+                        "x"
                       ]
                     },
                     "ready": {
@@ -105230,7 +106107,9 @@
                                   "facebook",
                                   "linkedin",
                                   "instagram",
-                                  "alignable"
+                                  "alignable",
+                                  "threads",
+                                  "x"
                                 ]
                               },
                               "canSend": {
@@ -105255,7 +106134,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           }
                         }
@@ -105349,7 +106230,9 @@
                         "facebook",
                         "linkedin",
                         "instagram",
-                        "alignable"
+                        "alignable",
+                        "threads",
+                        "x"
                       ]
                     },
                     "ready": {
@@ -106574,7 +107457,9 @@
                                   "facebook",
                                   "linkedin",
                                   "instagram",
-                                  "alignable"
+                                  "alignable",
+                                  "threads",
+                                  "x"
                                 ]
                               },
                               "canSend": {
@@ -106599,7 +107484,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           }
                         }
@@ -106661,7 +107548,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "found": {
@@ -107548,7 +108437,9 @@
                         "facebook",
                         "linkedin",
                         "instagram",
-                        "alignable"
+                        "alignable",
+                        "threads",
+                        "x"
                       ]
                     },
                     "ready": {
@@ -108773,7 +109664,9 @@
                                   "facebook",
                                   "linkedin",
                                   "instagram",
-                                  "alignable"
+                                  "alignable",
+                                  "threads",
+                                  "x"
                                 ]
                               },
                               "canSend": {
@@ -108798,7 +109691,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           }
                         }
@@ -108898,7 +109793,9 @@
                         "facebook",
                         "linkedin",
                         "instagram",
-                        "alignable"
+                        "alignable",
+                        "threads",
+                        "x"
                       ]
                     },
                     "ready": {
@@ -110123,7 +111020,9 @@
                                   "facebook",
                                   "linkedin",
                                   "instagram",
-                                  "alignable"
+                                  "alignable",
+                                  "threads",
+                                  "x"
                                 ]
                               },
                               "canSend": {
@@ -110148,7 +111047,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           }
                         }
@@ -110242,7 +111143,9 @@
                         "facebook",
                         "linkedin",
                         "instagram",
-                        "alignable"
+                        "alignable",
+                        "threads",
+                        "x"
                       ]
                     },
                     "ready": {
@@ -111467,7 +112370,9 @@
                                   "facebook",
                                   "linkedin",
                                   "instagram",
-                                  "alignable"
+                                  "alignable",
+                                  "threads",
+                                  "x"
                                 ]
                               },
                               "canSend": {
@@ -111492,7 +112397,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           }
                         }
@@ -112225,7 +113132,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "groupId": {
@@ -112771,7 +113680,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "engaged": {
@@ -113060,7 +113971,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "kind": {
@@ -113698,7 +114611,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "how": {
@@ -114158,7 +115073,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "occasions": {
@@ -226578,6 +227495,24 @@
                                   "maxLength": 80
                                 }
                               },
+                              "threadsSearches": {
+                                "maxItems": 12,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 60
+                                }
+                              },
+                              "xSearches": {
+                                "maxItems": 12,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 60
+                                }
+                              },
                               "worksOnline": {
                                 "type": [
                                   "boolean",
@@ -226592,7 +227527,9 @@
                                     "facebook",
                                     "instagram",
                                     "linkedin",
-                                    "alignable"
+                                    "alignable",
+                                    "threads",
+                                    "x"
                                   ]
                                 }
                               },
@@ -226647,7 +227584,9 @@
                                     "facebook",
                                     "linkedin",
                                     "instagram",
-                                    "alignable"
+                                    "alignable",
+                                    "threads",
+                                    "x"
                                   ]
                                 }
                               },
@@ -226979,7 +227918,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "profiles": {
@@ -227402,7 +228343,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           },
                           "url": {
@@ -227750,7 +228693,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           },
                           "url": {
@@ -228191,7 +229136,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           },
                           "words": {
@@ -228276,7 +229223,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           },
                           "group": {
@@ -228700,7 +229649,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   }
                 },
@@ -228905,7 +229856,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           },
                           "state": {
@@ -229384,7 +230337,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   }
                 },
@@ -229484,7 +230439,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           },
                           "personId": {
@@ -229656,7 +230613,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "view": {
@@ -230065,7 +231024,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "kind": {
@@ -231491,7 +232452,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   }
                 },
@@ -232182,7 +233145,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "most": {
@@ -232297,7 +233262,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "round": {
@@ -232728,6 +233695,36 @@
                               "fullSpeed": false,
                               "tidy": "cancel",
                               "requests": "fits"
+                            },
+                            "threads": {
+                              "on": false,
+                              "sending": "off",
+                              "replies": "draft",
+                              "warmUp": true,
+                              "confirmRequests": true,
+                              "collect": true,
+                              "joinGroups": true,
+                              "watchPosts": true,
+                              "posting": "after_ok",
+                              "young": false,
+                              "fullSpeed": false,
+                              "tidy": "cancel",
+                              "requests": "fits"
+                            },
+                            "x": {
+                              "on": false,
+                              "sending": "off",
+                              "replies": "draft",
+                              "warmUp": true,
+                              "confirmRequests": true,
+                              "collect": true,
+                              "joinGroups": true,
+                              "watchPosts": true,
+                              "posting": "after_ok",
+                              "young": false,
+                              "fullSpeed": false,
+                              "tidy": "cancel",
+                              "requests": "fits"
                             }
                           },
                           "type": "object",
@@ -233127,13 +234124,245 @@
                                 "requests"
                               ],
                               "additionalProperties": false
+                            },
+                            "threads": {
+                              "default": {
+                                "on": false,
+                                "sending": "off",
+                                "replies": "draft",
+                                "warmUp": true,
+                                "confirmRequests": true,
+                                "collect": true,
+                                "joinGroups": true,
+                                "watchPosts": true,
+                                "posting": "after_ok",
+                                "young": false,
+                                "fullSpeed": false,
+                                "tidy": "cancel",
+                                "requests": "fits"
+                              },
+                              "type": "object",
+                              "properties": {
+                                "on": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "sending": {
+                                  "default": "off",
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "steps",
+                                    "approve_all",
+                                    "everything"
+                                  ]
+                                },
+                                "replies": {
+                                  "default": "draft",
+                                  "type": "string",
+                                  "enum": [
+                                    "draft",
+                                    "simple",
+                                    "everything"
+                                  ]
+                                },
+                                "warmUp": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "confirmRequests": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "collect": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "joinGroups": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "watchPosts": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "posting": {
+                                  "default": "after_ok",
+                                  "type": "string",
+                                  "enum": [
+                                    "copy",
+                                    "after_ok",
+                                    "own"
+                                  ]
+                                },
+                                "young": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "fullSpeed": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "tidy": {
+                                  "default": "cancel",
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "cancel",
+                                    "unfriend"
+                                  ]
+                                },
+                                "requests": {
+                                  "default": "fits",
+                                  "type": "string",
+                                  "enum": [
+                                    "fits",
+                                    "fits_delete",
+                                    "all",
+                                    "delete"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "on",
+                                "sending",
+                                "replies",
+                                "warmUp",
+                                "confirmRequests",
+                                "collect",
+                                "joinGroups",
+                                "watchPosts",
+                                "posting",
+                                "young",
+                                "fullSpeed",
+                                "tidy",
+                                "requests"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "x": {
+                              "default": {
+                                "on": false,
+                                "sending": "off",
+                                "replies": "draft",
+                                "warmUp": true,
+                                "confirmRequests": true,
+                                "collect": true,
+                                "joinGroups": true,
+                                "watchPosts": true,
+                                "posting": "after_ok",
+                                "young": false,
+                                "fullSpeed": false,
+                                "tidy": "cancel",
+                                "requests": "fits"
+                              },
+                              "type": "object",
+                              "properties": {
+                                "on": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "sending": {
+                                  "default": "off",
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "steps",
+                                    "approve_all",
+                                    "everything"
+                                  ]
+                                },
+                                "replies": {
+                                  "default": "draft",
+                                  "type": "string",
+                                  "enum": [
+                                    "draft",
+                                    "simple",
+                                    "everything"
+                                  ]
+                                },
+                                "warmUp": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "confirmRequests": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "collect": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "joinGroups": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "watchPosts": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "posting": {
+                                  "default": "after_ok",
+                                  "type": "string",
+                                  "enum": [
+                                    "copy",
+                                    "after_ok",
+                                    "own"
+                                  ]
+                                },
+                                "young": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "fullSpeed": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "tidy": {
+                                  "default": "cancel",
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "cancel",
+                                    "unfriend"
+                                  ]
+                                },
+                                "requests": {
+                                  "default": "fits",
+                                  "type": "string",
+                                  "enum": [
+                                    "fits",
+                                    "fits_delete",
+                                    "all",
+                                    "delete"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "on",
+                                "sending",
+                                "replies",
+                                "warmUp",
+                                "confirmRequests",
+                                "collect",
+                                "joinGroups",
+                                "watchPosts",
+                                "posting",
+                                "young",
+                                "fullSpeed",
+                                "tidy",
+                                "requests"
+                              ],
+                              "additionalProperties": false
                             }
                           },
                           "required": [
                             "facebook",
                             "linkedin",
                             "instagram",
-                            "alignable"
+                            "alignable",
+                            "threads",
+                            "x"
                           ],
                           "additionalProperties": false
                         }
@@ -233666,7 +234895,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           }
                         },
@@ -233762,6 +234993,68 @@
                                   "type": "integer",
                                   "minimum": 0,
                                   "maximum": 30
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "threads": {
+                              "type": "object",
+                              "properties": {
+                                "friend_request": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 20
+                                },
+                                "first_message": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 0
+                                },
+                                "follow_up": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 0
+                                },
+                                "comment": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 30
+                                },
+                                "like": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 80
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "x": {
+                              "type": "object",
+                              "properties": {
+                                "friend_request": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 20
+                                },
+                                "first_message": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 0
+                                },
+                                "follow_up": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 0
+                                },
+                                "comment": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 30
+                                },
+                                "like": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 80
                                 }
                               },
                               "additionalProperties": false
@@ -233863,7 +235156,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           },
                           "wheels": {
@@ -234112,7 +235407,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           },
                           "kind": {
@@ -234552,7 +235849,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   }
                 },
@@ -234718,7 +236017,9 @@
                                       "facebook",
                                       "linkedin",
                                       "instagram",
-                                      "alignable"
+                                      "alignable",
+                                      "threads",
+                                      "x"
                                     ]
                                   }
                                 },
@@ -234806,7 +236107,9 @@
                                     "facebook",
                                     "linkedin",
                                     "instagram",
-                                    "alignable"
+                                    "alignable",
+                                    "threads",
+                                    "x"
                                   ]
                                 }
                               },
@@ -235292,7 +236595,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   }
                 },
@@ -235325,7 +236630,9 @@
                         "facebook",
                         "linkedin",
                         "instagram",
-                        "alignable"
+                        "alignable",
+                        "threads",
+                        "x"
                       ]
                     },
                     "people": {
@@ -235700,7 +237007,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           },
                           "kind": {
@@ -235770,7 +237079,9 @@
                                         "facebook",
                                         "linkedin",
                                         "instagram",
-                                        "alignable"
+                                        "alignable",
+                                        "threads",
+                                        "x"
                                       ]
                                     },
                                     "kind": {
@@ -235959,7 +237270,9 @@
                                       "facebook",
                                       "linkedin",
                                       "instagram",
-                                      "alignable"
+                                      "alignable",
+                                      "threads",
+                                      "x"
                                     ]
                                   }
                                 },
@@ -236148,7 +237461,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   }
                 },
@@ -236497,7 +237812,9 @@
                                       "facebook",
                                       "linkedin",
                                       "instagram",
-                                      "alignable"
+                                      "alignable",
+                                      "threads",
+                                      "x"
                                     ]
                                   },
                                   "kind": {
@@ -237296,7 +238613,9 @@
                                       "facebook",
                                       "linkedin",
                                       "instagram",
-                                      "alignable"
+                                      "alignable",
+                                      "threads",
+                                      "x"
                                     ]
                                   },
                                   "name": {
@@ -237532,7 +238851,9 @@
                           "facebook",
                           "linkedin",
                           "instagram",
-                          "alignable"
+                          "alignable",
+                          "threads",
+                          "x"
                         ]
                       }
                     },
@@ -237715,7 +239036,9 @@
                                       "facebook",
                                       "linkedin",
                                       "instagram",
-                                      "alignable"
+                                      "alignable",
+                                      "threads",
+                                      "x"
                                     ]
                                   }
                                 },
@@ -237760,7 +239083,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           },
                           "kind": {
@@ -238173,7 +239498,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           },
                           "steps": {
@@ -238266,7 +239593,9 @@
                                     "facebook",
                                     "linkedin",
                                     "instagram",
-                                    "alignable"
+                                    "alignable",
+                                    "threads",
+                                    "x"
                                   ]
                                 },
                                 "step": {
@@ -238402,7 +239731,9 @@
                                 "facebook",
                                 "linkedin",
                                 "instagram",
-                                "alignable"
+                                "alignable",
+                                "threads",
+                                "x"
                               ]
                             }
                           }
@@ -238593,7 +239924,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   }
                 },
@@ -238618,7 +239951,9 @@
                         "facebook",
                         "linkedin",
                         "instagram",
-                        "alignable"
+                        "alignable",
+                        "threads",
+                        "x"
                       ]
                     },
                     "ready": {
@@ -239843,7 +241178,9 @@
                                   "facebook",
                                   "linkedin",
                                   "instagram",
-                                  "alignable"
+                                  "alignable",
+                                  "threads",
+                                  "x"
                                 ]
                               },
                               "canSend": {
@@ -239868,7 +241205,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           }
                         }
@@ -243157,13 +244496,1623 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "threads": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "picture": {
+                                      "type": "object",
+                                      "properties": {
+                                        "ok": {
+                                          "type": "boolean"
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        "fix": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "ok",
+                                        "why",
+                                        "fix"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "cover": {
+                                      "type": "object",
+                                      "properties": {
+                                        "ok": {
+                                          "type": "boolean"
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        "fix": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "ok",
+                                        "why",
+                                        "fix"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "bio": {
+                                      "type": "object",
+                                      "properties": {
+                                        "ok": {
+                                          "type": "boolean"
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        "fix": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "ok",
+                                        "why",
+                                        "fix"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "work": {
+                                      "type": "object",
+                                      "properties": {
+                                        "ok": {
+                                          "type": "boolean"
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        "fix": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "ok",
+                                        "why",
+                                        "fix"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "featured": {
+                                      "type": "object",
+                                      "properties": {
+                                        "ok": {
+                                          "type": "boolean"
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        "fix": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "ok",
+                                        "why",
+                                        "fix"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "posts": {
+                                      "type": "object",
+                                      "properties": {
+                                        "ok": {
+                                          "type": "boolean"
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        "fix": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "ok",
+                                        "why",
+                                        "fix"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "about": {
+                                      "type": "object",
+                                      "properties": {
+                                        "ok": {
+                                          "type": "boolean"
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        "fix": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "ok",
+                                        "why",
+                                        "fix"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "name": {
+                                      "type": "object",
+                                      "properties": {
+                                        "ok": {
+                                          "type": "boolean"
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        "fix": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "ok",
+                                        "why",
+                                        "fix"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "link": {
+                                      "type": "object",
+                                      "properties": {
+                                        "ok": {
+                                          "type": "boolean"
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        "fix": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "ok",
+                                        "why",
+                                        "fix"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "bios": {
+                                  "maxItems": 3,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "maxLength": 220
+                                  }
+                                },
+                                "aboutDraft": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 2000
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "nameDraft": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 64
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "names": {
+                                  "maxItems": 3,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "maxLength": 100
+                                  }
+                                },
+                                "nameOff": {
+                                  "type": "boolean"
+                                },
+                                "usernames": {
+                                  "maxItems": 12,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "value": {
+                                        "type": "string",
+                                        "maxLength": 100
+                                      },
+                                      "free": {
+                                        "type": [
+                                          "boolean",
+                                          "null"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "value",
+                                      "free"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "look": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "reads": {
+                                          "type": "string",
+                                          "enum": [
+                                            "person",
+                                            "personal",
+                                            "brand",
+                                            "unclear"
+                                          ]
+                                        },
+                                        "work": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "enum": [
+                                                "same",
+                                                "other",
+                                                "none"
+                                              ]
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "ok": {
+                                          "type": "boolean"
+                                        },
+                                        "title": {
+                                          "type": "string",
+                                          "maxLength": 160
+                                        },
+                                        "clashes": {
+                                          "maxItems": 4,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "maxLength": 240
+                                          }
+                                        },
+                                        "unlike": {
+                                          "default": [],
+                                          "maxItems": 4,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "enum": [
+                                              "name",
+                                              "username",
+                                              "line",
+                                              "link"
+                                            ]
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "reads",
+                                        "work",
+                                        "ok",
+                                        "title",
+                                        "clashes",
+                                        "unlike"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "seen": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "url": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 500
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "name": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 200
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "username": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 100
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "line": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "links": {
+                                          "maxItems": 10,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "maxLength": 500
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "url",
+                                        "name",
+                                        "username",
+                                        "line",
+                                        "links"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "coverLine": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 120
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "coverLines": {
+                                  "maxItems": 3,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "maxLength": 120
+                                  }
+                                },
+                                "earlier": {
+                                  "type": "object",
+                                  "properties": {
+                                    "bio": {
+                                      "maxItems": 9,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "maxLength": 2000
+                                      }
+                                    },
+                                    "name": {
+                                      "maxItems": 9,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "maxLength": 2000
+                                      }
+                                    },
+                                    "cover": {
+                                      "maxItems": 9,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "maxLength": 2000
+                                      }
+                                    },
+                                    "about": {
+                                      "maxItems": 9,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "maxLength": 2000
+                                      }
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "notes": {
+                                  "type": "object",
+                                  "properties": {
+                                    "bio": {
+                                      "maxItems": 6,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "maxLength": 300
+                                      }
+                                    },
+                                    "name": {
+                                      "maxItems": 6,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "maxLength": 300
+                                      }
+                                    },
+                                    "username": {
+                                      "maxItems": 6,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "maxLength": 300
+                                      }
+                                    },
+                                    "cover": {
+                                      "maxItems": 6,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "maxLength": 300
+                                      }
+                                    },
+                                    "about": {
+                                      "maxItems": 6,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "maxLength": 300
+                                      }
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "feature": {
+                                  "maxItems": 3,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "maxLength": 200
+                                  }
+                                },
+                                "recommendations": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "recommendNote": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "workDraft": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "title": {
+                                          "type": "string",
+                                          "maxLength": 100
+                                        },
+                                        "company": {
+                                          "type": "string",
+                                          "maxLength": 100
+                                        },
+                                        "words": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 600
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "title",
+                                        "company",
+                                        "words"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "featurePost": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "idealDraft": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "customer": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "partner": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "customer",
+                                        "partner"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "services": {
+                                  "maxItems": 3,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "name": {
+                                        "type": "string",
+                                        "maxLength": 80
+                                      },
+                                      "words": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "maxLength": 300
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "name",
+                                      "words"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "linkChanges": {
+                                  "maxItems": 3,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "link": {
+                                        "type": "string",
+                                        "maxLength": 500
+                                      },
+                                      "to": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "maxLength": 500
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "why": {
+                                        "type": "string",
+                                        "maxLength": 300
+                                      }
+                                    },
+                                    "required": [
+                                      "link",
+                                      "to",
+                                      "why"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "own": {
+                                  "type": "boolean"
+                                },
+                                "at": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                "version": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "items",
+                                "bios",
+                                "coverLine",
+                                "feature",
+                                "at",
+                                "version"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "x": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "picture": {
+                                      "type": "object",
+                                      "properties": {
+                                        "ok": {
+                                          "type": "boolean"
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        "fix": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "ok",
+                                        "why",
+                                        "fix"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "cover": {
+                                      "type": "object",
+                                      "properties": {
+                                        "ok": {
+                                          "type": "boolean"
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        "fix": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "ok",
+                                        "why",
+                                        "fix"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "bio": {
+                                      "type": "object",
+                                      "properties": {
+                                        "ok": {
+                                          "type": "boolean"
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        "fix": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "ok",
+                                        "why",
+                                        "fix"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "work": {
+                                      "type": "object",
+                                      "properties": {
+                                        "ok": {
+                                          "type": "boolean"
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        "fix": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "ok",
+                                        "why",
+                                        "fix"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "featured": {
+                                      "type": "object",
+                                      "properties": {
+                                        "ok": {
+                                          "type": "boolean"
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        "fix": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "ok",
+                                        "why",
+                                        "fix"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "posts": {
+                                      "type": "object",
+                                      "properties": {
+                                        "ok": {
+                                          "type": "boolean"
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        "fix": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "ok",
+                                        "why",
+                                        "fix"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "about": {
+                                      "type": "object",
+                                      "properties": {
+                                        "ok": {
+                                          "type": "boolean"
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        "fix": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "ok",
+                                        "why",
+                                        "fix"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "name": {
+                                      "type": "object",
+                                      "properties": {
+                                        "ok": {
+                                          "type": "boolean"
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        "fix": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "ok",
+                                        "why",
+                                        "fix"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "link": {
+                                      "type": "object",
+                                      "properties": {
+                                        "ok": {
+                                          "type": "boolean"
+                                        },
+                                        "why": {
+                                          "type": "string",
+                                          "maxLength": 300
+                                        },
+                                        "fix": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "ok",
+                                        "why",
+                                        "fix"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "bios": {
+                                  "maxItems": 3,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "maxLength": 220
+                                  }
+                                },
+                                "aboutDraft": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 2000
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "nameDraft": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 64
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "names": {
+                                  "maxItems": 3,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "maxLength": 100
+                                  }
+                                },
+                                "nameOff": {
+                                  "type": "boolean"
+                                },
+                                "usernames": {
+                                  "maxItems": 12,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "value": {
+                                        "type": "string",
+                                        "maxLength": 100
+                                      },
+                                      "free": {
+                                        "type": [
+                                          "boolean",
+                                          "null"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "value",
+                                      "free"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "look": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "reads": {
+                                          "type": "string",
+                                          "enum": [
+                                            "person",
+                                            "personal",
+                                            "brand",
+                                            "unclear"
+                                          ]
+                                        },
+                                        "work": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "enum": [
+                                                "same",
+                                                "other",
+                                                "none"
+                                              ]
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "ok": {
+                                          "type": "boolean"
+                                        },
+                                        "title": {
+                                          "type": "string",
+                                          "maxLength": 160
+                                        },
+                                        "clashes": {
+                                          "maxItems": 4,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "maxLength": 240
+                                          }
+                                        },
+                                        "unlike": {
+                                          "default": [],
+                                          "maxItems": 4,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "enum": [
+                                              "name",
+                                              "username",
+                                              "line",
+                                              "link"
+                                            ]
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "reads",
+                                        "work",
+                                        "ok",
+                                        "title",
+                                        "clashes",
+                                        "unlike"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "seen": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "url": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 500
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "name": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 200
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "username": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 100
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "line": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "links": {
+                                          "maxItems": 10,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "maxLength": 500
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "url",
+                                        "name",
+                                        "username",
+                                        "line",
+                                        "links"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "coverLine": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 120
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "coverLines": {
+                                  "maxItems": 3,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "maxLength": 120
+                                  }
+                                },
+                                "earlier": {
+                                  "type": "object",
+                                  "properties": {
+                                    "bio": {
+                                      "maxItems": 9,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "maxLength": 2000
+                                      }
+                                    },
+                                    "name": {
+                                      "maxItems": 9,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "maxLength": 2000
+                                      }
+                                    },
+                                    "cover": {
+                                      "maxItems": 9,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "maxLength": 2000
+                                      }
+                                    },
+                                    "about": {
+                                      "maxItems": 9,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "maxLength": 2000
+                                      }
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "notes": {
+                                  "type": "object",
+                                  "properties": {
+                                    "bio": {
+                                      "maxItems": 6,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "maxLength": 300
+                                      }
+                                    },
+                                    "name": {
+                                      "maxItems": 6,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "maxLength": 300
+                                      }
+                                    },
+                                    "username": {
+                                      "maxItems": 6,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "maxLength": 300
+                                      }
+                                    },
+                                    "cover": {
+                                      "maxItems": 6,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "maxLength": 300
+                                      }
+                                    },
+                                    "about": {
+                                      "maxItems": 6,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "maxLength": 300
+                                      }
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "feature": {
+                                  "maxItems": 3,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "maxLength": 200
+                                  }
+                                },
+                                "recommendations": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "recommendNote": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 600
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "workDraft": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "title": {
+                                          "type": "string",
+                                          "maxLength": 100
+                                        },
+                                        "company": {
+                                          "type": "string",
+                                          "maxLength": 100
+                                        },
+                                        "words": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 600
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "title",
+                                        "company",
+                                        "words"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "featurePost": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 300
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "idealDraft": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "customer": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "partner": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "customer",
+                                        "partner"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "services": {
+                                  "maxItems": 3,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "name": {
+                                        "type": "string",
+                                        "maxLength": 80
+                                      },
+                                      "words": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "maxLength": 300
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "name",
+                                      "words"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "linkChanges": {
+                                  "maxItems": 3,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "link": {
+                                        "type": "string",
+                                        "maxLength": 500
+                                      },
+                                      "to": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "maxLength": 500
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "why": {
+                                        "type": "string",
+                                        "maxLength": 300
+                                      }
+                                    },
+                                    "required": [
+                                      "link",
+                                      "to",
+                                      "why"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "own": {
+                                  "type": "boolean"
+                                },
+                                "at": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                "version": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "items",
+                                "bios",
+                                "coverLine",
+                                "feature",
+                                "at",
+                                "version"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
                         "facebook",
                         "linkedin",
                         "instagram",
-                        "alignable"
+                        "alignable",
+                        "threads",
+                        "x"
                       ],
                       "additionalProperties": false
                     },
@@ -243193,13 +246142,27 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "threads": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "x": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
                         "facebook",
                         "linkedin",
                         "instagram",
-                        "alignable"
+                        "alignable",
+                        "threads",
+                        "x"
                       ],
                       "additionalProperties": false
                     },
@@ -243367,7 +246330,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   }
                 },
@@ -243508,7 +246473,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   }
                 },
@@ -243630,7 +246597,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           },
                           "stage": {
@@ -243800,7 +246769,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "most": {
@@ -243906,7 +246877,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "most": {
@@ -244078,7 +247051,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   }
                 },
@@ -244113,7 +247088,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           },
                           "groupId": {
@@ -244315,7 +247292,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   }
                 },
@@ -244930,7 +247909,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           }
                         },
@@ -245106,7 +248087,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   }
                 },
@@ -245210,7 +248193,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   }
                 },
@@ -245326,7 +248311,9 @@
                           "facebook",
                           "linkedin",
                           "instagram",
-                          "alignable"
+                          "alignable",
+                          "threads",
+                          "x"
                         ]
                       },
                       {
@@ -245433,7 +248420,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           },
                           "kind": {
@@ -245633,7 +248622,9 @@
                         "facebook",
                         "linkedin",
                         "instagram",
-                        "alignable"
+                        "alignable",
+                        "threads",
+                        "x"
                       ]
                     },
                     "url": {
@@ -246205,7 +249196,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   }
                 },
@@ -246341,7 +249334,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "most": {
@@ -246470,7 +249465,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   },
                   "round": {
@@ -246552,7 +249549,9 @@
                       "facebook",
                       "linkedin",
                       "instagram",
-                      "alignable"
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   }
                 },
@@ -246587,7 +249586,9 @@
                               "facebook",
                               "linkedin",
                               "instagram",
-                              "alignable"
+                              "alignable",
+                              "threads",
+                              "x"
                             ]
                           },
                           "how": {
@@ -246877,7 +249878,9 @@
                             "facebook",
                             "linkedin",
                             "instagram",
-                            "alignable"
+                            "alignable",
+                            "threads",
+                            "x"
                           ]
                         },
                         "name": {
