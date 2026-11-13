@@ -179,6 +179,9 @@ export interface NetworkKit {
   readonly words: NetworkWords;
 }
 
+/** The first build of the extension with Threads' and X's kits (decision 163): an older one works neither. */
+export const THREADS_X_SINCE = '0.137.0';
+
 /**
  * Threads' and X's kits (decision 163), alike but for their addresses, ids, caps and comments' length: a follow is the
  * request and a follow-back the accepting, as on Instagram; the owner's 3b, 30 comments and 80 likes a day, halved for a

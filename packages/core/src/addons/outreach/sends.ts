@@ -361,6 +361,8 @@ export const COMMENT_HOLD_WORDS = `Each comment waits for your OK until you’ve
 export const COMMENT_NEEDS_YOU = {
   /** An answer to an Alignable post asking for exactly what the business offers (decision 79). */
   answer: 'a forum answer always waits for your OK',
+  /** An answer to a reply under the person's comment on Threads or X (decision 163, answer 8a), Autopilot's too. */
+  reply: 'they answered your comment, so you see your answer first',
 } as const;
 
 /** Why another time after a no-show waits for an OK of its own (decision 106, `needsYou`). */

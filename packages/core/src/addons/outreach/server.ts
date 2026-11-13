@@ -46,6 +46,7 @@ import { stageCommands, stageQueries } from './ops/stages';
 import { tidyCommands, tidyQueries } from './ops/tidy';
 import { townQueries } from './ops/towns';
 import { postCommands, postQueries } from './ops/posts';
+import { commentReplyCommands } from './ops/comment-replies';
 import { todayQueries } from './ops/today';
 import { trackingCommands, trackingQueries } from './ops/tracking';
 import { waitingCommands, waitingQueries } from './ops/waiting';
@@ -66,6 +67,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...tidyCommands,
     ...requestPauseCommands,
     ...postCommands,
+    ...commentReplyCommands,
     ...alertCommands,
     ...openerCommands,
     ...demoCommands,
@@ -152,6 +154,7 @@ export const outreachAddonServer: AddonServerModule = {
     'outreach.warning.note': EXTENSION,
     'outreach.requests.pause': EXTENSION,
     'outreach.posts.save': EXTENSION,
+    'outreach.comment_replies.save': EXTENSION,
     'outreach.replies.note': EXTENSION,
     'outreach.warm_up.missed': EXTENSION,
     'outreach.request.closed': EXTENSION,

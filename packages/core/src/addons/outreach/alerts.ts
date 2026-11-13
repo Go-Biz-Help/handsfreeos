@@ -17,7 +17,7 @@
 import { z } from 'zod';
 import { addDays, localDateOf, localInstant } from '../../calendar/engine/zoned';
 import { MORNING_PUSH_HOUR } from './chat-read';
-import { inNetworkWords, PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
+import { inNetworkWords, NETWORKS, PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
 import { PersonName, ProfileRef, ThreadKey } from './saves';
 import { TODAY_KINDS, type TodayItem, type TodayKind } from './today';
 
@@ -111,9 +111,9 @@ export function replyPushWords(
   };
 }
 
-/** What accepting the person's request is on each network: Instagram's is following them back. */
+/** What accepting the person's request is on each network: on a follow network it's following them back. */
 const acceptedOn = (platform: Platform, many: boolean): string =>
-  platform === 'instagram'
+  NETWORKS[platform].follows
     ? 'followed you back'
     : inNetworkWords(
         many ? 'accepted your friend requests' : 'accepted your friend request',

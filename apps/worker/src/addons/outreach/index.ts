@@ -46,6 +46,7 @@ import {
   CHECK_POSTS_JOB,
   checkPostsJob,
   oldGoodWanted,
+  commentReplied,
   postChecked,
   postsSaved,
   recheckGoodPosts,
@@ -179,6 +180,8 @@ export const outreachAddonWorker: AddonWorkerModule = {
     'outreach.posts.saved': andMorning(postsSaved),
     // A post asking for what the business offers pushes to the person who found it at once (./posts.ts, decision 49).
     'outreach.post.checked': postChecked,
+    // Someone who said yes to a demo under the person's comment on Threads or X pushes at once (./posts.ts, 163).
+    'outreach.comment.replied': commentReplied,
     // Friends and people chatted with, read off their pages, wait for the AI's check of them (./checks.ts).
     'outreach.check.looked': andMorning(checkLooked),
     // A group's About page, rules and posts, read off Facebook, wait for the AI's check of it (./groups.ts).

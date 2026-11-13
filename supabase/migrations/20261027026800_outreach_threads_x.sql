@@ -6,7 +6,7 @@
 -- is: every table that names a network takes `threads` and `x` beside the four there are, and `computers.allowed`,
 -- the networks Chrome lets the extension on, may name them too.
 --
--- Only widens: nothing already saved changes.
+-- Only widens: nothing already saved changes. A post found as a reply to one of the person's comments (`found`) is new.
 -- =============================================================================
 
 alter table addon_outreach.asks drop constraint asks_platform_check,
@@ -64,3 +64,7 @@ alter table addon_outreach.warnings drop constraint warnings_platform_check,
 alter table addon_outreach.computers drop constraint computers_allowed_check,
   add constraint computers_allowed_check
     check (allowed is null or allowed <@ array['facebook', 'linkedin', 'instagram', 'alignable', 'threads', 'x']);
+-- A reply to one of the person's comments on Threads or X is a post of its own, kept to answer (decision 163, 8a).
+alter table addon_outreach.posts drop constraint posts_found_check,
+  add constraint posts_found_check
+    check (found in ('scroll', 'find', 'watch', 'search', 'account', 'active', 'reply'));

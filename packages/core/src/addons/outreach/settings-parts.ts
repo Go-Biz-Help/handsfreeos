@@ -45,7 +45,7 @@ export const isNetworkPart = (part: SettingsPart): part is Platform =>
  * The networks still to come, in the plan's order (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md): shown in the
  * menu as coming, never opened. Each moves to `PLATFORMS` with its kit.
  */
-export const NEXT_NETWORKS = ['Threads', 'X', 'TikTok'] as const;
+export const NEXT_NETWORKS = ['TikTok'] as const;
 
 /** The Settings pages' own words, on the web and the phone. */
 export const SETTINGS_WORDS = {

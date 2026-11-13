@@ -61,7 +61,8 @@ describe('Instagram’s kit and words', () => {
     });
     for (const p of ['facebook', 'linkedin', 'alignable'] as const)
       expect([NETWORKS[p].follows, NETWORKS[p].followBackLooksPerDay]).toEqual([false, null]);
-    expect(FOLLOW_PLATFORMS).toEqual(['instagram']);
+    // Threads and X follow too (decision 163).
+    expect(FOLLOW_PLATFORMS).toEqual(['instagram', 'threads', 'x']);
   });
 
   it('says Follow them, Save my followers and Unfollow on Instagram', () => {
@@ -193,7 +194,7 @@ describe('Instagram’s kit and words', () => {
       'They posted this on Instagram. Write the owner’s public comment under it, from the owner’s own field:',
     );
     expect(comment('instagram')).toContain(
-      'with no link, no web address and no price. Otherwise offer nothing and pitch nothing. When the owner’s field has nothing real to add',
+      'with no link, no web address and no price. A post that asks for help or tips with the topic, or complains about it, gets a take or a tip and no offer. Otherwise offer nothing and pitch nothing. When the owner’s field has nothing real to add',
     );
     expect(comment('instagram')).toContain('Never open with praise or thanks');
     expect(comment('instagram')).toContain('Under 30 words.');
@@ -219,7 +220,7 @@ describe('Instagram’s kit and words', () => {
       'A comment on LinkedIn reads like someone who does the owner’s own work every day',
     );
     expect(todayDraftSystem('linkedin')).toContain(
-      'an offer to show them only when they want help with it',
+      'an offer to show them only when the post asks for someone who offers what the business does',
     );
     expect(todayDraftSystem('facebook')).not.toContain('A comment on');
     expect(fitsComment('Same here! A shared call list helped our crew.', 'instagram')).toBe(true);

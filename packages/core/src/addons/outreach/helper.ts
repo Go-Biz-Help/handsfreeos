@@ -138,7 +138,7 @@ const STEP_WORDS: Readonly<Record<string, string>> = {
 };
 
 const stepWords = (platform: Platform, step: string) =>
-  platform === 'instagram' && step === 'friend_request'
+  NETWORKS[platform].follows && step === 'friend_request'
     ? 'follow them'
     : (STEP_WORDS[step] ?? step.replace(/[_.]/g, ' '));
 

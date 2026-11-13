@@ -21,7 +21,13 @@ import { UNANSWERED_MOST } from './knows';
 import { DraftOpener } from './openers';
 import { DRAFT_KINDS } from './today';
 import { appVersionAtLeast } from '../../mobile';
-import { inNetworkWords, PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
+import {
+  inNetworkWords,
+  PLATFORM_KEYS,
+  PLATFORMS,
+  THREADS_X_SINCE,
+  type Platform,
+} from './networks';
 import {
   ABOUT_MOST,
   ABOUT_NAME_ON,
@@ -450,6 +456,13 @@ export const ASK_KIND_SINCE_ON: Readonly<
     cancel: '0.97.0',
     post: '0.101.0',
   },
+  // Threads and X (decision 163): every ask from the build their kits came in.
+  threads: Object.fromEntries(
+    ['friends', 'cancel', 'posts', 'profile_read', 'checkup'].map((k) => [k, THREADS_X_SINCE]),
+  ),
+  x: Object.fromEntries(
+    ['friends', 'cancel', 'posts', 'profile_read', 'checkup'].map((k) => [k, THREADS_X_SINCE]),
+  ),
 };
 
 /** A target named by its network: as it is on Facebook, and with the network's name before it on any other. */

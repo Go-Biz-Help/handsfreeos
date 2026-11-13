@@ -1794,6 +1794,7 @@ export async function todayFor(
     }>(
       ctx.tx,
       sql`select * from (select po.id, po.url, po.posted, po.body, po.check_why, po.strong, po.seen_at,
+              po.found = 'reply' as reply,
               p.id as profile_id, p.name, p.url as profile_url, g.name as group_name, pb.name as playbook_name,
               row_number() over (partition by po.strong order by po.seen_at desc) as nth
             from addon_outreach.posts po
@@ -1807,13 +1808,15 @@ export async function todayFor(
                 sql`and (po.checked_at is null or po.checked_at >= ${FIELD_CHECK_SINCE}::timestamptz)`
               }
               and p.friendship <> 'self' and not ${myOwnProfile(me)}
-            and ${pitchable('p')} and ${inPlay(me, 'p')} and ${notOthers(me, 'g')} and ${reach}
+            and ${pitchable('p')} and ${inPlay(me, 'p')} and ${notOthers(me, 'g')}
+              -- A reply to the person's comment (decision 163) is an answer to them: Autopilot's list never holds it.
+              and (po.found = 'reply' or ${reach})
               and not exists (select 1 from addon_outreach.group_people x
                 where x.profile_id = p.id and x.runs_group)
               and not exists (select 1 from addon_outreach.touches t
                 where t.user_id = ${me} and t.kind = 'comment' and t.post_url = po.url)) good
             where not good.strong or good.nth <= ${askingLeft}
-            order by good.strong desc, good.seen_at desc limit ${commentsLeft}`,
+            order by good.reply desc, good.strong desc, good.seen_at desc limit ${commentsLeft}`,
     );
     for (const po of good)
       items.push(

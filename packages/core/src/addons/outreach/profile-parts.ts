@@ -23,7 +23,7 @@ import { z } from 'zod';
 import { quoteData } from '../../knowledge/prompt';
 import { appVersionAtLeast } from '../../mobile';
 import { noDashes, PLAIN_WRITING } from '../../writing';
-import { NETWORKS, PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
+import { NETWORKS, PLATFORM_KEYS, PLATFORMS, THREADS_X_SINCE, type Platform } from './networks';
 import { offerBlock, type PlaybookOffer } from './playbook-assist';
 import {
   ABOUT_DRAFT_MOST,
@@ -212,7 +212,11 @@ export const LINKEDIN_COMMENTS_WAIT_SINCE = '0.99.0';
 export const commentSendsOn = (platform: Platform, version: string | null | undefined): boolean =>
   appVersionAtLeast(
     version ?? null,
-    platform === 'linkedin' ? LINKEDIN_COMMENTS_WAIT_SINCE : FOUND_BY_TOPIC_SINCE,
+    platform === 'linkedin'
+      ? LINKEDIN_COMMENTS_WAIT_SINCE
+      : platform === 'threads' || platform === 'x'
+        ? THREADS_X_SINCE
+        : FOUND_BY_TOPIC_SINCE,
   );
 
 /**

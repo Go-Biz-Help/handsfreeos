@@ -833,7 +833,7 @@ describe('each person’s setup', () => {
           niche: true,
           video: false,
           // Our template runs on every network.
-          networks: ['facebook', 'linkedin', 'instagram', 'alignable'],
+          networks: ['facebook', 'linkedin', 'instagram', 'alignable', 'threads', 'x'],
         },
       ],
       groups: { mine: 2, business: 3 },
