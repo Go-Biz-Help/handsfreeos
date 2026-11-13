@@ -4,6 +4,7 @@ import { FaqJsonLd } from '@/components/json-ld';
 import { Button, Card, Check, Container, Section, SectionHeading } from '@/components/ui';
 import { pricingFaqs } from '@/content/faqs';
 import {
+  freeTrial,
   moneyBack,
   noSpotsNote,
   plan,
@@ -20,7 +21,7 @@ import { foundingCounts, foundingSpotsOnSale, hasRoom } from '@/lib/founding';
  */
 export const metadata: Metadata = {
   title: `Pricing: ${spotPrices}`,
-  description: `Founding spots, first come, first served: ${spotPrices}. Every feature, one business, unlimited people. Texts, calls and AI are billed as used.`,
+  description: `${freeTrial.short}, then ${spotPrices}. Founding spots, first come, first served. Every feature, unlimited people. Texts, calls and AI billed as used.`,
   alternates: { canonical: '/pricing' },
 };
 
@@ -43,10 +44,10 @@ export default async function PricingPage() {
       <Container className="py-16 sm:py-20">
         {open.length > 0 ? (
           <SectionHeading
-            sub={`Sign up, pick your spot and pay, first come, first served. Every feature, one business, as many people as work there: most CRMs charge for every person who logs in, and this one does not. And if it isn’t for you within ${moneyBack.days} days, you get your money back. The counts below are live.`}
+            sub={`Founding spots are open, first come, first served. Sign up, pick your spot and add a card: nothing is charged until your trial ends. Every feature, one business, as many people as work there: most CRMs charge for every person who logs in, and this one does not. The counts below are live.`}
             as="h1"
           >
-            Founding spots are open.
+            Try it free for {freeTrial.days} days.
           </SectionHeading>
         ) : (
           <SectionHeading sub={noSpotsNote} as="h1">
@@ -75,12 +76,15 @@ export default async function PricingPage() {
                   {content.priceLabel}
                   <span className="text-text-3 text-base font-normal"> {content.per}</span>
                 </p>
+                <p className="text-success-text mt-2 text-base font-semibold">
+                  {freeTrial.then(content)}
+                </p>
 
                 <FoundingCounter count={count} className="mt-6" />
 
                 {room ? (
                   <Button href={signUpFor(content)} className="mt-6 w-full" size="lg">
-                    Claim my {content.priceLabel} spot
+                    {freeTrial.button}
                   </Button>
                 ) : (
                   <p className="text-text-3 mt-6 text-sm">
@@ -122,7 +126,12 @@ export default async function PricingPage() {
           </ul>
         </div>
 
-        <div className="mt-6 grid gap-6 md:grid-cols-2">
+        <div className="mt-6 grid gap-6 md:grid-cols-3">
+          {/* The free trial (the owner's ask, 2026-11-13), in the same words as the FAQ and the terms. */}
+          <div className="border-border bg-card-2 rounded-[var(--radius-card)] border p-6">
+            <h3 className="font-semibold">{freeTrial.days} days free</h3>
+            <p className="text-text-2 mt-2 text-base">{freeTrial.line}</p>
+          </div>
           <div className="border-border bg-card-2 rounded-[var(--radius-card)] border p-6">
             <h3 className="font-semibold">Texts, calls and AI</h3>
             <p className="text-text-2 mt-2 text-base">{usageNote}</p>
@@ -157,7 +166,7 @@ export default async function PricingPage() {
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             {open.length > 0 ? (
               <Button href={urls.signUp} size="lg">
-                Sign up
+                {freeTrial.button}
               </Button>
             ) : null}
             <Button href="/support" size="lg" variant="secondary">

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Container, Prose } from '@/components/ui';
-import { company, moneyBack, urls } from '@/content/site';
+import { company, freeTrial, moneyBack, urls } from '@/content/site';
 
 /*
  * Reviewed by Chris before launch. The governing state and the address come from
@@ -9,7 +9,7 @@ import { company, moneyBack, urls } from '@/content/site';
  * ever emptied, on purpose.
  */
 
-const LAST_UPDATED = 'October 28, 2026';
+const LAST_UPDATED = 'November 13, 2026';
 
 export const metadata: Metadata = {
   title: 'Terms of service',
@@ -82,6 +82,16 @@ export default function TermsPage() {
             being declined we stop trying, tell you, and ask for another card. The usage balance is
             separate from your plan, and the card saved for it is never used for money your own
             customers pay you.
+          </li>
+          <li>
+            {/* The free trial (the owner's ask, 2026-11-13; 20261027027000). */}
+            <strong>The first {freeTrial.days} days of a founding plan are free.</strong> You add a
+            card when you pick your plan, and nothing is charged during the trial. On the day it
+            ends, that card is charged the plan&rsquo;s price, and the plan renews each month or
+            year from then until you stop it. We email you {freeTrial.reminderDays} days before the
+            trial ends. If you stop it renewing in Settings before the trial ends, nothing is
+            charged and your spot goes back when the trial ends. There is one free trial per person
+            and per business; a promotional code may give a longer one.
           </li>
           <li>
             <strong>{moneyBack.days} days, or your money back.</strong> If HandsFreeOS isn&rsquo;t

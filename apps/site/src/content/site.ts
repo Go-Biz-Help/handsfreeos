@@ -108,7 +108,7 @@ export const foundingSpots = [
       'About five months of the monthly price, for the whole year',
       'Every feature we add to the core product, at no extra cost',
       'Renews each year on its own, and you can stop it any time',
-      '30 days, or your money back',
+      '30 days from your first payment, or your money back',
     ],
   },
   {
@@ -123,7 +123,7 @@ export const foundingSpots = [
       'Everything in HandsFreeOS, paid a month at a time',
       'Every feature we add to the core product, at no extra cost',
       'Renews each month on its own, and you can stop it any time',
-      '30 days, or your money back',
+      '30 days from your first payment, or your money back',
     ],
   },
 ] as const;
@@ -140,6 +140,25 @@ export const spotPrices = foundingSpots.map((s) => `${s.priceLabel} ${s.per}`).j
 export const typicalUsage = { low: 30, high: 60 } as const;
 
 /**
+ * The free trial on both founding spots (the owner's ask, 2026-11-13): the first 14 days free. The card is taken at
+ * sign-up on Stripe's page and nothing is charged; the first payment is the day the trial ends, unless they stop it
+ * renewing first, which gives the spot back. One free trial a person, and a business.
+ *
+ * The database gives it (`platform.founding_offers.trial_days`, 20261027027000); these are the site's words for it, the
+ * way the prices above are. Change one and change the other.
+ */
+export const freeTrial = {
+  days: 14,
+  /** The email saying when the card is charged comes this many days before the trial ends (`TRIAL_ENDING_DAYS`). */
+  reminderDays: 3,
+  short: '14 days free',
+  button: 'Start my 14-day free trial',
+  /** Under a spot's price: "14 days free, then $97 a month." */
+  then: (spot: FoundingSpotContent) => `14 days free, then ${spot.priceLabel} ${spot.per}.`,
+  line: 'Your first 14 days are free. You add a card when you sign up, and nothing is charged until the trial ends. Stop it before then in Settings and you pay nothing.',
+} as const;
+
+/**
  * The money-back promise (the owner's call, 2026-10-28): within 30 days of the first plan payment, a business that
  * asks gets that payment back in full, monthly or yearly. Usage is not refunded, because the phone and AI
  * companies have already charged us for it. The terms page says the same in its billing section, and "The 30-day
@@ -148,7 +167,7 @@ export const typicalUsage = { low: 30, high: 60 } as const;
 export const moneyBack = {
   days: 30,
   short: '30-day money back',
-  line: 'Use HandsFreeOS for 30 days. If it isn’t for you, ask, and we refund your plan payment in full, monthly or yearly. The texts, calls and AI you used are what the phone and AI companies charged us, so those aren’t refunded.',
+  line: 'After your free trial, you still have 30 days from your first payment. If it isn’t for you, ask, and we refund your plan payment in full, monthly or yearly. The texts, calls and AI you used are what the phone and AI companies charged us, so those aren’t refunded.',
 } as const;
 
 /**

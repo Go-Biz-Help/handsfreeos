@@ -1,7 +1,7 @@
 {
   "area": "settings-business",
   "title": "Settings: the business, branded domain, pipelines, tags, fields, relationships, Deleted bin, usage, action center and automations",
-  "checkedOn": "2026-11-08",
+  "checkedOn": "2026-11-13",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/businesses.tsx": "7ec6af7d1307",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "de243d485f3e",
@@ -26,6 +26,7 @@
     "apps/web/src/components/billing/billing-bits.tsx": "5d79de48bea1",
     "apps/web/src/components/billing/payment-guard.tsx": "be553439de05",
     "apps/web/src/components/billing/payment-wall.tsx": "1c6605cb569f",
+    "apps/web/src/components/billing/trial-ending-note.tsx": "c0ac2a413875",
     "apps/web/src/components/bin/delete-dialog.tsx": "45a1e5064d40",
     "apps/web/src/components/bin/deleted-bin.tsx": "ac059400cae4",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
@@ -2212,6 +2213,27 @@
       "file": "apps/web/src/components/settings/billing-page.tsx:158",
       "covered": "yes",
       "by": "do_founding_set_renewing true"
+    },
+    {
+      "path": "Free trial ending note → when the card is charged, and what (last 3 days, whoever pays)",
+      "kind": "see",
+      "file": "apps/web/src/components/billing/trial-ending-note.tsx:38",
+      "covered": "yes",
+      "by": "read_billing_status trialEnding; get_settings usage → founding (founding.mine trialEndsAt)"
+    },
+    {
+      "path": "Free trial ending note → Billing & Usage link",
+      "kind": "do",
+      "file": "apps/web/src/components/billing/trial-ending-note.tsx:44",
+      "covered": "yes",
+      "by": "the Billing tools; do_founding_set_renewing to stop it"
+    },
+    {
+      "path": "Free trial ending note → Hide",
+      "kind": "do",
+      "file": "apps/web/src/components/billing/trial-ending-note.tsx:51",
+      "covered": "never",
+      "by": "hiding is this device’s own, kept in the browser"
     },
     {
       "path": "Failed-payment page → what’s owed and the ways out (as Billing & Usage)",
