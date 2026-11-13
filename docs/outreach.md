@@ -29,7 +29,9 @@ requests while 200 wait or near the cap (decisions 96 and 97), tidying up on its
 98, extension 0.97.0), every part of the profile put in for the person, with a read on its own on the 1st of each
 month (decision 99, extension 0.98.0), and Later on a person, a push when a request is accepted, and LinkedIn's
 comments waiting for an OK at first (decisions 100 to 102, extension 0.99.0), and everything it does counted at the top of Today with a ticker of what it's doing now along
-the bottom of every page (decision 140, extension 0.120.0).
+the bottom of every page (decision 140, extension 0.120.0), and Threads and X: a search for posts on the topic every
+hour with comments on the good ones, replies to those comments answered, the warm-up and a follow for the good fits,
+and Check Threads and Check X (decision 163, extension 0.137.0).
 
 The parts below name the tabs they were built on. Since decision 127 those are pages of their own, which pop out from
 Social Outreach's one row in the side menu, in this order: **Set up** (decision 129: how far the setup has come and
@@ -4104,6 +4106,15 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **Replies to the person's comments** (8a): each hourly look also reads the person's notifications for replies
         to their comments; a reply goes on Needs you with an answer the AI drafted, which waits for an OK (Autopilot's
         too), and the phone gets a push when someone says yes to a demo.
+      - **How it's built** (extension 0.137.0, migration 026800): core's kits (`NETWORKS.threads`, `NETWORKS.x`:
+        `follows`, no `messages`, `postSearch` every 60 minutes for posts under 48 hours, `commentsWait: 'hold'`), the
+        playbook's two lists (`threadsSearches`, `xSearches`, which the AI fills from the playbook's offer: phrases of
+        1 to 4 words someone asking for help would write), and in the extension one reader and set of presses for both
+        (`src/networks/follows/`), their jobs and asks (`src/jobs/follows/`) and their runners (`src/auto/follows.ts`).
+        The hourly search, its replies read and the once-a-day jobs go while the network's **Every hour: search …**
+        choice (`collect`) is on; the warm-up's like goes while **Like one or two of their posts before following
+        them** is. The settings, Today's cards and the counters show both as every other network, and Settings →
+        Team lets owners allow them or not (`rules.networksAllowed`).
 
 ## Rules worth knowing before changing anything
 

@@ -58,6 +58,8 @@ export function assistDraftOf(playbook: Pick<Playbook, 'name' | 'details'>): Ass
     hashtags: d.hashtags ?? [],
     postSearches: d.postSearches ?? [],
     businessKinds: d.businessKinds ?? [],
+    threadsSearches: d.threadsSearches ?? [],
+    xSearches: d.xSearches ?? [],
     worksOnline: d.worksOnline ?? null,
     tags: d.tags,
     samples: d.samples.filter((m) => m.trim()),

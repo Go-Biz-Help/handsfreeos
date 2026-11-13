@@ -1,7 +1,7 @@
 # HandsFreeOS Social: the browser extension
 
-The extension that works beside a person on Facebook, and on LinkedIn, Instagram and Alignable once they turn each on,
-for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
+The extension that works beside a person on Facebook, and on LinkedIn, Instagram, Alignable, Threads and X once they
+turn each on, for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
 **This is a test build (0.112.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
@@ -56,6 +56,8 @@ next is in its kit, never in an `if`.
 | LinkedIn  | `src/networks/linkedin/`  | Yes           | Reads its pages, notes your steps and who wrote back, looks for its warnings, does what you ask, and works its list on its own once you let it, and finds people by topic: who reacted to and commented on good posts its search found, each checked by the AI first (0.95.0)                                                                                                                                                                                                                                                                                                                                                                  |
 | Instagram | `src/networks/instagram/` | Yes           | Reads its pages (0.80.0), notes your steps there, saves your followers and unfollows the ones you tick, checks them, reads your chats and looks people up (0.81.0), works its list on its own once you let it (0.82.0), and grows it from your area's hashtags and places and your notifications (0.83.0); its **Check Instagram** (0.58.0) tries each step up to its last press; it puts your bio in (0.62.0), and your username and name in its Accounts Center (0.94.0); from 0.95.0 it looks at your playbooks' own hashtags, reads who liked and commented on good posts, has each checked by the AI first, and posts the comments you OK |
 | Alignable | `src/networks/alignable/` | Yes           | Reads its pages, notes your steps, does what you ask, works its list on its own once you let it (0.77.0), and reads your chats (0.84.0); **Check Alignable** reads its pages at /biz; from 0.95.0 it searches for businesses like your clients, reads your groups and joins good ones, has everyone found checked by the AI first, and posts the comments you OK                                                                                                                                                                                                                                                                               |
+| Threads   | `src/networks/threads/`   | Yes           | From 0.137.0 (decision 163): searches its newest posts on your topic every hour and posts the comments you OK, reads replies to them, warms up the good fits it finds (likes, then a follow), saves your followers and unfollows who didn't follow back; **Check Threads** reads its pages, pressing nothing. Never writes in anyone's messages                                                                                                                                                                                                                                                                                                |
+| X         | `src/networks/x/`         | Yes           | From 0.137.0 (decision 163): the same as Threads, on X; **Check X** reads its pages, pressing nothing                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 **A network that's off runs nothing, reads nothing and shows nothing** (`src/networks/on.ts`). Two things say a network
 is on, and both must:
@@ -74,7 +76,9 @@ is on, and both must:
   registered only while it's on in HandsFreeOS, so the extension never runs on a site you don't use. If you take a
   site back under the extension's **Site access** in Chrome, the panel says so in a line with **Allow on LinkedIn**
   (or Instagram, or Alignable), which asks Chrome (Chrome asks only from your own click). Before 0.88.0 they were
-  optional host permissions, asked for with that button once each was turned on.
+  optional host permissions, asked for with that button once each was turned on. From 0.137.0 (decision 163) Threads'
+  (`https://www.threads.com/*`, and its old threads.net, with or without `www.`) and X's (`https://x.com/*`, and
+  twitter.com and their `mobile.` sites) are the extension's from install too: reloading the build grants them.
 
 **A network still looked at** (Instagram and Alignable, decision 78) is read only for its Check, from one reader for
 both (`src/networks/looking/`) and each network's site (its addresses, its own words, its warnings and the buttons each
@@ -765,7 +769,8 @@ and how. A build that's handed a kind it doesn't know ends it saying so, and goe
   ("Stopped: you pressed Stop for today. Requests cancelled: 2 people.").
 - **Only its network's pages:** an ask's tab opens only https addresses of its own network: on Facebook
   www.facebook.com, web.facebook.com and accountscenter.facebook.com, on LinkedIn www.linkedin.com, on Instagram
-  www.instagram.com and, from 0.94.0, accountscenter.instagram.com (each kit's
+  www.instagram.com and, from 0.94.0, accountscenter.instagram.com, and from 0.137.0 threads.com (or threads.net) on
+  Threads and x.com (or twitter.com) on X (each kit's
   `workUrl`, checked in `src/tab.ts`, whose tab goes by its kit), so a bad link kept in HandsFreeOS or read off a page
   is refused with plain words and never opened. A tab does only its own network's steps (its kit's `work`); asked
   another's, it says so.
@@ -774,6 +779,21 @@ and how. A build that's handed a kind it doesn't know ends it saying so, and goe
 - **What it keeps:** `hfos.ask`, `hfos.ask.linkedin` and `hfos.ask.ends` above, and `hfos.facebookFile` and
   `hfos.linkedinFile`: when you asked each network for your file, and which zips were brought in. The offscreen page
   (the `offscreen` permission) is opened only to read the zips and closed once they're in.
+
+### On Threads and X (0.137.0)
+
+Threads' and X's rules are Instagram's (decision 163, `src/jobs/follows/`): a person's pace, a window of its own, a
+stop on that network for the day on any warning there, nothing to get around its limits or checks, and nothing ever
+written in anyone's messages. Each kit is built from the site's own words, roles and test ids (`src/networks/threads/`
+and `src/networks/x/`, read by `src/networks/follows/`), a post found by the time inside the link to it.
+
+| Ask (`kind`)                       | What it does                                                                                                                                                                                                     |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Save my followers (`friends`)      | Your newest followers saved, then the accounts you followed looked at for who follows you back (`people.ts`)                                                                                                     |
+| Unfollow the ticked (`cancel`)     | The ones you ticked who didn't follow back, each unfollowed on their own profile in a tab you can see, 20 a day at most (`unfollow.ts`)                                                                          |
+| Find posts (`posts`)               | The network's search, newest first, with the words given (or the hour's phrases from your playbooks), the posts under 2 days old sent for the AI's check (`search.ts`)                                           |
+| Read my profile (`profile_read`)   | Your own profile, from your feed's own link to it, read and sent for the AI's check                                                                                                                              |
+| Check Threads, Check X (`checkup`) | Your feed, profile, a search, a few authors' profiles (Follow looked for), one post (Like and the box to reply in looked for), notifications and followers, each read and sent with its outline; nothing pressed |
 
 ### On LinkedIn (0.40.0)
 
@@ -1077,6 +1097,35 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
 
 Each step is noted as the extension's own (`auto`), as Instagram's. A step its page doesn't let it do goes to your
 Needs you; it never guesses.
+
+### On its own on Threads and X (0.137.0)
+
+Threads' and X's runners (`src/auto/follows.ts`, decision 163) are built once for both and kept apart, each with its
+own line and turn with its network's asks, its own window, alarm (`hfos-auto-threads`, `hfos-auto-x`) and state
+(`hfos.auto.threads`, `hfos.auto.x`). Your choices for each in HandsFreeOS say what it does.
+
+- **When:** in your working hours, or once you start its day, while it's on for you and Chrome allows it, noting is on,
+  this computer is the one that works, and its Sending choice isn't Off. Stop for today ends it at its next page.
+- **Lists first:** before its first day it saves your newest followers (the newest 200) and works out who to unfollow
+  (`src/auto/lists.ts`).
+- **Every hour, its main work,** while **Every hour: search … for posts on your topic** is on (the `collect` choice):
+  its search with the hour's phrases from your playbooks (**Words to search Threads with**, **Words to search X with**,
+  through `outreach.posts.words`), newest first, the posts under 2 days old and not your own sent for the AI's check
+  (`src/jobs/follows/search.ts`), then your notifications read for replies to your comments (`replies.ts`), each kept
+  for an answer the AI drafts. The next search is 54 to 66 minutes on (`watchAt`), and the search and the list take
+  turns, so neither waits the whole hour.
+- **Once a day,** with the same choice on: your newest followers, the accounts you followed looked at for who followed
+  back, unfollowing who didn't once the wait is over as you chose (decision 98), who replied to good posts
+  (`post-people.ts`), the people found checked from their own profiles for good fits, and your own profile on the 1st.
+- **Your list for today** (`outreach.today` for the network): the warm-up (decision 161: a look at their profile and a
+  like on the post they were found by, or on their reply to a good post on the reply's own page, then one of their
+  latest while the day's likes have room; the visits after, while they decide), a follow a day after with their
+  profile's own Follow, and comments on good posts and answers to replies, drafted by the AI and posted once OK'd or past
+  the hold, only in that post's own box (`src/auto/comments.ts`). A comment pitches only when a post asks for what the
+  business offers. Message drafts are never taken up there (`followWorkLeft`).
+- **At a careful pace:** 3 to 8 minutes between steps, inside the kit's limits (30 comments and 80 likes a day, halved
+  while the account is new and for a week after a warning), which HandsFreeOS keeps.
+- **A warning** stops that network for the day, and only it. If it asks you to sign in, it stops and says so.
 
 ### The day's first messages, nearly guaranteed (0.114.0)
 

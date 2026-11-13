@@ -46306,6 +46306,18 @@ export interface operations {
                          *         "from": null,
                          *         "until": null,
                          *         "days": 14
+                         *       },
+                         *       "threads": {
+                         *         "on": false,
+                         *         "from": null,
+                         *         "until": null,
+                         *         "days": 14
+                         *       },
+                         *       "x": {
+                         *         "on": false,
+                         *         "from": null,
+                         *         "until": null,
+                         *         "days": 14
                          *       }
                          *     }
                          */
@@ -46334,6 +46346,34 @@ export interface operations {
                                 on: boolean;
                                 until: string | null;
                             };
+                            /**
+                             * @default {
+                             *       "on": false,
+                             *       "from": null,
+                             *       "until": null,
+                             *       "days": 14
+                             *     }
+                             */
+                            threads: {
+                                days: number;
+                                from: string | null;
+                                on: boolean;
+                                until: string | null;
+                            };
+                            /**
+                             * @default {
+                             *       "on": false,
+                             *       "from": null,
+                             *       "until": null,
+                             *       "days": 14
+                             *     }
+                             */
+                            x: {
+                                days: number;
+                                from: string | null;
+                                on: boolean;
+                                until: string | null;
+                            };
                         };
                         name: string;
                         networkWheels: {
@@ -46352,6 +46392,20 @@ export interface operations {
                                 on: boolean;
                             };
                             linkedin: {
+                                daysLeft: number;
+                                edits: number;
+                                from: string | null;
+                                ok: number;
+                                on: boolean;
+                            };
+                            threads: {
+                                daysLeft: number;
+                                edits: number;
+                                from: string | null;
+                                ok: number;
+                                on: boolean;
+                            };
+                            x: {
                                 daysLeft: number;
                                 edits: number;
                                 from: string | null;
@@ -48812,6 +48866,22 @@ export interface operations {
                                 why: ("person" | "warning") | null;
                             };
                             linkedin?: {
+                                at: string | null;
+                                date: string;
+                                /** @enum {string} */
+                                state: "none" | "started" | "stopped";
+                                via: ("web" | "mobile" | "extension") | null;
+                                why: ("person" | "warning") | null;
+                            };
+                            threads?: {
+                                at: string | null;
+                                date: string;
+                                /** @enum {string} */
+                                state: "none" | "started" | "stopped";
+                                via: ("web" | "mobile" | "extension") | null;
+                                why: ("person" | "warning") | null;
+                            };
+                            x?: {
                                 at: string | null;
                                 date: string;
                                 /** @enum {string} */
@@ -85836,6 +85906,18 @@ export interface operations {
                          *         "from": null,
                          *         "until": null,
                          *         "days": 14
+                         *       },
+                         *       "threads": {
+                         *         "on": false,
+                         *         "from": null,
+                         *         "until": null,
+                         *         "days": 14
+                         *       },
+                         *       "x": {
+                         *         "on": false,
+                         *         "from": null,
+                         *         "until": null,
+                         *         "days": 14
                          *       }
                          *     }
                          */
@@ -85864,6 +85946,34 @@ export interface operations {
                                 on: boolean;
                                 until: string | null;
                             };
+                            /**
+                             * @default {
+                             *       "on": false,
+                             *       "from": null,
+                             *       "until": null,
+                             *       "days": 14
+                             *     }
+                             */
+                            threads: {
+                                days: number;
+                                from: string | null;
+                                on: boolean;
+                                until: string | null;
+                            };
+                            /**
+                             * @default {
+                             *       "on": false,
+                             *       "from": null,
+                             *       "until": null,
+                             *       "days": 14
+                             *     }
+                             */
+                            x: {
+                                days: number;
+                                from: string | null;
+                                on: boolean;
+                                until: string | null;
+                            };
                         };
                         name: string;
                         networkWheels: {
@@ -85882,6 +85992,20 @@ export interface operations {
                                 on: boolean;
                             };
                             linkedin: {
+                                daysLeft: number;
+                                edits: number;
+                                from: string | null;
+                                ok: number;
+                                on: boolean;
+                            };
+                            threads: {
+                                daysLeft: number;
+                                edits: number;
+                                from: string | null;
+                                ok: number;
+                                on: boolean;
+                            };
+                            x: {
                                 daysLeft: number;
                                 edits: number;
                                 from: string | null;

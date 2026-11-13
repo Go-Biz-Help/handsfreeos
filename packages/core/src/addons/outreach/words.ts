@@ -706,6 +706,9 @@ export const OUTREACH_WORDS = {
     postSearches: 'Words to search LinkedIn’s posts with',
     businessKinds: 'Kinds of business to search for on Alignable',
     worksOnline: 'Clients online',
+    // Threads' and X's hourly searches (decision 163).
+    threadsSearches: 'Words to search Threads with',
+    xSearches: 'Words to search X with',
   },
   /**
    * Each network's own words on a customers' playbook (decisions 92 and 141): written by the AI once, around the

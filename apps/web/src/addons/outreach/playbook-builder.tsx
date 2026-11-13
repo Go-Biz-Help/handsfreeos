@@ -132,6 +132,9 @@ interface Draft {
   hashtags: string[];
   postSearches: string[];
   businessKinds: string[];
+  /** Threads' and X's hourly searches (decision 163). */
+  threadsSearches: string[];
+  xSearches: string[];
   worksOnline: boolean | null;
   steps: PlaybookStep[];
   pace: PlaybookDetails['pace'];
@@ -167,6 +170,8 @@ const fromDetails = (name: string, d: PlaybookDetails): Draft => ({
   hashtags: d.hashtags ?? [],
   postSearches: d.postSearches ?? [],
   businessKinds: d.businessKinds ?? [],
+  threadsSearches: d.threadsSearches ?? [],
+  xSearches: d.xSearches ?? [],
   worksOnline: d.worksOnline ?? null,
   steps: d.steps,
   pace: d.pace,
@@ -192,6 +197,8 @@ const LIST_KEYS = [
   'hashtags',
   'postSearches',
   'businessKinds',
+  'threadsSearches',
+  'xSearches',
   'tags',
   'avoid',
   'openerStyles',
@@ -226,6 +233,8 @@ const FIND_PARTS = [
   'postSearches',
   'businessKinds',
   'worksOnline',
+  'threadsSearches',
+  'xSearches',
 ] as const;
 type FindPart = (typeof FIND_PARTS)[number];
 /** The network whose part it is: the works-online switch is Alignable's, as its search goes by it. */
@@ -235,6 +244,8 @@ const FIND_PART_ON: Readonly<Record<FindPart, WordsPlatform>> = {
   postSearches: 'linkedin',
   businessKinds: 'alignable',
   worksOnline: 'alignable',
+  threadsSearches: 'threads',
+  xSearches: 'x',
 };
 
 /** The parts of `FIND_PARTS` the person changed from where the builder started, on a network that shows them. */
@@ -269,6 +280,8 @@ const toDetails = (d: Draft, sent: readonly FindPart[] = FIND_PARTS): PlaybookDe
   ...(sent.includes('postSearches') ? { postSearches: d.postSearches } : {}),
   ...(sent.includes('businessKinds') ? { businessKinds: d.businessKinds } : {}),
   ...(sent.includes('worksOnline') ? { worksOnline: d.worksOnline } : {}),
+  ...(sent.includes('threadsSearches') ? { threadsSearches: d.threadsSearches } : {}),
+  ...(sent.includes('xSearches') ? { xSearches: d.xSearches } : {}),
   steps: PLAYBOOK_STEP_KEYS.filter((s) => d.steps.includes(s)),
   pace: d.pace,
   tone: orNull(d.tone),
@@ -615,6 +628,8 @@ export function PlaybookBuilder({
       hashtags: d.hashtags,
       postSearches: d.postSearches,
       businessKinds: d.businessKinds,
+      threadsSearches: d.threadsSearches,
+      xSearches: d.xSearches,
       worksOnline: d.worksOnline,
       tags: d.tags,
       samples: d.samples.filter((m) => m.trim()),

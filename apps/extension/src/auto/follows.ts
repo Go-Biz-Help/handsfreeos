@@ -12,7 +12,7 @@
  *   who to unfollow worked out (./lists.ts).
  * - **Every hour, its main work** (the owner's "search often for new posts related to our niche and comment on them",
  *   answer 2a): its search with the hour's phrases from the playbooks (`outreach.posts.words`), newest first, the posts
- *   under 2 days old sent for the AI's check (../jobs/follows/search.ts), while the person's Watch posts choice is on;
+ *   under 2 days old sent for the AI's check (../jobs/follows/search.ts), while the person's Collect choice is on;
  *   and with it, their notifications read for replies to their comments (../jobs/follows/replies.ts, answer 8a).
  * - **Once a day,** while the network's Collect choice is on: their newest followers since the last save, the accounts
  *   they followed looked at for who followed back, unfollowing who didn't once the warm-up's wait is over as the person
@@ -888,7 +888,7 @@ function followRunner(platform: FollowPlatform): FollowRunner {
       daily = nextFollowDaily(state, passOver, at);
     }
     // Its search, every hour, once its first day's followers are saved: what it's there for.
-    const searching = choices.watchPosts && !holdsTheDay(before) && searchDue(state, at);
+    const searching = choices.collect && !holdsTheDay(before) && searchDue(state, at);
     const reading =
       (before !== null && (away || before.do !== 'save')) || daily !== null || searching;
     // The reading and the list take turns (decision 123).
@@ -966,7 +966,7 @@ function followRunner(platform: FollowPlatform): FollowRunner {
         ? waitingWords(waitingFor(passOver, state.daily, DAILY_NAMES))
         : null;
       const later = choices.collect ? soonestAgain(await stateNow(), at) : null;
-      const searchAt = choices.watchPosts ? ((await stateNow()).watchAt ?? null) : null;
+      const searchAt = choices.collect ? ((await stateNow()).watchAt ?? null) : null;
       await say(
         `${
           waiting

@@ -881,6 +881,9 @@ export const AutomationOutput = z.object({
     linkedin: WheelsState,
     instagram: WheelsState,
     alignable: WheelsState,
+    // Threads' and X's (decision 163).
+    threads: WheelsState,
+    x: WheelsState,
   }),
   /** Each network's half limits for someone new there (decision 96). */
   fresh: z
@@ -889,12 +892,16 @@ export const AutomationOutput = z.object({
       linkedin: FreshState,
       instagram: FreshState,
       alignable: FreshState,
+      threads: FreshState.default(NOT_FRESH),
+      x: FreshState.default(NOT_FRESH),
     })
     .default({
       facebook: NOT_FRESH,
       linkedin: NOT_FRESH,
       instagram: NOT_FRESH,
       alignable: NOT_FRESH,
+      threads: NOT_FRESH,
+      x: NOT_FRESH,
     }),
   /** Whose they are. */
   userId: z.uuid(),
