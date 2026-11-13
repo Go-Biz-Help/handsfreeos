@@ -1,8 +1,8 @@
 /**
  * The networks AI Social Media Content Creator studies (HANDSFREEOS_CONTENT_CREATOR_IMPLEMENTATION_PLAN.md, decision
- * 2): Instagram, Facebook and LinkedIn first, then Threads and X (decision 41: posted on first, studied next), TikTok
- * and YouTube. Each has its name, whether a business can pick it yet, the words its search uses, and how a link to
- * someone's page there reads. Its own copy, never Social Outreach's: add-ons never share code or data.
+ * 2): Instagram, Facebook and LinkedIn first, then Threads and X (decision 41: posted on, and their creators studied
+ * from extension 0.139.0), TikTok and YouTube. Each has its name, whether a business can pick it yet, the words its
+ * search uses, and how a link to someone's page there reads. Its own copy, never Social Outreach's: add-ons never share code or data.
  *
  * Browser-safe and pure: the web, the phone, the extension and the worker read it.
  */
@@ -50,16 +50,16 @@ export const CONTENT_NETWORK_INFO: Readonly<Record<ContentNetwork, ContentNetwor
     searchWords: 'search words for people and posts',
     watches: false,
   },
-  // Posted on from decision 41; studying their creators comes next.
+  // Decision 41: posted on (part 16), and their creators found and read (part 17).
   threads: {
     name: 'Threads',
-    ready: false,
+    ready: true,
     searchWords: 'search words for posts and people',
     watches: false,
   },
   x: {
     name: 'X',
-    ready: false,
+    ready: true,
     searchWords: 'search words for posts and people',
     watches: false,
   },

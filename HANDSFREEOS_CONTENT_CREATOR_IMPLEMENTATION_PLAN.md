@@ -222,5 +222,8 @@ posts with a picture about half the time and chains of posts for a longer tip; b
     and the chain on the post's screen, a refusal to OK words that run past what the network takes, and the extension
     (0.138.0) putting posts up there, chains included, and reading their likes and replies. Migration 026900 lets
     every table name the two networks and adds `content.chain`.
-17. **Studying creators on Threads and X.** Next: the readers for creators' profiles and posts there, and Threads
-    and X turned on under Settings → Networks.
+17. **Studying creators on Threads and X.** Threads and X turned on under Settings → Networks (`ready`), and the
+    extension (0.139.0, `follow-read.ts`) finding creators there by the niche's top posts (and X's people search),
+    reading their profiles (followers, bio, when they last posted, their latest posts' likes and replies) and their own
+    posts back 12 months, a pinned one kept as pinned. New niches get searches for both; an older one's name is
+    searched there until it's written again. Needs part 16's migration 026900 for the settings to take the two.

@@ -186,11 +186,18 @@ describe('what the AI says about niches', () => {
 
   it('keeps clean searches for the networks read', () => {
     expect(
-      cleanSearches({ ...searches, linkedin: ['plumbing coach'], tiktok: ['#plumbing'] }),
+      cleanSearches({
+        ...searches,
+        linkedin: ['plumbing coach'],
+        x: ['plumbing tips', '#plumbing'],
+        tiktok: ['#plumbing'],
+      }),
     ).toEqual({
       instagram: ['#plumbingtips', 'plumber'],
       facebook: [],
       linkedin: ['plumbing coach'],
+      threads: [],
+      x: ['plumbing tips', '#plumbing'],
     });
   });
 

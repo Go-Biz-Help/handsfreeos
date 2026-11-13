@@ -35,7 +35,7 @@ offered to nobody; staff give it to a business from Admin → Businesses.
 | What the AI is asked about standouts, and its checks     | `notes-ai.ts`; the asks run in the worker's `socialcontent/notes.ts`             |
 | The Playbook, ideas and Try watching                     | `ops/notes.ts`                                                                   |
 | The extension's reading                                  | `apps/extension/src/research/` (its README's 0.127.0 section)                    |
-| Instagram's reads, and Facebook's and LinkedIn's         | `instagram-read.ts`; `page-read.ts`                                              |
+| Instagram's reads; Facebook's and LinkedIn's; Threads'   | `instagram-read.ts`; `page-read.ts`; `follow-read.ts` (Threads and X)            |
 | Watching a video in the reading tab                      | `apps/extension/src/research/watch.ts`                                           |
 | The web pages                                            | `apps/web/src/addons/socialcontent/`, routes under `a/socialcontent/`            |
 | What it's doing, on the Creators page                    | `activity-card.tsx` there; the extension's `Progress` in `research/read.ts`      |
@@ -93,6 +93,13 @@ offered to nobody; staff give it to a business from Admin → Businesses.
   read again by the next search, and suggested when they fit. Profiles that still wouldn't open are counted (**Couldn’t open N profiles**),
   and a search where none opened, or most didn't, ends saying so with a problem report, never as done (9 Nov 2026,
   after two searches showed 30 accounts and read none).
+- **On Threads and X** (part 17, decision 41; extension 0.139.0, `follow-read.ts`), by their pages: a search reads
+  the network's top posts for each of the niche's searches (X's Top, Threads' default search) and gathers their
+  writers, then on X its people search; their profiles give followers, bio and link, when they last posted and their
+  latest posts' likes and replies. A studied creator's own posts are read from their profile, scrolled back to the
+  read's start: never a repost or a reply to someone else, and a pinned post at the top (older than the one under it)
+  is kept as pinned and never stops it. Likes and replies are kept; views aren't read. An older niche, with searches
+  written before the two were read, is searched there by its name.
 - **What it's doing** (the owner's ask, 9 Nov 2026: "so we can know the work it's done"). The Creators page shows,
   on top, whether the reading computer is there (when it last asked for work, and its extension's version; quiet past
   10 minutes), what it's doing now (the words it's searching, the searches done, the accounts the searches showed,
@@ -550,7 +557,6 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
 - Removing a post's older AI pictures: a picture made again replaces them on the post, but the old files stay among
   its files, since deleting a file is a person's step.
 - TikTok and YouTube (part 7).
-- Studying creators on Threads and X (part 17, decision 41): they show under Settings → Networks as coming. Posting
-  there works (part 16). X's own count (a link as 23 characters, some emoji as 2) isn't followed: the writer leaves
+- Reading a Threads or X post's views and reposts: the readers take likes and replies (part 17). X's own count (a link as 23 characters, some emoji as 2) isn't followed: the writer leaves
   room, and a post X keeps off is said, never pressed.
 - LinkedIn company pages' posts (members' posts are read), and watching Facebook's and LinkedIn's videos.

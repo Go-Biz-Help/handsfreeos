@@ -1384,6 +1384,27 @@ minute after posting and before any reading:
   link"). A warning keeps the network's words for the day, for both social add-ons, and says nothing: the read is
   asked for again later, since one handed out is put off half an hour.
 
+### Studying creators on Threads and X (0.139.0)
+
+AI Social Media Content Creator's part 17 (`docs/socialcontent.md`, "How it works"; decision 41 in
+`HANDSFREEOS_CONTENT_CREATOR_IMPLEMENTATION_PLAN.md`). Threads and X join the networks it reads (`RESEARCH_NETWORKS`
+in `src/research/run.ts`), by their pages and the readers their kits already have for Social Outreach
+(`src/networks/follows`, the `found` of the tab's `read`), in `src/research/follow-read.ts`:
+
+- **Find creators:** for each of the niche's searches, the network's top posts for it (X's Top, not Latest; Threads'
+  default search), scrolled twice, whose writers are gathered with when they posted; then on X its people search
+  (`&f=user`). Those known and the person's own account are passed over. Up to `most` profiles are then opened and
+  read, and sent ten at a time.
+- **A profile:** its name (none when it's the username), its bio with its link, its followers, when they last posted
+  (from the posts it shows) and their latest posts' likes and replies (`recent`, as Instagram's are sent).
+- **Their posts,** back to `since`: their profile, scrolled until the last of their posts on screen is older than
+  `since`, or three screens bring nothing new. Only their own posts, never a repost or a reply to someone else. The
+  first post is taken as pinned when it went up before the one under it, and never stops the scrolling. A post's key
+  is its number on X (`status/<id>`) and its code on Threads (`post/<code>`); its likes and replies are kept, views
+  aren't read.
+- A sign-in page says to sign in; a page that doesn't show what's read has the AI helper look, then a report, as on
+  Facebook and LinkedIn. Older builds never take Threads or X work: they ask only for the networks they read.
+
 ### Putting the business's own posts up on Threads and X (0.138.0)
 
 AI Social Media Content Creator's part 16 (`docs/socialcontent.md`, "Posting"; decision 41 in

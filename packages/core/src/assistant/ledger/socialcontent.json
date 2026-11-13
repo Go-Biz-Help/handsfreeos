@@ -278,7 +278,7 @@
       "by": "socialcontent_overview counts.standouts"
     },
     {
-      "path": "Settings → Networks: Instagram ticked, the rest Coming later",
+      "path": "Settings → Networks: Instagram, Facebook, LinkedIn, Threads and X to tick (the last one stays ticked); TikTok and YouTube Coming later",
       "kind": "do",
       "file": "apps/web/src/addons/socialcontent/settings-page.tsx:123",
       "covered": "yes",
@@ -712,7 +712,7 @@
       "by": "socialcontent_decide_idea"
     },
     {
-      "path": "Phone → Settings → Networks switches (the last one stays on; the rest Coming later)",
+      "path": "Phone → Settings → Networks switches for Instagram, Facebook, LinkedIn, Threads and X (the last one stays on); TikTok and YouTube Coming later",
       "kind": "do",
       "file": "apps/mobile/src/addons/socialcontent/settings.tsx:195",
       "covered": "yes",

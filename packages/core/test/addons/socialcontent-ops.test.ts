@@ -169,6 +169,12 @@ describe('studying creators', () => {
         as(owner, 'socialcontent.settings.save', { networks: ['instagram', 'tiktok'] }),
       ),
     ).toBe('socialcontent_network_not_ready');
+    // Threads and X are read from extension 0.139.0 (decision 41, part 17).
+    expect(
+      (await as(owner, 'socialcontent.settings.save', { networks: ['instagram', 'threads', 'x'] }))
+        .networks,
+    ).toEqual(['instagram', 'threads', 'x']);
+    await as(owner, 'socialcontent.settings.save', { networks: ['instagram'] });
     const saved = await as(owner, 'socialcontent.settings.save', { readerUserId: owner.id });
     expect(saved).toMatchObject({ readerUserId: owner.id, networks: ['instagram'] });
     expect((await as(owner, 'socialcontent.overview')).readerIsMe).toBe(true);
