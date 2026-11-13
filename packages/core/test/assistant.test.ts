@@ -228,11 +228,20 @@ describe('Assistant money tools', () => {
     expect(tool('record_payment').input.parse({ invoiceId: id })).toEqual({
       invoiceId: id,
       method: 'cash',
+      receipt: true,
     });
-    // It writes down money already taken; a card is never one of the ways.
+    // It writes down money already taken; a card charged here is never one of the ways, a card on the business's
+    // own machine is.
     expect(tool('record_payment').input.safeParse({ invoiceId: id, method: 'card' }).success).toBe(
       false,
     );
+    expect(
+      tool('record_payment').input.safeParse({
+        invoiceId: id,
+        method: 'card_outside',
+        paidThrough: 'Chase QuickAccept',
+      }).success,
+    ).toBe(true);
     expect(tool('record_payment').input.safeParse({ invoiceId: id, amount: -5 }).success).toBe(
       false,
     );
