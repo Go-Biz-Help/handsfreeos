@@ -1269,9 +1269,9 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
-### Event hosts, Facebook's new Like, and a liked post's Likes box (0.139.1)
+### Event hosts, Facebook's new Like, a liked post's Likes box, and chat windows closed first (0.139.1)
 
-The problem check of 13 Nov 2026 found three things the readers didn't know yet:
+The problem check of 13 Nov 2026 found three things the readers didn't know yet, and one the owner picked a fix for:
 
 - **An Alignable event showed nobody** (five events in one week's read). A group's event draws its hosts in a part of
   their own (`hosts`), twice (a wide screen's and a narrow one's), under a one-word label that isn't a heading, and its
@@ -1290,6 +1290,11 @@ The problem check of 13 Nov 2026 found three things the readers didn't know yet:
   Facebook's own mark on its Like, so the next change of words shows.
 - **An Instagram post's Likes box wasn't opened** on a post the person had liked: its bar says Unlike, then the count,
   and only a Like before the count was looked for. From 0.139.1 an Unlike counts too.
+- **A Facebook message found five chat windows open, none theirs**, so nothing was sent, and chat windows left open sat
+  over the posts a like went to. From 0.139.1 (the owner's pick, noted under decision 26 in `docs/outreach.md`),
+  `closeChatWindows` in `src/networks/facebook/auto.ts` closes every small chat window left open over the page, by its
+  own Close chat, before their profile's Message is pressed and before a like (on their profile, or a group's post).
+  The chats stay in Messenger. A window with writing in its box is left open, as the person may be writing there.
 
 ### Likes on reels, in the reels player on Instagram (0.136.1)
 

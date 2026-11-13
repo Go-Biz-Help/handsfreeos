@@ -55,6 +55,7 @@ import type {
 import { usernamePageOf } from '../accounts-center/username';
 import { CENTER_ASKS, centerWork, type CenterAsk } from '../accounts-center/work';
 import {
+  closeChatWindows,
   likeGroupPost,
   likeTheirPost,
   openMessage,
@@ -127,6 +128,8 @@ async function autoStep(ask: AutoAsk): Promise<AutoAnswer | PostsAnswer> {
   const kind = classifyUrl(location.href).kind;
   if (ask.type === 'hfos-their-posts' || ask.type === 'hfos-like-post') {
     if (kind !== 'profile') return { ok: false, error: 'Facebook didn’t open their profile.' };
+    // Chat windows left open over the page are closed first (the owner's pick of 13 Nov 2026).
+    await closeChatWindows(document);
     if (ask.type === 'hfos-their-posts') {
       const posts = await readTheirPosts(document, location.href, ask.profile, window, ask.most);
       return { ok: true, posts, ...(!posts.length && saysNoPosts(document) ? { none: true } : {}) };
@@ -175,6 +178,8 @@ async function groupFeedStep(
     return { ok: false, error: 'Facebook didn’t open the group.' };
   if (ask.type === 'hfos-group-feed')
     return { ok: true, posts: await readGroupFeed(document, location.href, window, ask.most) };
+  // Chat windows left open over the page are closed before a like (the owner's pick of 13 Nov 2026).
+  await closeChatWindows(document);
   return { ok: true, ...(await likeGroupPost(document, location.href, ask, window)) };
 }
 
@@ -184,9 +189,13 @@ async function groupFeedStep(
  */
 let chatsBefore: ChatsBefore | null = null;
 
-/** Their profile's Message, for the runner, once the chats open before it are noted: whether it could press it. */
+/**
+ * Their profile's Message, for the runner, once the chat windows left open over the page are closed (the owner's pick
+ * of 13 Nov 2026) and the chats open before it are noted: whether it could press it.
+ */
 async function openMessageStep(): Promise<BrowseAnswer> {
   if (classifyUrl(location.href).kind !== 'profile') return { ok: false };
+  await closeChatWindows(document);
   const opened = await openMessage(document);
   chatsBefore = opened.before;
   return { ok: opened.pressed };

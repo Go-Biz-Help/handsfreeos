@@ -975,6 +975,32 @@ async function closeWindow(doc: Document, box: HTMLElement): Promise<boolean> {
   return false;
 }
 
+/** How long a closed chat window is left to go before the next is closed. */
+const CLOSED_PAUSE_MS = 300;
+
+/**
+ * Closes the small chat windows open over a page before a like or a message goes (the owner's pick of 13 Nov 2026,
+ * noted under decision 26): Facebook keeps them open from page to page, and other people's left open covered the
+ * posts and the window a message opened (the problem reports of 13 Nov 2026: five open, none theirs, so nothing was
+ * sent, and likes with chat windows in their way). Each by its own Close chat; nothing in Messenger is deleted. A
+ * window with writing in its box is left alone, as the person may be writing there, and Messenger's own chat page,
+ * the main column, has none. How many it closed.
+ */
+export async function closeChatWindows(doc: Document): Promise<number> {
+  const main = mainIn(doc);
+  if (!main) return 0;
+  let closed = 0;
+  for (const close of closesIn(doc.body)) {
+    if (main.contains(close) || !close.isConnected || !shown(close)) continue;
+    const chatWindow = windowAround(close, main);
+    if ([...chatWindow.querySelectorAll(WRITING)].some(hasWriting)) continue;
+    (close as HTMLElement).click();
+    closed++;
+    await pause(CLOSED_PAUSE_MS);
+  }
+  return closed;
+}
+
 /** Whether the focus is in a box: on it, or on something inside it. */
 const focusIn = (doc: Document, box: Element) =>
   doc.activeElement !== null && box.contains(doc.activeElement);

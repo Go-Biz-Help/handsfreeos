@@ -128,14 +128,6 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     said: 'Only one of their posts was drawn, with more still loading below it, so the AI picked from that one alone: the wait on a loading box goes on now while fewer than six posts are drawn.',
   },
   {
-    area: 'facebook',
-    job: 'send',
-    note: 'couldn’t find a chat open with them',
-    fixedIn: '0.134.3',
-    pr: 595,
-    said: 'Their new chat’s window showed Facebook’s loading mark where the box goes: the writer waits up to ten seconds more now while a chat window is still drawing its box (0.128.4, #562). Then 6 chat windows were left open over the page, and 5 more in the corner, from earlier messages: each window a message went in is closed once it has gone now (0.134.1, #577). Then one person’s message failed twice, a day apart: the first try left their window open, linking to them by a number HandsFreeOS didn’t keep, and their Message only brought it up again. That window is checked now as one that just opened: their number’s profile is opened, and the message goes once Facebook shows it’s theirs.',
-  },
-  {
     area: 'linkedin',
     job: 'send',
     note: 'couldn’t find the box to write in',
@@ -190,7 +182,7 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     note: 'Couldn’t like (their name)’s post',
     fixedIn: '0.139.1',
     pr: 615,
-    said: 'On a post with no count in it, Facebook labels its Like “Like (their name)’s post”, which wasn’t a Like the reader knew, so it was never pressed: it is now, and outlines keep the words on a post’s buttons.',
+    said: 'On a post with no count in it, Facebook labels its Like “Like (their name)’s post”, which wasn’t a Like the reader knew, so it was never pressed: it is now, outlines keep the words on a post’s buttons, and chat windows left open over their profile are closed before a like (the owner’s pick).',
   },
   {
     area: 'instagram',
@@ -199,6 +191,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     fixedIn: '0.139.1',
     pr: 615,
     said: 'On a post the person had liked, its bar says Unlike before the count of likes, and only a Like was looked for: an Unlike counts now.',
+  },
+  {
+    area: 'facebook',
+    job: 'send',
+    note: 'couldn’t find a chat open with them',
+    fixedIn: '0.139.1',
+    pr: 615,
+    said: 'Their new chat’s window showed Facebook’s loading mark where the box goes: the writer waits up to ten seconds more now while a chat window is still drawing its box (0.128.4, #562). Then 6 chat windows were left open over the page, and 5 more in the corner, from earlier messages: each window a message went in is closed once it has gone now (0.134.1, #577). Then one person’s message failed twice, a day apart: the first try left their window open, linking to them by a number HandsFreeOS didn’t keep, and their Message only brought it up again. That window is checked now as one that just opened: their number’s profile is opened, and the message goes once Facebook shows it’s theirs (0.134.3, #595). Then five windows were left open with other people, covering the page, and theirs never showed: every chat window left open is closed before their Message is pressed now, unless the person was writing in it (the owner’s pick).',
   },
 ];
 
