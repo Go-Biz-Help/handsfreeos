@@ -153,6 +153,8 @@ export const NOT_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'founding.claim_preview': 'the signed-out page a founding seat is claimed on',
   'founding.counts':
     'the plan page a new business pays on, before it is set up and has an Assistant',
+  'founding.trials':
+    'the free trial the plan page offers a new business, before it is set up and has an Assistant',
   'file.fingerprints': 'the upload box telling a file it already has',
   'outreach.lookup': 'what the browser extension reads off a network',
   'outreach.ticker':

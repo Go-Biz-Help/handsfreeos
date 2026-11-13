@@ -10,8 +10,10 @@ They are deployed as **two separate Vercel projects** so a copy change never reb
   belongs in `apps/web`.
 - **Company facts, addresses and prices live in `src/content/site.ts`**, not in the pages.
 - **HandsFreeOS is sold as founding spots, first come, first served** (2026-10-27): $497 a year or $97 a
-  month, each with its own live count. Nobody applies. Every sign-up button goes to the app's sign-up, which
-  goes straight on to picking a spot and paying; a spot's own button adds `?plan=yearly` or `?plan=monthly`
+  month, each with its own live count, and since 2026-11-13 the first 14 days are free (`freeTrial` in
+  `src/content/site.ts`; the database's `founding_offers.trial_days` gives it, so change both). Nobody
+  applies. Every sign-up button goes to the app's sign-up, which goes straight on to picking a spot and
+  starting the trial; a spot's own button adds `?plan=yearly` or `?plan=monthly`
   so that spot is picked to start with. Which spots are on sale and how many are left come from the database
   (`src/lib/founding.ts`), never from this repo. `/founding`, the old application page, redirects to
   `/pricing`.

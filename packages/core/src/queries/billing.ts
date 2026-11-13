@@ -13,6 +13,7 @@ import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
 import type { QueryContext } from '../kernel/types';
 import { payDayRefusalMessage } from '../commands/billing';
+import { TRIAL_ENDING_DAYS } from '../billing/rules';
 import {
   BillingGetInput,
   BillingGetOutput,
@@ -153,7 +154,17 @@ export const billingStatus = defineQuery({
       );
       askWho = owner?.name ?? null;
     }
-    return { workspaceId: input.workspaceId, owed, canManage, askWho };
+    // A free trial about to turn into its first charge (20261027027000): whoever pays hears it in the app too.
+    const ends = p?.trial_ends_at ? new Date(p.trial_ends_at) : null;
+    const trialEnding =
+      canManage &&
+      ends &&
+      p?.grant_active &&
+      !p.renewal_stopped_at &&
+      ends.getTime() - Date.now() <= TRIAL_ENDING_DAYS * 86_400_000
+        ? { endsAt: ends.toISOString(), chargeCents: Number(p.charge_cents ?? 0) }
+        : null;
+    return { workspaceId: input.workspaceId, owed, canManage, askWho, trialEnding };
   },
 });
 

@@ -14,7 +14,7 @@ import {
   YourBusinessProvider,
 } from '@/components/your-business';
 import { pricesCheckedOn, stackSources } from '@/content/savings';
-import { moneyBack, spotPrices, urls } from '@/content/site';
+import { freeTrial, moneyBack, spotPrices, urls } from '@/content/site';
 import { tradePageBySlug, tradePages } from '@/content/trade-pages';
 import { foundingCounts, foundingSpotsOnSale, hasRoom } from '@/lib/founding';
 
@@ -26,7 +26,7 @@ import { foundingCounts, foundingSpotsOnSale, hasRoom } from '@/lib/founding';
 
 type Props = { params: Promise<{ trade: string }> };
 
-/** The sign-up button says "Claim my founding spot" only while one is open, so it reads the live counts. */
+/** The sign-up button starts the free trial only while a spot is open, so it reads the live counts. */
 export const revalidate = 60;
 export const dynamicParams = false;
 
@@ -48,7 +48,7 @@ export default async function TradePage({ params }: Props) {
   const page = tradePageBySlug((await params).trade);
   if (!page) notFound();
   const open = foundingSpotsOnSale(await foundingCounts()).some(hasRoom);
-  const signUp = open ? 'Claim my founding spot' : 'Sign up';
+  const signUp = open ? freeTrial.button : 'Sign up';
 
   return (
     <>
@@ -78,7 +78,7 @@ export default async function TradePage({ params }: Props) {
                   </Button>
                 </div>
                 <ul className="text-text-2 mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm">
-                  {[`${spotPrices}, plus what you use`, 'No contract', moneyBack.short].map(
+                  {[freeTrial.short, `Then ${spotPrices}, plus what you use`, 'No contract'].map(
                     (item) => (
                       <li key={item} className="flex items-center gap-1.5">
                         <Check className="text-success" />

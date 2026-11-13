@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui';
-import { foundingSpots, moneyBack, urls } from '@/content/site';
+import { foundingSpots, freeTrial, urls } from '@/content/site';
 
 const monthly = foundingSpots.find((s) => s.plan === 'monthly');
 
@@ -52,10 +52,10 @@ export function StickyCta({ open }: { open: boolean }) {
           <span className="text-text block font-semibold">
             {monthly ? `${monthly.priceLabel} ${monthly.per}, no contract` : 'No contract'}
           </span>
-          {moneyBack.short}
+          {freeTrial.short}
         </p>
         <Button href={urls.signUp} arrow className="shrink-0">
-          {open ? 'Claim my spot' : 'Sign up'}
+          {open ? 'Start free' : 'Sign up'}
         </Button>
       </div>
     </div>
