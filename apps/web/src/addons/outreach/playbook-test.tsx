@@ -19,8 +19,13 @@ import {
   TEST_QUICK,
   TEST_START,
   TEST_WORDS as T,
+  testAdds,
+  testFirstName,
+  testFull,
+  testLinesAfter,
   type PlaybookTestOutput,
   type TestKnown,
+  type TestLine,
   type TestMessage,
   type TestMove,
   type TestPersona,
@@ -37,14 +42,6 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { errorMessage } from '@/lib/api/client';
 import { workerPost } from '@/lib/api/worker';
-
-/** One thing in the test chat: a message either way, or what the console says about a move. */
-type Line =
-  | { readonly kind: 'me'; readonly label: string; readonly text: string; readonly others: readonly string[] }
-  | { readonly kind: 'them'; readonly text: string; readonly played: boolean }
-  | { readonly kind: 'read'; readonly text: string }
-  | { readonly kind: 'note'; readonly text: string }
-  | { readonly kind: 'next'; readonly text: string };
 
 export interface PlaybookTestProps {
   workspaceId: string;
@@ -81,7 +78,7 @@ export function PlaybookTest({
   });
   const [version, setVersion] = useState(0);
   const [chat, setChat] = useState<TestMessage[]>([]);
-  const [lines, setLines] = useState<Line[]>([]);
+  const [lines, setLines] = useState<TestLine[]>([]);
   const [state, setState] = useState<TestState>(TEST_START);
   const [busy, setBusy] = useState<TestMove | null>(null);
   const [reply, setReply] = useState('');
@@ -93,7 +90,7 @@ export function PlaybookTest({
   }, [lines.length, busy]);
 
   const started = chat.some((m) => m.fromMe);
-  const full = chat.length >= TEST_LIMITS.turns - 1;
+  const full = testFull(chat);
 
   const reset = () => {
     setChat([]);
@@ -126,31 +123,9 @@ export function PlaybookTest({
           },
         },
       );
-      const said: TestMessage[] = [
-        ...(out.theirs ? [{ fromMe: false, text: out.theirs }] : []),
-        ...(out.message ? [{ fromMe: true, text: out.message }] : []),
-      ];
-      const added: Line[] = [
-        ...(out.theirs
-          ? [{ kind: 'them' as const, text: out.theirs, played: kind === 'play' }]
-          : []),
-        ...(out.read ? [{ kind: 'read' as const, text: out.read }] : []),
-        ...(out.message
-          ? [
-              {
-                kind: 'me' as const,
-                label: out.label ?? T.you,
-                text: out.message,
-                others: out.others,
-              },
-            ]
-          : []),
-        ...(out.unanswered ? [{ kind: 'note' as const, text: T.unanswered(out.unanswered) }] : []),
-        ...(out.note ? [{ kind: 'note' as const, text: out.note }] : []),
-        { kind: 'next' as const, text: out.next },
-      ];
+      const { said, lines: added } = testAdds(out, kind);
       setChat((c) => [...(fresh ? [] : c), ...said]);
-      setLines((l) => [...(fresh ? [] : l.filter((x) => x.kind !== 'next')), ...added]);
+      setLines((l) => testLinesAfter(l, added, kind));
       setState(out.state);
       setReply('');
       setShown(null);
@@ -243,7 +218,7 @@ export function PlaybookTest({
                   >
                     {Array.from({ length: versions }, (_, i) => (
                       <option key={i} value={i}>
-                        Version {i + 1}
+                        {T.versionN(i + 1)}
                       </option>
                     ))}
                   </Select>
@@ -263,7 +238,7 @@ export function PlaybookTest({
               {started ? (
                 <Button variant="ghost" size="sm" onClick={reset}>
                   <RotateCcw className="h-3.5 w-3.5" />
-                  Clear
+                  {T.clear}
                 </Button>
               ) : null}
             </div>
@@ -295,7 +270,7 @@ export function PlaybookTest({
                             className="mt-1 text-[12px] text-accent-text hover:underline"
                             onClick={() => setShown(shown === i ? null : i)}
                           >
-                            {shown === i ? 'Hide the others' : T.others}
+                            {shown === i ? T.hideOthers : T.others}
                           </button>
                         ) : null}
                         {shown === i
@@ -314,8 +289,8 @@ export function PlaybookTest({
                     return (
                       <div key={i} className="flex flex-col items-start">
                         <span className="mb-0.5 text-[11.5px] font-medium text-text-3">
-                          {person.name.trim().split(/\s+/)[0] || T.them}
-                          {l.played ? ' (played by the AI)' : ''}
+                          {testFirstName(person)}
+                          {l.played ? ` ${T.played}` : ''}
                         </span>
                         <div className="max-w-[92%] whitespace-pre-wrap rounded-2xl rounded-bl-md border border-border bg-card px-3 py-2 text-[14px]">
                           {l.text}
@@ -424,7 +399,7 @@ export function PlaybookTest({
                   <label className="flex items-center gap-1.5 text-[13px] text-text-2">
                     {T.playAs}
                     <Select
-                      aria-label="Who the AI plays"
+                      aria-label={T.whoPlays}
                       selectSize="sm"
                       value={persona}
                       onChange={(e) => setPersona(e.target.value as TestPersona)}

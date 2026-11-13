@@ -387,11 +387,78 @@ export function testPersonLines(person: TestPerson): {
   };
 }
 
+// ---- The console's chat (the web's and the phone's) ----
+
+/** One thing in the test chat as a console draws it: a message either way, or what the console says about a move. */
+export type TestLine =
+  | {
+      readonly kind: 'me';
+      /** What the message is: "First message, version 2 of 3". */
+      readonly label: string;
+      readonly text: string;
+      /** The AI's other drafts of it. */
+      readonly others: readonly string[];
+    }
+  | { readonly kind: 'them'; readonly text: string; /** The AI wrote it as them. */ readonly played: boolean }
+  | { readonly kind: 'read'; readonly text: string }
+  | { readonly kind: 'note'; readonly text: string }
+  | { readonly kind: 'next'; readonly text: string };
+
+/**
+ * What a move's answer adds: the messages said, for the next move's chat, and the lines a console draws, in order:
+ * what they said, what the AI read in it, the message that would go, anything worth knowing, and what happens next.
+ */
+export function testAdds(
+  out: PlaybookTestOutput,
+  move: TestMove,
+): { readonly said: TestMessage[]; readonly lines: TestLine[] } {
+  return {
+    said: [
+      ...(out.theirs ? [{ fromMe: false, text: out.theirs }] : []),
+      ...(out.message ? [{ fromMe: true, text: out.message }] : []),
+    ],
+    lines: [
+      ...(out.theirs ? [{ kind: 'them' as const, text: out.theirs, played: move === 'play' }] : []),
+      ...(out.read ? [{ kind: 'read' as const, text: out.read }] : []),
+      ...(out.message
+        ? [
+            {
+              kind: 'me' as const,
+              label: out.label ?? TEST_WORDS.you,
+              text: out.message,
+              others: out.others,
+            },
+          ]
+        : []),
+      ...(out.unanswered
+        ? [{ kind: 'note' as const, text: TEST_WORDS.unanswered(out.unanswered) }]
+        : []),
+      ...(out.note ? [{ kind: 'note' as const, text: out.note }] : []),
+      { kind: 'next' as const, text: out.next },
+    ],
+  };
+}
+
+/** The chat a console draws after a move: a start clears it, and only the newest "what happens next" stays. */
+export const testLinesAfter = (
+  lines: readonly TestLine[],
+  added: readonly TestLine[],
+  move: TestMove,
+): TestLine[] => [...(move === 'start' ? [] : lines.filter((l) => l.kind !== 'next')), ...added];
+
+/** Whether a test chat has room for another move. */
+export const testFull = (chat: readonly TestMessage[]): boolean =>
+  chat.length >= TEST_LIMITS.turns - 1;
+
+/** The made-up person's first name, as the console names their messages. */
+export const testFirstName = (person: Pick<TestPerson, 'name'>): string =>
+  person.name.trim().split(/\s+/)[0] || TEST_WORDS.them;
+
 /** The console's own words, shared by the web and the phone. */
 export const TEST_WORDS = {
   title: 'Test it',
   blurb:
-    'Make someone up and see what would go to them, with your playbook as it is on this screen. Nothing is sent or saved. Each message uses a little of your daily AI limit.',
+    'Make someone up and see what would go to them. Nothing is sent or saved. Each message uses a little of your daily AI limit.',
   person: 'Who are they?',
   name: 'Their name',
   namePlaceholder: 'Sam Rivera',
@@ -422,4 +489,9 @@ export const TEST_WORDS = {
   nothing: 'The AI had no message it could use here. Try the move again.',
   full: `A test chat holds ${TEST_LIMITS.turns} messages. Start over to go on.`,
   unsaved: 'Testing what’s on screen, saved or not.',
+  clear: 'Clear',
+  hideOthers: 'Hide the others',
+  played: '(played by the AI)',
+  versionN: (n: number) => `Version ${n}`,
+  whoPlays: 'Who the AI plays',
 } as const;

@@ -694,8 +694,9 @@ export const OUTREACH_WORDS = {
     video: 'Short video',
     tone: 'How it sounds',
     samples: 'Sample messages',
-    openers: 'How first messages open',
-    questions: 'The conversation',
+    // What it says (decision 164, ./script.ts): its own words for every message.
+    script: 'What it says',
+    questions: 'Questions it may ask',
     avoid: 'Words to avoid',
     disclaimer: 'Disclaimer',
     tags: 'Tags',
@@ -753,8 +754,6 @@ export const OUTREACH_WORDS = {
     'Like “Austin homeowners”. Your computer searches posts and people with these to find partners, and groups too.',
   offerLabel: 'What you offer',
   linkLabel: 'Its link',
-  openerStyles: 'Styles the AI opens with',
-  ownOpeners: 'Your own openers, sent as written',
   /** Someone changed the playbook since the phone loaded it: the section is put on the newer one. */
   changedSince: 'Someone changed this playbook meanwhile. Your change went on top of theirs.',
 
