@@ -176,6 +176,30 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 607,
     said: 'A reel opens in the reels player, with the next reel under it, no article and a Comment named by its count, so no author was found and no like on a reel ever went: the reel it opened on is found by its own Like and its account’s links.',
   },
+  {
+    area: 'instagram',
+    job: 'post.feed',
+    note: 'Instagram didn’t show the box to write a post',
+    fixedIn: '0.139.2',
+    pr: 619,
+    said: 'Create’s menu is on the page all along, hidden, and its icons carry a title, so its Post read “PostPost” and was never picked: a control’s words are what a person sees now.',
+  },
+  {
+    area: 'linkedin',
+    job: 'post.feed',
+    note: 'LinkedIn didn’t take its pictures',
+    fixedIn: '0.139.2',
+    pr: 619,
+    said: 'LinkedIn’s newer box opens a window of its own for pictures (Upload from computer or a drop place, then Next): the files go in there now.',
+  },
+  {
+    area: 'facebook',
+    job: 'post.page',
+    note: 'Meta Business Suite didn’t show Create post',
+    fixedIn: '0.139.2',
+    pr: 619,
+    said: 'A newer Page’s link has its profile number, which Business Suite won’t open: the Page’s own number (delegate_page) is tried first now, then the others.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */
