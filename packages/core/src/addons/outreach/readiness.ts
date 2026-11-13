@@ -876,6 +876,69 @@ export const READY_WORDS = {
           'Change anything that isn’t you, then put it in: your computer writes it in About Us on your Alignable profile. Alignable emails you a code first to check it’s you: your phone tells you, and you type it here.',
         aboutCopied: 'Copied. Paste it in About Us on your Alignable profile.',
       },
+      // Threads and X (decision 163): what a stranger who sees the person's comment and opens their account reads first.
+      threads: {
+        title: 'Check your Threads profile',
+        hint: 'People who see your comments open it before they follow you or answer. It doesn’t have to sell; it just shouldn’t put anyone off. Your computer reads it, the AI says what to change and writes your bio, and you tick each one once it’s right.',
+        items: {
+          picture: {
+            label: 'A clear photo of your face',
+            tip: 'Not a logo. People follow and answer a person.',
+          },
+          name: {
+            label: 'A name that says what you do and where',
+            tip: 'Threads takes your name from Instagram, so change it there: your first name, then what you do, like “Dana | Austin roofing”.',
+          },
+          bio: {
+            label: 'A bio that says who you help and what to do next',
+            tip: 'Threads’ bio, up to 150 characters, from your main offer.',
+          },
+          link: {
+            label: 'A link to book a call',
+            tip: 'In Threads: Edit profile, then Links. Your booking link first.',
+          },
+          posts: {
+            label: 'Posts that show who you are, and some proof',
+            tip: 'Not only selling: your work, what you’ve learned, a customer’s win. Pin your best one.',
+          },
+        } satisfies Partial<Record<AnyProfileItem, { label: string; tip: string }>>,
+        about: null,
+        aboutHint: null,
+        aboutCopied: null,
+      },
+      x: {
+        title: 'Check your X profile',
+        hint: 'People who see your replies open it before they follow you or answer. It doesn’t have to sell; it just shouldn’t put anyone off. Your computer reads it, the AI says what to change and writes your bio, and you tick each one once it’s right.',
+        items: {
+          picture: {
+            label: 'A clear photo of your face',
+            tip: 'Not a logo. People follow and answer a person.',
+          },
+          cover: {
+            label: 'A header that says the result you get people',
+            tip: 'One line on an image, like “More booked jobs for roofers”. Not a sales pitch.',
+          },
+          name: {
+            label: 'A name that says what you do',
+            tip: 'It shows beside every reply, up to 50 characters: your first name, then what you do, like “Dana | Austin roofing”.',
+          },
+          bio: {
+            label: 'A bio that says who you help and what to do next',
+            tip: 'X’s bio, up to 160 characters, from your main offer.',
+          },
+          link: {
+            label: 'A link to book a call',
+            tip: 'In X: Edit profile, then Website. Your booking link.',
+          },
+          posts: {
+            label: 'Posts that show who you are, and some proof',
+            tip: 'Not only selling: your work, what you’ve learned, a customer’s win. Pin your best one.',
+          },
+        } satisfies Partial<Record<AnyProfileItem, { label: string; tip: string }>>,
+        about: null,
+        aboutHint: null,
+        aboutCopied: null,
+      },
     } satisfies Partial<Record<Platform, unknown>>,
     offer: 'Your main offer',
     done: 'Done',
@@ -975,12 +1038,24 @@ interface NetworkProfileWords {
   readonly aboutCopied: string | null;
 }
 
+/** An item's plain name, for one a network has no words for yet. */
+const ITEM_NAMES: Readonly<Record<AnyProfileItem, string>> = {
+  picture: 'Your photo',
+  cover: 'Your cover',
+  bio: 'Your bio',
+  work: 'Your work',
+  featured: 'What you feature',
+  posts: 'Your posts',
+  about: 'Your About',
+  name: 'Your name',
+  link: 'Your link',
+};
+
 /**
  * Get ready's profile part on a network, in its words, for the web and the phone: its title and hint, its items in its
  * order (LinkedIn's About among them), the check's words (LinkedIn's headlines and banner), and the About to start
  * from where the network has one. Facebook's are as they always were.
  */
-
 export function profileWordsOn(platform: Platform = 'facebook') {
   const P = READY_WORDS.profile;
   // A network with no words of its own here (one still looked at, decision 78) has Facebook's.
@@ -992,11 +1067,14 @@ export function profileWordsOn(platform: Platform = 'facebook') {
     ...profileCheckWordsOn(platform),
     title: on?.title ?? P.title,
     hint: on?.hint ?? P.hint,
-    items: PROFILE_ITEMS_ON[platform].map((item): ProfileRowWords => ({
-      item,
-      label: words[item]!.label,
-      tip: words[item]!.tip,
-    })),
+    // An item with no words of its own on the network has Facebook's, then a plain name: a page never breaks on one
+    // (Threads' and X's name and link had none on 13 Nov 2026, and their Settings page didn't load).
+    items: PROFILE_ITEMS_ON[platform].map((item): ProfileRowWords => {
+      const own =
+        words[item] ??
+        (P.items as Partial<Record<AnyProfileItem, { label: string; tip: string }>>)[item];
+      return { item, label: own?.label ?? ITEM_NAMES[item], tip: own?.tip ?? '' };
+    }),
     tick: P.tick,
     untick: P.untick,
     ticked: P.ticked,

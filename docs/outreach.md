@@ -4115,6 +4115,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         choice (`collect`) is on; the warm-up's like goes while **Like one or two of their posts before following
         them** is. The settings, Today's cards and the counters show both as every other network, and Settings →
         Team lets owners allow them or not (`rules.networksAllowed`).
+      - **Their profile's checklist** (13 Nov 2026, after the owner's Threads settings page didn't load): each has its
+        own words in `READY_WORDS.profile.on` and `PROFILE_CHECK_WORDS_ON` (Threads' name comes from Instagram; X's
+        header is its cover, made at 1500 by 500). Nothing goes in for them yet, so the bios are there to copy. An item
+        a network has no words for falls back to Facebook's, then a plain name, so a page never breaks on one again.
 
 ## Rules worth knowing before changing anything
 

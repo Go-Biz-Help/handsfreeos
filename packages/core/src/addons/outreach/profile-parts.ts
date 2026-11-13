@@ -1311,6 +1311,8 @@ export const COVER_SIZE_ON: Readonly<
 > = {
   facebook: { w: 1640, h: 624 },
   linkedin: { w: 1584, h: 396 },
+  // X's header (decision 163).
+  x: { w: 1500, h: 500 },
 };
 
 export const PICTURE_WORDS = {
