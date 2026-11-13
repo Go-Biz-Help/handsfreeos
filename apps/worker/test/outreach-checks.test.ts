@@ -6,7 +6,8 @@
  * it, and the country guesser leaves them to their check unless a post of theirs is kept.
  */
 import { randomUUID } from 'node:crypto';
-import type { AiProvider } from '@hfos/ai';
+import { FallbackProvider, type AiProvider, type AiRoute, type AiTurn } from '@hfos/ai';
+import { checkSystem } from '@hfos/core/addons/outreach/checks';
 import { PLAYBOOK_TEMPLATES } from '@hfos/core/addons/outreach/playbooks';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
@@ -219,6 +220,80 @@ describe('checking the people the person knows', () => {
           where workspace_id = ${ws} and kind = ${CHECK_PEOPLE_JOB} and status = 'pending'`,
     );
     expect(job?.later).toBe(true);
+  });
+
+  it('asks again when Claude answers with nothing, and has the backup answer when it does twice', async () => {
+    const scripted = scriptedAi();
+    let blanks = 0;
+    let backupAsked = 0;
+    let route: AiRoute = 'primary';
+    const nothing: AiTurn = {
+      text: '',
+      toolCalls: [],
+      stopReason: 'refusal',
+      usage: { inputTokens: 2, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
+    };
+    // Claude, answering a check with nothing at all while `blanks` lasts, as the AI service sometimes does.
+    const claude: AiProvider = {
+      id: 'anthropic',
+      model: scripted.model,
+      stream: (request, options) => {
+        if (blanks > 0 && request.system === checkSystem('facebook')) {
+          blanks -= 1;
+          return Promise.resolve(nothing);
+        }
+        return scripted.stream(request, options);
+      },
+    };
+    const backup: AiProvider = {
+      id: 'openai',
+      model: 'gpt-6-sol',
+      stream: (request, options) => {
+        backupAsked += 1;
+        return scripted.stream(request, options);
+      },
+    };
+    const s = testServices({
+      ai: {
+        provider: new FallbackProvider(claude, backup, {
+          route: () => route,
+          primaryFailed: () => undefined,
+          primaryWorked: () => undefined,
+        }),
+      },
+    });
+    const checked = async (name: string) => {
+      const ws = await looked(name, [['Owner at Lane Plumbing']]);
+      await drain(s, ws);
+      return (await states(ws))[0]!;
+    };
+
+    // Once: Claude is asked again and answers.
+    blanks = 1;
+    expect(await checked('Outreach Blank Once Co')).toMatchObject({ verdict: 'good' });
+    expect([blanks, backupAsked]).toEqual([0, 0]);
+
+    // Twice: the backup answers the same check.
+    blanks = 2;
+    expect(await checked('Outreach Blank Twice Co')).toMatchObject({
+      verdict: 'good',
+      why: ['Owns a business'],
+    });
+    expect([blanks, backupAsked]).toEqual([0, 1]);
+    const [used] = await rows<{ backup: number }>(
+      admin(),
+      sql`select count(*)::int as backup from app.ai_usage where model = 'gpt-6-sol'`,
+    );
+    expect(used!.backup).toBeGreaterThan(0);
+
+    // Someone pinned Claude: the backup isn't asked, and the AI couldn't read them.
+    route = 'primary_only';
+    blanks = 2;
+    expect(await checked('Outreach Blank Pinned Co')).toMatchObject({
+      verdict: 'failed',
+      why: ['The AI couldn’t read them'],
+    });
+    expect([blanks, backupAsked]).toEqual([0, 1]);
   });
 });
 

@@ -2,8 +2,11 @@ import { randomUUID } from 'node:crypto';
 import {
   AiOutputError,
   AiProviderError,
+  FallbackProvider,
   parseStructured,
   type AiMessage,
+  type AiProvider,
+  type AiRequest,
   type AiTurn,
   type AiUsage,
   type AiWebSource,
@@ -75,6 +78,11 @@ export interface AskStructuredInput<S extends z.ZodType> {
   /** Where the tokens are counted (app.ai_usage). */
   readonly usage: AiUsageRef;
   readonly signal?: AbortSignal;
+  /**
+   * When Claude declines or answers with nothing at all, the backup (OpenAI, behind Claude in `FallbackProvider`)
+   * answers the same request once instead (the owner's pick, 13 Nov 2026). For a caller's last try: see `askedTwice`.
+   */
+  readonly backupWhenDeclined?: boolean;
 }
 
 export interface AskStructuredResult<T> {
@@ -105,18 +113,47 @@ export async function askStructured<S extends z.ZodType>(
     walletRoom(tx, scope.workspaceId, 'ai', (m, e) => ctx.log.error({ err: e }, m)),
   );
   if (!room.allowed) throw new AiAskError('wallet_empty', WALLET_REFUSALS.ai);
+  const request: AiRequest = {
+    system: input.system,
+    ...(input.context ? { context: input.context } : {}),
+    messages: input.messages,
+    maxTokens: (input.maxTokens ?? 2048) + THINKING_ROOM,
+    responseFormat: { schema: input.schema },
+  };
+  const turn = await answerOf(ctx, scope, provider, request, input);
+  try {
+    return parsedAnswer(turn, provider, input);
+  } catch (e) {
+    if (!(e instanceof AiOutputError)) throw e;
+    unusable(ctx, input, turn, e);
+    const backup =
+      input.backupWhenDeclined && declined(turn) && provider instanceof FallbackProvider
+        ? provider.backupAfterDecline()
+        : null;
+    if (!backup) throw badOutput(e);
+    ctx.log.info({ source: input.usage.source }, 'Claude declined: the backup AI answers');
+    const again = await answerOf(ctx, scope, backup, request, input);
+    try {
+      return parsedAnswer(again, backup, input);
+    } catch (e2) {
+      if (!(e2 instanceof AiOutputError)) throw e2;
+      unusable(ctx, input, again, e2);
+      throw badOutput(e2);
+    }
+  }
+}
+
+/** One provider's answer to the request, with its tokens recorded and charged whether or not it's usable. */
+async function answerOf(
+  ctx: Pick<WorkerServices, 'db' | 'ai' | 'log' | 'wallet'>,
+  scope: TenantScope,
+  provider: AiProvider,
+  request: AiRequest,
+  input: Pick<AskStructuredInput<z.ZodType>, 'usage' | 'signal'>,
+): Promise<AiTurn> {
   let turn: AiTurn;
   try {
-    turn = await provider.stream(
-      {
-        system: input.system,
-        ...(input.context ? { context: input.context } : {}),
-        messages: input.messages,
-        maxTokens: (input.maxTokens ?? 2048) + THINKING_ROOM,
-        responseFormat: { schema: input.schema },
-      },
-      input.signal ? { signal: input.signal } : {},
-    );
+    turn = await provider.stream(request, input.signal ? { signal: input.signal } : {});
   } catch (e) {
     const known = e instanceof AiProviderError ? e : null;
     ctx.log.warn({ err: e, source: input.usage.source }, 'AI call failed');
@@ -137,24 +174,55 @@ export async function askStructured<S extends z.ZodType>(
     model: turn.model ?? provider.model,
     usage: turn.usage,
   });
+  return turn;
+}
+
+function parsedAnswer<S extends z.ZodType>(
+  turn: AiTurn,
+  provider: AiProvider,
+  input: Pick<AskStructuredInput<S>, 'zod'>,
+): AskStructuredResult<z.output<S>> {
+  return {
+    value: parseStructured(turn, input.zod),
+    usage: turn.usage,
+    model: turn.model ?? provider.model,
+  };
+}
+
+/** Whether a turn is Claude declining, or writing nothing at all (0 output tokens, in about a second). */
+const declined = (turn: AiTurn): boolean =>
+  turn.stopReason === 'refusal' || turn.text.trim() === '';
+
+function unusable(
+  ctx: Pick<WorkerServices, 'log'>,
+  input: Pick<AskStructuredInput<z.ZodType>, 'usage'>,
+  turn: AiTurn,
+  e: AiOutputError,
+): void {
+  ctx.log.warn(
+    { source: input.usage.source, issues: e.issues.slice(0, 5), stopReason: turn.stopReason },
+    'AI answer had the wrong shape',
+  );
+}
+
+const badOutput = (e: AiOutputError): AiAskError =>
+  new AiAskError('bad_output', 'The AI’s answer didn’t come back in the expected shape.', false, {
+    cause: e,
+  });
+
+/**
+ * A structured ask, asked once more when its answer came back unusable. The AI service sometimes answers with nothing
+ * at all, no words written (about 1 call in 25 on 9 Nov 2026, behind the owner's problem reports of "The AI couldn’t
+ * write that just now"), and asked again it often writes one. When it doesn't, the second try goes to the backup
+ * (`backupWhenDeclined`; the owner's pick, 13 Nov 2026, after 3 drafts in a day and about 8% of profile checks came back
+ * empty twice). Social Outreach's drafts and profile checks ask this way.
+ */
+export async function askedTwice<T>(ask: (last: boolean) => Promise<T>): Promise<T> {
   try {
-    return {
-      value: parseStructured(turn, input.zod),
-      usage: turn.usage,
-      model: turn.model ?? provider.model,
-    };
+    return await ask(false);
   } catch (e) {
-    if (!(e instanceof AiOutputError)) throw e;
-    ctx.log.warn(
-      { source: input.usage.source, issues: e.issues.slice(0, 5), stopReason: turn.stopReason },
-      'AI answer had the wrong shape',
-    );
-    throw new AiAskError(
-      'bad_output',
-      'The AI’s answer didn’t come back in the expected shape.',
-      false,
-      { cause: e },
-    );
+    if (!(e instanceof AiAskError) || e.code !== 'bad_output') throw e;
+    return ask(true);
   }
 }
 

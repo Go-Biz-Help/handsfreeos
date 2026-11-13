@@ -60,7 +60,7 @@ import {
 import { executeCommand } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { JobResult } from '../../jobs';
-import { AiAskError, askStructured } from '../../ai/ask';
+import { AiAskError, askedTwice, askStructured } from '../../ai/ask';
 import { scheduleAddonJob } from '../queue';
 import type { AddonEventContext, AddonJobContext } from '../types';
 
@@ -322,24 +322,28 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
       const messages = [{ role: 'user' as const, content: ask.content }];
       const usage = { source: 'addon' as const, addonId: ctx.manifest.id };
       // A request check answers what to do with the request too (decision 136).
-      const { value } =
+      // An unusable answer is asked for once more, and the backup answers one Claude declines twice (`askedTwice`).
+      const { value } = await askedTwice((last) =>
         'request' in ask
-          ? await askStructured(ctx, ctx.scope, {
+          ? askStructured(ctx, ctx.scope, {
               system: ask.system,
               messages,
               schema: REQUEST_CHECK_SCHEMA,
               zod: RequestCheckAnswer,
               maxTokens: 600,
               usage,
+              backupWhenDeclined: last,
             })
-          : await askStructured(ctx, ctx.scope, {
+          : askStructured(ctx, ctx.scope, {
               system: ask.system,
               messages,
               schema: CHECK_SCHEMA,
               zod: CheckAnswer,
               maxTokens: 500,
               usage,
-            });
+              backupWhenDeclined: last,
+            }),
+      );
       answer = checkedAnswer(value, playbooks);
     } catch (e) {
       if (!(e instanceof AiAskError)) throw e;

@@ -38,7 +38,7 @@ import {
   stages,
 } from '../../../packages/core/src/addons/outreach/tables';
 import { PLAYBOOK_TEMPLATES } from '../../../packages/core/src/addons/outreach/playbooks';
-import type { AiProvider } from '@hfos/ai';
+import { FallbackProvider, type AiProvider, type AiRoute } from '@hfos/ai';
 import { scriptedAi } from '../src/ai/scripted';
 import { buildHttpServer } from '../src/http/server';
 import { testServices } from './helpers';
@@ -79,8 +79,11 @@ const blanking: AiProvider = {
   },
 };
 
+/** The model the worker asks: Claude alone, or with the backup behind it. */
+const ai: { provider: AiProvider } = { provider: blanking };
+
 beforeAll(async () => {
-  const s = testServices({ ai: { provider: blanking } });
+  const s = testServices({ ai });
   [owner, member] = await Promise.all([
     createTestUser('outreach-draft-owner'),
     createTestUser('outreach-draft-member'),
@@ -734,5 +737,41 @@ describe('when the AI answers a draft with nothing', () => {
     expect(blanks).toBe(0);
     expect(failed.statusCode).toBe(502);
     expect(failed.json().error.rule).toBe('ai_failed');
+  });
+
+  it('has the backup AI write it when Claude answers with nothing twice, never while Claude is pinned', async () => {
+    let backupAsked = 0;
+    let route: AiRoute = 'primary';
+    const backup: AiProvider = {
+      id: 'openai',
+      model: 'gpt-6-sol',
+      stream: (request, options) => {
+        backupAsked += 1;
+        return scripted.stream(request, options);
+      },
+    };
+    ai.provider = new FallbackProvider(blanking, backup, {
+      route: () => route,
+      primaryFailed: () => undefined,
+      primaryWorked: () => undefined,
+    });
+    try {
+      blanks = 1;
+      expect((await draft(owner, { kind: 'reply', chatId })).statusCode).toBe(200);
+      expect([blanks, backupAsked]).toEqual([0, 0]);
+      blanks = 2;
+      const res = await draft(owner, { kind: 'reply', chatId });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().drafts.length).toBeGreaterThan(0);
+      expect([blanks, backupAsked]).toEqual([0, 1]);
+      route = 'primary_only';
+      blanks = 2;
+      const pinned = await draft(owner, { kind: 'reply', chatId });
+      expect(pinned.json().error.rule).toBe('ai_failed');
+      expect([blanks, backupAsked]).toEqual([0, 1]);
+    } finally {
+      ai.provider = blanking;
+      blanks = 0;
+    }
   });
 });

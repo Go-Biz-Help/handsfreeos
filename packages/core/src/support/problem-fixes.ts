@@ -155,9 +155,10 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     area: 'facebook',
     job: 'draft',
     note: 'The AI couldn’t write that just now',
-    fixedIn: '0.130.1',
-    pr: 565,
-    said: 'About 1 in 25 of the AI’s answers for outreach came back with no words at all, and the draft said it couldn’t write one: the worker asks the AI once more first now.',
+    // The worker's fix, not the extension's: by when it was made, as for a tool without versions.
+    before: '2026-11-13T02:00:00Z',
+    pr: 608,
+    said: 'About 1 in 25 of the AI’s answers for outreach came back with no words at all (#565 asks once more), and some came back empty twice: on that second try the backup AI writes the draft now (decision 162).',
   },
   {
     area: 'instagram',
