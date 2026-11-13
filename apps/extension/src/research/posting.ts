@@ -44,6 +44,8 @@ export const POSTS_ON = POSTING.networks;
 const FACEBOOK_HOME = 'https://www.facebook.com/';
 const FACEBOOK_ME = 'https://www.facebook.com/me';
 const BUSINESS_COMPOSER = 'https://business.facebook.com/latest/composer/';
+/** How many of a Page's numbers Business Suite is tried with, likeliest first. */
+const PAGE_IDS_TRIED = 3;
 const LINKEDIN_FEED = 'https://www.linkedin.com/feed/';
 const LINKEDIN_OWN_POSTS = 'https://www.linkedin.com/in/me/recent-activity/all/';
 const INSTAGRAM_HOME = 'https://www.instagram.com/';
@@ -256,6 +258,8 @@ async function putUpAt(
   const name = networkName(network);
   let where: PostWhere;
   let url: string;
+  // A Page's other numbers, tried in turn while Business Suite shows no box for the one before.
+  let others: string[] = [];
   let listed: string | null;
   if (network === 'instagram') {
     where = 'instagram';
@@ -281,24 +285,29 @@ async function putUpAt(
       };
     const warnings = await openAt(tab, post.facebookPage);
     if (warnings.length) return warnedEnd(place, network, warnings);
-    const id = await tab.hands('pageId');
+    const ids = ((await tab.hands('pageIds')) ?? []).slice(0, PAGE_IDS_TRIED);
     where = 'business';
-    url = id ? `${BUSINESS_COMPOSER}?asset_id=${id}` : BUSINESS_COMPOSER;
+    [url = BUSINESS_COMPOSER, ...others] = ids.map((id) => `${BUSINESS_COMPOSER}?asset_id=${id}`);
     listed = post.facebookPage;
   } else {
     where = 'facebook';
     url = FACEBOOK_HOME;
     listed = FACEBOOK_ME;
   }
-  const warnings = await openAt(tab, url);
-  if (warnings.length) return warnedEnd(place, network, warnings);
-  await tab.holdPicker();
-  const done = await tab.hands('post', {
-    where,
-    text: post.text,
-    files: [...files],
-    ...(where === 'threads' || where === 'x' ? { chain: [...post.chain] } : {}),
-  });
+  let done: PostDone | null = null;
+  for (const at of [url, ...others]) {
+    const warnings = await openAt(tab, at);
+    if (warnings.length) return warnedEnd(place, network, warnings);
+    await tab.holdPicker();
+    done = await tab.hands('post', {
+      where,
+      text: post.text,
+      files: [...files],
+      ...(where === 'threads' || where === 'x' ? { chain: [...post.chain] } : {}),
+    });
+    // Only a Business Suite that showed no box at all goes on to the Page's next number: nothing was typed there.
+    if (done?.result !== 'none' || done.pressed || done.steps.length) break;
+  }
   if (done?.result !== 'done') {
     const failure = failureFor(
       network,

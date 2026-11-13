@@ -412,7 +412,8 @@ Instagram from 0.133.0, Threads and X from 0.138.0. The post's sheet offers **Co
   (its file field, pasting, its photo button with the file picker held back, or dropping them), Next pressed when the
   box asks, then Post. A Facebook Page's post goes through Meta Business Suite's Create post for the Page, so the
   person's profile is never switched to the Page while Social Outreach works as them; a tick for Instagram there is
-  turned off. Its link comes from the network (LinkedIn's View post), else from the top of the profile, the Page or
+  turned off. A Page of Facebook's newer kind is opened there by its own number, not the one in its link (extension
+  0.139.2). LinkedIn's newer box takes the pictures in a window of its own (Upload from computer, then Next). Its link comes from the network (LinkedIn's View post), else from the top of the profile, the Page or
   their own posts by its first words.
 - **Instagram** (part 10): **Create** on its home page (then **Post** when it asks which kind), the pictures or the
   person's video into Create new post, **OK** when it says a video goes up as a reel, **Next** past cropping and
