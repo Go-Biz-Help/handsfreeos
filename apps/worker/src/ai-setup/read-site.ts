@@ -8,6 +8,7 @@ import {
   industryLabel,
   quickFactsFor,
   quoteData,
+  robotCheck,
   scheduleJob,
   setupFor,
   type QuickFact,
@@ -416,6 +417,13 @@ async function readPage(
   } catch (e) {
     log.info({ url, code: fetchCode(e) }, 'quick setup couldn’t read a page');
     if (mustAnswer && mayPass(e)) throw new SiteUnreachableError('the website didn’t answer');
+    return null;
+  }
+  // The host's page for bots (core's robot-check.ts) has no words of the business's: skipped, and said in
+  // the log. Before the status, since some checks answer 503, which isn't the site being down.
+  const check = robotCheck({ status: res.status, html: res.body, headers: res.headers });
+  if (check) {
+    log.info({ url, by: check.by }, 'quick setup met a robot check instead of a page');
     return null;
   }
   if (mustAnswer && (res.status >= 500 || res.status === 429))

@@ -52,6 +52,14 @@ const media = standInMedia({
     bytes: Buffer.from('<html><body><div id="app"></div></body></html>'),
     contentType: 'text/html',
   },
+  // What SiteGround sends a visitor it takes for a bot (Full Spectrum's terms, 13 Nov 2026): a refresh to its check.
+  'https://lonestar.test/terms': {
+    status: 202,
+    bytes: Buffer.from(
+      '<html><head><link rel="icon" href="data:;"><meta http-equiv="refresh" content="0;/.well-known/sgcaptcha/?r=%2Fterms%2F&y=ipr:203.0.113.7:1762990000.123"></meta></head></html>',
+    ),
+    contentType: 'text/html; charset=UTF-8',
+  },
 });
 
 const business = {
@@ -166,6 +174,14 @@ describe('adding the texting section to a business’s own policy', () => {
     expect(blank.statusCode).toBe(422);
     expect(blank.json().error).toMatchObject({ rule: 'policy_unreadable' });
     expect(blank.json().error.message).toMatch(/paste it here/);
+
+    // The host's robot check, named, instead of "drawn by code".
+    const checked = await post(ownerToken, { kind: 'terms', url: 'https://lonestar.test/terms' });
+    expect(checked.statusCode).toBe(422);
+    expect(checked.json().error).toMatchObject({ rule: 'policy_unreadable' });
+    expect(checked.json().error.message).toMatch(/robot check .*\(SiteGround\)/);
+    expect(checked.json().error.message).toMatch(/paste them here/);
+    expect(checked.json().error.message).not.toMatch(/drawn by code/);
 
     const missing = await post(ownerToken, { kind: 'privacy', url: 'https://lonestar.test/gone' });
     expect(missing.statusCode).toBe(422);
