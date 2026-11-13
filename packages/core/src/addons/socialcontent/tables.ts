@@ -260,6 +260,8 @@ export const content = addonSocialcontent.table(
     words: text('words').notNull().default(''),
     hook: text('hook'),
     hashtags: text('hashtags').array().notNull().default([]),
+    /** Threads and X (decision 41): the posts under the first in a chain, in order. */
+    chain: text('chain').array().notNull().default([]),
     slides: jsonb('slides').notNull().$type<{ heading: string; body: string }[]>().default([]),
     script: jsonb('script').$type<{ lines: string[]; shots: string[] }>(),
     picture: text('picture'),

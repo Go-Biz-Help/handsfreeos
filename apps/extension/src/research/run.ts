@@ -18,6 +18,7 @@
  * It never does Social Outreach's work, and Social Outreach never does its: they share only the extension, the
  * network's pace and its day's warnings (decision 1).
  */
+import type { PostingNetwork } from '@hfos/core/addons/socialcontent/calendar';
 import type { ContentNetwork } from '@hfos/core/addons/socialcontent/networks';
 import { canSignIn } from '../hfos/config';
 import { token } from '../hfos/session';
@@ -66,7 +67,7 @@ let running = false;
 let businesses: { at: number; list: { id: string; name: string }[] } | null = null;
 const notReaderUntil = new Map<string, number>();
 const restingUntil = new Map<ContentNetwork, number>();
-const tabs = new Map<ResearchNetwork, ResearchTab>();
+const tabs = new Map<ResearchNetwork | PostingNetwork, ResearchTab>();
 
 /** The reading tabs open now, so the background never takes them for the person's own. */
 export const researchTabIds = (): number[] =>
@@ -114,8 +115,8 @@ export async function researchTick(): Promise<void> {
   }
 }
 
-/** The window for a network's work, opened once and kept. */
-function tabFor(network: ResearchNetwork): ResearchTab {
+/** The window for a network's work, opened once and kept: posting goes to Threads and X too (decision 41). */
+function tabFor(network: ResearchNetwork | PostingNetwork): ResearchTab {
   let tab = tabs.get(network);
   if (!tab) {
     tab = new ResearchTab(KITS[network]);

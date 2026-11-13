@@ -1384,6 +1384,24 @@ minute after posting and before any reading:
   link"). A warning keeps the network's words for the day, for both social add-ons, and says nothing: the read is
   asked for again later, since one handed out is put off half an hour.
 
+### Putting the business's own posts up on Threads and X (0.138.0)
+
+AI Social Media Content Creator's part 16 (`docs/socialcontent.md`, "Posting"; decision 41 in
+`HANDSFREEOS_CONTENT_CREATOR_IMPLEMENTATION_PLAN.md`). Threads and X join the networks it posts on, from the reading
+window on that network (`src/research/post-short.ts`, called from `postHere`):
+
+- **X:** x.com/compose/post opens X's box over the page: the words in its first box (`tweetTextarea_0`, only while
+  it's empty), the pictures in its file field, then each post of the chain after **Add post** (`addButton`;
+  `tweetTextarea_1`, `_2`…), then **Post** (**Post all** with a chain; `tweetButton`). Its link comes from the note
+  "Your post was sent" (its **View**).
+- **Threads:** its home page's "What's new?" (else **Create** in the side menu) opens its box over the page: the words
+  in its first box, the pictures, each post of the chain after **Add to thread**, then its own **Post**. Its link comes
+  from the note that it posted (its **View**).
+- **Else its link** comes from the top of the person's own profile (their name from the menu's link to it) by its
+  first words. A **Post** the network keeps off (the words run past what it takes) is never pressed: it's said.
+- **How it did** (`src/research/own.ts`): the post's own page, by the network's reader, gives its likes and replies.
+- Older builds never take a Threads or X post: they ask only for the networks they post on.
+
 ### Putting the business's own posts up on Instagram (0.133.0)
 
 AI Social Media Content Creator's part 10 (`docs/socialcontent.md`, "Posting"). Instagram joins Facebook and LinkedIn:

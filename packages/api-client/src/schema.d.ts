@@ -63841,6 +63841,7 @@ export interface operations {
                         angle: ("tip" | "problem" | "story" | "offer") | null;
                         approvedAt: string | null;
                         approvedBy: string | null;
+                        chain: string[];
                         createdAt: string;
                         doneWell: {
                             at: string;
@@ -63862,7 +63863,7 @@ export interface operations {
                         /** @enum {string} */
                         madeBy: "ai" | "person";
                         /** @enum {string} */
-                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                         numbers: {
                             [key: string]: {
                                 [key: string]: {
@@ -63997,6 +63998,7 @@ export interface operations {
                         angle: ("tip" | "problem" | "story" | "offer") | null;
                         approvedAt: string | null;
                         approvedBy: string | null;
+                        chain: string[];
                         createdAt: string;
                         doneWell: {
                             at: string;
@@ -64018,7 +64020,7 @@ export interface operations {
                         /** @enum {string} */
                         madeBy: "ai" | "person";
                         /** @enum {string} */
-                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                         numbers: {
                             [key: string]: {
                                 [key: string]: {
@@ -64131,6 +64133,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    chain?: string[];
                     facebookWhere?: ("profile" | "page")[];
                     fileIds?: string[];
                     /** @enum {string} */
@@ -64138,7 +64141,7 @@ export interface operations {
                     hashtags?: string[];
                     hook?: string | null;
                     /** @enum {string} */
-                    network?: "instagram" | "facebook" | "linkedin";
+                    network?: "instagram" | "facebook" | "linkedin" | "threads" | "x";
                     picture?: string | null;
                     /** @enum {string} */
                     pictureWay?: "design" | "photo" | "own";
@@ -64172,6 +64175,7 @@ export interface operations {
                         angle: ("tip" | "problem" | "story" | "offer") | null;
                         approvedAt: string | null;
                         approvedBy: string | null;
+                        chain: string[];
                         createdAt: string;
                         doneWell: {
                             at: string;
@@ -64193,7 +64197,7 @@ export interface operations {
                         /** @enum {string} */
                         madeBy: "ai" | "person";
                         /** @enum {string} */
-                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                         numbers: {
                             [key: string]: {
                                 [key: string]: {
@@ -64294,6 +64298,7 @@ export interface operations {
                         angle: ("tip" | "problem" | "story" | "offer") | null;
                         approvedAt: string | null;
                         approvedBy: string | null;
+                        chain: string[];
                         createdAt: string;
                         doneWell: {
                             at: string;
@@ -64315,7 +64320,7 @@ export interface operations {
                         /** @enum {string} */
                         madeBy: "ai" | "person";
                         /** @enum {string} */
-                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                         numbers: {
                             [key: string]: {
                                 [key: string]: {
@@ -64397,7 +64402,7 @@ export interface operations {
                 "application/json": {
                     link: string;
                     /** @enum {string} */
-                    network?: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                    network?: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -64429,7 +64434,7 @@ export interface operations {
                         matchWhy: string | null;
                         name: string | null;
                         /** @enum {string} */
-                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                         nicheId: string | null;
                         nicheName: string | null;
                         /** @default null */
@@ -64492,7 +64497,7 @@ export interface operations {
                         matchWhy: string | null;
                         name: string | null;
                         /** @enum {string} */
-                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                         nicheId: string | null;
                         nicheName: string | null;
                         /** @default null */
@@ -64619,7 +64624,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    network?: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                    network?: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -64634,7 +64639,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         asked: number;
-                        networks: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
+                        networks: ("instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube")[];
                         niches: number;
                     };
                 };
@@ -64676,7 +64681,7 @@ export interface operations {
                         hook: string | null;
                         /** Format: uuid */
                         id: string;
-                        network: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube") | null;
+                        network: ("instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube") | null;
                         outline: string | null;
                         /** @default null */
                         source: {
@@ -64798,7 +64803,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    networks: ("instagram" | "facebook" | "linkedin")[];
+                    networks: ("instagram" | "facebook" | "linkedin" | "threads" | "x")[];
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -64816,7 +64821,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            network: "instagram" | "facebook" | "linkedin";
+                            network: "instagram" | "facebook" | "linkedin" | "threads" | "x";
                             places: {
                                 link: string;
                                 /** @enum {string} */
@@ -64876,6 +64881,7 @@ export interface operations {
                         angle: ("tip" | "problem" | "story" | "offer") | null;
                         approvedAt: string | null;
                         approvedBy: string | null;
+                        chain: string[];
                         createdAt: string;
                         doneWell: {
                             at: string;
@@ -64897,7 +64903,7 @@ export interface operations {
                         /** @enum {string} */
                         madeBy: "ai" | "person";
                         /** @enum {string} */
-                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                         numbers: {
                             [key: string]: {
                                 [key: string]: {
@@ -64977,7 +64983,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    networks: ("instagram" | "facebook" | "linkedin")[];
+                    networks: ("instagram" | "facebook" | "linkedin" | "threads" | "x")[];
                     version?: string;
                     /** Format: uuid */
                     workspaceId: string;
@@ -64993,6 +64999,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         post: {
+                            /** @default [] */
+                            chain: string[];
                             facebookPage: string | null;
                             files: {
                                 bucket: string;
@@ -65005,7 +65013,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            network: "instagram" | "facebook" | "linkedin";
+                            network: "instagram" | "facebook" | "linkedin" | "threads" | "x";
                             places: ("profile" | "page" | "feed")[];
                             postAt: string | null;
                             text: string;
@@ -65058,6 +65066,7 @@ export interface operations {
                         angle: ("tip" | "problem" | "story" | "offer") | null;
                         approvedAt: string | null;
                         approvedBy: string | null;
+                        chain: string[];
                         createdAt: string;
                         doneWell: {
                             at: string;
@@ -65079,7 +65088,7 @@ export interface operations {
                         /** @enum {string} */
                         madeBy: "ai" | "person";
                         /** @enum {string} */
-                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                         numbers: {
                             [key: string]: {
                                 [key: string]: {
@@ -65252,7 +65261,7 @@ export interface operations {
                     autoPick?: boolean;
                     facebookPage?: string | null;
                     facebookWhere?: ("profile" | "page")[];
-                    networks?: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
+                    networks?: ("instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube")[];
                     plan?: {
                         [key: string]: {
                             from?: string;
@@ -65285,7 +65294,7 @@ export interface operations {
                         autoPick: boolean;
                         facebookPage: string | null;
                         facebookWhere: ("profile" | "page")[];
-                        networks: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
+                        networks: ("instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube")[];
                         plan: {
                             facebook: {
                                 from: string;
@@ -65308,6 +65317,26 @@ export interface operations {
                                 week: string[][];
                             };
                             linkedin: {
+                                from: string;
+                                /** @enum {string} */
+                                mode: "ai" | "mine";
+                                perDay: number | null;
+                                perWeek: number;
+                                time: string;
+                                to: string;
+                                week: string[][];
+                            };
+                            threads: {
+                                from: string;
+                                /** @enum {string} */
+                                mode: "ai" | "mine";
+                                perDay: number | null;
+                                perWeek: number;
+                                time: string;
+                                to: string;
+                                week: string[][];
+                            };
+                            x: {
                                 from: string;
                                 /** @enum {string} */
                                 mode: "ai" | "mine";
@@ -65400,8 +65429,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    reads: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
-                    searchOn?: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
+                    reads: ("instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube")[];
+                    searchOn?: ("instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube")[];
                     version?: string;
                     /** Format: uuid */
                     workspaceId: string;
@@ -65431,7 +65460,7 @@ export interface operations {
                             known: string[];
                             most: number;
                             /** @enum {string} */
-                            network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                             niche: {
                                 /** Format: uuid */
                                 id: string;
@@ -65531,7 +65560,7 @@ export interface operations {
                         /** @enum {string} */
                         kind: "find" | "profile" | "posts" | "watch";
                         /** @enum {string} */
-                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                         nicheId: string | null;
                         nicheName: string | null;
                         postId: string | null;
@@ -99849,6 +99878,20 @@ export interface operations {
                                 from: "own" | "both" | "creators" | "none";
                                 own: number;
                             };
+                            threads: {
+                                best: string[];
+                                creators: number;
+                                /** @enum {string} */
+                                from: "own" | "both" | "creators" | "none";
+                                own: number;
+                            };
+                            x: {
+                                best: string[];
+                                creators: number;
+                                /** @enum {string} */
+                                from: "own" | "both" | "creators" | "none";
+                                own: number;
+                            };
                         };
                         mayManage: boolean;
                         nextFillAt: string | null;
@@ -99858,7 +99901,7 @@ export interface operations {
                             at: string;
                             date: string;
                             /** @enum {string} */
-                            network: "instagram" | "facebook" | "linkedin";
+                            network: "instagram" | "facebook" | "linkedin" | "threads" | "x";
                             /** @default false */
                             trying: boolean;
                         }[];
@@ -99893,6 +99936,26 @@ export interface operations {
                                 to: string;
                                 week: string[][];
                             };
+                            threads: {
+                                from: string;
+                                /** @enum {string} */
+                                mode: "ai" | "mine";
+                                perDay: number | null;
+                                perWeek: number;
+                                time: string;
+                                to: string;
+                                week: string[][];
+                            };
+                            x: {
+                                from: string;
+                                /** @enum {string} */
+                                mode: "ai" | "mine";
+                                perDay: number | null;
+                                perWeek: number;
+                                time: string;
+                                to: string;
+                                week: string[][];
+                            };
                         };
                         poster: {
                             mine: boolean;
@@ -99905,6 +99968,7 @@ export interface operations {
                             angle: ("tip" | "problem" | "story" | "offer") | null;
                             approvedAt: string | null;
                             approvedBy: string | null;
+                            chain: string[];
                             createdAt: string;
                             doneWell: {
                                 at: string;
@@ -99926,7 +99990,7 @@ export interface operations {
                             /** @enum {string} */
                             madeBy: "ai" | "person";
                             /** @enum {string} */
-                            network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                             numbers: {
                                 [key: string]: {
                                     [key: string]: {
@@ -99992,13 +100056,14 @@ export interface operations {
                             updatedAt: string;
                             words: string;
                         }[];
-                        postsOn: ("instagram" | "facebook" | "linkedin")[];
+                        postsOn: ("instagram" | "facebook" | "linkedin" | "threads" | "x")[];
                         ready: number;
                         recent: {
                             /** @default null */
                             angle: ("tip" | "problem" | "story" | "offer") | null;
                             approvedAt: string | null;
                             approvedBy: string | null;
+                            chain: string[];
                             createdAt: string;
                             doneWell: {
                                 at: string;
@@ -100020,7 +100085,7 @@ export interface operations {
                             /** @enum {string} */
                             madeBy: "ai" | "person";
                             /** @enum {string} */
-                            network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                             numbers: {
                                 [key: string]: {
                                     [key: string]: {
@@ -100093,6 +100158,7 @@ export interface operations {
                             angle: ("tip" | "problem" | "story" | "offer") | null;
                             approvedAt: string | null;
                             approvedBy: string | null;
+                            chain: string[];
                             createdAt: string;
                             doneWell: {
                                 at: string;
@@ -100114,7 +100180,7 @@ export interface operations {
                             /** @enum {string} */
                             madeBy: "ai" | "person";
                             /** @enum {string} */
-                            network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                             numbers: {
                                 [key: string]: {
                                     [key: string]: {
@@ -100214,6 +100280,7 @@ export interface operations {
                         angle: ("tip" | "problem" | "story" | "offer") | null;
                         approvedAt: string | null;
                         approvedBy: string | null;
+                        chain: string[];
                         createdAt: string;
                         doneWell: {
                             at: string;
@@ -100235,7 +100302,7 @@ export interface operations {
                         /** @enum {string} */
                         madeBy: "ai" | "person";
                         /** @enum {string} */
-                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                         numbers: {
                             [key: string]: {
                                 [key: string]: {
@@ -100318,7 +100385,7 @@ export interface operations {
                     /** @default 50 */
                     limit?: number;
                     /** @enum {string} */
-                    network?: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                    network?: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                     /** @enum {string} */
                     state?: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
                     /** Format: uuid */
@@ -100339,6 +100406,7 @@ export interface operations {
                             angle: ("tip" | "problem" | "story" | "offer") | null;
                             approvedAt: string | null;
                             approvedBy: string | null;
+                            chain: string[];
                             createdAt: string;
                             doneWell: {
                                 at: string;
@@ -100360,7 +100428,7 @@ export interface operations {
                             /** @enum {string} */
                             madeBy: "ai" | "person";
                             /** @enum {string} */
-                            network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                             numbers: {
                                 [key: string]: {
                                     [key: string]: {
@@ -100442,7 +100510,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    network?: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                    network?: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                     /** @enum {string} */
                     state?: "suggested" | "studying" | "skipped" | "didnt_fit";
                     /** Format: uuid */
@@ -100477,7 +100545,7 @@ export interface operations {
                             matchWhy: string | null;
                             name: string | null;
                             /** @enum {string} */
-                            network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                             nicheId: string | null;
                             nicheName: string | null;
                             /** @default null */
@@ -100530,7 +100598,7 @@ export interface operations {
                             kind: "video" | "photo" | "carousel" | "text" | "link" | "other";
                             link: string;
                             /** @enum {string} */
-                            network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                         }[];
                         ideas: {
                             /** @default null */
@@ -100541,7 +100609,7 @@ export interface operations {
                             hook: string | null;
                             /** Format: uuid */
                             id: string;
-                            network: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube") | null;
+                            network: ("instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube") | null;
                             outline: string | null;
                             /** @default null */
                             source: {
@@ -100663,6 +100731,20 @@ export interface operations {
                                 from: "own" | "both" | "creators" | "none";
                                 own: number;
                             };
+                            threads: {
+                                best: string[];
+                                creators: number;
+                                /** @enum {string} */
+                                from: "own" | "both" | "creators" | "none";
+                                own: number;
+                            };
+                            x: {
+                                best: string[];
+                                creators: number;
+                                /** @enum {string} */
+                                from: "own" | "both" | "creators" | "none";
+                                own: number;
+                            };
                         };
                         mayManage: boolean;
                         readerIsMe: boolean;
@@ -100672,7 +100754,7 @@ export interface operations {
                             autoPick: boolean;
                             facebookPage: string | null;
                             facebookWhere: ("profile" | "page")[];
-                            networks: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
+                            networks: ("instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube")[];
                             plan: {
                                 facebook: {
                                     from: string;
@@ -100695,6 +100777,26 @@ export interface operations {
                                     week: string[][];
                                 };
                                 linkedin: {
+                                    from: string;
+                                    /** @enum {string} */
+                                    mode: "ai" | "mine";
+                                    perDay: number | null;
+                                    perWeek: number;
+                                    time: string;
+                                    to: string;
+                                    week: string[][];
+                                };
+                                threads: {
+                                    from: string;
+                                    /** @enum {string} */
+                                    mode: "ai" | "mine";
+                                    perDay: number | null;
+                                    perWeek: number;
+                                    time: string;
+                                    to: string;
+                                    week: string[][];
+                                };
+                                x: {
                                     from: string;
                                     /** @enum {string} */
                                     mode: "ai" | "mine";
@@ -100752,7 +100854,7 @@ export interface operations {
                             /** @enum {string} */
                             kind: "find" | "profile" | "posts" | "watch";
                             /** @enum {string} */
-                            network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                             nicheId: string | null;
                             nicheName: string | null;
                             postId: string | null;
@@ -100807,7 +100909,7 @@ export interface operations {
                             kind: "video" | "photo" | "carousel" | "text" | "link" | "other";
                             link: string;
                             /** @enum {string} */
-                            network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                         }[];
                         playbook: {
                             noted: number;
@@ -100845,7 +100947,7 @@ export interface operations {
                     /** @default 50 */
                     limit?: number;
                     /** @enum {string} */
-                    network?: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                    network?: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                     /** @default false */
                     standoutsOnly?: boolean;
                     /** Format: uuid */
@@ -100877,7 +100979,7 @@ export interface operations {
                             likes: number | null;
                             link: string;
                             /** @enum {string} */
-                            network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                             notes: {
                                 format: string | null;
                                 hook: string | null;

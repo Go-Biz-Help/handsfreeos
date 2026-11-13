@@ -9,8 +9,11 @@
 import { isClock, parseClock } from '../../calendar/engine/zoned';
 import type { ContentNetwork } from './networks';
 
-/** The networks it writes posts for (part 8); posting through the extension comes in parts 9 and 10. */
-export const POSTING_NETWORKS = ['instagram', 'facebook', 'linkedin'] as const;
+/**
+ * The networks it writes posts for (part 8; Threads and X from decision 41); posting through the extension comes in
+ * parts 9 and 10.
+ */
+export const POSTING_NETWORKS = ['instagram', 'facebook', 'linkedin', 'threads', 'x'] as const;
 export type PostingNetwork = (typeof POSTING_NETWORKS)[number];
 export const isPostingNetwork = (n: unknown): n is PostingNetwork =>
   typeof n === 'string' && (POSTING_NETWORKS as readonly string[]).includes(n);
@@ -82,8 +85,11 @@ export function placesLeft(
  * an OK'd post to the business's reading computer once its time comes.
  */
 export const POSTING = {
-  /** The networks the extension posts on: Facebook and LinkedIn (part 9), and Instagram (part 10). */
-  networks: ['facebook', 'linkedin', 'instagram'] as readonly PostingNetwork[],
+  /**
+   * The networks the extension posts on: Facebook and LinkedIn (part 9), Instagram (part 10), and Threads and X
+   * (decision 41).
+   */
+  networks: ['facebook', 'linkedin', 'instagram', 'threads', 'x'] as readonly PostingNetwork[],
   /**
    * A post the computer took to put up that hasn't said how it went after this is marked as didn't post, and never
    * tried again on its own: it may have gone up.
@@ -91,11 +97,61 @@ export const POSTING = {
   postingForMs: 20 * 60_000,
   /** An OK'd post still waiting this long after its time is marked as didn't post: the posting computer wasn't on. */
   lateMs: 24 * 3_600_000,
-  /** The most characters each network takes in a post, hashtags and all. */
-  textMost: { instagram: 2_200, facebook: 60_000, linkedin: 3_000 } as Readonly<
-    Record<PostingNetwork, number>
-  >,
+  /**
+   * The most characters each network takes in a post, hashtags and all: X's 280 is what a free account may post
+   * (decision 41).
+   */
+  textMost: {
+    instagram: 2_200,
+    facebook: 60_000,
+    linkedin: 3_000,
+    threads: 500,
+    x: 280,
+  } as Readonly<Record<PostingNetwork, number>>,
 } as const;
+
+/**
+ * Threads and X (decision 41): short posts, a picture about half the time, and now and then a chain of posts for a
+ * longer tip (the first post, then up to 4 more under it, each within the network's characters). The first carries
+ * the picture and the tags: one topic tag on Threads, 1 or 2 hashtags on X.
+ */
+export const SHORT_NETWORKS = ['threads', 'x'] as const satisfies readonly PostingNetwork[];
+export type ShortNetwork = (typeof SHORT_NETWORKS)[number];
+export const isShortNetwork = (n: unknown): n is ShortNetwork =>
+  typeof n === 'string' && (SHORT_NETWORKS as readonly string[]).includes(n);
+
+export const SHORT_POSTS = {
+  /** The most posts under the first in a chain. */
+  chainMost: 4,
+  /** The most tags a post carries: Threads takes one topic. */
+  tagsMost: { threads: 1, x: 2 } as Readonly<Record<ShortNetwork, number>>,
+  /** Posts a week to suggest when the person turns one on (they start off). */
+  suggestedPerWeek: 5,
+} as const;
+
+/** The posts under the first that a network takes: none but on Threads and X. */
+export function chainFor(network: ContentNetwork, chain: readonly string[]): string[] {
+  if (!isShortNetwork(network)) return [];
+  const most = POSTING.textMost[network];
+  return chain
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .map((t) => (t.length > most ? `${t.slice(0, most - 1).trimEnd()}…` : t))
+    .slice(0, SHORT_POSTS.chainMost);
+}
+
+const tagsLine = (hashtags: readonly string[]) =>
+  hashtags
+    .map((t) => t.replace(/^#+/, '').trim())
+    .filter(Boolean)
+    .map((t) => `#${t}`)
+    .join(' ');
+
+/** How long a post's words and tags run as they go up: Threads and X count it (decision 41). */
+export function postLength(words: string, hashtags: readonly string[]): number {
+  const tags = tagsLine(hashtags);
+  return words.trim().length + (tags ? tags.length + 2 : 0);
+}
 
 /**
  * The words as they go up: the post's words, then a blank line and its hashtags, each with its #. Kept within what
@@ -106,11 +162,7 @@ export function postText(
   words: string,
   hashtags: readonly string[],
 ): string {
-  const tags = hashtags
-    .map((t) => t.replace(/^#+/, '').trim())
-    .filter(Boolean)
-    .map((t) => `#${t}`)
-    .join(' ');
+  const tags = tagsLine(hashtags);
   const most = POSTING.textMost[network];
   const tail = tags ? `\n\n${tags}` : '';
   const room = Math.max(0, most - tail.length);
@@ -201,11 +253,14 @@ const aiPicks = (perWeek: number, time: string): NetworkPlan => ({
 /**
  * The plan until someone changes it: AI picks on each network, 3, 3 and 2 a week (the example the owner picked from on
  * 10 Nov), between 7 AM and 8 PM (decision 24). Switched to I pick, each starts from the days and time it had before.
+ * Threads and X start off, at 0 a week, till the person turns them on (decision 41: 5 a week suggested).
  */
 export const DEFAULT_PLAN: Readonly<Record<PostingNetwork, NetworkPlan>> = {
   instagram: aiPicks(3, '09:00'),
   facebook: aiPicks(3, '12:00'),
   linkedin: aiPicks(2, '08:00'),
+  threads: aiPicks(0, '10:00'),
+  x: aiPicks(0, '11:00'),
 };
 
 const clamp = (n: unknown, low: number, high: number, fallback: number): number =>
@@ -262,9 +317,14 @@ export function planOf(raw: unknown): Record<PostingNetwork, NetworkPlan> {
   return out;
 }
 
-/** The format a network can take: Instagram always needs a picture or a video. */
+/**
+ * The format a network can take: Instagram always needs a picture or a video; Threads and X take one picture, never a
+ * carousel of slides (decision 41).
+ */
 export function formatFor(network: ContentNetwork, format: ContentFormat): ContentFormat {
-  return network === 'instagram' && format === 'text' ? 'photo' : format;
+  if (network === 'instagram' && format === 'text') return 'photo';
+  if (isShortNetwork(network) && format === 'carousel') return 'photo';
+  return format;
 }
 
 /** Whether a format shows pictures (a video's cover is the network's to pick). */
@@ -283,6 +343,9 @@ export interface ReadyCheck {
   readonly facebookWhere: readonly FacebookWhere[];
   /** The business's Facebook Page's link, when it has one (Settings → Posting). */
   readonly facebookPage?: string | null;
+  /** Threads and X (decision 41): its tags and the posts under it, which must fit what the network takes. */
+  readonly hashtags?: readonly string[];
+  readonly chain?: readonly string[];
 }
 
 /**
@@ -291,6 +354,15 @@ export interface ReadyCheck {
  */
 export function stillNeeds(c: ReadyCheck): string | null {
   if (!c.words.trim() && c.format === 'text') return 'It has no words yet. Write them first.';
+  if (isShortNetwork(c.network)) {
+    const most = POSTING.textMost[c.network];
+    const name = c.network === 'x' ? 'X' : 'Threads';
+    if (postLength(c.words, c.hashtags ?? []) > most)
+      return `Its words and tags run past the ${most} characters ${name} takes. Shorten them first.`;
+    const long = (c.chain ?? []).findIndex((t) => t.trim().length > most);
+    if (long >= 0)
+      return `Post ${long + 2} in its chain runs past the ${most} characters ${name} takes. Shorten it first.`;
+  }
   if (c.format === 'carousel' && c.slides.length < 2 && c.fileIds.length < 2)
     return 'A carousel needs at least 2 slides. Add slides or pictures first.';
   if (hasPictures(c.format) && c.fileIds.length === 0)

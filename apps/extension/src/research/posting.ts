@@ -13,6 +13,9 @@
  * - **LinkedIn:** their feed's Start a post; its link from LinkedIn's View post, else from their own posts.
  * - **Instagram (part 10):** Create on their home page, with the pictures or the person's video; then its link, from
  *   their own newest posts as Instagram's page loads them, by its first words.
+ * - **Threads and X (decision 41):** X's compose page, or Threads' home page, with the posts of its chain under it;
+ *   then its link, from the note the network shows once it went, else from the top of their own profile by its first
+ *   words.
  *
  * Then it says how each place went (`socialcontent.post.went`). Once Post is pressed it's never pressed again for that
  * place: a post that may have gone up is the person's to look at. A network's warning stops it there for the day (for
@@ -35,7 +38,7 @@ import type { PostDone, PostFileIn, PostWhere } from './post-here';
 import { pause, paced, RESEARCH_PACE } from './read';
 import type { ResearchTab } from './tab';
 
-/** The networks this build posts on: Facebook and LinkedIn (part 9), and Instagram (part 10). */
+/** The networks this build posts on: Facebook and LinkedIn (part 9), Instagram (part 10), Threads and X (decision 41). */
 export const POSTS_ON = POSTING.networks;
 
 const FACEBOOK_HOME = 'https://www.facebook.com/';
@@ -44,6 +47,8 @@ const BUSINESS_COMPOSER = 'https://business.facebook.com/latest/composer/';
 const LINKEDIN_FEED = 'https://www.linkedin.com/feed/';
 const LINKEDIN_OWN_POSTS = 'https://www.linkedin.com/in/me/recent-activity/all/';
 const INSTAGRAM_HOME = 'https://www.instagram.com/';
+const X_COMPOSE = 'https://x.com/compose/post';
+const THREADS_HOME = 'https://www.threads.com/';
 /** While the network puts the post at the top before its link is looked for. */
 const SETTLE_MS = 5_000;
 /**
@@ -160,6 +165,31 @@ async function linkFrom(tab: ResearchTab, url: string, text: string): Promise<st
 }
 
 /**
+ * A Threads or X post's link, from the top of the person's own profile (their name from the menu's link to it, on the
+ * page it posted from) by its first words. Null when it isn't there yet.
+ */
+async function shortLink(
+  tab: ResearchTab,
+  network: 'threads' | 'x',
+  text: string,
+): Promise<string | null> {
+  try {
+    // Their kits' reads carry what their readers found under `found` (src/networks/follows/read.ts).
+    const here = (await tab.hands('read')) as { found?: { me?: string | null } } | null;
+    const me = here?.found?.me;
+    if (!me || !/^[A-Za-z0-9._]{1,30}$/.test(me)) return null;
+    await pause(SETTLE_MS);
+    await tab.open(network === 'x' ? `https://x.com/${me}` : `https://www.threads.com/@${me}`);
+    const read = (await tab.hands('read')) as {
+      found?: { posts?: { text: string; url: string | null }[] };
+    } | null;
+    return foundPost({ posts: read?.found?.posts ?? [] }, text);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * An Instagram post's link, from the person's own newest posts as Instagram's page loads them (their name from the
  * Profile link in its side menu), by its first words. Null when it isn't among them yet.
  */
@@ -231,6 +261,10 @@ async function putUpAt(
     where = 'instagram';
     url = INSTAGRAM_HOME;
     listed = null;
+  } else if (network === 'threads' || network === 'x') {
+    where = network;
+    url = network === 'x' ? X_COMPOSE : THREADS_HOME;
+    listed = null;
   } else if (network === 'linkedin') {
     where = 'linkedin';
     url = LINKEDIN_FEED;
@@ -259,7 +293,12 @@ async function putUpAt(
   const warnings = await openAt(tab, url);
   if (warnings.length) return warnedEnd(place, network, warnings);
   await tab.holdPicker();
-  const done = await tab.hands('post', { where, text: post.text, files: [...files] });
+  const done = await tab.hands('post', {
+    where,
+    text: post.text,
+    files: [...files],
+    ...(where === 'threads' || where === 'x' ? { chain: [...post.chain] } : {}),
+  });
   if (done?.result !== 'done') {
     const failure = failureFor(
       network,
@@ -273,7 +312,11 @@ async function putUpAt(
   }
   const link =
     done.url ??
-    (listed ? await linkFrom(tab, listed, post.text) : await instagramLink(tab, post.text));
+    (listed
+      ? await linkFrom(tab, listed, post.text)
+      : network === 'threads' || network === 'x'
+        ? await shortLink(tab, network, post.text)
+        : await instagramLink(tab, post.text));
   return { place, posted: true, pressed: true, link, failure: null };
 
   async function warnedEnd(

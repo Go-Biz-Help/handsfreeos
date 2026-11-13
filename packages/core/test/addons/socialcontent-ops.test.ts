@@ -1157,7 +1157,7 @@ describe('the business’s own posts', () => {
     const shown = await as(member, 'socialcontent.content.get', { postId: reel.postId });
     expect(shown.stillNeeds).toMatch(/no video yet/);
     const cal = await as(member, 'socialcontent.calendar.get');
-    expect(cal.postsOn).toEqual(['facebook', 'linkedin', 'instagram']);
+    expect(cal.postsOn).toEqual(['facebook', 'linkedin', 'instagram', 'threads', 'x']);
     expect(cal.poster).toMatchObject({ mine: false, version: '0.132.0' });
     expect(cal.poster.seenAt).not.toBeNull();
     expect((await as(owner, 'socialcontent.calendar.get')).poster.mine).toBe(true);

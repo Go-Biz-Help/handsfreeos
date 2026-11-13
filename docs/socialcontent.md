@@ -168,8 +168,9 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   slides or script, what its picture shows and how it's made, its pictures (file ids, in order), where on Facebook it
   goes, when it goes, and its state (waiting for an OK, OK'd, posting, posted, didn't post, skipped). The kind is made
   when the add-on is turned on; the migration made it for businesses that already had it.
-- **The plan** is in Settings → Posting (owners and admins), on the web and the phone: for each of Instagram, Facebook
-  and LinkedIn, **AI picks** or **I pick** (part 13, below under "The schedule"). Settings also takes the Facebook
+- **The plan** is in Settings → Posting (owners and admins), on the web and the phone: for each of Instagram, Facebook,
+  LinkedIn, Threads and X, **AI picks** or **I pick** (part 13, below under "The schedule"). Threads and X start off
+  (decision 41): while off, their row suggests 5 a week, with **Post 5 a week** to turn one on. Settings also takes the Facebook
   Page's link and where Facebook posts go (the profile, the Page or both), which each Facebook post starts with, and
   the **Fill on its own** switch (below).
 - **The Calendar** shows today and the next 14 days, day by day: each post with its picture, title, first line and
@@ -186,9 +187,16 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   and Write a post still works. Turned on again, the worker hears `socialcontent.settings.saved` (`fillTurnedOn`)
   and fills the open days right away.
 - **Writing** asks Claude for the post in the network's way (Instagram's hook and up to 10 hashtags, Facebook like a
-  neighbour, LinkedIn a lesson and a question), as the business, never inventing results, prices or reviews. Its
-  answer is checked (`checkedPost`): Instagram never gets words alone, a carousel needs 2 slides, hashtags are kept
-  apart from the words, and the AI picks how the picture is made. **Write it again** takes what to change.
+  neighbour, LinkedIn a lesson and a question, Threads like a conversation with one topic tag, X short with 1 or 2
+  hashtags), as the business, never inventing results, prices or reviews. Its answer is checked (`checkedPost`):
+  Instagram never gets words alone, a carousel needs 2 slides, hashtags are kept apart from the words, and the AI picks
+  how the picture is made. **Write it again** takes what to change.
+- **Threads and X** (decision 41): X takes 280 characters and Threads 500, tags included (`POSTING.textMost`,
+  `postLength`). The writer's words are cut at a sentence to fit beside the tags (`shortWords`), never a carousel
+  (`formatFor` makes it a picture), and words alone about half the time there (`LOOKS.shortText`), apart from the
+  other networks' mix. A longer tip gets a **chain** of up to 4 more posts under it (`content.chain`, `chainFor`),
+  edited on the post's screen beside a character count; empty on every other network. A post whose words and tags, or
+  a post of its chain, run past what the network takes can't be OK'd until shortened (`stillNeeds`).
 - **The AI writes picture posts and words alone, never videos** (the owner, 11 Nov): its formats are `AI_FORMATS`
   (picture, carousel, words only), an idea taken from a video standout becomes a picture or carousel post, and an
   answer that still says video is kept as a picture post. A video post is only ever the person's own, when they pick
@@ -380,9 +388,9 @@ stands and a button to fix what one waits on (Settings, Main offer, For your con
 
 ## Posting
 
-Parts 9 and 10 (decisions 15 to 17). An OK'd post goes up at its time from the business's reading computer, in Chrome
-with the HandsFreeOS Social extension, while Chrome is open there: Facebook and LinkedIn from 0.132.0, Instagram from
-0.133.0. The post's sheet offers **Copy the words** on any network the extension doesn't post on.
+Parts 9, 10 and 16 (decisions 15 to 17 and 41). An OK'd post goes up at its time from the business's reading computer,
+in Chrome with the HandsFreeOS Social extension, while Chrome is open there: Facebook and LinkedIn from 0.132.0,
+Instagram from 0.133.0, Threads and X from 0.138.0. The post's sheet offers **Copy the words** on any network the extension doesn't post on.
 
 - **Each minute, before any reading,** the extension asks for the next post due (`socialcontent.post.next`) on the
   networks it posts on with no warning today. HandsFreeOS hands it the OK'd post whose time has come, soonest first,
@@ -403,6 +411,11 @@ with the HandsFreeOS Social extension, while Chrome is open there: Facebook and 
   person's video into Create new post, **OK** when it says a video goes up as a reel, **Next** past cropping and
   editing, then the words in the caption box and **Share**. Its link comes from the person's own newest posts, as
   Instagram's page asks for them, by its first words.
+- **Threads and X** (part 16, decision 41; `post-short.ts`): X's compose page (x.com/compose/post) or Threads' home
+  page ("What's new?", else Create): the words in its first box, the pictures, then each post of the chain in a box of
+  its own after **Add post** (X) or **Add to thread** (Threads), then **Post** (**Post all** with a chain). Its link
+  comes from the note the network shows once it went, else from the top of the person's own profile by its first words.
+  A Post the network keeps off (the words run past what it takes) is never pressed.
 - **How it went** (`socialcontent.post.went`): up everywhere is **Posted**, with **See it on your profile**, **your
   Page** or **LinkedIn**; any place that didn't take it is **Didn't post**, saying why and where. A network's warning
   before anything was pressed stops posting and reading there for the day, for both social add-ons, and the post goes
@@ -537,4 +550,7 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
 - Removing a post's older AI pictures: a picture made again replaces them on the post, but the old files stay among
   its files, since deleting a file is a person's step.
 - TikTok and YouTube (part 7).
+- Studying creators on Threads and X (part 17, decision 41): they show under Settings → Networks as coming. Posting
+  there works (part 16). X's own count (a link as 23 characters, some emoji as 2) isn't followed: the writer leaves
+  room, and a post X keeps off is said, never pressed.
 - LinkedIn company pages' posts (members' posts are read), and watching Facebook's and LinkedIn's videos.

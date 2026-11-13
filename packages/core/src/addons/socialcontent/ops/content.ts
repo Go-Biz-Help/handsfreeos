@@ -20,6 +20,7 @@ import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import {
   CALENDAR,
+  chainFor,
   formatFor,
   hasPictures,
   POSTING,
@@ -143,6 +144,7 @@ function fromRaw(r: RawRow): ContentRow {
     words: String(r['words'] ?? ''),
     hook: (r['hook'] as string | null) ?? null,
     hashtags: (r['hashtags'] as string[] | null) ?? [],
+    chain: (r['chain'] as string[] | null) ?? [],
     slides: (r['slides'] as ContentRow['slides']) ?? [],
     script: (r['script'] as ContentRow['script']) ?? null,
     picture: (r['picture'] as string | null) ?? null,
@@ -239,6 +241,7 @@ export async function contentOut(ctx: Ctx, list: readonly ContentRow[]): Promise
       words: c.words,
       hook: c.hook,
       hashtags: c.hashtags,
+      chain: c.chain ?? [],
       slides: Array.isArray(c.slides) ? c.slides : [],
       script: c.script && Array.isArray(c.script.lines) ? c.script : null,
       picture: c.picture,
@@ -266,6 +269,8 @@ export async function contentOut(ctx: Ctx, list: readonly ContentRow[]): Promise
         network: c.network,
         format: c.format,
         words: c.words,
+        hashtags: c.hashtags,
+        chain: c.chain ?? [],
         slides: Array.isArray(c.slides) ? c.slides : [],
         fileIds: pictures.map((p) => p.fileId),
         videos: pictures.filter((p) => p.mimeType?.startsWith('video/')).length,
@@ -487,6 +492,8 @@ export const contentSave = defineAddonCommand(socialcontentAddon, {
       words: input.words === undefined ? was.words : input.words.trim(),
       hook: input.hook === undefined ? was.hook : input.hook || null,
       hashtags: input.hashtags === undefined ? was.hashtags : tidyHashtags(input.hashtags, 30),
+      // Threads and X keep their chain (decision 41); any other network has none.
+      chain: chainFor(network, input.chain ?? was.chain ?? []),
       slides:
         input.slides === undefined ? was.slides : input.slides.filter((s) => s.heading || s.body),
       script: input.script === undefined ? was.script : input.script,
@@ -509,6 +516,7 @@ export const contentSave = defineAddonCommand(socialcontentAddon, {
       next.words !== was.words ||
       next.hook !== was.hook ||
       !sameList(next.hashtags, was.hashtags) ||
+      !sameList(next.chain, was.chain ?? []) ||
       !sameList(next.slides, was.slides) ||
       JSON.stringify(next.script) !== JSON.stringify(was.script) ||
       next.picture !== was.picture ||
@@ -574,6 +582,8 @@ async function okOne(
     network: c.network,
     format: c.format,
     words: c.words,
+    hashtags: c.hashtags,
+    chain: c.chain ?? [],
     slides: Array.isArray(c.slides) ? c.slides : [],
     fileIds: pictures.map((p) => p.id),
     videos: pictures.filter((p) => p.mime_type?.startsWith('video/')).length,
