@@ -1412,6 +1412,28 @@ const PROFILE_CHECK_WORDS_ON: Readonly<Partial<Record<Platform, Partial<ProfileC
       'Alignable’s Elevator Pitch, up to 150 characters. Pick one, and your computer puts it in.',
     editDone: (bio: string) => `Your Elevator Pitch now says “${bio}”.`,
   },
+  // Read from decision 163 (0.137.0). Nothing goes in for them yet: the person puts each in.
+  threads: {
+    readHint:
+      'Your computer opens your Threads profile in a window of its own, reads what people see first, and the AI checks it against your main offer.',
+    notRead: 'Have the extension read your Threads profile, and the AI says what to change.',
+    biosHint: 'Threads’ bio, up to 150 characters. Pick one and put it in under Edit profile.',
+    nameHint:
+      'People see your name beside every comment, so it says what you do. Threads takes it from Instagram, so change it there.',
+    nameCopied: 'Copied. Put it in as your name on Instagram, and Threads shows it too.',
+  },
+  x: {
+    readHint:
+      'Your computer opens your X profile in a window of its own, reads what people see first, and the AI checks it against your main offer.',
+    notRead: 'Have the extension read your X profile, and the AI says what to change.',
+    biosHint: 'X’s bio, up to 160 characters. Pick one and put it in under Edit profile.',
+    coverLine: 'A line for your header',
+    coverHint: 'Put it on an image, in big letters, and make it your header under Edit profile.',
+    coverCopied: 'Copied. Put it on your header image.',
+    nameHint:
+      'People see your name beside every reply, so it says what you do. Change it under Edit profile.',
+    nameCopied: 'Copied. Put it in as your name on X.',
+  },
 };
 
 /** Get ready's recommendations on Alignable: how many there are of the 5, and the AI's note to ask for more. */
