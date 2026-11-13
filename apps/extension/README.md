@@ -1411,6 +1411,24 @@ minute after posting and before any reading:
   link"). A warning keeps the network's words for the day, for both social add-ons, and says nothing: the read is
   asked for again later, since one handed out is put off half an hour.
 
+### The first posts on Instagram, LinkedIn and a Facebook Page (0.139.2)
+
+The owner's first OK'd posts, on 13 Nov 2026 with 0.139.0, went up only on their Facebook profile. The problem
+reports' outlines said why each of the others stopped, and each is fixed in `src/research/post-here.ts`:
+
+- **Instagram:** Create's menu is on the page all along, hidden till Create is pressed, and its icons carry a title
+  that reads as they do, so its Post read "PostPost" and was never picked. A control's words are now what a person
+  sees in it, with an icon's title only when it has nothing else (`wordsOf`), and only what showed before Create
+  counts as not the kind to pick.
+- **LinkedIn:** its newer box's **Add media** opens a window of its own, with a place to drop pictures and **Upload
+  from computer**, then **Next** back to the box. The window that opens is found (`addInMediaWindow`): the files go
+  in through the field its button asks for (the picker held back, as ever), else dropped on its drop place, then
+  **Next**.
+- **The Page:** a Page of Facebook's newer kind has two numbers, the one in its link (`profile.php?id=…`), which
+  Business Suite said wasn't available, and the Page's own (`delegate_page`). The `pageIds` hand gives every number
+  the page says, the Page's own first (`pageIdsHere`), and `posting.ts` tries Business Suite with each in turn, up to
+  three, while it shows no box at all; nothing is typed in one that didn't open.
+
 ### Studying creators on Threads and X (0.139.0)
 
 AI Social Media Content Creator's part 17 (`docs/socialcontent.md`, "How it works"; decision 41 in
@@ -1480,7 +1498,8 @@ its reading window (`src/research/posting.ts`):
   handed to the tab as files.
 - **Facebook, the profile:** the home feed's "What's on your mind" box; words typed, pictures added, **Next** when
   Facebook asks for it, then **Post**. Its link comes from the top of their own profile, by its first words.
-- **Facebook, the Page:** the Page's number from its page, then Meta Business Suite's Create post for it
+- **Facebook, the Page:** the Page's numbers from its page (its own first, from 0.139.2), then Meta Business Suite's
+  Create post for it
   (`business.facebook.com`, in the manifest from 0.132.0), so the person's own profile is never switched to the Page
   while Social Outreach works as them. A tick for Instagram that's on there is turned off (Instagram has its own post).
 - **LinkedIn:** the feed's **Start a post**, then LinkedIn's **Next** or **Done** after its picture editor, then

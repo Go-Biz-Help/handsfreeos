@@ -30,6 +30,10 @@
  * **A code** (20261027014300) takes its discount off the page and the renewals while it lasts
  * (`private.founding_charge_cents`), or makes the page a free trial: Stripe's page in its setup mode, which charges
  * nothing and keeps the card. The spot turns on, and the same sweep charges the card when the trial ends.
+ *
+ * **Every plan's own free trial** (20261027027000) is the same page: the database puts the days on the checkout. When
+ * a spot turns on with a trial, a job is set for `TRIAL_ENDING_DAYS` before it ends, which emails the owners and admins
+ * when the card is charged and what, unless the trial was stopped or is over by then.
  */
 import {
   affiliateCodePriceWords,
@@ -42,10 +46,15 @@ import {
   foundingRecordRenewal,
   money,
   scheduleJob,
+  TRIAL_ENDING_DAYS,
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Db } from '@hfos/db/client';
 import type { DeliveryProcessor, ProcessorMap } from '../deliveries';
-import { foundingRenewalFailedEmail, foundingRenewedEmail } from '../emails/templates';
+import {
+  foundingRenewalFailedEmail,
+  foundingRenewedEmail,
+  foundingTrialEndingEmail,
+} from '../emails/templates';
 import { managers } from '../handlers/telephony';
 import type { EventHandler } from '../handlers/types';
 import type { JobHandler, JobMap } from '../jobs';
@@ -74,6 +83,8 @@ export const FOUNDING_JOBS = {
   renewals: 'founding.renewals',
   /** One seat's year, charged to the card its first payment kept. */
   renew: 'founding.renew',
+  /** One free trial: its business is told, a few days before it ends, when the card is charged (20261027027000). */
+  trialEnding: 'founding.trial_ending',
 } as const;
 
 export const FOUNDING_EXPIRE_KEY = 'sweep:founding_reservations';
@@ -484,6 +495,9 @@ type PlanRow = {
   more_time_until: string | Date | null;
   business: string;
   offer_name: string | null;
+  /** While a free trial runs: when it ends and the first charge is due (20261027014300). */
+  trial_ends_at: string | Date | null;
+  renewal_count: number;
 };
 
 const planRow = (ctx: { db: Db }, scope: TenantScope) =>
@@ -494,7 +508,8 @@ const planRow = (ctx: { db: Db }, scope: TenantScope) =>
             case when o.paid_yearly then 'yearly' else o.billing end as billing,
             p.current_period_end, p.price_cents, private.founding_charge_cents(p.workspace_id) as charge_cents,
             p.stripe_customer_id, p.stripe_card_id, p.renewal_stopped_at, p.renewal_failed_at,
-            p.retry_count, p.more_time_until, w.name as business, o.name as offer_name
+            p.retry_count, p.more_time_until, w.name as business, o.name as offer_name,
+            p.trial_ends_at, p.renewal_count
           from app.workspace_plans p
           join app.workspaces w on w.id = p.workspace_id
           left join platform.founding_grants g on g.id = p.grant_id
@@ -637,6 +652,67 @@ export const onFoundingBilled: EventHandler = async (ctx) => {
 
 const iso = (d: string | Date | null): string | null => (d ? new Date(d).toISOString() : null);
 
+export const trialEndingJobKey = (grantId: string, endsAt: string): string =>
+  `${FOUNDING_JOBS.trialEnding}:${grantId}:${endsAt}`;
+
+/**
+ * A spot turned on (20261027027000): with a free trial, its business is told `TRIAL_ENDING_DAYS` before it ends. One
+ * job, keyed on the spot and the day the trial ends, so a second word of the same spot sets it once.
+ */
+export const onFoundingClaimed: EventHandler = async (ctx) => {
+  const scope = tenantOf(ctx.scope);
+  const grantId = ctx.event.entityId;
+  if (!grantId || !scope.workspaceId) return;
+  const [p] = await rows<{ trial_ends_at: string | Date | null; renewal_count: number }>(
+    ctx.tx,
+    sql`select trial_ends_at, renewal_count from app.workspace_plans
+        where workspace_id = ${scope.workspaceId}::uuid and grant_id = ${grantId}::uuid`,
+  );
+  if (!p?.trial_ends_at || Number(p.renewal_count) > 0) return;
+  const endsAt = new Date(p.trial_ends_at).toISOString();
+  const runAt = new Date(Math.max(Date.now(), Date.parse(endsAt) - TRIAL_ENDING_DAYS * 24 * HOUR));
+  await scheduleJob(ctx.tx, {
+    kind: FOUNDING_JOBS.trialEnding,
+    dedupeKey: trialEndingJobKey(grantId, endsAt),
+    runAt,
+    payload: { grantId, endsAt },
+    workspaceId: scope.workspaceId,
+    organizationId: scope.organizationId,
+  });
+};
+
+/**
+ * The email a few days before a free trial ends: when the card is charged, what, and how to stop it. Nothing is sent
+ * when the trial is no longer that one: the spot went back or moved, it was set not to renew, or it's already over.
+ */
+export const sendTrialEnding: JobHandler = async (ctx) => {
+  const scope = tenantOf(ctx.scope);
+  const grantId = String(ctx.job.payload['grantId'] ?? '');
+  const endsAt = String(ctx.job.payload['endsAt'] ?? '');
+  if (!grantId || !endsAt) return;
+  const [p] = await planRow(ctx, scope);
+  if (
+    !p ||
+    p.grant_id !== grantId ||
+    p.grant_status !== 'active' ||
+    p.renewal_stopped_at ||
+    Number(p.renewal_count) > 0 ||
+    iso(p.trial_ends_at) !== endsAt ||
+    Date.parse(endsAt) <= Date.now()
+  )
+    return;
+  const mail = foundingTrialEndingEmail({
+    business: p.business,
+    offer: p.offer_name ?? 'founding',
+    amount: money(Number(p.charge_cents)),
+    ends: foundingLongDay(endsAt),
+    link: `${ctx.webUrl}/app/w/${scope.workspaceId}/settings/usage`,
+    period: periodOf(p.billing ?? '') ?? 'year',
+  });
+  const to = await asWorker(ctx.db, scope, (tx) => managers(tx, scope.workspaceId));
+  for (const m of to) await ctx.mailer.send({ to: m.email, ...mail });
+};
+
 export const foundingJobs: JobMap = {
   ...billingJobs,
   [FOUNDING_JOBS.checkout]: runFoundingCheckout,
@@ -644,6 +720,7 @@ export const foundingJobs: JobMap = {
   [FOUNDING_JOBS.purchase]: reportFoundingPurchase,
   [FOUNDING_JOBS.renewals]: planFoundingRenewals,
   [FOUNDING_JOBS.renew]: renewFoundingSeat,
+  [FOUNDING_JOBS.trialEnding]: sendTrialEnding,
 };
 
 /**

@@ -984,6 +984,7 @@ describe('registry', () => {
       'founding.claim_preview',
       'founding.checkout_status',
       'founding.code_preview',
+      'founding.trials',
       'billing.status',
       'billing.get',
       'billing.pay_day_quote',

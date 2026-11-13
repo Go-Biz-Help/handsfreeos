@@ -10,6 +10,9 @@
  *
  * A discount or trial code (20261027014300), typed or filled in from its link, shows what it takes off each plan
  * before Pay (`founding.code_preview`), and goes with the purchase, which checks it again.
+ *
+ * A plan's own free trial (20261027027000) comes in on each offer, as this person gets it: then the button starts the
+ * trial and Stripe's page only keeps the card. With a code, its preview already says the longer of the two.
  */
 import {
   AFFILIATE_CODE_WORDS as C,
@@ -71,6 +74,9 @@ export function PickPlan({
     return d?.applies ? { ...d, billing: o.billing } : null;
   };
   const deal = chosen ? dealOf(chosen) : null;
+  /** The days free on the plan picked: the code's preview (the longer of its trial and the plan's), else the plan's. */
+  const trialDays = deal ? deal.trialDays : (chosen?.trialDays ?? null);
+  const anyTrial = offers.find((o) => o.remaining > 0 && o.trialDays)?.trialDays ?? null;
 
   const tryCode = async (code: string) => {
     if (!code.trim()) return;
@@ -132,7 +138,9 @@ export function PickPlan({
       data-testid="founding-plan"
     >
       <h1 className="text-2xl font-semibold leading-tight tracking-tight">{W.title}</h1>
-      <p className="mt-1.5 text-[13.5px] text-text-2">{W.sub(business)}</p>
+      <p className="mt-1.5 text-[13.5px] text-text-2">
+        {canPay && anyTrial ? W.subTrial(business, anyTrial) : W.sub(business)}
+      </p>
 
       {!canPay ? (
         <p
@@ -181,6 +189,13 @@ export function PickPlan({
                         </span>
                       ) : preview ? (
                         C.notForPlan
+                      ) : o.trialDays ? (
+                        <span
+                          className="font-medium text-success-text"
+                          data-testid="founding-plan-trial"
+                        >
+                          {W.trialThen(o.trialDays, o.priceCents, o.billing)}
+                        </span>
                       ) : (
                         W.renews(o.billing)
                       )}
@@ -217,16 +232,16 @@ export function PickPlan({
           >
             {busy
               ? W.paying
-              : deal?.trialDays
-                ? C.startTrial(deal.trialDays)
+              : trialDays
+                ? C.startTrial(trialDays)
                 : deal
                   ? `Pay ${money(affiliateCodeFirstCharge(deal))}`
                   : W.pay(chosen?.priceCents ?? 0)}
           </Button>
           <p className="mt-3.5 text-center text-xs text-text-3">
-            {deal?.trialDays
+            {trialDays
               ? C.trialFine(
-                  foundingLongDay(new Date(Date.now() + deal.trialDays * 86_400_000).toISOString()),
+                  foundingLongDay(new Date(Date.now() + trialDays * 86_400_000).toISOString()),
                 )
               : W.fine}
           </p>

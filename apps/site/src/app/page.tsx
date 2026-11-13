@@ -44,7 +44,15 @@ import {
   usd,
   yearlySavings,
 } from '@/content/savings';
-import { company, moneyBack, signUpFor, spotPrices, typicalUsage, urls } from '@/content/site';
+import {
+  company,
+  freeTrial,
+  moneyBack,
+  signUpFor,
+  spotPrices,
+  typicalUsage,
+  urls,
+} from '@/content/site';
 import {
   foundingCounts,
   foundingSpotsOnSale,
@@ -94,7 +102,7 @@ const nth = (index: number) => ({ '--i': index }) as CSSProperties;
 export default async function HomePage() {
   const counts = await foundingCounts();
   const spots = foundingSpotsOnSale(counts);
-  // "Claim my founding spot" only while there is one to claim.
+  // The free trial's button only while there is a spot to start it on.
   const open = spots.some(hasRoom);
   return (
     <>
@@ -151,7 +159,7 @@ function Hero({ counts, open }: { counts: readonly FoundingCount[] | null; open:
 
             <div data-cta="hero" className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Button href={urls.signUp} size="lg" arrow>
-                {open ? 'Claim my founding spot' : 'Sign up'}
+                {open ? freeTrial.button : 'Sign up'}
               </Button>
               <Button href="/#tuesday" size="lg" variant="secondary">
                 See a day with HandsFreeOS
@@ -164,7 +172,8 @@ function Hero({ counts, open }: { counts: readonly FoundingCount[] | null; open:
              */}
             <ul className="text-text-2 mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm">
               {[
-                `${spotPrices}, plus what you use`,
+                freeTrial.short,
+                `Then ${spotPrices}, plus what you use`,
                 'No contract',
                 moneyBack.short,
                 'No charge per person',
@@ -871,10 +880,11 @@ function Spots({ spots }: { spots: readonly FoundingSpot[] }) {
                   {content.per}
                 </span>
               </p>
+              <p className="text-success-text mt-2 font-semibold">{freeTrial.then(content)}</p>
               <p className="text-text-2 mt-3">{content.blurb}</p>
               <FoundingCounter count={count} className="mt-6" />
               <span className="text-accent-text mt-auto inline-flex items-center gap-1.5 pt-7 font-semibold">
-                {room ? `Claim my ${content.priceLabel} spot` : 'See which spot has room'}
+                {room ? freeTrial.button : 'See which spot has room'}
                 <svg
                   viewBox="0 0 16 16"
                   aria-hidden="true"
@@ -894,7 +904,7 @@ function Spots({ spots }: { spots: readonly FoundingSpot[] }) {
       </Reveal>
 
       <p className="text-text-2 mt-8">
-        {`Both: plus the texts, calls and AI you use, usually $${typicalUsage.low} to $${typicalUsage.high} a month. ${moneyBack.days} days, or your money back.`}
+        {`Both: ${freeTrial.days} days free to start, plus the texts, calls and AI you use, usually $${typicalUsage.low} to $${typicalUsage.high} a month. ${moneyBack.days} days from your first payment, or your money back.`}
       </p>
     </Section>
   );
@@ -945,7 +955,7 @@ function FinalCta({ open }: { open: boolean }) {
         </p>
         <div data-cta="final" className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
           <Button href={urls.signUp} size="lg" arrow>
-            {open ? 'Claim my founding spot' : 'Sign up'}
+            {open ? freeTrial.button : 'Sign up'}
           </Button>
           <Button href="/support" size="lg" variant="night">
             Ask us a question first

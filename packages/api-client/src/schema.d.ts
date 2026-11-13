@@ -5227,7 +5227,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Buy a founding spot for this business, first come, first served: hold one in the offer picked and start paying for it, or pick up the payment already under way. A discount or trial code takes its discount off, or makes the page a free trial that only keeps the card; founding.code_preview says what it takes off first. The worker makes the Stripe page; ask founding.checkout_status for its address. Picking another offer, or another code, before paying gives the first page back.
+         * Buy a founding spot for this business, first come, first served: hold one in the offer picked and start paying for it, or pick up the payment already under way. A plan with a free trial of its own makes the page a free trial that only keeps the card, once a person and once a business (founding.trials says which). A discount or trial code takes its discount off, or makes the page a free trial, the longer trial winning; founding.code_preview says what it takes off first. The worker makes the Stripe page; ask founding.checkout_status for its address. Picking another offer, or another code, before paying gives the first page back.
          * @description Risk level 3. Requires money.manage. Emits founding.checkout_requested.
          */
         post: operations["command_founding_buy"];
@@ -20791,6 +20791,26 @@ export interface paths {
          * @description Requires workspace.read.
          */
         post: operations["query_founding_mine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/founding.trials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The free trial this business gets on each founding plan on sale before any code: the plan’s own days free, or none when this person or the business has started a founding plan before.
+         * @description Requires money.manage.
+         */
+        post: operations["query_founding_trials"];
         delete?: never;
         options?: never;
         head?: never;
@@ -74433,6 +74453,11 @@ export interface operations {
                                 status: "pending" | "granted" | "declined";
                             } | null;
                         } | null;
+                        trialEnding: {
+                            chargeCents: number;
+                            /** Format: date-time */
+                            endsAt: string;
+                        } | null;
                         /** Format: uuid */
                         workspaceId: string;
                     };
@@ -80179,6 +80204,7 @@ export interface operations {
                             /** @enum {string} */
                             status: "draft" | "open" | "closed";
                             superseded: boolean;
+                            trialDays: number | null;
                         }[];
                     };
                 };
@@ -80220,6 +80246,38 @@ export interface operations {
                         trialEndsAt: string | null;
                         /** Format: uuid */
                         workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    query_founding_trials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        offers: {
+                            offerId: string;
+                            trialDays: number | null;
+                        }[];
                     };
                 };
             };

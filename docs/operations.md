@@ -10309,10 +10309,20 @@ The owner's call on 2026-10-27, replacing applications:
 2. They make their account and their business. A business made while a paid spot is on sale has to pay before
    it sets up: the web app shows **Pick your founding spot** instead of setup, and **Sign out** is the only way
    out.
-3. An owner picks $497 a year or $97 a month and presses **Pay**. The spot is held for them for an hour while
-   they pay on Stripe's page, which keeps the card. **Seats out** says "paying now".
-4. When Stripe says the money is in, the spot is on and they carry on setting up. A monthly spot is charged again
-   each month and a yearly one each year, by the sweep in "The yearly renewal" below.
+3. An owner picks $497 a year or $97 a month and presses **Start your 14-day free trial** (since 2026-11-13). The
+   spot is held for them for an hour while they add a card on Stripe's page, which charges nothing. **Seats out**
+   says "paying now".
+4. When Stripe says the card is kept, the spot is on and they carry on setting up. The trial's last day is the first
+   payment; from there a monthly spot is charged each month and a yearly one each year, by the sweep in "The yearly
+   renewal" below. Three days before the trial ends, the owners and admins get an email saying when and how much,
+   and the web app shows the same note at the top.
+
+- **The free trial** is `trial_days` on each offer (14 on both). Somebody who has had a founding plan before, on any
+  business, or a business that has, gets none and pays on the first page (**Pay $97**). A code's trial still applies,
+  and the longer one wins. To change the length or turn it off, set `trial_days` on the offer (null for none) with a
+  migration, and change `freeTrial` in `apps/site/src/content/site.ts` so the website says the same.
+- **Stopping it during the trial** (Settings → Billing & Usage → Stop renewing) charges nothing and gives the spot back
+  when the trial ends.
 
 - **On the phone app,** a business that hasn't paid shows "Finish setting up on the web", with no price and no
   link: the App Store and Google Play don't allow selling outside their own payments in an app.

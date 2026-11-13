@@ -123,6 +123,7 @@ import {
   onPayNowRequested,
   onFoundingCheckoutRequested,
   onFoundingPaid,
+  onFoundingClaimed,
 } from '../founding/checkout';
 import {
   onMoreTimeAnswered,
@@ -360,6 +361,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       'founding.checkout_requested': onFoundingCheckoutRequested,
       // …and paid for: the website's analytics hears of it from a job, when it has a key (founding/checkout.ts).
       'founding.paid': onFoundingPaid,
+      // …and turned on: with a free trial, a job tells the business a few days before it ends (20261027027000).
+      'founding.claimed': onFoundingClaimed,
       // A yearly seat renewed, or the card refused it (20261027009500): the owners and admins are emailed.
       'founding.renewed': onFoundingBilled,
       'founding.renewal_failed': onFoundingBilled,

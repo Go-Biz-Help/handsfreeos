@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { ViewAsBanner } from '@/components/admin/view-as-banner';
 import { PaymentGuard } from '@/components/billing/payment-guard';
+import { TrialEndingNote } from '@/components/billing/trial-ending-note';
 import { ForgetStaleView, TeammateViewBanner } from '@/components/view-as/teammate-view-banner';
 import { ExtensionSignInPrompt } from '@/components/account/extension-sign-in-prompt';
 import { AssistantPanel } from '@/components/assistant/assistant-panel';
@@ -126,6 +127,10 @@ export default async function WorkspaceLayout({
                           <TeammateViewBanner workspaceId={workspaceId} view={teammateView} />
                         ) : null}
                         {staleView ? <ForgetStaleView workspaceId={workspaceId} /> : null}
+                        {/* A free trial's last days (20261027027000): when the card is charged, for whoever pays. */}
+                        {!viewingAs && !teammateView ? (
+                          <TrialEndingNote workspaceId={workspaceId} />
+                        ) : null}
                         <div className="flex min-h-0 flex-1">
                           <Sidebar me={me} current={current} staff={staff} />
                           <div className="flex min-w-0 flex-1 flex-col">

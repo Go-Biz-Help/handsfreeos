@@ -45716,7 +45716,7 @@
     "/v1/commands/founding.buy": {
       "post": {
         "operationId": "command_founding_buy",
-        "summary": "Buy a founding spot for this business, first come, first served: hold one in the offer picked and start paying for it, or pick up the payment already under way. A discount or trial code takes its discount off, or makes the page a free trial that only keeps the card; founding.code_preview says what it takes off first. The worker makes the Stripe page; ask founding.checkout_status for its address. Picking another offer, or another code, before paying gives the first page back.",
+        "summary": "Buy a founding spot for this business, first come, first served: hold one in the offer picked and start paying for it, or pick up the payment already under way. A plan with a free trial of its own makes the page a free trial that only keeps the card, once a person and once a business (founding.trials says which). A discount or trial code takes its discount off, or makes the page a free trial, the longer trial winning; founding.code_preview says what it takes off first. The worker makes the Stripe page; ask founding.checkout_status for its address. Picking another offer, or another code, before paying gives the first page back.",
         "tags": [
           "commands"
         ],
@@ -138493,6 +138493,18 @@
                           },
                           "superseded": {
                             "type": "boolean"
+                          },
+                          "trialDays": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -138506,7 +138518,8 @@
                           "remaining",
                           "billing",
                           "showCounter",
-                          "superseded"
+                          "superseded",
+                          "trialDays"
                         ],
                         "additionalProperties": false
                       }
@@ -139905,6 +139918,86 @@
         }
       }
     },
+    "/v1/queries/founding.trials": {
+      "post": {
+        "operationId": "query_founding_trials",
+        "summary": "The free trial this business gets on each founding plan on sale before any code: the plan’s own days free, or none when this person or the business has started a founding plan before.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires money.manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "offers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "offerId": {
+                            "type": "string",
+                            "minLength": 3,
+                            "maxLength": 40,
+                            "pattern": "^[a-z][a-z0-9_]*$"
+                          },
+                          "trialDays": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "offerId",
+                          "trialDays"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "offers"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/billing.status": {
       "post": {
         "operationId": "query_billing_status",
@@ -140097,13 +140190,41 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "trialEnding": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "endsAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            "chargeCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "endsAt",
+                            "chargeCents"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
                     "workspaceId",
                     "owed",
                     "canManage",
-                    "askWho"
+                    "askWho",
+                    "trialEnding"
                   ],
                   "additionalProperties": false
                 }

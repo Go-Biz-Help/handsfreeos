@@ -111,8 +111,19 @@ async function waitFor<T>(find: () => T | null, ms = WAIT_MS): Promise<T | null>
   return null;
 }
 
-/** What a control says: its label, else its words. */
-const wordsOf = (e: Element) => labelOf(e);
+/**
+ * What a control says: its label, else the words a person sees in it. An icon's hidden title counts only when the
+ * control has nothing else: Instagram draws its icons with one (Create's menu says "Post" beside an icon titled
+ * "Post", which read "PostPost" and was never picked; the owner's first Instagram post, 13 Nov 2026, 0.139.0).
+ */
+function wordsOf(e: Element): string {
+  if (clean(e.getAttribute('aria-label'))) return labelOf(e);
+  let words = '';
+  const walker = e.ownerDocument.createTreeWalker(e, 4 /* text */);
+  for (let node = walker.nextNode(); node; node = walker.nextNode())
+    if (!node.parentElement?.closest('svg')) words += node.nodeValue ?? '';
+  return clean(words) || labelOf(e);
+}
 const says = (e: Element, pattern: RegExp) => pattern.test(wordsOf(e));
 
 /** The main part of the page, where a feed's box is. */
@@ -284,6 +295,8 @@ async function addFiles(
   const button = controlIn(box, MEDIA);
   if (button) {
     const fields = new Set(fileFields(box, doc));
+    // What showed over the page before: a window the button opens may have been there all along, hidden.
+    const opened = new Set([...doc.querySelectorAll(OVER_THE_PAGE)].filter(shown));
     button.click();
     steps.push('media:button');
     // The field the button asked for (held back from opening the picker: ./tab.ts), or one it made.
@@ -301,6 +314,15 @@ async function addFiles(
       steps.push(asked ? 'media:asked' : 'media:field2');
       if (await tookThem(doc, box, before)) return true;
     }
+    // LinkedIn's newer box opens a window of its own for pictures, with Upload from computer and a place to drop
+    // them, then Next back to the box (the owner's first LinkedIn post, 13 Nov 2026, 0.139.0).
+    const media = [...doc.querySelectorAll(OVER_THE_PAGE)]
+      .filter((d) => !opened.has(d) && d !== box && !d.contains(box) && shown(d))
+      .at(-1);
+    if (media && (await addInMediaWindow(doc, media, files, steps))) {
+      const closed = await waitFor(() => (media.isConnected && shown(media) ? null : true), 6_000);
+      return !!closed || mediaCount(box) > before || !!pictureEditor(doc, box);
+    }
   }
   const dropped = transferOf(doc, files);
   if (!win.DragEvent || !dropped) return false;
@@ -313,6 +335,70 @@ async function addFiles(
   }
   steps.push('media:drop');
   return tookThem(doc, box, before);
+}
+
+/** A window's button that opens the computer's file picker for its pictures. */
+const UPLOAD =
+  /^(upload from (your )?(computer|device)|select (files?|from (your )?computer)|choose files?|browse( files)?|upload( (files?|media|photos?))?)$/i;
+/** The place in a window to drop pictures on. */
+const DROP_ZONE = '[data-testid="add-media-drop-zone"], [data-testid*="drop-zone" i]';
+
+/**
+ * Puts the files in a window that's only for pictures (LinkedIn's): its own file field, else its upload button (with
+ * the file picker held back, so the field it asks for takes them), else dropped on its drop place; then its Next,
+ * once it shows them. Whether it took them.
+ */
+async function addInMediaWindow(
+  doc: Document,
+  media: Element,
+  files: readonly File[],
+  steps: string[],
+): Promise<boolean> {
+  const showsThem = () =>
+    mediaCount(media) > 0 || (!media.querySelector(DROP_ZONE) && !!controlIn(media, NEXT));
+  let field: HTMLInputElement | null | undefined = [
+    ...media.querySelectorAll<HTMLInputElement>('input[type="file"]'),
+  ].find(takesMedia);
+  if (!field) {
+    const upload = controlIn(media, UPLOAD);
+    if (upload) {
+      upload.click();
+      steps.push('window:upload');
+      field = await waitFor(
+        () =>
+          doc.querySelector<HTMLInputElement>('input[type="file"][data-hfos-picked]') ??
+          [...media.querySelectorAll<HTMLInputElement>('input[type="file"]')].find(takesMedia) ??
+          null,
+        3_000,
+      );
+    }
+  }
+  let took = false;
+  if (field) {
+    field.removeAttribute('data-hfos-picked');
+    giveFiles(field, files);
+    steps.push('window:field');
+    took = !!(await waitFor(() => (showsThem() ? true : null), 8_000));
+  }
+  const win = windowOf(doc);
+  const zone = media.querySelector(DROP_ZONE);
+  const dropped = !took && zone ? transferOf(doc, files) : null;
+  if (zone && dropped && win.DragEvent) {
+    for (const type of ['dragenter', 'dragover', 'drop']) {
+      zone.dispatchEvent(
+        new win.DragEvent(type, { dataTransfer: dropped, bubbles: true, cancelable: true }),
+      );
+      await pause(150);
+    }
+    steps.push('window:drop');
+    took = !!(await waitFor(() => (showsThem() ? true : null), 8_000));
+  }
+  if (!took) return false;
+  const next = await waitFor(() => controlIn(media, NEXT), 20_000);
+  if (!next) return false;
+  next.click();
+  steps.push('window:next');
+  return true;
 }
 
 /** Turns off a tick for Instagram that's on in Business Suite's "Post to": the Page's post goes to the Page only. */
@@ -413,10 +499,11 @@ async function instagramPost(
         (says(c, IG_CREATE) || !!c.querySelector('svg[aria-label="New post" i]')),
     );
     if (!create) return end('none');
-    // Anything saying Post before Create was pressed (a comment's) is never the kind to pick.
+    // Anything showing Post before Create was pressed (a comment's) is never the kind to pick. Create's own menu is
+    // on the page already, hidden until it's pressed, so only what showed counts.
     const before = new Set(
-      [...doc.querySelectorAll<HTMLElement>(`${CONTROLS}, a[href]`)].filter((c) =>
-        says(c, IG_KIND),
+      [...doc.querySelectorAll<HTMLElement>(`${CONTROLS}, a[href]`)].filter(
+        (c) => shown(c) && says(c, IG_KIND),
       ),
     );
     create.click();
@@ -650,30 +737,33 @@ export async function postHere(doc: Document, ask: PostAsk): Promise<PostDone> {
 }
 
 /**
- * The Page's number, from its own page: what Business Suite opens it by. Facebook says it in the page's app links
- * (`fb://page/?id=…`, `fb://profile/…`) and in the data the page came with.
+ * The numbers Business Suite might open the Page by, likeliest first, from its own page. A Page on Facebook's newer
+ * kind has two: the one in its link (`profile.php?id=…`), which Business Suite says isn't available, and its Page's
+ * own (`delegate_page`), which it opens (the owner's first Page post, 13 Nov 2026, 0.139.0). Facebook says them in
+ * the data the page came with and in its app links (`fb://page/?id=…`, `fb://profile/…`).
  */
-export function pageIdHere(doc: Document, href: string): string | null {
-  try {
-    const id = new URL(href).searchParams.get('id');
-    if (id && /^\d{5,20}$/.test(id)) return id;
-  } catch {
-    // Not a link with its number in it.
-  }
-  for (const meta of doc.querySelectorAll('meta[property^="al:"], meta[content^="fb://"]')) {
-    const m = /fb:\/\/(?:page\/\?id=|page\/|profile\/)(\d{5,20})/.exec(
-      meta.getAttribute('content') ?? '',
-    );
-    if (m) return m[1]!;
-  }
+export function pageIdsHere(doc: Document, href: string): string[] {
+  const found: { id: string; rank: number }[] = [];
+  const add = (id: string | null | undefined, rank: number) => {
+    if (id && /^\d{5,20}$/.test(id)) found.push({ id, rank });
+  };
   for (const script of doc.querySelectorAll('script')) {
     const text = script.textContent ?? '';
     if (text.length > 2_000_000) continue;
-    const m =
-      /"pageID":"(\d{5,20})"/.exec(text) ??
-      /"delegate_page":\{"id":"(\d{5,20})"/.exec(text) ??
-      /"page_id":"(\d{5,20})"/.exec(text);
-    if (m) return m[1]!;
+    add(/"delegate_page":\{[^{}]{0,400}?"id":"(\d{5,20})"/.exec(text)?.[1], 0);
+    add(/"delegate_page_id":"(\d{5,20})"/.exec(text)?.[1], 0);
+    add(/"pageID":"(\d{5,20})"/.exec(text)?.[1], 1);
+    add(/"page_id":"(\d{5,20})"/.exec(text)?.[1], 5);
   }
-  return null;
+  for (const meta of doc.querySelectorAll('meta[property^="al:"], meta[content^="fb://"]')) {
+    const content = meta.getAttribute('content') ?? '';
+    add(/fb:\/\/page\/(?:\?id=)?(\d{5,20})/.exec(content)?.[1], 2);
+    add(/fb:\/\/profile\/(\d{5,20})/.exec(content)?.[1], 4);
+  }
+  try {
+    add(new URL(href).searchParams.get('id'), 3);
+  } catch {
+    // Not a link with its number in it.
+  }
+  return [...new Set(found.sort((a, b) => a.rank - b.rank).map((f) => f.id))];
 }
