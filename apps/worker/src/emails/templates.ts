@@ -666,6 +666,32 @@ export function foundingRenewedEmail(input: {
 }
 
 /**
+ * A free trial ends in a few days (20261027027000, the owner's pick): when the card is charged, what, and how to stop
+ * it. Sent once, to the owners and admins, `TRIAL_ENDING_DAYS` before it ends.
+ */
+export function foundingTrialEndingEmail(input: {
+  business: string;
+  offer: string;
+  amount: string;
+  ends: string;
+  link: string;
+  period: 'month' | 'year';
+}): EmailContent {
+  const subject = `Your HandsFreeOS free trial for ${input.business} ends ${input.ends}`;
+  const lines = [
+    `Your free trial of HandsFreeOS ends on ${input.ends}. That day we charge ${input.amount} to your card for your first ${input.period} on your ${input.offer} spot, and it renews each ${input.period} from there.`,
+    'Nothing to do if you’re staying. To change the card or stop it renewing, go to Settings → Billing & Usage before then. If you stop it, nothing is charged and your spot goes back when the trial ends.',
+  ];
+  const text = `${lines.join('\n\n')}\n\nOpen Billing & Usage: ${input.link}`;
+  const html = shell(
+    lines.map((l) => para(escapeHtml(l))).join('') +
+      button(input.link, 'Open Billing & Usage') +
+      small(`Sent to the owners and admins of ${escapeHtml(input.business)}.`),
+  );
+  return { subject, text, html };
+}
+
+/**
  * The card refused a founding spot's renewal, monthly or yearly (20261027009500, 20261027012700): pay it with another
  * card; the spot stays on.
  */

@@ -492,6 +492,11 @@ export interface FoundingPickOffer {
   readonly remaining: number;
   readonly billing: FoundingOfferFacts['billing'];
   readonly superseded: boolean;
+  /**
+   * Days free before the first charge (20261027027000). On the plan page it is what this person gets for this
+   * business (`founding.trials`): none once they or the business have started a founding plan before.
+   */
+  readonly trialDays?: number | null;
 }
 
 /**
@@ -519,6 +524,9 @@ export const FOUNDING_PICK_WORDS = {
   title: 'Pick your founding spot',
   sub: (business: string) =>
     `${business} is ready to set up once you’ve picked a spot and paid. First come, first served.`,
+  /** With a free trial on offer (20261027027000): nothing is paid today. */
+  subTrial: (business: string, days: number) =>
+    `Pick a spot to set up ${business}. Your first ${days} days are free. First come, first served.`,
   /** "37 of 100 left". */
   left: (remaining: number, seatCap: number) =>
     `${remaining.toLocaleString('en-US')} of ${seatCap.toLocaleString('en-US')} spots left`,
@@ -531,6 +539,9 @@ export const FOUNDING_PICK_WORDS = {
       : billing === 'yearly'
         ? 'Renews each year on the same card.'
         : 'Paid once.',
+  /** "14 days free, then $97 a month on the same card." */
+  trialThen: (days: number, cents: number, billing: FoundingOfferFacts['billing']) =>
+    `${days} days free, then ${foundingPrice(cents)} ${billing === 'monthly' ? 'a month' : 'a year'} on the same card.`,
   pay: (cents: number) => `Pay ${foundingPrice(cents)}`,
   paying: 'Getting the payment page ready…',
   fine: 'You pay on Stripe’s secure page, and your spot is held for an hour while you do. Stop it renewing any time in Settings → Billing & Usage. Texts, calls and AI are billed for what you use.',

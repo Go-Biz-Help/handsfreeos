@@ -765,6 +765,28 @@ describe('liking their latest post', () => {
     expect(likeStateOf(button('Remove Like from Dana Reyes’s post'))).toBe('liked');
     expect(likeStateOf(button('Change Like reaction'))).toBe('liked');
     expect(likeStateOf(button('Share'))).toBe('unknown');
+    // On a post with no count in it (the problem reports of 10 to 13 Nov 2026), and never a comment's or the count.
+    expect(likeStateOf(button('Like Dana Reyes’s post'))).toBe('like');
+    expect(likeStateOf(button('Unlike Dana Reyes’s post'))).toBe('liked');
+    expect(likeStateOf(button('Like Dana Reyes’s comment'))).toBe('unknown');
+    expect(likeStateOf(button('Like: 8 people'))).toBe('unknown');
+  });
+
+  it('presses a Like that says whose post it is, on a post with no count in it (the problem reports of 10 to 13 Nov 2026)', async () => {
+    vi.useFakeTimers();
+    const doc = load('profile-2026.html', URL);
+    const like = doc.querySelector<HTMLElement>('[aria-label="Remove Like"]')!;
+    like.setAttribute('aria-label', 'Like Dana Reyes’s post');
+    let pressed = 0;
+    like.addEventListener('click', () => pressed++);
+    const reading = readTheirPosts(doc, URL, dana, view, 6);
+    await vi.advanceTimersByTimeAsync(15_000);
+    const [post] = await reading;
+    expect(post!.liked).toBe(false);
+    const going = likeTheirPost(doc, URL, dana, { index: 0, url: post!.url });
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect((await going).result).toBe('done');
+    expect(pressed).toBe(1);
   });
 
   it('reads nobody else’s posts', async () => {

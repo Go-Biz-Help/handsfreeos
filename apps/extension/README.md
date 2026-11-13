@@ -1269,6 +1269,33 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Event hosts, Facebook's new Like, a liked post's Likes box, and chat windows closed first (0.139.1)
+
+The problem check of 13 Nov 2026 found three things the readers didn't know yet, and one the owner picked a fix for:
+
+- **An Alignable event showed nobody** (five events in one week's read). A group's event draws its hosts in a part of
+  their own (`hosts`), twice (a wide screen's and a narrow one's), under a one-word label that isn't a heading, and its
+  guests only as faces and a count. A row around a host's links spanned both copies and took in the event's name, so
+  no host was read and the event had no name. From 0.139.1 (`hostsShown` in `src/networks/alignable/read.ts`) each
+  host is read from that part once, by their business: their name from its title, their business and town under it,
+  and their business's id from their Connect; the event's name is its details' heading. Only with the event's details
+  shown, as a list of events has a part like it on each tile. A link that opened Alignable's own search of events
+  (/events/<kind>, with its filters and a tile for each) is no event: the week's read passes over it without a report,
+  and keeps it as read.
+- **A Facebook like on a visit didn't go** (three on 13 Nov, more from 10 Nov). On a post with no count in it,
+  Facebook labels the post's Like with whose post it is, "Like Dana Reyes's post" (the outlines showed three or four
+  words before "'s post", the post's only button), which wasn't a Like the reader knew, so it was never pressed. From
+  0.139.1 it's a Like ("Unlike Dana Reyes's post" once pressed), never a comment's ("Like Dana Reyes's comment"). Page
+  outlines keep the words around a name on a post's buttons now ("React with Like to [2 words]'s post"), and
+  Facebook's own mark on its Like, so the next change of words shows.
+- **An Instagram post's Likes box wasn't opened** on a post the person had liked: its bar says Unlike, then the count,
+  and only a Like before the count was looked for. From 0.139.1 an Unlike counts too.
+- **A Facebook message found five chat windows open, none theirs**, so nothing was sent, and chat windows left open sat
+  over the posts a like went to. From 0.139.1 (the owner's pick, noted under decision 26 in `docs/outreach.md`),
+  `closeChatWindows` in `src/networks/facebook/auto.ts` closes every small chat window left open over the page, by its
+  own Close chat, before their profile's Message is pressed and before a like (on their profile, or a group's post).
+  The chats stay in Messenger. A window with writing in its box is left open, as the person may be writing there.
+
 ### Likes on reels, in the reels player on Instagram (0.136.1)
 
 The problem check of 12 Nov 2026 found no warm-up like on an Instagram reel had ever gone: each said "Couldn’t like

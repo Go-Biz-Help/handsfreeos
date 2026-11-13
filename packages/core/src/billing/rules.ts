@@ -22,6 +22,11 @@ export const PAY_SKIP_HOURS = 24;
 export const PAY_LOCK_HOURS = 72;
 /** The furthest day a business may ask for more time until. */
 export const MORE_TIME_MAX_DAYS = 30;
+/**
+ * How many days before a free trial ends its business is told (20261027027000, the owner's pick): an email from the
+ * worker, and a note at the top of the web app for whoever manages money.
+ */
+export const TRIAL_ENDING_DAYS = 3;
 
 /**
  * When the next automatic retry is, after `retriesMade` of them since `from`: a random moment in day

@@ -7600,6 +7600,8 @@ export const foundingOffers = platform.table('founding_offers', {
    * (`private.founding_offer_billing`).
    */
   paidYearly: boolean('paid_yearly').notNull().default(false),
+  /** Days free before the first charge, for a plan paid by the month or the year (20261027027000). Null: none. */
+  trialDays: integer('trial_days'),
   /**
    * The offer this one opens after, and how many of that one's seats must be out first — null meaning "when
    * it is full". Opened by a trigger at the seat that crosses the line, only ever from `draft`.

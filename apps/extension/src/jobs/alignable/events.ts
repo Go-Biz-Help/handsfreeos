@@ -96,6 +96,8 @@ export async function readEventsNear(job: Job): Promise<JobEnd> {
   const before = new Set(next.read);
   const fresh = listed.filter((e) => !before.has(e.url)).slice(0, EVENTS_READ_MOST);
   const read: string[] = [];
+  // Links that led to one of Alignable's own lists of events (its search, by kind), not an event: kept as read too.
+  const lists: string[] = [];
   let shown = 0;
   let added = 0;
   for (const event of fresh) {
@@ -113,6 +115,10 @@ export async function readEventsNear(job: Job): Promise<JobEnd> {
         `Reading who’s hosting and going to “${event.name}”… ${counted(n, 'business', 'businesses')} so far.`,
     );
     if (ended(got)) return got;
+    if (!got.page.found.event && got.page.found.events?.length) {
+      lists.push(event.url);
+      continue;
+    }
     read.push(event.url);
     const theirs = got.items.filter((m) => someoneElse(m.profile));
     if (!got.items.length) {
@@ -144,7 +150,7 @@ export async function readEventsNear(job: Job): Promise<JobEnd> {
     valueOf(
       await job.hfos({
         type: 'hfos-events-read',
-        input: { workspaceId: job.businessId, platform: 'alignable', urls: read },
+        input: { workspaceId: job.businessId, platform: 'alignable', urls: [...read, ...lists] },
       }),
     );
   const stopped = job.stopped() ? 'Stopped. ' : '';

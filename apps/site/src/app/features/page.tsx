@@ -15,7 +15,7 @@ import {
   WorkflowVisual,
 } from '@/components/visuals';
 import { automationGroups, comingSoon, featureSections, foundations } from '@/content/features';
-import { moneyBack, spotPrices, urls } from '@/content/site';
+import { freeTrial, moneyBack, spotPrices, urls } from '@/content/site';
 
 /** How many things it does on its own: the same list as Settings → Automations in the app. */
 const automationCount = automationGroups.reduce((sum, group) => sum + group.items.length, 0);
@@ -221,8 +221,9 @@ export default function FeaturesPage() {
           <h2 className="text-3xl font-bold sm:text-4xl">All of that is on one plan.</h2>
           <p className="text-text-2 mt-5 text-lg">
             Every feature above the coming-soon list, and as many people as work there, for{' '}
-            {spotPrices}. Nothing is held back for a bigger plan, because there is no bigger plan.
-            And if it isn&rsquo;t for you within {moneyBack.days} days, you get your money back.
+            {spotPrices}, with the first {freeTrial.days} days free. Nothing is held back for a
+            bigger plan, because there is no bigger plan. And if it isn&rsquo;t for you within{' '}
+            {moneyBack.days} days of your first payment, you get your money back.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Button href={urls.signUp} size="lg">
