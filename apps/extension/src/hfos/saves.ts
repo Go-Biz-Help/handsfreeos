@@ -47,6 +47,8 @@ import {
   postHoursAgo,
 } from '@hfos/core/addons/outreach/posts';
 import { LOOKUP_LINE_MOST } from '@hfos/core/addons/outreach/today';
+import { REPLIES_SAVE_MOST } from '@hfos/core/addons/outreach/comment-replies';
+import type { FollowListed, FollowPlatform, FollowPost } from '../networks/follows/types';
 import type { Answered, Reached, Step, StepGroup } from '../networks/facebook/actions';
 import { asked, askedByYou, mutualFriendsIn, type FriendList } from '../networks/facebook/friends';
 import { runsGroup } from '../networks/facebook/people';
@@ -70,6 +72,7 @@ import type {
   ActiveReplyInput,
   Business,
   ChatsCollectInput,
+  CommentRepliesSaveInput,
   FindsSaveInput,
   FollowersSaveInput,
   FriendNoteInput,
@@ -1232,4 +1235,143 @@ export function findsSave(
   for (let at = 0; at < people.length; at += FINDS_SAVE_MOST)
     parts.push({ ...facts, people: people.slice(at, at + FINDS_SAVE_MOST) });
   return { ok: true, input: parts };
+}
+
+/**
+ * The person's followers on Threads or X (decision 163), to save as that network's friends list, as Instagram's are
+ * (`instagramListSave`): someone they followed who's among them has followed back, which counts as accepting. Each
+ * account once, by the name in its address, in parts of FRIENDS_SAVE_MOST; a look at someone they followed saves them
+ * as a list of one, among their followers or among the follows they've sent (`sent`).
+ */
+export function followListSave(
+  platform: FollowPlatform,
+  people: readonly Pick<FollowListed, 'username' | 'url' | 'name'>[],
+  workspaceId: string,
+  list: 'friends' | 'sent' = 'friends',
+): Built<FriendsSaveInput[]> {
+  const seen = new Set<string>();
+  const kept: FriendsSaveInput['people'] = [];
+  for (const person of people) {
+    const key = person.username.toLowerCase();
+    if (seen.has(key)) continue;
+    const who = whom(
+      {
+        name: person.name?.trim() || person.username,
+        profile: { id: null, username: person.username, url: person.url },
+      },
+      platform,
+    );
+    if (!who) continue;
+    seen.add(key);
+    kept.push({ ...who, mutualFriends: null });
+  }
+  if (!kept.length)
+    return {
+      ok: false,
+      why: `There are no followers on the page to save. Open your followers on ${NETWORKS[platform].name}, then try again.`,
+    };
+  const parts: FriendsSaveInput[] = [];
+  for (let at = 0; at < kept.length; at += FRIENDS_SAVE_MOST)
+    parts.push({ workspaceId, platform, list, people: kept.slice(at, at + FRIENDS_SAVE_MOST) });
+  return { ok: true, input: parts };
+}
+
+/** Whether a post is new enough for the hourly search to keep (decision 163): under `hours` old by its own time. */
+export function postFresh(post: Pick<FollowPost, 'at'>, hours: number, now: Date): boolean {
+  const at = post.at ? Date.parse(post.at) : Number.NaN;
+  return (
+    Number.isFinite(at) && now.getTime() - at <= hours * 3_600_000 && at <= now.getTime() + 60_000
+  );
+}
+
+/**
+ * The posts a search on Threads or X found (decision 163), to keep the ones worth a reply, in no group, with the phrase
+ * it searched with: each with who wrote it, its own link and what it says. One with no words, no writer or no link it
+ * keeps, or by the person themselves (`me`), is left out.
+ */
+export function followPostsSave(
+  platform: FollowPlatform,
+  posts: readonly FollowPost[],
+  workspaceId: string,
+  words: string | null,
+  me: string | null = null,
+): Built<PostsSaveInput> {
+  const seen = new Set<string>();
+  const kept = posts.flatMap((post) => {
+    if (me && post.author.username.toLowerCase() === me.toLowerCase()) return [];
+    const url = networkAddress(post.url, platform);
+    const who = whom(
+      {
+        name: post.name?.trim() || post.author.username,
+        profile: { id: null, username: post.author.username, url: post.author.url },
+      },
+      platform,
+    );
+    const text = post.text ? clipText(post.text, POST_TEXT_MOST) : '';
+    if (!url || !who || !text || seen.has(url)) return [];
+    seen.add(url);
+    return [
+      {
+        url,
+        author: who.profile,
+        name: who.name,
+        when: post.when ? clip(post.when, WHEN_MOST) : null,
+        text,
+        comments: post.replies,
+        reactions: post.likes,
+      },
+    ];
+  });
+  if (!kept.length) return { ok: false, why: 'There are no posts with words to look at yet.' };
+  return {
+    ok: true,
+    input: {
+      workspaceId,
+      platform,
+      group: null,
+      posts: kept.slice(0, POSTS_SAVE_MOST),
+      found: 'search',
+      words: foundWith(words),
+    },
+  };
+}
+
+/**
+ * Replies to the person's comments that their notifications on Threads or X showed (decision 163, answer 8a): each by
+ * its own link, who wrote it and what it says, and whether the page said it answers the person (`toComment`). Never
+ * the person's own.
+ */
+export function commentRepliesSave(
+  platform: FollowPlatform,
+  replies: readonly (FollowPost & { readonly toComment: boolean })[],
+  workspaceId: string,
+  me: string | null,
+): Built<CommentRepliesSaveInput> {
+  const seen = new Set<string>();
+  const kept = replies.flatMap((reply) => {
+    if (me && reply.author.username.toLowerCase() === me.toLowerCase()) return [];
+    const url = networkAddress(reply.url, platform);
+    const who = whom(
+      {
+        name: reply.name?.trim() || reply.author.username,
+        profile: { id: null, username: reply.author.username, url: reply.author.url },
+      },
+      platform,
+    );
+    const text = reply.text ? clipText(reply.text, POST_TEXT_MOST) : '';
+    if (!url || !who || !text || seen.has(url)) return [];
+    seen.add(url);
+    return [
+      {
+        url,
+        author: who.profile,
+        name: who.name,
+        text,
+        when: reply.when ? clip(reply.when, WHEN_MOST) : null,
+        toComment: reply.toComment,
+      },
+    ];
+  });
+  if (!kept.length) return { ok: false, why: 'No replies to your comments on the page.' };
+  return { ok: true, input: { workspaceId, platform, replies: kept.slice(0, REPLIES_SAVE_MOST) } };
 }

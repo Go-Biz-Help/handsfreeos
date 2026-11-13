@@ -6,8 +6,8 @@
  * takes nothing from a network that's off. That script is never answered, and only the extension's own pages are. It
  * keeps each network's script on its site only while the person works that network and Chrome allows it
  * (src/networks/scripts.ts). Its alarm wakes the runner that works on Facebook on its own, once the person turns that
- * on (src/auto/run.ts), and LinkedIn's, Alignable's and Instagram's beside it (src/auto/linkedin.ts,
- * src/auto/alignable.ts, src/auto/instagram.ts). It does what the person asks of this computer from HandsFreeOS
+ * on (src/auto/run.ts), and LinkedIn's, Alignable's, Instagram's, Threads' and X's beside it (src/auto/linkedin.ts,
+ * src/auto/alignable.ts, src/auto/instagram.ts, src/auto/follows.ts). It does what the person asks of this computer from HandsFreeOS
  * (src/asks/run.ts). It follows the person's settings in HandsFreeOS from the
  * moment they sign in (src/hfos/follow.ts), and sends a first-timer to HandsFreeOS's setup (src/hfos/setup.ts). Every
  * minute while someone is signed in it tells HandsFreeOS how things stand on this computer, and hears from it about
@@ -41,6 +41,7 @@ import {
   instagramTick,
   wakeInstagram,
 } from './auto/instagram';
+import { FOLLOW_RUNNERS } from './auto/follows';
 import { onAlignableMoved, tabClosed, WATCH_ALARM, watchTick, windowClosed } from './auto/watch';
 import { RESEARCH_ALARM, researchTabIds, researchTick, wakeResearch } from './research/run';
 import { kitOf } from './networks';
@@ -90,7 +91,12 @@ const REPLIED = {
   linkedin: linkedInReplied,
   instagram: instagramReplied,
   alignable: alignableReplied,
+  // An answer to a comment there (decision 163): its answer is drafted next.
+  threads: FOLLOW_RUNNERS.threads.replied,
+  x: FOLLOW_RUNNERS.x.replied,
 } as const;
+/** Threads' and X's runners (src/auto/follows.ts), each on its own. */
+const FOLLOWS = Object.values(FOLLOW_RUNNERS);
 onReplied((platform, profileIds) => void REPLIED[platform](profileIds));
 onAlignableMoved(() => void alignableChatsAgain());
 
@@ -136,6 +142,7 @@ chrome.runtime.onMessage.addListener(
               tabId === linkedInRunnerTabId() ||
               tabId === alignableRunnerTabId() ||
               tabId === instagramRunnerTabId() ||
+              FOLLOWS.some((r) => r.tabId() === tabId) ||
               researchTabIds().includes(tabId));
           if (!ours && isLooked(message)) void looked(message, kit.platform);
           return;
@@ -191,6 +198,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === LINKEDIN_ALARM) void linkedInTick();
   if (alarm.name === ALIGNABLE_ALARM) void alignableTick();
   if (alarm.name === INSTAGRAM_ALARM) void instagramTick();
+  for (const runner of FOLLOWS) if (alarm.name === runner.alarm) void runner.tick();
   if (alarm.name === RESEARCH_ALARM) void researchTick();
   if (alarm.name === WATCH_ALARM) void watchTick();
   if (alarm.name === BEAT_ALARM) {
@@ -226,6 +234,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
     void linkedInTick();
     void alignableTick();
     void instagramTick();
+    for (const runner of FOLLOWS) void runner.tick();
   }
 });
 chrome.permissions.onAdded.addListener(() => void syncNetworks());
@@ -241,6 +250,7 @@ chrome.runtime.onStartup.addListener(() => {
   void wakeLinkedIn();
   void wakeAlignable();
   void wakeInstagram();
+  for (const runner of FOLLOWS) void runner.wake();
   void wakeResearch();
 });
 chrome.runtime.onInstalled.addListener(() => {
@@ -248,6 +258,7 @@ chrome.runtime.onInstalled.addListener(() => {
   void wakeLinkedIn();
   void wakeAlignable();
   void wakeInstagram();
+  for (const runner of FOLLOWS) void runner.wake();
   void wakeResearch();
   void syncNetworks();
   // What the old side panel kept, which nothing reads now.

@@ -58,7 +58,7 @@ const FACEBOOK = ['https://www.facebook.com/*', 'https://web.facebook.com/*'];
 const ACCOUNTS_CENTER = ['https://accountscenter.facebook.com/*'];
 /**
  * The other networks' sites, from install too (decision 85 in docs/outreach.md, extension 0.88.0): LinkedIn, then
- * Instagram and Alignable. Chrome no longer asks for each when it's turned on. Their script still runs only while each
+ * Instagram and Alignable, and from 0.137.0 Threads and X (decision 163). Chrome no longer asks for each when it's turned on. Their script still runs only while each
  * is on in HandsFreeOS, registered then (src/networks/scripts.ts), never listed in `content_scripts`, and nothing of
  * the extension's is ever web-accessible: LinkedIn's pages look for extensions by the files they show.
  */
@@ -71,6 +71,15 @@ const NETWORKS = [
   // LinkedIn's short links, which Copy link to post gives now: the background worker follows one to its post's address
   // (src/jobs/linkedin/short-links.ts, decision 138, from 0.119.0).
   'https://lnkd.in/*',
+  // Threads and X (decision 163, from 0.137.0), at each one's addresses old and new.
+  'https://www.threads.com/*',
+  'https://www.threads.net/*',
+  'https://threads.com/*',
+  'https://threads.net/*',
+  'https://x.com/*',
+  'https://twitter.com/*',
+  'https://mobile.x.com/*',
+  'https://mobile.twitter.com/*',
 ];
 /**
  * Instagram's video servers, for AI Social Media Content Creator's watching (src/research/watch.ts, from 0.127.0): the
@@ -123,7 +132,7 @@ const manifest = {
   key: PUBLIC_KEY,
   // The stores take 132 characters at most.
   description:
-    'Works on Facebook, LinkedIn, Instagram and Alignable as set in HandsFreeOS: notes your steps and does what you ask. Test build.',
+    'Works on Facebook, LinkedIn, Instagram, Alignable, Threads and X as set in HandsFreeOS: notes steps, does what you ask. Test build.',
   minimum_chrome_version: '116',
   icons: ICONS,
   action: { default_title: 'HandsFreeOS Social', default_icon: ICONS },

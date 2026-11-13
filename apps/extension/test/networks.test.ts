@@ -28,7 +28,7 @@ vi.mock('../src/hfos/session', () => ({
   }),
 }));
 
-const { alignable, facebook, instagram, KIT_LIST, kitFor, kitHere, kitOf, linkedin } =
+const { alignable, facebook, instagram, KIT_LIST, kitFor, kitHere, kitOf, linkedin, threads, x } =
   await import('../src/networks');
 const { isWorking, NETWORKS_KEY, networkStates } = await import('../src/networks/on');
 const { scriptId, syncNetworks } = await import('../src/networks/scripts');
@@ -136,8 +136,16 @@ describe('a kit per network', () => {
       'linkedin',
       'instagram',
       'alignable',
+      'threads',
+      'x',
     ]);
     expect(kitOf('https://www.instagram.com/dana.reyes/')).toBe(instagram);
+    // Threads and X (decision 163), at their old addresses too.
+    expect(kitOf('https://www.threads.com/@dana.reyes')).toBe(threads);
+    expect(kitOf('https://www.threads.net/@dana.reyes/post/C9xYz12AbCd')).toBe(threads);
+    expect(kitOf('https://x.com/danareyes/status/1850000000000000000')).toBe(x);
+    expect(kitOf('https://twitter.com/danareyes')).toBe(x);
+    expect(kitOf('https://x.com.example.com/')).toBeNull();
     expect(kitOf('https://instagram.com/p/C9xYz12AbCd/')).toBe(instagram);
     expect(kitOf('https://www.alignable.com/austin-tx/acme-plumbing')).toBe(alignable);
     expect(kitOf('https://www.instagram.com.example.com/')).toBeNull();
@@ -227,6 +235,8 @@ describe('LinkedIn’s script', () => {
       // Off for them, and kept off by Chrome in this test.
       instagram: { on: false, allowed: false },
       alignable: { on: false, allowed: false },
+      threads: { on: false, allowed: false },
+      x: { on: false, allowed: false },
     });
     granted = true;
     await syncNetworks();

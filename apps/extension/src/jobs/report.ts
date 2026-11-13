@@ -314,6 +314,9 @@ const PARTS_ON: Readonly<
     featured: 'the services',
     posts: null,
   },
+  // Threads' and X's (decision 163): a bio, a link, and their posts.
+  threads: { bio: 'the bio', about: null, intro: 'a link', featured: null, posts: 'any posts' },
+  x: { bio: 'the bio', about: null, intro: 'a link', featured: null, posts: 'any posts' },
 };
 
 /**

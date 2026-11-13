@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { alignable, facebook, instagram, linkedin } from '../src/networks';
+import { alignable, facebook, instagram, linkedin, threads, x } from '../src/networks';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
@@ -55,13 +55,20 @@ describe('the manifest', () => {
     ]);
   });
 
-  it('has LinkedIn’s, Instagram’s and Alignable’s sites from install, never their script or a file it shows', () => {
+  it('has LinkedIn’s, Instagram’s, Alignable’s, Threads’ and X’s sites from install, never their script or a file it shows', () => {
     expect(manifest.host_permissions).toEqual(
-      expect.arrayContaining([...linkedin.hosts, ...instagram.hosts, ...alignable.hosts]),
+      expect.arrayContaining([
+        ...linkedin.hosts,
+        ...instagram.hosts,
+        ...alignable.hosts,
+        ...threads.hosts,
+        ...x.hosts,
+      ]),
     );
     expect(manifest.optional_host_permissions).toBeUndefined();
     const scripts = JSON.stringify(manifest.content_scripts);
-    for (const site of ['linkedin', 'instagram', 'alignable']) expect(scripts).not.toContain(site);
+    for (const site of ['linkedin', 'instagram', 'alignable', 'threads', 'x.com', 'twitter'])
+      expect(scripts).not.toContain(site);
     expect(manifest.web_accessible_resources).toBeUndefined();
     // Registering their script while each is on needs this, which Facebook's tabs already did.
     expect(manifest.permissions).toContain('scripting');

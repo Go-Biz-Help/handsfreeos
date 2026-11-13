@@ -244,10 +244,16 @@ export const LiveBeatOutput = z.object({
   /**
    * Each other network's day (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md, "Each network on its own"): LinkedIn's
    * runner works only while LinkedIn's is started, and a stop there ends only LinkedIn's work. Empty from a HandsFreeOS
-   * before networks.
+   * before networks; Threads and X from decision 163.
    */
   days: z
-    .object({ linkedin: LiveDay, instagram: LiveDay, alignable: LiveDay })
+    .object({
+      linkedin: LiveDay,
+      instagram: LiveDay,
+      alignable: LiveDay,
+      threads: LiveDay,
+      x: LiveDay,
+    })
     .partial()
     .default({}),
   /** The ids of the lines sent that are kept now: the extension lets them go. */

@@ -29,6 +29,8 @@ const PAGE: Readonly<Record<Platform, string>> = {
   linkedin: 'profile',
   instagram: 'account',
   alignable: 'business page',
+  threads: 'profile',
+  x: 'profile',
 };
 
 /** How a network's found checks go: its network, and how its checks read someone's page. */
