@@ -1,23 +1,23 @@
 {
   "area": "money",
   "title": "Money: estimates, invoices, payments and plans",
-  "checkedOn": "2026-11-10",
+  "checkedOn": "2026-11-13",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/money.tsx": "f903866463b2",
     "apps/mobile/src/app/app/w/[workspaceId]/money/estimates/[estimateId].tsx": "f4b2d1f6ca49",
-    "apps/mobile/src/app/app/w/[workspaceId]/money/invoices/[invoiceId].tsx": "9f2cdb1aa7e9",
+    "apps/mobile/src/app/app/w/[workspaceId]/money/invoices/[invoiceId].tsx": "2d80da5d29a5",
     "apps/mobile/src/components/money/document.tsx": "7c5c0a412ed0",
     "apps/mobile/src/components/money/money-rows.tsx": "e84e9da12251",
-    "apps/mobile/src/components/money/record-cash.tsx": "4da029adf47b",
+    "apps/mobile/src/components/money/record-cash.tsx": "8f51b24d8b1f",
     "apps/mobile/src/components/money/send-sheet.tsx": "bcf45fc4f992",
-    "apps/mobile/src/money/actions.ts": "f1232739ac75",
-    "apps/mobile/src/money/outbox.ts": "dd8b9341ca64",
+    "apps/mobile/src/money/actions.ts": "770902b38631",
+    "apps/mobile/src/money/outbox.ts": "cec0c7b985c8",
     "apps/mobile/src/money/queries.ts": "f6eaf98eb9c8",
     "apps/mobile/src/money/use-money.ts": "7d76c20eb80a",
     "apps/web/src/app/app/w/[workspaceId]/money/estimates/[estimateId]/page.tsx": "d5a27326764c",
     "apps/web/src/app/app/w/[workspaceId]/money/estimates/new/page.tsx": "c32170efaf1a",
     "apps/web/src/app/app/w/[workspaceId]/money/estimates/page.tsx": "3b13f014ac9e",
-    "apps/web/src/app/app/w/[workspaceId]/money/invoices/[invoiceId]/page.tsx": "be0c4a7f1965",
+    "apps/web/src/app/app/w/[workspaceId]/money/invoices/[invoiceId]/page.tsx": "076b3a40a175",
     "apps/web/src/app/app/w/[workspaceId]/money/invoices/new/page.tsx": "e59893d795bb",
     "apps/web/src/app/app/w/[workspaceId]/money/invoices/page.tsx": "90f9f3d0801d",
     "apps/web/src/app/app/w/[workspaceId]/money/load.ts": "815e1c127c77",
@@ -27,21 +27,21 @@
     "apps/web/src/app/app/w/[workspaceId]/money/plans/page.tsx": "9b1158f8192b",
     "apps/web/src/app/app/w/[workspaceId]/money/seed.ts": "fd64a6e29f19",
     "apps/web/src/components/money/copy-link.tsx": "c2ae31b0b2a4",
-    "apps/web/src/components/money/document-actions.tsx": "707b6e3014fd",
-    "apps/web/src/components/money/document-editor.tsx": "5d1ad4e49a46",
-    "apps/web/src/components/money/document-page.tsx": "a6b682ba3133",
+    "apps/web/src/components/money/document-actions.tsx": "8ad0221fdb06",
+    "apps/web/src/components/money/document-editor.tsx": "371d43c1896b",
+    "apps/web/src/components/money/document-page.tsx": "6bcd8eb96e55",
     "apps/web/src/components/money/document-view.tsx": "eee6ce7ac1b0",
-    "apps/web/src/components/money/draft.ts": "1d2b986ed62a",
+    "apps/web/src/components/money/draft.ts": "18f5d3f541fb",
     "apps/web/src/components/money/estimate-options.tsx": "74a3448e188d",
     "apps/web/src/components/money/estimates-list.tsx": "4afdda3a637b",
     "apps/web/src/components/money/filters.tsx": "6225123dd9b3",
     "apps/web/src/components/money/headline-strip.tsx": "226908723348",
-    "apps/web/src/components/money/invoices-list.tsx": "5757e2f08f48",
+    "apps/web/src/components/money/invoices-list.tsx": "f242c6fe2169",
     "apps/web/src/components/money/line-sheet.tsx": "d83841948b14",
     "apps/web/src/components/money/list-bits.tsx": "9fd32e374651",
-    "apps/web/src/components/money/list-options.ts": "30e1321f06c5",
+    "apps/web/src/components/money/list-options.ts": "4d1e2f397b76",
     "apps/web/src/components/money/money-input.tsx": "297d3a23947d",
-    "apps/web/src/components/money/payments-list.tsx": "144c3070c541",
+    "apps/web/src/components/money/payments-list.tsx": "106782355847",
     "apps/web/src/components/money/person-picker.tsx": "8aeb51e81ba0",
     "apps/web/src/components/money/plan-editor.tsx": "aa7bbeebe0db",
     "apps/web/src/components/money/plan-page.tsx": "bcf38a673f72",
@@ -52,7 +52,7 @@
     "apps/web/src/components/money/products-page.tsx": "f7abebae4173",
     "apps/web/src/components/money/public-estimate.tsx": "82083d4d8a40",
     "apps/web/src/components/money/public-format.ts": "6f17d4ae1a87",
-    "apps/web/src/components/money/public-invoice.tsx": "a3891c54f7e0",
+    "apps/web/src/components/money/public-invoice.tsx": "71edaaf05241",
     "apps/web/src/components/money/public-plan.tsx": "1364906433dc",
     "apps/web/src/components/money/public-shell.tsx": "1b339f253ab5",
     "apps/web/src/components/money/status-badge.tsx": "d8e7c772f63d",
@@ -278,7 +278,7 @@
       "by": "read_payment_list status"
     },
     {
-      "path": "Money → Payments → method filter: Any way, Card, Bank transfer, Cash, Check, Other",
+      "path": "Money → Payments → method filter: Any way, Card, Card (other machine), Bank transfer, Cash, Check, Other",
       "kind": "do",
       "file": "apps/web/src/components/money/list-options.ts:138",
       "covered": "yes",
@@ -292,7 +292,7 @@
       "by": "read_payment_list connectionId"
     },
     {
-      "path": "Money → Payments → each row: when, customer, how (method · account), invoice, status, amount, refunded",
+      "path": "Money → Payments → each row: when, customer, how (method · account, or where a payment by hand went through), invoice, status, amount, refunded",
       "kind": "see",
       "file": "apps/web/src/components/money/payments-list.tsx:116",
       "covered": "yes",
@@ -1087,7 +1087,7 @@
       "kind": "do",
       "file": "apps/web/src/components/money/document-page.tsx:550",
       "covered": "yes",
-      "by": "record_payment (money.bill, as the button), refused before the card on a draft, a voided or a paid invoice"
+      "by": "record_payment (money.bill, as the button), refused before the card on a voided or a paid invoice; on a draft it is Mark paid"
     },
     {
       "path": "Money → record a payment → ‘$X is owed’",
@@ -1104,18 +1104,39 @@
       "by": "record_payment amount (left out = whole balance)"
     },
     {
-      "path": "Money → record a payment → How it was paid: Cash, Check, Other",
+      "path": "Money → record a payment → How it was paid: Cash, Check, Card (other machine), Other",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-actions.tsx:384",
+      "file": "apps/web/src/components/money/document-actions.tsx:425",
       "covered": "yes",
-      "by": "record_payment method cash/check/other"
+      "by": "record_payment method cash/check/card_outside/other"
     },
     {
-      "path": "Money → record a payment → Reference",
+      "path": "Money → record a payment → Paid through (the names used before offered)",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-actions.tsx:396",
+      "file": "apps/web/src/components/money/document-actions.tsx:439",
       "covered": "yes",
-      "by": "record_payment reference"
+      "by": "record_payment paidThrough; get_money_document payments by (“card on another machine through Chase QuickAccept”)"
+    },
+    {
+      "path": "Money → record a payment → When it was paid (today, or an earlier day; never a day to come)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:454",
+      "covered": "yes",
+      "by": "record_payment paidOn, refused before the card for a day still to come"
+    },
+    {
+      "path": "Money → record a payment → Note",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:470",
+      "covered": "yes",
+      "by": "record_payment note; get_money_document payments note"
+    },
+    {
+      "path": "Money → record a payment → Send them a receipt",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:479",
+      "covered": "yes",
+      "by": "record_payment receipt (on unless they say not to), shown on the card as Receipt"
     },
     {
       "path": "Money → record a payment → Record it / Cancel",
@@ -1181,11 +1202,11 @@
       "by": "get_money_document → refunds amount, status, when, reason"
     },
     {
-      "path": "Money → an invoice → Payments: each amount, method, status, $ refunded",
+      "path": "Money → an invoice → Payments: each amount, method · paid through, status, $ refunded, note",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-page.tsx:594",
+      "file": "apps/web/src/components/money/document-page.tsx:604",
       "covered": "yes",
-      "by": "get_money_document → payments"
+      "by": "get_money_document → payments (by, with where it went through; note)"
     },
     {
       "path": "Money → an invoice → Payments → Refund",
@@ -1265,6 +1286,13 @@
       "by": "manage_invoice send"
     },
     {
+      "path": "Money → draft editor → Mark paid (an invoice): its number and the payment, nobody sent it",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:367",
+      "covered": "yes",
+      "by": "record_payment on a draft (the card reads Mark paid, with the total as the amount)"
+    },
+    {
       "path": "Money → draft editor → Void",
       "kind": "do",
       "file": "apps/web/src/components/money/document-editor.tsx:354",
@@ -1314,11 +1342,18 @@
       "by": "get_lead (leadId)"
     },
     {
-      "path": "Money → draft editor → Paid into (invoice): each account, default, not yours, not connected",
+      "path": "Money → draft editor → Paid into (invoice): each account, default, not yours, not connected, Outside HandsFreeOS",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:436",
+      "file": "apps/web/src/components/money/document-editor.tsx:443",
       "covered": "yes",
-      "by": "write_invoice connectionId; get_settings payments accounts"
+      "by": "write_invoice connectionId or payOutside; get_settings payments accounts; get_money_document → paidInto"
+    },
+    {
+      "path": "Money → draft editor → Outside HandsFreeOS: ‘No Pay button for the customer…’",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:478",
+      "covered": "yes",
+      "by": "write_invoice payOutside description; the card shows Paid into Outside HandsFreeOS"
     },
     {
       "path": "Money → draft editor → Paid into (estimate): ‘Chosen when you turn this into an invoice’",
@@ -1566,7 +1601,7 @@
       "by": "write_* uses core’s computeTotals"
     },
     {
-      "path": "Money → draft editor → phone totals bar: subtotal · discount · tax toggle, Total, Save draft, Send",
+      "path": "Money → draft editor → phone totals bar: subtotal · discount · tax toggle, Total, Save draft, Mark paid (an invoice), Send",
       "kind": "do",
       "file": "apps/web/src/components/money/document-editor.tsx:811",
       "covered": "yes",
@@ -1650,7 +1685,7 @@
       "by": "get_money_document → options; send_estimate card"
     },
     {
-      "path": "Money → draft editor → When you send: Number (next number), taken on Send",
+      "path": "Money → draft editor → When you send: Number (next number), taken on Send or Mark paid",
       "kind": "see",
       "file": "apps/web/src/components/money/document-editor.tsx:783",
       "covered": "yes",
@@ -2007,11 +2042,18 @@
       "by": "record_payment (money.bill), cash, check or another way"
     },
     {
-      "path": "Phone → record cash sheet → amount (USD), problem, How it was paid (Cash, Check, Other), Reference",
+      "path": "Phone → record cash sheet → amount (USD), problem, How it was paid (Cash, Check, Card, Other), Paid through, When it was paid (Today, Yesterday), Note, Send them a receipt",
       "kind": "do",
-      "file": "apps/mobile/src/components/money/record-cash.tsx:116",
+      "file": "apps/mobile/src/components/money/record-cash.tsx:150",
       "covered": "yes",
-      "by": "record_payment amount, method, reference"
+      "by": "record_payment amount, method, paidThrough, paidOn, note, receipt"
+    },
+    {
+      "path": "Phone → an invoice → Mark paid (a draft)",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/money/invoices/[invoiceId].tsx:136",
+      "covered": "yes",
+      "by": "record_payment on a draft (Mark paid)"
     },
     {
       "path": "Phone → an invoice → Send a payment link (needs signal)",

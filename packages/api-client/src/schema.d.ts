@@ -6087,7 +6087,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Start an invoice for a customer: its lines, a discount, what it is for and which connected account it is paid into. It stays a draft until it is sent. A deposit at booking, a plan’s cycle and a quick payment all make one of these.
+         * Start an invoice for a customer: its lines, a discount, what it is for and which connected account it is paid into, or that it is paid outside HandsFreeOS (no account, no Pay button: the payment is recorded by hand). It stays a draft until it is sent or marked paid. A deposit at booking, a plan’s cycle and a quick payment all make one of these.
          * @description Risk level 1. Requires money.bill. Emits invoice.created.
          */
         post: operations["command_invoice_create"];
@@ -6107,8 +6107,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Record money taken off the system: cash, a cheque, or another way. It lands as a payment in your name and the invoice recounts itself — nobody marks an invoice paid by hand.
-         * @description Risk level 2. Requires money.bill. Emits payment.recorded, invoice.paid. Can wait on a phone with no signal.
+         * Record money taken off the system: cash, a check, a card on the business’s own machine (Chase QuickAccept, say), or another way, with where it went through, the day it was paid and a note. It lands as a payment in your name and the invoice recounts itself. On a draft this is Mark paid: the invoice takes its number first and nobody is sent it. The customer gets a receipt unless receipt is false.
+         * @description Risk level 2. Requires money.bill. Emits invoice.sent, payment.recorded, invoice.paid. Can wait on a phone with no signal.
          */
         post: operations["command_invoice_record_cash_payment"];
         delete?: never;
@@ -21147,7 +21147,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * One invoice: its lines, its totals, what has been paid and refunded, and every payment against it with its method and where it stands.
+         * One invoice: its lines, its totals, whether it is paid outside HandsFreeOS, what has been paid and refunded, and every payment against it with its method, where a payment by hand went through, its note and where it stands.
          * @description Requires money.read.
          */
         post: operations["query_invoice_get"];
@@ -39874,6 +39874,7 @@ export interface operations {
                      * @enum {string}
                      */
                     origin?: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form" | "ai_teammate";
+                    payOutside?: boolean;
                     /** Format: uuid */
                     personId: string;
                     /**
@@ -39929,7 +39930,13 @@ export interface operations {
                      * @default cash
                      * @enum {string}
                      */
-                    method?: "cash" | "check" | "other";
+                    method?: "cash" | "check" | "card_outside" | "other";
+                    note?: string | null;
+                    /** Format: date */
+                    paidOn?: string;
+                    paidThrough?: string | null;
+                    /** @default true */
+                    receipt?: boolean;
                     /** Format: date-time */
                     receivedAt?: string;
                     reference?: string | null;
@@ -40053,6 +40060,7 @@ export interface operations {
                         unitPriceCents: number;
                     }[];
                     notes?: string | null;
+                    payOutside?: boolean;
                     /** Format: uuid */
                     personId: string;
                     terms?: string | null;
@@ -81118,11 +81126,13 @@ export interface operations {
                                 unitPriceCents: number;
                             }[];
                             linkVersion: number;
+                            markedPaid: boolean;
                             notes: string | null;
                             number: string | null;
                             /** @enum {string} */
                             origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form" | "ai_teammate";
                             paidAt: string | null;
+                            payOutside: boolean;
                             person: {
                                 email: string | null;
                                 fullName: string;
@@ -81155,6 +81165,7 @@ export interface operations {
                             voidedAt: string | null;
                             voidReason: string | null;
                         };
+                        paidThroughNames: string[];
                         payments: {
                             amountCents: number;
                             cardBrand: string | null;
@@ -81169,8 +81180,10 @@ export interface operations {
                             /** Format: uuid */
                             invoiceId: string;
                             /** @enum {string} */
-                            method: "card" | "ach" | "cash" | "check" | "other";
+                            method: "card" | "ach" | "cash" | "check" | "other" | "card_outside";
                             netCents: number | null;
+                            note: string | null;
+                            paidThrough: string | null;
                             provider: ("stripe" | "square" | "paypal" | "nmi" | "authorize_net") | null;
                             providerStatus: string | null;
                             receivedAt: string | null;
@@ -81272,6 +81285,7 @@ export interface operations {
                             /** @enum {string} */
                             origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form" | "ai_teammate";
                             paidAt: string | null;
+                            payOutside: boolean;
                             person: {
                                 email: string | null;
                                 fullName: string;
@@ -83535,6 +83549,7 @@ export interface operations {
                             /** @enum {string} */
                             origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form" | "ai_teammate";
                             paidAt: string | null;
+                            payOutside: boolean;
                             person: {
                                 email: string | null;
                                 fullName: string;
@@ -90627,7 +90642,7 @@ export interface operations {
                     invoiceId?: string;
                     /** @default 25 */
                     limit?: number;
-                    method?: ("card" | "ach" | "cash" | "check" | "other")[];
+                    method?: ("card" | "ach" | "cash" | "check" | "other" | "card_outside")[];
                     /** Format: uuid */
                     personId?: string;
                     /** Format: date-time */
@@ -90664,8 +90679,10 @@ export interface operations {
                             invoiceId: string;
                             invoiceNumber: string | null;
                             /** @enum {string} */
-                            method: "card" | "ach" | "cash" | "check" | "other";
+                            method: "card" | "ach" | "cash" | "check" | "other" | "card_outside";
                             netCents: number | null;
+                            note: string | null;
+                            paidThrough: string | null;
                             person: {
                                 email: string | null;
                                 fullName: string;

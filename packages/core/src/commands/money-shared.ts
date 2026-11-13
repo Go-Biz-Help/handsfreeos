@@ -349,6 +349,7 @@ export type InvoiceRow = {
   estimate_id: string | null;
   subscription_id: string | null;
   connection_id: string | null;
+  pay_outside: boolean;
   assignee_user_id: string | null;
   assignee_name: string | null;
   person_id: string;
@@ -398,6 +399,8 @@ export type PaymentRow = {
   refunded_cents: number;
   card_brand: string | null;
   card_last4: string | null;
+  paid_through: string | null;
+  note: string | null;
   created_at: Date | string;
 };
 
@@ -478,7 +481,7 @@ export const estimateSelect = sql`
 export const invoiceSelect = sql`
   select i.id, i.public_ref, i.link_version, i.number, i.status::text as status,
     i.purpose::text as purpose, i.origin::text as origin, i.title, i.notes, i.lead_id, i.attendee_id,
-    i.estimate_id, i.subscription_id, i.connection_id, i.assignee_user_id,
+    i.estimate_id, i.subscription_id, i.connection_id, i.pay_outside, i.assignee_user_id,
     coalesce(nullif(au.full_name, ''), au.email::text) as assignee_name,
     ${PERSON_COLUMNS},
     i.subtotal_cents::float8 as subtotal_cents, i.discount_cents::float8 as discount_cents,
@@ -548,7 +551,7 @@ export async function paymentsFor(
           p.received_at, p.recorded_by, coalesce(nullif(u.full_name, ''), u.email::text) as recorded_by_name,
           coalesce((select sum(r.amount_cents) from app.refunds r
             where r.payment_id = p.id and r.status = 'succeeded'), 0)::float8 as refunded_cents,
-          p.card_brand, p.card_last4, p.created_at
+          p.card_brand, p.card_last4, p.paid_through, p.note, p.created_at
         from app.payments p
         left join app.users u on u.id = p.recorded_by
         where p.workspace_id = ${workspaceId}
@@ -740,6 +743,7 @@ export function invoiceOut(r: InvoiceRow, now: number, timeZone: string) {
     estimateId: r.estimate_id,
     subscriptionId: r.subscription_id,
     connectionId: r.connection_id,
+    payOutside: r.pay_outside === true,
     assignee: userOf(r.assignee_user_id, r.assignee_name),
     totals: totalsOf(r),
     amountPaidCents: num(r.amount_paid_cents),
@@ -817,6 +821,8 @@ export function paymentOut(r: PaymentRow) {
     refundedCents: num(r.refunded_cents),
     cardBrand: r.card_brand,
     cardLast4: r.card_last4,
+    paidThrough: r.paid_through ?? null,
+    note: r.note ?? null,
     createdAt: isoAt(r.created_at),
   };
 }

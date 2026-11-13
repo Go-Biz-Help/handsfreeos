@@ -4,6 +4,7 @@ import { isLocalDate } from '../calendar/engine/zoned';
 import { CALENDAR_COLORS, CALENDAR_PRESETS, PRESET_KEYS } from '../calendar/presets';
 import { FORM_STARTERS } from '../forms/starters';
 import { ATTENTION_ASK_ACTIONS } from '../schemas/attention';
+import { MANUAL_PAYMENT_METHODS } from '../money/status';
 import { PRODUCT_KINDS } from '../schemas/money';
 import { timezone, uuid } from '../schemas/common';
 import { RichInput } from '../schemas/rcs';
@@ -364,17 +365,30 @@ export const assistantTools = [
   define({
     name: 'record_payment',
     description:
-      'Write down a payment the business took by hand — cash, a check, or one taken somewhere off HandsFreeOS — on an invoice that has gone out and still has something owed. It records money already received; it never charges anyone. Leave out the amount for the whole balance; it can’t be more than is owed. Nothing is recorded until the person says yes on the card.',
+      'Write down a payment the business took by hand — cash, a check, a card on its own machine (card_outside: Chase QuickAccept, a Clover, a bank’s reader), or another way off HandsFreeOS (Zelle, Venmo) — on an invoice that still has something owed. On a draft this is Mark paid: the invoice takes its number and nobody is sent it. It records money already received; it never charges anyone. Leave out the amount for the whole balance; it can’t be more than is owed. The customer is sent a receipt unless receipt is false. Nothing is recorded until the person says yes on the card.',
     input: z.object({
       invoiceId: uuid,
       amount: dollars.optional().describe('Leave it out to record the whole balance'),
-      method: z.enum(['cash', 'check', 'other']).default('cash'),
-      reference: z
+      method: z.enum(MANUAL_PAYMENT_METHODS).default('cash'),
+      paidThrough: z
         .string()
         .trim()
-        .max(120)
+        .max(80)
         .optional()
-        .describe('A check number, or where it was taken'),
+        .describe('Where it went through, as they name it: “Chase QuickAccept”, “Zelle”'),
+      paidOn: localDay
+        .optional()
+        .describe('The day it was paid, if not today. Never a day still to come'),
+      note: z
+        .string()
+        .trim()
+        .max(500)
+        .optional()
+        .describe('Anything worth keeping with it: a check number, say'),
+      receipt: z
+        .boolean()
+        .default(true)
+        .describe('Whether the customer is sent a receipt. Leave it on unless they say not to'),
     }),
     autonomy: 'confirm',
     permission: 'money.bill',

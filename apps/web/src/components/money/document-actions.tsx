@@ -1,5 +1,26 @@
 'use client';
-import { money, PAYMENT_METHOD_LABELS } from '@hfos/core';
+import {
+  HOW_MUCH_LABEL,
+  HOW_PAID_LABEL,
+  localDateOf,
+  MANUAL_PAYMENT_METHODS,
+  MARK_PAID_TITLE,
+  markPaidNote,
+  money,
+  overBalanceProblem,
+  PAID_ON_FUTURE_PROBLEM,
+  PAID_ON_LABEL,
+  PAID_THROUGH_HINT,
+  PAID_THROUGH_LABEL,
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_NOTE_HINT,
+  PAYMENT_NOTE_LABEL,
+  RECEIPT_LABEL,
+  RECORD_PAYMENT_TITLE,
+  recordCashNote,
+  recordedToast,
+  type ManualPaymentMethod,
+} from '@hfos/core';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -339,39 +360,57 @@ export function MarkAcceptedDialog({
   );
 }
 
-/** Cash, a cheque, or money taken some other way off the system. Never more than what is owed. */
+/**
+ * Cash, a check, a card on the business's own machine (Chase QuickAccept), or money taken some other way off the
+ * system. Never more than what is owed. With `markPaid` it is a draft's Mark paid: the invoice takes its number and
+ * the payment in one go, and nobody is sent the invoice.
+ */
 export function CashPaymentDialog({
   open,
   onOpenChange,
   workspaceId,
   invoiceId,
   balanceCents,
+  markPaid = false,
+  paidThroughNames = [],
+  timeZone,
+  onDone,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workspaceId: string;
   invoiceId: string;
   balanceCents: number;
+  markPaid?: boolean;
+  /** Where this business's payments by hand went through before, offered as the box is typed in. */
+  paidThroughNames?: readonly string[];
+  timeZone: string;
+  onDone?: () => void;
 }) {
   const router = useRouter();
+  const today = localDateOf(Date.now(), timeZone);
   const [amountCents, setAmountCents] = useState(balanceCents);
-  const [method, setMethod] = useState<'cash' | 'check' | 'other'>('cash');
-  const [reference, setReference] = useState('');
+  const [method, setMethod] = useState<ManualPaymentMethod>('cash');
+  const [paidThrough, setPaidThrough] = useState('');
+  const [paidOn, setPaidOn] = useState(today);
+  const [note, setNote] = useState('');
+  const [receipt, setReceipt] = useState(true);
   const [busy, act] = useAction();
   const tooMuch = amountCents > balanceCents;
+  const future = !!paidOn && paidOn > today;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        title="Record a payment"
-        description={`Money taken off the system. ${money(balanceCents)} is owed.`}
+        title={markPaid ? MARK_PAID_TITLE : RECORD_PAYMENT_TITLE}
+        description={markPaid ? markPaidNote(balanceCents) : recordCashNote(balanceCents)}
       >
         <div className="mt-4 flex flex-col gap-3.5" data-testid="cash-dialog">
           <div className="grid grid-cols-2 gap-3">
             <Field
-              label="How much"
+              label={HOW_MUCH_LABEL}
               htmlFor="cash-amount"
-              error={tooMuch ? `That is more than the ${money(balanceCents)} owed.` : undefined}
+              error={tooMuch ? overBalanceProblem(balanceCents) : undefined}
             >
               <MoneyInput
                 id="cash-amount"
@@ -381,26 +420,68 @@ export function CashPaymentDialog({
                 data-testid="cash-amount"
               />
             </Field>
-            <Field label="How it was paid" htmlFor="cash-method">
+            <Field label={HOW_PAID_LABEL} htmlFor="cash-method">
               <Select
                 id="cash-method"
                 value={method}
-                onChange={(e) => setMethod(e.target.value as 'cash' | 'check' | 'other')}
+                onChange={(e) => setMethod(e.target.value as ManualPaymentMethod)}
+                data-testid="cash-method"
               >
-                <option value="cash">{PAYMENT_METHOD_LABELS.cash}</option>
-                <option value="check">{PAYMENT_METHOD_LABELS.check}</option>
-                <option value="other">{PAYMENT_METHOD_LABELS.other}</option>
+                {MANUAL_PAYMENT_METHODS.map((m) => (
+                  <option key={m} value={m}>
+                    {PAYMENT_METHOD_LABELS[m]}
+                  </option>
+                ))}
               </Select>
             </Field>
           </div>
-          <Field label="Reference" htmlFor="cash-reference" hint="A cheque number, say. Optional.">
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={PAID_THROUGH_LABEL} htmlFor="cash-through" hint={PAID_THROUGH_HINT}>
+              <Input
+                id="cash-through"
+                value={paidThrough}
+                maxLength={80}
+                list="cash-through-names"
+                placeholder="Chase QuickAccept"
+                onChange={(e) => setPaidThrough(e.target.value)}
+                data-testid="cash-through"
+              />
+              <datalist id="cash-through-names">
+                {paidThroughNames.map((n) => (
+                  <option key={n} value={n} />
+                ))}
+              </datalist>
+            </Field>
+            <Field
+              label={PAID_ON_LABEL}
+              htmlFor="cash-paid-on"
+              error={future ? PAID_ON_FUTURE_PROBLEM : undefined}
+            >
+              <Input
+                id="cash-paid-on"
+                type="date"
+                value={paidOn}
+                max={today}
+                onChange={(e) => setPaidOn(e.target.value)}
+                data-testid="cash-paid-on"
+              />
+            </Field>
+          </div>
+          <Field label={PAYMENT_NOTE_LABEL} htmlFor="cash-reference" hint={PAYMENT_NOTE_HINT}>
             <Input
               id="cash-reference"
-              value={reference}
-              maxLength={120}
-              onChange={(e) => setReference(e.target.value)}
+              value={note}
+              maxLength={500}
+              onChange={(e) => setNote(e.target.value)}
+              data-testid="cash-reference"
             />
           </Field>
+          <Checkbox
+            label={RECEIPT_LABEL}
+            checked={receipt}
+            onChange={(e) => setReceipt(e.target.checked)}
+            data-testid="cash-receipt"
+          />
         </div>
         <div className="mt-5 flex justify-end gap-2">
           <DialogClose asChild>
@@ -408,7 +489,7 @@ export function CashPaymentDialog({
           </DialogClose>
           <Button
             loading={busy}
-            disabled={tooMuch || amountCents < 1}
+            disabled={tooMuch || amountCents < 1 || future}
             data-testid="cash-confirm"
             onClick={() =>
               void act(async () => {
@@ -419,17 +500,21 @@ export function CashPaymentDialog({
                       invoiceId,
                       amountCents,
                       method,
-                      reference: reference.trim() || null,
+                      paidThrough: paidThrough.trim() || null,
+                      note: note.trim() || null,
+                      ...(paidOn ? { paidOn } : {}),
+                      receipt,
                     },
                   }),
                 );
-                toast.success(`${money(amountCents)} recorded.`);
+                toast.success(recordedToast(amountCents));
                 onOpenChange(false);
-                router.refresh();
+                if (onDone) onDone();
+                else router.refresh();
               })
             }
           >
-            Record it
+            {markPaid ? MARK_PAID_TITLE : 'Record it'}
           </Button>
         </div>
       </DialogContent>

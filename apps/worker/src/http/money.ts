@@ -178,6 +178,14 @@ const cannotTakePayment = () =>
     'We can’t take payments online right now. Call us and we’ll sort it out another way.',
   );
 
+/** The business keeps this invoice off its online accounts and takes the money itself. */
+const paidOutside = () =>
+  HfosError.rule(
+    'payment_unavailable',
+    409,
+    'This invoice isn’t paid online. Call us and we’ll tell you how to pay it.',
+  );
+
 const providerRefused = () =>
   HfosError.rule(
     'payment_provider_error',
@@ -454,6 +462,8 @@ async function payableAccount(
   invoice: InvoiceRow,
   settings: MoneySettings,
 ): Promise<PayableAccount | null> {
+  // Paid outside HandsFreeOS: the business takes it itself and records it by hand.
+  if (invoice.pay_outside) return null;
   const list = await tx
     .select()
     .from(paymentConnections)
@@ -571,7 +581,15 @@ async function invoiceView(deps: HttpDeps, scope: TenantScope, invoiceId: string
         canPay: !!account,
         /** Why not, when it can't be paid here: the page says so rather than offering a dead button. */
         reason:
-          row.status === 'void' ? 'withdrawn' : owed <= 0 ? 'paid' : account ? null : 'no_account',
+          row.status === 'void'
+            ? 'withdrawn'
+            : owed <= 0
+              ? 'paid'
+              : account
+                ? null
+                : row.pay_outside
+                  ? 'outside'
+                  : 'no_account',
         amountCents: owed,
         payLabel: PAY_LABEL,
         methods: account?.methods ?? [],
@@ -1202,7 +1220,7 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
             };
           const settings = await loadMoneySettings(tx, scope.workspaceId);
           const account = await payableAccount(deps, tx, scope.workspaceId, row, settings);
-          if (!account) throw cannotTakePayment();
+          if (!account) throw row.pay_outside ? paidOutside() : cannotTakePayment();
           // Second phase: the intent must be one we prepared for **this** invoice. Holding the link proves
           // nothing about a payment id typed into the body, so its own row is what proves it.
           if (body.providerPaymentId) {

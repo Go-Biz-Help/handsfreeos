@@ -527,12 +527,13 @@ interface InvoiceRow extends Record<string, unknown> {
   voided_at: Date | string | null;
   reminder_state: unknown;
   settling: boolean;
+  pay_outside: boolean;
 }
 
 const invoiceSql = (scope: TenantScope, invoiceId: string) => sql`
   select i.id, i.number, i.title, i.status::text as status,
     i.total_cents::float8 as total_cents, i.balance_cents::float8 as balance_cents,
-    i.due_on::text as due_on, i.person_id, i.voided_at, i.reminder_state,
+    i.due_on::text as due_on, i.person_id, i.voided_at, i.reminder_state, i.pay_outside,
     exists (select 1 from app.payments p where p.invoice_id = i.id and p.status = 'processing')
       as settling
   from app.invoices i
@@ -641,6 +642,7 @@ export const invoiceMessageJob: JobHandler = async (ctx) => {
     now,
     url,
     first: world.reach.firstText,
+    payOutside: invoice.pay_outside === true,
   };
   const content = step
     ? {
@@ -1156,12 +1158,15 @@ export const onInvoiceChanged: EventHandler = async (ctx) => {
   await armBusinessMoney(ctx.tx, scope, { invoiceId });
 };
 
-/** A payment landed: the customer gets their receipt. */
+/**
+ * A payment landed: the customer gets their receipt, unless the person recording one by hand unticked Send them a
+ * receipt (`receipt: false`; a provider's payment never says so).
+ */
 export const onPaymentRecorded: EventHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const p = payloadOf(ctx);
   const paymentId = idIn(p, 'paymentId', ctx.event.entityId);
-  if (!paymentId || p['status'] !== 'succeeded') return;
+  if (!paymentId || p['status'] !== 'succeeded' || p['receipt'] === false) return;
   await armNow(
     ctx.tx,
     scope,

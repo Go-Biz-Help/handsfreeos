@@ -8,6 +8,7 @@ import {
   invoiceVoidBlock,
   money,
   PAYMENT_METHOD_LABELS,
+  paymentMethodLine,
   paidWording,
   refundedWording,
   whenLabel,
@@ -454,6 +455,7 @@ export function InvoiceDocument({
   const [voiding, setVoiding] = useState(false);
   const [refunding, setRefunding] = useState<PaymentRow | null>(null);
   const owes = inv.balanceCents > 0 && !inv.voidedAt;
+  const markedPaid = inv.markedPaid;
   /**
    * Money that moved is never voided away: once everything paid has gone back (and nothing is still arriving or
    * going back) it can be, which is how a business bills again. The command asks the same question.
@@ -477,7 +479,8 @@ export function InvoiceDocument({
       ? [
           {
             icon: <Send className="h-3.5 w-3.5" strokeWidth={1.5} />,
-            text: `Sent to ${inv.person.fullName}`,
+            // Marked paid as a draft: it took its number then, and nobody was sent it.
+            text: markedPaid ? 'Marked paid' : `Sent to ${inv.person.fullName}`,
             at: inv.sentAt,
           },
         ]
@@ -603,8 +606,8 @@ export function InvoiceDocument({
                       data-testid={`invoice-payment-${p.id}`}
                     >
                       <span className="font-semibold tabular-nums">{money(p.amountCents)}</span>
-                      <span className="text-text-2">
-                        {PAYMENT_METHOD_LABELS[p.method as PaymentMethod]}
+                      <span className="text-text-2" data-testid="invoice-payment-method">
+                        {paymentMethodLine(p.method as PaymentMethod, p.paidThrough)}
                       </span>
                       <StatusBadge kind="payment" state={p.status} />
                       <span className="flex-1" />
@@ -624,6 +627,14 @@ export function InvoiceDocument({
                           {money(p.refundedCents)} refunded
                         </span>
                       ) : null}
+                      {p.note ? (
+                        <span
+                          className="basis-full text-[12.5px] text-text-3"
+                          data-testid="invoice-payment-note"
+                        >
+                          {p.note}
+                        </span>
+                      ) : null}
                     </li>
                   );
                 })}
@@ -641,6 +652,8 @@ export function InvoiceDocument({
         workspaceId={workspaceId}
         invoiceId={inv.id}
         balanceCents={inv.balanceCents}
+        paidThroughNames={data.paidThroughNames}
+        timeZone={timeZone}
       />
       <RefundDialog
         key={`refund-${refunding?.id ?? 'none'}-${refunding?.refundedCents ?? 0}`}

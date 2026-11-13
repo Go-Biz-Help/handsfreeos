@@ -84,16 +84,35 @@ export type RefundStatus = (typeof REFUND_STATUSES)[number];
 
 /**
  * How money arrived (`app.payment_method`). `ach` is a bank transfer — the cheap rail we offer first; cash,
- * cheques and anything else are recorded by a person, not a provider.
+ * cheques, a card taken on the business's own machine (`card_outside`: Chase QuickAccept, a Clover) and anything
+ * else are recorded by a person, not a provider.
  */
-export const PAYMENT_METHODS = ['card', 'ach', 'cash', 'check', 'other'] as const;
+export const PAYMENT_METHODS = ['card', 'ach', 'cash', 'check', 'other', 'card_outside'] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
-/** Methods a person records by hand: no provider is involved, so there's nothing to confirm later. */
-export const MANUAL_PAYMENT_METHODS = ['cash', 'check', 'other'] as const;
+/**
+ * Methods a person records by hand: no provider is involved, so there's nothing to confirm later. In the order
+ * the Record a payment choices show them.
+ */
+export const MANUAL_PAYMENT_METHODS = ['cash', 'check', 'card_outside', 'other'] as const;
+export type ManualPaymentMethod = (typeof MANUAL_PAYMENT_METHODS)[number];
 
 export function isManualPaymentMethod(method: PaymentMethod): boolean {
   return (MANUAL_PAYMENT_METHODS as readonly string[]).includes(method);
+}
+
+/**
+ * Whether an invoice was marked paid as a draft rather than sent: `invoice.record_cash_payment` issues it and writes
+ * its payment in one transaction, so the payment was made at the very moment it went out (both are that
+ * transaction's `now()`). A payment recorded after a send is a later transaction, so never the same moment.
+ */
+export function wasMarkedPaid(
+  sentAt: Date | string | number | null,
+  payments: readonly { createdAt: Date | string | number; byHand: boolean }[],
+): boolean {
+  if (sentAt === null) return false;
+  const sent = new Date(sentAt).getTime();
+  return payments.some((p) => p.byHand && new Date(p.createdAt).getTime() === sent);
 }
 
 /**

@@ -4525,6 +4525,9 @@
               }
             ]
           },
+          "payOutside": {
+            "type": "boolean"
+          },
           "dueOn": {
             "anyOf": [
               {
@@ -4572,11 +4575,37 @@
           "method": {
             "default": "cash",
             "type": "string",
-            "enum": ["cash", "check", "other"]
+            "enum": ["cash", "check", "card_outside", "other"]
           },
           "receivedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "paidOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "paidThrough": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "reference": {
             "anyOf": [
@@ -4588,6 +4617,10 @@
                 "type": "null"
               }
             ]
+          },
+          "receipt": {
+            "default": true,
+            "type": "boolean"
           }
         },
         "required": ["workspaceId", "invoiceId", "amountCents"]
@@ -4791,6 +4824,9 @@
                 "type": "null"
               }
             ]
+          },
+          "payOutside": {
+            "type": "boolean"
           },
           "dueOn": {
             "anyOf": [

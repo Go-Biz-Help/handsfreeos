@@ -78,6 +78,8 @@ export const PAYMENT_METHOD_WORDS: Readonly<Record<PaymentMethod, string>> = {
   cash: 'cash',
   check: 'check',
   other: 'another way',
+  // What the customer reads on their receipt: it was a card, whichever machine took it.
+  card_outside: 'card',
 };
 
 /** On a button or in a list: "Bank transfer". */
@@ -87,6 +89,7 @@ export const PAYMENT_METHOD_LABELS: Readonly<Record<PaymentMethod, string>> = {
   cash: 'Cash',
   check: 'Check',
   other: 'Other',
+  card_outside: 'Card (other machine)',
 };
 
 export const TERMS_WORDS: Readonly<Record<PaymentTerms, string>> = {

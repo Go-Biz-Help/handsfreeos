@@ -17,8 +17,11 @@ import {
   HfosError,
   INVOICE_WORDS,
   money,
+  PAID_ON_FUTURE_PROBLEM,
   PAYMENT_METHOD_WORDS,
+  paymentMethodLine,
   type AssistantCard,
+  type PaymentMethod,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { CommittedAction, PreparedAction, ToolContext, ToolOutcome } from './runtime';
@@ -100,6 +103,7 @@ interface PaymentItem {
   refundedCents: number;
   cardBrand: string | null;
   cardLast4: string | null;
+  paidThrough?: string | null;
   receivedAt: string | null;
   createdAt: string;
   invoiceNumber?: string | null;
@@ -133,15 +137,24 @@ const invoiceWord = (state: string) => INVOICE_WORDS[state as keyof typeof INVOI
 const estimateWord = (state: string) =>
   ESTIMATE_WORDS[state as keyof typeof ESTIMATE_WORDS] ?? state;
 
-/** How a payment was made, as the Payments list says it: the card when there is one, else core's word for the way. */
+/**
+ * How a payment was made, as the Payments list says it: the card when there is one, else core's word for the way,
+ * with where a payment by hand went through ("card on another machine through Chase QuickAccept").
+ */
 export const paymentHow = (p: {
   method: string;
   cardBrand: string | null;
   cardLast4: string | null;
-}): string =>
-  p.method === 'card' && p.cardBrand && p.cardLast4
-    ? `${p.cardBrand} •••• ${p.cardLast4}`
-    : (PAYMENT_METHOD_WORDS[p.method as keyof typeof PAYMENT_METHOD_WORDS] ?? p.method);
+  paidThrough?: string | null;
+}): string => {
+  if (p.method === 'card' && p.cardBrand && p.cardLast4)
+    return `${p.cardBrand} •••• ${p.cardLast4}`;
+  const way =
+    p.method === 'card_outside'
+      ? 'card on another machine'
+      : (PAYMENT_METHOD_WORDS[p.method as keyof typeof PAYMENT_METHOD_WORDS] ?? p.method);
+  return p.paidThrough?.trim() ? `${way} through ${p.paidThrough.trim()}` : way;
+};
 
 /** The most rows a look-up reads to count or order a whole list; past it, the answer says it stopped short. */
 const MOST_ROWS = 500;
@@ -771,65 +784,86 @@ const sendEstimate: ConfirmTool = {
   },
 };
 
+/** What a payment by hand is worth writing down: the four boxes Record a payment has besides the amount. */
+function byHand(args: Record<string, unknown>) {
+  const words = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+  return {
+    method: String(args['method'] ?? 'cash'),
+    paidThrough: words(args['paidThrough']),
+    paidOn: words(args['paidOn']),
+    note: words(args['note']),
+    receipt: args['receipt'] !== false,
+  };
+}
+
 /** Writing down money already taken. It never charges a card: only a person's own hands did this one. */
 const recordPayment: ConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const { invoice } = await query<InvoiceGet>(db, ctx, 'invoice.get', {
       invoiceId: args['invoiceId'],
     });
-    // The command's own refusals, said before the card: the screen only offers Record a payment while
-    // something is owed on an invoice that went out.
+    // The command's own refusals, said before the card: the screen offers Record a payment while something is
+    // owed on an invoice that went out, and Mark paid on a draft.
     if (invoice.status === 'void')
       throw HfosError.rule(
         'invoice_voided',
         409,
         'That invoice was voided, so it can’t take a payment. Record the payment on a new invoice instead.',
       );
-    if (invoice.status === 'draft')
-      throw HfosError.rule(
-        'invoice_not_sent',
-        409,
-        'This invoice is still a draft. Send it before recording a payment on it.',
-      );
-    if (invoice.balanceCents <= 0)
+    const draft = invoice.status === 'draft';
+    const owedCents = draft ? invoice.totals.totalCents : invoice.balanceCents;
+    if (owedCents <= 0)
       throw HfosError.rule(
         'invoice_settled',
         409,
-        'That invoice is already paid in full, so there’s nothing left to record.',
+        draft
+          ? 'This invoice has nothing on it to pay yet. Add a line with write_invoice first.'
+          : 'That invoice is already paid in full, so there’s nothing left to record.',
       );
-    const method = String(args['method'] ?? 'cash');
+    const how = byHand(args);
     const asked = args['amount'] === undefined ? null : Math.round(Number(args['amount']) * 100);
-    const amountCents = asked ?? invoice.balanceCents;
-    const owed = money(invoice.balanceCents);
-    // The dialog's Record it stays off for more than is owed, or nothing at all; so does Confirm here.
+    const amountCents = asked ?? owedCents;
+    const owed = money(owedCents);
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: ctx.timezone }).format(new Date());
+    // The dialog's Record it stays off for more than is owed, nothing at all, or a day still to come; so does
+    // Confirm here.
     const blocked =
-      amountCents > invoice.balanceCents
-        ? `That’s more than the ${owed} still owed on it. Record ${owed} or less.`
+      amountCents > owedCents
+        ? `That’s more than the ${owed} ${draft ? 'it comes to' : 'still owed on it'}. Record ${owed} or less.`
         : amountCents < 1
           ? 'Say how much was paid: a cent or more.'
-          : null;
+          : how.paidOn && how.paidOn > today
+            ? PAID_ON_FUTURE_PROBLEM
+            : null;
+    const name = documentName(invoice, 'this invoice');
     const card = confirmCard(toolCallId, 'record_payment', {
-      title: `Record ${money(amountCents)} on ${documentName(invoice, 'this invoice')}`,
+      title: draft ? `Mark ${name} paid` : `Record ${money(amountCents)} on ${name}`,
       personId: invoice.person.id,
       fields: [
         { label: 'Customer', value: invoice.person.fullName },
         { label: 'Amount', value: money(amountCents) },
         {
           label: 'How',
-          value: PAYMENT_METHOD_WORDS[method as keyof typeof PAYMENT_METHOD_WORDS] ?? method,
+          value: paymentMethodLine(how.method as PaymentMethod, how.paidThrough),
         },
-        { label: 'Still owed', value: money(Math.max(0, invoice.balanceCents - amountCents)) },
+        ...(how.paidOn && how.paidOn !== today
+          ? [{ label: 'Paid on', value: dayWords(how.paidOn, ctx.timezone) }]
+          : []),
+        { label: 'Still owed', value: money(Math.max(0, owedCents - amountCents)) },
+        { label: 'Receipt', value: how.receipt ? 'Sent to the customer' : 'Not sent' },
       ],
-      body: (args['reference'] as string | undefined) ?? null,
+      body: how.note,
       warnings: blocked
         ? [{ kind: 'blocked', text: blocked }]
         : [
             {
               kind: 'not_a_charge',
-              text: 'This writes down money you have already taken. Nothing is charged to a card.',
+              text: draft
+                ? 'This gives the invoice its number and writes down money you have already taken. Nothing is charged, and the invoice isn’t sent.'
+                : 'This writes down money you have already taken. Nothing is charged to a card.',
             },
           ],
-      confirmLabel: blocked ? '' : 'Record it',
+      confirmLabel: blocked ? '' : draft ? 'Mark paid' : 'Record it',
     });
     return {
       card,
@@ -840,6 +874,7 @@ const recordPayment: ConfirmTool = {
             customer: invoice.person.fullName,
             amount: money(amountCents),
             balance: owed,
+            ...(draft ? { marksPaid: true } : {}),
           },
     };
   },
@@ -847,8 +882,10 @@ const recordPayment: ConfirmTool = {
     const { invoice } = await query<InvoiceGet>(db, ctx, 'invoice.get', {
       invoiceId: args['invoiceId'],
     });
+    const draft = invoice.status === 'draft';
     const asked = args['amount'] === undefined ? null : Math.round(Number(args['amount']) * 100);
-    const amountCents = asked ?? invoice.balanceCents;
+    const amountCents = asked ?? (draft ? invoice.totals.totalCents : invoice.balanceCents);
+    const how = byHand(args);
     const out = await command<{ paymentId: string; invoiceBalanceCents: number }>(
       db,
       ctx,
@@ -856,8 +893,11 @@ const recordPayment: ConfirmTool = {
       {
         invoiceId: invoice.id,
         amountCents,
-        method: args['method'] ?? 'cash',
-        reference: (args['reference'] as string | undefined) ?? null,
+        method: how.method,
+        paidThrough: how.paidThrough,
+        note: how.note,
+        ...(how.paidOn ? { paidOn: how.paidOn } : {}),
+        receipt: how.receipt,
       },
     );
     const left = Number(out.invoiceBalanceCents);
@@ -865,7 +905,9 @@ const recordPayment: ConfirmTool = {
       outcome:
         left > 0
           ? `Recorded ${money(amountCents)} — ${money(left)} still owed`
-          : `Recorded ${money(amountCents)} — paid in full`,
+          : draft
+            ? `Marked paid — ${money(amountCents)}`
+            : `Recorded ${money(amountCents)} — paid in full`,
       href: moneyPaths(ctx.workspaceId).invoice(invoice.id),
       command: 'invoice.record_cash_payment',
     };

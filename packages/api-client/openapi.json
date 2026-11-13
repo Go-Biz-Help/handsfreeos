@@ -42690,7 +42690,7 @@
     "/v1/commands/invoice.create": {
       "post": {
         "operationId": "command_invoice_create",
-        "summary": "Start an invoice for a customer: its lines, a discount, what it is for and which connected account it is paid into. It stays a draft until it is sent. A deposit at booking, a plan’s cycle and a quick payment all make one of these.",
+        "summary": "Start an invoice for a customer: its lines, a discount, what it is for and which connected account it is paid into, or that it is paid outside HandsFreeOS (no account, no Pay button: the payment is recorded by hand). It stays a draft until it is sent or marked paid. A deposit at booking, a plan’s cycle and a quick payment all make one of these.",
         "tags": [
           "commands"
         ],
@@ -42927,6 +42927,9 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "payOutside": {
+                    "type": "boolean"
                   },
                   "dueOn": {
                     "anyOf": [
@@ -43218,6 +43221,9 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "payOutside": {
+                    "type": "boolean"
                   },
                   "dueOn": {
                     "anyOf": [
@@ -43591,11 +43597,11 @@
     "/v1/commands/invoice.record_cash_payment": {
       "post": {
         "operationId": "command_invoice_record_cash_payment",
-        "summary": "Record money taken off the system: cash, a cheque, or another way. It lands as a payment in your name and the invoice recounts itself — nobody marks an invoice paid by hand.",
+        "summary": "Record money taken off the system: cash, a check, a card on the business’s own machine (Chase QuickAccept, say), or another way, with where it went through, the day it was paid and a note. It lands as a payment in your name and the invoice recounts itself. On a draft this is Mark paid: the invoice takes its number first and nobody is sent it. The customer gets a receipt unless receipt is false.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires money.bill. Emits payment.recorded, invoice.paid. Can wait on a phone with no signal.",
+        "description": "Risk level 2. Requires money.bill. Emits invoice.sent, payment.recorded, invoice.paid. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -43624,6 +43630,7 @@
                     "enum": [
                       "cash",
                       "check",
+                      "card_outside",
                       "other"
                     ]
                   },
@@ -43631,6 +43638,33 @@
                     "type": "string",
                     "format": "date-time",
                     "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  "paidOn": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "paidThrough": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 80
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "note": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 500
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "reference": {
                     "anyOf": [
@@ -43642,6 +43676,10 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "receipt": {
+                    "default": true,
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -187369,6 +187407,9 @@
                               }
                             ]
                           },
+                          "payOutside": {
+                            "type": "boolean"
+                          },
                           "assignee": {
                             "anyOf": [
                               {
@@ -187540,6 +187581,7 @@
                           "estimateId",
                           "subscriptionId",
                           "connectionId",
+                          "payOutside",
                           "assignee",
                           "totals",
                           "amountPaidCents",
@@ -187578,7 +187620,7 @@
     "/v1/queries/invoice.get": {
       "post": {
         "operationId": "query_invoice_get",
-        "summary": "One invoice: its lines, its totals, what has been paid and refunded, and every payment against it with its method and where it stands.",
+        "summary": "One invoice: its lines, its totals, whether it is paid outside HandsFreeOS, what has been paid and refunded, and every payment against it with its method, where a payment by hand went through, its note and where it stands.",
         "tags": [
           "queries"
         ],
@@ -187769,6 +187811,9 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "payOutside": {
+                          "type": "boolean"
                         },
                         "assignee": {
                           "anyOf": [
@@ -188025,6 +188070,9 @@
                             ],
                             "additionalProperties": false
                           }
+                        },
+                        "markedPaid": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -188042,6 +188090,7 @@
                         "estimateId",
                         "subscriptionId",
                         "connectionId",
+                        "payOutside",
                         "assignee",
                         "totals",
                         "amountPaidCents",
@@ -188058,7 +188107,8 @@
                         "revision",
                         "linkVersion",
                         "voidReason",
-                        "lines"
+                        "lines",
+                        "markedPaid"
                       ],
                       "additionalProperties": false
                     },
@@ -188087,7 +188137,8 @@
                               "ach",
                               "cash",
                               "check",
-                              "other"
+                              "other",
+                              "card_outside"
                             ]
                           },
                           "provider": {
@@ -188204,6 +188255,18 @@
                               "null"
                             ]
                           },
+                          "paidThrough": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "createdAt": {
                             "type": "string",
                             "format": "date-time",
@@ -188227,6 +188290,8 @@
                           "refundedCents",
                           "cardBrand",
                           "cardLast4",
+                          "paidThrough",
+                          "note",
                           "createdAt"
                         ],
                         "additionalProperties": false
@@ -188332,12 +188397,19 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "paidThroughNames": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   },
                   "required": [
                     "invoice",
                     "payments",
-                    "refunds"
+                    "refunds",
+                    "paidThroughNames"
                   ],
                   "additionalProperties": false
                 }
@@ -188391,7 +188463,7 @@
                     }
                   },
                   "method": {
-                    "maxItems": 5,
+                    "maxItems": 6,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -188400,7 +188472,8 @@
                         "ach",
                         "cash",
                         "check",
-                        "other"
+                        "other",
+                        "card_outside"
                       ]
                     }
                   },
@@ -188476,7 +188549,8 @@
                               "ach",
                               "cash",
                               "check",
-                              "other"
+                              "other",
+                              "card_outside"
                             ]
                           },
                           "provider": {
@@ -188593,6 +188667,18 @@
                               "null"
                             ]
                           },
+                          "paidThrough": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "createdAt": {
                             "type": "string",
                             "format": "date-time",
@@ -188661,6 +188747,8 @@
                           "refundedCents",
                           "cardBrand",
                           "cardLast4",
+                          "paidThrough",
+                          "note",
                           "createdAt",
                           "person",
                           "invoiceNumber"
@@ -190206,6 +190294,9 @@
                               }
                             ]
                           },
+                          "payOutside": {
+                            "type": "boolean"
+                          },
                           "assignee": {
                             "anyOf": [
                               {
@@ -190377,6 +190468,7 @@
                           "estimateId",
                           "subscriptionId",
                           "connectionId",
+                          "payOutside",
                           "assignee",
                           "totals",
                           "amountPaidCents",

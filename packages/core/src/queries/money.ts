@@ -23,7 +23,7 @@ import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
 import { decodeTimeCursor, encodeCursor } from '../kernel/pagination';
 import type { QueryContext } from '../kernel/types';
-import { moneySettingsOf, numberPreview } from '../money/index';
+import { moneySettingsOf, numberPreview, wasMarkedPaid } from '../money/index';
 import {
   EstimateGetInput,
   EstimateGetOutput,
@@ -517,7 +517,7 @@ export const invoiceList = defineQuery({
 export const invoiceGet = defineQuery({
   name: 'invoice.get',
   description:
-    'One invoice: its lines, its totals, what has been paid and refunded, and every payment against it with its method and where it stands.',
+    'One invoice: its lines, its totals, whether it is paid outside HandsFreeOS, what has been paid and refunded, and every payment against it with its method, where a payment by hand went through, its note and where it stands.',
   input: InvoiceGetInput,
   output: InvoiceGetOutput,
   permission: 'money.read',
@@ -535,6 +535,15 @@ export const invoiceGet = defineQuery({
     const refunds = await refundsFor(ctx.tx, ctx.scope.workspaceId!, [row.id]);
     const now = Date.now();
     const tz = await workspaceTimezone(ctx.tx, ctx.scope.workspaceId!);
+    // Where this business's payments by hand went through before, for the Paid through box: most used first.
+    const names = await rows<{ name: string }>(
+      ctx.tx,
+      sql`select min(p.paid_through) as name from app.payments p
+          where p.workspace_id = ${ctx.scope.workspaceId!} and p.paid_through is not null
+          group by lower(btrim(p.paid_through))
+          order by count(*) desc, max(p.created_at) desc
+          limit 8`,
+    );
     return {
       invoice: {
         ...invoiceOut(row, now, tz),
@@ -543,9 +552,14 @@ export const invoiceGet = defineQuery({
         linkVersion: row.link_version,
         voidReason: row.void_reason,
         lines: linesOut(lines.get(row.id) ?? [], Number(row.discount_cents)),
+        markedPaid: wasMarkedPaid(
+          row.sent_at,
+          payments.map((p) => ({ createdAt: p.created_at, byHand: p.provider === null })),
+        ),
       },
       payments: payments.map(paymentOut),
       refunds: refunds.map(refundOut),
+      paidThroughNames: names.map((n) => n.name.trim()),
     };
   },
 });
@@ -578,7 +592,7 @@ export const paymentList = defineQuery({
             coalesce(nullif(u.full_name, ''), u.email::text) as recorded_by_name,
             coalesce((select sum(r.amount_cents) from app.refunds r
               where r.payment_id = p.id and r.status = 'succeeded'), 0)::float8 as refunded_cents,
-            p.card_brand, p.card_last4,
+            p.card_brand, p.card_last4, p.paid_through, p.note,
             i.number as invoice_number, i.person_id, pe.first_name, pe.last_name,
             pe.email::text as person_email, pe.phone as person_phone
           from app.payments p

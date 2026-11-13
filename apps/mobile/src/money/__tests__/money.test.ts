@@ -152,9 +152,17 @@ describe('cash or a check recorded on this phone', () => {
     expect(out.pending).toBe(null);
   });
 
-  it('never moves a draft or a voided invoice', () => {
-    expect(withOwnChanges(invoice({ status: 'draft' }), [cash(10_000)]).status).toBe('draft');
+  it('never moves a voided invoice', () => {
     expect(withOwnChanges(invoice({ status: 'void' }), [cash(10_000)]).status).toBe('void');
+  });
+
+  it('shows a draft marked paid here as paid, without pretending it has a number yet', () => {
+    const draft = { number: null, status: 'draft' as const, sent_at: null };
+    const all = withOwnChanges(invoice(draft), [cash(131_383)]);
+    expect(all.status).toBe('paid');
+    expect(all.number).toBe(null);
+    expect(all.balance_cents).toBe(0);
+    expect(withOwnChanges(invoice(draft), [cash(10_000)]).status).toBe('partly_paid');
   });
 
   it('marks a document sent from here as waiting, without pretending it has a number yet', () => {
