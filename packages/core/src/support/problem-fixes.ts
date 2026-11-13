@@ -157,7 +157,7 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     note: 'The AI couldn’t write that just now',
     // The worker's fix, not the extension's: by when it was made, as for a tool without versions.
     before: '2026-11-13T02:00:00Z',
-    pr: 608,
+    pr: 609,
     said: 'About 1 in 25 of the AI’s answers for outreach came back with no words at all (#565 asks once more), and some came back empty twice: on that second try the backup AI writes the draft now (decision 162).',
   },
   {
