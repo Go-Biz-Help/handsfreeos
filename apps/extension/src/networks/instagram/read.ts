@@ -726,12 +726,13 @@ function inACommentOf(root: Element, comments: readonly Element[]): (el: Element
 /**
  * The control in a post's bar after its own Like that's its count of likes ("36.5K"), when its likes show: the bar's
  * Comment comes after the count (the owner's Check, 21 Oct 2026: Like, "36.5K", Comment, "1.1K", Share), and straight
- * after the Like when its likes are hidden.
+ * after the Like when its likes are hidden. Its Like is an Unlike on a post the person liked (the owner's problem
+ * report of 13 Nov 2026: a post liked on a warm-up, so its Likes box was never opened).
  */
 function barCountOf(root: Element): Element | null {
   const controls = controlsIn(root);
   for (const [i, { name }] of controls.entries()) {
-    if (!/^like$/i.test(name)) continue;
+    if (!/^(like|unlike)$/i.test(name)) continue;
     const after = controls.slice(i + 1);
     const count = after.findIndex(({ name: n }) => countOf(n) === null);
     if (count < 0 || !/^comment$/i.test(after[count]!.name)) continue;

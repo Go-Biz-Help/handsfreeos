@@ -176,6 +176,30 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 607,
     said: 'A reel opens in the reels player, with the next reel under it, no article and a Comment named by its count, so no author was found and no like on a reel ever went: the reel it opened on is found by its own Like and its account’s links.',
   },
+  {
+    area: 'alignable',
+    job: 'events',
+    note: 'Alignable showed nobody hosting or going to an event.',
+    fixedIn: '0.137.1',
+    pr: 615,
+    said: 'A group’s event draws its hosts in a part of their own, twice, under a label that isn’t a heading, so the rows around them took in the whole page: they’re read from that part now, once each, with the event’s name, and a link to Alignable’s own search of events is passed over.',
+  },
+  {
+    area: 'facebook',
+    job: 'warm_up',
+    note: 'Couldn’t like (their name)’s post',
+    fixedIn: '0.137.1',
+    pr: 615,
+    said: 'On a post with no count in it, Facebook labels its Like “Like (their name)’s post”, which wasn’t a Like the reader knew, so it was never pressed: it is now, and outlines keep the words on a post’s buttons.',
+  },
+  {
+    area: 'instagram',
+    job: 'post_people.likers',
+    note: 'Couldn’t open the post’s Likes box.',
+    fixedIn: '0.137.1',
+    pr: 615,
+    said: 'On a post the person had liked, its bar says Unlike before the count of likes, and only a Like was looked for: an Unlike counts now.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */
