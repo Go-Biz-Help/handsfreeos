@@ -424,17 +424,25 @@ const STYLE_WAYS: Readonly<Record<DesignStyle, string>> = {
   split: 'a coloured top with the heading, the body below it on the background',
   number:
     'one big number or short stat as its mark ("73%", "3x", "$0", "5 min"), the heading under it saying what it means; only a number the post gives',
-  list: 'a heading and 3 to 5 short items, each with a tick',
+  list: 'a heading and 3 to 5 short items, each with a tick, with an optional short line under the heading',
   quote:
     'a short line worth remembering as the heading, in big quote marks; the business’s own words, never a made-up customer quote',
   myth: 'a common myth as the heading, crossed out, and the truth as the body',
-  beforeAfter: 'two items side by side: how it is before, then after',
+  beforeAfter:
+    'two items, how it is before and then after, each on its own card (the cards say “Before” and “After”, so the items don’t), with an optional short line under the heading',
   note: 'a handwritten sticky note with a short heading and a line or two: personal and warm',
   highlight:
     'a heading with a few of its own words, given as its mark, painted over with a highlighter',
   photo: 'the photo fills the page, and the heading sits over its darker bottom',
   framed: 'the photo in the top part, with the heading and body in a coloured band below it',
 };
+
+/** A before and after side's words without a "Before:" or "After:" of their own: the card already says it. */
+export function withoutSideLabel(item: string): string {
+  const rest = item.replace(/^\s*(before|after)\s*[:–—-]\s*/i, '').trim();
+  if (!rest) return item;
+  return rest === item.trim() ? rest : rest.charAt(0).toUpperCase() + rest.slice(1);
+}
 
 /** What the design AI is told each font is like. */
 const FONT_WAYS: Readonly<Record<DesignFont, string>> = {

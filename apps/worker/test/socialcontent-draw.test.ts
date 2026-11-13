@@ -101,3 +101,74 @@ describe('drawing a design', () => {
     expect(pics.map((p) => p.mimeType)).toEqual(['image/png', 'image/png']);
   });
 });
+
+// 13 Nov: list and before and after pages left their body out, and the check failed them for it.
+describe('fitting every word', () => {
+  const one = (p: Partial<DesignPage> & { layout: DesignStyle }, font: DesignFont = 'modern') =>
+    drawDesign({
+      style: p.layout,
+      font,
+      background: '#f1f5fb',
+      text: '#0b1f3a',
+      accent: '#1a73f5',
+      photo: false,
+      pages: [
+        {
+          kicker: 'What we do instead',
+          heading: 'Unlimited contacts, unlimited users',
+          body: null,
+          items: ['Before: capped contacts, pay per seat', 'After: unlimited contacts and users'],
+          mark: '78%',
+          footer: 'Example Co',
+          ...p,
+        },
+      ],
+    }).then(([pic]) => pic!);
+  const body =
+    'Add a tech, add a location, take on more leads. Your plan stays the same, no per seat fees.';
+
+  for (const layout of ['list', 'beforeAfter'] as const)
+    it(`draws the line under a ${layout} page’s heading`, async () => {
+      const without = await one({ layout });
+      const withBody = await one({ layout, body });
+      expect(withBody.bytes.equals(without.bytes)).toBe(false);
+      expect(withBody.cut).toBe(false);
+    });
+
+  it('shrinks the longest words a design can have rather than leave any out, in every layout and font', async () => {
+    const longest = {
+      kicker: 'K'.repeat(4) + ' a small line of forty characters',
+      heading: 'A heading as long as a design can have, '.repeat(3).slice(0, 110),
+      body: 'A body as long as a design can have, with every word of it drawn on the page. '
+        .repeat(4)
+        .slice(0, 280),
+      items: Array.from({ length: 5 }, (_, i) =>
+        `Item ${i + 1} is as long as an item can be, seventy characters`.slice(0, 70),
+      ),
+      mark: 'every lead',
+      footer: 'A footer as long as a design can have, sixty characters long',
+    };
+    const plain = DESIGN_STYLES.filter((s) => s !== 'photo' && s !== 'framed');
+    for (const font of DESIGN_FONTS)
+      for (const layout of plain) {
+        const pic = await one(
+          {
+            layout,
+            ...longest,
+            mark: layout === 'number' ? '12,500' : longest.mark,
+            heading:
+              layout === 'highlight'
+                ? `Never miss every lead ${longest.heading}`.slice(0, 110)
+                : longest.heading,
+          },
+          font,
+        );
+        expect({ layout, font, cut: pic.cut }).toEqual({ layout, font, cut: false });
+      }
+  });
+
+  it('says so when words are left out because they can’t fit', async () => {
+    const pic = await one({ layout: 'clean', body: 'Far too many words to fit. '.repeat(120) });
+    expect(pic.cut).toBe(true);
+  });
+});

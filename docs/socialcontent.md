@@ -228,6 +228,12 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
     or too small, words overlapping, anything strange in a photo, or a look no business owner would post. A drawn
     design that fails is designed once more, told each problem, and the one with fewer problems is kept. The answer
     is kept on the design (`check`). When the check can't be asked, a drawn design is kept and a graphic isn't.
+    The check is told only the words a page's layout draws (items only on list and before and after pages, a mark
+    only on number pages: `wordsOfPage`) and what the layout draws on purpose, such as a myth's crossed-out heading
+    (`pageToCheck`). Words are shrunk to fit their room, past their usual smallest size if need be, before any are
+    left out; a page that still can't fit them all fails as if the check had said so (`withCutWords`). After the
+    first 39 posts (13 Nov), 9 designs had failed only for a mark or items their layout never draws, or for the body
+    that list and before and after pages left out; they now draw it.
   - **Your own**: **Add your photo** uploads to the post's files. A video post needs the person's own video: they
     record it from the script and add it with **Add your video** (up to 25 MB, core's most for a file), which takes
     the place of one it had (part 10). Core's files take MP4, QuickTime and WebM videos for this (`ATTACHMENT_TYPES`,
@@ -273,7 +279,8 @@ The plans are pure, in core (`variety.ts`, `research-ai.ts`, the designs in `pos
   after it's applied, and Fill the calendar runs while any wait.
 - **News and facts found online** (decision 38): once a week (`socialcontent.research`, the first time before the
   first fill) Claude's own web search looks up to 5 times for news and true facts in the business's line of work and
-  its customers' world, then a second ask turns its notes into up to 10 ideas, each a tip pointing at a page the
+  its customers' world (the plain search, `web_search_20250305`: the newer one filters results in code, so they never
+  came back as pages, and the first week's look kept nothing), then a second ask turns its notes into up to 10 ideas, each a tip pointing at a page the
   search really found (`checkedFacts`), so a link is never made up. An idea keeps its page (`source_url`,
   `source_name`, shown as "Found on"), and a post written from one names the source in plain words. Every other tip
   is one while one waits, so about 2 in 10 posts. Each search is charged 2¢ (`ai.web_search`); with the search off

@@ -839,7 +839,7 @@ describe('AnthropicProvider', () => {
     });
     const turn = await provider.stream({ ...REQUEST, tools: [], webSearch: { maxUses: 5 } });
     expect(sent[0]!.body['tools']).toEqual([
-      { type: 'web_search_20260209', name: 'web_search', max_uses: 5 },
+      { type: 'web_search_20250305', name: 'web_search', max_uses: 5 },
     ]);
     expect(turn.webSources).toEqual([
       { url: 'https://example.org/study', title: 'Lead response study', age: '2 weeks ago' },

@@ -283,9 +283,11 @@ export class AnthropicProvider implements AiProvider {
       ...(searching && t.deferred ? { defer_loading: true } : {}),
     }));
     if (searching) tools.unshift(TOOL_SEARCH);
+    // The plain search, not the newer one that filters its results in code first: those results never come back as
+    // results or citations, so an answer couldn't say which page each thing it found came from.
     if (request.webSearch)
       tools.push({
-        type: 'web_search_20260209',
+        type: 'web_search_20250305',
         name: 'web_search',
         max_uses: request.webSearch.maxUses,
       });

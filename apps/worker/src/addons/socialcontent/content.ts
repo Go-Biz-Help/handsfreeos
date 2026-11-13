@@ -68,8 +68,10 @@ import {
   PICTURE_CHECK_SCHEMA,
   PICTURE_CHECK_SYSTEM,
   PictureCheckAnswer,
+  pageToCheck,
   pictureCheckPrompt,
-  wordsOfPage,
+  withCutWords,
+  type PageToCheck,
   type GraphicTry,
   type PictureCheck,
 } from '@hfos/core/addons/socialcontent/check-ai';
@@ -1078,7 +1080,7 @@ async function askDesign(
 async function checkPictures(
   ctx: AddonScopeContext,
   pictures: readonly Buffer[],
-  words: readonly (readonly string[])[],
+  pages: readonly PageToCheck[],
 ): Promise<PictureCheck | null> {
   try {
     const images: AiContent[] = [];
@@ -1096,7 +1098,7 @@ async function checkPictures(
     const { value } = await askStructured(ctx, ctx.scope, {
       system: PICTURE_CHECK_SYSTEM,
       messages: [
-        { role: 'user', content: [...images, { type: 'text', text: pictureCheckPrompt(words) }] },
+        { role: 'user', content: [...images, { type: 'text', text: pictureCheckPrompt(pages) }] },
       ],
       schema: PICTURE_CHECK_SCHEMA,
       zod: PictureCheckAnswer,
@@ -1127,10 +1129,13 @@ async function drawChecked(
 ): Promise<{ design: Design; pictures: Drawn[]; check: PictureCheck | null }> {
   const drawn = async (d: Design) => {
     const pictures = await drawDesign(d, photo?.bytes ?? null);
-    const check = await checkPictures(
-      ctx,
-      pictures.map((x) => x.bytes),
-      d.pages.map(wordsOfPage),
+    const check = withCutWords(
+      await checkPictures(
+        ctx,
+        pictures.map((x) => x.bytes),
+        d.pages.map(pageToCheck),
+      ),
+      pictures.map((x) => !!x.cut),
     );
     return { design: d, pictures, check };
   };
@@ -1252,7 +1257,7 @@ async function tryGraphic(
   const check = await checkPictures(
     ctx,
     [bytes],
-    [[page.kicker, page.heading].filter((w): w is string => !!w)],
+    [{ words: [page.kicker, page.heading].filter((w): w is string => !!w) }],
   );
   if (check?.passes)
     return { picture: { bytes, mimeType: 'image/jpeg' }, graphic: { tried: true, passed: true } };
