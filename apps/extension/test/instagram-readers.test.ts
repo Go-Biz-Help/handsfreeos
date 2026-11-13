@@ -908,6 +908,11 @@ describe('a post’s people on Instagram (decision 92)', () => {
     );
     const newer = NEWER_POST();
     expect(likesOpenerIn(postRootOf(newer), newer.location.href)?.textContent).toBe('36.5K');
+    // A post the person liked already: its Like is an Unlike (the owner's problem report of 13 Nov 2026).
+    const liked = NEWER_POST();
+    liked.querySelector('section svg[aria-label="Like"]')!.setAttribute('aria-label', 'Unlike');
+    expect(likesOpenerIn(postRootOf(liked), liked.location.href)?.textContent).toBe('36.5K');
+    expect(read(liked).post?.likes).toBe(36_500);
     // With its likes hidden there's nothing to open it by: a comment's own likes are never pressed for it.
     const hidden = page(
       '/p/C3xyzabcd/',
