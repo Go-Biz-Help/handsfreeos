@@ -257,7 +257,7 @@ describe('what it does on X’s list', () => {
   it('warms up and follows on its own, drafts and sends comments, and never a message', () => {
     const send = {
       sendId: 's1',
-      state: 'approved',
+      state: 'approved' as const,
       text: 'Nice',
       handedOver: false,
       needsYou: null,

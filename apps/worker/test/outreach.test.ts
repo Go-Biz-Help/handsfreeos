@@ -66,6 +66,8 @@ describe('Social Outreach’s data versions 2 to 9', () => {
       hashtags: ['austinroofing'],
       postSearches: [],
       businessKinds: [],
+      threadsSearches: [],
+      xSearches: [],
       worksOnline: false,
       wordsWritten: ['facebook', 'instagram'],
     });
@@ -131,6 +133,9 @@ describe('Social Outreach’s data versions 2 to 9', () => {
       hashtags: [],
       postSearches: [],
       businessKinds: [],
+      // Threads' and X's (decision 163), empty for the AI to write.
+      threadsSearches: [],
+      xSearches: [],
       worksOnline: null,
       wordsWritten: [],
     });

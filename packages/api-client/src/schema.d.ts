@@ -45996,6 +45996,23 @@ export interface operations {
                         /** @default true */
                         markPosts?: boolean;
                         networks?: {
+                            /**
+                             * @default {
+                             *       "on": false,
+                             *       "sending": "off",
+                             *       "replies": "draft",
+                             *       "warmUp": true,
+                             *       "confirmRequests": true,
+                             *       "collect": true,
+                             *       "joinGroups": true,
+                             *       "watchPosts": true,
+                             *       "posting": "after_ok",
+                             *       "young": false,
+                             *       "fullSpeed": false,
+                             *       "tidy": "cancel",
+                             *       "requests": "fits"
+                             *     }
+                             */
                             alignable?: {
                                 /** @default true */
                                 collect?: boolean;
@@ -46039,6 +46056,15 @@ export interface operations {
                                 /** @default false */
                                 young?: boolean;
                             };
+                            /**
+                             * @default {
+                             *       "on": true,
+                             *       "young": false,
+                             *       "fullSpeed": false,
+                             *       "tidy": "cancel",
+                             *       "requests": "fits"
+                             *     }
+                             */
                             facebook?: {
                                 /** @default false */
                                 fullSpeed?: boolean;
@@ -46057,6 +46083,23 @@ export interface operations {
                                 /** @default false */
                                 young?: boolean;
                             };
+                            /**
+                             * @default {
+                             *       "on": false,
+                             *       "sending": "off",
+                             *       "replies": "draft",
+                             *       "warmUp": true,
+                             *       "confirmRequests": true,
+                             *       "collect": true,
+                             *       "joinGroups": true,
+                             *       "watchPosts": true,
+                             *       "posting": "after_ok",
+                             *       "young": false,
+                             *       "fullSpeed": false,
+                             *       "tidy": "cancel",
+                             *       "requests": "fits"
+                             *     }
+                             */
                             instagram?: {
                                 /** @default true */
                                 collect?: boolean;
@@ -46100,6 +46143,23 @@ export interface operations {
                                 /** @default false */
                                 young?: boolean;
                             };
+                            /**
+                             * @default {
+                             *       "on": false,
+                             *       "sending": "off",
+                             *       "replies": "draft",
+                             *       "warmUp": true,
+                             *       "confirmRequests": true,
+                             *       "collect": true,
+                             *       "joinGroups": true,
+                             *       "watchPosts": true,
+                             *       "posting": "after_ok",
+                             *       "young": false,
+                             *       "fullSpeed": false,
+                             *       "tidy": "cancel",
+                             *       "requests": "fits"
+                             *     }
+                             */
                             linkedin?: {
                                 /** @default true */
                                 collect?: boolean;

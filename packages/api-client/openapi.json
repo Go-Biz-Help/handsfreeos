@@ -95647,6 +95647,13 @@
                         "type": "object",
                         "properties": {
                           "facebook": {
+                            "default": {
+                              "on": true,
+                              "young": false,
+                              "fullSpeed": false,
+                              "tidy": "cancel",
+                              "requests": "fits"
+                            },
                             "type": "object",
                             "properties": {
                               "on": {
@@ -95683,6 +95690,21 @@
                             }
                           },
                           "linkedin": {
+                            "default": {
+                              "on": false,
+                              "sending": "off",
+                              "replies": "draft",
+                              "warmUp": true,
+                              "confirmRequests": true,
+                              "collect": true,
+                              "joinGroups": true,
+                              "watchPosts": true,
+                              "posting": "after_ok",
+                              "young": false,
+                              "fullSpeed": false,
+                              "tidy": "cancel",
+                              "requests": "fits"
+                            },
                             "type": "object",
                             "properties": {
                               "on": {
@@ -95767,6 +95789,21 @@
                             }
                           },
                           "instagram": {
+                            "default": {
+                              "on": false,
+                              "sending": "off",
+                              "replies": "draft",
+                              "warmUp": true,
+                              "confirmRequests": true,
+                              "collect": true,
+                              "joinGroups": true,
+                              "watchPosts": true,
+                              "posting": "after_ok",
+                              "young": false,
+                              "fullSpeed": false,
+                              "tidy": "cancel",
+                              "requests": "fits"
+                            },
                             "type": "object",
                             "properties": {
                               "on": {
@@ -95851,6 +95888,21 @@
                             }
                           },
                           "alignable": {
+                            "default": {
+                              "on": false,
+                              "sending": "off",
+                              "replies": "draft",
+                              "warmUp": true,
+                              "confirmRequests": true,
+                              "collect": true,
+                              "joinGroups": true,
+                              "watchPosts": true,
+                              "posting": "after_ok",
+                              "young": false,
+                              "fullSpeed": false,
+                              "tidy": "cancel",
+                              "requests": "fits"
+                            },
                             "type": "object",
                             "properties": {
                               "on": {

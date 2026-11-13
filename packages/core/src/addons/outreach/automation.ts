@@ -946,11 +946,9 @@ export type AutomationChanges = z.output<typeof AutomationChanges>;
  * and X on a phone from before decision 163) is left out and keeps what's kept, rather than its choices going back to
  * the defaults.
  */
-const SentNetworks = z.object({
-  facebook: NetworksSettings.shape.facebook.unwrap().optional(),
-  linkedin: NetworkChoices.optional(),
-  instagram: NetworkChoices.optional(),
-  alignable: NetworkChoices.optional(),
+const SentNetworks = NetworksSettings.extend({
+  // The four every build has sent since the start keep their defaults, as old phone builds rely on (the phone's
+  // contract may only grow); the two new ones are left out by a screen from before them.
   threads: NetworkChoices.optional(),
   x: NetworkChoices.optional(),
 });
