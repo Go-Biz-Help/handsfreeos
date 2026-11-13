@@ -1,7 +1,7 @@
 {
   "area": "socialcontent",
   "title": "The AI Social Media Content Creator add-on: Creators, Standouts, Playbook, Ideas, Calendar and Settings, on the web and the phone",
-  "checkedOn": "2026-11-12",
+  "checkedOn": "2026-11-13",
   "files": {
     "apps/mobile/src/addons/socialcontent/activity.tsx": "9744b485ef7b",
     "apps/mobile/src/addons/socialcontent/calendar.tsx": "5dea96ba5dd9",
@@ -10,10 +10,10 @@
     "apps/mobile/src/addons/socialcontent/ideas.tsx": "355ae79366b6",
     "apps/mobile/src/addons/socialcontent/kit.tsx": "f3734b26ca2f",
     "apps/mobile/src/addons/socialcontent/more.tsx": "41a0e2e099f1",
-    "apps/mobile/src/addons/socialcontent/own-post.tsx": "1a0445390ebf",
+    "apps/mobile/src/addons/socialcontent/own-post.tsx": "5889683321ce",
     "apps/mobile/src/addons/socialcontent/playbook.tsx": "f6bbed355f8c",
     "apps/mobile/src/addons/socialcontent/post-card.tsx": "047b4bb8df26",
-    "apps/mobile/src/addons/socialcontent/settings.tsx": "e1b751fe67b4",
+    "apps/mobile/src/addons/socialcontent/settings.tsx": "965748f592e6",
     "apps/mobile/src/addons/socialcontent/setup.tsx": "0f359ad31454",
     "apps/mobile/src/addons/socialcontent/standouts.tsx": "dd105b04655a",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/_layout.tsx": "70a8fb6d279c",
@@ -32,8 +32,8 @@
     "apps/web/src/addons/socialcontent/offer-notice.tsx": "bd18d03766c4",
     "apps/web/src/addons/socialcontent/playbook-page.tsx": "add4a230d665",
     "apps/web/src/addons/socialcontent/post-card.tsx": "67aaf4c54254",
-    "apps/web/src/addons/socialcontent/post-sheet.tsx": "28610d8bf339",
-    "apps/web/src/addons/socialcontent/settings-page.tsx": "19547dd13dc3",
+    "apps/web/src/addons/socialcontent/post-sheet.tsx": "4b18f31434f1",
+    "apps/web/src/addons/socialcontent/settings-page.tsx": "58114b70b508",
     "apps/web/src/addons/socialcontent/setup-card.tsx": "c30a470b168c",
     "apps/web/src/addons/socialcontent/standout-links.tsx": "1d5a6acf8414",
     "apps/web/src/addons/socialcontent/standouts-page.tsx": "432ad6ca185d",
@@ -278,7 +278,7 @@
       "by": "socialcontent_overview counts.standouts"
     },
     {
-      "path": "Settings → Networks: Instagram ticked, the rest Coming later",
+      "path": "Settings → Networks: Instagram, Facebook, LinkedIn, Threads and X to tick (the last one stays ticked); TikTok and YouTube Coming later",
       "kind": "do",
       "file": "apps/web/src/addons/socialcontent/settings-page.tsx:123",
       "covered": "yes",
@@ -712,7 +712,7 @@
       "by": "socialcontent_decide_idea"
     },
     {
-      "path": "Phone → Settings → Networks switches (the last one stays on; the rest Coming later)",
+      "path": "Phone → Settings → Networks switches for Instagram, Facebook, LinkedIn, Threads and X (the last one stays on); TikTok and YouTube Coming later",
       "kind": "do",
       "file": "apps/mobile/src/addons/socialcontent/settings.tsx:195",
       "covered": "yes",
@@ -766,6 +766,13 @@
       "file": "apps/mobile/src/addons/socialcontent/settings.tsx:534",
       "covered": "yes",
       "by": "socialcontent_save_settings (plan.<network>.mode)"
+    },
+    {
+      "path": "Phone → Settings → Posting → Threads and X while off: the 5 a week suggested, and Post 5 a week",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:546",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (plan.threads / plan.x: mode ai, perWeek 5); the place’s words"
     },
     {
       "path": "Phone → Settings → Posting → AI picks: posts a week, the most a day, the earliest and latest time, and what it learned",
@@ -929,6 +936,20 @@
       "by": "socialcontent_save_own_post (hook, words, hashtags)"
     },
     {
+      "path": "Phone → Post → on Threads or X: how many characters the words and tags take of what the network allows",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:857",
+      "covered": "yes",
+      "by": "socialcontent_get_own_post (network, words, hashtags; stillNeeds says when it runs past)"
+    },
+    {
+      "path": "Phone → Post → on Threads or X: More posts under it (each post, how long it is, Add a post under it, Remove), up to 4",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:875",
+      "covered": "yes",
+      "by": "socialcontent_save_own_post (chain)"
+    },
+    {
       "path": "Phone → Post → Slides on a carousel: each heading and words, Add a slide, Remove",
       "kind": "do",
       "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:848",
@@ -1013,7 +1034,7 @@
       "by": "socialcontent_approve_own_post (ok), on a Confirm card"
     },
     {
-      "path": "Phone → Post → Post it now (an OK’d post, or one that didn’t post, on Facebook, LinkedIn or Instagram)",
+      "path": "Phone → Post → Post it now (an OK’d post, or one that didn’t post, on Facebook, LinkedIn, Instagram, Threads or X)",
       "kind": "do",
       "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:1091",
       "covered": "yes",
@@ -1216,6 +1237,20 @@
       "by": "socialcontent_save_own_post (hook, words, hashtags)"
     },
     {
+      "path": "Post → on Threads or X: how many characters the words and tags take of what the network allows",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:1122",
+      "covered": "yes",
+      "by": "socialcontent_get_own_post (network, words, hashtags; stillNeeds says when it runs past)"
+    },
+    {
+      "path": "Post → on Threads or X: More posts under it (each post, how long it is, Add a post under it, Remove), up to 4",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:692",
+      "covered": "yes",
+      "by": "socialcontent_save_own_post (chain)"
+    },
+    {
       "path": "Post → Slides on a carousel: each heading and words, Add a slide, Remove",
       "kind": "do",
       "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:623",
@@ -1314,7 +1349,7 @@
       "by": "socialcontent_approve_own_post (ok), on a Confirm card"
     },
     {
-      "path": "Post → Post it now (an OK’d post, or one that didn’t post, on Facebook, LinkedIn or Instagram)",
+      "path": "Post → Post it now (an OK’d post, or one that didn’t post, on Facebook, LinkedIn, Instagram, Threads or X)",
       "kind": "do",
       "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:966",
       "covered": "yes",
@@ -1375,6 +1410,13 @@
       "file": "apps/web/src/addons/socialcontent/settings-page.tsx:400",
       "covered": "yes",
       "by": "socialcontent_save_settings (plan.<network>.mode)"
+    },
+    {
+      "path": "Settings → Posting → Threads and X while off: the 5 a week suggested, and Post 5 a week",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:413",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (plan.threads / plan.x: mode ai, perWeek 5); the place’s words"
     },
     {
       "path": "Settings → Posting → AI picks: posts a week, the most a day (or spread out), and the hours it posts between",

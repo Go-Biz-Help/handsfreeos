@@ -169,6 +169,12 @@ describe('studying creators', () => {
         as(owner, 'socialcontent.settings.save', { networks: ['instagram', 'tiktok'] }),
       ),
     ).toBe('socialcontent_network_not_ready');
+    // Threads and X are read from extension 0.139.0 (decision 41, part 17).
+    expect(
+      (await as(owner, 'socialcontent.settings.save', { networks: ['instagram', 'threads', 'x'] }))
+        .networks,
+    ).toEqual(['instagram', 'threads', 'x']);
+    await as(owner, 'socialcontent.settings.save', { networks: ['instagram'] });
     const saved = await as(owner, 'socialcontent.settings.save', { readerUserId: owner.id });
     expect(saved).toMatchObject({ readerUserId: owner.id, networks: ['instagram'] });
     expect((await as(owner, 'socialcontent.overview')).readerIsMe).toBe(true);
@@ -1157,7 +1163,7 @@ describe('the business’s own posts', () => {
     const shown = await as(member, 'socialcontent.content.get', { postId: reel.postId });
     expect(shown.stillNeeds).toMatch(/no video yet/);
     const cal = await as(member, 'socialcontent.calendar.get');
-    expect(cal.postsOn).toEqual(['facebook', 'linkedin', 'instagram']);
+    expect(cal.postsOn).toEqual(['facebook', 'linkedin', 'instagram', 'threads', 'x']);
     expect(cal.poster).toMatchObject({ mine: false, version: '0.132.0' });
     expect(cal.poster.seenAt).not.toBeNull();
     expect((await as(owner, 'socialcontent.calendar.get')).poster.mine).toBe(true);

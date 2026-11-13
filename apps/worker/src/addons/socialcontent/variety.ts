@@ -36,10 +36,11 @@ export async function postsBefore(ctx: AddonScopeContext): Promise<PostSeen[]> {
       fact: boolean;
       format: string;
       photo: boolean;
+      network: string;
     }>(
       tx,
       sql`select r.name as title, c.hook, c.angle, c.topic_list, c.topic, (i.source_url is not null) as fact,
-            c.format, (c.picture_way = 'photo') as photo
+            c.format, (c.picture_way = 'photo') as photo, c.network
           from addon_socialcontent.content c
           join app.custom_records r on r.id = c.record_id and r.archived_at is null
           left join addon_socialcontent.ideas i on i.id = c.idea_id and i.workspace_id = c.workspace_id
@@ -57,6 +58,7 @@ export async function postsBefore(ctx: AddonScopeContext): Promise<PostSeen[]> {
     fact: p.fact,
     format: p.format,
     photo: p.photo,
+    network: p.network,
   }));
 }
 

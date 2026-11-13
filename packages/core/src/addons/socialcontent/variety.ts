@@ -146,6 +146,8 @@ export interface PostBefore {
   /** How it's shown (decision 39): its format, and whether its picture has a photo under the words. */
   readonly format?: string | null;
   readonly photo?: boolean;
+  /** Where it goes: Threads and X keep their own mix of words alone and pictures (decision 41). */
+  readonly network?: string | null;
 }
 
 // ------------------------------------------------------------------------------------------------ looks
@@ -166,33 +168,58 @@ export const LOOKS = {
   photos: 3,
   /** Words alone at most once in this many posts, on the networks that take them (pick 8a). */
   textEvery: 10,
+  /** Of every 10 posts on Threads or on X, about this many are words alone and the rest one picture (decision 41). */
+  shortText: 5,
 } as const;
 
-/** The networks where a post can be words alone. */
+/** The networks where a post can be words alone now and then. */
 const TEXT_NETWORKS: readonly string[] = ['facebook', 'linkedin'];
+/** Threads and X: short posts, words alone about half the time, never a carousel (decision 41). */
+const SHORT_LOOK_NETWORKS: readonly string[] = ['threads', 'x'];
 
 /**
  * The next post's look, after the posts before (most recent first): words alone on Facebook or LinkedIn when none of
  * the last 9 posts was; otherwise a carousel or one picture, whichever is behind its half of the last 10 posts with
  * pictures (a carousel first), and a photo under the words when photos are behind their 3 in 10 and the post before
  * had none. `photos` is false when OpenAI's image model isn't set up.
+ *
+ * Threads and X keep their own mix (decision 41): words alone about half the time, one picture otherwise, and their
+ * posts don't count in the other networks' mix.
  */
 export function nextLook(before: readonly PostBefore[], network: string, photos: boolean): Look {
   const known = before.filter(
     (b) => b.format === 'carousel' || b.format === 'photo' || b.format === 'text',
   );
+  // Threads and X: words alone when they're behind their half of the last 10 posts there, else one picture.
+  if (SHORT_LOOK_NETWORKS.includes(network)) {
+    const here = known.filter((b) => b.network === network).slice(0, MIX_OF - 1);
+    const texts = here.filter((b) => b.format === 'text').length;
+    if ((LOOKS.shortText * (here.length + 1)) / MIX_OF - texts >= 0.5 - 1e-9)
+      return { format: 'text', photo: false };
+    return { format: 'photo', photo: photoNext(known, photos) };
+  }
+  const rest = known.filter((b) => !SHORT_LOOK_NETWORKS.includes(b.network ?? ''));
   if (
     TEXT_NETWORKS.includes(network) &&
-    !known.slice(0, LOOKS.textEvery - 1).some((b) => b.format === 'text')
+    !rest.slice(0, LOOKS.textEvery - 1).some((b) => b.format === 'text')
   )
     return { format: 'text', photo: false };
-  const pics = known.filter((b) => b.format !== 'text').slice(0, MIX_OF - 1);
+  const pics = rest.filter((b) => b.format !== 'text').slice(0, MIX_OF - 1);
   const share = (want: number, had: number) => (want * (pics.length + 1)) / MIX_OF - had;
   const carousels = pics.filter((b) => b.format === 'carousel').length;
   const format = share(LOOKS.carousels, carousels) >= 0.5 - 1e-9 ? 'carousel' : 'photo';
+  return { format, photo: photoNext(known, photos) };
+}
+
+/** A photo under the words when photos are behind their 3 in 10 posts with pictures and the post before had none. */
+function photoNext(known: readonly PostBefore[], photos: boolean): boolean {
+  const pics = known.filter((b) => b.format !== 'text').slice(0, MIX_OF - 1);
   const withPhoto = pics.filter((b) => b.photo).length;
-  const photo = photos && pics[0]?.photo !== true && share(LOOKS.photos, withPhoto) >= 0.5 - 1e-9;
-  return { format, photo };
+  return (
+    photos &&
+    pics[0]?.photo !== true &&
+    (LOOKS.photos * (pics.length + 1)) / MIX_OF - withPhoto >= 0.5 - 1e-9
+  );
 }
 
 /**
@@ -291,7 +318,14 @@ export function planWrites<S extends { readonly network: string }>(input: {
     }
     const look = nextLook(history, slot.network, input.photos ?? false);
     out.push({ slot, angle, ideaId: idea?.id ?? null, topic, look });
-    history.unshift({ angle, topic, fact: !!idea?.fact, format: look.format, photo: look.photo });
+    history.unshift({
+      angle,
+      topic,
+      fact: !!idea?.fact,
+      format: look.format,
+      photo: look.photo,
+      network: slot.network,
+    });
   }
   return out;
 }

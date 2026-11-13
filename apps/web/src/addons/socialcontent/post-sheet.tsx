@@ -10,10 +10,14 @@ import { localDateOf, localInstant } from '@hfos/core';
 import {
   CONTENT_FORMATS,
   FACEBOOK_WHERE,
+  formatFor,
   hasPictures,
+  isShortNetwork,
   POSTING,
   POSTING_NETWORKS,
+  postLength,
   postText,
+  SHORT_POSTS,
   type ContentFormat,
   type FacebookWhere,
   type PostingNetwork,
@@ -212,6 +216,8 @@ type Draft = {
   hook: string;
   hashtags: string;
   slides: { heading: string; body: string }[];
+  /** The posts under the first on Threads and X (decision 41). */
+  chain: string[];
   lines: string;
   shots: string;
   picture: string;
@@ -231,6 +237,7 @@ function draftOf(p: Content, timeZone: string): Draft {
     hook: p.hook ?? '',
     hashtags: p.hashtags.join(' '),
     slides: p.slides.map((s) => ({ ...s })),
+    chain: [...(p.chain ?? [])],
     lines: p.script?.lines.join('\n') ?? '',
     shots: p.script?.shots.join('\n') ?? '',
     picture: p.picture ?? '',
@@ -352,6 +359,7 @@ export function PostSheet({
               hook: d.hook.trim() || null,
               hashtags: d.hashtags.split(/[\s,]+/).filter(Boolean),
               slides: d.slides,
+              chain: isShortNetwork(d.network) ? d.chain.filter((t) => t.trim()) : [],
               script:
                 d.format === 'video' ? { lines: lines(d.lines), shots: lines(d.shots) } : null,
               picture: d.picture.trim() || null,
@@ -573,7 +581,11 @@ export function PostSheet({
                 id="post-network"
                 value={d.network}
                 disabled={!changeable}
-                onChange={(e) => set('network', e.target.value as PostingNetwork)}
+                onChange={(e) => {
+                  // A format the network doesn't take turns into one it does (no carousel on Threads or X).
+                  const network = e.target.value as PostingNetwork;
+                  setD((x) => ({ ...x, network, format: formatFor(network, x.format) }));
+                }}
               >
                 {POSTING_NETWORKS.map((n) => (
                   <option key={n} value={n}>
@@ -589,13 +601,15 @@ export function PostSheet({
                 disabled={!changeable}
                 onChange={(e) => set('format', e.target.value as ContentFormat)}
               >
-                {CONTENT_FORMATS.filter((f) => !(f === 'text' && d.network === 'instagram')).map(
-                  (f) => (
-                    <option key={f} value={f}>
-                      {W.post.formats[f]}
-                    </option>
-                  ),
-                )}
+                {CONTENT_FORMATS.filter(
+                  (f) =>
+                    !(f === 'text' && d.network === 'instagram') &&
+                    !(f === 'carousel' && isShortNetwork(d.network)),
+                ).map((f) => (
+                  <option key={f} value={f}>
+                    {W.post.formats[f]}
+                  </option>
+                ))}
               </Select>
             </Field>
           </div>
@@ -675,6 +689,16 @@ export function PostSheet({
               onChange={(e) => set('hashtags', e.target.value)}
             />
           </Field>
+          {isShortNetwork(d.network) ? (
+            <ShortChain
+              network={d.network}
+              words={d.words}
+              hashtags={d.hashtags}
+              chain={d.chain}
+              changeable={changeable}
+              onChange={(chain) => set('chain', chain)}
+            />
+          ) : null}
 
           {d.format === 'carousel' ? (
             <div className="space-y-3">
@@ -1067,5 +1091,84 @@ export function PostSheet({
         />
       </SheetContent>
     </Sheet>
+  );
+}
+
+/**
+ * On Threads and X (decision 41): how many characters the words and tags take of what the network allows, and the
+ * posts that go under the first one for a longer tip, up to 4.
+ */
+function ShortChain({
+  network,
+  words,
+  hashtags,
+  chain,
+  changeable,
+  onChange,
+}: {
+  network: 'threads' | 'x';
+  words: string;
+  hashtags: string;
+  chain: string[];
+  changeable: boolean;
+  onChange: (chain: string[]) => void;
+}) {
+  const most = POSTING.textMost[network];
+  const used = postLength(words, hashtags.split(/[\s,]+/).filter(Boolean));
+  return (
+    <div className="space-y-2" data-testid="socialcontent-post-chain">
+      <p
+        className={`text-[12.5px] ${used > most ? 'text-danger-text' : 'text-text-3'}`}
+        data-testid="socialcontent-post-characters"
+      >
+        {W.post.characters(used, most)}
+      </p>
+      <div>
+        <div className="text-[13px] font-medium">{W.post.chain}</div>
+        <p className="text-[12.5px] text-text-3">{W.post.chainHint(networkName(network))}</p>
+      </div>
+      {chain.map((t, i) => (
+        <div key={i} className="space-y-1 rounded-card border border-border p-3">
+          <div className="flex items-center justify-between text-[12.5px] text-text-3">
+            <span>
+              {W.post.chainPost(i + 2)}
+              {' · '}
+              <span className={t.trim().length > most ? 'text-danger-text' : undefined}>
+                {t.trim().length}/{most}
+              </span>
+            </span>
+            {changeable ? (
+              <button
+                type="button"
+                className="text-text-3 hover:text-danger-text"
+                aria-label={W.post.removeChainPost(i + 2)}
+                onClick={() => onChange(chain.filter((_, j) => j !== i))}
+              >
+                <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+              </button>
+            ) : null}
+          </div>
+          <Textarea
+            value={t}
+            rows={3}
+            maxLength={most}
+            disabled={!changeable}
+            aria-label={W.post.chainPost(i + 2)}
+            data-testid={`socialcontent-post-chain-${i}`}
+            onChange={(e) => onChange(chain.map((x, j) => (j === i ? e.target.value : x)))}
+          />
+        </div>
+      ))}
+      {changeable && chain.length < SHORT_POSTS.chainMost ? (
+        <Button
+          size="sm"
+          variant="ghost"
+          data-testid="socialcontent-post-chain-add"
+          onClick={() => onChange([...chain, ''])}
+        >
+          {W.post.addChainPost}
+        </Button>
+      ) : null}
+    </div>
   );
 }

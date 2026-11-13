@@ -236,6 +236,7 @@ export function content(n: number, over: Partial<Content> = {}): Content {
     hook: null,
     hashtags: ['homes'],
     slides: [],
+    chain: [],
     script: null,
     picture: 'A front porch at dusk',
     pictureWay: 'design',

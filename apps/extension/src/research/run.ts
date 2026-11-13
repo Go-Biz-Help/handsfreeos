@@ -8,7 +8,7 @@
  * and no warning (./read.ts). Only the reading computer's person gets any: the rest are told so
  * (`socialcontent_not_reader`), and asked again a few minutes later, so picking a computer in Settings starts it soon.
  * It does what it got (find creators, a profile, posts: each network's reads, ./instagram-read.ts for Instagram's answers, ./page-read.ts
- * for Facebook's and LinkedIn's pages), then says how it
+ * for Facebook's and LinkedIn's pages, ./follow-read.ts for Threads' and X's), then says how it
  * ended. A read that couldn't go on stops that network for a while (signed out, a reader that can't read the page) or
  * for the day (a warning, the day's room used).
  *
@@ -18,6 +18,7 @@
  * It never does Social Outreach's work, and Social Outreach never does its: they share only the extension, the
  * network's pace and its day's warnings (decision 1).
  */
+import type { PostingNetwork } from '@hfos/core/addons/socialcontent/calendar';
 import type { ContentNetwork } from '@hfos/core/addons/socialcontent/networks';
 import { canSignIn } from '../hfos/config';
 import { token } from '../hfos/session';
@@ -29,6 +30,7 @@ import {
   workNext,
   type ResearchWork,
 } from './hfos';
+import { FOLLOW_READS_BY_KIND } from './follow-read';
 import { INSTAGRAM_READS_BY_KIND } from './instagram-read';
 import { PAGE_READS_BY_KIND } from './page-read';
 import { ownTurn } from './own';
@@ -37,11 +39,13 @@ import { roomOn, searchRoomOn, type ReadCtx, type ReadEnd } from './read';
 import { ResearchTab } from './tab';
 
 export const RESEARCH_ALARM = 'hfos-research';
-/** The networks this build reads, and each one's reads. */
+/** The networks this build reads, and each one's reads: Threads and X from 0.139.0 (decision 41, part 17). */
 export const RESEARCH_NETWORKS = [
   'instagram',
   'facebook',
   'linkedin',
+  'threads',
+  'x',
 ] as const satisfies readonly ContentNetwork[];
 type ResearchNetwork = (typeof RESEARCH_NETWORKS)[number];
 const READS: Readonly<
@@ -53,6 +57,8 @@ const READS: Readonly<
   instagram: INSTAGRAM_READS_BY_KIND,
   facebook: PAGE_READS_BY_KIND,
   linkedin: PAGE_READS_BY_KIND,
+  threads: FOLLOW_READS_BY_KIND,
+  x: FOLLOW_READS_BY_KIND,
 };
 
 /** How long the businesses this person reads for are kept before HandsFreeOS is asked again. */
@@ -66,7 +72,7 @@ let running = false;
 let businesses: { at: number; list: { id: string; name: string }[] } | null = null;
 const notReaderUntil = new Map<string, number>();
 const restingUntil = new Map<ContentNetwork, number>();
-const tabs = new Map<ResearchNetwork, ResearchTab>();
+const tabs = new Map<ResearchNetwork | PostingNetwork, ResearchTab>();
 
 /** The reading tabs open now, so the background never takes them for the person's own. */
 export const researchTabIds = (): number[] =>
@@ -114,8 +120,8 @@ export async function researchTick(): Promise<void> {
   }
 }
 
-/** The window for a network's work, opened once and kept. */
-function tabFor(network: ResearchNetwork): ResearchTab {
+/** The window for a network's work, opened once and kept: posting goes to Threads and X too (decision 41). */
+function tabFor(network: ResearchNetwork | PostingNetwork): ResearchTab {
   let tab = tabs.get(network);
   if (!tab) {
     tab = new ResearchTab(KITS[network]);

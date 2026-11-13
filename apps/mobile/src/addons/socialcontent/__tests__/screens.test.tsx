@@ -660,6 +660,8 @@ describe('Settings', () => {
             instagram: { best: ['18:00', '09:00'], from: 'creators', own: 0, creators: 24 },
             facebook: { best: [], from: 'none', own: 0, creators: 0 },
             linkedin: { best: [], from: 'none', own: 0, creators: 0 },
+            threads: { best: [], from: 'none', own: 0, creators: 0 },
+            x: { best: [], from: 'none', own: 0, creators: 0 },
           },
         }),
       }),
@@ -680,6 +682,18 @@ describe('Settings', () => {
     expect(actions.setPlan).toHaveBeenCalledWith('linkedin', { mode: 'mine' });
     await fireEvent.press(screen.getByTestId('socialcontent-auto-fill'));
     expect(actions.autoFill).toHaveBeenCalledWith(false);
+  });
+
+  it('starts Threads and X off, and turns one on at the 5 a week suggested (decision 41)', async () => {
+    const actions = settingsActionsMock();
+    await render(body({ actions }));
+    expect(screen.getByTestId('socialcontent-plan-x-off')).toHaveTextContent(
+      /^Off for now\. About 5 a week works well on X: short posts/,
+    );
+    expect(screen.getByTestId('socialcontent-plan-threads-off')).toBeTruthy();
+    expect(screen.queryByTestId('socialcontent-plan-instagram-off')).toBeNull();
+    await fireEvent.press(screen.getByTestId('socialcontent-plan-x-on'));
+    expect(actions.setPlan).toHaveBeenCalledWith('x', { mode: 'ai', perWeek: 5 });
   });
 
   it('turns picking niches and creators on its own off (decisions 29 to 31)', async () => {
@@ -903,6 +917,33 @@ describe('one of its posts', () => {
     expect(screen.queryByTestId('socialcontent-post-ok')).toBeNull();
     await fireEvent.press(screen.getByTestId('socialcontent-post-save'));
     expect(actions.save).toHaveBeenCalledWith(expect.objectContaining({ words: 'New words.' }));
+  });
+
+  it('counts an X post’s characters, edits the posts under it, and never offers a carousel there (decision 41)', async () => {
+    const actions = actionsMock();
+    await render(
+      body({
+        actions,
+        post: content(41, { network: 'x', format: 'text', words: 'Short tip.', chain: ['More.'] }),
+      }),
+    );
+    expect(screen.getByTestId('socialcontent-post-characters')).toHaveTextContent(
+      '18 of 280 characters, with the tags',
+    );
+    expect(screen.queryByTestId('socialcontent-post-format-carousel')).toBeNull();
+    expect(screen.getByTestId('socialcontent-post-chain-0')).toHaveProp('value', 'More.');
+    await fireEvent.press(screen.getByTestId('socialcontent-post-chain-add'));
+    await fireEvent.changeText(screen.getByTestId('socialcontent-post-chain-1'), 'Even more.');
+    await fireEvent.press(screen.getByTestId('socialcontent-post-save'));
+    expect(actions.save).toHaveBeenCalledWith(
+      expect.objectContaining({ chain: ['More.', 'Even more.'] }),
+    );
+    const p = content(41, { network: 'x', chain: ['More.'] });
+    expect(saveInput(p, { ...draftOf(p, 'UTC'), chain: ['More.', '  '] }, 'UTC').chain).toEqual([
+      'More.',
+    ]);
+    const onInstagram = content(42, { chain: [] });
+    expect(saveInput(onInstagram, draftOf(onInstagram, 'UTC'), 'UTC').chain).toEqual([]);
   });
 
   it('puts an OK’d post up now or takes the OK back, and skips or brings one back', async () => {

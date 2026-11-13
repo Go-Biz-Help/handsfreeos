@@ -196,6 +196,31 @@ describe('reading how a post did', () => {
     ]);
   });
 
+  it('reads a Threads or X post from its own page: its likes and replies (decision 41)', async () => {
+    const onX = 'https://x.com/thebusiness/status/1850000000000000001';
+    const onThreads = 'https://www.threads.com/@thebusiness/post/DAbc123xyz';
+    const found = (likes: number, replies: number) => ({
+      kind: 'post',
+      found: { post: { likes, replies }, posts: [], me: null },
+    });
+    const { tab } = tabOver({ [onX]: { read: found(12, 3) }, [onThreads]: { read: found(5, 1) } });
+    await readOwn('ws', tab, check({ network: 'x', places: [{ place: 'feed', link: onX }] }));
+    await readOwn(
+      'ws',
+      tab,
+      check({ network: 'threads', places: [{ place: 'feed', link: onThreads }] }),
+    );
+    expect(said.map((s) => s.reads)).toEqual([
+      [{ place: 'feed', views: null, likes: 12, comments: 3, shares: null, failure: null }],
+      [{ place: 'feed', views: null, likes: 5, comments: 1, shares: null, failure: null }],
+    ]);
+    const gone = tabOver({ [onX]: { read: { kind: 'post', found: { post: null } } } });
+    await readOwn('ws', gone.tab, check({ network: 'x', places: [{ place: 'feed', link: onX }] }));
+    expect(said.at(-1)!.reads).toEqual([
+      expect.objectContaining({ failure: ownFailure('x', 'not_shown') }),
+    ]);
+  });
+
   it('says why when the post isn’t at its link', async () => {
     const link = 'https://www.linkedin.com/feed/update/urn:li:activity:7390000000000000000/';
     const { tab } = tabOver({ [link]: { read: { kind: 'other', url: link, posts: [] } } });
