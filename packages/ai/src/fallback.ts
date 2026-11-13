@@ -93,6 +93,14 @@ export class FallbackProvider implements AiProvider {
     }
   }
 
+  /**
+   * The backup, for a request the usual provider answered with nothing usable: it declined, or wrote nothing. Only
+   * while the usual one answers: null while the backup answers everything already, or someone pinned the usual one.
+   */
+  backupAfterDecline(): AiProvider | null {
+    return this.switcher.route() === 'primary' ? this.backup : null;
+  }
+
   /** Whoever answers now; the backup, answering a request Claude failed, simply answers as it always does. */
   thinksHarderAt(effort: AiEffort): boolean {
     return this.current().thinksHarderAt?.(effort) === true;

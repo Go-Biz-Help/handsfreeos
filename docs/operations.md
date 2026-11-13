@@ -7360,6 +7360,8 @@ With the switch on **Auto**, the default, the worker decides in two ways:
 
 Other failures, such as a wrong Anthropic key, don't go to OpenAI. They need fixing: see "When a question fails" in "The Assistant: Anthropic".
 
+- **An answer Claude sends back empty.** For Social Outreach's drafts and profile checks only, Claude is asked again once when it declines or writes nothing, and if it does again, OpenAI answers that request (decision 162 in `docs/outreach.md`). This doesn't count as Claude failing and moves nothing else. It never happens while the switch is on **Always Claude**.
+
 While it's on OpenAI, the 5-minute check also asks whether Claude is well again: its status page says `operational`, and a tiny test question to Claude gets an answer. Two good checks in a row, so 10 minutes, bring everything back to Claude. A bad check starts the count again.
 
 `/admin` → **Health** shows which AI is answering and why: Claude's status page, or Claude's answers failing.

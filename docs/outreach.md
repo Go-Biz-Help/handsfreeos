@@ -4063,6 +4063,15 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **Everyone already waiting started a fresh wait** (6b): the migration set `friends.warm_up_from` on every
         request waiting then, and a wait runs from the later of it and `since`, so each got a whole one. Their first
         visits are spread over the next 3 days, as the gap counts from it.
+162.  **The backup AI answers what Claude sends back empty** (Chris, 13 Nov 2026, from the problem check's card: "Use
+      the backup AI"). Claude sometimes answers with nothing at all, no words written, in about a second (3 Facebook
+      drafts in a day ended "The AI couldn’t write that just now", and about 8% of profile checks a day "The AI
+      couldn’t read them"), and asking it again with the same words rarely helps. A draft (`today.ts`) and a profile
+      check (`checks.ts`) are asked again once (`askedTwice` in the worker's `ai/ask.ts`), and on that second try, when
+      Claude declines or writes nothing, OpenAI answers the same request (`backupWhenDeclined`,
+      `FallbackProvider.backupAfterDecline`). Only while Claude is answering: never while the backup answers everything
+      already, nor while the switch in /admin is on Always Claude. Its tokens are recorded and charged as OpenAI's. No
+      migration, nothing in the extension.
 
 ## Rules worth knowing before changing anything
 
