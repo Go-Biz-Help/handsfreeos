@@ -8,7 +8,8 @@
  * few; they count as `texting_policy` usage for the person asking, against the daily AI limit.
  *
  * POST /v1/telephony/policy-update {workspaceId, kind, url?, text?, business} → {blocks, changes, url}
- * 403 without channels.manage; 422 `policy_missing`, `policy_unreachable`, `policy_unreadable`,
+ * 403 without channels.manage; 422 `policy_missing`, `policy_unreachable`, `policy_unreadable` (too few words, a
+ * PDF, or the host's robot check instead of the page),
  * `policy_too_long` or `policy_not_a_policy`; 429 `budget_reached` or `rate_limited`; 402 `wallet_empty`;
  * 503 `ai_not_configured` or `ai_busy`; 502 `ai_failed`.
  */
@@ -23,6 +24,8 @@ import {
   policyPlacePrompt,
   policyReadRefusal,
   PolicyUpdateInput,
+  robotCheck,
+  robotCheckWhy,
   textingSection,
   updatedPolicy,
   type PolicyKind,
@@ -118,6 +121,15 @@ async function readPage(
           : `We couldn’t reach ${host}.`,
     );
   }
+  // The host's page for bots instead of the policy (core's robot-check.ts), whatever its status: said as it is,
+  // never got past.
+  const check = robotCheck({ status: res.status, html: res.body, headers: res.headers });
+  if (check)
+    throw HfosError.rule(
+      'policy_unreadable',
+      422,
+      `${host} showed us a robot check instead of your ${NAMES[kind]}, so we couldn’t read it. ${robotCheckWhy(check)} Open the page, copy the words, and paste them here instead.`,
+    );
   if (res.status >= 400)
     throw unreachable(
       res.status === 404

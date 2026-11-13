@@ -381,6 +381,31 @@ describe('scanning the business’s website', () => {
       site.change('/services', null);
     }
   }, 180_000);
+
+  it('says a page showed a robot check, rather than reading it as a page with no words, and asks again next time', async () => {
+    // What SiteGround sent our server for half of Full Spectrum's pages (13 Nov 2026).
+    site.change(
+      '/about',
+      '<html><head><link rel="icon" href="data:;"><meta http-equiv="refresh" content="0;/.well-known/sgcaptcha/?r=%2Fabout&y=ipr:203.0.113.7:1762990000.123"></meta></head></html>',
+    );
+    model.requests.length = 0;
+    try {
+      const third = await scan(s, ws);
+      expect(third.row.status).toBe('done');
+      // Only /services, back to its old words since the last test, goes to the model: never the check page.
+      expect(model.requests.map((r) => String(r.messages[0]!.content))).not.toContainEqual(
+        expect.stringContaining(`${site.origin}/about`),
+      );
+      const about = third.row.pages.filter((p) => path(p.url) === '/about');
+      expect(about).toHaveLength(1);
+      expect(about[0]).toMatchObject({ status: 'error' });
+      expect(about[0]!.hash).toBeUndefined();
+      expect(about[0]!.error).toMatch(/\(SiteGround\) showed us a robot check/);
+      expect(logs.some((l) => l.msg === 'website scan met a robot check')).toBe(true);
+    } finally {
+      site.change('/about', null);
+    }
+  }, 180_000);
 });
 
 describe('scanning without a model', () => {

@@ -3,6 +3,8 @@ import {
   executeCommandIn,
   knowledgeSuggestionPropose,
   quoteData,
+  robotCheck,
+  robotCheckWho,
   scheduleJob,
   type RequestMeta,
   type SystemActor,
@@ -446,6 +448,24 @@ async function readNextPage(run: ScanRun): Promise<boolean> {
     else
       ctx.log.info({ scanId: job.scanId, url, code: problem.code }, 'website scan skipped a page');
     await savePage(run, { problem });
+    return false;
+  }
+  // The host's page for bots instead of this one (core's robot-check.ts): a page that couldn't be read, said as
+  // such, rather than a page with no words. Never got past; the next scan asks again.
+  const check = robotCheck({ status: res.status, html: res.body, headers: res.headers });
+  if (check) {
+    ctx.log.info({ scanId: job.scanId, url, by: check.by }, 'website scan met a robot check');
+    const finalUrl = canonical(res.finalUrl, state) ?? url;
+    if (!state.done.includes(finalUrl)) state.done.push(finalUrl);
+    const who = robotCheckWho(check);
+    await savePage(run, {
+      entry: {
+        url: finalUrl,
+        title: titleFromUrl(finalUrl),
+        status: 'error',
+        error: `${who.charAt(0).toUpperCase()}${who.slice(1)} showed us a robot check instead of this page, so it wasn’t read. The next scan tries again, or add what’s on it to Knowledge yourself.`,
+      },
+    });
     return false;
   }
   if (res.status < 200 || res.status >= 300) {
