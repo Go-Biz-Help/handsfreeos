@@ -609,12 +609,16 @@ const AUTOMATION: AutomationOutput = {
     linkedin: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
     instagram: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
     alignable: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
+    threads: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
+    x: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
   },
   fresh: {
     facebook: { on: false, from: null, until: null, days: 14 },
     linkedin: { on: false, from: null, until: null, days: 14 },
     instagram: { on: false, from: null, until: null, days: 14 },
     alignable: { on: false, from: null, until: null, days: 14 },
+    threads: { on: false, from: null, until: null, days: 14 },
+    x: { on: false, from: null, until: null, days: 14 },
   },
   userId: ME,
   name: 'Dana Reyes',
@@ -1141,7 +1145,7 @@ describe('Each network’s say for everyone, on Team, for owners and admins (dec
     expect(p.onSaveBusiness).toHaveBeenCalledTimes(1);
     // Only LinkedIn's say changes: General's rules stay as they're kept, every other network still allowed.
     expect(savedOn(p, kept).rules).toMatchObject({
-      networksAllowed: ['facebook', 'instagram', 'alignable'],
+      networksAllowed: ['facebook', 'instagram', 'alignable', 'threads', 'x'],
       sendingAllowed: ['off', 'steps'],
     });
     expect(savedOn(p, kept).weeklyReport).toBeUndefined();

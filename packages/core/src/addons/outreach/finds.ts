@@ -165,6 +165,8 @@ const LIKED: Readonly<Record<Platform, string>> = {
   linkedin: 'Reacted to',
   instagram: 'Liked',
   alignable: 'Liked',
+  threads: 'Liked',
+  x: 'Liked',
 };
 
 /** A post, as where it was found says: "a post under #austinroofing", "a post your search for “roofing” found". */

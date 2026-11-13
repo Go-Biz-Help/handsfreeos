@@ -21,7 +21,13 @@ import { UNANSWERED_MOST } from './knows';
 import { DraftOpener } from './openers';
 import { DRAFT_KINDS } from './today';
 import { appVersionAtLeast } from '../../mobile';
-import { inNetworkWords, PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
+import {
+  inNetworkWords,
+  PLATFORM_KEYS,
+  PLATFORMS,
+  THREADS_X_SINCE,
+  type Platform,
+} from './networks';
 import {
   ABOUT_MOST,
   ABOUT_NAME_ON,
@@ -155,6 +161,11 @@ export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
     'profile_read',
     'profile_edit',
   ],
+  // Threads and X from decision 163: their newest followers saved (a follow-back counts as accepting), the ones the
+  // person ticks who didn't follow back unfollowed, a search of their posts now, their profile read and checked, and
+  // their Check. No chats: nothing is written in their messages yet.
+  threads: ['friends', 'cancel', 'posts', 'profile_read', 'checkup'],
+  x: ['friends', 'cancel', 'posts', 'profile_read', 'checkup'],
 };
 export const askableOn = (platform: Platform, kind: AskKind): boolean =>
   ASK_KINDS_ON[platform].includes(kind);
@@ -182,6 +193,16 @@ const ASK_NAMES_ON: Readonly<Partial<Record<Platform, Partial<Record<AskKind, st
     cancel: 'Unfollow the ones you ticked',
     profile_edit: 'Update your profile',
   },
+  threads: {
+    friends: 'Save my followers',
+    cancel: 'Unfollow the ones you ticked',
+    posts: 'Find posts on Threads',
+  },
+  x: {
+    friends: 'Save my followers',
+    cancel: 'Unfollow the ones you ticked',
+    posts: 'Find posts on X',
+  },
 };
 
 /** A kind's name on a network: "Withdraw old invitations" on LinkedIn, "Cancel old friend requests" on Facebook. */
@@ -194,6 +215,8 @@ const BIO_NAME_ON: Readonly<Record<Platform, string>> = {
   linkedin: 'headline',
   instagram: 'bio',
   alignable: 'Elevator Pitch',
+  threads: 'bio',
+  x: 'bio',
 };
 
 /** Everything a `profile_edit` can carry (decisions 80, 84 and 99): what the words and the refusals go by. */
@@ -433,6 +456,13 @@ export const ASK_KIND_SINCE_ON: Readonly<
     cancel: '0.97.0',
     post: '0.101.0',
   },
+  // Threads and X (decision 163): every ask from the build their kits came in.
+  threads: Object.fromEntries(
+    ['friends', 'cancel', 'posts', 'profile_read', 'checkup'].map((k) => [k, THREADS_X_SINCE]),
+  ),
+  x: Object.fromEntries(
+    ['friends', 'cancel', 'posts', 'profile_read', 'checkup'].map((k) => [k, THREADS_X_SINCE]),
+  ),
 };
 
 /** A target named by its network: as it is on Facebook, and with the network's name before it on any other. */

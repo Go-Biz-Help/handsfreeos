@@ -188,7 +188,7 @@ async function postOf(
   profile: { readonly id: string; readonly name: string; readonly platform: Platform },
   postId: string,
   kind: PostSendKind,
-): Promise<{ readonly id: string; readonly strong: boolean }> {
+): Promise<{ readonly id: string; readonly strong: boolean; readonly answer: boolean }> {
   const reply = kind === 'group_reply';
   if (reply && profile.platform !== 'facebook')
     throw HfosError.rule(
@@ -228,10 +228,11 @@ async function postOf(
     skipped: boolean;
     commented: boolean;
     strong: boolean;
+    answer: boolean;
   }>(
     ctx.tx,
     sql`select po.id, po.profile_id, po.check_state, po.reply_at is not null as kept,
-          po.skipped_at is not null as skipped, po.strong,
+          po.skipped_at is not null as skipped, po.strong, po.found = 'reply' as answer,
           exists (select 1 from addon_outreach.touches t
             where t.user_id = ${me} and t.kind = 'comment' and t.post_url = po.url) as commented
         from addon_outreach.posts po
@@ -257,8 +258,9 @@ async function postOf(
         ? `You commented on ${profile.name}’s post already, so no other ${reply ? 'reply' : 'comment'} goes there. Refresh your list for today.`
         : `You skipped ${profile.name}’s post, so no ${reply ? 'reply' : 'comment'} goes there. Refresh your list for today.`,
     );
-  // A reply in a group is help, never an answer to someone asking for what the business offers.
-  return { id: post.id, strong: !reply && post.strong };
+  // A reply in a group is help, never an answer to someone asking for what the business offers. An answer to a reply
+  // under the person's comment on Threads or X (decision 163) is `answer`.
+  return { id: post.id, strong: !reply && post.strong, answer: !reply && post.answer };
 }
 
 /**
@@ -498,9 +500,14 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
               ? null
               : OCCASION_WORDS.needsYou
             : post
-              ? post.strong && NETWORKS[profile.platform].forumAnswersPerDay !== null && !autopilot
-                ? COMMENT_NEEDS_YOU.answer
-                : null
+              ? post.answer
+                ? // They answered the person's comment (decision 163, 8a): the answer waits, Autopilot's too.
+                  COMMENT_NEEDS_YOU.reply
+                : post.strong &&
+                    NETWORKS[profile.platform].forumAnswersPerDay !== null &&
+                    !autopilot
+                  ? COMMENT_NEEDS_YOU.answer
+                  : null
               : !replying
                 ? null
                 : theirs === null

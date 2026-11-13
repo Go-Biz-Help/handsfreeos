@@ -18,6 +18,7 @@ import {
 } from '@hfos/core/addons/outreach/playbooks';
 import { FOR_CUSTOMERS } from '@hfos/core/addons/outreach/ops/common';
 import { postCheck } from '@hfos/core/addons/outreach/ops/posts';
+import { demoYesPushWords } from '@hfos/core/addons/outreach/comment-replies';
 import {
   checkedPostWhy,
   FIELD_CHECK_SINCE,
@@ -246,6 +247,41 @@ export async function postChecked(ctx: AddonEventContext): Promise<void> {
       // Today on the post's own network: each network's list is its own.
       href: post.platform === 'facebook' ? TODAY_HREF : `${TODAY_HREF}&net=${post.platform}`,
       collapseKey: `post-${postId}`,
+      personId: post.person_id,
+    });
+  });
+}
+
+/**
+ * `outreach.comment.replied`: someone who said yes to a demo under the person's comment on Threads or X (decision 163,
+ * answer 8a) pushes to the person, once. The answer the AI drafts waits for their OK on Needs you either way.
+ */
+export async function commentReplied(ctx: AddonEventContext): Promise<void> {
+  const p = (ctx.event.payload ?? {}) as { postId?: string; yes?: boolean };
+  if (!p.yes || !p.postId) return;
+  const postId = p.postId;
+  await asWorker(ctx.db, ctx.scope, async (tx) => {
+    const [post] = await rows<{
+      user_id: string;
+      name: string;
+      person_id: string | null;
+      platform: Platform;
+      skipped: boolean;
+    }>(
+      tx,
+      sql`select po.user_id, pr.name, pr.person_id, pr.platform, po.skipped_at is not null as skipped
+          from addon_outreach.posts po
+          join addon_outreach.profiles pr on pr.id = po.profile_id
+          where po.workspace_id = ${ctx.scope.workspaceId} and po.id = ${postId}`,
+    );
+    if (!post || post.skipped) return;
+    await pushAddonNotice(ctx, tx, {
+      key: `reply:${postId}`,
+      userIds: [post.user_id],
+      permission: 'outreach.use',
+      ...demoYesPushWords(post.name, post.platform),
+      href: `${TODAY_HREF}&net=${post.platform}`,
+      collapseKey: `reply-${postId}`,
       personId: post.person_id,
     });
   });

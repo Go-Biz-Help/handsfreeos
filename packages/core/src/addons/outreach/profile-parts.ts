@@ -23,7 +23,7 @@ import { z } from 'zod';
 import { quoteData } from '../../knowledge/prompt';
 import { appVersionAtLeast } from '../../mobile';
 import { noDashes, PLAIN_WRITING } from '../../writing';
-import { NETWORKS, PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
+import { NETWORKS, PLATFORM_KEYS, PLATFORMS, THREADS_X_SINCE, type Platform } from './networks';
 import { offerBlock, type PlaybookOffer } from './playbook-assist';
 import {
   ABOUT_DRAFT_MOST,
@@ -94,6 +94,8 @@ export const PARTS_ON: Readonly<Record<Platform, readonly ProfilePart[]>> = {
   ],
   instagram: ['bio', 'links', 'username', 'name', 'picture', 'featured', 'posts'],
   alignable: ['about', 'bio', 'picture', 'work', 'featured'],
+  threads: ['bio', 'links', 'name', 'picture', 'posts'],
+  x: ['bio', 'links', 'name', 'picture', 'cover', 'posts'],
 };
 
 /**
@@ -135,6 +137,9 @@ export const PART_HOW_ON: Readonly<
   instagram: { bio: 'auto', links: 'app', username: 'auto', name: 'auto' },
   // Its Elevator Pitch, its ideal customer and partner, and its services from 0.98.0 (decision 99).
   alignable: { about: 'auto', bio: 'auto', work: 'auto', featured: 'auto' },
+  // Threads and X (decision 163): the AI's words are the person's to copy in, as nothing is put in there yet.
+  threads: {},
+  x: {},
 };
 export const partHowOn = (platform: Platform, part: ProfilePart): PartHow =>
   PART_HOW_ON[platform][part] ?? 'tip';
@@ -207,7 +212,11 @@ export const LINKEDIN_COMMENTS_WAIT_SINCE = '0.99.0';
 export const commentSendsOn = (platform: Platform, version: string | null | undefined): boolean =>
   appVersionAtLeast(
     version ?? null,
-    platform === 'linkedin' ? LINKEDIN_COMMENTS_WAIT_SINCE : FOUND_BY_TOPIC_SINCE,
+    platform === 'linkedin'
+      ? LINKEDIN_COMMENTS_WAIT_SINCE
+      : platform === 'threads' || platform === 'x'
+        ? THREADS_X_SINCE
+        : FOUND_BY_TOPIC_SINCE,
   );
 
 /**
@@ -478,6 +487,8 @@ const PART_NAMES_ON: Readonly<Partial<Record<Platform, Partial<Record<ProfilePar
     posts: 'Activity',
   },
   instagram: { featured: 'Highlights', posts: 'Pinned posts' },
+  x: { cover: 'Header photo', posts: 'Pinned post' },
+  threads: { posts: 'Pinned post' },
   alignable: {
     about: 'About Us',
     bio: 'Elevator Pitch',
@@ -499,6 +510,10 @@ const PICTURE_STEPS_ON: Readonly<Record<Platform, string>> = {
     'On your Instagram profile, press Edit profile, then Change profile photo, then Upload photo, and pick the file.',
   alignable:
     'On your Alignable profile, press Edit by your photo, upload the file, and press Save.',
+  // Threads' photo is the person's Instagram one unless they changed it in Threads.
+  threads:
+    'On your Threads profile, press Edit profile, then your photo, then Upload a picture, and pick the file.',
+  x: 'On your X profile, press Edit profile, then the camera on your photo or your header, pick the file, then Apply and Save.',
 };
 
 /**

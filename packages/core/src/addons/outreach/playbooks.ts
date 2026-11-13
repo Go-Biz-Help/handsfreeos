@@ -40,14 +40,17 @@ export const forPartners = (details: Pick<PlaybookDetails, 'goal'>): boolean =>
 /**
  * The words the AI writes for each network a customers' playbook runs on (data version 8, docs/outreach.md decision
  * 92), and the part each goes in: the phrases Facebook's post search goes with (data version 9, decision 141), the
- * hashtags Instagram looks at, the phrases LinkedIn's post search goes with, and the kinds of business Alignable's
- * search looks for. Never on a partner playbook.
+ * hashtags Instagram looks at, the phrases LinkedIn's post search goes with, the kinds of business Alignable's
+ * search looks for, and the phrases the hourly searches on Threads and X go with (decision 163). Never on a partner
+ * playbook.
  */
 export const FIND_WORDS_PARTS = {
   facebook: 'facebookSearches',
   instagram: 'hashtags',
   linkedin: 'postSearches',
   alignable: 'businessKinds',
+  threads: 'threadsSearches',
+  x: 'xSearches',
 } as const satisfies Partial<Record<Platform, string>>;
 export type WordsPlatform = keyof typeof FIND_WORDS_PARTS;
 export type FindWordsPart = (typeof FIND_WORDS_PARTS)[WordsPlatform];
@@ -57,13 +60,17 @@ export const WORDS_PLATFORM_KEYS = Object.keys(FIND_WORDS_PARTS) as [
 ];
 /**
  * How many of each network's words a day's look takes, in turn (decisions 92 and 141): 5 phrases on Facebook, 5
- * hashtags, 5 phrases on LinkedIn, 3 kinds.
+ * hashtags, 5 phrases on LinkedIn, 3 kinds. Threads and X search every hour (decision 163) with 2 phrases a time
+ * (`NETWORKS[p].postSearch.perLook`), so a day goes through the whole list more than once: the number here is how
+ * many a day is said to take, all 12.
  */
 export const FIND_WORDS_PER_DAY: Readonly<Record<WordsPlatform, number>> = {
   facebook: 5,
   instagram: 5,
   linkedin: 5,
   alignable: 3,
+  threads: 12,
+  x: 12,
 };
 
 /** The kinds of partner a partner playbook looks for: all three unless it says (./partners.ts). */
@@ -189,6 +196,10 @@ export const PLAYBOOK_LIMITS = {
   postSearches: { line: 60, most: 12 },
   /** Kinds of business Alignable's search looks for: "Roofing Contractor". */
   businessKinds: { line: 80, most: 12 },
+  /** Words the hourly Threads search goes with (decision 163): "anyone use a CRM". */
+  threadsSearches: { line: 60, most: 12 },
+  /** Words the hourly X search goes with (decision 163): "missed calls". */
+  xSearches: { line: 60, most: 12 },
 } as const;
 
 const line = (max: number, empty = 'Leave out empty lines.') =>
@@ -300,6 +311,11 @@ export const PlaybookDetails = z
     businessKinds: lines(PLAYBOOK_LIMITS.businessKinds)
       .refine(distinct, 'Each kind of business once.')
       .optional(),
+    /** The phrases the hourly searches on Threads and X go with (decision 163), kept like the others. */
+    threadsSearches: lines(PLAYBOOK_LIMITS.threadsSearches)
+      .refine(distinct, 'Each search once.')
+      .optional(),
+    xSearches: lines(PLAYBOOK_LIMITS.xSearches).refine(distinct, 'Each search once.').optional(),
     /**
      * That the business works with this playbook's clients online (decision 92): Alignable then searches anywhere,
      * not only the person's own town. Null till the AI or the person says; null reads as local.
@@ -445,6 +461,8 @@ export const blankPlaybook = (): PlaybookDetails => ({
   hashtags: [],
   postSearches: [],
   businessKinds: [],
+  threadsSearches: [],
+  xSearches: [],
   worksOnline: null,
   wordsWritten: [],
   audience: null,
@@ -953,6 +971,11 @@ export const PLAYBOOK_V8_KEYS = [
   'wordsWritten',
 ] as const;
 export const PLAYBOOK_V9_KEYS = ['facebookSearches'] as const;
+/**
+ * The parts Threads and X added (decision 163). No new data version: a playbook saved before has none, and reads with
+ * empty lists, the AI writing them once Threads or X is on it.
+ */
+export const PLAYBOOK_THREADS_X_KEYS = ['threadsSearches', 'xSearches'] as const;
 /** What a save that leaves a part out keeps. */
 export const PLAYBOOK_KEPT_KEYS = [
   ...PLAYBOOK_V3_KEYS,
@@ -962,6 +985,7 @@ export const PLAYBOOK_KEPT_KEYS = [
   ...PLAYBOOK_V7_KEYS,
   ...PLAYBOOK_V8_KEYS,
   ...PLAYBOOK_V9_KEYS,
+  ...PLAYBOOK_THREADS_X_KEYS,
 ] as const;
 
 /**

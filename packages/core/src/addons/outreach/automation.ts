@@ -315,6 +315,9 @@ export const NetworksSettings = z.object({
   linkedin: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
   instagram: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
   alignable: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
+  // Decision 163: off to start, as every network but Facebook is.
+  threads: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
+  x: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
 });
 export type NetworksSettings = z.output<typeof NetworksSettings>;
 export const NETWORKS_DEFAULTS: NetworksSettings = NetworksSettings.parse({});
@@ -442,6 +445,8 @@ export const NetworkLimits = z
     linkedin: limitsOn('linkedin'),
     instagram: limitsOn('instagram'),
     alignable: limitsOn('alignable'),
+    threads: limitsOn('threads'),
+    x: limitsOn('x'),
   })
   .partial();
 export type NetworkLimits = z.output<typeof NetworkLimits>;
@@ -542,6 +547,8 @@ export function autopilotOver(settings: AutomationSettings): AutomationSettings 
       linkedin: piloted(settings.networks.linkedin),
       instagram: piloted(settings.networks.instagram),
       alignable: piloted(settings.networks.alignable),
+      threads: piloted(settings.networks.threads),
+      x: piloted(settings.networks.x),
     },
   };
 }
@@ -575,6 +582,8 @@ export function keepOwnPicks(
       linkedin: ownPicks(settings.networks.linkedin, own.networks.linkedin),
       instagram: ownPicks(settings.networks.instagram, own.networks.instagram),
       alignable: ownPicks(settings.networks.alignable, own.networks.alignable),
+      threads: ownPicks(settings.networks.threads, own.networks.threads),
+      x: ownPicks(settings.networks.x, own.networks.x),
     },
   };
 }
@@ -605,6 +614,8 @@ export function withinRules(
       linkedin: choicesWithin(s.networks.linkedin, rules, 'linkedin'),
       instagram: choicesWithin(s.networks.instagram, rules, 'instagram'),
       alignable: choicesWithin(s.networks.alignable, rules, 'alignable'),
+      threads: choicesWithin(s.networks.threads, rules, 'threads'),
+      x: choicesWithin(s.networks.x, rules, 'x'),
     },
   };
 }
@@ -870,6 +881,9 @@ export const AutomationOutput = z.object({
     linkedin: WheelsState,
     instagram: WheelsState,
     alignable: WheelsState,
+    // Threads' and X's (decision 163).
+    threads: WheelsState,
+    x: WheelsState,
   }),
   /** Each network's half limits for someone new there (decision 96). */
   fresh: z
@@ -878,12 +892,16 @@ export const AutomationOutput = z.object({
       linkedin: FreshState,
       instagram: FreshState,
       alignable: FreshState,
+      threads: FreshState.default(NOT_FRESH),
+      x: FreshState.default(NOT_FRESH),
     })
     .default({
       facebook: NOT_FRESH,
       linkedin: NOT_FRESH,
       instagram: NOT_FRESH,
       alignable: NOT_FRESH,
+      threads: NOT_FRESH,
+      x: NOT_FRESH,
     }),
   /** Whose they are. */
   userId: z.uuid(),
@@ -916,10 +934,32 @@ export const AutomationChanges = loosened(AutomationSettings).extend({
       linkedin: loosened(NetworkChoices).optional(),
       instagram: loosened(NetworkChoices).optional(),
       alignable: loosened(NetworkChoices).optional(),
+      threads: loosened(NetworkChoices).optional(),
+      x: loosened(NetworkChoices).optional(),
     })
     .optional(),
 });
 export type AutomationChanges = z.output<typeof AutomationChanges>;
+
+/**
+ * The networks' choices as a whole save sends them: each network on its own, so one a screen doesn't know yet (Threads
+ * and X on a phone from before decision 163) is left out and keeps what's kept, rather than its choices going back to
+ * the defaults.
+ */
+const SentNetworks = NetworksSettings.extend({
+  // The four every build has sent since the start keep their defaults, as old phone builds rely on (the phone's
+  // contract may only grow); the two new ones are left out by a screen from before them.
+  threads: NetworkChoices.optional(),
+  x: NetworkChoices.optional(),
+});
+export type SentNetworks = z.output<typeof SentNetworks>;
+
+/** The networks' choices a whole save sent, put over the ones kept: a network it left out keeps its own. */
+export function sentOver(kept: NetworksSettings, sent: SentNetworks): NetworksSettings {
+  return Object.fromEntries(
+    PLATFORM_KEYS.map((p) => [p, sent[p] ?? kept[p]]),
+  ) as unknown as NetworksSettings;
+}
 
 export const AutomationSaveInput = z
   .object({
@@ -934,7 +974,8 @@ export const AutomationSaveInput = z
       voice: Voice.optional(),
       dayReport: z.boolean().optional(),
       acceptedPush: z.boolean().optional(),
-      networks: NetworksSettings.optional(),
+      // Each network left out (a screen from before Threads and X, decision 163) keeps its choices as they're kept.
+      networks: SentNetworks.optional(),
       // A screen from before Autopilot (decision 151) sends none: it stays as it was.
       autopilot: z.boolean().optional(),
     }).optional(),

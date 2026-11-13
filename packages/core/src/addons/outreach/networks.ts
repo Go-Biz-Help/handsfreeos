@@ -20,13 +20,16 @@ import {
 
 /**
  * The networks it knows, in Chris's order (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md): Facebook and LinkedIn
- * work; Instagram and Alignable were looked at first (`stage`), and work now, by hand till their runners.
+ * work; Instagram and Alignable were looked at first (`stage`), and work now, by hand till their runners; Threads and X
+ * work from decision 163, built from their sites' usual buttons and tuned from Check Threads and Check X.
  */
 export const PLATFORMS = {
   facebook: 'Facebook',
   linkedin: 'LinkedIn',
   instagram: 'Instagram',
   alignable: 'Alignable',
+  threads: 'Threads',
+  x: 'X',
 } as const;
 export type Platform = keyof typeof PLATFORMS;
 export const PLATFORM_KEYS = Object.keys(PLATFORMS) as [Platform, ...Platform[]];
@@ -147,12 +150,98 @@ export interface NetworkKit {
   /** How many old requests it withdraws, and friends it removes, in a day once the person ticks them. */
   readonly tidyLimits: Readonly<Record<TidyKind, number>>;
   /**
+   * Whether anything is ever written to someone in their messages there (decision 163): every network but Threads and
+   * X, whose outreach is comments, likes and follows till their messages come in a part of their own. Where it's false
+   * there's no first message, follow-up, reply, Reconnect or partner's ask, and no chat is read.
+   */
+  readonly messages: boolean;
+  /**
+   * Its post search through the day (decision 163, the owner's "every hour"): in the working hours, every `everyMinutes`,
+   * `perLook` of the playbooks' phrases for it in turn, newest first, keeping only posts under `newestHours` old for the
+   * AI's check. Null where posts are looked for once a day (`posts` among the once-a-day jobs).
+   */
+  readonly postSearch: {
+    readonly everyMinutes: number;
+    readonly perLook: number;
+    readonly newestHours: number;
+  } | null;
+  /**
+   * The most characters a comment there takes, where the network counts them (X's 280 for an account that doesn't
+   * pay, Threads' 500); null where words are the limit (`COMMENT_WORDS_MOST` in ./today.ts) or none.
+   */
+  readonly commentCharsMost: number | null;
+  /**
    * What the extension's runner does there (the Instagram and Alignable plan's "steps per network"): the kinds on
    * today's list it does on its own, and the switches along the way it reads. Today marks only these as done on their
    * own, and Settings show only these switches. A network still looked at, or before its runner, does none yet.
    */
   readonly runs: { readonly auto: readonly RunnerKind[]; readonly ticks: readonly RunnerTick[] };
   readonly words: NetworkWords;
+}
+
+/** The first build of the extension with Threads' and X's kits (decision 163): an older one works neither. */
+export const THREADS_X_SINCE = '0.137.0';
+
+/**
+ * Threads' and X's kits (decision 163), alike but for their addresses, ids, caps and comments' length: a follow is the
+ * request and a follow-back the accepting, as on Instagram; the owner's 3b, 30 comments and 80 likes a day, halved for a
+ * new account and for a week after a warning; 20 follows a day; comments wait for an OK at first, as Instagram's and
+ * LinkedIn's do; the posts its search finds every hour bring the people checked; and no messages, so no first message
+ * or follow-up limit. Its runner looks at their account and likes a post or two, follows, and unfollows once the wait
+ * ends without a follow-back (decision 161); comments go through `sends`, and it joins no groups.
+ */
+function followNetwork(kit: {
+  readonly name: string;
+  readonly link: RegExp;
+  readonly profileId: RegExp;
+  readonly username: RegExp;
+  readonly threadKey: RegExp;
+  readonly friendsCap: number;
+  readonly commentCharsMost: number;
+  readonly messaging: string;
+}): NetworkKit {
+  return {
+    name: kit.name,
+    stage: 'working',
+    link: kit.link,
+    profileId: kit.profileId,
+    username: kit.username,
+    threadKey: kit.threadKey,
+    friendsCap: kit.friendsCap,
+    dailyLimits: { friend_request: 20, first_message: 0, follow_up: 0, comment: 30, like: 80 },
+    weeklyRequests: null,
+    // Its followers aren't checked yet: its people come from the posts its search finds.
+    checksPerDay: 0,
+    checksMost: 0,
+    forumAnswersPerDay: null,
+    recommends: false,
+    hashtags: false,
+    follows: true,
+    // Who follows them back, from the accounts they followed, 30 a day at most, as on Instagram.
+    followBackLooksPerDay: 30,
+    // Who wrote a good post and who replied to one, 30 a day, from 5 good posts' repliers a day.
+    foundChecksPerDay: 30,
+    foundShareReads: false,
+    postPeoplePerDay: 5,
+    storyLikesPerDay: null,
+    commentsWait: 'hold',
+    joinsPerDay: null,
+    // Unfollowing who didn't follow back in the warm-up's wait, 20 a day at most; nobody who follows them is removed.
+    tidyLimits: { cancel_request: 20, unfriend: 0 },
+    messages: false,
+    // Every hour in the working hours (the owner's "every hour"), 2 phrases a look, posts under 2 days old.
+    postSearch: { everyMinutes: 60, perLook: 2, newestHours: 48 },
+    commentCharsMost: kit.commentCharsMost,
+    runs: { auto: ['warm_up', 'friend_request'], ticks: ['warmUp', 'collect'] },
+    words: {
+      friend: 'follower',
+      friends: 'followers',
+      friendRequest: 'follow',
+      friendRequests: 'follows',
+      messaging: kit.messaging,
+      messageLike: 'the way people message someone they follow',
+    },
+  };
 }
 
 export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
@@ -181,6 +270,9 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     commentsWait: 'never',
     joinsPerDay: 3,
     tidyLimits: TIDY_LIMITS,
+    messages: true,
+    postSearch: null,
+    commentCharsMost: null,
     // auto/run.ts: requests to confirm, likes, friend requests and comments; every switch along the way.
     runs: {
       auto: ['confirm', 'warm_up', 'friend_request', 'comment'],
@@ -227,6 +319,9 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     joinsPerDay: null,
     // Old invitations are withdrawn after the business's wait; nobody is removed.
     tidyLimits: { cancel_request: 20, unfriend: 0 },
+    messages: true,
+    postSearch: null,
+    commentCharsMost: null,
     // auto/linkedin.ts: likes and invitations, and from decision 136 accepting the invitations they get, as they
     // picked and the AI says (on Received invitations); comments go through `sends`. Of the switches along the way it
     // reads the warm-up and saving connections: it joins no groups and has no hourly look.
@@ -280,6 +375,9 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     // Unfollowing those who didn't follow back in the business's wait (3 weeks to start), 20 a day at most; nobody
     // who follows them is removed.
     tidyLimits: { cancel_request: 20, unfriend: 0 },
+    messages: true,
+    postSearch: null,
+    commentCharsMost: null,
     // auto/instagram.ts (part 14): warm-ups (a look at their account and a like on one or two of their recent posts)
     // and follows. Comments wait for the person's OK each time, as they're public writing (the plan's "Anything public
     // … waits for an OK", and Alignable's answers), so `comment` isn't here, and unfollowing stays the person's ticks.
@@ -325,6 +423,9 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     commentsWait: 'hold',
     joinsPerDay: 3,
     tidyLimits: { cancel_request: 20, unfriend: 0 },
+    messages: true,
+    postSearch: null,
+    commentCharsMost: null,
     // auto/alignable.ts (part 5): warm-ups (a look at their business page, and a like on a recent post of theirs when
     // it shows one) and connection requests. Comments and forum answers wait for the person's OK, as they're public
     // writing (the plan's question 9, decision 92), and Recommend is only ever theirs. Of the switches along the way it
@@ -343,6 +444,38 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
       messageLike: 'the way local business owners message each other',
     },
   },
+  // Follow networks made of posts (decision 163): the work is finding posts on the business's topic every hour and
+  // commenting, a like on the good ones, and a follow and decision 161's visits for the good fits found by them, then
+  // an unfollow once the wait ends without a follow-back. No messages yet (`messages: false`). Built from the sites'
+  // usual buttons and tuned from Check Threads and Check X.
+  threads: followNetwork({
+    name: PLATFORMS.threads,
+    // threads.com since 2025; threads.net still opens it.
+    link: /^https:\/\/www\.threads\.(?:com|net)\//,
+    profileId: /^[0-9]{1,30}$/,
+    // An Instagram username: letters, numbers, dots and underscores, in threads.com/@<this>.
+    username: /^[A-Za-z0-9._]{1,30}$/,
+    threadKey: /^[0-9]{1,64}$/,
+    // Its accounts follow up to Instagram's 7,500.
+    friendsCap: 7_500,
+    commentCharsMost: 500,
+    messaging: 'Threads messages',
+  }),
+  x: followNetwork({
+    name: PLATFORMS.x,
+    // x.com, and twitter.com, which sends to it.
+    link: /^https:\/\/(?:www\.|mobile\.)?(?:x|twitter)\.com\//,
+    profileId: /^[0-9]{1,30}$/,
+    // A handle in x.com/<this>: letters, numbers and underscores, 15 at most.
+    username: /^[A-Za-z0-9_]{1,15}$/,
+    // A conversation's id in /messages/<this>: two account numbers joined by a dash.
+    threadKey: /^[0-9-]{1,64}$/,
+    // X stops a new account's follows at 5,000 till it has more followers.
+    friendsCap: 5_000,
+    // What an account that doesn't pay can post in one go (X Premium's longer posts are left alone).
+    commentCharsMost: 280,
+    messaging: 'X messages',
+  }),
 };
 
 /** The follow networks (Instagram's): a follow is the request, and their follow-back the accepting (decision 159). */
@@ -350,7 +483,7 @@ export const FOLLOW_PLATFORMS: readonly Platform[] = PLATFORM_KEYS.filter(
   (p) => NETWORKS[p].follows,
 );
 
-/** The networks past their look: all four now. */
+/** The networks past their look: all six now. */
 export const WORKING_PLATFORMS: readonly Platform[] = PLATFORM_KEYS.filter(
   (p) => NETWORKS[p].stage === 'working',
 );
@@ -394,16 +527,24 @@ export function networkLimitsNow(
   return Object.fromEntries(
     DAILY_STEPS.map((step) => [
       step,
-      business[step] === 0
+      business[step] === 0 || starting[step] === 0
         ? 0
         : limitNow(Math.min(starting[step], business[step] ?? Infinity), slower),
     ]),
   ) as Record<DailyStep, number>;
 }
 
-/** A network's name after "a" or "an", as it's said: "a LinkedIn page", "an Instagram page". */
+/** A network's name after "a" or "an", as it's said: "a LinkedIn page", "an Instagram page", "an X page". */
 export const withArticle = (name: string): string =>
-  `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}`;
+  `${/^(?:[aeiou]|x$)/i.test(name) ? 'an' : 'a'} ${name}`;
+
+/** Whether anything is ever written to someone in their messages on a network (decision 163): not on Threads or X. */
+export const messagesOn = (platform: Platform): boolean => NETWORKS[platform].messages;
+
+/** The networks where people are messaged: every one but Threads and X (decision 163). */
+export const MESSAGE_PLATFORMS: readonly Platform[] = PLATFORM_KEYS.filter(
+  (p) => NETWORKS[p].messages,
+);
 
 /** The network a link is on, or null when it's on none the add-on knows. */
 export function networkOfLink(url: string): Platform | null {

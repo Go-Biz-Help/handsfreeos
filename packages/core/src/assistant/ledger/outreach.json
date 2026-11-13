@@ -167,7 +167,7 @@
       "by": "Social Outreach’s places in the business’s part of the prompt (manifest ai.places): each page’s name, way there and what is on it"
     },
     {
-      "path": "Every page → network picker (Every network, Facebook, LinkedIn, Instagram, Alignable), remembered",
+      "path": "Every page → network picker (Every network, Facebook, LinkedIn, Instagram, Alignable, Threads, X), remembered",
       "kind": "do",
       "file": "apps/web/src/addons/outreach/network-ui.tsx:54",
       "covered": "yes",
@@ -286,7 +286,7 @@
       "by": "outreach_automation"
     },
     {
-      "path": "Settings → menu → Networks: Facebook, LinkedIn, Instagram, Alignable, each On or Off",
+      "path": "Settings → menu → Networks: Facebook, LinkedIn, Instagram, Alignable, Threads, X, each On or Off",
       "kind": "see",
       "file": "apps/web/src/addons/outreach/home.tsx:379",
       "covered": "yes",
@@ -3016,7 +3016,7 @@
       "by": "outreach_save_playbook groupWords"
     },
     {
-      "path": "Playbooks → builder → Where to look: each network's search words or hashtags, with the hint of what's written",
+      "path": "Playbooks → builder → Where to look: each network's search words or hashtags (Threads' and X's hourly search phrases too), with the hint of what's written",
       "kind": "do",
       "file": "apps/web/src/addons/outreach/playbook-builder.tsx:1113",
       "covered": "yes",

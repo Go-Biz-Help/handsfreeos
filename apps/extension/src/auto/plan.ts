@@ -39,6 +39,9 @@ export const LINKEDIN_STATE_KEY = 'hfos.auto.linkedin';
 export const ALIGNABLE_STATE_KEY = 'hfos.auto.alignable';
 /** Where Instagram's runner keeps its own (./instagram.ts). */
 export const INSTAGRAM_STATE_KEY = 'hfos.auto.instagram';
+/** Where Threads' and X's runners keep theirs (./follows.ts, decision 163). */
+export const THREADS_STATE_KEY = 'hfos.auto.threads';
+export const X_STATE_KEY = 'hfos.auto.x';
 
 /**
  * The kinds it does on its own, in the order of their turns: a friend request before a like (decision 138), so one a

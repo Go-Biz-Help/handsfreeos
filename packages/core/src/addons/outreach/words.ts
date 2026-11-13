@@ -12,6 +12,7 @@ import { clockWords } from './live';
 import type { PushMode } from './automation';
 import { DONT_PITCH_TAG } from './limits';
 import { READ_CHATS_WORDS } from './asks';
+import { NETWORKS } from './networks';
 import type { ChatView } from './chat-read';
 import type { GroupView } from './groups';
 import {
@@ -705,6 +706,9 @@ export const OUTREACH_WORDS = {
     postSearches: 'Words to search LinkedIn’s posts with',
     businessKinds: 'Kinds of business to search for on Alignable',
     worksOnline: 'Clients online',
+    // Threads' and X's hourly searches (decision 163).
+    threadsSearches: 'Words to search Threads with',
+    xSearches: 'Words to search X with',
   },
   /**
    * Each network's own words on a customers' playbook (decisions 92 and 141): written by the AI once, around the
@@ -715,6 +719,9 @@ export const OUTREACH_WORDS = {
   findWords: {
     written: (perDay: number) =>
       `The AI wrote these around your topic: the problem you solve and running that kind of business. Change any; it looks at ${perDay} a day, in turn.`,
+    /** On a network that searches every hour (decision 163). */
+    writtenHourly: (perLook: number) =>
+      `The AI wrote these around your topic: the problem you solve and running that kind of business. Change any; it searches with ${perLook} every hour, in turn.`,
     notYet:
       'While this list is empty, the AI writes it once around your topic: the problem you solve and running that kind of business. Any words you add are used instead.',
     own: 'These are your own words, so the AI won’t add to them. Empty the list and it writes its own.',
@@ -723,6 +730,8 @@ export const OUTREACH_WORDS = {
       instagram: 'Instagram won’t look at hashtags for this playbook.',
       linkedin: 'LinkedIn won’t search posts for this playbook.',
       alignable: 'Alignable won’t search for businesses for this playbook.',
+      threads: 'Threads won’t search posts for this playbook.',
+      x: 'X won’t search posts for this playbook.',
     } satisfies Record<WordsPlatform, string>,
     hashtagHint: 'Like austinroofing. Each is cleaned as people tag it: no #, no spaces.',
     /** A line typed that makes no hashtag: too short, too long, or no letter in it. */
@@ -898,9 +907,12 @@ export function findWordsHint(
   platform: WordsPlatform,
 ): string {
   const has = (details[FIND_WORDS_PARTS[platform]] ?? []).length > 0;
+  const hourly = NETWORKS[platform].postSearch;
   if (details.wordsWritten?.includes(platform))
     return has
-      ? OUTREACH_WORDS.findWords.written(FIND_WORDS_PER_DAY[platform])
+      ? hourly
+        ? OUTREACH_WORDS.findWords.writtenHourly(hourly.perLook)
+        : OUTREACH_WORDS.findWords.written(FIND_WORDS_PER_DAY[platform])
       : OUTREACH_WORDS.findWords.none[platform];
   return has ? OUTREACH_WORDS.findWords.own : OUTREACH_WORDS.findWords.notYet;
 }

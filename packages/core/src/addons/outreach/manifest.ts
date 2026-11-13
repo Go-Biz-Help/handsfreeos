@@ -101,6 +101,7 @@ export const outreachAddon = defineAddon({
       'outreach.posts.saved',
       'outreach.post.checked',
       'outreach.post.skipped',
+      'outreach.comment.replied',
       'outreach.reply.seen',
       'outreach.opener.used',
       'outreach.demo.marked',
@@ -193,6 +194,8 @@ export const outreachAddon = defineAddon({
     // Someone who wants a demo, or answered the playbook's questions, goes in the main pipeline (decision 105, ./leads.ts);
     // once they came to the demo, their lead moves on and waits for the person's won or lost (decision 106). Accounts
     // an Instagram search showed for accounts like yours wait for the AI to pick the best (decision 110, ./like-yours.ts).
+    // Someone who says yes to a demo under the person's comment on Threads or X pushes to their phone (decision 163,
+    // ./posts.ts).
     // An OK'd message that offers times, or books one, has them checked again and the booking made before it goes
     // (decision 149, ./times.ts).
     consumes: [
@@ -204,6 +207,7 @@ export const outreachAddon = defineAddon({
       'outreach.group.looked',
       'outreach.helpful.asked',
       'outreach.reply.seen',
+      'outreach.comment.replied',
       'outreach.send.queued',
       'addon.settings_saved',
       'appointment.booked',

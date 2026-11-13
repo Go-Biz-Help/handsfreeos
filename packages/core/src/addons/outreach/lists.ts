@@ -43,6 +43,9 @@ export const LIST_SAVES_ON: Readonly<Record<Platform, readonly ListSave[]>> = {
   // Its runner (part 14): the person's newest followers, its friends list; it reads no follow requests.
   instagram: ['friends'],
   alignable: ['friends', 'requests'],
+  // Threads and X (decision 163): their newest followers, as Instagram's.
+  threads: ['friends'],
+  x: ['friends'],
 };
 /** What each network notes as done before its first day, in order. */
 export const LIST_MARKS_ON: Readonly<Record<Platform, readonly ListMark[]>> = {
@@ -50,6 +53,9 @@ export const LIST_MARKS_ON: Readonly<Record<Platform, readonly ListMark[]>> = {
   linkedin: ['friends', 'requests', 'sent', 'tidy', 'checks'],
   instagram: ['friends', 'tidy', 'checks'],
   alignable: ['friends', 'requests', 'checks'],
+  // Their followers aren't checked for fits (decision 163): their people come from the posts their search finds.
+  threads: ['friends', 'tidy'],
+  x: ['friends', 'tidy'],
 };
 
 /** The friends list, and the groups, are saved again once their last full save is this old. */
@@ -172,6 +178,17 @@ export const LIST_NAMES: Readonly<Record<ListSave, string>> = {
   groups: 'Your groups',
 };
 
+/** A follow network's lists as "It's saving … first" names them (Threads' and X's, decision 163). */
+const FOLLOW_WAIT_NAMES = {
+  each: {
+    friends: 'your newest followers',
+    requests: 'the follow requests you’ve got',
+    sent: 'the ones you’ve sent',
+    groups: 'your groups',
+  },
+  all: 'your newest followers',
+} as const;
+
 /** Each network's lists as "It's saving … first" names them: one of them, or all of them at once. */
 const WAIT_NAMES_ON: Readonly<
   Record<Platform, { readonly each: Readonly<Record<ListSave, string>>; readonly all: string }>
@@ -203,6 +220,8 @@ const WAIT_NAMES_ON: Readonly<
     },
     all: 'your newest followers',
   },
+  threads: FOLLOW_WAIT_NAMES,
+  x: FOLLOW_WAIT_NAMES,
   alignable: {
     each: {
       friends: 'your connections',
@@ -249,6 +268,16 @@ export const PRE_DAY_WORDS: Readonly<Record<ListMark, string>> = {
   checks: 'Check your friends for good fits',
 };
 
+/** A follow network's steps before its first day (Threads' and X's, decision 163). */
+const FOLLOW_PRE_DAY: Readonly<Record<ListMark, string>> = {
+  ...PRE_DAY_WORDS,
+  friends: 'Save your newest followers',
+  requests: 'Save follow requests you got',
+  sent: 'Save follows you sent',
+  tidy: 'Work out who to unfollow',
+  checks: 'Check your followers for good fits',
+};
+
 /** Each network's steps before its first day, in its own words. */
 export const PRE_DAY_WORDS_ON: Readonly<Record<Platform, Readonly<Record<ListMark, string>>>> = {
   facebook: PRE_DAY_WORDS,
@@ -276,6 +305,8 @@ export const PRE_DAY_WORDS_ON: Readonly<Record<Platform, Readonly<Record<ListMar
     tidy: 'Work out which old requests to withdraw',
     checks: 'Check your connections for good fits',
   },
+  threads: FOLLOW_PRE_DAY,
+  x: FOLLOW_PRE_DAY,
 };
 
 /** The checklist's heading. */

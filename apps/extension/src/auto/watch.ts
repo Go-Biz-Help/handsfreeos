@@ -34,12 +34,14 @@ export const WATCH_ALARM = 'hfos-watch';
 /** Where the watch keeps its window and tabs, while the browser is open. */
 const WATCH_KEY = 'hfos.watch';
 
+/** The networks with messages to watch: never Threads or X, where nothing is written yet (decision 163). */
+export type Watched = Extract<Platform, 'facebook' | 'linkedin' | 'instagram' | 'alignable'>;
 /** The networks it watches, in the order their tabs open. */
-const WATCHED: readonly Platform[] = ['facebook', 'linkedin', 'instagram', 'alignable'];
+const WATCHED: readonly Watched[] = ['facebook', 'linkedin', 'instagram', 'alignable'];
 
 /** The page kept open on each network, and the kinds of its pages that show the person's messages. */
 export const WATCH_PAGES: Readonly<
-  Record<Platform, { readonly url: string; readonly kinds: readonly string[] }>
+  Record<Watched, { readonly url: string; readonly kinds: readonly string[] }>
 > = {
   facebook: { url: MESSENGER_HOME.url, kinds: MESSENGER_HOME.kinds },
   linkedin: { url: LINKEDIN_MESSAGING.url, kinds: LINKEDIN_MESSAGING.kinds },
@@ -51,7 +53,7 @@ export const WATCH_PAGES: Readonly<
  * A page is loaded afresh after this: one open for hours can stop hearing of new messages. Alignable's sooner, as its
  * list may only move when it's loaded.
  */
-export const FRESH_MS: Readonly<Record<Platform, number>> = {
+export const FRESH_MS: Readonly<Record<Watched, number>> = {
   facebook: 20 * 60_000,
   linkedin: 20 * 60_000,
   instagram: 20 * 60_000,
@@ -105,7 +107,7 @@ export function watchedOn(input: {
   readonly warned: readonly Platform[];
   readonly closed: Watch['closed'];
   readonly now: number;
-}): Platform[] {
+}): Watched[] {
   const { settings } = input;
   if (!settings || !input.working || !input.noting) return [];
   return WATCHED.filter((platform) => {
@@ -142,7 +144,7 @@ export function rowsMoved(
 export function tabStep(input: {
   readonly tab: { readonly status?: string; readonly discarded?: boolean } | null;
   readonly kind: string | null;
-  readonly platform: Platform;
+  readonly platform: Watched;
   readonly loadedAt: number | undefined;
   readonly now: number;
 }): 'open' | 'load' | 'wait' | 'read' {
@@ -207,7 +209,7 @@ export function onAlignableMoved(heard: () => void): void {
 }
 
 /** The networks to watch now, from what's kept on the computer: never an ask of HandsFreeOS. */
-async function watchedNow(watch: Watch): Promise<Platform[]> {
+async function watchedNow(watch: Watch): Promise<Watched[]> {
   const to = await savingTo().catch(() => null);
   if (!to) return [];
   const [kept, noting, states, said] = await Promise.all([
@@ -234,7 +236,7 @@ async function watchedNow(watch: Watch): Promise<Platform[]> {
 }
 
 /** Its window, opened beside the person's and minimized, with the first network's page. */
-async function windowFor(watch: Watch, first: Platform): Promise<Watch> {
+async function windowFor(watch: Watch, first: Watched): Promise<Watch> {
   const open =
     watch.windowId === null ? null : await chrome.windows.get(watch.windowId).catch(() => null);
   if (open) return watch;
@@ -299,13 +301,13 @@ async function askWithin<T>(tabId: number, message: { readonly type: string }): 
 }
 
 /** Loads a network's page in its tab afresh. */
-async function load(tabId: number, platform: Platform): Promise<void> {
+async function load(tabId: number, platform: Watched): Promise<void> {
   await chrome.tabs.update(tabId, { url: WATCH_PAGES[platform].url, autoDiscardable: false });
   await setWatch((now) => ({ loaded: { ...now.loaded, [platform]: Date.now() } }));
 }
 
 /** This minute on one network: its tab opened, loaded afresh, or read. */
-async function lookAt(watch: Watch, platform: Platform): Promise<void> {
+async function lookAt(watch: Watch, platform: Watched): Promise<void> {
   const id = watch.tabs[platform];
   const tab = id === undefined ? null : await chrome.tabs.get(id).catch(() => null);
   const ours = tab && tab.windowId === watch.windowId ? tab : null;

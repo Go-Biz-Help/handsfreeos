@@ -142,7 +142,7 @@ describe('comments that sound like someone who knows the owner’s own field', (
     expect(facebook).toContain('Never invent experience, numbers or results');
     expect(facebook).not.toContain('friendly local');
     // The owner's own comment (2 Nov 2026): a bold take that challenges the usual way, never the person, and an offer to
-    // show them only when they want the help, with no link (decision 144).
+    // show them only when the post asks for someone who offers it, with no link (decisions 144 and 163).
     expect(facebook).toContain('Take a clear stand from the owner’s field');
     expect(facebook).toContain(
       'often a bold take on what most people get wrong or do the hard way',
@@ -150,7 +150,17 @@ describe('comments that sound like someone who knows the owner’s own field', (
     expect(facebook).toContain('sometimes one specific tip');
     expect(facebook).toContain('Challenge the usual way, never the person');
     expect(facebook).toContain(
-      'When they ask for help with what the business does, or are looking for someone to do it, end with a short, easy offer to show them, such as “I can show you a demo if you’re interested”, with no link, no web address and no price. Otherwise offer nothing and pitch nothing.',
+      'Only when the post asks for someone who offers what the business offers, or for a recommendation of one (“anyone know a good …?”, “looking for someone to …”, “who do you use for …?”), end with a short, easy offer to show them, such as “I can show you a demo if you’re interested”, with no link, no web address and no price. A post that asks for help or tips with the topic, or complains about it, gets a take or a tip and no offer. Otherwise offer nothing and pitch nothing.',
+    );
+    // What the post check found (decision 163, 5a): asking for what the business offers, or not.
+    const post = (asking: boolean) => ({
+      post: { text: 'Anyone know a good CRM?', group: null, asking },
+    });
+    expect(ask(null, 'facebook', post(true))).toContain(
+      'so the comment ends with the short offer to show them',
+    );
+    expect(ask(null, 'facebook', post(false))).toContain(
+      'so the comment offers nothing and pitches nothing',
     );
     expect(facebook).not.toContain('unless they asked for one');
     // Every network's comment carries no link, and keeps to the network's words.

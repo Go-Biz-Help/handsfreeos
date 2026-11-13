@@ -62,12 +62,16 @@ const AUTOMATION: AutomationOutput = {
     linkedin: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
     instagram: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
     alignable: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
+    threads: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
+    x: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
   },
   fresh: {
     facebook: { on: false, from: null, until: null, days: 14 },
     linkedin: { on: false, from: null, until: null, days: 14 },
     instagram: { on: false, from: null, until: null, days: 14 },
     alignable: { on: false, from: null, until: null, days: 14 },
+    threads: { on: false, from: null, until: null, days: 14 },
+    x: { on: false, from: null, until: null, days: 14 },
   },
   userId: ME,
   name: 'Dana Reyes',
@@ -116,9 +120,9 @@ describe('The Settings menu on the phone', () => {
     // The networks still to come, on one line nobody can open.
     expect(screen.getByTestId('settings-open-instagram-badge')).toHaveTextContent('Off');
     expect(screen.getByTestId('settings-open-alignable-badge')).toHaveTextContent('Off');
-    expect(screen.getByTestId('settings-networks-coming')).toHaveTextContent(
-      'Threads, X and TikTok are coming',
-    );
+    expect(screen.getByTestId('settings-open-threads-badge')).toHaveTextContent('Off');
+    expect(screen.getByTestId('settings-open-x-badge')).toHaveTextContent('Off');
+    expect(screen.getByTestId('settings-networks-coming')).toHaveTextContent('TikTok is coming');
     expect(screen.getByText('Changes save as you make them.')).toBeTruthy();
     // No Save button anywhere: each page saves as it's changed.
     expect(screen.queryByText('Save')).toBeNull();

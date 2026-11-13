@@ -59,9 +59,18 @@ export type PostCheck = (typeof POST_CHECKS)[number];
 /**
  * How a post was found: scrolling a group's feed, Find posts, the watch for new ones, a network's own search, an
  * account like the business's own (decision 110), whose posts are read for who liked and commented on them, or the day's
- * look at the person's groups for a question to answer (`active`, decision 114, ./active.ts).
+ * look at the person's groups for a question to answer (`active`, decision 114, ./active.ts); and on Threads and X a
+ * reply to one of the person's comments (`reply`, decision 163, ./comment-replies.ts), kept to answer.
  */
-export const POST_FOUND = ['scroll', 'find', 'watch', 'search', 'account', 'active'] as const;
+export const POST_FOUND = [
+  'scroll',
+  'find',
+  'watch',
+  'search',
+  'account',
+  'active',
+  'reply',
+] as const;
 export type PostFound = (typeof POST_FOUND)[number];
 
 /** The look at the newest posts (decision 49): how many groups, how many screens of each, and how often. */
@@ -272,7 +281,7 @@ export const PostsSaveInput = z
     group: GroupRef.nullable().default(null),
     posts: z.array(PostIn).min(1).max(POSTS_SAVE_MOST),
     // A post for the day's reply in a group is kept by `outreach.active.reply` alone.
-    found: z.enum(POST_FOUND).exclude(['active']).default('scroll'),
+    found: z.enum(POST_FOUND).exclude(['active', 'reply']).default('scroll'),
     /**
      * The hashtag (without its #) or phrase the look or search found these with (decision 92), kept on each new post
      * (`posts.words`, the first one kept). A post found under a playbook's own is worth the AI's check whatever its
@@ -354,13 +363,27 @@ export const postCheckSystem = (platform: Platform = 'facebook', inGroup = true)
   return system.replace(`posts in ${name} groups`, `posts on ${name}`);
 };
 
-/** Each network's phrases for its post search: Facebook's own (data version 9, decision 141), and LinkedIn's. */
+/**
+ * Each network's phrases for its post search: Facebook's own (data version 9, decision 141), LinkedIn's, and the
+ * hourly searches' on Threads and X (decision 163).
+ */
 export const SEARCH_PARTS: Readonly<
-  Partial<Record<Platform, 'facebookSearches' | 'postSearches'>>
+  Partial<Record<Platform, 'facebookSearches' | 'postSearches' | 'threadsSearches' | 'xSearches'>>
 > = {
   facebook: 'facebookSearches',
   linkedin: 'postSearches',
+  threads: 'threadsSearches',
+  x: 'xSearches',
 };
+
+/**
+ * Which turn of a network's hourly searches it is (decision 163): the hours since 1 January 1970 (UTC) over its
+ * `postSearch.everyMinutes`, so each search takes the next phrases. Null on a network that searches once a day.
+ */
+export function searchTurn(platform: Platform, now: number = Date.now()): number | null {
+  const every = NETWORKS[platform].postSearch?.everyMinutes;
+  return every ? Math.floor(now / (every * 60_000)) : null;
+}
 
 /** The most searches one Find posts makes on a network's post search. */
 export const POST_SEARCHES_MOST = 5;
@@ -464,10 +487,12 @@ export function signWords(
  * run on it (decisions 92 and 141):
  *
  * - **Their own phrases first** (`facebookSearches` on Facebook, `postSearches` on LinkedIn: `SEARCH_PARTS`, written by
- *   the AI and the person's to change), 5 a day in turn by the day's number, so the searches go round them all.
+ *   the AI and the person's to change), 5 a day in turn by the day's number, so the searches go round them all. On
+ *   Threads and X (decision 163), which search every hour, `postSearch.perLook` (2) a search, in turn by the hour
+ *   (`searchTurn`, passed as `day`).
  * - **A playbook the AI hasn't written for yet** gives the words it always did (`signWords`): with no phrases of
- *   anyone's, the first few, as before. Not on Facebook: its post search goes with the playbooks' own phrases only,
- *   on their topic, so it waits for the AI's (decision 141).
+ *   anyone's, the first few, as before. Not on Facebook, Threads or X: their post searches go with the playbooks' own
+ *   phrases only, on their topic, so they wait for the AI's (decision 141).
  * - **A playbook whose phrases the person emptied** gives nothing.
  *
  * A post found with a playbook's own phrase is worth the AI's check (`postLook`); any other only when it says a sign or
@@ -487,15 +512,17 @@ export function postSearchWords(
       .map(plain)
       .filter(Boolean),
   );
+  const hourly = NETWORKS[platform].postSearch;
   const made =
-    platform === 'facebook'
+    platform === 'facebook' || hourly
       ? []
       : signWords(
           these.filter((_, i) => own[i] === null),
           platform,
         );
-  if (!phrases.length) return made.slice(0, POST_SEARCHES_MOST);
-  return inTurn(eachOnce([...phrases, ...made]), POST_SEARCHES_MOST, day);
+  const most = hourly?.perLook ?? POST_SEARCHES_MOST;
+  if (!phrases.length) return made.slice(0, most);
+  return inTurn(eachOnce([...phrases, ...made]), most, day);
 }
 
 // ---- Instagram's hashtags and places (the Instagram and Alignable plan's "Where the people are", 3) ----

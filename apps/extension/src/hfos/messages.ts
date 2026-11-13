@@ -77,7 +77,9 @@ export type WarningNoteInput = Body<'/v1/commands/outreach.warning.note'>;
 export type WarningNoted = Ok<'/v1/commands/outreach.warning.note'>;
 /** Group posts worth a comment, kept and marked (packages/core/src/addons/outreach/posts.ts). */
 export type PostsSaveInput = Body<'/v1/commands/outreach.posts.save'>;
+export type CommentRepliesSaveInput = Body<'/v1/commands/outreach.comment_replies.save'>;
 export type PostsSaved = Ok<'/v1/commands/outreach.posts.save'>;
+export type CommentRepliesSaved = Ok<'/v1/commands/outreach.comment_replies.save'>;
 /** Chats whose last message is theirs, seen on Facebook (packages/core/src/addons/outreach/alerts.ts). */
 export type RepliesNoteInput = Body<'/v1/commands/outreach.replies.note'>;
 export type RepliesNoted = Ok<'/v1/commands/outreach.replies.note'>;
@@ -356,6 +358,8 @@ export type HfosAsk =
   | { readonly type: 'hfos-report'; readonly input: ReportSaveInput }
   | { readonly type: 'hfos-warning'; readonly input: WarningNoteInput }
   | { readonly type: 'hfos-save-posts'; readonly input: PostsSaveInput }
+  /** Replies to the person's comments on Threads or X, from their notifications (decision 163, answer 8a). */
+  | { readonly type: 'hfos-comment-replies'; readonly input: CommentRepliesSaveInput }
   | { readonly type: 'hfos-checks-next'; readonly input: ChecksNextInput }
   | { readonly type: 'hfos-check-look'; readonly input: CheckLookInput }
   | { readonly type: 'hfos-follow-backs-next'; readonly input: FollowBacksNextInput }
@@ -471,6 +475,7 @@ export interface HfosValues {
   readonly 'hfos-report': ReportSaved;
   readonly 'hfos-warning': WarningNoted;
   readonly 'hfos-save-posts': PostsSaved;
+  readonly 'hfos-comment-replies': CommentRepliesSaved;
   readonly 'hfos-checks-next': ChecksNext;
   readonly 'hfos-check-look': CheckLooked;
   readonly 'hfos-follow-backs-next': FollowBacksNext;

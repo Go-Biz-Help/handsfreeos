@@ -36,6 +36,9 @@ export const PLAYBOOK_ASSIST_PARTS = {
   hashtags: { kind: 'list', label: 'hashtags to look at on Instagram' },
   postSearches: { kind: 'list', label: 'words to search LinkedIn’s posts with' },
   businessKinds: { kind: 'list', label: 'kinds of business to search for on Alignable' },
+  // Threads' and X's hourly searches (decision 163).
+  threadsSearches: { kind: 'list', label: 'words to search Threads’ posts with' },
+  xSearches: { kind: 'list', label: 'words to search X’s posts with' },
   tags: { kind: 'list', label: 'tags' },
   samples: { kind: 'list', label: 'sample messages' },
   openerStyles: { kind: 'list', label: 'styles to open a first message' },
@@ -57,6 +60,8 @@ type ListPart =
   | 'hashtags'
   | 'postSearches'
   | 'businessKinds'
+  | 'threadsSearches'
+  | 'xSearches'
   | 'tags'
   | 'samples'
   | 'openerStyles'
@@ -96,6 +101,8 @@ export const AssistDraft = z.object({
   hashtags: list(PLAYBOOK_LIMITS.hashtags.line, PLAYBOOK_LIMITS.hashtags.most),
   postSearches: list(PLAYBOOK_LIMITS.postSearches.line, PLAYBOOK_LIMITS.postSearches.most),
   businessKinds: list(PLAYBOOK_LIMITS.businessKinds.line, PLAYBOOK_LIMITS.businessKinds.most),
+  threadsSearches: list(PLAYBOOK_LIMITS.threadsSearches.line, PLAYBOOK_LIMITS.threadsSearches.most),
+  xSearches: list(PLAYBOOK_LIMITS.xSearches.line, PLAYBOOK_LIMITS.xSearches.most),
   /** That the business works with these clients online (data version 8); null till it's said. */
   worksOnline: z.boolean().nullable().default(null),
   tags: list(PLAYBOOK_LIMITS.tags.line, PLAYBOOK_LIMITS.tags.most),
@@ -171,6 +178,8 @@ function playbookText(d: AssistDraft): string {
     `Hashtags to look at on Instagram:\n${lines(d.hashtags.map((t) => `#${t.replace(/^#+/, '')}`))}`,
     `Words to search LinkedIn’s posts with:\n${lines(d.postSearches)}`,
     `Kinds of business to search for on Alignable:\n${lines(d.businessKinds)}`,
+    `Words to search Threads’ posts with:\n${lines(d.threadsSearches)}`,
+    `Words to search X’s posts with:\n${lines(d.xSearches)}`,
     `Tags:\n${lines(d.tags)}`,
     `Questions for the conversation:\n${
       d.questions.length
@@ -206,6 +215,10 @@ const SUGGEST_MORE: Partial<Record<ListPart, (d: AssistDraft) => string>> = {
     }; never the business’s own name, and never ones everyone uses, like love, instagood or smallbusiness`,
   postSearches: () =>
     ': phrases of 1 to 4 words that someone writes in a LinkedIn post about the topic (the problem, what the business helps with, running that kind of business), in their words, not the business’s',
+  threadsSearches: () =>
+    ': phrases of 1 to 4 words that someone writes in a Threads post about the topic, asking for help or naming the problem the business solves, in their words, not the business’s',
+  xSearches: () =>
+    ': phrases of 1 to 4 words that someone writes in a post on X about the topic, asking for help or naming the problem the business solves, in their words, not the business’s',
   businessKinds: () =>
     ': kinds of business the people it’s for run, as Alignable names them, like “Roofing Contractor” or “Property Management”',
   tags: () => ': short labels, two or three words each, for sorting people by how they fit',

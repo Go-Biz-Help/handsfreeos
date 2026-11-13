@@ -25,8 +25,8 @@ import type { CenterNetwork } from '../accounts-center/pages';
 import type { Noticer } from '../kit';
 import type { StepTry, TryStep } from '../tries';
 
-/** A network looked at: Instagram or Alignable. */
-export type LookingPlatform = Extract<Platform, 'instagram' | 'alignable'>;
+/** A network built on this kit: Instagram, Alignable, and from decision 163 Threads and X (../follows/). */
+export type LookingPlatform = Extract<Platform, 'instagram' | 'alignable' | 'threads' | 'x'>;
 
 /** Whose post a comment goes on, and which (decision 92): their profile, and the post's own link. */
 export interface CommentOn {

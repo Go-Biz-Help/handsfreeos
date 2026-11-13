@@ -121,7 +121,14 @@ describe('what the AI is asked, and what’s kept of its answer', () => {
     expect(helpfulHowOn('alignable', 'own')).toBe('after_ok');
     expect(helpfulHowOn('alignable', 'copy')).toBe('copy');
     expect(helpfulHowOn('facebook', 'own')).toBe('own');
-    expect(HELPFUL_EVERY_DAYS).toEqual({ facebook: 1, linkedin: 1, instagram: 7, alignable: 7 });
+    expect(HELPFUL_EVERY_DAYS).toEqual({
+      facebook: 1,
+      linkedin: 1,
+      instagram: 7,
+      alignable: 7,
+      threads: 7,
+      x: 7,
+    });
     const instagram = helpfulWordsOn('instagram');
     expect(instagram.limit).toBe('One helpful post a week, on your own account.');
     expect(instagram.how('after_ok')).toBe(

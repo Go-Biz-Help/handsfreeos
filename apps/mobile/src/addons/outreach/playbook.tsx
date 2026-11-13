@@ -115,6 +115,9 @@ export const SECTION_FIELDS: Readonly<
   postSearches: ['postSearches'],
   businessKinds: ['businessKinds'],
   worksOnline: ['worksOnline'],
+  // Threads' and X's hourly searches (decision 163).
+  threadsSearches: ['threadsSearches'],
+  xSearches: ['xSearches'],
 };
 const SECTIONS = Object.keys(SECTION_FIELDS) as Exclude<Section, 'name'>[];
 
@@ -125,6 +128,8 @@ const NETWORK_SECTIONS: Partial<Record<Exclude<Section, 'name'>, WordsPlatform>>
   postSearches: 'linkedin',
   businessKinds: 'alignable',
   worksOnline: 'alignable',
+  threadsSearches: 'threads',
+  xSearches: 'x',
 };
 
 /** The parts a playbook shows: each network's own words only where `hasWordsOn` says. */
@@ -213,7 +218,9 @@ export function sectionWords(details: PlaybookDetails, section: Exclude<Section,
     case 'facebookSearches':
     case 'hashtags':
     case 'postSearches':
-    case 'businessKinds': {
+    case 'businessKinds':
+    case 'threadsSearches':
+    case 'xSearches': {
       const lines = details[section] ?? [];
       const platform = NETWORK_SECTIONS[section]!;
       if (lines.length) return list(section === 'hashtags' ? lines.map((t) => `#${t}`) : lines);
@@ -572,6 +579,8 @@ type ListKey =
   | 'hashtags'
   | 'postSearches'
   | 'businessKinds'
+  | 'threadsSearches'
+  | 'xSearches'
   | 'openerStyles'
   | 'ownOpeners';
 
@@ -840,7 +849,9 @@ function SectionEditor({
     case 'facebookSearches':
     case 'hashtags':
     case 'postSearches':
-    case 'businessKinds': {
+    case 'businessKinds':
+    case 'threadsSearches':
+    case 'xSearches': {
       const platform = NETWORK_SECTIONS[section]!;
       return (
         <>

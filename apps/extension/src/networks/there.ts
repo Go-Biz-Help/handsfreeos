@@ -16,6 +16,9 @@ const NOT_THERE: Readonly<Record<Platform, RegExp>> = {
   instagram: /sorry, this page isn[’']t available|the link you followed may be broken/i,
   linkedin: /this page doesn[’']t exist|page not found|profile (is )?not available/i,
   alignable: /page not found|doesn[’']t exist/i,
+  threads:
+    /sorry, this page isn[’']t available|profile isn[’']t available|this page isn[’']t available/i,
+  x: /this account doesn[’']t exist|account suspended|hmm\.\.\.this page doesn[’']t exist/i,
 };
 
 const words = (doc: Document) => (doc.body?.textContent ?? '').replace(/\s+/g, ' ');
