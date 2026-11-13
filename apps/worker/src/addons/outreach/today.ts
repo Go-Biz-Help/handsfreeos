@@ -166,10 +166,16 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
             )
           : [];
       const [post] = input.postId
-        ? await rows<{ profile_id: string; body: string; group: string | null; warm_up: boolean }>(
+        ? await rows<{
+            profile_id: string;
+            body: string;
+            group: string | null;
+            warm_up: boolean;
+            strong: boolean;
+          }>(
             tx,
             // The person's own posts only, like their chats.
-            sql`select po.profile_id, po.body, g.name as group, po.warm_up from addon_outreach.posts po
+            sql`select po.profile_id, po.body, g.name as group, po.warm_up, po.strong from addon_outreach.posts po
                 left join addon_outreach.groups g on g.id = po.group_id
                 where po.workspace_id = ${ws} and po.id = ${input.postId} and po.user_id = ${ctx.userId}`,
           )
@@ -588,6 +594,8 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
                         group: found.post.group,
                         warm: found.post.warm_up,
                         said: found.commentedLately,
+                        // The post check's word on whether they ask for what the business offers (decision 163).
+                        asking: found.post.strong,
                       }
                     : null,
                 lookup: toldLookup,

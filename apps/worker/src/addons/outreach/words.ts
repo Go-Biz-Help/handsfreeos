@@ -171,7 +171,7 @@ export async function writeWordsJob(ctx: AddonJobContext): Promise<JobResult> {
         ],
         schema: FIND_WORDS_SCHEMA,
         zod: FindWordsAnswer,
-        maxTokens: 1000,
+        maxTokens: 1500,
         usage: { source: 'addon', addonId: ctx.manifest.id },
       });
       words = checkedFindWords(value, p.needs, business);

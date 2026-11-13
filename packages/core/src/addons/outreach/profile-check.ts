@@ -51,6 +51,9 @@ export const PROFILE_ITEMS_ON: Readonly<Record<Platform, readonly AnyProfileItem
   // and from 0.98.0 one the AI wrote is put in), My Ideal Customer and the ideal partner (its work) and the services
   // (what it features).
   alignable: ['picture', 'about', 'bio', 'work', 'featured'],
+  // Threads and X (decision 163): what a stranger who sees the person's comment and opens their account reads first.
+  threads: ['picture', 'name', 'bio', 'link', 'posts'],
+  x: ['picture', 'cover', 'name', 'bio', 'link', 'posts'],
 };
 
 /** The networks with an About the AI writes whole and the extension puts in, and what each calls it. */
@@ -71,6 +74,8 @@ export const BIO_MOST_ON: Readonly<Record<Platform, number>> = {
   linkedin: 220,
   instagram: 150,
   alignable: 150,
+  threads: 150,
+  x: 160,
 };
 /** The longest bio any network takes: what a kept check allows. */
 export const PROFILE_BIO_MOST = Math.max(...Object.values(BIO_MOST_ON));
@@ -100,6 +105,8 @@ export const PROFILE_CHECK_MAX_TOKENS: Readonly<Record<Platform, number>> = {
   linkedin: 7000,
   instagram: 5000,
   alignable: 6000,
+  threads: 5000,
+  x: 5000,
 };
 
 /** What the extension reads off the person's own profile, each cut to fit before it's sent. */

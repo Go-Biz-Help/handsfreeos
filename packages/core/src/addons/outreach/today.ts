@@ -681,7 +681,15 @@ export const COMMENT_WORDS_MOST: Readonly<Record<Platform, number | null>> = {
   linkedin: null,
   instagram: 30,
   alignable: null,
+  // Threads' and X's replies are short (decision 163), and each network counts characters too (`commentCharsMost`):
+  // Threads' 500, X's 280.
+  threads: 50,
+  x: 40,
 };
+
+/** When a comment may end with an offer to show them (decision 163, the owner's 5a, on every network). */
+const OFFER_ONLY_WHEN =
+  'an offer to show them only when the post asks for someone who offers what the business does, or for a recommendation of one';
 
 /**
  * How a comment is written where comments go through `sends` and the extension posts them once OK'd (decision 92), as
@@ -691,11 +699,12 @@ export const COMMENT_WORDS_MOST: Readonly<Record<Platform, number | null>> = {
  */
 const COMMENT_RULES: Readonly<Record<Platform, string | null>> = {
   facebook: null,
-  linkedin:
-    'A comment on LinkedIn reads like someone who does the owner’s own work every day: a clear take or one specific, useful point from that field that builds on the post, from what the business knows and how its offer does it, and an offer to show them only when they want help with it. No link and no web address.',
-  instagram: `A comment on Instagram is under ${COMMENT_WORDS_MOST.instagram} words, with no link, no web address and no hashtags: a clear take or one specific, useful point from the owner’s own field that builds on the post, the way someone who does that work every day would say it, and an offer to show them only when they want help with it.`,
-  alignable:
-    'A comment on Alignable reads like someone who does the owner’s own work every day: a clear take or one specific, useful point from that field that builds on the post, from what the business knows and how its offer does it, and an offer to show them only when they want help with it. No link and no web address.',
+  linkedin: `A comment on LinkedIn reads like someone who does the owner’s own work every day: a clear take or one specific, useful point from that field that builds on the post, from what the business knows and how its offer does it, and ${OFFER_ONLY_WHEN}. No link and no web address.`,
+  instagram: `A comment on Instagram is under ${COMMENT_WORDS_MOST.instagram} words, with no link, no web address and no hashtags: a clear take or one specific, useful point from the owner’s own field that builds on the post, the way someone who does that work every day would say it, and ${OFFER_ONLY_WHEN}.`,
+  alignable: `A comment on Alignable reads like someone who does the owner’s own work every day: a clear take or one specific, useful point from that field that builds on the post, from what the business knows and how its offer does it, and ${OFFER_ONLY_WHEN}. No link and no web address.`,
+  // Decision 163: a reply under their post, as people reply there, short enough for the network.
+  threads: `A reply on Threads is under ${COMMENT_WORDS_MOST.threads} words and ${NETWORKS.threads.commentCharsMost} characters, with no link, no web address and no hashtags: a clear take or one specific, useful point from the owner’s own field that builds on the post, said the way people talk on Threads, and ${OFFER_ONLY_WHEN}.`,
+  x: `A reply on X is under ${COMMENT_WORDS_MOST.x} words and ${NETWORKS.x.commentCharsMost} characters, with no link, no web address and no hashtags: a clear take or one specific, useful point from the owner’s own field that builds on the post, said plainly and briefly as people reply on X, and ${OFFER_ONLY_WHEN}.`,
 };
 
 const DRAFT_RULES = [
@@ -789,9 +798,10 @@ const TASK: Record<CustomerDraftKind, string> = {
     'They just started a new job, as the line below says. Write the owner’s short, warm congratulations, one or two lines, naming the new role or place when the line says it, and wishing them well in it. Nothing about the business: no pitch, no offer, no price, no link, no ask.',
   // As someone who knows the owner's own field (decisions 141 and 143), never the writer's trade: a clear stand from
   // the offer's angle, often bold and sometimes a tip, never at the person (decision 144); an offer to show them only
-  // when they want help with it or someone to do it, never a link; never stock praise, and nothing when there's no point.
+  // when the post asks for someone who offers it or for a recommendation of one (decision 163), never a link; never
+  // stock praise, and nothing when there's no point.
   comment:
-    'They posted this in a Facebook group. Write the owner’s public comment under it, from the owner’s own field: what their business does and what its offer helps with, as the business profile, the playbook’s offer and the offer say. The playbook’s niche and who it is for say who the owner helps, never what the owner knows: never give advice about the writer’s own trade or work (how to do it, their tools, their materials, their customers’ questions) unless it is the owner’s field too. Take a clear stand from the owner’s field, the way someone who does this work every day would: often a bold take on what most people get wrong or do the hard way, and how the owner’s way (the offer and how it works) does it instead; sometimes one specific tip, a rule of thumb or a common mistake. Challenge the usual way, never the person: never call them wrong, talk down to them or make fun of them. When they ask for help with what the business does, or are looking for someone to do it, end with a short, easy offer to show them, such as “I can show you a demo if you’re interested”, with no link, no web address and no price. Otherwise offer nothing and pitch nothing. When the owner’s field has nothing real to add to this post, write no drafts. Never open with praise or thanks (“Great post”, “Love this”, “So true”, “Thanks for sharing”), never repeat their post back to them, and never sound like a fan, a brand or an ad. Never invent experience, numbers or results the business hasn’t said: a take or tip anyone in the owner’s field would stand behind is fine. Under 50 words. No questions about things the post already says.',
+    'They posted this in a Facebook group. Write the owner’s public comment under it, from the owner’s own field: what their business does and what its offer helps with, as the business profile, the playbook’s offer and the offer say. The playbook’s niche and who it is for say who the owner helps, never what the owner knows: never give advice about the writer’s own trade or work (how to do it, their tools, their materials, their customers’ questions) unless it is the owner’s field too. Take a clear stand from the owner’s field, the way someone who does this work every day would: often a bold take on what most people get wrong or do the hard way, and how the owner’s way (the offer and how it works) does it instead; sometimes one specific tip, a rule of thumb or a common mistake. Challenge the usual way, never the person: never call them wrong, talk down to them or make fun of them. Only when the post asks for someone who offers what the business offers, or for a recommendation of one (“anyone know a good …?”, “looking for someone to …”, “who do you use for …?”), end with a short, easy offer to show them, such as “I can show you a demo if you’re interested”, with no link, no web address and no price. A post that asks for help or tips with the topic, or complains about it, gets a take or a tip and no offer. Otherwise offer nothing and pitch nothing. When the owner’s field has nothing real to add to this post, write no drafts. Never open with praise or thanks (“Great post”, “Love this”, “So true”, “Thanks for sharing”), never repeat their post back to them, and never sound like a fan, a brand or an ad. Never invent experience, numbers or results the business hasn’t said: a take or tip anyone in the owner’s field would stand behind is fine. Under 50 words. No questions about things the post already says.',
   warm_lead:
     'They commented on the owner’s own helpful post in a Facebook group. Write the owner’s public reply to their comment: thank them by name, answer or add to what they said, and ask one light question back. No pitch, no link. Under 40 words.',
   group_reply:
@@ -887,6 +897,8 @@ export function withoutStockPraise(text: string): string | null {
 export function fitsComment(text: string, platform: Platform): boolean {
   if (NETWORKS[platform].commentsWait !== 'hold') return true;
   if (LINKED.test(text)) return false;
+  const chars = NETWORKS[platform].commentCharsMost;
+  if (chars !== null && text.trim().length > chars) return false;
   const most = COMMENT_WORDS_MOST[platform];
   return most === null || (!/(^|\s)#\w/.test(text) && text.trim().split(/\s+/).length <= most);
 }
@@ -1031,6 +1043,12 @@ export function todayDraftPrompt(input: {
      */
     readonly warm?: boolean;
     readonly said?: readonly string[];
+    /**
+     * The post check's word on it (./posts.ts `strong`): whether its writer asks, now, for someone who offers what the
+     * business offers. Only then does a comment end with the offer to show them (decision 163, on every network); left
+     * out, the task's own rule decides.
+     */
+    readonly asking?: boolean;
   } | null;
   /** What the extension looked up on their profile and business page just before. */
   readonly lookup?: readonly string[];
@@ -1196,6 +1214,11 @@ export function todayDraftPrompt(input: {
         : warm
           ? WARM_COMMENT_TASK
           : taskOn(input.kind, input.platform ?? 'facebook', !!input.post?.group),
+    input.kind === 'comment' && !warm && input.post?.asking !== undefined
+      ? input.post.asking
+        ? 'The check of this post found it asks for someone who offers what the business offers, so the comment ends with the short offer to show them.'
+        : 'The check of this post found it doesn’t ask for someone who offers what the business offers, so the comment offers nothing and pitches nothing.'
+      : null,
     warm && input.post?.said?.length
       ? `<owner_comments>\n${quoteData(input.post.said.map((c) => `- ${c}`).join('\n'))}\n</owner_comments>\n\nUnder <owner_comments> are the owner’s latest comments on other people’s posts: never use their words or start the way they do.`
       : null,

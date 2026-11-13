@@ -87,6 +87,8 @@ const BUTTON_OF: Readonly<Record<Platform, Readonly<Partial<Record<string, Helpe
     warm_up: 'like',
     partner_warm_up: 'like',
   },
+  threads: { friend_request: 'follow', warm_up: 'like', partner_warm_up: 'like' },
+  x: { friend_request: 'follow', warm_up: 'like', partner_warm_up: 'like' },
 };
 
 /** The step's own button on a network, or null for a step the helper only clears the way for and reports. */

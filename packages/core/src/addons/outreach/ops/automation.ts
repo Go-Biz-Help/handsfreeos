@@ -53,6 +53,7 @@ import {
   type OtherPlatform,
   type WheelsKept,
   type WheelsState,
+  sentOver,
 } from '../automation';
 import { AUTOPILOT_WORDS } from '../autopilot';
 import { outreachSettings } from '../chat-read';
@@ -490,6 +491,8 @@ function withChanges(settings: AutomationSettings, changes: AutomationChanges): 
       linkedin: { ...n.linkedin, ...givenOnly(networks?.linkedin) },
       instagram: { ...n.instagram, ...givenOnly(networks?.instagram) },
       alignable: { ...n.alignable, ...givenOnly(networks?.alignable) },
+      threads: { ...n.threads, ...givenOnly(networks?.threads) },
+      x: { ...n.x, ...givenOnly(networks?.x) },
     },
   };
 }
@@ -534,7 +537,7 @@ export const automationSave = defineAddonCommand(outreachAddon, {
           voice: sent.voice ?? kept.voice,
           dayReport: sent.dayReport ?? kept.dayReport,
           acceptedPush: sent.acceptedPush ?? kept.acceptedPush,
-          networks: sent.networks ?? kept.networks,
+          networks: sent.networks ? sentOver(kept.networks, sent.networks) : kept.networks,
         }
       : { ...kept, autopilot: own.autopilot };
     // Only what changes (the Assistant changing one choice): the rest, each part of the voice and of each network's

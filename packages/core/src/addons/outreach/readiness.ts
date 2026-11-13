@@ -1015,5 +1015,7 @@ const PROFILE_WRITES_ON: Readonly<Record<Platform, string>> = {
   linkedin: 'your headline and About',
   instagram: 'your bio and a name that says what you do',
   alignable: 'your About Us',
+  threads: 'your bio, to copy in',
+  x: 'your bio, to copy in',
 };
 export type ProfileWords = ReturnType<typeof profileWordsOn>;

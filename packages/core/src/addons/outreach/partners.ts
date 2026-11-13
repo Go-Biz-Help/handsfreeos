@@ -184,6 +184,9 @@ export const PARTNER_SEARCH_KINDS_ON: Readonly<Record<Platform, readonly Partner
   linkedin: PARTNER_SEARCH_KIND_KEYS,
   instagram: PARTNER_SEARCH_KIND_KEYS,
   alignable: ['business'],
+  // No partners there yet (decision 163): a partner's ask is a message, and nothing is written in their messages.
+  threads: [],
+  x: [],
 };
 
 /** Searches a day on each network, and the days before the same words are searched for the same kind again. */

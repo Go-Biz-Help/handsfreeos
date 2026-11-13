@@ -13,6 +13,7 @@ import { outreachAddon } from '../manifest';
 import { NETWORKS } from '../networks';
 import {
   dayNumber,
+  searchTurn,
   PostCheckInput,
   PostCheckOutput,
   accountPostLook,
@@ -266,7 +267,8 @@ export const postWords = defineAddonQuery(outreachAddon, {
   async handler(ctx, input) {
     const playbooks = await playbooksInUse(ctx, input.platform);
     // Each day the next in turn, by the day's number; a search again later in the day the next after (decision 126).
-    const day = dayNumber() + input.round;
+    // On a network that searches every hour (Threads and X, decision 163), each hour's the next.
+    const day = searchTurn(input.platform) ?? dayNumber() + input.round;
     return {
       words: postSearchWords(playbooks, input.platform, day),
       // Where its runner looks at hashtags (Instagram's).
