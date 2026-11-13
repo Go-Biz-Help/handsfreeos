@@ -20,6 +20,8 @@ import { outreachAddon } from '../manifest';
 import {
   messageNotesOf,
   MessageSamples,
+  playbookWorded,
+  samplesNow,
   noSample,
   sampleAt,
   withMineKept,
@@ -140,7 +142,7 @@ export async function readinessFor(
   ]);
   // The network's own profile: a LinkedIn day waits on LinkedIn's, never on Facebook's.
   const { ticks: profile, check: profileCheck } = profileOf(row, platform);
-  const samples = MessageSamples.safeParse(row?.messageSamples ?? null).data ?? null;
+  const samples = samplesNow(MessageSamples.safeParse(row?.messageSamples ?? null).data);
   const messages = row?.messagesAt
     ? { at: row.messagesAt.toISOString(), version: row.messagesVersion ?? null }
     : null;
@@ -528,7 +530,7 @@ export const readinessMessages = defineAddonCommand(outreachAddon, {
         422,
         'Your business’s main offer isn’t live yet, so there are no messages to see. Ask an owner of this business to finish it under Settings → Main offer.',
       );
-    const samples = MessageSamples.safeParse(row?.messageSamples ?? null).data ?? null;
+    const samples = samplesNow(MessageSamples.safeParse(row?.messageSamples ?? null).data);
     if (!samples || samples.version !== offer.version)
       throw HfosError.rule(
         'outreach_messages_unseen',
@@ -568,7 +570,7 @@ export const messageSamplesSave = defineAddonCommand(outreachAddon, {
     const row = await setupRow(ctx, input.userId);
     const samples = withMineKept(
       input.samples,
-      MessageSamples.safeParse(row?.messageSamples ?? null).data ?? null,
+      samplesNow(MessageSamples.safeParse(row?.messageSamples ?? null).data),
     );
     const [kept] = await ctx.tx
       .insert(setup)
@@ -599,7 +601,7 @@ export const messageSamplesSave = defineAddonCommand(outreachAddon, {
  */
 async function sampleOf(ctx: Ctx, me: string, slot: SampleSlot) {
   const row = await setupRow(ctx, me);
-  const samples = MessageSamples.safeParse(row?.messageSamples ?? null).data ?? null;
+  const samples = samplesNow(MessageSamples.safeParse(row?.messageSamples ?? null).data);
   if (!samples)
     throw HfosError.rule(
       'outreach_messages_unseen',
@@ -647,7 +649,7 @@ async function saveMessages(
 export const messageEdit = defineAddonCommand(outreachAddon, {
   name: 'outreach.messages.edit',
   description:
-    'Puts one of the person’s sample messages in their own words: a first message, the video, the link, a follow-up or the check-in. Their real messages of that part follow it.',
+    'Puts one of the person’s sample follow-ups, or the check-in, in their own words. Their real messages of that part follow it. The first message and the message after a yes are the playbook’s own words (What it says) and are changed there.',
   risk: 0,
   input: MessageEditInput,
   output: ReadinessOutput,
@@ -655,7 +657,7 @@ export const messageEdit = defineAddonCommand(outreachAddon, {
   ai: {
     tool: 'outreach_edit_sample_message',
     description:
-      'Puts one of the person’s sample messages in their own words: a first message, the video, the link, a follow-up or the check-in. Their real messages of that part follow it. Only a message the samples have: the video message is there only once a playbook has its short video (videoLink, saved with outreach_save_playbook), and with none a yes gets the link message straight away.',
+      'Puts one of the person’s sample follow-ups (part followUps, with its index) or the check-in (part checkIn) in their own words. Their real messages of that part follow it. Only a message the samples have. The first message (part first) and the message after a yes (part link) are refused: they are the playbook’s own words, changed with outreach_save_playbook (details.script.first and details.script.yes).',
     autonomy: 'confirm',
     keywords: ['my own words', 'edit sample message', 'how my messages read'],
   },
@@ -665,6 +667,21 @@ export const messageEdit = defineAddonCommand(outreachAddon, {
     const me = requireHuman(ctx).userId;
     const { samples } = await sampleOf(ctx, me, input);
     const playbook = (await playbooksInUse(ctx)).find((p) => p.id === samples.playbookId);
+    // The first message and the ask after a yes are the playbook's own words (decision 164): changed there, for every
+    // message, never here for one person's.
+    if (playbookWorded(input.part)) {
+      const which = input.part === 'first' ? 'first message' : 'message after a yes';
+      const where = `Playbooks → ${playbook ? `“${playbook.name}”` : 'your playbook'} → What it says`;
+      throw HfosError.rule(
+        'outreach_message_playbook',
+        409,
+        `Your ${which} comes from your playbook’s own words now, so it isn’t changed here. ${
+          scopeCan(ctx.scope, 'outreach.manage' as Permission)
+            ? `Change it under ${where}, and every ${which} follows it.`
+            : `Ask an owner of this business to change it under ${where}.`
+        } Here you can still press Not quite right? and tell the AI what to change about how it reads.`,
+      );
+    }
     const lower = input.text.toLowerCase();
     const avoided = (playbook?.details.avoid ?? []).find(
       (w) => w.trim() && lower.includes(w.trim().toLowerCase()),

@@ -1,10 +1,14 @@
 'use client';
 /**
  * Social Outreach's playbooks tab (docs/outreach.md): what the business is after on social media, who it's for, the
- * steps it takes, the conversation, how it sounds and which of its tags to use. Everyone using the add-on reads them;
+ * steps it takes, what it says, how it sounds and which of its tags to use. Everyone using the add-on reads them;
  * owners and admins write them in the builder (playbook-builder.tsx), from a template or blank, and archive them
- * rather than delete them. How each playbook's openers did is on Results (decision 129, ./opener-results.tsx).
+ * rather than delete them. How each playbook's first messages did is on Results (decision 129, ./opener-results.tsx).
+ *
+ * Each card shows the first message the playbook sends and has Test it (decision 164, ./playbook-test.tsx): anyone
+ * who uses the add-on can play a chat out against the saved playbook. Nothing is sent or kept.
  */
+import { type Platform } from '@hfos/core/addons/outreach/networks';
 import {
   PLAYBOOK_GOALS,
   PLAYBOOK_STEPS,
@@ -13,6 +17,7 @@ import {
   type PlaybookGoal,
   type PlaybookStep,
 } from '@hfos/core/addons/outreach/playbooks';
+import { SCRIPT_WORDS as SW, scriptOf } from '@hfos/core/addons/outreach/script';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -22,6 +27,7 @@ import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { relativeTime } from '@/lib/utils';
+import { PlaybookTest } from './playbook-test';
 import type { Playbook, PlaybookList } from './types';
 import { useAct } from './use-act';
 
@@ -96,7 +102,10 @@ function PlaybookCard({
   canManage: boolean;
 }) {
   const { busy, act } = useAct();
+  const [testing, setTesting] = useState(false);
   const d = p.details;
+  // What it says first: the playbook's own first message, or the starting one while it's left as it came.
+  const firsts = scriptOf({ goal: d.goal as PlaybookGoal, script: d.script }).first;
   const archive = (archived: boolean) =>
     act(
       'archive',
@@ -123,11 +132,18 @@ function PlaybookCard({
           {d.steps.map((s) => PLAYBOOK_STEPS[s as PlaybookStep].label).join(' → ')}
         </p>
       ) : null}
+      {firsts[0] ? (
+        <p className="mt-1 text-[13px] text-text-2" data-testid="playbook-first-message">
+          {firsts.length === 1
+            ? `Starts with “${firsts[0]}”`
+            : `Starts with one of ${firsts.length} first messages, like “${firsts[0]}”`}
+        </p>
+      ) : null}
       {d.questions.length ? (
         <p className="mt-1 text-[13px] text-text-2" data-testid="playbook-questions">
           {d.questions.length === 1
-            ? `Asks “${d.questions[0]!.text}”`
-            : `Asks ${d.questions.length} questions, starting with “${d.questions[0]!.text}”`}
+            ? `May ask “${d.questions[0]!.text}”`
+            : `May ask ${d.questions.length} questions, like “${d.questions[0]!.text}”`}
         </p>
       ) : null}
       {d.tags.length ? (
@@ -137,37 +153,56 @@ function PlaybookCard({
           ))}
         </div>
       ) : null}
-      {canManage ? (
-        <div className="mt-3 flex gap-3 text-[12.5px]">
-          {p.archivedAt ? (
+      <div className="mt-3 flex gap-3 text-[12.5px]">
+        {p.archivedAt ? null : (
+          <button
+            type="button"
+            className="text-accent-text hover:underline"
+            onClick={() => setTesting(true)}
+            data-testid="playbook-test-open"
+          >
+            {SW.test}
+          </button>
+        )}
+        {!canManage ? null : p.archivedAt ? (
+          <button
+            type="button"
+            className="text-accent-text hover:underline"
+            disabled={busy !== null}
+            onClick={() => void archive(false)}
+          >
+            {W.bringBack}
+          </button>
+        ) : (
+          <>
+            <Link
+              href={`/app/w/${workspaceId}/a/outreach/playbooks/${p.id}`}
+              className="text-accent-text hover:underline"
+              data-testid="playbook-change"
+            >
+              Change
+            </Link>
             <button
               type="button"
-              className="text-accent-text hover:underline"
+              className="text-text-3 hover:text-danger-text hover:underline"
               disabled={busy !== null}
-              onClick={() => void archive(false)}
+              onClick={() => void archive(true)}
             >
-              {W.bringBack}
+              {W.archive}
             </button>
-          ) : (
-            <>
-              <Link
-                href={`/app/w/${workspaceId}/a/outreach/playbooks/${p.id}`}
-                className="text-accent-text hover:underline"
-                data-testid="playbook-change"
-              >
-                Change
-              </Link>
-              <button
-                type="button"
-                className="text-text-3 hover:text-danger-text hover:underline"
-                disabled={busy !== null}
-                onClick={() => void archive(true)}
-              >
-                {W.archive}
-              </button>
-            </>
-          )}
-        </div>
+          </>
+        )}
+      </div>
+      {testing ? (
+        <PlaybookTest
+          workspaceId={workspaceId}
+          playbookId={p.id}
+          name={p.name}
+          versions={firsts.length}
+          platforms={d.platforms as Platform[]}
+          open
+          onClose={() => setTesting(false)}
+        />
       ) : null}
     </Card>
   );

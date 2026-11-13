@@ -29,6 +29,7 @@ import {
 import { VIDEO_SCRIPT_ACTION, videoScript } from './video';
 import { PROFILE_CHECK_ACTION, PROFILE_MORE_ACTION, profileCheck, profileMore } from './profile';
 import { NICHE_FIT_ACTION, nicheFit, PLAYBOOK_ASSIST_ACTION, playbookAssist } from './assist';
+import { PLAYBOOK_TEST_ACTION, playbookTest } from './playbook-test';
 import { CHECK_PEOPLE_JOB, checkLooked, checkPeopleJob } from './checks';
 import { CHECK_PARTNERS_JOB, checkPartnersJob, partnerLooked } from './partners';
 import { countriesWanted, GUESS_COUNTRIES_JOB, guessCountriesJob } from './countries';
@@ -274,6 +275,7 @@ export const outreachAddonWorker: AddonWorkerModule = {
   // group's questions when the extension asks to join it (./groups.ts), and which post to like (./likes.ts).
   actions: {
     [PLAYBOOK_ASSIST_ACTION]: playbookAssist,
+    [PLAYBOOK_TEST_ACTION]: playbookTest,
     [NICHE_FIT_ACTION]: nicheFit,
     // The person's own profile, read by their extension, checked by the AI (./profile.ts, decision 64).
     [PROFILE_CHECK_ACTION]: profileCheck,

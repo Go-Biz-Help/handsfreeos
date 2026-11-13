@@ -90458,6 +90458,96 @@
                           "messageAfterDays"
                         ]
                       },
+                      "script": {
+                        "type": "object",
+                        "properties": {
+                          "first": {
+                            "minItems": 1,
+                            "maxItems": 3,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 600
+                            }
+                          },
+                          "reconnect": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "yes": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "question": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "later": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "no": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "followUp": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "checkIn": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "reminder": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "missed": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "comment": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "warmUp": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "postReply": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "groupReply": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "birthday": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "newJob": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          }
+                        }
+                      },
                       "tone": {
                         "anyOf": [
                           {
@@ -91003,6 +91093,96 @@
                         "required": [
                           "messageAfterDays"
                         ]
+                      },
+                      "script": {
+                        "type": "object",
+                        "properties": {
+                          "first": {
+                            "minItems": 1,
+                            "maxItems": 3,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 600
+                            }
+                          },
+                          "reconnect": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "yes": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "question": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "later": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "no": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "followUp": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "checkIn": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "reminder": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "missed": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "comment": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "warmUp": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "postReply": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "groupReply": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "birthday": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "newJob": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          }
+                        }
                       },
                       "tone": {
                         "anyOf": [
@@ -91561,6 +91741,97 @@
                           "required": [
                             "messageAfterDays"
                           ],
+                          "additionalProperties": false
+                        },
+                        "script": {
+                          "type": "object",
+                          "properties": {
+                            "first": {
+                              "minItems": 1,
+                              "maxItems": 3,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 600
+                              }
+                            },
+                            "reconnect": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "yes": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "question": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "later": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "no": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "followUp": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "checkIn": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "reminder": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "missed": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "comment": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "warmUp": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "postReply": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "groupReply": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "birthday": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "newJob": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            }
+                          },
                           "additionalProperties": false
                         },
                         "tone": {
@@ -92215,6 +92486,97 @@
                           "required": [
                             "messageAfterDays"
                           ],
+                          "additionalProperties": false
+                        },
+                        "script": {
+                          "type": "object",
+                          "properties": {
+                            "first": {
+                              "minItems": 1,
+                              "maxItems": 3,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 600
+                              }
+                            },
+                            "reconnect": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "yes": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "question": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "later": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "no": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "followUp": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "checkIn": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "reminder": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "missed": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "comment": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "warmUp": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "postReply": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "groupReply": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "birthday": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "newJob": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            }
+                          },
                           "additionalProperties": false
                         },
                         "tone": {
@@ -106345,6 +106707,12 @@
                                     "type": "string",
                                     "maxLength": 16
                                   }
+                                },
+                                "rules": {
+                                  "default": 0,
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
                                 }
                               },
                               "required": [
@@ -106358,7 +106726,8 @@
                                 "checkIn",
                                 "at",
                                 "version",
-                                "mine"
+                                "mine",
+                                "rules"
                               ],
                               "additionalProperties": false
                             },
@@ -107695,6 +108064,12 @@
                                     "type": "string",
                                     "maxLength": 16
                                   }
+                                },
+                                "rules": {
+                                  "default": 0,
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
                                 }
                               },
                               "required": [
@@ -107708,7 +108083,8 @@
                                 "checkIn",
                                 "at",
                                 "version",
-                                "mine"
+                                "mine",
+                                "rules"
                               ],
                               "additionalProperties": false
                             },
@@ -109902,6 +110278,12 @@
                                     "type": "string",
                                     "maxLength": 16
                                   }
+                                },
+                                "rules": {
+                                  "default": 0,
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
                                 }
                               },
                               "required": [
@@ -109915,7 +110297,8 @@
                                 "checkIn",
                                 "at",
                                 "version",
-                                "mine"
+                                "mine",
+                                "rules"
                               ],
                               "additionalProperties": false
                             },
@@ -110115,7 +110498,7 @@
     "/v1/commands/outreach.messages.edit": {
       "post": {
         "operationId": "command_outreach_messages_edit",
-        "summary": "Puts one of the person’s sample messages in their own words: a first message, the video, the link, a follow-up or the check-in. Their real messages of that part follow it.",
+        "summary": "Puts one of the person’s sample follow-ups, or the check-in, in their own words. Their real messages of that part follow it. The first message and the message after a yes are the playbook’s own words (What it says) and are changed there.",
         "tags": [
           "commands"
         ],
@@ -111258,6 +111641,12 @@
                                     "type": "string",
                                     "maxLength": 16
                                   }
+                                },
+                                "rules": {
+                                  "default": 0,
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
                                 }
                               },
                               "required": [
@@ -111271,7 +111660,8 @@
                                 "checkIn",
                                 "at",
                                 "version",
-                                "mine"
+                                "mine",
+                                "rules"
                               ],
                               "additionalProperties": false
                             },
@@ -112608,6 +112998,12 @@
                                     "type": "string",
                                     "maxLength": 16
                                   }
+                                },
+                                "rules": {
+                                  "default": 0,
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
                                 }
                               },
                               "required": [
@@ -112621,7 +113017,8 @@
                                 "checkIn",
                                 "at",
                                 "version",
-                                "mine"
+                                "mine",
+                                "rules"
                               ],
                               "additionalProperties": false
                             },
@@ -228271,6 +228668,97 @@
                                 ],
                                 "additionalProperties": false
                               },
+                              "script": {
+                                "type": "object",
+                                "properties": {
+                                  "first": {
+                                    "minItems": 1,
+                                    "maxItems": 3,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 600
+                                    }
+                                  },
+                                  "reconnect": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "yes": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "question": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "later": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "no": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "followUp": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "checkIn": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "reminder": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "missed": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "comment": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "warmUp": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "postReply": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "groupReply": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "birthday": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "newJob": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
                               "tone": {
                                 "anyOf": [
                                   {
@@ -241858,6 +242346,12 @@
                                     "type": "string",
                                     "maxLength": 16
                                   }
+                                },
+                                "rules": {
+                                  "default": 0,
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
                                 }
                               },
                               "required": [
@@ -241871,7 +242365,8 @@
                                 "checkIn",
                                 "at",
                                 "version",
-                                "mine"
+                                "mine",
+                                "rules"
                               ],
                               "additionalProperties": false
                             },

@@ -9267,7 +9267,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Puts one of the person’s sample messages in their own words: a first message, the video, the link, a follow-up or the check-in. Their real messages of that part follow it.
+         * Puts one of the person’s sample follow-ups, or the check-in, in their own words. Their real messages of that part follow it. The first message and the message after a yes are the playbook’s own words (What it says) and are changed there.
          * @description Risk level 0. Requires outreach.use. Emits outreach.readiness.saved.
          */
         post: operations["command_outreach_messages_edit"];
@@ -49057,6 +49057,8 @@ export interface operations {
                                 /** Format: uuid */
                                 playbookId: string;
                                 playbookName: string;
+                                /** @default 0 */
+                                rules: number;
                                 version: number | null;
                                 video: string | null;
                             } | null;
@@ -49277,6 +49279,8 @@ export interface operations {
                                 /** Format: uuid */
                                 playbookId: string;
                                 playbookName: string;
+                                /** @default 0 */
+                                rules: number;
                                 version: number | null;
                                 video: string | null;
                             } | null;
@@ -49906,6 +49910,24 @@ export interface operations {
                                 text: string;
                             }[];
                             samples: string[];
+                            script?: {
+                                birthday?: string;
+                                checkIn?: string;
+                                comment?: string;
+                                first?: string[];
+                                followUp?: string;
+                                groupReply?: string;
+                                later?: string;
+                                missed?: string;
+                                newJob?: string;
+                                no?: string;
+                                postReply?: string;
+                                question?: string;
+                                reconnect?: string;
+                                reminder?: string;
+                                warmUp?: string;
+                                yes?: string;
+                            };
                             signs: string[];
                             skip: string[];
                             steps: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
@@ -49990,6 +50012,24 @@ export interface operations {
                             text: string;
                         }[];
                         samples?: string[];
+                        script?: {
+                            birthday?: string;
+                            checkIn?: string;
+                            comment?: string;
+                            first?: string[];
+                            followUp?: string;
+                            groupReply?: string;
+                            later?: string;
+                            missed?: string;
+                            newJob?: string;
+                            no?: string;
+                            postReply?: string;
+                            question?: string;
+                            reconnect?: string;
+                            reminder?: string;
+                            warmUp?: string;
+                            yes?: string;
+                        };
                         signs?: string[];
                         skip?: string[];
                         steps?: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
@@ -50055,6 +50095,24 @@ export interface operations {
                             text: string;
                         }[];
                         samples: string[];
+                        script?: {
+                            birthday?: string;
+                            checkIn?: string;
+                            comment?: string;
+                            first?: string[];
+                            followUp?: string;
+                            groupReply?: string;
+                            later?: string;
+                            missed?: string;
+                            newJob?: string;
+                            no?: string;
+                            postReply?: string;
+                            question?: string;
+                            reconnect?: string;
+                            reminder?: string;
+                            warmUp?: string;
+                            yes?: string;
+                        };
                         signs: string[];
                         skip: string[];
                         steps: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
@@ -50140,6 +50198,24 @@ export interface operations {
                                 text: string;
                             }[];
                             samples: string[];
+                            script?: {
+                                birthday?: string;
+                                checkIn?: string;
+                                comment?: string;
+                                first?: string[];
+                                followUp?: string;
+                                groupReply?: string;
+                                later?: string;
+                                missed?: string;
+                                newJob?: string;
+                                no?: string;
+                                postReply?: string;
+                                question?: string;
+                                reconnect?: string;
+                                reminder?: string;
+                                warmUp?: string;
+                                yes?: string;
+                            };
                             signs: string[];
                             skip: string[];
                             steps: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
@@ -50530,6 +50606,8 @@ export interface operations {
                                 /** Format: uuid */
                                 playbookId: string;
                                 playbookName: string;
+                                /** @default 0 */
+                                rules: number;
                                 version: number | null;
                                 video: string | null;
                             } | null;
@@ -50749,6 +50827,8 @@ export interface operations {
                                 /** Format: uuid */
                                 playbookId: string;
                                 playbookName: string;
+                                /** @default 0 */
+                                rules: number;
                                 version: number | null;
                                 video: string | null;
                             } | null;
@@ -50974,6 +51054,8 @@ export interface operations {
                                 /** Format: uuid */
                                 playbookId: string;
                                 playbookName: string;
+                                /** @default 0 */
+                                rules: number;
                                 version: number | null;
                                 video: string | null;
                             } | null;
@@ -88858,6 +88940,24 @@ export interface operations {
                                     text: string;
                                 }[];
                                 samples: string[];
+                                script?: {
+                                    birthday?: string;
+                                    checkIn?: string;
+                                    comment?: string;
+                                    first?: string[];
+                                    followUp?: string;
+                                    groupReply?: string;
+                                    later?: string;
+                                    missed?: string;
+                                    newJob?: string;
+                                    no?: string;
+                                    postReply?: string;
+                                    question?: string;
+                                    reconnect?: string;
+                                    reminder?: string;
+                                    warmUp?: string;
+                                    yes?: string;
+                                };
                                 signs: string[];
                                 skip: string[];
                                 steps: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
@@ -89908,6 +90008,8 @@ export interface operations {
                                 /** Format: uuid */
                                 playbookId: string;
                                 playbookName: string;
+                                /** @default 0 */
+                                rules: number;
                                 version: number | null;
                                 video: string | null;
                             } | null;

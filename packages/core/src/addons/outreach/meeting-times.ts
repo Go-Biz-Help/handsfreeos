@@ -432,9 +432,9 @@ export interface DraftTimes {
 
 /** The kinds' lines on offering times: what each one does with them. */
 const OFFER_TASK: Readonly<Record<TimeKind, string>> = {
-  // In the owner's ask, before its "how's that sound?" (decision 153).
+  // In the owner's ask, where the playbook's words have them (decisions 153 and 164, ./script.ts).
   pitch:
-    'Offer the times below in one natural sentence just before “how’s that sound?” (“I have tomorrow at 11 ct or this friday at noon ct, how’s that sound?”). Then give the link for any other time, as a short add-on (“or grab any time that works for you here: …”).',
+    'Offer the times below in one natural sentence where the playbook’s words have [open times] (“I have tomorrow at 11 ct or this friday at noon ct, how’s that sound?”), or just before the ask’s closing question when they have none. Then give the link for any other time where they have [booking link], or as a short add-on at the end (“or grab any time that works for you here: …”).',
   rebook:
     'Offer the times below for another call, in one natural sentence, and ask whether one works. Then give the link for any other time.',
   follow_up:

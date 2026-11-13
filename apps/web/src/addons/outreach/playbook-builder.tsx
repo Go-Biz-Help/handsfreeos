@@ -15,7 +15,6 @@
 import { NETWORK_WORDS as NW } from '@hfos/core/addons/outreach/network-words';
 import { PLATFORM_KEYS, PLATFORMS, WORKING_PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import { NICHE_FIT_WORDS, type NicheFitOutput } from '@hfos/core/addons/outreach/niche-fit';
-import { FIRST_NAME } from '@hfos/core/addons/outreach/openers';
 import type {
   AssistDraft,
   AssistQuestion,
@@ -50,6 +49,23 @@ import {
 } from '@hfos/core/addons/outreach/playbooks';
 import { hashtagLetters, hashtagOf } from '@hfos/core/addons/outreach/posts';
 import {
+  LOCKED_RULES,
+  partChanged,
+  partsChanged,
+  SCRIPT_BLANKS,
+  SCRIPT_GROUPS,
+  SCRIPT_INFO,
+  SCRIPT_LIMITS,
+  SCRIPT_WORDS as SW,
+  scriptDraftOf,
+  scriptToSave,
+  typedFirsts,
+  typedPart,
+  withFirsts,
+  withPart,
+  type ScriptDraft,
+} from '@hfos/core/addons/outreach/script';
+import {
   scriptMinutes,
   VIDEO_LIMITS,
   VIDEO_PARTS,
@@ -74,9 +90,12 @@ import {
   Check,
   CheckCircle2,
   ExternalLink,
+  FlaskConical,
   Info,
+  Lock,
   MessageCircleQuestion,
   Plus,
+  RotateCcw,
   Sparkles,
   Video,
   X,
@@ -101,6 +120,7 @@ import { usePublicOrigin } from '@/lib/use-origin';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
 import { AiHelp } from './ai-help';
+import { PlaybookTest } from './playbook-test';
 import type { Playbook } from './types';
 
 // ---------- the answers ----------
@@ -140,8 +160,8 @@ interface Draft {
   pace: PlaybookDetails['pace'];
   tone: string;
   samples: string[];
-  openerStyles: string[];
-  ownOpeners: string[];
+  /** What it says for each message (decision 164): the business's own words as typed, the rest the starting words. */
+  script: ScriptDraft;
   questions: PlaybookQuestion[];
   avoid: string[];
   disclaimer: string;
@@ -177,8 +197,7 @@ const fromDetails = (name: string, d: PlaybookDetails): Draft => ({
   pace: d.pace,
   tone: d.tone ?? '',
   samples: d.samples,
-  openerStyles: d.openerStyles,
-  ownOpeners: d.ownOpeners,
+  script: scriptDraftOf(d.script),
   questions: d.questions,
   avoid: d.avoid,
   disclaimer: d.disclaimer ?? '',
@@ -201,11 +220,10 @@ const LIST_KEYS = [
   'xSearches',
   'tags',
   'avoid',
-  'openerStyles',
 ] as const;
 type ListKey = (typeof LIST_KEYS)[number];
 /** The lists of whole messages, each in its own box. */
-type MessageKey = 'samples' | 'ownOpeners';
+type MessageKey = 'samples';
 type MultiKey = ListKey | MessageKey;
 /** What's typed in a list's box and not added yet. */
 type Typing = Partial<Record<ListKey, string>>;
@@ -286,8 +304,11 @@ const toDetails = (d: Draft, sent: readonly FindPart[] = FIND_PARTS): PlaybookDe
   pace: d.pace,
   tone: orNull(d.tone),
   samples: d.samples.map((s) => s.trim()).filter(Boolean),
-  openerStyles: d.openerStyles,
-  ownOpeners: d.ownOpeners.map((s) => s.trim()).filter(Boolean),
+  // Only the parts in the business's own words: the rest keep following the starting words (decision 164).
+  script: scriptToSave(d.goal, d.script),
+  // The styles and openers from before decision 164 are its first message's versions now.
+  openerStyles: [],
+  ownOpeners: [],
   questions: d.questions,
   avoid: d.avoid,
   disclaimer: orNull(d.disclaimer),
@@ -348,11 +369,11 @@ export type StepKey =
   | 'skip'
   | 'where'
   | 'steps'
+  | 'script'
   | 'video'
   | 'tags'
   | 'conversation'
   | 'voice'
-  | 'openers'
   | 'review';
 
 interface Step {
@@ -419,6 +440,13 @@ const STEPS: readonly Step[] = [
     fields: ['steps', 'pace'],
   },
   {
+    key: 'script',
+    part: SW.title,
+    title: 'What does it say?',
+    blurb: SW.blurb,
+    fields: ['script'],
+  },
+  {
     key: 'video',
     part: 'Short video',
     title: V.title,
@@ -434,10 +462,10 @@ const STEPS: readonly Step[] = [
   },
   {
     key: 'conversation',
-    part: 'Conversation',
-    title: 'The conversation',
+    part: 'Questions it may ask',
+    title: 'Questions it may ask',
     blurb:
-      'The questions you work into a chat. Each answer can add a tag, and says what happens next.',
+      'Optional. Your messages already ask what What it says tells them to. Add a question here only for when one fits a chat, like when someone’s unsure. Each answer can add a tag, and says what happens next.',
     fields: ['questions'],
   },
   {
@@ -446,13 +474,6 @@ const STEPS: readonly Step[] = [
     title: 'How do you sound?',
     blurb: 'So the drafts sound like you.',
     fields: ['tone', 'samples', 'avoid', 'disclaimer'],
-  },
-  {
-    key: 'openers',
-    part: 'Openers',
-    title: 'How do you start a chat?',
-    blurb: 'First messages take turns with these, so you can see which ones get replies and demos.',
-    fields: ['openerStyles', 'ownOpeners'],
   },
   {
     key: 'review',
@@ -527,6 +548,8 @@ export function PlaybookBuilder({
   const [saved, setSaved] = useState(false);
   /** The AI's word on whether the niche fits the main offer, for the niche it read. */
   const [fit, setFit] = useState<{ niche: string; out: NicheFitOutput } | null>(null);
+  /** The Test console, open over the builder with the playbook as it is on screen. */
+  const [testing, setTesting] = useState(false);
   const [checking, setChecking] = useState(false);
   const offerHref = `/app/w/${workspaceId}/settings/main-offer`;
   /** Typed in a list's box and not added yet: it counts as added, and is added on moving to another step. */
@@ -633,8 +656,9 @@ export function PlaybookBuilder({
       worksOnline: d.worksOnline,
       tags: d.tags,
       samples: d.samples.filter((m) => m.trim()),
-      openerStyles: d.openerStyles,
-      ownOpeners: d.ownOpeners.filter((m) => m.trim()),
+      firsts: typedFirsts(d.goal, d.script).filter((m) => m.trim()),
+      openerStyles: [],
+      ownOpeners: [],
       avoid: d.avoid,
       questions: d.questions.map((q) => ({
         text: q.text,
@@ -658,7 +682,7 @@ export function PlaybookBuilder({
   const replaceLines = (k: MultiKey, lines: string[]) => {
     if (k === 'tags') setTags(lines);
     else set(k, lines);
-    if (k !== 'samples' && k !== 'ownOpeners') setTyping((x) => ({ ...x, [k]: '' }));
+    if (k !== 'samples') setTyping((x) => ({ ...x, [k]: '' }));
   };
   const addQuestion = (q: AssistQuestion) =>
     setDraft((d) =>
@@ -1367,46 +1391,38 @@ export function PlaybookBuilder({
         </div>
       );
       break;
-    case 'openers':
+    case 'script':
       body = (
-        <div className="space-y-6">
-          <div>
-            <ListField
-              id="pb-opener-styles"
-              {...typed('openerStyles')}
-              label={W.openerStyles}
-              hint="Two or three different ones, so you can see which works. Each is how a first message starts."
-              placeholder="Like “Ask about something real on their profile”"
-              items={draft.openerStyles}
-              onChange={(v) => set('openerStyles', v)}
-              suggestions={[{ label: 'Ideas', options: PLAYBOOK_SUGGESTIONS.openerStyles }]}
-              limits={PLAYBOOK_LIMITS.openerStyles}
-              error={issueIn('openerStyles')}
-              testId="playbook-opener-styles"
+        <ScriptStep
+          goal={draft.goal}
+          script={draft.script}
+          onChange={(script) => set('script', script)}
+          issueAt={(path) => issueIn(`script.${path}`)}
+          firstsHelp={
+            <AiHelp
+              workspaceId={workspaceId}
+              part="firsts"
+              draft={assistDraft}
+              written={assistDraft.firsts.length > 0}
+              onAdd={(line) => {
+                const firsts = typedFirsts(draft.goal, draft.script).filter((m) => m.trim());
+                if (firsts.some((m) => m.toLowerCase() === line.toLowerCase())) return true;
+                if (firsts.length >= SCRIPT_LIMITS.first.most) {
+                  toast.error(
+                    `That’s ${SCRIPT_LIMITS.first.most} versions, the most it takes. Take one out first.`,
+                  );
+                  return false;
+                }
+                set('script', withFirsts(draft.script, [...firsts, line]));
+                return true;
+              }}
+              onReplace={(lines) =>
+                set('script', withFirsts(draft.script, lines.slice(0, SCRIPT_LIMITS.first.most)))
+              }
             />
-            {listHelp('openerStyles')}
-          </div>
-          <div>
-            <MessageList
-              label="Your own openers (optional)"
-              hint={`Sent as you write them. Put ${FIRST_NAME} where their first name goes.`}
-              name="opener"
-              items={draft.ownOpeners}
-              most={PLAYBOOK_LIMITS.ownOpeners.most}
-              maxLength={PLAYBOOK_LIMITS.ownOpeners.line}
-              onChange={(v) => set('ownOpeners', v)}
-              error={issueIn('ownOpeners')}
-              placeholder={`Hi ${FIRST_NAME}! …`}
-              testId="playbook-own-openers"
-            />
-            {listHelp('ownOpeners')}
-          </div>
-          {draft.openerStyles.length + draft.ownOpeners.filter((m) => m.trim()).length === 0 ? (
-            <Callout tone="neutral" icon={Info}>
-              With none, first messages are written as before, and there’s nothing to compare.
-            </Callout>
-          ) : null}
-        </div>
+          }
+          onTest={() => setTesting(true)}
+        />
       );
       break;
     case 'review':
@@ -1428,7 +1444,24 @@ export function PlaybookBuilder({
             <Callout tone="danger">
               Some parts need a fix before it’s saved. Press Change beside each one marked in red.
             </Callout>
-          ) : null}
+          ) : (
+            <Callout
+              tone="neutral"
+              icon={FlaskConical}
+              action={
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setTesting(true)}
+                  data-testid="playbook-test-open"
+                >
+                  {SW.test}
+                </Button>
+              }
+            >
+              See what it would send someone, and how the chat goes from there, before you save.
+            </Callout>
+          )}
           <div className="divide-y divide-border rounded-card border border-border bg-card">
             {STEPS.slice(0, REVIEW).map((s, i) => {
               const wrong = problems(s)[0]?.message;
@@ -1522,6 +1555,209 @@ export function PlaybookBuilder({
           <p className="mt-2 text-right text-[13px] text-text-3">Fix the above to carry on.</p>
         ) : null}
       </div>
+      {testing ? (
+        <PlaybookTest
+          workspaceId={workspaceId}
+          playbookId={playbook?.id ?? null}
+          name={draft.name.trim() || PLAYBOOK_GOALS[draft.goal]}
+          details={toDetails(withTyping(draft, typing))}
+          versions={typedFirsts(draft.goal, draft.script).filter((m) => m.trim()).length}
+          platforms={draft.platforms}
+          open
+          onClose={() => setTesting(false)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+// ---------- what it says ----------
+
+/**
+ * What it says (decision 164): the playbook's own words for every message, by where in a chat each goes. The first
+ * message has up to three versions that take turns. A part left as it came follows the starting words for the
+ * playbook's goal; one changed says so, with a way back. Under them, what the words in brackets become, and the rules
+ * no playbook changes.
+ */
+function ScriptStep({
+  goal,
+  script,
+  onChange,
+  issueAt,
+  firstsHelp,
+  onTest,
+}: {
+  goal: PlaybookGoal;
+  script: ScriptDraft;
+  onChange: (script: ScriptDraft) => void;
+  /** The problem with a part, by its path in the script: "first.1", "yes". */
+  issueAt: (path: string) => string | undefined;
+  firstsHelp: ReactNode;
+  onTest: () => void;
+}) {
+  const firsts = typedFirsts(goal, script);
+  return (
+    <div className="space-y-7" data-testid="playbook-script">
+      <Callout
+        tone="neutral"
+        icon={FlaskConical}
+        action={
+          <Button variant="secondary" size="sm" onClick={onTest} data-testid="playbook-test-open">
+            {SW.test}
+          </Button>
+        }
+      >
+        See what these words would send someone, and how the chat goes from there.
+      </Callout>
+      {SCRIPT_GROUPS.map((g) => (
+        <section key={g.key} className="space-y-4">
+          <h3 className="text-[12.5px] font-semibold uppercase tracking-wide text-text-3">
+            {g.title}
+          </h3>
+          {g.parts.map((part) => {
+            const info = SCRIPT_INFO[part];
+            const changed = partChanged(goal, script, part);
+            const head = (
+              <div className="mb-1 flex flex-wrap items-center gap-2">
+                <Label htmlFor={`pb-script-${part}`} className="mb-0">
+                  {info.label}
+                </Label>
+                {changed ? <Badge variant="accent">{SW.changed}</Badge> : null}
+                {changed ? (
+                  <button
+                    type="button"
+                    className="ml-auto inline-flex items-center gap-1 text-[12.5px] text-accent-text hover:underline"
+                    onClick={() =>
+                      onChange(part === 'first' ? withFirsts(script, null) : withPart(script, part, null))
+                    }
+                    data-testid={`playbook-script-reset-${part}`}
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    {SW.starting}
+                  </button>
+                ) : null}
+              </div>
+            );
+            const when = (
+              <p className="mb-2 text-[12.5px] text-text-3">
+                <span className="font-medium">{SW.when}:</span> {info.when}{' '}
+                {info.says === 'message' ? SW.messageHint : ''}
+              </p>
+            );
+            if (part === 'first')
+              return (
+                <div key={part} data-testid="playbook-script-first">
+                  {head}
+                  {when}
+                  <div className="space-y-2">
+                    {firsts.map((m, i) => (
+                      <div key={i}>
+                        <div className="flex items-start gap-2">
+                          <Textarea
+                            id={i === 0 ? 'pb-script-first' : undefined}
+                            aria-label={`First message, version ${i + 1}`}
+                            rows={3}
+                            maxLength={SCRIPT_LIMITS.first.line}
+                            value={m}
+                            invalid={!!issueAt(`first.${i}`)}
+                            onChange={(e) =>
+                              onChange(
+                                withFirsts(
+                                  script,
+                                  firsts.map((x, j) => (j === i ? e.target.value : x)),
+                                ),
+                              )
+                            }
+                            data-testid={`playbook-script-first-${i}`}
+                          />
+                          {firsts.length > 1 ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={SW.removeFirst(i + 1)}
+                              onClick={() =>
+                                onChange(
+                                  withFirsts(
+                                    script,
+                                    firsts.filter((_, j) => j !== i),
+                                  ),
+                                )
+                              }
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          ) : null}
+                        </div>
+                        <FieldError>{issueAt(`first.${i}`)}</FieldError>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    {firsts.length < SCRIPT_LIMITS.first.most ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => onChange(withFirsts(script, [...firsts, '']))}
+                        data-testid="playbook-script-first-add"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        {SW.addFirst}
+                      </Button>
+                    ) : null}
+                    <span className="text-[12.5px] text-text-3">
+                      {SW.firstHint(SCRIPT_LIMITS.first.most)}
+                    </span>
+                  </div>
+                  <FieldError>{issueAt('first')}</FieldError>
+                  {firstsHelp}
+                </div>
+              );
+            const words = typedPart(goal, script, part);
+            return (
+              <div key={part}>
+                {head}
+                {when}
+                <Textarea
+                  id={`pb-script-${part}`}
+                  rows={words.length > 260 ? 5 : 3}
+                  maxLength={SCRIPT_LIMITS.text}
+                  value={words}
+                  invalid={!!issueAt(part)}
+                  onChange={(e) => onChange(withPart(script, part, e.target.value))}
+                  data-testid={`playbook-script-${part}`}
+                />
+                <FieldError>{issueAt(part)}</FieldError>
+              </div>
+            );
+          })}
+        </section>
+      ))}
+      <section className="rounded-card border border-border bg-card-2 p-4">
+        <h3 className="text-[13.5px] font-semibold">{SW.blanksTitle}</h3>
+        <dl className="mt-2 grid gap-x-4 gap-y-1 text-[13px] sm:grid-cols-[auto_1fr]">
+          {SCRIPT_BLANKS.map((b) => (
+            <div key={b.blank} className="contents">
+              <dt className="font-mono text-[12.5px] text-text">{b.blank}</dt>
+              <dd className="text-text-2">{b.fills}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+      <section
+        className="rounded-card border border-border bg-card-2 p-4"
+        data-testid="playbook-locked-rules"
+      >
+        <h3 className="flex items-center gap-1.5 text-[13.5px] font-semibold">
+          <Lock className="h-3.5 w-3.5 text-text-3" strokeWidth={1.75} />
+          {SW.lockedTitle}
+        </h3>
+        <p className="mt-0.5 text-[12.5px] text-text-3">{SW.lockedBlurb}</p>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-[13px] text-text-2">
+          {LOCKED_RULES.map((r) => (
+            <li key={r}>{r}</li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
 }
@@ -1972,25 +2208,22 @@ function Summary({
         </>
       );
     }
-    case 'openers': {
-      const own = d.ownOpeners.filter((s) => s.trim());
-      if (!d.openerStyles.length && !own.length)
-        return <Missing>None, so first messages aren’t compared</Missing>;
+    case 'script': {
+      const firsts = typedFirsts(d.goal, d.script).filter((m) => m.trim());
+      const changed = partsChanged(d.goal, d.script);
       return (
         <>
-          {d.openerStyles.length ? (
-            <ul className="space-y-0.5">
-              {d.openerStyles.map((o) => (
-                <li key={o}>{short(o, 90)}</li>
-              ))}
-            </ul>
-          ) : null}
-          {own.length ? (
-            <div className="text-[13px] text-text-2">
-              {plural(own.length, 'opener')} of your own:{' '}
-              {own.map((o) => `“${short(o.trim(), 40)}”`).join(' · ')}
-            </div>
-          ) : null}
+          <ul className="space-y-0.5">
+            {firsts.map((m, i) => (
+              <li key={i}>“{short(m.trim(), 110)}”</li>
+            ))}
+          </ul>
+          <div className="text-[13px] text-text-2">
+            {firsts.length > 1 ? `${plural(firsts.length, 'first message')} taking turns. ` : ''}
+            {changed
+              ? `${plural(changed, 'part')} in your own words, the rest in the starting words.`
+              : 'Every part is in the starting words.'}
+          </div>
         </>
       );
     }
