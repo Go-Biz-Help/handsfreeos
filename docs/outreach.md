@@ -4072,6 +4072,38 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       `FallbackProvider.backupAfterDecline`). Only while Claude is answering: never while the backup answers everything
       already, nor while the switch in /admin is on Always Claude. Its tokens are recorded and charged as OpenAI's. No
       migration, nothing in the extension.
+163.  **Threads and X: find posts on the topic every hour and comment, warm up the good fits, and pitch only when
+      asked** (Chris, 13 Nov 2026: "I want to add Threads and X to the social media outreach and social media content
+      creator add ons. these should search often for new posts related to our niche and comment on them as the main
+      activity, it should also like and comment on ideal customer profiles as well, it should not try to pitch unless
+      the posts is specifically asking for people who offer what we offer"). He answered "1a, 2a (every hour), 3b, 4a
+      5a 6a 7a 8a" for Social Outreach (the Content Creator's picks, 9a 10b 11a, are in its plan). Both are follow
+      networks, built as Instagram's kit was (the plan's "The networks after LinkedIn"), but with no messages yet:
+      - **Built now, then tuned** (1a): both kits are built from the sites' usual buttons, words and roles, with
+        **Check Threads** and **Check X** for the person to press once, so the readers are tuned from what their own
+        account shows; the AI helper (decision 142) and the problem reports catch the rest.
+      - **A search every hour** (2a, "every hour"): in the working hours, each network's runner searches its posts with
+        the playbook's own phrases in turn, newest first, and sends the posts under 2 days old for the AI's post check
+        (decision 141's: only posts about the business's topic get a comment). The AI writes each customers' playbook a
+        list for each, **Words to search Threads with** and **Words to search X with**, the person's to change, like
+        Facebook's.
+      - **Daily limits** (3b): 30 comments and 80 likes a day on each, halved for a new account and for a week after a
+        warning, as everywhere (decision 96).
+      - **Comments wait for an OK at first** (4a): as on Instagram and LinkedIn (decision 102), till 25 are OK'd and a
+        week has gone by; Autopilot's go on their own.
+      - **A pitch only when a post asks for someone who offers it** (5a), on **every** network: decision 144's offer to
+        show them ("I can show you a demo if you're interested") ends a comment only when the post asks for someone who
+        offers what the business offers, or for a recommendation of one ("anyone know a good CRM?"). A post that only
+        asks for help with the topic gets a stand or a tip from the owner's field, with no offer.
+      - **The good fits get the warm-up** (6a): who wrote a good post, and who replied to it, are checked by the AI as
+        on Instagram (decision 92); the good fits get decision 161's visits, a random 1 to 3 days apart, 1 or 2 likes
+        and one comment a visit, for the warm-up's wait.
+      - **A follow, and unfollowed after the wait** (7a): good fits are followed (their follow is the request, as on
+        Instagram), and unfollowed on their own once the wait ends without a follow-back. **No messages there yet**:
+        nothing is ever written to anyone in their messages on Threads or X; that comes in a part of its own.
+      - **Replies to the person's comments** (8a): each hourly look also reads the person's notifications for replies
+        to their comments; a reply goes on Needs you with an answer the AI drafted, which waits for an OK (Autopilot's
+        too), and the phone gets a push when someone says yes to a demo.
 
 ## Rules worth knowing before changing anything
 
