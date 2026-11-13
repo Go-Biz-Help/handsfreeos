@@ -4,11 +4,20 @@
  * their microphone hears them, their name, and Join. The same for the team, a customer on their own link and anyone
  * asking to be let in. What they pick is remembered on this device for next time.
  *
- * - **Facebook's and Instagram's own browsers** can block the camera, so the page says to open the link in Safari or
- *   Chrome instead (the plan's "Things that can go wrong"), with the link to copy.
- * - **A blocked camera or microphone** says where to allow it; they can still join without it.
+ * - **Apps' own browsers** (Facebook's, Instagram's, LinkedIn's and others) can block the camera, so the page says to
+ *   open the link in Safari or Chrome instead (the plan's "Things that can go wrong"), with the link to copy.
+ * - **A blocked camera or microphone** gets the steps to allow it for this browser and device, with Try again
+ *   (./mic.tsx); they can still join without it, and the call says so again.
  */
-import { VIDEO_CALL_WORDS, WEBINAR_WORDS, isInAppBrowser } from '@hfos/core';
+import {
+  MIC_WORDS,
+  VIDEO_CALL_WORDS,
+  WEBINAR_WORDS,
+  isInAppBrowser,
+  mediaTroubleLine,
+  mediaTroubleOf,
+  type MediaTrouble,
+} from '@hfos/core';
 import { useMediaDevices, useTrackVolume } from '@livekit/components-react';
 import {
   createLocalAudioTrack,
@@ -24,57 +33,28 @@ import { Button } from '@/components/ui/button';
 import { Input, Select } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { canBlur, setBlur } from './blur';
+import { rememberDevices, rememberedDevices } from './devices';
+import { ANY_DEVICE, helpFor, MediaHelpBox, useCallDevice, useWhenAllowed } from './mic';
 import type { DeviceChoices } from './types';
 
-const REMEMBERED = 'hfos.call.devices';
-
-function remembered(): DeviceChoices {
-  try {
-    const kept = JSON.parse(localStorage.getItem(REMEMBERED) ?? 'null') as Partial<DeviceChoices>;
-    if (kept && typeof kept === 'object')
-      return {
-        mic: kept.mic !== false,
-        camera: kept.camera !== false,
-        blur: kept.blur === true,
-        ...(typeof kept.audioDeviceId === 'string' ? { audioDeviceId: kept.audioDeviceId } : {}),
-        ...(typeof kept.videoDeviceId === 'string' ? { videoDeviceId: kept.videoDeviceId } : {}),
-      };
-  } catch {
-    // Storage is off (a private window): start with everything on.
-  }
-  return { mic: true, camera: true, blur: false };
-}
-
-function remember(c: DeviceChoices) {
-  try {
-    localStorage.setItem(REMEMBERED, JSON.stringify(c));
-  } catch {
-    // Nothing kept; they pick again next time.
-  }
-}
-
-/** What went wrong getting a camera or microphone, in words: blocked, or not there. */
-export function mediaProblem(e: unknown, what: 'camera' | 'microphone'): string {
-  const name = e instanceof Error ? e.name : '';
-  if (name === 'NotAllowedError' || name === 'SecurityError') return VIDEO_CALL_WORDS.noCamera;
-  if (name === 'NotFoundError' || name === 'OverconstrainedError')
-    return `We couldn’t find a ${what}. Plug one in, or join without it.`;
-  if (name === 'NotReadableError')
-    return `Another app is using your ${what}. Close it, then try again, or join without it.`;
-  return `Your ${what} didn’t start. Try again, or join without it.`;
-}
-
-/** A preview of one camera or microphone, while it's on; stopped when it's turned off or the page moves on. */
+/**
+ * A preview of one camera or microphone, while it's on; stopped when it's turned off or the page moves on. A new
+ * `attempt` tries again (Try again, or the browser saying yes).
+ */
 function usePreview<K extends 'audio' | 'video'>(
   kind: K,
   on: boolean,
   deviceId: string | undefined,
+  attempt: number,
   onError: (e: unknown) => void,
+  onStarted: () => void,
 ): (K extends 'video' ? LocalVideoTrack : LocalAudioTrack) | null {
   type T = K extends 'video' ? LocalVideoTrack : LocalAudioTrack;
   const [track, setTrack] = useState<T | null>(null);
   const failed = useRef(onError);
   failed.current = onError;
+  const started = useRef(onStarted);
+  started.current = onStarted;
   useEffect(() => {
     if (!on) return;
     let gone = false;
@@ -92,6 +72,7 @@ function usePreview<K extends 'audio' | 'video'>(
         else {
           made = t as T;
           setTrack(t as T);
+          started.current();
         }
       })
       .catch((e: unknown) => {
@@ -102,7 +83,7 @@ function usePreview<K extends 'audio' | 'video'>(
       made?.stop();
       setTrack(null);
     };
-  }, [kind, on, deviceId]);
+  }, [kind, on, deviceId, attempt]);
   return on ? track : null;
 }
 
@@ -131,13 +112,19 @@ export function PreJoin({
 }) {
   const [choices, setChoices] = useState<DeviceChoices>({ mic: true, camera: true, blur: false });
   const [name, setName] = useState(initialName);
-  const [problem, setProblem] = useState<{ camera?: string; mic?: string }>({});
+  // Why the camera or microphone didn't start, and each Try again.
+  const [trouble, setTrouble] = useState<{
+    camera: MediaTrouble | null;
+    mic: MediaTrouble | null;
+  }>({ camera: null, mic: null });
+  const [attempt, setAttempt] = useState(0);
+  const device = useCallDevice();
   const [blurs, setBlurs] = useState(false);
   const [inApp, setInApp] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    setChoices(remembered());
+    setChoices(rememberedDevices());
     setInApp(isInAppBrowser(navigator.userAgent));
     void canBlur().then(setBlurs);
   }, []);
@@ -145,18 +132,56 @@ export function PreJoin({
   const pick = (next: Partial<DeviceChoices>) =>
     setChoices((c) => {
       const out = { ...c, ...next };
-      remember(out);
+      rememberDevices(out);
       return out;
     });
 
-  const video = usePreview('video', choices.camera, choices.videoDeviceId, (e) => {
-    setProblem((p) => ({ ...p, camera: mediaProblem(e, 'camera') }));
-    setChoices((c) => ({ ...c, camera: false }));
-  });
-  const audio = usePreview('audio', choices.mic, choices.audioDeviceId, (e) => {
-    setProblem((p) => ({ ...p, mic: mediaProblem(e, 'microphone') }));
-    setChoices((c) => ({ ...c, mic: false }));
-  });
+  const video = usePreview(
+    'video',
+    choices.camera,
+    choices.videoDeviceId,
+    attempt,
+    (e) => {
+      setTrouble((t) => ({ ...t, camera: mediaTroubleOf(e) }));
+      setChoices((c) => ({ ...c, camera: false }));
+    },
+    () => setTrouble((t) => (t.camera ? { ...t, camera: null } : t)),
+  );
+  const audio = usePreview(
+    'audio',
+    choices.mic,
+    choices.audioDeviceId,
+    attempt,
+    (e) => {
+      setTrouble((t) => ({ ...t, mic: mediaTroubleOf(e) }));
+      setChoices((c) => ({ ...c, mic: false }));
+    },
+    () => setTrouble((t) => (t.mic ? { ...t, mic: null } : t)),
+  );
+  // Try again: whatever had trouble is turned on and started afresh.
+  const retry = () => {
+    setChoices((c) => ({
+      ...c,
+      ...(trouble.mic ? { mic: true } : {}),
+      ...(trouble.camera ? { camera: true } : {}),
+    }));
+    setAttempt((n) => n + 1);
+  };
+  const blocked = (t: MediaTrouble | null) => t === 'blocked' || t === 'system';
+  useWhenAllowed(
+    [
+      ...(blocked(trouble.mic) ? (['microphone'] as const) : []),
+      ...(blocked(trouble.camera) ? (['camera'] as const) : []),
+    ],
+    retry,
+  );
+  // The box is for a microphone's trouble, or a blocked camera; a camera that's busy or missing is one line.
+  const help = helpFor(
+    { mic: trouble.mic, camera: blocked(trouble.camera) ? trouble.camera : null },
+    device ?? ANY_DEVICE,
+  );
+  const cameraLine =
+    trouble.camera && !blocked(trouble.camera) ? mediaTroubleLine(trouble.camera, 'camera') : null;
   const level = useTrackVolume(audio ?? undefined);
   const cameras = useMediaDevices({ kind: 'videoinput' }).filter((d) => d.deviceId && d.label);
   const mics = useMediaDevices({ kind: 'audioinput' }).filter((d) => d.deviceId && d.label);
@@ -177,7 +202,8 @@ export function PreJoin({
   const join = () => {
     const typed = name.trim();
     if (!typed || busy) return;
-    onJoin(typed, choices);
+    // A microphone that didn't start here is said again in the call, with the same steps.
+    onJoin(typed, trouble.mic && !choices.mic ? { ...choices, micTrouble: trouble.mic } : choices);
   };
 
   return (
@@ -203,7 +229,7 @@ export function PreJoin({
             on={choices.mic}
             label={choices.mic ? 'Turn off microphone' : 'Turn on microphone'}
             onClick={() => {
-              setProblem((p) => ({ ...p, mic: undefined }));
+              setTrouble((t) => ({ ...t, mic: null }));
               pick({ mic: !choices.mic });
             }}
             testId="prejoin-mic"
@@ -214,7 +240,7 @@ export function PreJoin({
             on={choices.camera}
             label={choices.camera ? 'Turn off camera' : 'Turn on camera'}
             onClick={() => {
-              setProblem((p) => ({ ...p, camera: undefined }));
+              setTrouble((t) => ({ ...t, camera: null }));
               pick({ camera: !choices.camera });
             }}
             testId="prejoin-camera"
@@ -246,11 +272,12 @@ export function PreJoin({
         ) : null}
       </div>
 
-      {cameras.length > 1 || mics.length > 1 ? (
+      {cameras.length > 1 || mics.length > 0 ? (
         <div className="grid gap-2 sm:grid-cols-2">
-          {mics.length > 1 ? (
+          {/* Always shown once there's one, so they can see which microphone they'll be heard on. */}
+          {mics.length > 0 ? (
             <DeviceSelect
-              label="Microphone"
+              label={MIC_WORDS.microphone}
               devices={mics}
               value={choices.audioDeviceId}
               onChange={(audioDeviceId) => pick({ audioDeviceId })}
@@ -267,12 +294,20 @@ export function PreJoin({
         </div>
       ) : null}
 
-      {problem.camera || problem.mic ? (
+      {help ? (
+        <MediaHelpBox
+          title={help.title}
+          steps={help.steps}
+          onRetry={retry}
+          testId="prejoin-media-problem"
+        />
+      ) : null}
+      {cameraLine ? (
         <p
           className="rounded-control bg-warning-soft px-3 py-2 text-[13px] text-warning-text"
-          data-testid="prejoin-media-problem"
+          data-testid="prejoin-camera-problem"
         >
-          {problem.camera ?? problem.mic}
+          {cameraLine}
         </p>
       ) : null}
       {inApp ? (

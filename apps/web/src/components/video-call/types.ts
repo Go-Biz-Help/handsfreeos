@@ -1,5 +1,7 @@
 /** What the call's pages share (docs/video-calls.md). */
 
+import type { MediaTrouble } from '@hfos/core';
+
 /** What the person picked on the way in: their microphone and camera, and whether their background is blurred. */
 export interface DeviceChoices {
   readonly mic: boolean;
@@ -7,6 +9,10 @@ export interface DeviceChoices {
   readonly blur: boolean;
   readonly audioDeviceId?: string;
   readonly videoDeviceId?: string;
+  /** Where the call's sound comes out, on a computer whose browser lets a page pick (./mic.tsx). */
+  readonly audioOutputId?: string;
+  /** Why their microphone didn't start before joining, so the call says so too (never remembered). */
+  readonly micTrouble?: MediaTrouble;
 }
 
 /**

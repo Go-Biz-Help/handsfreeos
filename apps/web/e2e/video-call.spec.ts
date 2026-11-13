@@ -19,7 +19,9 @@ import { linkFrom, waitForMail } from './helpers';
  * /admin, a customer books an online visit set to one, opens their own Join link and waits, the owner joins from the
  * appointment, and the customer goes straight in (the owner's 6a). They see each other, chat and raise a hand, the
  * customer points at the owner's shared screen, End for everyone ends it for both, and the appointment says who
- * joined. The owner hears the customer come in.
+ * joined. The owner hears the customer come in. The customer's browser blocks her microphone at first: she gets the
+ * steps, the owner sees "Mic blocked" on her, and once it's allowed, Try again turns it on; muted by the owner, she's
+ * told, and turns it back on herself.
  *
  * It needs the worker on LiveKit: CI starts one before the browser tests ("Start a local LiveKit server" in
  * .github/workflows/ci.yml). On the worker's stand-in nothing connects, so it's skipped. Read from apps/worker/.env as
@@ -46,6 +48,17 @@ function heardSounds() {
   );
 }
 const soundsHeard = () => (window as unknown as { hfosSounds?: string[] }).hfosSounds ?? [];
+
+/** A browser that blocks the microphone until the test says it's allowed (`hfosMicAllowed`), as Block would. */
+function blockMicrophone() {
+  const w = window as unknown as { hfosMicAllowed?: boolean };
+  const devices = navigator.mediaDevices;
+  const real = devices.getUserMedia.bind(devices);
+  devices.getUserMedia = (wanted?: MediaStreamConstraints) =>
+    wanted?.audio && !w.hfosMicAllowed
+      ? Promise.reject(new DOMException('Permission denied', 'NotAllowedError'))
+      : real(wanted);
+}
 
 // Chromium's own stand-in camera and microphone, allowed without asking.
 test.use({
@@ -119,6 +132,8 @@ test('a customer and the owner meet in a booked HandsFreeOS video call', async (
   const customerSide = await browser.newContext({ permissions: ['camera', 'microphone'] });
   // What each side's call plays (its join and knock sounds), as the call says them.
   for (const side of [page.context(), customerSide]) await side.addInitScript(heardSounds);
+  // Maya's browser blocks her microphone, as if she'd pressed Block once.
+  await customerSide.addInitScript(blockMicrophone);
   const customer = await customerSide.newPage();
   await customer.goto(join);
   await expect(customer.getByTestId('call-heading')).toHaveText('Coaching call');
@@ -126,6 +141,11 @@ test('a customer and the owner meet in a booked HandsFreeOS video call', async (
   await expect(customer.getByTestId('prejoin-ai-notice')).toContainText(
     'No video or sound is kept',
   );
+  // She's told what's blocking it and how to allow it in her browser, and can still join without it.
+  await expect(customer.getByTestId('prejoin-media-problem-title')).toHaveText(
+    'Your browser is blocking your microphone',
+  );
+  await expect(customer.getByTestId('prejoin-media-problem-steps')).toContainText('Microphone');
   await customer.getByTestId('prejoin-join').click();
   // Nobody from the team is there yet.
   await expect(customer.getByTestId('call-waiting')).toContainText('will be right with you');
@@ -148,6 +168,41 @@ test('a customer and the owner meet in a booked HandsFreeOS video call', async (
   // The owner hears Maya come in. Maya came into a call the owner was already in, so she hears nothing.
   await expect.poll(() => team.evaluate(soundsHeard)).toEqual(['join']);
   expect(await customer.evaluate(soundsHeard)).toEqual([]);
+
+  // Her microphone is still blocked: the owner sees so on her, and pressing it brings back the steps.
+  const mayaTile = team.locator('[data-testid="call-tile"][data-name="Maya Brooks"]');
+  await expect(mayaTile.getByTestId('call-tile-mic')).toHaveText('Mic blocked');
+  const mic = customer.getByTestId('call-mic');
+  await expect(customer.getByTestId('call-mic-alert')).toBeVisible();
+  await mic.click();
+  await expect(customer.getByTestId('call-media-help-title')).toHaveText(
+    'Your browser is blocking your microphone',
+  );
+  // She allows it, and Try again turns it on: the steps go, and so does the owner's note.
+  await customer.evaluate(() => {
+    (window as unknown as { hfosMicAllowed?: boolean }).hfosMicAllowed = true;
+  });
+  await customer.getByTestId('call-media-help-retry').click();
+  await expect(customer.getByTestId('call-media-help')).toHaveCount(0);
+  await expect(mic).toHaveAttribute('aria-pressed', 'true');
+  await expect(mayaTile.getByTestId('call-tile-mic')).toHaveCount(0);
+  // The arrow beside it lists her microphones.
+  await customer.getByTestId('call-mic-menu').click();
+  await expect(customer.getByTestId('call-mic-option').first()).toBeVisible();
+  await customer.keyboard.press('Escape');
+
+  // The owner mutes her: she's told who did it, and turns it back on herself.
+  await team.getByTestId('call-people-button').click();
+  await team
+    .locator('[data-testid="call-person"][data-name="Maya Brooks"]')
+    .getByRole('button', { name: 'Mute' })
+    .click();
+  await expect(customer.getByText('Someone on the team muted you')).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(mic).toHaveAttribute('aria-pressed', 'false');
+  await mic.click();
+  await expect(mic).toHaveAttribute('aria-pressed', 'true');
 
   // The owner can turn the AI's notes off for this call.
   const notes = team.getByTestId('call-ai-notes');

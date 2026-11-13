@@ -15,6 +15,7 @@ export * from './meetings/review';
 export * from './meetings/google';
 // HandsFreeOS video calls: the rules and words the worker, the web and the phone share.
 export * from './meetings/video-calls';
+export * from './meetings/mic-help';
 // What a call really used: the data each call screen downloaded (20261027022000).
 export * from './meetings/call-data';
 // Links in a call's chat, pressable on the web and the phone.

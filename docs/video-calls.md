@@ -37,6 +37,8 @@ webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 | The switch in /admin                         | `apps/web/src/components/admin/video-calls-block.tsx`                                                                             |
 | The browser test                             | `apps/web/e2e/video-call.spec.ts`, on a real LiveKit server in CI                                                                 |
 | The join and knock sounds                    | `call-sounds.ts` in the web's `components/video-call/` and the phone's `src/video-call/`; `scripts/video-call-sounds.mjs`         |
+| Microphone trouble: causes, steps and words  | `packages/core/src/meetings/mic-help.ts` (`mediaTroubleOf`, `mediaHelp`, `MIC_WORDS`, the two judges)                             |
+| Microphone trouble on the web                | `components/video-call/mic.tsx` (the box, the menu, the watch), used by `call-room.tsx` and `pre-join.tsx`; `devices.ts`          |
 | What the AI heard, and the listener's list   | `supabase/migrations/20261027013300_video_call_words.sql` (`app.video_call_lines`, `video_calls_to_hear`)                         |
 | The listener                                 | `apps/worker/src/media.ts` (the `media` process in `fly.toml`), `video-calls/listener.ts`                                         |
 | Hearing each person, captions, lines         | `apps/worker/src/video-calls/hearing.ts`; LiveKit's media library only in `listener-room.ts`                                      |
@@ -620,6 +622,41 @@ The owner asked for a sound when someone joins a call, so the team knows without
   a chime comes out wherever the call's sound does. They're only code and two sound files, so they reach phones as
   an update, with no store build.
 - **There's no switch to turn them off** yet.
+
+### Microphone trouble (owner, 12 November 2026)
+
+The owner said people sometimes couldn't unmute or get their microphone working. The owner's picks were in
+`/mnt/project-files/video-call-mic/questions.md` (all ★a, built while waiting).
+
+- **A blocked microphone gets a box that stays until it works**, before joining and in the call: what's blocking it
+  and the steps for that browser and device (`mediaHelp`). The browser (someone pressed Block) and the computer itself
+  (a Mac's or Windows's privacy settings, which Chrome and Edge report as "Permission denied by system") are told
+  apart, since they're fixed in different places. Try again starts it; in Chrome, Edge and Safari it starts by itself
+  the moment it's allowed (`useWhenAllowed`). A camera that's blocked goes in the same box; one that's busy or missing
+  is a note. Closed, the box comes back with the microphone button, which carries a "!" until it works. Someone who
+  joins with a blocked microphone still gets the "!" in the call (`micTrouble` carries in).
+- **Each error is told once.** LiveKit tells the room about a device's error and throws it from the call that
+  failed too, and it says which device it was: before, that was two notes, one of them sometimes about the camera.
+- **The arrow beside the microphone button** picks a microphone, with a bar that moves as it hears them, and, on a
+  computer whose browser lets a page pick (not Safari), a speaker. Both are remembered with the rest
+  (`hfos.call.devices`). Before joining, the microphone list shows even with only one, so they can see which.
+- **A paused microphone comes back.** A phone (an iPhone for a phone call or Siri) can hold the microphone quiet
+  while it still looks on, and LiveKit stops sending it a few seconds later. Unmuting alone doesn't wake it, so turning
+  it on starts it again first (`micNeedsRestart`), the button shows it off meanwhile, and a note says so.
+- **Muted by someone else, they're told:** "Someone on the team muted you" when the team (or the Assistant for them)
+  did, and "Your microphone stopped" when LiveKit muted it because it ended and couldn't come back.
+- **Talking while muted** brings up "You're muted" over the buttons, and **a microphone that sends nothing** (pure
+  silence, which a working one never sends however quiet the room: a mute switch, a dead microphone) says so with
+  the microphone list. Both listen to a copy of the microphone in the browser (`useMicWatch`, `mutedTalkGate`,
+  `silentMicJudge`); nothing is sent or kept. Not on an iPhone or iPad, where the pause above is what goes wrong.
+- **Everyone else sees it:** their own page sets their `hfos.mic` attribute to `blocked` or `silent`, and their tile
+  and People say "Mic blocked" or "No sound from their mic", on the web and the phone, with what the team can do. Like
+  `hfos.kind`, it's a label for the screen and nothing more.
+- **On the phone** (the team's app), a microphone the phone won't let the app use is a note that stays, with
+  Settings, and coming back to the app tries it again. The pause, the double note and being muted are handled as on
+  the web. It's code only, so it reaches phones as an update.
+- **More apps' own browsers** are told to open the link in Safari or Chrome: LinkedIn, Threads, Snapchat, Pinterest,
+  X and any Android app's web view, beside Facebook's, Instagram's and the others.
 
 ## Running it locally
 
