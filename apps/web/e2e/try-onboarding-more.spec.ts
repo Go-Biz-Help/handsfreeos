@@ -123,6 +123,10 @@ test('joining from a team invite: the email comes to you, you join as a member, 
   await page.getByTestId('accept-invite').click();
   await expect(page).toHaveURL(/\/app\/w\/[0-9a-f-]{36}/);
   await expect(page.getByTestId('practice-banner')).toBeVisible();
+  // Joining lands on Home with the tour, as it does for a real teammate.
+  await expect(page.getByTestId('tour')).toHaveAttribute('data-stop', 'home');
+  await page.getByTestId('tour-skip').click();
+  await expect(page.getByTestId('tour')).toHaveCount(0);
 
   // A member holds no role that deletes a business; the person practising it ends it all the same.
   await page.getByTestId('practice-end').click();
