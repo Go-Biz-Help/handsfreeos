@@ -2543,6 +2543,38 @@ describe('your own account', () => {
     // Nothing named, nothing to save: no empty card.
     await expect(prepare('update_my_account', {}, owner)).rejects.toThrow('Nothing would change.');
   });
+
+  it('reads About you, and saves it whole on a card that says only they see it (decision 165)', async () => {
+    const read = async () =>
+      (await readTool('get_settings', 'my_account', owner)).result['aboutYou'] as {
+        about: string | null;
+        note: string;
+      };
+    expect(await read()).toEqual({ about: null, note: expect.stringContaining('Nothing yet.') });
+    const mine = 'I grew up in Greenville. Big Braves fan.';
+    const { card, parsed, tool } = await prepare('update_my_account', { aboutYou: mine }, owner);
+    expect(card.fields).toEqual([{ label: 'About you', value: mine }]);
+    expect(card.warnings.map((w) => w.text)).toEqual([
+      expect.stringContaining('Only you see this.'),
+    ]);
+    const saved = await confirm(tool!, parsed, owner);
+    // Only About you changed: its own command, and its own place on Settings → Account.
+    expect(saved).toMatchObject({
+      href: `/app/w/${workspaceId}/settings#about-you`,
+      command: 'user_about.set',
+    });
+    expect(await read()).toEqual({
+      about: mine,
+      note: expect.stringContaining('Their own words.'),
+    });
+    const me = await q<{ user: { fullName: string } }>('account.me');
+    expect(me.user.fullName).toBe('Dale Owner');
+    // Emptied, it's cleared, and the card says so before anything is saved.
+    const clear = await prepare('update_my_account', { aboutYou: '' }, owner);
+    expect(clear.card.fields).toEqual([{ label: 'About you', value: 'Cleared: nothing kept' }]);
+    await confirm(clear.tool!, clear.parsed, owner);
+    expect((await read()).about).toBeNull();
+  });
 });
 
 describe('your own hours', () => {

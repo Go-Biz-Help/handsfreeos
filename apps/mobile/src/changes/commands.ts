@@ -188,6 +188,8 @@ import {
   TeammateLessonApplyOutput,
   TeammateLessonDismissInput,
   TeammateLessonDismissOutput,
+  UserAboutSetInput,
+  UserAboutSetOutput,
   UserPhoneStartVerificationInput,
   UserPhoneStartVerificationOutput,
   UserUpdateProfileInput,
@@ -1020,6 +1022,8 @@ export const PHONE_COMMANDS = {
     UserPhoneStartVerificationInput,
     UserPhoneStartVerificationOutput,
   ),
+  // About you (decision 165 in docs/outreach.md): each person's own, saved from Settings → About you with a signal.
+  'user_about.set': command(ONLINE, UserAboutSetInput, UserAboutSetOutput),
   'user.update_profile': command(ONLINE, UserUpdateProfileInput, UserUpdateProfileOutput),
   'workflow.decide_approval': command(
     FRESH,

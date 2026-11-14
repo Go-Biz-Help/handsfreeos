@@ -224,6 +224,8 @@ const ONLINE_COMMANDS = [
   // taking a note off.
   'contractor.job.set_status',
   'contractor.note.remove',
+  // About you (docs/outreach.md, decision 165), on More → Settings, with signal: what a person says of themselves.
+  'user_about.set',
 ];
 /**
  * Commands only the browser extension sends, which can wait in it as long as the browser is offline (Social
@@ -356,6 +358,8 @@ const QUERIES = [
   'socialcontent.idea.list',
   'socialcontent.calendar.get',
   'socialcontent.content.get',
+  // About you, with signal: it's the person's alone, so never in the phone's copy (decision 165).
+  'user_about.get',
 ];
 
 /** An input's JSON Schema, without the regex a format already stands for (a uuid's, a date-time's). */

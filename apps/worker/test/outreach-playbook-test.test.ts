@@ -20,8 +20,10 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { outreachBusiness } from '../../../packages/core/test/addons/outreach-fixture';
 import {
+  TEST_POSTS,
   TEST_READ,
   TEST_START,
+  TEST_WORDS,
   type PlaybookTestOutput,
 } from '../../../packages/core/src/addons/outreach/playbook-test';
 import {
@@ -123,6 +125,8 @@ describe('a playbook’s Test console', () => {
       next: 'If they stay quiet, follow-up 1 of 6 goes 1 day later.',
       unanswered: null,
       state: { step: 'first', sent: 0, answer: null, stopped: false },
+      about: null,
+      aboutYou: false,
     });
     // A member tests it too: it reads, and changes nothing.
     expect((await ask(member, { playbookId, person: sam, move: 'start' })).statusCode).toBe(200);
@@ -235,6 +239,78 @@ describe('a playbook’s Test console', () => {
       message:
         'There’s no message of yours for them to answer yet. Press See the first message, then let the AI play them.',
     });
+  });
+
+  it('tries a comment on what a post says, checked as a real one, with About you as it’s saved (decision 165)', async () => {
+    const post = (key: (typeof TEST_POSTS)[number]['key']) =>
+      TEST_POSTS.find((p) => p.key === key)!.text;
+    // A win: the comment that names it stays, and the one in a brochure's words is dropped.
+    const win = await move({ move: 'comment', post: post('win'), comment: 'warm' });
+    expect(win).toMatchObject({
+      theirs: null,
+      kind: 'comment',
+      label: 'Warm-up comment',
+      message: 'Congrats on this, Sam, big step!',
+      others: [],
+      note: null,
+      next: TEST_WORDS.comment.next,
+      // The post's own words it is about, as the AI pointed at them.
+      about: 'Just got the keys',
+      aboutYou: false,
+      // The chat stays where it was.
+      state: TEST_START,
+    });
+    // Someone on their own heritage: with nothing said in About you, the comment that makes the owner one of them is
+    // dropped, and the playful one stays.
+    const notMine = await move({ move: 'comment', post: post('heritage'), comment: 'warm' });
+    expect(notMine).toMatchObject({
+      message: 'Day five and nothing, Sam?',
+      others: [],
+      about: 'Day 5 of Hispanic',
+      aboutYou: false,
+    });
+    // Once the person says so of themselves in About you, speaking as one of them stays.
+    await testDbs().admin.db.execute(
+      sql`insert into app.user_about (user_id, about) values (${owner.id}, 'I’m Mexican-American, from San Antonio.')`,
+    );
+    const mine = await move({ move: 'comment', post: post('heritage'), comment: 'warm' });
+    expect(mine.aboutYou).toBe(true);
+    expect([mine.message, ...mine.others]).toEqual([
+      'Still waiting on mine too, same',
+      'Day five and nothing, Sam?',
+    ]);
+    // A teammate's About you is their own: the member's test knows nothing of the owner's.
+    const theirs = await ask(member, {
+      playbookId,
+      person: sam,
+      move: 'comment',
+      post: post('heritage'),
+    });
+    expect(theirs.json()).toMatchObject({
+      message: 'Day five and nothing, Sam?',
+      others: [],
+      aboutYou: false,
+    });
+    await testDbs().admin.db.execute(sql`delete from app.user_about where user_id = ${owner.id}`);
+    // A caption that leans on its video: nothing real to say, so no comment, and it says so.
+    const video = await move({ move: 'comment', post: post('video'), comment: 'warm' });
+    expect(video).toMatchObject({
+      kind: null,
+      label: null,
+      message: null,
+      others: [],
+      note: TEST_WORDS.comment.none,
+      about: null,
+    });
+    // An expert comment speaks from the owner's field, so it needn't point at the post's words.
+    const expert = await move({ move: 'comment', post: post('asking'), comment: 'expert' });
+    expect(expert).toMatchObject({ kind: 'comment', label: 'Expert comment' });
+    expect(expert.message).toBeTruthy();
+    // With no post there's nothing to comment on.
+    const none = await ask(owner, { playbookId, person: sam, move: 'comment' });
+    expect(none.statusCode).toBe(400);
+    expect(none.body).toContain('Paste what the post says, or pick one of the examples.');
+    expect(await kept()).toBe(0);
   });
 
   it('refuses what it can’t test, saying what to do, and keeps nothing of a test', async () => {

@@ -12,6 +12,10 @@
  * go out. Nothing is sent or kept: the console holds the chat and where it is (`TestState`) and sends them back with
  * each move. It counts against the business's daily AI limit like any other use.
  *
+ * **Try a comment** (decision 165; the owner, 14 Nov 2026, on comments that read like a bot's): paste what a post says,
+ * or pick an example, and see the comment that would wait for an OK under it, or that there'd be none. It's written by
+ * the same writer and held to the same checks as a real one (./comment-says.ts), with About you as it's saved.
+ *
  * This file holds the moves: which message each one writes (`testMove`), as Today and the conversation's own rules
  * decide it (./ops/conversation.ts `noteSent`, `noteAnswer`), and the words the console shows. Browser-safe: the web,
  * the phone and the worker read it.
@@ -40,6 +44,8 @@ export const TEST_LIMITS = {
   text: 1500,
   /** Messages in a test chat. */
   turns: 40,
+  /** A post's words for Try a comment: what the extension keeps of a post, with room to paste a whole caption. */
+  post: 1500,
 } as const;
 
 /** How the made-up person and the owner know each other: it decides which message starts the chat. */
@@ -86,10 +92,66 @@ export const TEST_QUICK = [
 
 /**
  * A move: `start` writes the message that opens the chat; `reply` is what they wrote back; `quiet` lets the next
- * follow-up or check-in come due; `play` has the AI write their reply as a kind of person, then answers it.
+ * follow-up or check-in come due; `play` has the AI write their reply as a kind of person, then answers it. `comment`
+ * stands apart from the chat: the comment that would wait under a post (decision 165).
  */
-export const TEST_MOVES = ['start', 'reply', 'quiet', 'play'] as const;
+export const TEST_MOVES = ['start', 'reply', 'quiet', 'play', 'comment'] as const;
 export type TestMove = (typeof TEST_MOVES)[number];
+/** The moves of the chat itself. */
+export type TestChatMove = Exclude<TestMove, 'comment'>;
+
+/**
+ * The comments Try a comment writes (decision 165): a warm-up's short reaction under someone's own post (decision
+ * 161), or an expert comment from the owner's own field (decision 141).
+ */
+export const TEST_COMMENTS = {
+  warm: {
+    label: 'Warm-up comment',
+    hint: 'A short, friendly reaction under someone’s own post, before any message.',
+  },
+  expert: {
+    label: 'Expert comment',
+    hint: 'A take or a tip from your own field, under a post in a group or a search.',
+  },
+} as const;
+export type TestComment = keyof typeof TEST_COMMENTS;
+export const TEST_COMMENT_KEYS = Object.keys(TEST_COMMENTS) as [TestComment, ...TestComment[]];
+
+/**
+ * Posts to try a comment on, one tap away: the three kinds the owner's first comments went wrong on (a post about
+ * someone's own heritage, a caption that leans on its video, a win), and one asking for help, for an expert comment.
+ */
+export const TEST_POSTS = [
+  {
+    key: 'heritage',
+    label: 'About their heritage',
+    comment: 'warm',
+    text: 'Day 5 of Hispanic Heritage Month and I’m still waiting on my gifts 😂 Somebody tell my family.',
+  },
+  {
+    key: 'video',
+    label: 'Leans on a video',
+    comment: 'warm',
+    text: 'It be like that 😂',
+  },
+  {
+    key: 'win',
+    label: 'A win',
+    comment: 'warm',
+    text: 'Just got the keys to our second shop on Main Street! Doors open Saturday.',
+  },
+  {
+    key: 'asking',
+    label: 'Asking for help',
+    comment: 'expert',
+    text: 'How does everyone keep track of new leads? I keep losing them in my texts.',
+  },
+] as const satisfies readonly {
+  readonly key: string;
+  readonly label: string;
+  readonly comment: TestComment;
+  readonly text: string;
+}[];
 
 /** The made-up person. */
 export const TestPerson = z.object({
@@ -152,6 +214,17 @@ export const PlaybookTestInput = z
     persona: z.enum(TEST_PERSONA_KEYS).default('interested'),
     /** `start`: which of the first message's versions, counted from 0; they take turns for real. */
     version: z.int().min(0).max(9).default(0),
+    /**
+     * `comment`: what the post says, as the AI gets a real one: its caption, or what the network says its picture
+     * shows. Never the picture or the video.
+     */
+    post: z
+      .string()
+      .trim()
+      .max(TEST_LIMITS.post, `Keep the post under ${TEST_LIMITS.post} characters.`)
+      .default(''),
+    /** `comment`: which kind of comment. */
+    comment: z.enum(TEST_COMMENT_KEYS).default('warm'),
   })
   .superRefine((v, ctx) => {
     if (v.move === 'reply' && !v.text)
@@ -159,6 +232,12 @@ export const PlaybookTestInput = z
         code: 'custom',
         path: ['text'],
         message: 'Type what they write back, or tap one of the quick replies.',
+      });
+    if (v.move === 'comment' && !v.post)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['post'],
+        message: 'Paste what the post says, or pick one of the examples.',
       });
   });
 export type PlaybookTestInput = z.input<typeof PlaybookTestInput>;
@@ -171,6 +250,7 @@ export const TEST_KINDS = [
   'follow_up',
   'check_in',
   'reply',
+  'comment',
 ] as const;
 export type TestKind = (typeof TEST_KINDS)[number];
 
@@ -193,6 +273,10 @@ export const PlaybookTestOutput = z.object({
   /** What they asked that nothing the business gave answers, for a reply. */
   unanswered: z.string().nullable(),
   state: TestState,
+  /** A comment: the post's own words it is about, as the AI pointed at them. */
+  about: z.string().nullable().default(null),
+  /** A comment: whether the person has said anything of themselves in About you (Settings → Account). */
+  aboutYou: z.boolean().default(false),
 });
 export type PlaybookTestOutput = z.output<typeof PlaybookTestOutput>;
 
@@ -324,6 +408,8 @@ export function testLabel(
       return 'Monthly check-in';
     case 'reply':
       return 'Your reply';
+    case 'comment':
+      return 'Your comment';
   }
 }
 
@@ -421,7 +507,7 @@ export type TestLine =
  */
 export function testAdds(
   out: PlaybookTestOutput,
-  move: TestMove,
+  move: TestChatMove,
 ): { readonly said: TestMessage[]; readonly lines: TestLine[] } {
   return {
     said: [
@@ -454,7 +540,7 @@ export function testAdds(
 export const testLinesAfter = (
   lines: readonly TestLine[],
   added: readonly TestLine[],
-  move: TestMove,
+  move: TestChatMove,
 ): TestLine[] => [...(move === 'start' ? [] : lines.filter((l) => l.kind !== 'next')), ...added];
 
 /** Whether a test chat has room for another move. */
@@ -505,4 +591,26 @@ export const TEST_WORDS = {
   played: '(played by the AI)',
   versionN: (n: number) => `Version ${n}`,
   whoPlays: 'Who the AI plays',
+  /** Try a comment (decision 165). */
+  comment: {
+    title: 'Try a comment',
+    blurb:
+      'Paste what a post says and see the comment that would wait for your OK under it. The AI only gets a post’s words: its caption, or what the network says its picture shows.',
+    post: 'What the post says',
+    postPlaceholder: 'Paste a caption, or tap an example',
+    examples: 'Examples',
+    kind: 'Kind of comment',
+    network: 'Where',
+    go: 'See the comment',
+    writing: 'Writing the comment…',
+    /** With no name given above, the made-up person a comment is written to. */
+    person: 'Sam Rivera',
+    about: 'It’s about',
+    none: 'No comment. The post’s words didn’t give the AI one real thing to say, so it would leave none rather than a line that fits under any post. A warm-up still likes the post, and the next visit picks another.',
+    next: 'For real, a comment waits for your OK before it’s posted.',
+    aboutYou: (filled: boolean) =>
+      filled
+        ? 'It wrote this knowing what you said in About you (Settings → Your account).'
+        : 'About you is empty, so it reacts as a friendly outsider and never says you share their background. Add it under Settings → Your account → About you.',
+  },
 } as const;

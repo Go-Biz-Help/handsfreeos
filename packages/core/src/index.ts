@@ -90,6 +90,7 @@ export * from './assistant/answer-text';
 // Asking and leaving: picking an answer back up that came in while nobody was watching.
 export * from './assistant/catch-up';
 export * from './account/settings-words';
+export * from './account/about-you';
 export * from './account/view-as-words';
 export * from './account/sign-in';
 export * from './account/extension-sign-in';

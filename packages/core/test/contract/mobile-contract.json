@@ -16988,6 +16988,19 @@
         "required": ["workspaceId", "lessonId"]
       }
     },
+    "user_about.set": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "about": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": ["about"]
+      }
+    },
     "user_phone.start_verification": {
       "offline": "online",
       "input": {
@@ -18826,6 +18839,12 @@
           }
         },
         "required": ["workspaceId"]
+      }
+    },
+    "user_about.get": {
+      "input": {
+        "type": "object",
+        "properties": {}
       }
     }
   },

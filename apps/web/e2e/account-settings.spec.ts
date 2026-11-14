@@ -75,6 +75,37 @@ test('notifications: push beside email, each saved whole', async ({ page }) => {
   });
 });
 
+test('About you: saved in your own words, still there after a reload, and cleared when emptied', async ({
+  page,
+}) => {
+  // docs/outreach.md, decision 165: what a person says of themselves, for the AI that writes as them.
+  await signUpAndConfirm(page, 'about-you');
+  const workspaceId = await createBusiness(page, { name: 'About You HVAC' });
+  await page.goto(`/app/w/${workspaceId}/settings`);
+  const box = page.getByTestId('about-you-box');
+  const save = page.getByTestId('about-you-save');
+  await expect(box).toHaveValue('');
+  await expect(save).toBeDisabled();
+  await expect(
+    page.getByText('Only you see this. Your teammates each fill in their own.'),
+  ).toBeVisible();
+
+  const mine = 'I grew up in Greenville. Big Braves fan.';
+  await box.fill(mine);
+  await save.click();
+  await expect(page.getByText('Saved. The AI knows this about you from now on.')).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId('about-you-box')).toHaveValue(mine);
+
+  await page.getByTestId('about-you-box').fill('');
+  await page.getByTestId('about-you-save').click();
+  await expect(
+    page.getByText('Cleared. The AI knows nothing personal about you now.'),
+  ).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId('about-you-box')).toHaveValue('');
+});
+
 test('my cell phone is verified by a call from the business number; forwarded phones can show that number', async ({
   page,
 }) => {
