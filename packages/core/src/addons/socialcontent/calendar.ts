@@ -140,12 +140,37 @@ export function chainFor(network: ContentNetwork, chain: readonly string[]): str
     .slice(0, SHORT_POSTS.chainMost);
 }
 
+/**
+ * The most hashtags a network takes on a post. Instagram takes 5 since December 2025, and a caption with more goes up
+ * without its words: the owner's first Instagram post from HandsFreeOS, with 10, went up with its picture alone
+ * (14 Nov 2026). Threads takes one topic; X, 1 or 2 (decision 41).
+ */
+export const HASHTAGS_MOST: Readonly<Partial<Record<PostingNetwork, number>>> = {
+  instagram: 5,
+  ...SHORT_POSTS.tagsMost,
+};
+
 const tagsLine = (hashtags: readonly string[]) =>
   hashtags
     .map((t) => t.replace(/^#+/, '').trim())
     .filter(Boolean)
     .map((t) => `#${t}`)
     .join(' ');
+
+/** Hashtags written into the words themselves. */
+const tagsIn = (words: string): number => words.match(/(^|\s)#[\p{L}\p{N}_]+/gu)?.length ?? 0;
+
+/** The hashtags that go up on the network with these words: as many as it takes, counting any in the words. */
+export function tagsFor(
+  network: PostingNetwork,
+  words: string,
+  hashtags: readonly string[],
+): readonly string[] {
+  const most = HASHTAGS_MOST[network];
+  if (most === undefined) return hashtags;
+  const kept = hashtags.filter((t) => t.replace(/^#+/, '').trim());
+  return kept.slice(0, Math.max(0, most - tagsIn(words)));
+}
 
 /** How long a post's words and tags run as they go up: Threads and X count it (decision 41). */
 export function postLength(words: string, hashtags: readonly string[]): number {
@@ -154,15 +179,16 @@ export function postLength(words: string, hashtags: readonly string[]): number {
 }
 
 /**
- * The words as they go up: the post's words, then a blank line and its hashtags, each with its #. Kept within what
- * the network takes, cutting the words (never a hashtag in half) when they'd run over.
+ * The words as they go up: the post's words, then a blank line and its hashtags, each with its #, no more of them
+ * than the network takes (`HASHTAGS_MOST`). Kept within what the network takes, cutting the words (never a hashtag
+ * in half) when they'd run over.
  */
 export function postText(
   network: PostingNetwork,
   words: string,
   hashtags: readonly string[],
 ): string {
-  const tags = tagsLine(hashtags);
+  const tags = tagsLine(tagsFor(network, words, hashtags));
   const most = POSTING.textMost[network];
   const tail = tags ? `\n\n${tags}` : '';
   const room = Math.max(0, most - tail.length);

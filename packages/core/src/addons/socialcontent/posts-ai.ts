@@ -22,12 +22,13 @@ import {
   CALENDAR,
   chainFor,
   formatFor,
+  HASHTAGS_MOST,
   isShortNetwork,
   PICTURE_WAYS,
   POSTING,
-  SHORT_POSTS,
   type ContentFormat,
   type PictureWay,
+  type PostingNetwork,
 } from './calendar';
 import { isContentNetwork, networkName, type ContentNetwork } from './networks';
 import type { PlaybookSection } from './shapes';
@@ -72,7 +73,7 @@ export const POST_LIMITS = {
 /** How each network's words are written. */
 const NETWORK_WAYS: Readonly<Record<ContentNetwork, string>> = {
   instagram:
-    'Instagram: the first line is the hook and must make people stop scrolling. Short lines with space between them. A clear ask at the end (save it, share it, comment a word). Up to 10 hashtags that fit the business and its niche, kept apart from the words.',
+    'Instagram: the first line is the hook and must make people stop scrolling. Short lines with space between them. A clear ask at the end (save it, share it, comment a word). Up to 5 hashtags that fit the business and its niche, kept apart from the words: Instagram takes no more than 5.',
   facebook:
     'Facebook: talk like a neighbour. A story or a question works well. A clear ask at the end. Up to 3 hashtags, or none.',
   linkedin:
@@ -351,10 +352,10 @@ export function checkedPost(
   kind: Angle | null = null,
   look: Look | null = null,
 ): WrittenPost | null {
-  // Threads and X (decision 41): their few tags, and the words with them within what the network takes.
-  const hashtags = isShortNetwork(network)
-    ? tidyHashtags(answer.hashtags, SHORT_POSTS.tagsMost[network])
-    : tidyHashtags(answer.hashtags);
+  // Threads and X (decision 41): their few tags, and the words with them within what the network takes. Instagram
+  // takes 5 (`HASHTAGS_MOST`).
+  const most = network in HASHTAGS_MOST ? HASHTAGS_MOST[network as PostingNetwork] : undefined;
+  const hashtags = tidyHashtags(answer.hashtags, most ?? POST_LIMITS.hashtags);
   const words = shortWords(
     network,
     tidyLines(withoutTrailingTags(answer.words), POST_LIMITS.words),
