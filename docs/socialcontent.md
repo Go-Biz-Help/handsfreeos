@@ -428,8 +428,9 @@ Instagram from 0.133.0, Threads and X from 0.138.0. The post's sheet offers **Co
   0.139.2). LinkedIn's newer box takes the pictures in a window of its own (Upload from computer, then Next). Its link comes from the network (LinkedIn's View post), else from the top of the profile, the Page or
   their own posts by its first words.
 - **Instagram** (part 10): **Create** on its home page (then **Post** when it asks which kind), the pictures or the
-  person's video into Create new post, **OK** when it says a video goes up as a reel, **Next** past cropping and
-  editing, then the words in the caption box and **Share**. Its link comes from the person's own newest posts, as
+  person's video into Create new post, **OK** when it says a video goes up as a reel, **Original** under cropping's
+  **Select crop** (else 4:5: Instagram starts on a square, which cut the bottom off a 4:5 picture's words; extension
+  0.140.1), **Next** past cropping and editing, then the words in the caption box and **Share**. Its link comes from the person's own newest posts, as
   Instagram's page asks for them, by its first words.
 - **Threads and X** (part 16, decision 41; `post-short.ts`): X's compose page (x.com/compose/post) or Threads' home
   page ("What's new?", else Create): the words in its first box, the pictures, then each post of the chain in a box of

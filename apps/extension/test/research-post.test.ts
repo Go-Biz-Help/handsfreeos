@@ -237,9 +237,17 @@ const VIDEO = { name: 'reel.mp4', type: 'video/mp4', base64: btoa('mp4 bytes') }
 /**
  * A page shaped like Instagram's home: Create in its side menu opens a small menu (Post, AI), Post opens Create new
  * post with its file field; the files lead to a note about reels (a video), cropping and editing, each with Next, then
- * the caption box and Share. `menu`: whether Create asks which kind first.
+ * the caption box and Share. Cropping starts on a square, as Instagram's does, with Select crop showing the shapes
+ * (`shapes`). `menu`: whether Create asks which kind first.
  */
-function instagram(opts: { menu?: boolean | 'hidden'; written?: string; fails?: boolean } = {}) {
+function instagram(
+  opts: {
+    menu?: boolean | 'hidden';
+    written?: string;
+    fails?: boolean;
+    shapes?: readonly string[];
+  } = {},
+) {
   const { window } = new JSDOM(
     `<body>
       <div role="navigation">
@@ -252,7 +260,7 @@ function instagram(opts: { menu?: boolean | 'hidden'; written?: string; fails?: 
   );
   const doc = window.document;
   (window as unknown as { DataTransfer: unknown }).DataTransfer = FakeTransfer;
-  const shared: { text: string; files: string[] }[] = [];
+  const shared: { text: string; files: string[]; shape: string }[] = [];
   let commentPressed = false;
   doc.getElementById('comment-post')!.addEventListener('click', () => {
     commentPressed = true;
@@ -275,6 +283,7 @@ function instagram(opts: { menu?: boolean | 'hidden'; written?: string; fails?: 
     });
     input.addEventListener('change', () => {
       const files = given;
+      let shape = '1:1';
       const step = (header: string, then: () => void) => {
         box.innerHTML = `<h1>${header}</h1><img src="blob:https://www.instagram.com/1"><div role="button" id="next">Next</div>`;
         box.querySelector('#next')!.addEventListener('click', then);
@@ -289,7 +298,7 @@ function instagram(opts: { menu?: boolean | 'hidden'; written?: string; fails?: 
           return true;
         };
         box.querySelector('#share')!.addEventListener('click', () => {
-          shared.push({ text: words.textContent ?? '', files: files.map((f) => f.type) });
+          shared.push({ text: words.textContent ?? '', files: files.map((f) => f.type), shape });
           box.innerHTML = '<h1>Sharing</h1>';
           setTimeout(() => {
             box.innerHTML = opts.fails
@@ -298,7 +307,28 @@ function instagram(opts: { menu?: boolean | 'hidden'; written?: string; fails?: 
           }, 1_000);
         });
       };
-      const crop = () => step('Crop', () => step('Edit', caption));
+      const crop = () => {
+        step('Crop', () => step('Edit', caption));
+        // Select crop: an icon with no words, showing the shapes, each an icon titled as it reads beside its words.
+        const select = doc.createElement('div');
+        select.innerHTML =
+          '<div role="button" id="crop"><svg aria-label="Select crop"></svg></div>';
+        box.append(select);
+        select.querySelector('#crop')!.addEventListener('click', () => {
+          const menu = doc.createElement('div');
+          menu.innerHTML = (opts.shapes ?? ['Original', '1:1', '4:5', '16:9'])
+            .map(
+              (s) =>
+                `<div role="button" data-shape="${s}"><span>${s}</span><svg aria-label="${s} icon"><title>${s} icon</title></svg></div>`,
+            )
+            .join('');
+          box.append(menu);
+          for (const o of menu.querySelectorAll('[data-shape]'))
+            o.addEventListener('click', () => {
+              shape = o.getAttribute('data-shape')!.toLowerCase();
+            });
+        });
+      };
       if (files.some((f) => f.type.startsWith('video/'))) {
         const note = doc.createElement('div');
         note.setAttribute('role', 'dialog');
@@ -345,12 +375,32 @@ describe('putting one of the business’s posts up on Instagram (part 10)', () =
     const ig = instagram({ menu: true });
     const done = await postHere(ig.doc, ask('instagram'));
     expect(done).toMatchObject({ result: 'done', pressed: true });
-    expect(ig.shared).toEqual([{ text: 'Three ways to save time.\n\n#crm', files: ['image/png'] }]);
+    expect(ig.shared).toEqual([
+      { text: 'Three ways to save time.\n\n#crm', files: ['image/png'], shape: 'original' },
+    ]);
     expect(ig.commentPressed()).toBe(false);
     expect(done.steps).toEqual(
       expect.arrayContaining(['start', 'kind', 'media:field', 'next', 'typed', 'post']),
     );
     expect(done.steps.filter((s) => s === 'next')).toHaveLength(2);
+  });
+
+  it('keeps the picture’s own shape, not Instagram’s square, so nothing is cut off (the owner, 14 Nov)', async () => {
+    const ig = instagram();
+    const done = await postHere(ig.doc, ask('instagram'));
+    expect(done.steps).toContain('crop:original');
+    expect(ig.shared[0]!.shape).toBe('original');
+    // With no Original among the shapes, 4:5, the shape its pictures are made in.
+    const portrait = instagram({ shapes: ['1:1', '4:5', '16:9'] });
+    const four = await postHere(portrait.doc, ask('instagram'));
+    expect(four.steps).toContain('crop:4:5');
+    expect(portrait.shared[0]!.shape).toBe('4:5');
+    // With neither, it goes on with Instagram's.
+    const square = instagram({ shapes: ['1:1'] });
+    const kept = await postHere(square.doc, ask('instagram'));
+    expect(kept).toMatchObject({ result: 'done', pressed: true });
+    expect(kept.steps).toContain('crop:none');
+    expect(kept.steps.filter((s) => s.startsWith('crop:'))).toHaveLength(1);
   });
 
   it('picks Post from a menu that was on the page all along, hidden, with icons titled Post', async () => {

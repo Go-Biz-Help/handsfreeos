@@ -1464,6 +1464,16 @@ minute after posting and before any reading:
   link"). A warning keeps the network's words for the day, for both social add-ons, and says nothing: the read is
   asked for again later, since one handed out is put off half an hour.
 
+### Instagram posts keep their shape (0.140.1)
+
+The owner's Instagram carousel went up on 14 Nov 2026 with its slides cut to squares: the words at the bottom of the
+first slide were cut off. The pictures are made 1080 by 1350 (4:5, the tallest Instagram shows in full), but Create
+new post's cropping starts on a square, and Next was pressed straight past it. Now, on the step that shows cropping's
+**Select crop** (an icon with no words, found by its label), it's pressed and **Original** picked, else **4:5**
+(`igKeepShape` in `src/research/post-here.ts`), once, before Next. A shape that never shows leaves Instagram's
+square and goes on. Posts already made need nothing new: their pictures are 4:5 already, and the next one that goes up
+keeps its shape.
+
 ### The first posts on Instagram, LinkedIn and a Facebook Page (0.139.2)
 
 The owner's first OK'd posts, on 13 Nov 2026 with 0.139.0, went up only on their Facebook profile. The problem
