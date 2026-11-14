@@ -1,6 +1,6 @@
 'use client';
 /**
- * Across the top of every page of a practice business (Admin → Try onboarding, 20261027027200): it isn't real, when
+ * Across the top of every page of a practice business (Admin → Try onboarding, 20261027027400): it isn't real, when
  * it goes, what is pretended, and End practice, which deletes it for good after asking once.
  */
 import { PRACTICE_WORDS as W, practiceEndsIn } from '@hfos/core';

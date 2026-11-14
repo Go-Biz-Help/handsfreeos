@@ -6,7 +6,7 @@ import { apiServer, getPlatformMe, unwrap } from '@/lib/api/server';
 export const metadata: Metadata = { title: 'Try onboarding' };
 
 /**
- * Admin → Try onboarding (20261027027200): go through an onboarding as a brand-new customer would, in a practice
+ * Admin → Try onboarding (20261027027400): go through an onboarding as a brand-new customer would, in a practice
  * business that's deleted after. The founder and staff admins only; anyone else in support gets the 404 page, as for
  * any page that isn't theirs.
  */

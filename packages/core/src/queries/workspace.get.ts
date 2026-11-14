@@ -65,7 +65,7 @@ export const workspaceGet = defineQuery({
         gettingStarted: !businessOnboardingOf(row.ws.settings as Record<string, unknown> | null)
           .turnedOff,
         needsPlan: plan?.needs_plan ?? false,
-        // A practice business (Admin → Try onboarding, 20261027027200): the web's Practice banner reads it.
+        // A practice business (Admin → Try onboarding, 20261027027400): the web's Practice banner reads it.
         practiceEndsAt: plan?.practice_ends_at
           ? new Date(plan.practice_ends_at).toISOString()
           : null,

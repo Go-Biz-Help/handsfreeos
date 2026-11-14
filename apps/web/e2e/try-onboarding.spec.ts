@@ -3,7 +3,7 @@ import { WORKER } from './booking-helpers';
 import { BUSINESS_ADDRESS, createBusiness, PASSWORD, signUpAndConfirm } from './helpers';
 
 /**
- * Admin → Try onboarding (20261027027200): a support admin goes through the new-business sign-up as a brand-new
+ * Admin → Try onboarding (20261027027400): a support admin goes through the new-business sign-up as a brand-new
  * customer would. The sign-up makes no login and sends nothing, the first screen makes a practice business owned by
  * them, its setup says it's practice on every screen, and End practice deletes it. Nobody else can find the page.
  */

@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 export const metadata: Metadata = { title: 'Create your account · Practice' };
 
 /**
- * The practice sign-up (Admin → Try onboarding, 20261027027200): the sign-up page a new customer sees, in the sign-in
+ * The practice sign-up (Admin → Try onboarding, 20261027027400): the sign-up page a new customer sees, in the sign-in
  * pages' frame, except that no login is made and nothing is sent. Any 6-digit code works. Then the setup's first
  * screen, which makes the practice business.
  */

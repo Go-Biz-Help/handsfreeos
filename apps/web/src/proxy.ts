@@ -17,7 +17,7 @@ const PROTECTED = [
   '/payment',
   '/zoom',
   '/affiliate',
-  // Admin → Try onboarding's practice sign-up (20261027027200), for HandsFreeOS staff who are signed in.
+  // Admin → Try onboarding's practice sign-up (20261027027400), for HandsFreeOS staff who are signed in.
   '/try',
 ];
 const AUTH_PAGES = ['/sign-in', '/sign-up'];

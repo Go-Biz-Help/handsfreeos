@@ -1,6 +1,6 @@
 # Practice businesses: Admin → Try onboarding
 
-HandsFreeOS's admins go through every onboarding as a brand-new customer would, on the real screens, and nothing is kept. The owner asked for it on 14 November 2026 and picked how it works (migration `20261027027200_practice_businesses.sql`).
+HandsFreeOS's admins go through every onboarding as a brand-new customer would, on the real screens, and nothing is kept. The owner asked for it on 14 November 2026 and picked how it works (migration `20261027027400_practice_businesses.sql`).
 
 ## What it is
 
@@ -31,7 +31,7 @@ The flows are listed in `packages/core/src/practice/words.ts` (`PRACTICE_FLOWS`)
 
 | Part                                             | Where                                                                                                                                   |
 | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| The mark, starting, paying, the sweep, the purge | `supabase/migrations/20261027027200_practice_businesses.sql`                                                                            |
+| The mark, starting, paying, the sweep, the purge | `supabase/migrations/20261027027400_practice_businesses.sql`                                                                            |
 | Commands and the list                            | `packages/core/src/commands/practice.ts`, `packages/core/src/queries/practice.ts`                                                       |
 | Words, flows, how long and how many              | `packages/core/src/practice/words.ts`                                                                                                   |
 | The stand-ins and the email swap                 | `apps/worker/src/practice/`                                                                                                             |

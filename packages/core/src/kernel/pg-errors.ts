@@ -644,7 +644,7 @@ const RULES: Record<string, { status: number; message: string }> = {
     message:
       'This business has 20 funnels, the most it keeps. Archive one it no longer uses under AI teammate → Funnels, then make this one.',
   },
-  // 20261027027200: practice businesses (Admin → Try onboarding).
+  // 20261027027400: practice businesses (Admin → Try onboarding).
   practice_forbidden: {
     status: 403,
     message:

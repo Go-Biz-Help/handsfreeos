@@ -1,6 +1,6 @@
 'use client';
 /**
- * The stand-in for Stripe's page in a practice business (Admin → Try onboarding, 20261027027200): what a new customer
+ * The stand-in for Stripe's page in a practice business (Admin → Try onboarding, 20261027027400): what a new customer
  * would pay, or the trial they'd start, and a button that does it with `practice.pay`. No card is charged and no
  * founding spot is used. Then on to the guided setup, as coming back from Stripe goes.
  */

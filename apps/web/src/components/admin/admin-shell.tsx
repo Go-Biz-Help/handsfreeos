@@ -126,7 +126,7 @@ function AdminNav({
       >
         Demo player
       </WebOnlyLink>
-      {/* Admin → Try onboarding (20261027027200): the practice sign-up runs on the web, so the phone doesn't list it
+      {/* Admin → Try onboarding (20261027027400): the practice sign-up runs on the web, so the phone doesn't list it
           either. The founder and staff admins only. */}
       {permissions.includes('platform.practice.use') ? (
         <WebOnlyLink href="/admin/try" icon={Rocket} testId="admin-nav-try" onNavigate={onNavigate}>

@@ -221,7 +221,7 @@ export const WorkspaceSummary = z.object({
    */
   needsPlan: z.boolean(),
   /**
-   * A practice business, made from Admin → Try onboarding (20261027027200), and when it is deleted. Absent or null for
+   * A practice business, made from Admin → Try onboarding (20261027027400), and when it is deleted. Absent or null for
    * every real business. The web shows a Practice banner with End practice, and the business switcher a Practice tag.
    */
   practiceEndsAt: isoDateTime.nullable().optional(),

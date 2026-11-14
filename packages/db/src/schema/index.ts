@@ -76,7 +76,7 @@ export const organizations = app.table('organizations', {
    */
   needsPlan: boolean('needs_plan').notNull().default(false),
   /**
-   * A practice business, made from Admin → Try onboarding (20261027027200), and when it is deleted. Null for every real
+   * A practice business, made from Admin → Try onboarding (20261027027400), and when it is deleted. Null for every real
    * business. Set only by `private.start_practice`, never changed.
    */
   practiceEndsAt: ts('practice_ends_at'),

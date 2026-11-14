@@ -44,7 +44,7 @@ const practiceCode = async (token: string) => ({
  * to `next`: setting up a business, or the invitation it came from. `visitor` is the website's Opinly visitor id,
  * `affiliate` the affiliate link they came by and `code` a discount or trial code's link (`lib/auth/visitor.ts`).
  *
- * `practice` is Admin → Try onboarding's sign-up (20261027027200): the same screens, but no login is made and no
+ * `practice` is Admin → Try onboarding's sign-up (20261027027400): the same screens, but no login is made and no
  * email is sent, and any 6-digit code works.
  */
 export function SignUpForm({

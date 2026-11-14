@@ -128,7 +128,7 @@ export default async function WorkspaceLayout({
                           <TeammateViewBanner workspaceId={workspaceId} view={teammateView} />
                         ) : null}
                         {staleView ? <ForgetStaleView workspaceId={workspaceId} /> : null}
-                        {/* A practice business (Admin → Try onboarding, 20261027027200): not real, when it goes,
+                        {/* A practice business (Admin → Try onboarding, 20261027027400): not real, when it goes,
                             and End practice. */}
                         {current.practiceEndsAt ? (
                           <PracticeBanner

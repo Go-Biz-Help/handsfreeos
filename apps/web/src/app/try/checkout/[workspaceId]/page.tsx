@@ -10,7 +10,7 @@ import { foundingPlanHref } from '@/lib/founding-plan';
 export const metadata: Metadata = { title: 'Checkout · Practice' };
 
 /**
- * The stand-in for Stripe's page in a practice business (Admin → Try onboarding, 20261027027200), where the plan
+ * The stand-in for Stripe's page in a practice business (Admin → Try onboarding, 20261027027400), where the plan
  * page's Pay goes. `?offer=` is the plan picked, `?amount=` what its first charge would be in cents (less with a code)
  * and `?trial=` its days free. Only a practice business that still has to pick a plan comes here.
  */

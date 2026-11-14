@@ -59,7 +59,7 @@ export function PickPlan({
   /** A code from its link, to fill in and try at once. */
   startCode?: string | null;
   /**
-   * A practice business (Admin → Try onboarding, 20261027027200): Pay goes to the stand-in for Stripe's page, which
+   * A practice business (Admin → Try onboarding, 20261027027400): Pay goes to the stand-in for Stripe's page, which
    * holds no spot and charges nothing.
    */
   practice?: boolean;
