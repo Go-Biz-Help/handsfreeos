@@ -774,6 +774,7 @@ describe('the Calendar', () => {
       onAutoFill={jest.fn()}
       onOkWeek={jest.fn()}
       onWrite={jest.fn()}
+      onWriteFor={jest.fn()}
       {...props}
     />
   );
@@ -828,19 +829,52 @@ describe('the Calendar', () => {
     expect(within(day).getByText('X at 4:00 PM')).toBeTruthy();
   });
 
-  it('fills, OKs the week while there are drafts, and writes one', async () => {
+  it('fills, and OKs the week while there are drafts', async () => {
     const onFill = jest.fn();
     const onOkWeek = jest.fn();
-    const onWrite = jest.fn();
-    await render(body({ onFill, onOkWeek, onWrite }));
+    await render(body({ onFill, onOkWeek }));
     await fireEvent.press(screen.getByTestId('socialcontent-calendar-fill'));
     expect(onFill).toHaveBeenCalled();
     await fireEvent.press(screen.getByTestId('socialcontent-calendar-ok-week'));
     expect(onOkWeek).toHaveBeenCalled();
-    await fireEvent.press(screen.getByTestId('socialcontent-calendar-write'));
-    expect(onWrite).toHaveBeenCalledWith(null, null, 'write');
     await render(body({ data: calendarView({ posts: [content(30, { state: 'ready' })] }) }));
     expect(screen.queryByTestId('socialcontent-calendar-ok-week')).toBeNull();
+  });
+
+  it('asks which networks and how before writing a post, one for each network (the owner, 14 Nov)', async () => {
+    const onWriteFor = jest.fn().mockResolvedValue({ postId: id(40) });
+    await render(body({ onWriteFor }));
+    await fireEvent.press(screen.getByTestId('socialcontent-calendar-write'));
+    expect(onWriteFor).not.toHaveBeenCalled();
+    expect(screen.getByTestId('socialcontent-write-sheet')).toHaveTextContent(
+      /Which networks\?.*Threads keeps to 500 characters.*Instagram always gets a picture.*How should the AI write it\?/,
+    );
+    // It starts on the first network with posts in the plan, with the AI writing on its own.
+    expect(screen.getByTestId('socialcontent-write-network-instagram')).toBeSelected();
+    expect(screen.getByTestId('socialcontent-write-network-threads')).not.toBeSelected();
+    expect(screen.getByTestId('socialcontent-write-auto')).toBeSelected();
+    expect(screen.getByTestId('socialcontent-write-go')).toHaveTextContent('Write it');
+    // Several at once: a post for each, in the networks' order.
+    await fireEvent.press(screen.getByTestId('socialcontent-write-network-threads'));
+    await fireEvent.press(screen.getByTestId('socialcontent-write-network-facebook'));
+    expect(screen.getByTestId('socialcontent-write-go')).toHaveTextContent('Write 3 posts');
+    await fireEvent.press(screen.getByTestId('socialcontent-write-go'));
+    expect(onWriteFor).toHaveBeenCalledWith(['instagram', 'facebook', 'threads'], null);
+
+    // With the person's direction, it needs what the post is about first.
+    await render(body({ onWriteFor }));
+    await fireEvent.press(screen.getByTestId('socialcontent-calendar-write'));
+    await fireEvent.press(screen.getByTestId('socialcontent-write-network-instagram'));
+    expect(screen.getByTestId('socialcontent-write-go')).toBeDisabled();
+    await fireEvent.press(screen.getByTestId('socialcontent-write-network-x'));
+    await fireEvent.press(screen.getByTestId('socialcontent-write-mine'));
+    expect(screen.getByTestId('socialcontent-write-go')).toBeDisabled();
+    await fireEvent.changeText(
+      screen.getByTestId('socialcontent-write-about'),
+      '  Our spring tune-up special  ',
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-write-go'));
+    expect(onWriteFor).toHaveBeenLastCalledWith(['x'], 'Our spring tune-up special');
   });
 
   it('stops filling on its own with its switch, and starts again (the owner, 11 Nov)', async () => {
@@ -883,6 +917,7 @@ describe('the Calendar', () => {
     );
     expect(screen.getByTestId('socialcontent-calendar-fill')).toBeDisabled();
     expect(screen.getByTestId('socialcontent-calendar-write')).toBeDisabled();
+    expect(screen.queryByTestId('socialcontent-write-about')).toBeNull();
   });
 
   it('says it needs signal with none, with Try again', async () => {
