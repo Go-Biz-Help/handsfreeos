@@ -1,5 +1,10 @@
 'use client';
-import { EXISTING_ACCOUNT_MESSAGE, isExistingAccount, signUpMessage } from '@hfos/core';
+import {
+  EXISTING_ACCOUNT_MESSAGE,
+  PRACTICE_WORDS,
+  isExistingAccount,
+  signUpMessage,
+} from '@hfos/core';
 import { isAuthError, isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
@@ -28,11 +33,19 @@ export function passwordStrength(pw: string): { score: 0 | 1 | 2 | 3 | 4; label:
 const TERMS_URL = 'https://handsfreeos.com/terms';
 const PRIVACY_URL = 'https://handsfreeos.com/privacy';
 
+/** The practice sign-up's stand-in for checking the emailed code: any 6 digits will do. */
+const practiceCode = async (token: string) => ({
+  error: /^\d{6}$/.test(token.trim()) ? null : new Error('Type any 6 digits.'),
+});
+
 /**
  * Creating an account: Continue with Google once it's turned on, or a name, an email and a password. The email is
  * confirmed with a 6-digit code typed here, read on whichever device gets the email, and the new account carries on
  * to `next`: setting up a business, or the invitation it came from. `visitor` is the website's Opinly visitor id,
  * `affiliate` the affiliate link they came by and `code` a discount or trial code's link (`lib/auth/visitor.ts`).
+ *
+ * `practice` is Admin → Try onboarding's sign-up (20261027027400): the same screens, but no login is made and no
+ * email is sent, and any 6-digit code works.
  */
 export function SignUpForm({
   next,
@@ -40,12 +53,14 @@ export function SignUpForm({
   affiliate,
   code,
   google,
+  practice = false,
 }: {
   next: string;
   visitor?: string;
   affiliate?: AffiliateTrail;
   code?: string;
   google: boolean;
+  practice?: boolean;
 }) {
   const router = useRouter();
   const [name, setName] = useState('');
@@ -72,6 +87,7 @@ export function SignUpForm({
       problems.password = 'Use at least 12 characters. A short sentence works well.';
     setErrors(problems);
     if (Object.keys(problems).length > 0) return;
+    if (practice) return setSent(true);
     setBusy(true);
     const { data, error } = await supabaseBrowser().auth.signUp({
       email: email.trim(),
@@ -123,9 +139,15 @@ export function SignUpForm({
         )}
         submitLabel="Continue"
         verify={(token) =>
-          supabaseBrowser().auth.verifyOtp({ email: address, token, type: 'signup' })
+          practice
+            ? practiceCode(token)
+            : supabaseBrowser().auth.verifyOtp({ email: address, token, type: 'signup' })
         }
-        resend={() => supabaseBrowser().auth.resend({ type: 'signup', email: address })}
+        resend={() =>
+          practice
+            ? Promise.resolve({ error: null })
+            : supabaseBrowser().auth.resend({ type: 'signup', email: address })
+        }
         onDone={carryOn}
         other={{
           label: 'Use a different email',
@@ -134,7 +156,11 @@ export function SignUpForm({
             setPassword('');
           },
         }}
-        footnote="The code works once and expires in one hour. Check your spam folder if it isn’t there."
+        footnote={
+          practice
+            ? PRACTICE_WORDS.codeNote
+            : 'The code works once and expires in one hour. Check your spam folder if it isn’t there.'
+        }
       />
     );
   }
@@ -145,6 +171,14 @@ export function SignUpForm({
         Create your account
       </h1>
       <p className="mt-1.5 text-text-2">Then you’ll set up your business.</p>
+      {practice ? (
+        <p
+          className="mt-4 rounded-menu bg-warning-soft px-3.5 py-2.5 text-[13px] text-warning-text"
+          data-testid="practice-sign-up-note"
+        >
+          {PRACTICE_WORDS.signUpNote}
+        </p>
+      ) : null}
       {google ? (
         <>
           <div className="mt-6">

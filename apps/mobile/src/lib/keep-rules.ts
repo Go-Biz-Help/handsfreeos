@@ -16,6 +16,8 @@ export interface Business {
   readonly permissions?: readonly string[];
   /** It picks a founding spot and pays on the web before it opens (20261027012700); a phone's older copy may not say. */
   readonly needsPlan?: boolean;
+  /** A practice business (Admin → Try onboarding, 20261027027400), deleted after; a phone's older copy may not say. */
+  readonly practice?: boolean;
 }
 
 export interface KeepChoices {

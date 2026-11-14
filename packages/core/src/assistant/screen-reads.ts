@@ -130,6 +130,7 @@ export const SCREEN_READS = [
   'platform.problem_report.list',
   'platform.rates',
   'platform.wallet.get',
+  'practice.list',
   'registration.review.for_staff',
   'support.canned_reply.list',
   'support.queue.summary',

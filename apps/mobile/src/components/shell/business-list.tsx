@@ -1,3 +1,4 @@
+import { PRACTICE_WORDS } from '@hfos/core';
 import { Pressable, View } from 'react-native';
 
 import { Check, ChevronRight, Lock } from '@/components/icons';
@@ -85,6 +86,7 @@ export function BusinessList({
                   {business.name}
                 </Text>
                 <Text numberOfLines={1} className="text-[12.5px] text-text-3">
+                  {business.practice ? `${PRACTICE_WORDS.tag} · ` : ''}
                   {business.organizationName} · you are {ROLE_LABELS[business.role]}
                 </Text>
               </View>

@@ -63140,6 +63140,339 @@
         }
       }
     },
+    "/v1/commands/practice.start": {
+      "post": {
+        "operationId": "command_practice_start",
+        "summary": "Admin → Try onboarding: make a practice business, owned by you, to go through an onboarding as a new customer would. Nothing in it leaves HandsFreeOS, and it is deleted when you end it or after 24 hours.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires platform.practice.use. Emits organization.created, workspace.created.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "businessName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "timezone": {
+                    "default": "America/Chicago",
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "industry": {
+                    "default": "home_services",
+                    "type": "string",
+                    "enum": [
+                      "home_services",
+                      "hvac",
+                      "plumbing",
+                      "electrical",
+                      "roofing",
+                      "handyman",
+                      "general_contracting",
+                      "remodeling",
+                      "landscaping",
+                      "lawn_care",
+                      "tree_service",
+                      "irrigation",
+                      "pest_control",
+                      "house_cleaning",
+                      "commercial_cleaning",
+                      "carpet_cleaning",
+                      "window_cleaning",
+                      "pressure_washing",
+                      "painting",
+                      "flooring",
+                      "cabinets_countertops",
+                      "windows_doors",
+                      "siding_gutters",
+                      "garage_doors",
+                      "fencing_decks",
+                      "concrete_masonry",
+                      "foundation_waterproofing",
+                      "insulation",
+                      "solar",
+                      "pool_spa",
+                      "appliance_repair",
+                      "locksmith",
+                      "home_security",
+                      "restoration",
+                      "chimney",
+                      "septic",
+                      "water_treatment",
+                      "moving",
+                      "junk_removal",
+                      "snow_removal",
+                      "home_inspection",
+                      "interior_design",
+                      "real_estate",
+                      "property_management",
+                      "vacation_rentals",
+                      "mortgage",
+                      "title_escrow",
+                      "dental",
+                      "medical_practice",
+                      "chiropractic",
+                      "physical_therapy",
+                      "med_spa",
+                      "mental_health",
+                      "eye_care",
+                      "home_care",
+                      "wellness",
+                      "hair_salon",
+                      "barbershop",
+                      "nail_salon",
+                      "spa",
+                      "lashes_brows",
+                      "massage",
+                      "tattoo",
+                      "gym",
+                      "personal_training",
+                      "martial_arts",
+                      "dance_studio",
+                      "pet_grooming",
+                      "veterinary",
+                      "dog_training",
+                      "pet_sitting",
+                      "pet_boarding",
+                      "auto_repair",
+                      "auto_body",
+                      "auto_detailing",
+                      "towing",
+                      "auto_glass",
+                      "car_dealership",
+                      "boat_rv",
+                      "accounting",
+                      "law_firm",
+                      "insurance",
+                      "financial_advising",
+                      "tutoring",
+                      "childcare",
+                      "music_lessons",
+                      "driving_school",
+                      "school_training",
+                      "restaurant",
+                      "catering",
+                      "food_truck",
+                      "bakery",
+                      "event_planning",
+                      "event_venue",
+                      "photography",
+                      "entertainment",
+                      "florist",
+                      "lodging",
+                      "travel",
+                      "equipment_rental",
+                      "party_rentals",
+                      "dumpster_rental",
+                      "self_storage",
+                      "portable_toilets",
+                      "marketing_agency",
+                      "consulting",
+                      "it_services",
+                      "staffing",
+                      "printing_signs",
+                      "courier",
+                      "security_services",
+                      "retail_store",
+                      "online_store",
+                      "nonprofit",
+                      "church",
+                      "other"
+                    ]
+                  }
+                },
+                "required": [
+                  "businessName"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "organizationId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "endsAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    }
+                  },
+                  "required": [
+                    "organizationId",
+                    "workspaceId",
+                    "endsAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/practice.pay": {
+      "post": {
+        "operationId": "command_practice_pay",
+        "summary": "In a practice business only: the stand-in for paying for a founding spot. The plan picked goes on the business, with its free trial; no card is charged and no spot is used.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires money.manage. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "offerId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "trialDays": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 365
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "offerId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "plan": {
+                      "type": "string",
+                      "enum": [
+                        "founding_free",
+                        "founding_lifetime",
+                        "monthly"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "plan"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/practice.end": {
+      "post": {
+        "operationId": "command_practice_end",
+        "summary": "End a practice business: it and everything in it are deleted for good, as Delete business does, without typing its name. Only a practice business can be ended this way.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires workspace.delete. Emits workspace.deletion_requested.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "requestedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "requestedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/addon_alert.acknowledge": {
       "post": {
         "operationId": "command_addon_alert_acknowledge",
@@ -134559,6 +134892,95 @@
         }
       }
     },
+    "/v1/queries/practice.list": {
+      "post": {
+        "operationId": "query_practice_list",
+        "summary": "Admin → Try onboarding: the practice businesses you have going, newest first, with when each is deleted.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires platform.practice.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "businesses": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "organizationId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "workspaceId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "endsAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "ending": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "organizationId",
+                          "workspaceId",
+                          "name",
+                          "createdAt",
+                          "endsAt",
+                          "ending"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "businesses"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/platform.business.list": {
       "post": {
         "operationId": "query_platform_business_list",
@@ -143301,6 +143723,18 @@
                           },
                           "needsPlan": {
                             "type": "boolean"
+                          },
+                          "practiceEndsAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -144149,6 +144583,18 @@
                         },
                         "needsPlan": {
                           "type": "boolean"
+                        },
+                        "practiceEndsAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "settings": {
                           "type": "object",

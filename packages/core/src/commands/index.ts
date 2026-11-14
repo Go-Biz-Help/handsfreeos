@@ -135,6 +135,7 @@ import { recordHoldCommands } from './record-hold';
 import { binCommands } from './bin';
 import { safetyCommands } from './safety';
 import { supportAccessCommands } from './support-access';
+import { practiceCommands } from './practice';
 import { addonAlertCommands } from './addon-alert';
 export { addonAlertAcknowledge } from './addon-alert';
 export {
@@ -1202,6 +1203,8 @@ export const commands: readonly CommandDef[] = [
   ...safetyCommands,
   // HandsFreeOS support let into private records (Real Estate step 4).
   ...supportAccessCommands,
+  // Practice businesses for Admin → Try onboarding (20261027027400).
+  ...practiceCommands,
   // Saying you've seen an add-on's alert, from its Home card (Real Estate step 5).
   ...addonAlertCommands,
   ...relationshipCommands,

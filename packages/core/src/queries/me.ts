@@ -48,6 +48,7 @@ export const me = defineQuery({
       addons: string[];
       getting_started: boolean;
       needs_plan: boolean;
+      practice_ends_at: Date | string | null;
     }>(
       ctx.tx,
       // The businesses this person works in. Support staff can see every business's name (M13), so the
@@ -55,7 +56,7 @@ export const me = defineQuery({
       sql`select w.id, w.organization_id, o.name as organization_name, w.name, w.slug, w.timezone, w.industry, private.effective_workspace_role(w.id)::text as role,
             private.my_permissions(w.id) as permissions, private.active_addons(w.id) as addons,
             (w.settings -> 'onboarding' -> 'turnedOff') is null as getting_started,
-            private.workspace_needs_plan(w.id) as needs_plan
+            private.workspace_needs_plan(w.id) as needs_plan, o.practice_ends_at
           from app.workspaces w join app.organizations o on o.id = w.organization_id
           where private.effective_workspace_role(w.id) is not null
           order by o.name, w.name`,
@@ -83,6 +84,7 @@ export const me = defineQuery({
         addons: w.addons,
         gettingStarted: w.getting_started,
         needsPlan: w.needs_plan,
+        practiceEndsAt: w.practice_ends_at ? new Date(w.practice_ends_at).toISOString() : null,
       })),
       // What the Assistant panels read before the first question (the same answer the worker enforces).
       assistantConsent: assistantConsentOf(user.settings),
