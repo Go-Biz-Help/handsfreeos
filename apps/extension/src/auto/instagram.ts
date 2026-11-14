@@ -74,6 +74,7 @@ import { searchInstagram } from '../jobs/instagram/partner-search';
 import { lookForFollowBacks } from '../jobs/instagram/follow-backs';
 import { saveFollowers } from '../jobs/instagram/people';
 import { readLikeYours } from '../jobs/instagram/like-yours';
+import { readCommentsForResearch } from '../jobs/instagram/comment-research';
 import { readPostPeople } from '../jobs/instagram/post-people';
 import { lookAtTagsAndPlaces } from '../jobs/instagram/posts';
 import { unfollowOnItsOwn } from '../jobs/instagram/unfollow';
@@ -164,7 +165,9 @@ export const INSTAGRAM_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'
  * Alignable's are). From 0.95.0 (decision 92) who liked and commented on the good posts the hashtags found
  * (`post_people`), and last the people found by topic checked for good fits (`found_checks`). From 0.101.0 the week's
  * helpful post asked for after the warm leads (`weekly_post`, decision 109). From 0.102.0 accounts like the business's
- * after the hashtags (`like_yours`, decision 110): searched for, and one read, its posts and its followers.
+ * after the hashtags (`like_yours`, decision 110): searched for, and one read, its posts and its followers. From
+ * 0.140.0 HandsFreeOS's own comment research after the day's finding (`comment_research`, decision 166), in batches
+ * through the day: only for whoever of HandsFreeOS's staff started one, and nothing for anyone else.
  */
 export const INSTAGRAM_DAILY = [
   'requests',
@@ -179,6 +182,7 @@ export const INSTAGRAM_DAILY = [
   'weekly_post',
   'post_people',
   'found_checks',
+  'comment_research',
   'profile',
 ] as const satisfies readonly (DailyJob | OwnDailyJob)[];
 type InstagramDaily = (typeof INSTAGRAM_DAILY)[number];
@@ -196,6 +200,7 @@ const DAILY_DOING: Readonly<Record<InstagramDaily, string>> = {
   weekly_post: 'Asking for this week’s helpful post for Instagram…',
   post_people: 'Reading who liked and commented on good posts on Instagram…',
   found_checks: 'Checking the people found on Instagram for good fits…',
+  comment_research: 'Reading comments under public posts for HandsFreeOS’s comment research…',
   profile: 'Reading your Instagram profile, as it does on the 1st of each month…',
 };
 const DAILY_NAMES: Readonly<Record<InstagramDaily, string>> = {
@@ -211,6 +216,7 @@ const DAILY_NAMES: Readonly<Record<InstagramDaily, string>> = {
   weekly_post: 'This week’s helpful post',
   post_people: 'Who liked and commented',
   found_checks: 'Check the people found',
+  comment_research: 'Comment research',
   profile: 'Read my profile',
 };
 
@@ -1260,6 +1266,25 @@ const reporting = (job: Job, kind: InstagramDaily): Job => ({
     }),
 });
 
+/** What the day keeps for the comment research when none is this person's to read for: never shown. */
+const NO_RESEARCH = 'No comment research is running.';
+
+/**
+ * Whether a comment research this person started is reading (decision 166). Anything else, a HandsFreeOS that doesn't
+ * answer included, is no.
+ */
+async function researchRuns(businessId: string): Promise<boolean> {
+  try {
+    const next = await (answer as Hfos)({
+      type: 'hfos-comment-research-next',
+      input: { workspaceId: businessId, platform: 'instagram' },
+    });
+    return next.ok && Boolean(next.value?.research);
+  } catch {
+    return false;
+  }
+}
+
 /** Does one of Instagram's once-a-day jobs. */
 export async function runInstagramDaily(kind: InstagramDaily, job: Job): Promise<JobEnd> {
   switch (kind) {
@@ -1308,6 +1333,8 @@ export async function runInstagramDaily(kind: InstagramDaily, job: Job): Promise
       return readPostPeople(reporting(job, kind));
     case 'found_checks':
       return checkFound(job, { platform: PLATFORM, read: readThemOnInstagram });
+    case 'comment_research':
+      return readCommentsForResearch(job);
     case 'profile':
       return readProfileOnItsOwn(job, PLATFORM, (j) => instagramProfileRead(j));
   }
@@ -1440,6 +1467,12 @@ async function go(): Promise<void> {
   }
   const passOver = putOff.passOver(away);
   let daily = choices.collect ? nextInstagramDaily(state, passOver, at) : null;
+  // HandsFreeOS's own comment research (decision 166) is only for whoever of its staff started one: asked without a
+  // word once its turn comes, and for anyone else it's done for the day before a line of it is ever shown.
+  if (daily === 'comment_research' && !(await researchRuns(to.businessId))) {
+    state = await setState({ daily: { ...state.daily, comment_research: NO_RESEARCH } });
+    daily = nextInstagramDaily(state, passOver, at);
+  }
   // Short of good fits once the day's reading is done (decision 126, answer 6a): it finds people again, with the next
   // search words, and checks them.
   if (

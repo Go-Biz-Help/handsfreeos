@@ -493,12 +493,13 @@ describe('what it does on Instagram’s list', () => {
     const all = { ...engaged, weekly_post: 'q' };
     expect(nextInstagramDaily({ daily: all })).toBe('post_people');
     expect(nextInstagramDaily({ daily: { ...all, post_people: 'r' } })).toBe('found_checks');
+    // Then HandsFreeOS's own comment research, for whoever of its staff started one (decision 166).
+    const found = { ...all, post_people: 'r', found_checks: 's' };
+    expect(nextInstagramDaily({ daily: found })).toBe('comment_research');
     // And on the 1st of each month, their own profile read (decision 99).
-    expect(nextInstagramDaily({ daily: { ...all, post_people: 'r', found_checks: 's' } })).toBe(
-      'profile',
-    );
+    expect(nextInstagramDaily({ daily: { ...found, comment_research: 'c' } })).toBe('profile');
     expect(
-      nextInstagramDaily({ daily: { ...all, post_people: 'r', found_checks: 's', profile: 'p' } }),
+      nextInstagramDaily({ daily: { ...found, comment_research: 'c', profile: 'p' } }),
     ).toBeNull();
   });
 
@@ -1621,7 +1622,8 @@ describe('a comment on a good post on Instagram (decision 92)', () => {
     });
   };
 
-  it('drafts one from the post, and leaves it to wait for their OK', async () => {
+  it('drafts one after a look at the post on its own page, and leaves it to wait for their OK', async () => {
+    world.pages = (url) => (url === POST_URL ? { html: postWithBoxes() } : null);
     world.hfos['hfos-draft'] = () => ({
       drafts: [TEXT],
       kind: 'comment',
@@ -1642,8 +1644,10 @@ describe('a comment on a good post on Instagram (decision 92)', () => {
     expect(
       world.posted.find((p) => p.path === '/v1/commands/outreach.send.queue')?.body,
     ).toMatchObject({ kind: 'comment', postId: POST_ID, text: TEXT });
-    // Nothing opened or written on Instagram for it.
-    expect(world.opened).toEqual([]);
+    // The post's own page is opened for a look at it (decision 166). This one shows no picture, so the AI has the
+    // post's words alone, as before. Nothing is pressed, written or noted on Instagram for it.
+    expect(world.opened).toEqual([POST_URL]);
+    expect(world.asked.find((a) => a.type === 'hfos-draft')?.input).not.toHaveProperty('look');
     expect(world.noted).toEqual([]);
   });
 
@@ -2076,17 +2080,74 @@ describe('its day', () => {
     expect(world.opened).not.toContain(`${IG}/me.owner/followers/`);
     expect(state().daily).not.toHaveProperty('requests');
     expect(state().line).toBe(`Your newest followers: ${AWAY_WAIT_LINE}`);
-    // The rest of the day goes on: here, nothing on the list, so the last line says what waits.
+    // The rest of the day goes on: here, nothing on the list, so the last line says what waits. HandsFreeOS's comment
+    // research (decision 166) isn't theirs to read for, so its turn passes without a line, a page or a step.
     await instagramTick();
     expect(state().line).toBe(
       'Nothing on your Instagram list for it to do yet. One part waits till you’ve been away from your computer for 2 minutes, as it needs its window on screen: Your newest followers.',
     );
+    expect(world.asked.some((a) => a.type === 'hfos-comment-research-next')).toBe(true);
+    expect(state().daily).toHaveProperty('comment_research');
+    expect(world.opened.some((url) => url.includes('/explore/tags/'))).toBe(false);
     expect(alarms.get('hfos-auto-instagram')).toBeLessThan(Date.now() + 11 * 60_000);
     // Once they're away, it's read.
     world.away = true;
     await instagramTick();
     expect(world.opened).toContain(`${IG}/me.owner/followers/`);
     expect(state().daily).toHaveProperty('requests');
+  });
+
+  it('reads for HandsFreeOS’s comment research only when HandsFreeOS says this person started one (decision 166)', async () => {
+    keep(day('started'));
+    world.hours = ALL_DAY;
+    world.choices = { on: true, sending: 'steps', collect: true, warmUp: true };
+    world.hfos['hfos-lists'] = saved;
+    world.away = true;
+    // Everything before it is done today.
+    const before = Object.fromEntries(
+      [
+        'requests',
+        'follow_backs',
+        'tidy',
+        'checks',
+        'chats',
+        'partners',
+        'posts',
+        'like_yours',
+        'helpful',
+        'weekly_post',
+        'post_people',
+        'found_checks',
+      ].map((job) => [job, 'Done.']),
+    );
+    store.set(INSTAGRAM_STATE_KEY, { ...freshState(today()), daily: before });
+    world.answers['/v1/queries/outreach.today'] = () => ({
+      items: [],
+      auto: ['warm_up', 'friend_request'],
+      messages: [],
+      sending: 'steps',
+      partners: [],
+      limits: { like: { done: 0, most: 30 } },
+    });
+    world.pages = (url) =>
+      url === `${IG}/` ? { html: `${MENU}<main><article></article></main>` } : null;
+    // One they started, with today's share read already: the job gets its turn, and says so.
+    world.hfos['hfos-comment-research-next'] = () => ({
+      research: {
+        id: '1f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b',
+        tags: [],
+        postsEach: 5,
+        kept: 700,
+        target: 2_000,
+      },
+    });
+    await instagramTick();
+    const state = () => store.get(INSTAGRAM_STATE_KEY) as { daily: Record<string, string> };
+    expect(state().daily.comment_research).toBe(
+      'Today’s share of the comment research is read: 700 of about 2,000 comments kept so far. It carries on tomorrow.',
+    );
+    expect(world.asked.filter((a) => a.type === 'hfos-comment-research-next')).toHaveLength(2);
+    expect(world.asked.some((a) => a.type === 'hfos-comment-research-save')).toBe(false);
   });
 });
 

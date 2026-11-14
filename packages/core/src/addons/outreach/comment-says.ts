@@ -144,9 +144,34 @@ export function sawSomething(saw: string | null | undefined): boolean {
   return new Set(real).size >= 2;
 }
 
-/** Words no one types under a post (`COMMENT_PLAIN_WORDS`): a brochure's, or a greeting card's. */
-const BROCHURE =
-  /\b(?:charming|stunning|lovely|delightful|gorgeous|breathtaking|captivating|heartwarming|exquisite|picturesque|unforgettable|remarkable|inspiring|inspirational|wonderful|magnificent|splendid|adorable|impeccable|vibrant|testament)\b/i;
+/**
+ * Words no one types under a post (`COMMENT_PLAIN_WORDS`): a brochure's, or a greeting card's. The comment research
+ * counts each in real comments (./comment-research.ts), so the list can be checked against what people do type.
+ */
+export const BROCHURE_WORDS = [
+  'charming',
+  'stunning',
+  'lovely',
+  'delightful',
+  'gorgeous',
+  'breathtaking',
+  'captivating',
+  'heartwarming',
+  'exquisite',
+  'picturesque',
+  'unforgettable',
+  'remarkable',
+  'inspiring',
+  'inspirational',
+  'wonderful',
+  'magnificent',
+  'splendid',
+  'adorable',
+  'impeccable',
+  'vibrant',
+  'testament',
+] as const;
+const BROCHURE = new RegExp(`\\b(?:${BROCHURE_WORDS.join('|')})\\b`, 'i');
 
 /** Whether a drafted comment uses a word people don't type under a post. */
 export const brochureWords = (text: string): boolean => BROCHURE.test(text);

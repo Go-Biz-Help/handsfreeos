@@ -6,6 +6,7 @@
  * sent, with why, so it hands it to the person. On made-up people and posts.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as Looks from '../src/auto/post-look';
 import type { TodayListItem } from '../src/hfos/messages';
 import type { AutoAnswer, AutoAsk, PostLookAnswer, PostLookAsk } from '../src/messages';
 
@@ -63,7 +64,7 @@ vi.mock('../src/jobs/job', async (original) => ({
 }));
 // A photo fetched and made small is stood in for: the look's own tests cover it (./post-look.test.ts).
 vi.mock('../src/auto/post-look', async (original) => {
-  const real = await original<typeof import('../src/auto/post-look')>();
+  const real = await original<typeof Looks>();
   return {
     ...real,
     lookAtPost: (runner: never, on: never) => real.lookAtPost(runner, on, async () => PHOTO),

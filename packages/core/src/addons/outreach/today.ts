@@ -96,6 +96,7 @@ import {
   postSeen,
   type PostLookKind,
 } from './comment-says';
+import { commentGuideBlock } from './comment-research';
 import { DraftOpener, type Opener } from './openers';
 import { WarningState } from './tidy';
 import { TodayGoal } from './goal';
@@ -1232,6 +1233,11 @@ export function todayDraftPrompt(input: {
      * video. Left out, it has the words alone.
      */
     readonly shown?: { readonly kind: PostLookKind; readonly count: number } | null;
+    /**
+     * How real people's comments sound, for a warm-up's comment: the guide in use from HandsFreeOS's comment research
+     * (decision 166, ./comment-research.ts `commentGuide`). Left out, none.
+     */
+    readonly guide?: string | null;
   } | null;
   /** What the extension looked up on their profile and business page just before. */
   readonly lookup?: readonly string[];
@@ -1427,6 +1433,10 @@ export function todayDraftPrompt(input: {
     // the words people type (decision 165).
     input.kind === 'comment' && input.post
       ? `${input.post.shown ? postSeen(input.post.shown.kind, input.post.shown.count) : POST_WORDS_ONLY} ${COMMENT_PLAIN_WORDS}`
+      : null,
+    // A warm-up's comment sounds like real ones, once a research's guide is in use (decision 166).
+    input.kind === 'comment' && input.post?.warm && input.post.guide?.trim()
+      ? commentGuideBlock(input.post.guide.trim())
       : null,
     task,
     // The words in brackets, filled in for them (./script.ts).

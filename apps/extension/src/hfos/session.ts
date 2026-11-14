@@ -537,6 +537,16 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
         api().POST('/v1/commands/outreach.occasions.save', { body: ask.input }),
         ask.input.workspaceId,
       );
+    case 'hfos-comment-research-next':
+      return call(
+        api().POST('/v1/queries/outreach.comment_research.next', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-comment-research-save':
+      return call(
+        api().POST('/v1/commands/outreach.comment_research.save', { body: ask.input }),
+        ask.input.workspaceId,
+      );
     case 'hfos-like-yours-next':
       return call(
         api().POST('/v1/queries/outreach.like_yours.next', { body: ask.input }),

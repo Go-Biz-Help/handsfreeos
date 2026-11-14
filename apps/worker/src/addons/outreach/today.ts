@@ -232,6 +232,18 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
                 where p.workspace_id = ${ws} and p.id = ${profileId}`,
           )
         : [];
+      // How real comments sound, from HandsFreeOS's comment research, once staff put a guide in use (decision 166).
+      const commentGuide =
+        post?.warm_up && input.kind === 'comment' && profile
+          ? (
+              await rows<{ guide: string }>(
+                tx,
+                sql`select guide from platform.comment_guides
+                    where platform = ${profile.platform} and stopped_at is null
+                    order by used_at desc limit 1`,
+              )
+            )[0]?.guide?.trim() || null
+          : null;
       const lines = profileId
         ? await rows<{ lines: string[] }>(
             tx,
@@ -378,6 +390,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         chat,
         post,
         commentedLately,
+        commentGuide,
         engaged,
         profile,
         lines: lines[0]?.lines ?? [],
@@ -585,6 +598,8 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
                 group: found.post.group,
                 warm: found.post.warm_up,
                 said: found.commentedLately,
+                // How real comments sound, when a research's guide is in use (decision 166).
+                guide: found.commentGuide,
                 // The post check's word on whether they ask for what the business offers (decision 163).
                 asking: found.post.strong,
                 // What the extension just took of it on its own page (decision 166): a comment's only.
