@@ -11405,6 +11405,60 @@
         }
       }
     },
+    "/v1/commands/user_about.set": {
+      "post": {
+        "operationId": "command_user_about_set",
+        "summary": "Set About you: what you say of yourself, in your own words (where you’re from, your heritage, family, faith, hobbies, teams, past jobs), for the AI that writes as you. Only you see it. Empty clears it.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Emits user.about_updated.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "about": {
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "about"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "filled": {
+                      "type": "boolean"
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "filled",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/email_domain.add": {
       "post": {
         "operationId": "command_email_domain_add",
@@ -143942,6 +143996,61 @@
                   },
                   "required": [
                     "phone"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/user_about.get": {
+      "post": {
+        "operationId": "query_user_about_get",
+        "summary": "About you: what you said of yourself, in your own words, for the AI that writes as you. Only you see it.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Any signed-in user.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "about": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "about",
+                    "updatedAt"
                   ],
                   "additionalProperties": false
                 }

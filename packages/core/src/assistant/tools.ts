@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ABOUT_YOU_MOST } from '../account/about-you';
 import { ATTENTION_KINDS, AUTO_CANCEL_WINDOW_MINUTES } from '../attention/kinds';
 import { isLocalDate } from '../calendar/engine/zoned';
 import { CALENDAR_COLORS, CALENDAR_PRESETS, PRESET_KEYS } from '../calendar/presets';
@@ -1482,9 +1483,17 @@ export const assistantTools = [
   define({
     name: 'update_my_account',
     description:
-      'Change the person’s own account, as Settings → Account does: their name, the web app’s light or dark, and which emails they get from HandsFreeOS, each named as its row on Notifications. Theirs alone — never another teammate’s. The phone app’s light or dark is kept on each phone (More, then Settings, then Appearance), and this never changes it: asked on the phone, say where it is there. The email they sign in with can’t be changed yet.',
+      'Change the person’s own account, as Settings → Account does: their name, About you (what they say of themselves, for the AI that writes as them), the web app’s light or dark, and which emails they get from HandsFreeOS, each named as its row on Notifications. Theirs alone — never another teammate’s. The phone app’s light or dark is kept on each phone (More, then Settings, then Appearance), and this never changes it: asked on the phone, say where it is there. The email they sign in with can’t be changed yet.',
     input: z.object({
       fullName: text(120).optional(),
+      aboutYou: z
+        .string()
+        .trim()
+        .max(ABOUT_YOU_MOST)
+        .optional()
+        .describe(
+          'About you, whole, in their own words: where they’re from, their heritage, family, faith, hobbies, teams, past jobs. It takes the place of what was there, so to add to it, read it first (get_settings my_account) and pass it all with the new part; empty clears it. Only what they said of themselves: never guess or fill anything in. Only they see it.',
+        ),
       appearance: z
         .enum(['light', 'dark', 'system'])
         .optional()

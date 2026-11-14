@@ -1,4 +1,5 @@
 import {
+  ABOUT_YOU_WORDS,
   APPEARANCE_WORDS,
   BALANCE_WORDS,
   formatPhone,
@@ -30,6 +31,7 @@ import {
   Smartphone,
   Target,
   User,
+  UserRound,
   UserX,
   Wallet,
 } from '@/components/icons';
@@ -277,6 +279,14 @@ export default function Settings() {
               external
               onPress={() => void openWeb(`/app/w/${business.id}/settings`)}
               testID="setting-profile"
+            />
+            <ListRow
+              icon={UserRound}
+              label={ABOUT_YOU_WORDS.title}
+              detail={ABOUT_YOU_WORDS.rowDetail}
+              onPress={() => router.push(businessHref(business.id, 'settings/about-you'))}
+              testID="setting-about-you"
+              settingKey="account.about_you"
             />
             <ListRow
               icon={Moon}

@@ -67,8 +67,10 @@ export const SEND_STATE_KEYS = Object.keys(SEND_STATES) as [SendState, ...SendSt
  *
  * 1. Nothing mentions a group the owner and they are both in (decision 157, ./no-groups.ts).
  * 2. Every message is written from the playbook's own words (decision 164, ./script.ts; the owner's 5a).
+ * 3. Nothing says the owner shares someone's background or life unless the owner said so of themselves, and a comment
+ *    says something real about its post in the words people type (decision 165, ./about-owner.ts, ./comment-says.ts).
  */
-export const RULES_VERSION = 2;
+export const RULES_VERSION = 3;
 
 /** Why one drafted under older rules can't be OK'd (`RULES_VERSION`), and what happens to it. */
 export const SEND_REWRITTEN =

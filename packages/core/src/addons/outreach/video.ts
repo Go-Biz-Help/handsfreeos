@@ -14,6 +14,7 @@
 import { z } from 'zod';
 import { quoteData as quote } from '../../knowledge/prompt';
 import type { MainOfferParts } from '../../main-offer/parts';
+import { OWNER_LIFE_UNKNOWN } from './about-owner';
 import { noDashes, PLAIN_WRITING } from '../../writing';
 
 /** What each part shows while it's said. */
@@ -157,6 +158,7 @@ export const VIDEO_SCRIPT_SYSTEM = [
   'You write the script for a short video a small business owner records themselves, to send to someone on Facebook who said yes to hearing more about their offer.',
   'It runs 2 to 4 minutes. The owner speaks to the camera, in the first person, to one person in the niche: warm, plain, specific, no hype, no pressure, no jargon.',
   PLAIN_WRITING,
+  OWNER_LIFE_UNKNOWN,
   'Use the offer’s outcome, method and guarantee as they are. Never promise more, never say the price, and never invent a result, a number, a client or a review.',
   'For proof, use only the real results given. With none given, say what kind of result to share and write [your result] where it goes.',
   'For what to show, be concrete: what’s on the slide or the screen, or which screenshot.',

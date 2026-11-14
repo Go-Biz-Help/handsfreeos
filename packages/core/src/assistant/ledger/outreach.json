@@ -1,7 +1,7 @@
 {
   "area": "outreach",
   "title": "The Social Outreach add-on: every page",
-  "checkedOn": "2026-11-13",
+  "checkedOn": "2026-11-14",
   "files": {
     "apps/mobile/src/addons/outreach/actions.ts": "9d1266692122",
     "apps/mobile/src/addons/outreach/ai-help.tsx": "715ac076ab3b",
@@ -34,7 +34,7 @@
     "apps/mobile/src/addons/outreach/person-menu.tsx": "1a37fc2ef322",
     "apps/mobile/src/addons/outreach/pipeline.tsx": "0e8ba9125d19",
     "apps/mobile/src/addons/outreach/playbook-script.tsx": "cfe3eb06fe9d",
-    "apps/mobile/src/addons/outreach/playbook-test.tsx": "d94adf08b18a",
+    "apps/mobile/src/addons/outreach/playbook-test.tsx": "d508cf5f3f76",
     "apps/mobile/src/addons/outreach/playbook.tsx": "758ea5f3f430",
     "apps/mobile/src/addons/outreach/playbooks.tsx": "1af36aa24064",
     "apps/mobile/src/addons/outreach/post-quote.tsx": "1fb64117de21",
@@ -93,7 +93,7 @@
     "apps/web/src/addons/outreach/person-panel.tsx": "12eb4039a5b3",
     "apps/web/src/addons/outreach/pipeline-view.tsx": "e1d6f4c59064",
     "apps/web/src/addons/outreach/playbook-builder.tsx": "fcb0b4c09978",
-    "apps/web/src/addons/outreach/playbook-test.tsx": "981a6de724fd",
+    "apps/web/src/addons/outreach/playbook-test.tsx": "24d6b30fe7c6",
     "apps/web/src/addons/outreach/playbooks-page.tsx": "452568c0c65f",
     "apps/web/src/addons/outreach/post-quote.tsx": "0d00a6705d36",
     "apps/web/src/addons/outreach/pre-day-list.tsx": "dd582568db6f",
@@ -3182,23 +3182,37 @@
     {
       "path": "Playbooks → Test it → make someone up: name, network, what they do, what their page says, how you know them; which version of the first message; See the first message",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/playbook-test.tsx:142",
+      "file": "apps/web/src/addons/outreach/playbook-test.tsx:162",
       "covered": "yes",
       "by": "outreach_test_playbook person, version, move start"
     },
     {
       "path": "Playbooks → Test it → the chat: each message that would go and what it is, the AI's other drafts, what was read in their reply, notes (open times, what Knowledge can't answer), what happens next",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/playbook-test.tsx:251",
+      "file": "apps/web/src/addons/outreach/playbook-test.tsx:271",
       "covered": "yes",
       "by": "outreach_test_playbook label, message, others, read, note, unanswered, next"
     },
     {
       "path": "Playbooks → Test it → their side: quick replies (Yes, What is it?, How much?, Not now, No), type a reply, Goes quiet, Let the AI play them (interested, skeptical, busy, not interested); Start over",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/playbook-test.tsx:347",
+      "file": "apps/web/src/addons/outreach/playbook-test.tsx:367",
       "covered": "yes",
       "by": "outreach_test_playbook move reply (text), quiet, play (persona), with the chat and state passed back"
+    },
+    {
+      "path": "Playbooks → Test it → Try a comment: what the post says (or an example post), the kind of comment (warm-up or expert), the network; See the comment",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/playbook-test.tsx:509",
+      "covered": "yes",
+      "by": "outreach_test_playbook move comment (post, comment, person.platform)"
+    },
+    {
+      "path": "Playbooks → Test it → Try a comment → the comment that would wait for your OK, the post’s words it’s about, the other draft, whether About you is filled in, or that there’d be no comment and why",
+      "kind": "see",
+      "file": "apps/web/src/addons/outreach/playbook-test.tsx:589",
+      "covered": "yes",
+      "by": "outreach_test_playbook message, others, about, aboutYou, note, next"
     },
     {
       "path": "Playbooks → builder → AI help on each part: Improve, Suggest more / Write it for me / Suggest questions",
@@ -3763,9 +3777,16 @@
     {
       "path": "Phone → a playbook → Test it: make someone up, the first message, quick replies, type a reply, Goes quiet, Let the AI play them, Start over",
       "kind": "do",
-      "file": "apps/mobile/src/addons/outreach/playbook-test.tsx:139",
+      "file": "apps/mobile/src/addons/outreach/playbook-test.tsx:151",
       "covered": "yes",
       "by": "outreach_test_playbook (person, version, and each move with the chat and state passed back)"
+    },
+    {
+      "path": "Phone → a playbook → Test it → Try a comment: what the post says or an example, the kind, the network, See the comment; the comment, what it’s about, or that there’d be none",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/outreach/playbook-test.tsx:481",
+      "covered": "yes",
+      "by": "outreach_test_playbook move comment (post, comment), with message, others, about, aboutYou and note"
     },
     {
       "path": "Phone → Settings → General → For your team: countries, and the Skipped / Not sure lists it makes",

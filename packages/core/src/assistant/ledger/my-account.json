@@ -1,13 +1,14 @@
 {
   "area": "my-account",
   "title": "My account: profile, appearance, notifications, the side menu, my cell, my businesses and the More menu",
-  "checkedOn": "2026-11-10",
+  "checkedOn": "2026-11-14",
   "files": {
     "apps/mobile/src/app/app/extension-sign-in/[requestId].tsx": "28e53d7a9844",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx": "cc0007aa5c1d",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/about-you.tsx": "db61ec0f842c",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/businesses.tsx": "7ec6af7d1307",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/delete-account.tsx": "54f26bd0b071",
-    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "de243d485f3e",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "aea3150ab514",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/my-cell.tsx": "717ec190b6de",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/notifications.tsx": "68b409d36fcc",
     "apps/mobile/src/components/inbox/my-cell-card.tsx": "292ae0ecad2a",
@@ -20,7 +21,7 @@
     "apps/mobile/src/components/shell/sign-out-sheet.tsx": "fc7991c49743",
     "apps/mobile/src/components/shell/this-phone.tsx": "b92c33a0dfd5",
     "apps/mobile/src/links/decide.ts": "8c590c3d63ff",
-    "apps/mobile/src/links/route-map.ts": "e6302c23da17",
+    "apps/mobile/src/links/route-map.ts": "559125b08be5",
     "apps/mobile/src/look/calls.ts": "839009430923",
     "apps/mobile/src/push/bell.ts": "05eae2e42ce5",
     "apps/mobile/src/push/buttons.ts": "53fafdb6a0c6",
@@ -29,13 +30,14 @@
     "apps/mobile/src/push/registration.ts": "52b901d92474",
     "apps/mobile/src/push/switches.ts": "ac0a0f304155",
     "apps/web/src/app/(auth)/delete-account/page.tsx": "7e6cbf1364af",
-    "apps/web/src/app/app/w/[workspaceId]/settings/page.tsx": "ff3a2a8a2e90",
+    "apps/web/src/app/app/w/[workspaceId]/settings/page.tsx": "df45df717e4f",
     "apps/web/src/components/account/delete-account.tsx": "cf83035f8e5d",
     "apps/web/src/components/account/extension-sign-in-prompt.tsx": "5b27e8511869",
     "apps/web/src/components/calls/calls-pill.tsx": "8819d72926f6",
     "apps/web/src/components/clock-check.tsx": "b26e26b8e9ae",
     "apps/web/src/components/look/business-mark.tsx": "e884715ba172",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
+    "apps/web/src/components/settings/about-you-section.tsx": "2e35d8bb6d6e",
     "apps/web/src/components/settings/appearance-section.tsx": "383c3fcbfc5b",
     "apps/web/src/components/settings/google-section.tsx": "8e40854795d2",
     "apps/web/src/components/settings/menu-section.tsx": "2e927c40840b",
@@ -53,6 +55,7 @@
     "apps/web/src/components/shell/user-menu.tsx": "c9385747fa6f",
     "apps/web/src/components/shell/workspace-switcher.tsx": "84241c6efbdb",
     "apps/web/src/components/support/get-help.tsx": "a753e0577cbd",
+    "packages/core/src/account/about-you.ts": "2604f29cf5ba",
     "packages/core/src/account/notification-rows.ts": "274b05c79aa2"
   },
   "items": [
@@ -862,9 +865,30 @@
       "by": "get_settings my_account appearance.web"
     },
     {
+      "path": "Web Settings → Account → About you → what it’s for, how the AI uses it, things worth adding, and that only you see it",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/about-you-section.tsx:40",
+      "covered": "yes",
+      "by": "get_settings my_account aboutYou note; settings-map my_account"
+    },
+    {
+      "path": "Web Settings → Account → About you → the box: what you said of yourself",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/about-you-section.tsx:55",
+      "covered": "yes",
+      "by": "get_settings my_account aboutYou.about"
+    },
+    {
+      "path": "Web Settings → Account → About you → write it and Save (empty clears it)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/about-you-section.tsx:75",
+      "covered": "yes",
+      "by": "update_my_account aboutYou (user_about.set), on a card that says only you see it"
+    },
+    {
       "path": "Web Settings → Account → Sign-in methods → Keep at least two",
       "kind": "see",
-      "file": "apps/web/src/app/app/w/[workspaceId]/settings/page.tsx:77",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/page.tsx:80",
       "covered": "never",
       "by": "sign-in rows on SETTINGS_NEVER"
     },
@@ -1578,119 +1602,147 @@
     {
       "path": "Phone Settings → search settings and results",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:136",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:138",
       "covered": "yes",
       "by": "settings_help, get_settings"
     },
     {
       "path": "Phone Settings → This phone → My cell",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:154",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:156",
       "covered": "partly",
       "by": "read_user_phone_get; path only"
     },
     {
       "path": "Phone Settings → This phone → Face ID lock",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:168",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:170",
       "covered": "never",
       "by": "phone.lock SETTINGS_NEVER"
     },
     {
       "path": "Phone Settings → This phone → Businesses",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:187",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:189",
       "covered": "never",
       "by": "phone.businesses SETTINGS_NEVER"
     },
     {
       "path": "Phone Settings → This phone → Documents on mobile data",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:195",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:197",
       "covered": "never",
       "by": "phone.documents_mobile_data SETTINGS_NEVER"
     },
     {
       "path": "Phone Settings → This phone → Changes on this phone",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:211",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:213",
       "covered": "never",
       "by": "phone.changes SETTINGS_NEVER"
     },
     {
       "path": "Phone Settings → This business → Balance",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:226",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:228",
       "covered": "partly",
       "by": "read_usage_statement (usage ledger); path"
     },
     {
       "path": "Phone Settings → This business → Main offer",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:235",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:237",
       "covered": "partly",
       "by": "get_settings main_offer (its ledger); path"
     },
     {
       "path": "Phone Settings → This business → Partners",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:244",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:246",
       "covered": "partly",
       "by": "get_settings partners (its ledger); path"
     },
     {
       "path": "Phone Settings → You → My safety",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:258",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:260",
       "covered": "never",
       "by": "phone.my_safety SETTINGS_NEVER"
     },
     {
       "path": "Phone Settings → You → Notifications",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:266",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:268",
       "covered": "yes",
       "by": "get_settings my_account alerts"
     },
     {
       "path": "Phone Settings → You → Profile and sign-in (opens the web)",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:273",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:275",
       "covered": "partly",
       "by": "update_my_account fullName; sign-in is the person's"
     },
     {
+      "path": "Phone Settings → You → About you",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:283",
+      "covered": "yes",
+      "by": "get_settings my_account aboutYou; update_my_account aboutYou"
+    },
+    {
+      "path": "Phone About you → what it’s for, the box with what you said, how the AI uses it, that only you see it, things worth adding",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/about-you.tsx:67",
+      "covered": "yes",
+      "by": "get_settings my_account aboutYou (about and note)"
+    },
+    {
+      "path": "Phone About you → write it and Save (empty clears it)",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/about-you.tsx:105",
+      "covered": "yes",
+      "by": "update_my_account aboutYou (user_about.set)"
+    },
+    {
+      "path": "Phone About you → needs signal, Try again",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/about-you.tsx:70",
+      "covered": "person",
+      "by": "the phone’s own signal; the Assistant reads and saves About you itself"
+    },
+    {
       "path": "Phone Settings → You → Appearance sheet → words",
       "kind": "see",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:322",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:332",
       "covered": "yes",
       "by": "places-map PHONE_APP Settings line; settings-map How to: dark mode on the phone"
     },
     {
       "path": "Phone Settings → You → Appearance sheet → Light / Dark / System",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:323",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:333",
       "covered": "person",
       "by": "kept on that phone alone: asked on the phone, the Assistant says where (More → Settings → Appearance); update_my_account changes only the web’s and its card says so"
     },
     {
       "path": "Phone Settings → Sign out",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:293",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:303",
       "covered": "person",
       "by": "signing in and out is the person's"
     },
     {
       "path": "Phone Settings → Delete my account",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:299",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:309",
       "covered": "partly",
       "by": "read_account_deletion_check; deleting is the person's"
     },
     {
       "path": "Phone Settings → footnote (business settings are on the web)",
       "kind": "see",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:308",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:318",
       "covered": "yes",
       "by": "prompt says the business is set up on the web"
     },
@@ -1928,7 +1980,7 @@
     {
       "path": "Phone links → web-only pages open the browser",
       "kind": "do",
-      "file": "apps/mobile/src/links/route-map.ts:174",
+      "file": "apps/mobile/src/links/route-map.ts:176",
       "covered": "partly",
       "by": "asked on the phone, the question’s words give the web app’s address and say what only the web does"
     },

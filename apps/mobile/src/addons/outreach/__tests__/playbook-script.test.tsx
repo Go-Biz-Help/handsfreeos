@@ -2,7 +2,7 @@ import type {
   PlaybookTestInput,
   PlaybookTestOutput,
 } from '@hfos/core/addons/outreach/playbook-test';
-import { TEST_START } from '@hfos/core/addons/outreach/playbook-test';
+import { TEST_POSTS, TEST_START, TEST_WORDS } from '@hfos/core/addons/outreach/playbook-test';
 import { blankPlaybook, type Playbook } from '@hfos/core/addons/outreach/playbooks';
 import {
   LOCKED_RULES,
@@ -92,6 +92,8 @@ const answer = (over: Partial<PlaybookTestOutput> = {}): PlaybookTestOutput => (
   next: 'If they stay quiet, the first follow-up goes in 2 days.',
   unanswered: null,
   state: { ...TEST_START, step: 'first' },
+  about: null,
+  aboutYou: false,
   ...over,
 });
 
@@ -230,6 +232,75 @@ describe('Test it, on the phone', () => {
     expect(screen.getAllByTestId('playbook-test-next')).toHaveLength(1);
     await fireEvent.press(screen.getByTestId('playbook-test-others'));
     expect(screen.getByText('Great! When could you do a quick demo?')).toBeTruthy();
+  });
+
+  it('tries a comment on what a post says, and says when there’d be none (decision 165)', async () => {
+    const onTest = jest
+      .fn<Promise<PlaybookTestOutput>, [PlaybookTestInput]>()
+      .mockResolvedValueOnce(
+        answer({
+          kind: 'comment',
+          label: 'Warm-up comment',
+          message: 'Congrats on the second shop, big step!',
+          others: ['A second shop already? Let’s go!'],
+          next: TEST_WORDS.comment.next,
+          state: TEST_START,
+          about: 'our second shop on Main Street',
+        }),
+      )
+      .mockResolvedValueOnce(
+        answer({
+          kind: null,
+          label: null,
+          message: null,
+          note: TEST_WORDS.comment.none,
+          next: TEST_WORDS.comment.next,
+          state: TEST_START,
+          aboutYou: true,
+        }),
+      );
+    await render(body({ onTest }).el);
+    await fireEvent.press(screen.getByTestId('playbook-test-open'));
+    // Nothing to comment on yet.
+    expect(screen.getByTestId('playbook-test-comment-go')).toBeDisabled();
+    // An example fills the post in, with the kind of comment it's for.
+    await fireEvent.press(screen.getByTestId('playbook-test-post-win'));
+    const win = TEST_POSTS.find((p) => p.key === 'win')!;
+    await fireEvent.press(screen.getByTestId('playbook-test-comment-go'));
+    await waitFor(() =>
+      expect(onTest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          playbookId: PLAYBOOK.id,
+          move: 'comment',
+          post: win.text,
+          comment: 'warm',
+          // Nobody made up yet: it's written to a stand-in.
+          person: expect.objectContaining({ name: TEST_WORDS.comment.person }),
+        }),
+      ),
+    );
+    expect(await screen.findByTestId('playbook-test-comment-text')).toHaveTextContent(
+      'Congrats on the second shop, big step!',
+    );
+    expect(screen.getByTestId('playbook-test-comment-about')).toHaveTextContent(
+      'It’s about: “our second shop on Main Street”',
+    );
+    expect(screen.getByTestId('playbook-test-comment-result')).toHaveTextContent(
+      /About you is empty, so it reacts as a friendly outsider/,
+    );
+    // No chat started by it.
+    expect(screen.queryByTestId('playbook-test-quick-yes')).toBeNull();
+    // A caption that leans on its video: no comment, and it says why.
+    await fireEvent.press(screen.getByTestId('playbook-test-post-video'));
+    expect(screen.queryByTestId('playbook-test-comment-result')).toBeNull();
+    await fireEvent.press(screen.getByTestId('playbook-test-comment-go'));
+    expect(await screen.findByTestId('playbook-test-comment-note')).toHaveTextContent(
+      TEST_WORDS.comment.none,
+    );
+    expect(screen.queryByTestId('playbook-test-comment-text')).toBeNull();
+    expect(screen.getByTestId('playbook-test-comment-result')).toHaveTextContent(
+      /It wrote this knowing what you said in About you/,
+    );
   });
 
   it('is there for everyone who uses the add-on, and not on an archived playbook', async () => {

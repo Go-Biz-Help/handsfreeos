@@ -1,7 +1,7 @@
 /**
  * The person's own account, as Settings → Account shows it to them (get_settings, area my_account): their name and the
  * email they sign in with, the web app's appearance, every alert as it is set now, their side menu as it's drawn, the
- * businesses they're in with their role in each, their cell, and the phones their alerts reach.
+ * businesses they're in with their role in each, About you, their cell, and the phones their alerts reach.
  *
  * Only the rows their own screen shows. New support tickets is HandsFreeOS's own support people's alone: anyone else is
  * never told it exists (the owner, 2026-10-27). Daily agency digest is for an agency's owners and admins
@@ -93,6 +93,18 @@ export async function meRead(v: unknown, db: Db, ctx: ToolContext): Promise<unkn
     })),
     // Where they may add a business (Create workspace): the organizations they own or run.
     organizations: me.organizations.map((o) => ({ name: o.name, role: roleOf(o.role) })),
+  };
+}
+
+/**
+ * About you, as its box on Settings → Account holds it (docs/outreach.md, decision 165): their own words, for the AI
+ * that writes as them. Theirs alone, so it's read only here, for the person asking.
+ */
+export function aboutYouRead(v: unknown): unknown {
+  const about = (v as { about?: string } | null)?.about?.trim() ?? '';
+  return {
+    about: about || null,
+    note: `${about ? 'Their own words.' : 'Nothing yet.'} The AI that writes their outreach messages and comments knows only this of them as a person: it uses it only when someone’s own post or message brings it up, and with nothing here it never says they share someone’s background. Only they see it. update_my_account (aboutYou) saves it whole, from what they say of themselves.`,
   };
 }
 

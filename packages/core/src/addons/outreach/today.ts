@@ -84,6 +84,8 @@ import {
 } from './script';
 import { listsText, type MainOfferLists, type OfferList } from '../../main-offer/lists';
 import { NO_GROUPS, noGroupsAgain } from './no-groups';
+import { ABOUT_OWNER_RULE, aboutOwnerBlock } from './about-owner';
+import { COMMENT_ABOUT_ASK, COMMENT_PLAIN_WORDS, POST_WORDS_ONLY } from './comment-says';
 import { DraftOpener, type Opener } from './openers';
 import { WarningState } from './tidy';
 import { TodayGoal } from './goal';
@@ -696,10 +698,11 @@ export const todayDraftSystem = (
  * A warm-up's comment (decision 161, ./keep-warm.ts), under a post of someone deciding on the owner's request: what a
  * person who likes what they see would say (the owner: "congratulating them, praising them, showing interests … more
  * natural so it doesn't feel like an ai post"). Short, about one real thing in the post, nothing about the business, and
- * nothing at all when the post has nothing to react to.
+ * nothing at all when the post has nothing to react to, or its words lean on a picture or video the AI can't see
+ * (decision 165, ./comment-says.ts).
  */
 export const warmCommentTask = (says: string): string =>
-  `They posted this. The owner is getting to know them and hasn’t talked with them yet. Write the owner’s short public comment under it. ${asHow('a warm-up comment', says)} About one real thing in this post, named plainly (“Congrats on the new shop, the storefront looks great!”, “That kitchen came out so clean”). Nothing about the owner or their business: no pitch, no offer, no question about buying, no link, no web address and no hashtag. Never praise that would fit any post (“Great post!”, “Love this!”, “Amazing!”, “So inspiring!”), never repeat their post back to them, and never sound like a brand, a bot or an ad. When the post has nothing real to react to (only a link, a repost or an ad), or it’s about a loss, an illness, trouble, politics or religion, write no drafts.`;
+  `They posted this. The owner is getting to know them and hasn’t talked with them yet. Write the owner’s short public comment under it. ${asHow('a warm-up comment', says)} Name one real thing the post’s own words say, plainly, the way someone who read it would (“Congrats on the new shop, the storefront looks great!”, “That kitchen came out so clean”): anyone reading only the comment should be able to tell which post it is under. Nothing about the owner’s business or work: no pitch, no offer, no question about buying, no link, no web address and no hashtag. Of the owner themselves, only what the rule on <about_owner> allows. Never a comment that would fit under any post (“Great post!”, “Love this!”, “Amazing!”, “So inspiring!”, “So real”, “This!”, “Facts”, “Felt this”), never one about the post itself in place of what it says (“That caption got me”), never repeat their post back to them, and never sound like a brand, a bot or an ad. Write no drafts when the words don’t give you one real thing to name: they lean on a picture or a video you can’t see (“It be like that”, “POV”, “Wait for it”), they’re only a pitch, contact details and hashtags, or the post is only a link, a repost or an ad. Write none either when it’s about a loss, an illness, trouble, politics or religion. No comment is better than one a bot could have left.`;
 
 /** What a warm-up's comment is told in place of the network's comment rules (decision 161). */
 const WARM_COMMENT_RULE =
@@ -748,6 +751,8 @@ const DRAFT_RULES = [
   'Keep each message under 60 words. Never invent anything about the person: use only what the facts say, and leave out what isn’t known. Where someone works is their job, not their own business, unless the facts say they own or founded it. Never mention AI, HandsFreeOS, or that a message was suggested.',
   'People can run more than one business or do more than one kind of work. When the message says what they do and the facts or their pages show more than one, never write as if one were all they do: mention each briefly and naturally, or lead with the one that fits the message best and nod to the other.',
   BUSINESS_NAMES,
+  // What's true of the owner is only what they said of themselves (decision 165, ./about-owner.ts).
+  ABOUT_OWNER_RULE,
   'Follow the playbook: its tone, its own sample messages’ voice, never its words to avoid, and its disclaimer when it has one. Ask at most one question: the one the playbook’s words for this message ask. Only when they ask none, and the playbook lists questions it may ask, you may ask one of those the chat hasn’t answered yet, when it fits where the chat is. Never ask what the chat already answered, never ask how they are or how business is going unless the task or the playbook’s words say to, and never bring back what they turned down.',
   'The offer’s words are the business’s: use its outcome as it is, never promise more, and never invent a result. Leave the guarantee out, even where the offer’s line has one, unless they asked whether there is one. Never say the price unless they asked for it.',
   // The playbook's own words for a message are the owner's directions (decision 164, ./script.ts); the rest is data.
@@ -1234,6 +1239,11 @@ export function todayDraftPrompt(input: {
    * leave out. Left out, it's the first try.
    */
   readonly again?: readonly string[] | null;
+  /**
+   * What the owner said of themselves (decision 165, ./about-owner.ts; Settings → Account → About you). Left out or
+   * empty, the AI is told nothing is known of them.
+   */
+  readonly aboutOwner?: string | null;
 }): string {
   const p = input.playbook;
   const declined = input.declined && declinedFor(input.kind) ? input.declined : null;
@@ -1350,6 +1360,7 @@ export function todayDraftPrompt(input: {
         : null;
   return [
     `<business>${quoteData(input.business)}</business>`,
+    aboutOwnerBlock(input.aboutOwner),
     `<playbook>\n${quoteData(playbook)}\n</playbook>`,
     offer ? `<offer>\n${quoteData(offer)}\n</offer>` : null,
     ...(input.knows !== undefined && knowsFor(input.kind) && !warm ? knowsBlocks(input.knows) : []),
@@ -1360,6 +1371,8 @@ export function todayDraftPrompt(input: {
       : null,
     input.recent.length ? `<chat>\n${quoteData(chatLines(input.recent))}\n</chat>` : null,
     input.post ? `<post>\n${quoteData(input.post.text)}\n</post>` : null,
+    // A comment has the post's words and nothing else, and is made of the words people type (decision 165).
+    input.kind === 'comment' && input.post ? `${POST_WORDS_ONLY} ${COMMENT_PLAIN_WORDS}` : null,
     task,
     // The words in brackets, filled in for them (./script.ts).
     hasBlanks(task) ? FILL_BLANKS : null,
@@ -1424,6 +1437,7 @@ export function todayDraftPrompt(input: {
     input.kind === 'reply' ? REPLY_SIMPLE_ASK : null,
     input.kind === 'reply' ? UNANSWERED_ASK : null,
     ANSWER_ASK,
+    input.kind === 'comment' && input.post ? COMMENT_ABOUT_ASK : null,
     TODAY_DRAFT_ASK,
   ]
     .filter(Boolean)
@@ -1475,19 +1489,24 @@ export const TodayDraftAnswer = z.object({
   unanswered: z.string().catch('').default(''),
   /** For a reply: the open time they picked, as the open times list it (./meeting-times.ts `TIME_ASK`), else empty. */
   time: z.string().catch('').default(''),
+  /**
+   * For a comment: the post's own words it's about (./comment-says.ts `COMMENT_ABOUT_ASK`, decision 165), else empty.
+   */
+  about: z.string().catch('').default(''),
 });
 export type TodayDraftAnswer = z.output<typeof TodayDraftAnswer>;
 
 export const TODAY_DRAFT_SCHEMA: Record<string, unknown> = {
   type: 'object',
   additionalProperties: false,
-  required: ['drafts', 'simple', 'answer', 'unanswered', 'time'],
+  required: ['drafts', 'simple', 'answer', 'unanswered', 'time', 'about'],
   properties: {
     drafts: { type: 'array', items: { type: 'string' } },
     simple: { type: 'boolean' },
     answer: { type: 'string', enum: [...DRAFT_ANSWERS] },
     unanswered: { type: 'string' },
     time: { type: 'string' },
+    about: { type: 'string' },
   },
 };
 
