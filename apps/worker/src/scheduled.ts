@@ -16,6 +16,7 @@ import { conversations, emailDomains, telephonyRegistrations } from '@hfos/db/sc
 import { accountJobs } from './account/delete';
 import { FORM_JOBS, FORMS_STOPPED_KEY, formJobs, nextStoppedSweep } from './forms/stopped';
 import { BIN_JOBS, BIN_SWEEP_KEY, binJobs } from './bin/index';
+import { PRACTICE_JOBS, PRACTICE_SWEEP_KEY, practiceJobs } from './practice/jobs';
 import { addonJobs, ensureAddonSweep } from './addons/index';
 import { ensureAddonVoting, roadmapJobs } from './addons/roadmap';
 import { workspaceJobs } from './workspace/delete';
@@ -560,6 +561,7 @@ export const jobs: JobMap = {
   [SPAM_SWEEP_JOB]: sweepSpam,
   // The Deleted bin: emptied 30 days on, or at once on "Delete now" (bin/index.ts).
   ...binJobs,
+  ...practiceJobs,
   'email.remove_files': removeEmailFiles,
   'mailbox.sync': mailboxSync,
   'calendar.refresh': calendarRefresh,
@@ -748,6 +750,15 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     await scheduleJob(tx, {
       kind: SPAM_SWEEP_JOB,
       dedupeKey: 'sweep:spam',
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Practice businesses whose time is up are deleted, hourly (Admin → Try onboarding, practice/jobs.ts).
+    await scheduleJob(tx, {
+      kind: PRACTICE_JOBS.sweep,
+      dedupeKey: PRACTICE_SWEEP_KEY,
       runAt,
       payload: {},
       workspaceId: null,

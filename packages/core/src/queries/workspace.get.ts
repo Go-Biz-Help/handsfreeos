@@ -43,9 +43,11 @@ export const workspaceGet = defineQuery({
     const addons = await loadActiveAddons(ctx.tx, input.workspaceId);
     const permissions = [...(ctx.scope.workspacePermissions ?? [])];
     // Whether it still has to pick a founding spot and pay (20261027012700), asked of the database like account.me.
-    const [plan] = await rows<{ needs_plan: boolean }>(
+    const [plan] = await rows<{ needs_plan: boolean; practice_ends_at: Date | string | null }>(
       ctx.tx,
-      sql`select private.workspace_needs_plan(${input.workspaceId}::uuid) as needs_plan`,
+      sql`select private.workspace_needs_plan(${input.workspaceId}::uuid) as needs_plan,
+            (select o.practice_ends_at from app.workspaces w join app.organizations o on o.id = w.organization_id
+              where w.id = ${input.workspaceId}::uuid) as practice_ends_at`,
     );
     return {
       workspace: {
@@ -63,6 +65,8 @@ export const workspaceGet = defineQuery({
         gettingStarted: !businessOnboardingOf(row.ws.settings as Record<string, unknown> | null)
           .turnedOff,
         needsPlan: plan?.needs_plan ?? false,
+        // A practice business (Admin → Try onboarding, 20261027027200): the web's Practice banner reads it.
+        practiceEndsAt: plan?.practice_ends_at ? new Date(plan.practice_ends_at).toISOString() : null,
         inboxPerPerson:
           (
             (row.ws.settings as Record<string, unknown> | null)?.['inbox'] as

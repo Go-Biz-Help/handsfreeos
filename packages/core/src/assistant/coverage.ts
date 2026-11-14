@@ -551,6 +551,11 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'number_port.begin_upload': 'a file from the person’s own computer or phone',
   'number_port.attach_document': 'a file from the person’s own computer or phone',
   'organization.create': 'a new business is set up on its own pages, where it pays',
+  'practice.start':
+    'starting a practice business from Admin → Try onboarding, whose sign-up the person then goes through themselves, as a new customer would',
+  'practice.pay':
+    'the stand-in checkout in a practice business, which the person goes through as a new customer would on Stripe’s page',
+  'practice.end': 'deleting a practice business for good, as Delete business does',
   'platform.view_as.start':
     'looking at a business as support changes this screen, which only the person starts',
   'platform.view_as.end':

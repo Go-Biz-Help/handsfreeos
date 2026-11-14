@@ -25,6 +25,8 @@ import { forgetPublicOrigin } from '../hosting/origin';
 import type { JobHandler } from '../jobs';
 import { errorMessage } from '../outbox';
 import { tellProviderDisconnected } from '../payments/refresh';
+import { queuePracticePurge } from '../practice/queue';
+import { practiceNow } from '../practice/scope';
 import { recordSystemEvent } from '../system-event';
 
 export const WORKSPACE_JOBS = {
@@ -201,6 +203,8 @@ export const deleteWorkspaceJob: JobHandler = async (ctx) => {
       causationId: isUuid(causationId) ? causationId : ctx.job.id,
     });
   });
+  // A practice business's organization goes with it (Admin → Try onboarding): nothing of it is kept.
+  if (practiceNow()) await asWorker(ctx.db, {}, (tx) => queuePracticePurge(tx, organizationId));
   ctx.log.info({ workspaceId, organizationId }, 'deleted a business');
 };
 

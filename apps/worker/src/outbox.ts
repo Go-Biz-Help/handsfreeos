@@ -2,6 +2,8 @@ import { and, eq } from 'drizzle-orm';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { events, outbox } from '@hfos/db/schema';
 import { handlersFor, type HandlerMap } from './handlers/types';
+import { forPractice } from './practice/kit';
+import { inPractice, practiceRunFor } from './practice/scope';
 import type { WorkerServices } from './services';
 import { renewAfterRefusal } from './telephony/tokens';
 
@@ -90,7 +92,10 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
         continue;
       }
       const scope = { organizationId: row.organization_id, workspaceId: row.workspace_id };
-      const ran = await asWorker(deps.db, scope, async (tx) => {
+      // A practice business's events are handled with its stand-ins (practice/kit.ts): nothing goes outside.
+      const run = await practiceRunFor(deps.db, scope);
+      const base = forPractice(deps, run);
+      const ran = await inPractice(run, () => asWorker(base.db, scope, async (tx) => {
         // Still ours, and locked by this transaction until it ends: no other worker claims it while it runs.
         const [mine] = await tx
           .update(outbox)
@@ -101,7 +106,7 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
         const [event] = await tx.select().from(events).where(eq(events.id, row.event_id));
         if (!event) throw new Error(`event ${row.event_id} not visible in its own scope`);
         const ctx = {
-          ...deps,
+          ...base,
           tx,
           event,
           scope,
@@ -116,7 +121,7 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
           .set({ status: 'done', lockedAt: null, lockedBy: null, lastError: null })
           .where(eq(outbox.eventId, row.event_id));
         return true;
-      });
+      }));
       if (ran) stats.done++;
     } catch (e) {
       const attempts = row.attempts + 1;

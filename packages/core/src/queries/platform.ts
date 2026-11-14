@@ -87,7 +87,8 @@ export const platformBusinessList = defineQuery({
   permission: 'platform.businesses.read',
   scope: onPlatform,
   async handler(ctx, input) {
-    const conditions = [];
+    // Practice businesses (Admin → Try onboarding) are nobody's sign-up: they're never listed.
+    const conditions = [isNull(organizations.practiceEndsAt)];
     if (input.search) {
       const like = `%${input.search}%`;
       conditions.push(or(ilike(workspaces.name, like), ilike(organizations.name, like))!);
@@ -118,7 +119,7 @@ export const platformBusinessList = defineQuery({
       })
       .from(workspaces)
       .leftJoin(organizations, eq(organizations.id, workspaces.organizationId))
-      .where(conditions.length ? and(...conditions) : undefined)
+      .where(and(...conditions))
       .orderBy(...order)
       .limit(input.limit + 1);
     const page = list.slice(0, input.limit);

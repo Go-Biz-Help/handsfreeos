@@ -644,6 +644,30 @@ const RULES: Record<string, { status: number; message: string }> = {
     message:
       'This business has 20 funnels, the most it keeps. Archive one it no longer uses under AI teammate → Funnels, then make this one.',
   },
+  // 20261027027200: practice businesses (Admin → Try onboarding).
+  practice_forbidden: {
+    status: 403,
+    message:
+      'Only HandsFreeOS admins can practise onboarding. Ask a support admin to give you the Support admin role in Admin → Support people.',
+  },
+  practice_too_many: {
+    status: 409,
+    message:
+      'You have 5 practice businesses going, the most at once. End one in Admin → Try onboarding, then start this one.',
+  },
+  practice_only: {
+    status: 409,
+    message:
+      'That only works in a practice business. Real businesses pay and end through Settings → Billing & Usage.',
+  },
+  practice_mark_is_ours: {
+    status: 403,
+    message: 'Only Admin → Try onboarding makes a practice business, and nothing changes one after.',
+  },
+  practice_hours: {
+    status: 400,
+    message: 'A practice business lasts between 1 hour and 7 days. Pick a time in that range.',
+  },
 };
 
 /**

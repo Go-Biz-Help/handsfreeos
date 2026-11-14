@@ -83,6 +83,8 @@ import { registerLegalRoutes } from './legal';
 import { registerPolicyUpdateRoutes } from './policy-update';
 import { registerFunnelRoutes } from '../funnels/draft';
 import { SafeFetchError } from './safe-fetch';
+import { practiceAware } from '../practice/kit';
+import { inPractice, practiceRunFor, type PracticeRun } from '../practice/scope';
 import { registerSiteRoutes } from './sites';
 import { registerSpeechRoutes } from './speech';
 import { registerEmailRoutes } from './email';
@@ -269,6 +271,20 @@ function hostedKind(
   }
 }
 
+/** The practice business each request is about, once its pre-handler has looked (null for a real one). */
+const practiceOf = new WeakMap<FastifyRequest, PracticeRun | null>();
+
+/** The business a request names: its body's, its address's or its path's `workspaceId` or `organizationId`. */
+function idsNamedIn(req: FastifyRequest): { organizationId?: unknown; workspaceId?: unknown } {
+  const pick = (v: unknown, key: 'workspaceId' | 'organizationId'): unknown =>
+    v && typeof v === 'object' ? (v as Record<string, unknown>)[key] : undefined;
+  return {
+    organizationId: pick(req.body, 'organizationId') ?? pick(req.query, 'organizationId'),
+    workspaceId:
+      pick(req.body, 'workspaceId') ?? pick(req.query, 'workspaceId') ?? pick(req.params, 'workspaceId'),
+  };
+}
+
 export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> {
   // Fly's proxy is the one hop in front, so request.ip is the caller's own address (the booking page's
   // per-address limits); signatures still use WORKER_PUBLIC_URL, never forwarded headers.
@@ -276,6 +292,20 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
     logger: false,
     bodyLimit: 1_048_576,
     trustProxy: (_address: string, hop: number) => hop < 1,
+  });
+  // Practice businesses (Admin → Try onboarding): a request about one is answered with its stand-ins, so nothing it
+  // does reaches the outside world (practice/kit.ts). The business is the one the request names; every route runs
+  // inside that answer, and `deps` gives each route the practice services while it does.
+  deps = practiceAware(deps);
+  const httpDb = deps.httpDb;
+  app.addHook('preHandler', async (req) => {
+    practiceOf.set(req, await practiceRunFor(httpDb, idsNamedIn(req)));
+  });
+  app.addHook('onRoute', (route) => {
+    const handler = route.handler;
+    route.handler = function (this: FastifyInstance, req, reply) {
+      return inPractice(practiceOf.get(req) ?? null, () => handler.call(this, req, reply));
+    };
   });
   await app.register(formbody);
   // One CORS rule for the app's own screens, and one for a business's own website posting a lead in: a

@@ -70,6 +70,7 @@ export * from './job';
 export * from './custom-field';
 export * from './relationship';
 export * from './support-access';
+export * from './practice';
 export * from './record-hold';
 export * from './bin';
 export * from './safety';

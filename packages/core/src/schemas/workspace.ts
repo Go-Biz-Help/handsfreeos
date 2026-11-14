@@ -220,6 +220,11 @@ export const WorkspaceSummary = z.object({
    * while spots were on sale and holds no plan. The web sends its people to the plan page, and the phone to the web.
    */
   needsPlan: z.boolean(),
+  /**
+   * A practice business, made from Admin → Try onboarding (20261027027200), and when it is deleted. Absent or null for
+   * every real business. The web shows a Practice banner with End practice, and the business switcher a Practice tag.
+   */
+  practiceEndsAt: isoDateTime.nullable().optional(),
 });
 export type WorkspaceSummary = z.infer<typeof WorkspaceSummary>;
 
