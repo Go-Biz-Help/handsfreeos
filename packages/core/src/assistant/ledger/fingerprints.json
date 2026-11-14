@@ -1584,7 +1584,7 @@
   "packages/core/src/addons/outreach/manifest.ts": "f055753ba321",
   "packages/core/src/addons/realestate/manifest.ts": "ac6b56db1cf6",
   "packages/core/src/assistant/coverage.ts": "521b6a193768",
-  "packages/core/src/assistant/screen-reads.ts": "5403ee5932b5",
+  "packages/core/src/assistant/screen-reads.ts": "a25b1af1c4a6",
   "packages/core/src/assistant/settings-map.ts": "5f97c9b135ff",
   "packages/core/src/assistant/tools-content.ts": "59c81ea10785",
   "packages/core/src/assistant/tools-extra.ts": "a6a36461844a",
