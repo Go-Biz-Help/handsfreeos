@@ -1,5 +1,10 @@
 import { addDays, localDateOf } from '@hfos/core';
-import { POSTING_NETWORKS, type PostingNetwork } from '@hfos/core/addons/socialcontent/calendar';
+import {
+  CALENDAR,
+  POSTING_NETWORKS,
+  firstPlannedNetwork,
+  type PostingNetwork,
+} from '@hfos/core/addons/socialcontent/calendar';
 import type { CalendarView, Content } from '@hfos/core/addons/socialcontent/content-shapes';
 import { networkName } from '@hfos/core/addons/socialcontent/networks';
 import {
@@ -20,6 +25,10 @@ import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { FilterChip } from '@/components/ui/filter-chip';
+import { Input } from '@/components/ui/input';
+import { Segmented } from '@/components/ui/segmented';
+import { Sheet } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { api, unwrap } from '@/lib/api';
@@ -42,9 +51,10 @@ import { PostPictureTile, STATE_BADGE } from './own-post';
  * The Calendar on the phone, as on the web (docs/socialcontent.md, "Making posts" and part 12): the business's own
  * posts for today and the next two weeks, each day's posts and open days, posts with no day yet, and what went up
  * lately with how each did. **Fill the calendar** has the AI write posts for the open days, **OK the week** OKs every
- * post ready in the next 7 days, and **Write a post** (or **Write one** on an open day) writes one. **Fill on its own**
- * stops the AI filling it, or starts it again (the owner, 11 Nov). Opening a post shows it on its own screen, at the
- * web's own address (`calendar?post=<id>`). It needs signal.
+ * post ready in the next 7 days, and **Write a post** (or **Write one** on an open day) writes one. Write a post asks
+ * two things first in a sheet (the owner, 14 Nov): which networks, one or more (a post for each, about the same thing),
+ * and whether the AI writes it on its own or from what the person says it's about. **Fill on its own** stops the AI filling it, or starts it again (the owner, 11 Nov).
+ * Opening a post shows it on its own screen, at the web's own address (`calendar?post=<id>`). It needs signal.
  */
 
 const WRITE = '/v1/addons/socialcontent/actions/socialcontent.content.write';
@@ -113,6 +123,27 @@ export function CalendarScreen() {
           if (out?.postId) open(out.postId);
         })
       }
+      onWriteFor={(networks, ask) =>
+        act(
+          'write',
+          () =>
+            workerPost<{ postId: string; postIds?: string[]; missed?: PostingNetwork[] }>(WRITE, {
+              workspaceId: ws,
+              input: { networks, ...(ask ? { ask } : {}) },
+            }),
+          (out) =>
+            networks.length > 1
+              ? W.calendar.writtenMany(
+                  out.postIds?.length ?? 1,
+                  (out.missed ?? []).map(networkName),
+                )
+              : W.calendar.written,
+        ).then((out) => {
+          // One post opens; several show on their days.
+          if (out?.postId && networks.length === 1) open(out.postId);
+          return out;
+        })
+      }
     />
   );
 }
@@ -129,6 +160,7 @@ export function CalendarBody({
   onAutoFill,
   onOkWeek,
   onWrite,
+  onWriteFor,
 }: {
   data: CalendarView | null;
   error: string | null;
@@ -141,7 +173,14 @@ export function CalendarBody({
   onAutoFill: (on: boolean) => void;
   onOkWeek: () => void;
   onWrite: (network: PostingNetwork | null, postAt: string | null, key: string) => void;
+  /**
+   * Write a post: one for each network, about the same thing, from what the person said or the AI on its own. What
+   * it gives back, when anything, is what was written (null when it was refused).
+   */
+  onWriteFor: (networks: readonly PostingNetwork[], ask: string | null) => unknown;
 }) {
+  // Write a post's two questions are up (the owner, 14 Nov).
+  const [asking, setAsking] = React.useState(false);
   const other = (key: string) => !online || (busy !== null && busy !== key);
   if (!c)
     return (
@@ -209,7 +248,7 @@ export function CalendarBody({
               icon={PenLine}
               loading={busy === 'write'}
               disabled={other('write')}
-              onPress={() => onWrite(null, null, 'write')}
+              onPress={() => setAsking(true)}
               testID="socialcontent-calendar-write"
             >
               {busy === 'write' ? W.calendar.writing : W.calendar.write}
@@ -217,6 +256,13 @@ export function CalendarBody({
           ) : null}
         </View>
       </View>
+      <WriteSheet
+        open={asking}
+        plan={c.plan}
+        online={online}
+        onClose={() => setAsking(false)}
+        onWrite={onWriteFor}
+      />
 
       <Card className="gap-2 p-4">
         <View className="flex-row items-center gap-3">
@@ -310,6 +356,112 @@ export function CalendarBody({
         </View>
       ) : null}
     </Screen>
+  );
+}
+
+/**
+ * Write a post's two questions (the owner, 14 Nov): which networks, one or more, starting on the first with posts in
+ * the plan, and whether the AI writes it on its own (the same mix Fill the calendar uses) or from what the person says
+ * it's about. Each network gets its own post, written to fit it. Write it closes the sheet and writes, with the
+ * Calendar's Write a post button spinning; refused, the choices stay for another go, and written, they start over.
+ */
+function WriteSheet({
+  open,
+  plan,
+  online,
+  onClose,
+  onWrite,
+}: {
+  open: boolean;
+  plan: CalendarView['plan'];
+  online: boolean;
+  onClose: () => void;
+  onWrite: (networks: readonly PostingNetwork[], ask: string | null) => unknown;
+}) {
+  // Null until one is pressed: the first network with posts in the plan.
+  const [networks, setNetworks] = React.useState<readonly PostingNetwork[] | null>(null);
+  const [how, setHow] = React.useState<'auto' | 'mine'>('auto');
+  const [about, setAbout] = React.useState('');
+  const picked = networks ?? [firstPlannedNetwork(plan)];
+  const ready = online && picked.length > 0 && (how === 'auto' || about.trim().length > 0);
+  const flip = (n: PostingNetwork) =>
+    setNetworks(
+      picked.includes(n)
+        ? picked.filter((x) => x !== n)
+        : POSTING_NETWORKS.filter((x) => x === n || picked.includes(x)),
+    );
+  const go = () => {
+    const ask = how === 'mine' ? about.trim() : null;
+    onClose();
+    void Promise.resolve(onWrite(picked, ask)).then((out) => {
+      if (!out) return;
+      setNetworks(null);
+      setHow('auto');
+      setAbout('');
+    });
+  };
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={W.calendar.write}
+      description={W.calendar.writeAsk}
+      testID="socialcontent-write-sheet"
+    >
+      <View className="mt-4 gap-4">
+        <View className="gap-2">
+          <Text className="text-[13.5px] font-medium">{W.calendar.writeNetwork}</Text>
+          <View className="flex-row flex-wrap gap-1.5">
+            {POSTING_NETWORKS.map((n) => (
+              <FilterChip
+                key={n}
+                label={networkName(n)}
+                on={picked.includes(n)}
+                onPress={() => flip(n)}
+                testID={`socialcontent-write-network-${n}`}
+              />
+            ))}
+          </View>
+          <Text className="text-[12.5px] leading-[17px] text-text-3">
+            {W.calendar.writeNetworkHint}
+          </Text>
+        </View>
+        <View className="gap-2">
+          <Text className="text-[13.5px] font-medium">{W.calendar.writeHow}</Text>
+          <Segmented
+            value={how}
+            onChange={setHow}
+            label={W.calendar.writeHow}
+            options={[
+              { value: 'auto', label: W.calendar.writeAuto, testID: 'socialcontent-write-auto' },
+              { value: 'mine', label: W.calendar.writeMine, testID: 'socialcontent-write-mine' },
+            ]}
+          />
+          <Text className="text-[12.5px] leading-[17px] text-text-3">
+            {how === 'auto' ? W.calendar.writeAutoHint : W.calendar.writeMineHint}
+          </Text>
+        </View>
+        {how === 'mine' ? (
+          <View className="gap-1.5">
+            <Text className="text-[13.5px] font-medium">{W.calendar.writeAbout}</Text>
+            <Input
+              value={about}
+              multiline
+              maxLength={CALENDAR.askMost}
+              placeholder={W.calendar.writeAboutPlaceholder}
+              accessibilityLabel={W.calendar.writeAbout}
+              className="min-h-[96px] py-2.5"
+              textAlignVertical="top"
+              onChangeText={setAbout}
+              testID="socialcontent-write-about"
+            />
+          </View>
+        ) : null}
+        <Button icon={PenLine} disabled={!ready} onPress={go} testID="socialcontent-write-go">
+          {W.calendar.writeGo(picked.length)}
+        </Button>
+      </View>
+    </Sheet>
   );
 }
 

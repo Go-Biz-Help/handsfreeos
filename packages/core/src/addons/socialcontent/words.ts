@@ -632,6 +632,34 @@ export const SOCIALCONTENT_WORDS = {
     write: 'Write a post',
     writing: 'Writing…',
     written: 'Written. It’s waiting for your OK.',
+    /** Several networks at once: one post for each, about the same thing (the owner, 14 Nov). */
+    writtenMany: (n: number, missed: readonly string[]) =>
+      [
+        `Written ${count(n, 'post')}, one for each network. They’re waiting for your OK.`,
+        missed.length
+          ? `${listShown(missed)} didn’t work this time. Press Write a post to try ${missed.length === 1 ? 'it' : 'them'} again.`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' '),
+    /**
+     * Write a post asks two things first (the owner, 14 Nov): which networks, one or more, and the AI on its own or
+     * your direction.
+     */
+    writeAsk: 'Each goes on the next open day in your plan for its network, and waits for your OK.',
+    writeNetwork: 'Which networks?',
+    writeNetworkHint:
+      'Pick one or more. Each gets its own post about the same thing, written to fit it: Threads keeps to 500 characters, X to 280, and Instagram always gets a picture.',
+    writeHow: 'How should the AI write it?',
+    writeAuto: 'AI on its own',
+    writeAutoHint:
+      'It picks what to post about from your Playbook, ideas and business, the same way Fill the calendar does.',
+    writeMine: 'My direction',
+    writeMineHint: 'Tell the AI what the post is about, and it writes it from that.',
+    writeAbout: 'What should the post be about?',
+    writeAboutPlaceholder: 'For example: our spring tune-up special, 20% off through May',
+    writeGo: (n: number) => (n > 1 ? `Write ${n} posts` : 'Write it'),
+    writeCancel: 'Cancel',
     open: 'Open day',
     openHint: (network: string, time: string) => `${network} at ${time}`,
     writeFor: 'Write one',
