@@ -1269,6 +1269,24 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Posts made with others on Instagram, and Facebook posts with no Like (0.139.4)
+
+The problem check of 14 Nov 2026 found warm-up likes that never went, two on each network:
+
+- **Instagram, a post made together.** Both posts on their grid were made with other accounts: Instagram writes
+  "(someone) and 2 others" over them, the others behind a button or a link that lists them, and its own link names
+  nobody. The like looked only at the first account, someone else, so it never pressed. From 0.139.4 a post is theirs
+  too when they made it with its author (`madeWithOf` in `src/networks/instagram/read.ts`): named beside the author's
+  link ("sam.lee and dana.reyes"), or among the others behind its button while the post is the one picked as theirs by
+  its own address. In the reels player as well. A post that names someone else beside its author still isn't liked.
+- **Facebook, a post with no Like.** The 0.139.1 outlines keep the words on a post's buttons, and they showed what the
+  13 Nov guess ("Like (name)'s post") got wrong: the only button was "Share (name)'s post", beside who reacted, on a
+  cover photo update with no Like or Comment at all. From 0.139.4 a post whose bar shows its Share and no Like is never
+  offered to pick (`noLikeShown` in `src/networks/facebook/auto.ts`); a post whose bar isn't drawn yet still is, as its
+  Like may come. When every post of theirs the page drew has no Like, the posts answer says there's nothing to like
+  (`none`, as for Facebook's no-posts line): the warm-up passes as a skip with nothing reported, and a visit counts as
+  one with no new post to like.
+
 ### A profile Facebook won't show (0.139.3)
 
 The problem check of 14 Nov 2026 found a message that said it "couldn’t find “Message” on their profile". Their

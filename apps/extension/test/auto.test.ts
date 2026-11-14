@@ -24,6 +24,7 @@ import {
   AUTO_PLANS,
   chatsOpen,
   likeTheirPost,
+  noneLikeable,
   readTheirPosts,
   saysNoPosts,
   MESSAGE_PATH,
@@ -787,6 +788,39 @@ describe('liking their latest post', () => {
     await vi.advanceTimersByTimeAsync(20_000);
     expect((await going).result).toBe('done');
     expect(pressed).toBe(1);
+  });
+
+  it('never offers a post Facebook shows with no Like, only its Share (the problem reports of 10 to 14 Nov 2026)', async () => {
+    vi.useFakeTimers();
+    const doc = load('profile-2026.html', URL);
+    const box = theirPosts(doc, URL, dana)[0]!.box;
+    const likeable = box.cloneNode(true) as Element;
+    // A cover photo update, as the reports outlined it: its bar holds only "Share (name)'s post" and who reacted.
+    box.querySelector('[aria-label="Remove Like"]')!.parentElement!.outerHTML =
+      '<div role="button" aria-label="Share Dana Reyes’s post"><div><i></i><div data-ad-rendering-role="share_button"></div></div></div>';
+    box.querySelector('[aria-label="Leave a comment"]')!.remove();
+    expect(theirPosts(doc, URL, dana)).toEqual([]);
+    expect(noneLikeable(doc, URL, dana)).toBe(true);
+    const reading = readTheirPosts(doc, URL, dana, view, 6);
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(await reading).toEqual([]);
+    // Known by its label alone too.
+    box.querySelector('[data-ad-rendering-role="share_button"]')!.remove();
+    expect(theirPosts(doc, URL, dana)).toEqual([]);
+    // A post whose bar isn't drawn yet, with no Share either, is read as before: its Like may come.
+    box.querySelector('[aria-label="Share Dana Reyes’s post"]')!.remove();
+    expect(theirPosts(doc, URL, dana)).toHaveLength(1);
+    expect(noneLikeable(doc, URL, dana)).toBe(false);
+    // Another of theirs with its Like is offered beside one with none, and there's something to like.
+    box
+      .querySelector('[role="toolbar"]')!
+      .insertAdjacentHTML(
+        'beforebegin',
+        '<div role="button" aria-label="Share Dana Reyes’s post"></div>',
+      );
+    box.after(likeable);
+    expect(theirPosts(doc, URL, dana).map((f) => f.box)).toEqual([likeable]);
+    expect(noneLikeable(doc, URL, dana)).toBe(false);
   });
 
   it('reads nobody else’s posts', async () => {
