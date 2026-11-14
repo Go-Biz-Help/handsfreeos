@@ -727,6 +727,122 @@ describe('a warm-up on Instagram', () => {
     expect(world.noted).toEqual([]);
   });
 
+  it('likes a post of theirs they made with another account: named beside its author, or among the others behind its button', async () => {
+    // The owner's problem reports of 14 Nov 2026: a post or reel on their own grid made with others reads
+    // "<someone> and 2 others" over it, the others behind a button or a link that lists them, so its author was someone
+    // else and its like never went. Here as the report outlined it: no article round the post, the header's two
+    // pictures, "<author> and …", its place, and its More options.
+    const POST = `${IG}/p/C5eeeeeee/`;
+    const REEL = `${IG}/reel/C6fffffff/`;
+    const madeTogether = (by: string, others: string) => `${MENU}<main role="main"><div><div>
+      <div><div><div><span role="link"><img alt="${by}'s profile picture"></span>
+            <span role="link"><img alt="Profile picture"></span></div>
+          <div><span dir="auto"><a role="link" href="/${by}/"><span dir="auto">${by}</span></a><span>and</span>${others}</span>
+            <span dir="auto"><a role="link" href="/explore/locations/123/austin-texas/">Austin, Texas</a></span></div>
+          <div role="button" aria-expanded="false"><svg role="img" aria-label="More options"></svg></div></div>
+        <hr>
+        <div><div><a role="link" href="/${by}/"><img alt="${by}'s profile picture"></a>
+          <div><span dir="auto"><a role="link" href="/${by}/"><span dir="auto">${by}</span></a><time>18h</time></span>
+            <span>A new water heater, fitted</span></div></div></div>
+        <section><div><div role="button" id="like"><svg role="img" aria-label="Like"></svg></div>
+          <div role="button"><svg role="img" aria-label="Comment"></svg></div></div></section>
+      </div></div></div></main>`;
+    // The reels player, as the other report outlined it: the reel's account over its video, Verified, "and" and its
+    // button naming how many others.
+    const reelTogether = `${MENU}<main role="main"><div><div>
+      <div><img aria-hidden="true" alt=""><div><video></video><div role="group" aria-label="Video player">
+        <div role="presentation"><div role="button"><div><div><div>
+          <a role="link" aria-label="sam.lee reels" href="/sam.lee/reels/"><div>
+            <span role="link"><img alt="sam.lee's profile picture"></span><span role="link"><img alt="Profile picture"></span></div></a>
+          <div><span dir="auto"><a role="link" aria-label="sam.lee reels" href="/sam.lee/reels/">sam.lee</a>
+            <svg role="img" aria-label="Verified"></svg><span>and</span><div role="button">2 others</div></span></div></div>
+          <div role="button">Follow</div></div></div></div></div></div></div>
+      <div><div><div role="button" id="like"><svg role="img" aria-label="Like"></svg></div>
+          <div role="button"><span dir="auto"><span>74</span></span></div></div>
+        <div role="button" aria-expanded="false"><div><svg role="img" aria-label="Comment"></svg><span>2</span></div></div></div>
+    </div></div></main>`;
+    const pressed: string[] = [];
+    const visitTo = async (page: { html: string; at?: string }, reel = false) => {
+      pressed.length = 0;
+      world.opened = [];
+      world.noted = [];
+      world.posted = [];
+      const code = reel ? 'C6fffffff' : 'C5eeeeeee';
+      world.pages = (url) =>
+        url === DANA
+          ? {
+              html: accountHtml({ posts: [[code, 'A water heater']] }).replace(
+                `/dana.reyes/p/${code}/`,
+                reel ? `/dana.reyes/reel/${code}/` : `/dana.reyes/p/${code}/`,
+              ),
+            }
+          : url === (reel ? REEL : POST)
+            ? page
+            : null;
+      world.behave = (doc, url) => {
+        const like = doc.getElementById('like');
+        like?.addEventListener('click', () => {
+          like.querySelector('svg')!.setAttribute('aria-label', 'Unlike');
+          pressed.push(url);
+        });
+      };
+      return doWork(
+        {
+          do: 'step',
+          item: item({
+            kind: 'warm_up',
+            keepWarm: { likes: 1, until: '2026-11-26T06:00:00.000Z' },
+          }),
+        },
+        ME.businessId,
+        true,
+        0,
+      );
+    };
+    const LIKED = {
+      done: true,
+      line: 'Liked a post of Dana Reyes’s while they decide on following you back',
+    };
+    const NOT_LIKED = {
+      done: false,
+      line: 'Couldn’t like Dana Reyes’s post on this visit',
+      look: true,
+    };
+    // "sam.lee and 2 others", the others behind a link that lists them: the post came off her grid, so it's liked.
+    expect(
+      await visitTo({
+        html: madeTogether('sam.lee', '<a role="link" href="#"><span>2 others</span></a>'),
+      }),
+    ).toEqual(LIKED);
+    expect(pressed).toEqual([POST]);
+    expect(notedAs().map((n) => n.postUrl)).toEqual([POST]);
+    // "sam.lee and dana.reyes", her name linked beside his.
+    expect(
+      await visitTo({
+        html: madeTogether('sam.lee', '<a role="link" href="/dana.reyes/">dana.reyes</a>'),
+      }),
+    ).toEqual(LIKED);
+    expect(pressed).toEqual([POST]);
+    // The reel in the reels player, "sam.lee ✓ and 2 others".
+    expect(await visitTo({ html: reelTogether, at: `${IG}/reels/C6fffffff/` }, true)).toEqual(
+      LIKED,
+    );
+    expect(pressed).toEqual([REEL]);
+    // "sam.lee and lee.chan", someone else named: not hers, and nothing is pressed.
+    expect(
+      await visitTo({
+        html: madeTogether('sam.lee', '<a role="link" href="/lee.chan/">lee.chan</a>'),
+      }),
+    ).toEqual(NOT_LIKED);
+    expect(pressed).toEqual([]);
+    expect(world.noted).toEqual([]);
+    // Someone else's post that names nobody beside them: still not hers.
+    expect(
+      await visitTo({ html: madeTogether('sam.lee', '').replace('<span>and</span>', '') }),
+    ).toEqual(NOT_LIKED);
+    expect(pressed).toEqual([]);
+  });
+
   it('counts a visit with no post of theirs to like, and tells HandsFreeOS (decision 161)', async () => {
     pagesFor([]);
     const outcome = await doWork(

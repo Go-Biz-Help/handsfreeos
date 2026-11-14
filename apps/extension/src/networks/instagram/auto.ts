@@ -3,9 +3,9 @@
  * once the person lets it, each only on the page it's for, in the runner's tab (../looking/kit.ts):
  *
  * - **Their latest posts**, read off their account's grid, each by its link with what Instagram says it shows.
- * - **Like** on one of their posts, on that post's own page: only a post whose own link names them, only its own Like
- *   (in the bar with its Comment, never a comment's, which sits by its Reply), and only while it says Like. It's liked
- *   once it says Unlike.
+ * - **Like** on one of their posts, on that post's own page: only a post whose own link names them, or one they made
+ *   with its author (from 0.139.4), only its own Like (in the bar with its Comment, never a comment's, which sits by its
+ *   Reply), and only while it says Like. It's liked once it says Unlike.
  * - **Like** on their comment (decision 116, from 0.108.0), the warm-up for someone found by their comment on a good
  *   post: on that post's own page, the first comment its own link (/p/<code>/c/<id>/) says they wrote, and only its
  *   own small Like beside it, never the post's; only while it says Like, and it's liked once it says Unlike.
@@ -46,6 +46,7 @@ import {
   chatOn,
   commentPartsIn,
   linksIn,
+  madeWithOf,
   ownOf,
   postRootOf,
   profileOn,
@@ -172,9 +173,26 @@ function reelAuthorOf(reel: Element, href: string): string | null {
 }
 
 /**
- * Likes the post the tab shows, when it's theirs (its own link names them) and the one picked: `done` once it says
- * Unlike, `already` when it did, `none` when it isn't theirs or has no Like, `not_sent` when Instagram didn't take it.
- * In the reels player, it's the reel it opened on, and its account's links over it name them (`openedReelOf`).
+ * Whether they made the post with its author (`madeWithOf`, from 0.139.4): named beside them, or among the others
+ * behind its button ("and 2 others"), which only a post picked as theirs, by its own address, is taken to be.
+ */
+function madeWithThem(
+  root: Element,
+  href: string,
+  author: string | null,
+  them: ProfileRef,
+  picked: boolean,
+): boolean {
+  if (!author) return false;
+  const made = madeWithOf(root, href, author);
+  return made.names.some((name) => isThem(name, them)) || (made.hidden && picked);
+}
+
+/**
+ * Likes the post the tab shows, when it's theirs (its own link names them, or they made it with its author) and the
+ * one picked: `done` once it says Unlike, `already` when it did, `none` when it isn't theirs or has no Like, `not_sent`
+ * when Instagram didn't take it. In the reels player, it's the reel it opened on, and its account's links over it name
+ * them (`openedReelOf`).
  */
 export async function likeTheirPost(
   doc: Document,
@@ -191,7 +209,8 @@ export async function likeTheirPost(
   const author = reel
     ? reelAuthorOf(reel, href)
     : (authorOf(root, href, partsOf(new URL(url))[1]!)?.username ?? null);
-  if (!isThem(author, them)) return { result: 'none', postUrl: url };
+  if (!isThem(author, them) && !madeWithThem(root, href, author, them, !!pick.url))
+    return { result: 'none', postUrl: url };
   const like = postLikeOf(root);
   if (!like) return { result: 'none', postUrl: url };
   if (LIKED.test(nameOf(like))) return { result: 'already', postUrl: url };

@@ -926,6 +926,29 @@ describe('a warm-up on Facebook', () => {
     expect(sam.querySelector('[role="textbox"]')!.textContent).toBe('Back in five');
   });
 
+  it('reports nothing when their only post shows no Like, only its Share (the owner’s reports of 10 to 14 Nov 2026)', async () => {
+    world.pages = (url) => {
+      if (url !== DANA) return null;
+      const doc = load('profile-2026.html', DANA);
+      const dana = { id: null, username: 'dana.reyes.12', url: DANA };
+      // A cover photo update: its bar holds only "Share (name)'s post" and who reacted, and the rest still loads.
+      const box = theirPosts(doc, DANA, dana)[0]!.box;
+      box.querySelector('[aria-label="Remove Like"]')!.parentElement!.outerHTML =
+        '<div role="button" aria-label="Share Dana Reyes’s post"><div data-ad-rendering-role="share_button"></div></div>';
+      box.querySelector('[aria-label="Leave a comment"]')!.remove();
+      return doc;
+    };
+    expect(await step(warmUp)).toEqual({ done: false, line: LINE, skip: true });
+    expect(world.posted.filter((p) => p.path === MISSED)).toHaveLength(1);
+    // A visit while they decide on the request: nothing new to like, and it counts as the visit.
+    expect(
+      await step({ ...warmUp, keepWarm: { likes: 2, until: '2026-11-26T06:00:00.000Z' } }),
+    ).toEqual({
+      done: true,
+      line: expect.stringMatching(/^No new post of Dana Reyes’s to like on this visit/),
+    });
+  });
+
   it('still says it found none when Facebook doesn’t say they have none', async () => {
     world.pages = (url) => (url === DANA ? noPosts(null) : null);
     expect(await step(warmUp)).toEqual({ done: false, line: LINE });

@@ -572,7 +572,10 @@ export type PostsAnswer =
   | {
       readonly ok: true;
       readonly posts: readonly TheirPost[];
-      /** None read, and the network says they have no posts to show: nothing went wrong. */
+      /**
+       * None read, and the network says they have no posts to show, or shows none with a Like to press (Facebook's,
+       * from 0.139.4): nothing went wrong.
+       */
       readonly none?: true;
     }
   | { readonly ok: false; readonly error: string };

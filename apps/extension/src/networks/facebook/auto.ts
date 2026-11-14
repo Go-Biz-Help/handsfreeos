@@ -196,16 +196,53 @@ export interface TheirPost {
   readonly liked: boolean;
 }
 
-/** The posts on the page by the person, as far as the page has drawn, the latest first. */
+/** Facebook's own mark on a post's Share button, in the bar its Like sits in. */
+const SHARE_HOOK = '[data-ad-rendering-role="share_button"]';
+/** A post's Share button by its label: "Share Dana Reyes's post". */
+const SHARE = /^share\s+\S.*['’]s (post|photo|video|reel)$/i;
+
+/**
+ * A post whose bar Facebook drew with no Like in it: its Share is there, and no Like beside it (the owner's problem
+ * reports of 10 to 14 Nov 2026: a cover photo update shows only "Share (name)'s post" and who reacted, so the visit
+ * picked it, found nothing to press and stopped). It can't be liked, so it's never offered to pick (from 0.139.4).
+ */
+function noLikeShown(box: Element): boolean {
+  if (likeButton(box) !== null) return false;
+  return (
+    box.querySelector(SHARE_HOOK) !== null ||
+    [...box.querySelectorAll('[role="button"], button')].some((b) => SHARE.test(labelOf(b)))
+  );
+}
+
+/** Their posts on the page, as far as it has drawn, each by its box, with or without a Like to press. */
+function postsBy(doc: Document, href: string, profile: ProfileRef) {
+  return postBoxes(mainOf(doc)).flatMap((box) => {
+    const post = readPost(box, href);
+    return post?.author && sameRef(post.author.profile, profile) ? [{ box, post }] : [];
+  });
+}
+
+/**
+ * Whether every post of theirs the page drew has no Like to press (`noLikeShown`): there's nothing to like, and nothing
+ * went wrong.
+ */
+export function noneLikeable(doc: Document, href: string, profile: ProfileRef): boolean {
+  const posts = postsBy(doc, href, profile);
+  return posts.length > 0 && posts.every(({ box }) => noLikeShown(box));
+}
+
+/**
+ * The posts on the page by the person, as far as the page has drawn, the latest first: never one Facebook shows with
+ * no Like (`noLikeShown`).
+ */
 export function theirPosts(
   doc: Document,
   href: string,
   profile: ProfileRef,
 ): { readonly box: Element; readonly post: TheirPost }[] {
   const found: { readonly box: Element; readonly post: TheirPost }[] = [];
-  for (const box of postBoxes(mainOf(doc))) {
-    const post = readPost(box, href);
-    if (!post?.author || !sameRef(post.author.profile, profile)) continue;
+  for (const { box, post } of postsBy(doc, href, profile)) {
+    if (noLikeShown(box)) continue;
     const like = likeButton(box);
     found.push({
       box,
