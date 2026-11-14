@@ -1,7 +1,7 @@
 {
   "area": "staff",
   "title": "HandsFreeOS staff only: the Admin area and the affiliate page (tools here must be offered to staff only)",
-  "checkedOn": "2026-11-12",
+  "checkedOn": "2026-11-14",
   "files": {
     "apps/mobile/src/app/app/admin/_layout.tsx": "970799f7fc45",
     "apps/mobile/src/app/app/admin/add-ons.tsx": "a6c29ff249f8",
@@ -57,12 +57,17 @@
     "apps/web/src/app/admin/staff/page.tsx": "df96c8a73bce",
     "apps/web/src/app/admin/tickets/[ticketId]/page.tsx": "337498edb6d5",
     "apps/web/src/app/admin/tickets/page.tsx": "8382a3374603",
+    "apps/web/src/app/admin/try/page.tsx": "f1db358015e5",
     "apps/web/src/app/affiliate/page.tsx": "7ba54efd908d",
     "apps/web/src/app/founding/[token]/page.tsx": "4b894d688fe9",
+    "apps/web/src/app/try/business/page.tsx": "d9f53772132c",
+    "apps/web/src/app/try/checkout/[workspaceId]/page.tsx": "ddc5374134e6",
+    "apps/web/src/app/try/layout.tsx": "386b976f6af2",
+    "apps/web/src/app/try/sign-up/page.tsx": "094b485e0ce5",
     "apps/web/src/components/admin/accept-support-invite.tsx": "715e026544a0",
     "apps/web/src/components/admin/addon-picks-admin.tsx": "cfbc4b7b5b98",
     "apps/web/src/components/admin/addon-testing-block.tsx": "a0075b2d3cb4",
-    "apps/web/src/components/admin/admin-shell.tsx": "bb37d7bf4a8d",
+    "apps/web/src/components/admin/admin-shell.tsx": "bf2624426810",
     "apps/web/src/components/admin/affiliate-business-block.tsx": "a2483cdb0c8b",
     "apps/web/src/components/admin/affiliate-detail.tsx": "bb7d47aaa4e5",
     "apps/web/src/components/admin/affiliates-page.tsx": "1d832eef262f",
@@ -105,6 +110,9 @@
     "apps/web/src/components/founding/checkout-status.tsx": "4a625aae0ff9",
     "apps/web/src/components/founding/claim-seat.tsx": "958bdcc5d9bb",
     "apps/web/src/components/founding/pick-plan.tsx": "42dc147eaa62",
+    "apps/web/src/components/practice/practice-banner.tsx": "46e0036e247e",
+    "apps/web/src/components/practice/practice-checkout.tsx": "a7e2fa7ad454",
+    "apps/web/src/components/practice/try-onboarding.tsx": "ef3416245ec3",
     "apps/web/src/components/shell/user-menu.tsx": "c9385747fa6f"
   },
   "items": [
@@ -3194,6 +3202,132 @@
       "file": "apps/web/src/components/admin/registration-review-panel.tsx:155",
       "covered": "never",
       "by": "platform.view_as.start is NEVER; inside the business the Assistant has do_registration_email_web_person"
+    },
+    {
+      "path": "Admin area → menu → Try onboarding (founder and staff admins)",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/admin-shell.tsx:132",
+      "covered": "never",
+      "by": "Try onboarding is screen-only: practice.start, practice.pay and practice.end are never offered (coverage.ts)"
+    },
+    {
+      "path": "Admin area → Try onboarding → access: anyone without platform.practice.use gets a 404",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/try/page.tsx:19",
+      "covered": "yes",
+      "by": "no tool offers it to anyone else; practice.list needs platform.practice.use"
+    },
+    {
+      "path": "Try onboarding → intro, what’s pretended, how long it’s kept",
+      "kind": "see",
+      "file": "apps/web/src/components/practice/try-onboarding.tsx:50",
+      "covered": "no",
+      "by": "words only; no tool"
+    },
+    {
+      "path": "Try onboarding → Deleted note after End practice",
+      "kind": "see",
+      "file": "apps/web/src/components/practice/try-onboarding.tsx:72",
+      "covered": "no",
+      "by": "no tool"
+    },
+    {
+      "path": "Try onboarding → Your practice businesses: name, Practice tag, when it’s deleted",
+      "kind": "see",
+      "file": "apps/web/src/components/practice/try-onboarding.tsx:77",
+      "covered": "no",
+      "by": "practice.list is a screen read (screen-reads.ts)"
+    },
+    {
+      "path": "Try onboarding → five at once, end one to start another",
+      "kind": "see",
+      "file": "apps/web/src/components/practice/try-onboarding.tsx:92",
+      "covered": "no",
+      "by": "no tool"
+    },
+    {
+      "path": "Try onboarding → onboardings: title, blurb, Start or Coming next",
+      "kind": "do",
+      "file": "apps/web/src/components/practice/try-onboarding.tsx:98",
+      "covered": "never",
+      "by": "Try onboarding is screen-only: practice.start, practice.pay and practice.end are never offered (coverage.ts)"
+    },
+    {
+      "path": "Try onboarding → practice business → Open, End practice (asks first)",
+      "kind": "do",
+      "file": "apps/web/src/components/practice/try-onboarding.tsx:166",
+      "covered": "never",
+      "by": "Try onboarding is screen-only: practice.start, practice.pay and practice.end are never offered (coverage.ts)"
+    },
+    {
+      "path": "Practice sign-up → access: anyone without platform.practice.use gets a 404",
+      "kind": "see",
+      "file": "apps/web/src/app/try/layout.tsx:14",
+      "covered": "yes",
+      "by": "no tool offers it"
+    },
+    {
+      "path": "Practice sign-up → the sign-up form with the practice note; any 6-digit code",
+      "kind": "do",
+      "file": "apps/web/src/app/(auth)/sign-up/sign-up-form.tsx:177",
+      "covered": "never",
+      "by": "signing up is never the Assistant's; practice is screen-only"
+    },
+    {
+      "path": "Practice sign-up → Your business with the practice note, makes the practice business",
+      "kind": "do",
+      "file": "apps/web/src/components/onboarding-setup/create-business.tsx:164",
+      "covered": "never",
+      "by": "Try onboarding is screen-only: practice.start, practice.pay and practice.end are never offered (coverage.ts)"
+    },
+    {
+      "path": "Practice business → plan page → Pay goes to the stand-in checkout",
+      "kind": "do",
+      "file": "apps/web/src/components/founding/pick-plan.tsx:120",
+      "covered": "never",
+      "by": "Try onboarding is screen-only: practice.start, practice.pay and practice.end are never offered (coverage.ts)"
+    },
+    {
+      "path": "Practice checkout → plan, price or trial, sample card",
+      "kind": "see",
+      "file": "apps/web/src/components/practice/practice-checkout.tsx:64",
+      "covered": "no",
+      "by": "no tool"
+    },
+    {
+      "path": "Practice checkout → Pay / Start my free trial, Back to the plans",
+      "kind": "do",
+      "file": "apps/web/src/components/practice/practice-checkout.tsx:86",
+      "covered": "never",
+      "by": "Try onboarding is screen-only: practice.start, practice.pay and practice.end are never offered (coverage.ts)"
+    },
+    {
+      "path": "Practice business → banner on every page and setup screen: when it’s deleted, what’s pretended",
+      "kind": "see",
+      "file": "apps/web/src/components/practice/practice-banner.tsx:41",
+      "covered": "no",
+      "by": "no tool; the business's own pages are covered as usual"
+    },
+    {
+      "path": "Practice business → banner → End practice (asks first)",
+      "kind": "do",
+      "file": "apps/web/src/components/practice/practice-banner.tsx:46",
+      "covered": "never",
+      "by": "Try onboarding is screen-only: practice.start, practice.pay and practice.end are never offered (coverage.ts)"
+    },
+    {
+      "path": "Business switcher → Practice tag on a practice business",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:155",
+      "covered": "no",
+      "by": "no tool"
+    },
+    {
+      "path": "Phone → business list → Practice before the organization",
+      "kind": "see",
+      "file": "apps/mobile/src/components/shell/business-list.tsx:89",
+      "covered": "no",
+      "by": "no tool"
     }
   ],
   "gaps": [

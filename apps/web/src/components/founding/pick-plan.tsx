@@ -45,6 +45,7 @@ export function PickPlan({
   first,
   canPay,
   startCode,
+  practice = false,
 }: {
   workspaceId: string;
   /** The business's name, as they typed it a moment ago. */
@@ -57,6 +58,11 @@ export function PickPlan({
   canPay: boolean;
   /** A code from its link, to fill in and try at once. */
   startCode?: string | null;
+  /**
+   * A practice business (Admin → Try onboarding, 20261027027200): Pay goes to the stand-in for Stripe's page, which
+   * holds no spot and charges nothing.
+   */
+  practice?: boolean;
 }) {
   const router = useRouter();
   const [picked, setPicked] = useState(first);
@@ -111,6 +117,15 @@ export function PickPlan({
 
   const pay = async () => {
     if (!chosen) return;
+    if (practice) {
+      const query = new URLSearchParams({
+        offer: chosen.offerId,
+        amount: String(deal ? affiliateCodeFirstCharge(deal) : chosen.priceCents),
+        ...(trialDays ? { trial: String(trialDays) } : {}),
+      });
+      router.push(`/try/checkout/${workspaceId}?${query}`);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {

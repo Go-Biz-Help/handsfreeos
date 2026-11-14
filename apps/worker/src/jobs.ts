@@ -180,14 +180,16 @@ export async function processJobs(deps: JobDeps): Promise<JobStats> {
         organizationId: job.organizationId,
         workspaceId: job.workspaceId,
       });
-      const result = await inPractice(run, () => handler({
-        ...forPractice(deps, run),
-        job,
-        scope: { workspaceId: job.workspaceId, organizationId: job.organizationId },
-        attempt: job.attempts + 1,
-        now: deps.clock ? deps.clock(job) : Date.now(),
-        log: deps.log.child({ jobId: id, kind: job.kind }),
-      }));
+      const result = await inPractice(run, () =>
+        handler({
+          ...forPractice(deps, run),
+          job,
+          scope: { workspaceId: job.workspaceId, organizationId: job.organizationId },
+          attempt: job.attempts + 1,
+          now: deps.clock ? deps.clock(job) : Date.now(),
+          log: deps.log.child({ jobId: id, kind: job.kind }),
+        }),
+      );
       if (result?.rescheduleAt) {
         await finish({
           runAt: notLaterThanWake(result.rescheduleAt),

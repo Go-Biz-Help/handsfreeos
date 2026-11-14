@@ -237,7 +237,10 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
         200,
         'Connecting is pretended here',
         'This is a practice business, so nothing is really connected and nothing reaches the other service. Go back and carry on: choose Later or Skip where it asks.',
-        { href: `${deps.webUrl}/app/w/${row.workspace_id}`, label: 'Back to the practice business' },
+        {
+          href: `${deps.webUrl}/app/w/${row.workspace_id}`,
+          label: 'Back to the practice business',
+        },
       );
     if (row.kind === 'meta') return startMeta(row, state, reply);
     if (row.kind === 'payment') return startPayment(row, state, reply);

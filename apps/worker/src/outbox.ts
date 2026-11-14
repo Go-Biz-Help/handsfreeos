@@ -95,33 +95,35 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
       // A practice business's events are handled with its stand-ins (practice/kit.ts): nothing goes outside.
       const run = await practiceRunFor(deps.db, scope);
       const base = forPractice(deps, run);
-      const ran = await inPractice(run, () => asWorker(base.db, scope, async (tx) => {
-        // Still ours, and locked by this transaction until it ends: no other worker claims it while it runs.
-        const [mine] = await tx
-          .update(outbox)
-          .set({ lockedAt: sql`now()` })
-          .where(and(ours(row.event_id), eq(outbox.status, 'pending')))
-          .returning({ eventId: outbox.eventId });
-        if (!mine) return false;
-        const [event] = await tx.select().from(events).where(eq(events.id, row.event_id));
-        if (!event) throw new Error(`event ${row.event_id} not visible in its own scope`);
-        const ctx = {
-          ...base,
-          tx,
-          event,
-          scope,
-          attempt: row.attempts + 1,
-          maxAttempts: MAX_ATTEMPTS,
-          log: deps.log.child({ eventId: event.id, eventType: event.eventType }),
-        };
-        // In order, in this one transaction; a retry runs every one of them again.
-        for (const handler of list) await handler(ctx);
-        await tx
-          .update(outbox)
-          .set({ status: 'done', lockedAt: null, lockedBy: null, lastError: null })
-          .where(eq(outbox.eventId, row.event_id));
-        return true;
-      }));
+      const ran = await inPractice(run, () =>
+        asWorker(base.db, scope, async (tx) => {
+          // Still ours, and locked by this transaction until it ends: no other worker claims it while it runs.
+          const [mine] = await tx
+            .update(outbox)
+            .set({ lockedAt: sql`now()` })
+            .where(and(ours(row.event_id), eq(outbox.status, 'pending')))
+            .returning({ eventId: outbox.eventId });
+          if (!mine) return false;
+          const [event] = await tx.select().from(events).where(eq(events.id, row.event_id));
+          if (!event) throw new Error(`event ${row.event_id} not visible in its own scope`);
+          const ctx = {
+            ...base,
+            tx,
+            event,
+            scope,
+            attempt: row.attempts + 1,
+            maxAttempts: MAX_ATTEMPTS,
+            log: deps.log.child({ eventId: event.id, eventType: event.eventType }),
+          };
+          // In order, in this one transaction; a retry runs every one of them again.
+          for (const handler of list) await handler(ctx);
+          await tx
+            .update(outbox)
+            .set({ status: 'done', lockedAt: null, lockedBy: null, lastError: null })
+            .where(eq(outbox.eventId, row.event_id));
+          return true;
+        }),
+      );
       if (ran) stats.done++;
     } catch (e) {
       const attempts = row.attempts + 1;

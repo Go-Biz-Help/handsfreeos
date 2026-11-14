@@ -97,10 +97,12 @@ export const PRACTICE_WORDS = {
   // The practice sign-up and first screen, before the business exists.
   signUpNote:
     'Practice sign-up: no login is made and nothing is sent. Type anything; any 6-digit code works.',
+  codeNote: 'Practice: nothing was sent. Type any 6 digits.',
   businessNote: 'Practice: this makes a practice business, owned by you, deleted after.',
   // The stand-in checkout.
   payTitle: 'Practice checkout',
-  payNote: 'This is where the Stripe page would be. No card is charged and no founding spot is used.',
+  payNote:
+    'This is where the Stripe page would be. No card is charged and no founding spot is used.',
   payCard: 'Card',
   payButton: (price: string) => `Pay ${price}`,
   trialButton: (days: number) => `Start my ${days}-day free trial`,

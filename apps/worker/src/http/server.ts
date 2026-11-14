@@ -281,7 +281,9 @@ function idsNamedIn(req: FastifyRequest): { organizationId?: unknown; workspaceI
   return {
     organizationId: pick(req.body, 'organizationId') ?? pick(req.query, 'organizationId'),
     workspaceId:
-      pick(req.body, 'workspaceId') ?? pick(req.query, 'workspaceId') ?? pick(req.params, 'workspaceId'),
+      pick(req.body, 'workspaceId') ??
+      pick(req.query, 'workspaceId') ??
+      pick(req.params, 'workspaceId'),
   };
 }
 

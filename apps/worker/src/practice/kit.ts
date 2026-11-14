@@ -135,7 +135,10 @@ export function practiceTransport(
   return {
     name: real.name,
     async send(email: OutboundEmail) {
-      const pretend = { providerMessageId: `practice-${randomUUID()}`, messageIdHeader: email.messageIdHeader };
+      const pretend = {
+        providerMessageId: `practice-${randomUUID()}`,
+        messageIdHeader: email.messageIdHeader,
+      };
       if (email.bulk || !run.ownerEmail) return pretend;
       const note = practiceNote([...email.to, ...email.cc]);
       return real.send({

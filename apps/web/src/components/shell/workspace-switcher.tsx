@@ -1,5 +1,6 @@
 'use client';
 import {
+  PRACTICE_WORDS,
   STAFF_ROLE_WORDS,
   SWITCHER_STAFF_SHOWN,
   SWITCHER_STAFF_WORDS,
@@ -14,6 +15,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import { BusinessQuickLook } from '@/components/admin/business-quick-look';
 import { Avatar } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Field } from '@/components/ui/field';
@@ -219,6 +221,12 @@ export function WorkspaceSwitcher({
                         className="bg-card-3 text-text"
                       />
                       <span className="flex-1 truncate">{w.name}</span>
+                      {/* A practice business (Admin → Try onboarding) says so, so nobody mistakes it for a real one. */}
+                      {w.practiceEndsAt ? (
+                        <Badge variant="pending" data-testid="switcher-practice-tag">
+                          {PRACTICE_WORDS.tag}
+                        </Badge>
+                      ) : null}
                       {w.id === current.id ? <Check className="h-4 w-4" strokeWidth={2} /> : null}
                     </button>
                   ))}

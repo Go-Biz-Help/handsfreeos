@@ -10917,6 +10917,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/practice.end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End a practice business: it and everything in it are deleted for good, as Delete business does, without typing its name. Only a practice business can be ended this way.
+         * @description Risk level 2. Requires workspace.delete. Emits workspace.deletion_requested.
+         */
+        post: operations["command_practice_end"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/practice.pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * In a practice business only: the stand-in for paying for a founding spot. The plan picked goes on the business, with its free trial; no card is charged and no spot is used.
+         * @description Risk level 1. Requires money.manage. Emits .
+         */
+        post: operations["command_practice_pay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/practice.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin → Try onboarding: make a practice business, owned by you, to go through an onboarding as a new customer would. Nothing in it leaves HandsFreeOS, and it is deleted when you end it or after 24 hours.
+         * @description Risk level 1. Requires platform.practice.use. Emits organization.created, workspace.created.
+         */
+        post: operations["command_practice_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/problem_report.send": {
         parameters: {
             query?: never;
@@ -23651,6 +23711,26 @@ export interface paths {
          * @description Requires records.read.
          */
         post: operations["query_portal_access_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/practice.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin → Try onboarding: the practice businesses you have going, newest first, with when each is deleted.
+         * @description Requires platform.practice.use.
+         */
+        post: operations["query_practice_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -53840,6 +53920,113 @@ export interface operations {
             };
         };
     };
+    command_practice_end: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        requestedAt: string;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_practice_pay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    offerId: string;
+                    /** @default null */
+                    trialDays?: number | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        plan: "founding_free" | "founding_lifetime" | "monthly";
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_practice_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    businessName: string;
+                    /**
+                     * @default home_services
+                     * @enum {string}
+                     */
+                    industry?: "home_services" | "hvac" | "plumbing" | "electrical" | "roofing" | "handyman" | "general_contracting" | "remodeling" | "landscaping" | "lawn_care" | "tree_service" | "irrigation" | "pest_control" | "house_cleaning" | "commercial_cleaning" | "carpet_cleaning" | "window_cleaning" | "pressure_washing" | "painting" | "flooring" | "cabinets_countertops" | "windows_doors" | "siding_gutters" | "garage_doors" | "fencing_decks" | "concrete_masonry" | "foundation_waterproofing" | "insulation" | "solar" | "pool_spa" | "appliance_repair" | "locksmith" | "home_security" | "restoration" | "chimney" | "septic" | "water_treatment" | "moving" | "junk_removal" | "snow_removal" | "home_inspection" | "interior_design" | "real_estate" | "property_management" | "vacation_rentals" | "mortgage" | "title_escrow" | "dental" | "medical_practice" | "chiropractic" | "physical_therapy" | "med_spa" | "mental_health" | "eye_care" | "home_care" | "wellness" | "hair_salon" | "barbershop" | "nail_salon" | "spa" | "lashes_brows" | "massage" | "tattoo" | "gym" | "personal_training" | "martial_arts" | "dance_studio" | "pet_grooming" | "veterinary" | "dog_training" | "pet_sitting" | "pet_boarding" | "auto_repair" | "auto_body" | "auto_detailing" | "towing" | "auto_glass" | "car_dealership" | "boat_rv" | "accounting" | "law_firm" | "insurance" | "financial_advising" | "tutoring" | "childcare" | "music_lessons" | "driving_school" | "school_training" | "restaurant" | "catering" | "food_truck" | "bakery" | "event_planning" | "event_venue" | "photography" | "entertainment" | "florist" | "lodging" | "travel" | "equipment_rental" | "party_rentals" | "dumpster_rental" | "self_storage" | "portable_toilets" | "marketing_agency" | "consulting" | "it_services" | "staffing" | "printing_signs" | "courier" | "security_services" | "retail_store" | "online_store" | "nonprofit" | "church" | "other";
+                    /** @default America/Chicago */
+                    timezone?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        endsAt: string;
+                        /** Format: uuid */
+                        organizationId: string;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
     command_problem_report_send: {
         parameters: {
             query?: never;
@@ -70848,6 +71035,7 @@ export interface operations {
                             organizationId: string;
                             organizationName: string;
                             permissions: string[];
+                            practiceEndsAt?: string | null;
                             /** @enum {string} */
                             role: "owner" | "admin" | "member";
                             slug: string;
@@ -94025,6 +94213,42 @@ export interface operations {
             };
         };
     };
+    query_practice_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        businesses: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            ending: boolean;
+                            /** Format: date-time */
+                            endsAt: string;
+                            name: string;
+                            /** Format: uuid */
+                            organizationId: string;
+                            workspaceId: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_product_list: {
         parameters: {
             query?: never;
@@ -103803,6 +104027,7 @@ export interface operations {
                             organizationId: string;
                             organizationName: string;
                             permissions: string[];
+                            practiceEndsAt?: string | null;
                             /** @enum {string} */
                             role: "owner" | "admin" | "member";
                             settings: {

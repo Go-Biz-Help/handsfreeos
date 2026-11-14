@@ -10,6 +10,7 @@ import {
   ONBOARDING_SETUP_STOP_NAMES,
   ONBOARDING_SETUP_WORDS as W,
   OnboardingSetupAnswers,
+  PRACTICE_WORDS,
   onboardingSetupBusinessOf,
   onboardingSetupBusinessProblemsOf,
   onboardingSetupDraftLine,
@@ -49,11 +50,17 @@ const PROGRESS = onboardingSetupProgress('business', STARTING, {
 export function CreateBusiness({
   plan = null,
   start = {},
+  practice = false,
 }: {
   /** The founding spot the website's button was for (20261027012700): the plan page comes next, starting on it. */
   plan?: 'yearly' | 'monthly' | null;
   /** What the person typed into the website's example: the name and kind to start with. */
   start?: WebsiteBusiness;
+  /**
+   * Admin → Try onboarding's sign-up (20261027027200): the same screen, but it makes a practice business
+   * (`practice.start`), owned by the person practicing and deleted after. An agency's sign-up is a flow of its own.
+   */
+  practice?: boolean;
 } = {}) {
   const router = useRouter();
   const [business, setBusiness] = useState<OnboardingSetupBusinessDraft>(() => ({
@@ -86,15 +93,26 @@ export function CreateBusiness({
       const saved = onboardingSetupBusinessOf(business);
       const workspaceId =
         made.current ??
-        unwrap(
-          await apiBrowser().POST('/v1/commands/organization.create', {
-            body: {
-              businessName: saved.name,
-              organizationName: agency && agencyName.trim() ? agencyName.trim() : undefined,
-              timezone: saved.timezone,
-              industry: saved.industry as IndustryId,
-            },
-          }),
+        (practice
+          ? unwrap(
+              await apiBrowser().POST('/v1/commands/practice.start', {
+                body: {
+                  businessName: saved.name,
+                  timezone: saved.timezone,
+                  industry: saved.industry as IndustryId,
+                },
+              }),
+            )
+          : unwrap(
+              await apiBrowser().POST('/v1/commands/organization.create', {
+                body: {
+                  businessName: saved.name,
+                  organizationName: agency && agencyName.trim() ? agencyName.trim() : undefined,
+                  timezone: saved.timezone,
+                  industry: saved.industry as IndustryId,
+                },
+              }),
+            )
         ).workspaceId;
       made.current = workspaceId;
       await onboardingSetupActions(workspaceId).save({
@@ -140,8 +158,16 @@ export function CreateBusiness({
         </div>
       }
     >
+      {practice ? (
+        <p
+          className="rounded-menu bg-warning-soft px-3.5 py-2.5 text-[13px] text-warning-text"
+          data-testid="practice-business-note"
+        >
+          {PRACTICE_WORDS.businessNote}
+        </p>
+      ) : null}
       <BusinessScreen business={business} onChange={change} problems={problems} name="Ava" />
-      {publicEnv.agencySignupEnabled ? (
+      {publicEnv.agencySignupEnabled && !practice ? (
         <div className="flex flex-col gap-3">
           <label className="flex cursor-pointer items-start gap-3 rounded-menu border border-border bg-card-2 p-3.5">
             <Switch

@@ -1,5 +1,5 @@
 'use client';
-import { deskSectionsFor, STAFF_ROLE_WORDS, type DeskSectionKey } from '@hfos/core';
+import { deskSectionsFor, PRACTICE_WORDS, STAFF_ROLE_WORDS, type DeskSectionKey } from '@hfos/core';
 import {
   Blocks,
   Bot,
@@ -13,6 +13,7 @@ import {
   ListChecks,
   Menu,
   MessageSquareQuote,
+  Rocket,
   Tag,
   Ticket,
   Users,
@@ -50,6 +51,38 @@ const ICONS: Readonly<Record<DeskSectionKey, LucideIcon>> = {
   staff: Users,
 };
 
+/** One of the web's own rows, which core's sections (and so the phone's Support desk) don't list. */
+function WebOnlyLink({
+  href,
+  icon: Icon,
+  testId,
+  onNavigate,
+  children,
+}: {
+  href: string;
+  icon: LucideIcon;
+  testId: string;
+  onNavigate?: () => void;
+  children: ReactNode;
+}) {
+  const on = usePathname().startsWith(href);
+  return (
+    <Link
+      href={href}
+      onClick={onNavigate}
+      aria-current={on ? 'page' : undefined}
+      data-testid={testId}
+      className={cn(
+        'flex h-10 items-center gap-2.5 rounded-control px-2.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring md:h-9',
+        on ? 'bg-accent-soft text-accent-text' : 'text-text-2 hover:bg-card-2 hover:text-text',
+      )}
+    >
+      <Icon className="h-[18px] w-[18px] flex-none" strokeWidth={on ? 1.75 : 1.5} />
+      {children}
+    </Link>
+  );
+}
+
 function AdminNav({
   permissions,
   onNavigate,
@@ -58,7 +91,6 @@ function AdminNav({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
-  const demoOn = pathname.startsWith('/admin/demo');
   return (
     <nav aria-label="Support and admin" className="mt-3 flex flex-col gap-0.5">
       {deskSectionsFor(permissions).map(({ key, label }) => {
@@ -86,21 +118,21 @@ function AdminNav({
       })}
       {/* The web's own: the demo player plays on the web app only, so it isn't one of core's sections, which the
           phone's Support desk lists too. Every support person may play the scenes in a business of their own. */}
-      <Link
+      <WebOnlyLink
         href="/admin/demo"
-        onClick={onNavigate}
-        aria-current={demoOn ? 'page' : undefined}
-        data-testid="admin-nav-demo"
-        className={cn(
-          'flex h-10 items-center gap-2.5 rounded-control px-2.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring md:h-9',
-          demoOn
-            ? 'bg-accent-soft text-accent-text'
-            : 'text-text-2 hover:bg-card-2 hover:text-text',
-        )}
+        icon={Clapperboard}
+        testId="admin-nav-demo"
+        onNavigate={onNavigate}
       >
-        <Clapperboard className="h-[18px] w-[18px] flex-none" strokeWidth={demoOn ? 1.75 : 1.5} />
         Demo player
-      </Link>
+      </WebOnlyLink>
+      {/* Admin → Try onboarding (20261027027200): the practice sign-up runs on the web, so the phone doesn't list it
+          either. The founder and staff admins only. */}
+      {permissions.includes('platform.practice.use') ? (
+        <WebOnlyLink href="/admin/try" icon={Rocket} testId="admin-nav-try" onNavigate={onNavigate}>
+          {PRACTICE_WORDS.title}
+        </WebOnlyLink>
+      ) : null}
     </nav>
   );
 }

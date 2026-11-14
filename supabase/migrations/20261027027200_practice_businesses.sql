@@ -23,9 +23,11 @@
 --          organization goes too, its history with it
 --          (`private.purge_practice_organization`): nothing of it is kept.
 --
--- Only adds: a staff permission, two columns, a table and six functions,
--- and lets the event log, the audit log and the last-owner rule give way
--- while a practice organization is purged.
+-- Only adds: a staff permission, two columns, a trigger, a table and nine
+-- functions. It redefines four more: the event and audit logs' append-only
+-- rule and the last-owner rule give way while a practice organization is
+-- purged, and Admin's business totals and onboarding counts leave practice
+-- businesses out.
 -- =============================================================================
 
 -- ---------- the staff permission ----------

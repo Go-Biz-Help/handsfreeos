@@ -17,4 +17,3 @@ export async function queuePracticePurge(tx: Tx, organizationId: string): Promis
     organizationId: null,
   });
 }
-

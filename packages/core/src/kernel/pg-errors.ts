@@ -662,7 +662,8 @@ const RULES: Record<string, { status: number; message: string }> = {
   },
   practice_mark_is_ours: {
     status: 403,
-    message: 'Only Admin → Try onboarding makes a practice business, and nothing changes one after.',
+    message:
+      'Only Admin → Try onboarding makes a practice business, and nothing changes one after.',
   },
   practice_hours: {
     status: 400,

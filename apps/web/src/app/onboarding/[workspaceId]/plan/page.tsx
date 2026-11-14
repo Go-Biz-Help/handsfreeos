@@ -31,14 +31,21 @@ export default async function FoundingPlanPage({
   if (!ws) notFound();
   if (!ws.needsPlan) redirect(`/onboarding/${workspaceId}`);
   const canPay = can(ws.permissions, 'money.manage');
+  // A practice business (Admin → Try onboarding) is seen as a brand-new customer sees it: each plan's own trial,
+  // whatever the person practicing has bought before.
+  const practice = !!ws.practiceEndsAt;
   const [counts, trials] = await Promise.all([
     api.POST('/v1/queries/founding.counts', { body: {} }).then(unwrap),
     // The free trial this person gets for this business (20261027027000): none once they've had one.
-    canPay ? api.POST('/v1/queries/founding.trials', { body: { workspaceId } }).then(unwrap) : null,
+    canPay && !practice
+      ? api.POST('/v1/queries/founding.trials', { body: { workspaceId } }).then(unwrap)
+      : null,
   ]);
   const offers = foundingPickable(counts.offers).map((o) => ({
     ...o,
-    trialDays: trials?.offers.find((t) => t.offerId === o.offerId)?.trialDays ?? null,
+    trialDays: practice
+      ? (o.trialDays ?? null)
+      : (trials?.offers.find((t) => t.offerId === o.offerId)?.trialDays ?? null),
   }));
   const startCode =
     discountCode(query.code) ??
@@ -60,6 +67,7 @@ export default async function FoundingPlanPage({
         first={foundingPickFirst(offers, wantedPlan(query.plan))}
         canPay={canPay}
         startCode={startCode}
+        practice={practice}
       />
     </SetupPage>
   );
