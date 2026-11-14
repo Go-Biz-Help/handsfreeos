@@ -96,7 +96,7 @@ import {
   draftComment,
   isCommentWork,
   sendComment,
-  type CommentRunner,
+  type LookingRunner,
 } from './comments';
 import { DAILY_CHATS } from './daily';
 import { AWAY_AGAIN_MS, awayEnd, isNotAway, PutOff, waitingFor, waitingWords } from './on-screen';
@@ -335,7 +335,7 @@ function wantOf(profileUrl: string | null): ProfileRef | null {
  * What a comment's send (./comments.ts, decision 92) borrows: this window's tab, and a look at the page it opened for
  * Instagram's warning or its sign-in.
  */
-const commenting: CommentRunner = {
+const commenting: LookingRunner = {
   platform: PLATFORM,
   tab,
   async onPage(businessId) {
@@ -1005,7 +1005,9 @@ async function bringInChat(
  * on a good post is drafted from the post (decision 92).
  */
 async function draftMessage(item: TodayListItem, businessId: string): Promise<Outcome> {
-  if (item.kind === 'comment') return draftComment(item, businessId);
+  // The post is looked at first (decision 166): its picture, or frames of its video, go with the draft.
+  if (item.kind === 'comment')
+    return draftComment(item, businessId, { runner: commenting, them: wantOf(item.profileUrl) });
   if (item.kind === 'reply' || item.kind === 'partner_reply') {
     const stopped = await bringInChat(item, businessId);
     if (stopped) return stopped;

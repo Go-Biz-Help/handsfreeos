@@ -15,6 +15,7 @@ import type { AboutResult, CodeResult } from './networks/alignable/own-profile';
 import type { EditorSteps } from './networks/facebook/editors';
 import type { LinkResult } from './networks/facebook/links';
 import type { PartWrite, PartWrote } from './networks/fill';
+import type { LookWant, PostSeen } from './networks/post-look';
 import type { BioResult, OwnEditors } from './networks/facebook/own-profile';
 import type { FormSteps } from './networks/instagram/own-profile';
 import type { NameWrote } from './networks/accounts-center/name';
@@ -258,6 +259,21 @@ export interface TheirComment {
 }
 export type TheirCommentAnswer =
   | { readonly ok: true; readonly comment: TheirComment | null }
+  | { readonly ok: false; readonly error: string };
+/**
+ * A look at their post on its own page, before its comment is drafted (decision 166, ./networks/post-look.ts): its
+ * photo's address, or frames of its video, for the AI to see with the post's words. Only on a site that says which
+ * part of the page is the post's (`auto.postPart`); `seen` is null on any other, on a page that isn't that post, and
+ * for a post with no picture. Nothing is pressed.
+ */
+export type PostLookAsk = {
+  readonly type: 'hfos-post-look';
+  readonly profile: ProfileRef;
+  readonly postUrl: string;
+  readonly want: LookWant;
+};
+export type PostLookAnswer =
+  | { readonly ok: true; readonly seen: PostSeen | null }
   | { readonly ok: false; readonly error: string };
 export interface CommentLiked {
   readonly result: AutoResult;

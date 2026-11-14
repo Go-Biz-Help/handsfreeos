@@ -85,7 +85,17 @@ import {
 import { listsText, type MainOfferLists, type OfferList } from '../../main-offer/lists';
 import { NO_GROUPS, noGroupsAgain } from './no-groups';
 import { ABOUT_OWNER_RULE, aboutOwnerBlock } from './about-owner';
-import { COMMENT_ABOUT_ASK, COMMENT_PLAIN_WORDS, POST_WORDS_ONLY } from './comment-says';
+import {
+  COMMENT_ABOUT_ASK,
+  COMMENT_PLAIN_WORDS,
+  COMMENT_SAW_ASK,
+  POST_LOOK_KINDS,
+  POST_PICTURE_CHARS,
+  POST_PICTURES_MOST,
+  POST_WORDS_ONLY,
+  postSeen,
+  type PostLookKind,
+} from './comment-says';
 import { DraftOpener, type Opener } from './openers';
 import { WarningState } from './tidy';
 import { TodayGoal } from './goal';
@@ -630,6 +640,27 @@ export const DRAFT_MOST_CHARS = 600;
 export const LOOKUP_LINES = 24;
 export const LOOKUP_LINE_MOST = 300;
 
+/**
+ * What the extension took of a post on the post's own page, just before its comment is drafted (decision 166): its
+ * picture, or a few frames of its video in order, each a JPEG in base64. Shown to the AI with the post's words and
+ * never kept.
+ */
+export const PostLook = z.object({
+  kind: z.enum(POST_LOOK_KINDS),
+  jpegs: z
+    .array(
+      z
+        .string()
+        .min(200)
+        .max(POST_PICTURE_CHARS)
+        // A JPEG's first bytes (FF D8 FF), in base64: nothing else is passed on.
+        .regex(/^\/9j\/[A-Za-z0-9+/]+={0,2}$/),
+    )
+    .min(1)
+    .max(POST_PICTURES_MOST),
+});
+export type PostLook = z.infer<typeof PostLook>;
+
 export const TodayDraftInput = z.object({
   kind: z.enum(DRAFT_KINDS),
   /** Who it's to: their profile, or for a follow-up or a reply, the chat. */
@@ -639,6 +670,14 @@ export const TodayDraftInput = z.object({
   postId: z.uuid().nullable().default(null),
   /** What the extension just read on their profile and business page; the web sends none. Never kept. */
   lookup: z.array(z.string().trim().min(1).max(LOOKUP_LINE_MOST)).max(LOOKUP_LINES).default([]),
+  /**
+   * For a comment: what the extension just took of the post on its own page (decision 166); the web sends none. One
+   * that isn't a picture is left out, and the comment is written from the words alone. Never kept.
+   */
+  look: PostLook.nullable()
+    .catch(null)
+    .default(null)
+    .describe('Only the browser extension sends this. Leave it out.'),
 });
 export type TodayDraftInput = z.input<typeof TodayDraftInput>;
 
@@ -701,8 +740,16 @@ export const todayDraftSystem = (
  * nothing at all when the post has nothing to react to, or its words lean on a picture or video the AI can't see
  * (decision 165, ./comment-says.ts).
  */
-export const warmCommentTask = (says: string): string =>
-  `They posted this. The owner is getting to know them and hasn’t talked with them yet. Write the owner’s short public comment under it. ${asHow('a warm-up comment', says)} Name one real thing the post’s own words say, plainly, the way someone who read it would (“Congrats on the new shop, the storefront looks great!”, “That kitchen came out so clean”): anyone reading only the comment should be able to tell which post it is under. Nothing about the owner’s business or work: no pitch, no offer, no question about buying, no link, no web address and no hashtag. Of the owner themselves, only what the rule on <about_owner> allows. Never a comment that would fit under any post (“Great post!”, “Love this!”, “Amazing!”, “So inspiring!”, “So real”, “This!”, “Facts”, “Felt this”), never one about the post itself in place of what it says (“That caption got me”), never repeat their post back to them, and never sound like a brand, a bot or an ad. Write no drafts when the words don’t give you one real thing to name: they lean on a picture or a video you can’t see (“It be like that”, “POV”, “Wait for it”), they’re only a pitch, contact details and hashtags, or the post is only a link, a repost or an ad. Write none either when it’s about a loss, an illness, trouble, politics or religion. No comment is better than one a bot could have left.`;
+export const warmCommentTask = (says: string, shown: PostLookKind | null = null): string =>
+  `They posted this. The owner is getting to know them and hasn’t talked with them yet. Write the owner’s short public comment under it. ${asHow('a warm-up comment', says)} ${
+    shown
+      ? `Name one real thing the post shows or says, plainly, the way someone who ${shown === 'video' ? 'watched' : 'saw'} it would`
+      : 'Name one real thing the post’s own words say, plainly, the way someone who read it would'
+  } (“Congrats on the new shop, the storefront looks great!”, “That kitchen came out so clean”): anyone reading only the comment should be able to tell which post it is under. Nothing about the owner’s business or work: no pitch, no offer, no question about buying, no link, no web address and no hashtag. Of the owner themselves, only what the rule on <about_owner> allows. Never a comment that would fit under any post (“Great post!”, “Love this!”, “Amazing!”, “So inspiring!”, “So real”, “This!”, “Facts”, “Felt this”), never one about the post itself in place of what it ${shown ? 'shows or says' : 'says'} (“That caption got me”), never repeat their post back to them, and never sound like a brand, a bot or an ad. ${
+    shown
+      ? 'Write no drafts when neither what you’re shown nor the words give you one real thing to name, when the post is only a pitch, contact details and hashtags, or when it’s only a link, a repost or an ad.'
+      : 'Write no drafts when the words don’t give you one real thing to name: they lean on a picture or a video you can’t see (“It be like that”, “POV”, “Wait for it”), they’re only a pitch, contact details and hashtags, or the post is only a link, a repost or an ad.'
+  } Write none either when it’s about a loss, an illness, trouble, politics or religion. No comment is better than one a bot could have left.`;
 
 /** What a warm-up's comment is told in place of the network's comment rules (decision 161). */
 const WARM_COMMENT_RULE =
@@ -1180,6 +1227,11 @@ export function todayDraftPrompt(input: {
      * out, the task's own rule decides.
      */
     readonly asking?: boolean;
+    /**
+     * What the AI is shown of it with these words (decision 166, `PostLook`): its picture, or how many frames of its
+     * video. Left out, it has the words alone.
+     */
+    readonly shown?: { readonly kind: PostLookKind; readonly count: number } | null;
   } | null;
   /** What the extension looked up on their profile and business page just before. */
   readonly lookup?: readonly string[];
@@ -1274,7 +1326,7 @@ export function todayDraftPrompt(input: {
     : catchUp
       ? inNetworkWords(RECONNECT_CATCH_UP, platform)
       : warm
-        ? warmCommentTask(says.warmUp)
+        ? warmCommentTask(says.warmUp, input.post?.shown?.kind ?? null)
         : taskOn(input.kind, taskFor(input.kind, says, first), platform, !!input.post?.group);
   const playbook = p
     ? [
@@ -1371,8 +1423,11 @@ export function todayDraftPrompt(input: {
       : null,
     input.recent.length ? `<chat>\n${quoteData(chatLines(input.recent))}\n</chat>` : null,
     input.post ? `<post>\n${quoteData(input.post.text)}\n</post>` : null,
-    // A comment has the post's words and nothing else, and is made of the words people type (decision 165).
-    input.kind === 'comment' && input.post ? `${POST_WORDS_ONLY} ${COMMENT_PLAIN_WORDS}` : null,
+    // A comment has the post's words and nothing else, unless it's shown the post too (decision 166), and is made of
+    // the words people type (decision 165).
+    input.kind === 'comment' && input.post
+      ? `${input.post.shown ? postSeen(input.post.shown.kind, input.post.shown.count) : POST_WORDS_ONLY} ${COMMENT_PLAIN_WORDS}`
+      : null,
     task,
     // The words in brackets, filled in for them (./script.ts).
     hasBlanks(task) ? FILL_BLANKS : null,
@@ -1438,6 +1493,7 @@ export function todayDraftPrompt(input: {
     input.kind === 'reply' ? UNANSWERED_ASK : null,
     ANSWER_ASK,
     input.kind === 'comment' && input.post ? COMMENT_ABOUT_ASK : null,
+    input.kind === 'comment' && input.post?.shown ? COMMENT_SAW_ASK : null,
     TODAY_DRAFT_ASK,
   ]
     .filter(Boolean)
@@ -1493,13 +1549,18 @@ export const TodayDraftAnswer = z.object({
    * For a comment: the post's own words it's about (./comment-says.ts `COMMENT_ABOUT_ASK`, decision 165), else empty.
    */
   about: z.string().catch('').default(''),
+  /**
+   * For a comment shown the post (decision 166): what's in its picture or video that the comment is about
+   * (./comment-says.ts `COMMENT_SAW_ASK`), else empty.
+   */
+  saw: z.string().catch('').default(''),
 });
 export type TodayDraftAnswer = z.output<typeof TodayDraftAnswer>;
 
 export const TODAY_DRAFT_SCHEMA: Record<string, unknown> = {
   type: 'object',
   additionalProperties: false,
-  required: ['drafts', 'simple', 'answer', 'unanswered', 'time', 'about'],
+  required: ['drafts', 'simple', 'answer', 'unanswered', 'time', 'about', 'saw'],
   properties: {
     drafts: { type: 'array', items: { type: 'string' } },
     simple: { type: 'boolean' },
@@ -1507,6 +1568,7 @@ export const TODAY_DRAFT_SCHEMA: Record<string, unknown> = {
     unanswered: { type: 'string' },
     time: { type: 'string' },
     about: { type: 'string' },
+    saw: { type: 'string' },
   },
 };
 

@@ -1896,15 +1896,24 @@ function scriptedTodayDraft(message: string) {
   const about = postSays.split(/\s+/).slice(0, 4).join(' ');
   // A warm-up's comment (decisions 161 and 165): one that names the post, beside one in a brochure's words for the check
   // to drop. Under a post about what the person is still waiting on, one that makes the owner one of them, which stays
-  // only when About you says so. Words that lean on a video get filler with nothing pointed at: no comment at all.
+  // only when About you says so. Words that lean on a video get filler with nothing pointed at: no comment at all,
+  // unless it was shown the post (decision 166), when it says what it saw there and comments on that.
   if (message.includes('No comment is better than one a bot could have left.')) {
     if (/it be like that/i.test(postSays))
-      return {
-        simple: false,
-        answer: 'none',
-        about: '',
-        drafts: ['That caption got me, so real'],
-      };
+      return message.includes('Before this you’re shown')
+        ? {
+            simple: false,
+            answer: 'none',
+            about: '',
+            saw: 'a truck stuck in the mud',
+            drafts: [`That truck is not going anywhere, ${first}`],
+          }
+        : {
+            simple: false,
+            answer: 'none',
+            about: '',
+            drafts: ['That caption got me, so real'],
+          };
     if (/still waiting/i.test(postSays))
       return {
         simple: false,

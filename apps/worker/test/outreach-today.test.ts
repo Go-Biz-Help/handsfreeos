@@ -336,6 +336,48 @@ describe('drafts for Today', () => {
     expect(await warm('It be like that')).toEqual([]);
   });
 
+  it('comments on what the post shows once the extension took its picture, and never keeps it (decision 166)', async () => {
+    let n = 0;
+    const warm = async (look: unknown) => {
+      const [po] = await testDbs()
+        .admin.db.insert(posts)
+        .values({
+          workspaceId: ws,
+          userId: owner.id,
+          profileId,
+          url: `https://www.instagram.com/dana.reyes/reel/30000${++n}/`,
+          body: 'It be like that',
+          found: 'scroll',
+          checkState: 'good',
+          seenAt: new Date(),
+          warmUp: true,
+        })
+        .returning({ id: posts.id });
+      const res = await draft(owner, { kind: 'comment', postId: po!.id, look });
+      expect(res.statusCode, res.body).toBe(200);
+      return { drafts: res.json().drafts as string[], postId: po!.id };
+    };
+    const jpeg = `/9j/${'A'.repeat(400)}`;
+    // Shown two frames of the video its caption leans on, it says what it saw there and comments on that.
+    const seen = await warm({ kind: 'video', jpegs: [jpeg, jpeg] });
+    expect(seen.drafts).toEqual(['That truck is not going anywhere, Dana']);
+    // Something that isn't a picture is left out: the words alone give nothing, so there's no comment.
+    expect((await warm({ kind: 'photo', jpegs: ['not a picture'] })).drafts).toEqual([]);
+    expect((await warm({ kind: 'photo', jpegs: [] })).drafts).toEqual([]);
+    // Another kind of draft never takes pictures.
+    const opener = await draft(owner, {
+      kind: 'opener',
+      profileId,
+      look: { kind: 'photo', jpegs: [jpeg] },
+    });
+    expect(opener.statusCode, opener.body).toBe(200);
+    // Nothing of what it was shown is kept with the post.
+    const kept = await testDbs().admin.db.execute(
+      sql`select to_jsonb(po)::text as row from addon_outreach.posts po where po.id = ${seen.postId}`,
+    );
+    expect(JSON.stringify(kept)).not.toContain('/9j/');
+  });
+
   it('drafts a reply to a question kept in a group, never with a link (decision 114)', async () => {
     const [asked] = await testDbs()
       .admin.db.insert(posts)
