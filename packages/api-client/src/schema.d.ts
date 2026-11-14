@@ -17357,6 +17357,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/user_about.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set About you: what you say of yourself, in your own words (where you’re from, your heritage, family, faith, hobbies, teams, past jobs), for the AI that writes as you. Only you see it. Empty clears it.
+         * @description Risk level 1. Emits user.about_updated.
+         */
+        post: operations["command_user_about_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/user_phone.start_verification": {
         parameters: {
             query?: never;
@@ -25691,6 +25711,26 @@ export interface paths {
          * @description Requires money.read.
          */
         post: operations["query_usage_statement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/user_about.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * About you: what you said of yourself, in your own words, for the AI that writes as you. Only you see it.
+         * @description Any signed-in user.
+         */
+        post: operations["query_user_about_get"];
         delete?: never;
         options?: never;
         head?: never;
@@ -67878,6 +67918,35 @@ export interface operations {
             };
         };
     };
+    command_user_about_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    about: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        filled: boolean;
+                    };
+                };
+            };
+        };
+    };
     command_user_phone_start_verification: {
         parameters: {
             query?: never;
@@ -102325,6 +102394,33 @@ export interface operations {
                             unit: string | null;
                         }[];
                         nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_user_about_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        about: string;
+                        updatedAt: string | null;
                     };
                 };
             };

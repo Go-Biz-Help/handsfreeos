@@ -28,7 +28,7 @@ import { affiliateQueries } from './affiliates';
 import { supportQueries } from './support';
 import { ideaQueries } from './ideas';
 import { onboardingClients, onboardingStatus, platformOnboardingCounts } from './onboarding';
-import { accountDeletionCheck, pushDeviceList, userPhoneGet } from './account';
+import { accountDeletionCheck, pushDeviceList, userAboutGet, userPhoneGet } from './account';
 import { notificationList, notificationQueries } from './notification';
 import { aiTeammateActivity, aiTeammateDraftList, aiTeammateGet } from './ai-team';
 import {
@@ -176,6 +176,7 @@ export {
   pushDeviceList,
   notificationList,
   userPhoneGet,
+  userAboutGet,
   conversationGet,
   conversationThread,
   callLog,
@@ -303,6 +304,7 @@ export const queries: readonly QueryDef[] = [
   // Approving an extension sign-in from the phone or the web (20261027002910).
   extensionSignInPending,
   userPhoneGet,
+  userAboutGet,
   workspaceGet,
   workspaceMembers,
   permissionSettings,

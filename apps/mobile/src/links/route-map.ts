@@ -156,6 +156,8 @@ export const ROUTES: readonly Rule[] = [
   // Settings → Account on the web is you and your notifications: the phone's own Settings, and its Notifications
   // section (`#notifications`, where the Assistant's alert cards land) the phone's Notifications screen.
   { web: 'settings', phone: 'settings/notifications', hash: 'notifications' },
+  // About you (`#about-you`, where the Assistant's card for it lands) is a screen of its own on the phone too.
+  { web: 'settings', phone: 'settings/about-you', hash: 'about-you' },
   { web: 'settings', phone: 'settings' },
   // Settings → Billing & Usage: the phone has it too, so the wallet's emails, its notifications and the Action
   // Center's three balance cards open the Balance screen rather than a browser. `?card=` comes with it: it is

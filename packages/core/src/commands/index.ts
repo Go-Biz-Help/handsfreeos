@@ -208,6 +208,7 @@ import {
   callStart,
   callUpdateStatus,
 } from './call';
+import { userAboutSet } from './user-about';
 import { userPhoneRecordCall, userPhoneStartVerification, userPhoneVerify } from './user-phone';
 import { accountDelete, accountNoteDeleted, assistantConsent } from './account';
 import { companyCreate } from './company.create';
@@ -599,6 +600,7 @@ export {
   userPhoneRecordCall,
   userPhoneStartVerification,
   userPhoneVerify,
+  userAboutSet,
   accountDelete,
   accountNoteDeleted,
   assistantConsent,
@@ -875,6 +877,7 @@ export const commands: readonly CommandDef[] = [
   userPhoneStartVerification,
   userPhoneRecordCall,
   userPhoneVerify,
+  userAboutSet,
   emailDomainAdd,
   emailDomainVerify,
   emailDomainRemove,

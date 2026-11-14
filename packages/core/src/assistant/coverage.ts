@@ -596,6 +596,7 @@ export interface SettingWay {
 export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
   // ---- Account ----
   'account.profile': [{ tool: 'update_my_account', field: 'fullName' }],
+  'account.about_you': [{ tool: 'update_my_account', field: 'aboutYou' }],
   'account.appearance': [{ tool: 'update_my_account', field: 'appearance' }],
   'account.menu': [{ tool: 'arrange_my_menu', field: 'places' }],
   'account.notifications': [

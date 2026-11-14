@@ -195,7 +195,8 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   and fills the open days right away.
 - **Writing** asks Claude for the post in the network's way (Instagram's hook and up to 5 hashtags, all Instagram takes, Facebook like a
   neighbour, LinkedIn a lesson and a question, Threads like a conversation with one topic tag, X short with 1 or 2
-  hashtags), as the business, never inventing results, prices or reviews. Its answer is checked (`checkedPost`):
+  hashtags), as the business, never inventing results, prices or reviews, nor anything of the owner's own life
+  (`OWNER_LIFE_UNKNOWN`, docs/outreach.md decision 165). Its answer is checked (`checkedPost`):
   Instagram never gets words alone, a carousel needs 2 slides, hashtags are kept apart from the words, and the AI picks
   how the picture is made. **Write it again** takes what to change.
 - **Threads and X** (decision 41): X takes 280 characters and Threads 500, tags included (`POSTING.textMost`,

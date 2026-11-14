@@ -1,9 +1,10 @@
 /**
  * A person's own account (M10), as the web's Settings → Account and Delete my account pages read it: what deleting it
- * would leave without an owner, the phones they get notifications on, and their own cell.
+ * would leave without an owner, the phones they get notifications on, their own cell, and what they said of
+ * themselves for the AI that writes as them (About you).
  */
 import { and, desc, eq, isNull } from 'drizzle-orm';
-import { pushDevices, userPhones } from '@hfos/db/schema';
+import { pushDevices, userAbout, userPhones } from '@hfos/db/schema';
 import {
   addOrganizationOwner,
   agencyCandidates,
@@ -16,6 +17,7 @@ import {
 import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
 import { PushDeviceListInput, PushDeviceListOutput } from '../schemas/push';
+import { UserAboutGetInput, UserAboutGetOutput } from '../schemas/user-about';
 import { UserPhoneGetInput, UserPhoneGetOutput } from '../schemas/user-phone';
 import { AccountDeletionCheckInput, AccountDeletionCheckOutput } from '../schemas/user';
 
@@ -108,5 +110,23 @@ export const userPhoneGet = defineQuery({
           }
         : null,
     };
+  },
+});
+
+export const userAboutGet = defineQuery({
+  name: 'user_about.get',
+  description:
+    'About you: what you said of yourself, in your own words, for the AI that writes as you. Only you see it.',
+  input: UserAboutGetInput,
+  output: UserAboutGetOutput,
+  permission: null,
+  scope: () => ({ kind: 'account' }),
+  async handler(ctx) {
+    const me = requireHuman(ctx).userId;
+    const [row] = await ctx.tx
+      .select({ about: userAbout.about, updatedAt: userAbout.updatedAt })
+      .from(userAbout)
+      .where(eq(userAbout.userId, me));
+    return { about: row?.about ?? '', updatedAt: row?.updatedAt.toISOString() ?? null };
   },
 });

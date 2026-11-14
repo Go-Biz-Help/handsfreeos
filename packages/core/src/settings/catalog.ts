@@ -160,6 +160,22 @@ const ROWS = {
     words: ['face id', 'touch id', 'sign in', 'security key'],
     anchor: 'passkeys',
   },
+  'account.about_you': {
+    page: 'account',
+    section: null,
+    label: 'About you',
+    words: [
+      'personal info',
+      'about me',
+      'my background',
+      'heritage',
+      'family',
+      'hobbies',
+      'what the ai knows about me',
+    ],
+    anchor: 'about-you',
+    phone: phoneRow('account.about_you'),
+  },
   'account.notifications': {
     page: 'account',
     section: null,

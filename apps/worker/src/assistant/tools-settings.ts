@@ -74,7 +74,7 @@ import type { Db } from '@hfos/db/client';
 import type { WorkerServices } from '../services';
 import { addOnsRead, addOnsTidy, voteRead } from './addons-page';
 import { publicOriginFor } from './full-links';
-import { meRead, myCellRead, phonesRead } from './my-account';
+import { aboutYouRead, meRead, myCellRead, phonesRead } from './my-account';
 import type { ToolContext, ToolOutcome } from './runtime';
 import { scheduleWords, type TeamSchedule } from './schedule-words';
 import { query, type ReadTool } from './tools-read';
@@ -628,6 +628,8 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
   // As Settings → Account shows it to them: only the rows their own screen has (my-account.ts).
   my_account: [
     { name: 'account.me', as: 'me', shape: meRead },
+    // What they said of themselves for the AI that writes as them: theirs alone, read for the person asking.
+    { name: 'user_about.get', as: 'aboutYou', shape: aboutYouRead },
     { name: 'user_phone.get', as: 'myCell', shape: (v, _db, ctx) => myCellRead(v, ctx) },
     // The phones their alerts go to: none means phone alerts reach nobody, and the note says how to fix it.
     { name: 'push_device.list', as: 'phonesForAlerts', shape: phonesRead },

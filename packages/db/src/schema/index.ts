@@ -5047,6 +5047,18 @@ export const userPhones = app.table('user_phones', {
   ...timestamps(),
 });
 
+/**
+ * What a person says of themselves, in their own words (20261027027200), for the AI that writes as them. One row a
+ * person, theirs alone: no teammate reads it.
+ */
+export const userAbout = app.table('user_about', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  about: text('about').notNull(),
+  ...timestamps(),
+});
+
 // ---------- Milestone 11: moving a business here from another CRM (0064-0066) ----------
 export const migrationSource = app.enum('migration_source', [
   'gohighlevel',

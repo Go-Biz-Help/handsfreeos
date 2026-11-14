@@ -407,6 +407,11 @@ became.
 - **What it says, and Test it** (decision 164, `script.ts`, `playbook-test.ts`): the playbook holds its own words for
   every message the AI writes, each draft is written from them, the rules no playbook changes are shown locked, and
   a Test console plays a chat out with the real draft writer, sending nothing.
+- **Honest about you, and comments that are about the post** (decision 165, `about-owner.ts`, `comment-says.ts`,
+  core's `account/about-you.ts`): the AI knows of the person it writes as only what they said in **About you**
+  (Settings → Account, each person's own and private), and never says they share someone's background without it. A
+  comment names something real the post says, in the words people type, or there is no comment. Test it has **Try a
+  comment**.
 - **The demo link** (decision 24, `demos.ts`, `ops/demos.ts`, the worker's `demos.ts`): each person's own link to the
   playbook's booking page for someone they reached (**Copy demo link** on Today), with a
   `ref` naming who sent it to whom and nothing else. A booking page keeps the `ref` on the booking
@@ -4200,6 +4205,59 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         over the ones saved, `withScriptChanges`); and `outreach_test_playbook` runs Test it, on a saved playbook or
         on changes not saved yet. Your messages shows a sample for each version of the first message
         (`SAMPLES_MOST.first` is 3).
+165.  **The AI never claims to be one of them unless you said so, and a comment is about its post** (Chris, 14 Nov
+      2026, on three warm-up comments waiting for his OK on Instagram. Under a Hispanic Heritage Month post, "Five
+      days in and still waiting, same 😂": "i love this comment and the playfulness definitely keep the personality,
+      but im not hispanic lol", "now for someone who is this is great", "so maybe we need a personal info section".
+      Under a reel, "That caption got me, so real": "this comment feels like a bot, it’s not about the post at all it
+      just feels like some generic ai or automated comment you see all over the internet, not good". And "That
+      countryside setting looks so charming": "using not very popular words like charming ... a man would say
+      something more like, that’s nice! or looks dope!"). What was wrong: every message and comment is written as
+      the owner, and the AI was told the business, the offer and how the owner writes, but nothing of the owner as a
+      person, and no rule kept it from filling that in. It is also given only a post's words (its caption, or what
+      the network says its picture shows), never the picture or the video, and wrote something anyway when the
+      words leaned on what it couldn't see. He answered "your picks 1-4" and "your pick for 5":
+      - **About you** (1a and 2a; `app.user_about`, migration 027200, `user_about.set` and `user_about.get`,
+        `ABOUT_YOU_WORDS`): one box on Settings → Account, on the web and the phone, in the person's own words,
+        with what's worth saying beside it (where they're from, heritage, family, faith, hobbies and teams, past
+        jobs). It is the person's alone: no teammate reads it, an owner included, the worker reads it only for the
+        people of the business it is scoped to and only to write as that person, the phone never keeps a copy
+        (it reads and saves with signal), its event and audit row say that it changed and never what it says, and
+        a deleted account keeps none of it. It is core's, not Social Outreach's, so any AI that writes as a person
+        can read it: for now that is outreach's messages and comments.
+      - **Only when they bring it up** (3a; `ABOUT_OWNER_RULE`, `<about_owner>` in `todayDraftPrompt`): the AI may
+        speak as one of them ("same") only where About you says so and the other person's own post or message
+        brings it up. It never brings up the owner's own life first. With nothing in About you it keeps the warmth
+        and the humor and reacts as a friendly outsider ("Five days in and no gifts yet? Somebody fix that 😂").
+        Prompts that aren't given About you (a helpful post, sample messages, a video script, the like's short
+        comment, and the Content Creator's posts) carry `OWNER_LIFE_UNKNOWN` (core's `writing.ts`): nothing of the
+        owner's life but what they're given.
+      - **A comment is about the post, or there is none** (`comment-says.ts`): the AI is told it has only the post's
+        words (`POST_WORDS_ONLY`), gives back the post's own words its comment is about (`COMMENT_ABOUT_ASK`, the
+        answer's `about`), and writes nothing when the words aren't enough. The checks behind it (`realComments`,
+        in the worker's `writeDrafts`; `warmComment` for a like's): a warm-up comment whose `about` isn't in the post
+        goes (`aboutInPost`); so does one that fits under any post or talks about the caption (`saysNothing`: "So
+        real", "Love this", "That caption got me"), one in a brochure's words (`brochureWords`: charming, stunning,
+        lovely...), and, with nothing in About you, a warm-up comment that makes the owner one of them
+        (`claimsTheSame`: "same", "me too", "as a fellow", "been there"). With none left there is no comment: the
+        like still went, and the next visit picks another post. An expert comment speaks from the owner's field, so
+        it needn't point at the post's words and may say "we've been there" of the business.
+      - **The words people type** (`COMMENT_PLAIN_WORDS`): nice, cool, dope, clean, solid, big, congrats, let's go.
+      - **Locked, and written again**: two more of `LOCKED_RULES` show on every playbook, and `RULES_VERSION` is 3,
+        so a message or comment waiting for an OK, or OK'd and not sent, is written again under these.
+      - **Try a comment** (`playbook-test.ts`, move `comment`): at the foot of Test it, on the web and the phone.
+        Paste what a post says or tap an example (someone's own heritage, a caption that leans on its video, a win,
+        a question for an expert comment), pick warm-up or expert and the network, and see the comment that would
+        wait for an OK with the post's words it is about, or that there'd be none and why. It says whether About
+        you is filled in. Same writer and checks as a real comment; nothing is posted or kept.
+      - **The Assistant does it too**: `get_settings` (my_account) reads About you for the person asking,
+        `update_my_account` (`aboutYou`) saves it whole on a card that says only they see it, and
+        `outreach_test_playbook` takes the move `comment`.
+      - **Still to come** (4a and 5a, a second change with an extension update): the AI looks at the photo, or a
+        frame of the video, before it comments, keeping nothing of it; and a one-off research job on the owner's
+        extension alone reads about 2,000 real comments over 3 days, mixed into its normal day, keeping the comments'
+        words only (no names) and leaving out ones that read like bots, to learn the patterns every user's comment
+        prompts then carry.
 
 ## Rules worth knowing before changing anything
 
@@ -4239,6 +4297,13 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   (`asMessage` or `asHow`), so the business can see and change it under What it says. Only what no playbook may
   change is a rule in code, and each of those is in `LOCKED_RULES` for the editors to show. Never put how a message
   reads only in a prompt.
+- **Nothing the AI writes makes up the owner's life** (decision 165, `about-owner.ts`): a prompt that writes as the
+  person carries `ABOUT_OWNER_RULE` with their `<about_owner>` (`aboutOwnerFor`, `aboutOwnerBlock`), or
+  `OWNER_LIFE_UNKNOWN` when it isn't given About you. About you is the person's alone: read it only to write as
+  them, never show it to a teammate, and never put its words in an event, a log or a note.
+- **A comment goes through `realComments`** (decision 165, `comment-says.ts`): about something the post's words
+  say, in the words people type, or not at all. A new kind of comment keeps the checks, and none is the right
+  answer when there's nothing real to say.
 - **A change to what the AI writes can reach messages already drafted** (decision 157): raise `RULES_VERSION` in
   `sends.ts`, and every message waiting for an OK or OK'd and not yet sent is written again.
 - **A message's texts are its parts between blank lines** (`messageParts`), when the person sends a few
