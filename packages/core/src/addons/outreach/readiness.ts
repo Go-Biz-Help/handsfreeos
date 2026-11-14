@@ -689,7 +689,7 @@ export const READY_WORDS = {
   /** Your messages' sheet (Get ready, decisions 65 to 67). */
   messages: {
     title: 'Your messages',
-    hint: 'What goes out in your name, written by the AI for someone in your playbook’s niche, in your voice. Nobody real: the names are made up. Change how they sound in Settings → You, or the playbook’s tone, then write them again.',
+    hint: 'What goes out in your name, written by the AI from your playbook’s What it says, for someone in its niche, in your voice. Nobody real: the names are made up. To change what a message says, change the playbook. To change how they sound, use Settings → You or the playbook’s tone. Then write them again.',
     write: 'Write samples',
     again: 'Write them again',
     first: 'First message, once they accept',
@@ -717,7 +717,10 @@ export const READY_WORDS = {
       'Write your samples on your computer, under Get ready in HandsFreeOS. Then OK them there or here.',
     /** Changing one, or telling the AI what's not quite right of it (decision 87). */
     howTo:
-      'Change any message, or tell the AI what’s not quite right. Your real messages follow what you say.',
+      'Tell the AI what’s not quite right about any message, or put a follow-up or the check-in in your own words. Your real messages follow what you say.',
+    /** Under the first message and the message after a yes, which are the playbook's own words (decision 164). */
+    fromPlaybook:
+      'These words come from your playbook. Change them under Playbooks → What it says.',
     change: 'Change',
     save: 'Save',
     cancel: 'Cancel',

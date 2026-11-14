@@ -27,6 +27,7 @@ import {
   messageSamplesPrompt,
   noSample,
   sampleAt,
+  samplesNow,
   slotKey,
   slotsOf,
   withNote,
@@ -42,6 +43,7 @@ import {
   upgradePlaybookDetails,
 } from '@hfos/core/addons/outreach/playbooks';
 import { noteOf } from '@hfos/core/addons/outreach/profile-parts';
+import { scriptOf } from '@hfos/core/addons/outreach/script';
 import type { ReadinessOutput } from '@hfos/core/addons/outreach/readiness';
 import { draftOfferOf } from '@hfos/core/addons/outreach/today';
 import { voiceLines } from '@hfos/core/addons/outreach/voice';
@@ -102,7 +104,8 @@ async function samplesFrom(ctx: Ctx, asked: { playbookId: string | null } | 'sam
     const read = PlaybookDetails.safeParse(upgradePlaybookDetails(p.details));
     return read.success ? [{ id: p.id, name: p.name, details: read.data }] : [];
   });
-  const samples = MessageSamples.safeParse(found.said?.message_samples ?? null).data ?? null;
+  // Samples written before the playbook's own words drove them (decision 164) read as none.
+  const samples = samplesNow(MessageSamples.safeParse(found.said?.message_samples ?? null).data);
   const first = playbooks.find((p) => p.details.niche) ?? playbooks[0];
   const playbook =
     asked === 'samples'
@@ -136,6 +139,8 @@ async function samplesFrom(ctx: Ctx, asked: { playbookId: string | null } | 'sam
       disclaimer: d.disclaimer,
       usefulWhat: d.usefulWhat ?? null,
       hasVideo,
+      // What the playbook says for each message (decision 164): the samples show it in the person's voice.
+      script: scriptOf(d),
     },
     offer,
     followUps,

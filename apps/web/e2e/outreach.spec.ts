@@ -146,6 +146,28 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   // The pace: the first message two days after they accept.
   await builder.getByTestId('pace-message').getByRole('button', { name: /^More/ }).click();
   await expect(builder.getByTestId('pace-message')).toContainText('2');
+  // What a tick does is said under the steps (decision 164).
+  await expect(builder.getByTestId('playbook-steps-hint')).toContainText(
+    'Untick a step and it stops',
+  );
+  await next.click();
+
+  // What it says (decision 164): every message in the business's own words, starting from the owner's latest way. A
+  // second version of the first message takes turns with the first; the rules no playbook changes are shown, locked.
+  await expect(builder.getByRole('heading', { name: 'What does it say?' })).toBeVisible();
+  await expect(builder.getByTestId('playbook-script-first-0')).toHaveValue(
+    /^Hey \[first name\], if I could get you \[what your offer gets them\]/,
+  );
+  await builder.getByTestId('playbook-script-first-add').click();
+  // An empty version stops the step until it's written or taken out.
+  await expect(next).toBeDisabled();
+  await builder
+    .getByTestId('playbook-script-first-1')
+    .fill('Hey [first name], who orders lunch at your office?');
+  await expect(next).toBeEnabled();
+  await expect(builder.getByTestId('playbook-locked-rules')).toContainText(
+    'Never names a group you’re both in',
+  );
   await next.click();
 
   // The short video can wait: no script or link yet.
@@ -185,15 +207,6 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   await expect(builder.getByLabel('Your tone')).toHaveValue('Friendly, no hard sell');
   await next.click();
 
-  // How it starts a chat: a style tapped, and an opener of the business's own.
-  await expect(builder.getByRole('heading', { name: 'How do you start a chat?' })).toBeVisible();
-  await builder.getByRole('button', { name: /^Say it could bring them more customers/ }).click();
-  await builder.getByRole('button', { name: 'Add an opener' }).click();
-  await builder
-    .getByLabel('Your opener 1')
-    .fill('Hi {first name}! Who orders lunch at your office?');
-  await next.click();
-
   // The summary: named after its goal to start with, and the conversation as it reads.
   await expect(builder.getByTestId('playbook-name')).toHaveValue('Make a sale');
   await builder.getByTestId('playbook-name').fill('Office orders');
@@ -206,16 +219,21 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   await expect(script).toContainText('“Yes” adds Wants a tasting, then make the offer');
   await expect(script).toContainText('“No” adds Not a fit, then stop here');
   await expect(script).toContainText('They answer in their own words.');
-  await expect(builder.getByTestId('review-openers')).toContainText(
-    'Say it could bring them more customers without more work',
+  await expect(builder.getByTestId('review-script')).toContainText(
+    '“Hey [first name], who orders lunch at your office?”',
   );
-  await expect(builder.getByTestId('review-openers')).toContainText('1 opener of your own');
+  await expect(builder.getByTestId('review-script')).toContainText(
+    '2 first messages taking turns. 1 part in your own words, the rest in the starting words.',
+  );
   await builder.getByTestId('playbook-save').click();
   await expect(page.getByText('Office orders is ready.')).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/a/outreach/playbooks$`));
   const card = page.getByTestId('playbook-Office orders');
+  await expect(card.getByTestId('playbook-first-message')).toContainText(
+    'Starts with one of 2 first messages, like “Hey [first name], if I could get you',
+  );
   await expect(card.getByTestId('playbook-questions')).toHaveText(
-    'Asks 2 questions, starting with “Do you order food for the office?”',
+    'May ask 2 questions, like “Do you order food for the office?”',
   );
 
   // Changing it opens on the summary. Taking a tag out takes it off the answer that added it.
@@ -230,17 +248,24 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   await expect(page.getByText('Office orders is saved.')).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/a/outreach/playbooks$`));
 
-  // A template's conversation comes with it, and answers lead further down.
+  // A template comes with what it says (its own first messages, decision 164) and its conversation, where answers
+  // lead further down.
   await page.getByTestId('playbook-new').click();
-  await page.getByTestId('template-crm_demos').click();
-  await expect(page).toHaveURL(new RegExp(`/a/outreach/playbooks/new\\?template=crm_demos$`));
-  for (let i = 0; i < 9; i++) await builder.getByTestId('playbook-next').click();
-  await expect(builder.getByTestId('question-1-text')).toHaveValue('Do you use a CRM?');
-  await expect(builder.getByLabel('After answer 2 to question 1')).toHaveValue('q4');
+  await page.getByTestId('template-real_estate').click();
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/playbooks/new\\?template=real_estate$`));
+  for (let i = 0; i < 7; i++) await builder.getByTestId('playbook-next').click();
+  await expect(builder.getByTestId('playbook-script-first-2')).toHaveValue(
+    'Hey [first name], if I could show you what your home is worth today, would you be interested?',
+  );
   for (let i = 0; i < 3; i++) await builder.getByTestId('playbook-next').click();
-  await expect(builder.getByTestId('playbook-name')).toHaveValue('CRM demos');
+  await expect(builder.getByTestId('question-1-text')).toHaveValue(
+    'Are you thinking about buying, selling, or both?',
+  );
+  await expect(builder.getByLabel('After answer 2 to question 1')).toHaveValue('q4');
+  for (let i = 0; i < 2; i++) await builder.getByTestId('playbook-next').click();
+  await expect(builder.getByTestId('playbook-name')).toHaveValue('Home buyers and sellers');
   await expect(script).toContainText(
-    '“No”, then ask question 4: “How do you keep track of follow-ups now?”',
+    '“In the next 3 months” adds Moving soon, then ask question 5: “Are you working with an agent yet?”',
   );
 });
 

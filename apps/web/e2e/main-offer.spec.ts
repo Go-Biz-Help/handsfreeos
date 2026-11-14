@@ -190,7 +190,8 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await expect(playbook.getByTestId('playbook-useful-link')).toHaveValue(
     'https://summit.test/checklist',
   );
-  for (let i = 0; i < 5; i++) await playbook.getByTestId('playbook-next').click();
+  // On past who, leave alone, where, the steps and what it says (decision 164), to the short video.
+  for (let i = 0; i < 6; i++) await playbook.getByTestId('playbook-next').click();
 
   // The short video: the AI writes its script from the offer and the niche, and one part is written again. The video
   // itself goes in the video library (decision 154), which the step points to where its link was.
@@ -209,7 +210,7 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
     'href',
     `/app/w/${workspaceId}/a/outreach/settings/videos`,
   );
-  for (let i = 0; i < 5; i++) await playbook.getByTestId('playbook-next').click();
+  for (let i = 0; i < 4; i++) await playbook.getByTestId('playbook-next').click();
   await expect(playbook.getByTestId('review-video')).toContainText('Script written');
   await expect(playbook.getByTestId('review-niche')).toContainText('Roofers with 2 to 3 crews');
   await expect(playbook.getByTestId('review-niche')).toContainText('1 result as proof');

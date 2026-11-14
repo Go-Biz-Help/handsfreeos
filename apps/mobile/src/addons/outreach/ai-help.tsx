@@ -7,6 +7,7 @@ import {
   type PlaybookAssistPart,
 } from '@hfos/core/addons/outreach/playbook-assist';
 import type { Playbook } from '@hfos/core/addons/outreach/playbooks';
+import { typedFirsts } from '@hfos/core/addons/outreach/script';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -63,8 +64,10 @@ export function assistDraftOf(playbook: Pick<Playbook, 'name' | 'details'>): Ass
     worksOnline: d.worksOnline ?? null,
     tags: d.tags,
     samples: d.samples.filter((m) => m.trim()),
-    openerStyles: d.openerStyles,
-    ownOpeners: d.ownOpeners.filter((m) => m.trim()),
+    // The first message's versions as they stand in the sheet (decision 164); the old openers are no longer read.
+    firsts: typedFirsts(d.goal, d.script ?? {}).filter((m) => m.trim()),
+    openerStyles: [],
+    ownOpeners: [],
     avoid: d.avoid,
     questions: d.questions.map((q) => ({
       text: q.text,
@@ -212,9 +215,7 @@ export function AiHelp({
                     }}
                     className={cn(
                       'min-h-9 flex-row items-center gap-1 border border-dashed border-border-strong bg-card px-3 py-1.5',
-                      part === 'samples' || part === 'ownOpeners' || part === 'openerStyles'
-                        ? 'rounded-menu'
-                        : 'rounded-full',
+                      part === 'samples' || part === 'firsts' ? 'rounded-menu' : 'rounded-full',
                     )}
                     testID="ai-option"
                   >

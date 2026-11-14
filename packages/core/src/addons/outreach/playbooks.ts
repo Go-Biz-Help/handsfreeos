@@ -8,6 +8,7 @@
 import { z } from 'zod';
 import { PLATFORM_KEYS, PLATFORMS, type Platform, WORKING_PLATFORMS } from './networks';
 import { loosened } from './loose';
+import { FullScriptOut, openerAsFirst, PlaybookScript, SCRIPT_LIMITS } from './script';
 import { VideoLink, VideoScript } from './video';
 
 /** The social networks it knows, each with its kit in ./networks.ts. */
@@ -82,26 +83,56 @@ export const PARTNER_KINDS = {
 export type PartnerKind = keyof typeof PARTNER_KINDS;
 export const PARTNER_KIND_KEYS = Object.keys(PARTNER_KINDS) as [PartnerKind, ...PartnerKind[]];
 
-/** The steps a playbook takes with people, in the order it takes them. */
+/**
+ * The steps a playbook takes with people, in the order it takes them. A step no playbook in use on a network takes
+ * isn't done there (decision 164, `takesStep`): Today lists none of its kinds (../today.ts `stepOfItem`), and no
+ * helpful post is asked for (`outreach.helpful.ask`). Replies, the ask after a yes, a booking's reminders, birthday
+ * and new-job notes and requests to confirm go whatever the steps: they answer someone.
+ */
 export const PLAYBOOK_STEPS = {
   connect: {
     label: 'Send friend requests',
-    hint: 'To people who fit, found in your groups or by a search.',
+    hint: 'To people who fit, found in your groups or by a search. A follow on Instagram, Threads and X.',
   },
-  engage: { label: 'Warm up', hint: 'Like and comment on their posts before writing to them.' },
+  engage: {
+    label: 'Warm up',
+    hint: 'While they decide on your request: a visit every 1 to 3 days that likes 1 or 2 of their posts and leaves one comment.',
+  },
   message: {
-    label: 'Open a chat',
-    hint: 'A first message once they accept, about something real from their posts.',
+    label: 'Send a first message',
+    hint: 'Only once they accept your request or follow you back. Reconnect too, for people you’ve talked with before.',
   },
-  follow_up: { label: 'Follow up', hint: 'When a chat goes quiet.' },
+  follow_up: {
+    label: 'Follow up',
+    hint: 'When they go quiet, then a check-in once a month.',
+  },
   answer: {
-    label: 'Answer requests',
-    hint: 'Reply to “can anyone recommend…” posts in your groups.',
+    label: 'Comment on posts',
+    hint: 'On posts about what you do, and questions in your groups. It offers to show them only when a post asks for someone who does what you do.',
   },
-  post: { label: 'Post in groups', hint: 'A question, a tip or a poll. Nothing salesy.' },
+  post: {
+    label: 'Post in groups',
+    hint: 'A helpful post: a question, a tip or a poll. Nothing salesy.',
+  },
 } as const;
 export type PlaybookStep = keyof typeof PLAYBOOK_STEPS;
 export const PLAYBOOK_STEP_KEYS = Object.keys(PLAYBOOK_STEPS) as [PlaybookStep, ...PlaybookStep[]];
+
+/**
+ * Whether a step is taken on a network (decision 164): some playbook in use there ticks it. With no playbook in use
+ * there is nothing to go by, so nothing is held on that account.
+ */
+export const takesStep = (
+  inUse: readonly { readonly details: { readonly steps: readonly PlaybookStep[] } }[],
+  step: PlaybookStep,
+): boolean => inUse.length === 0 || inUse.some((p) => p.details.steps.includes(step));
+
+/**
+ * Under the steps in the editors: what a tick does. Every playbook starts with every step ticked (`blankPlaybook`,
+ * `PLAYBOOK_TEMPLATES`), which is what the add-on did before the ticks counted.
+ */
+export const STEPS_HINT =
+  'Untick a step and it stops: on each network, a step is done only while a playbook in use there has it ticked. Replies to people who write to you always go.';
 
 /**
  * What a conversation does after an answer, besides asking a question further down. The day's list and the AI read
@@ -177,6 +208,8 @@ export const PLAYBOOK_LIMITS = {
   openerStyles: { line: 300, most: 3 },
   /** First messages the business wrote itself, sent as written with their first name filled in. */
   ownOpeners: { line: 600, most: 3 },
+  /** The first message's versions (decision 164, ./script.ts `SCRIPT_LIMITS.first`), as the AI's help reads them. */
+  firsts: { line: SCRIPT_LIMITS.first.line, most: SCRIPT_LIMITS.first.most },
   /** Who in the main offer this playbook is for (data version 3): "Roofers with 2 to 3 crews". */
   niche: 160,
   /** That niche's own biggest problem. */
@@ -371,23 +404,29 @@ export const PlaybookDetails = z
           p.followUpGaps.length === p.followUps,
         { error: 'Say how many days before each follow-up.', path: ['followUpGaps'] },
       ),
+    /**
+     * What it says (decision 164, ./script.ts): its own words for each message it writes, the first message's up to
+     * three versions. A part left out reads as its starting words (`scriptOf`). Left out of a save, it keeps what's
+     * saved.
+     */
+    script: PlaybookScript.optional(),
     /** How it sounds: "Friendly, one owner to another. No hard sell." */
     tone: words(PLAYBOOK_LIMITS.tone),
     /** A few of the business's own messages, for the AI to sound like. */
     samples: lines(PLAYBOOK_LIMITS.samples),
     /**
-     * How first messages open (decision 23): styles the AI words its one short question in ("Say it could get them
-     * more deals while saving them time", decisions 137 and 152), and the business's own openers, sent as written.
-     * Drafts take turns with them (./openers.ts), so the results card can say which work. A playbook saved before them
-     * has none.
+     * How first messages opened before decision 164: styles the AI worded its question in, and the business's own
+     * openers. Neither is read any more: first messages are the script's (`script.first`), which a playbook saved
+     * before gets its own openers as (`upgradePlaybookDetails`). Still taken, so a phone built before saves.
      */
     openerStyles: lines(PLAYBOOK_LIMITS.openerStyles)
       .refine(distinct, 'Each style once.')
       .default([]),
     ownOpeners: lines(PLAYBOOK_LIMITS.ownOpeners).refine(distinct, 'Each opener once.').default([]),
     /**
-     * The conversation, in the order it's asked: "Do you use a CRM?", with the answers people give and what each
-     * one leads to.
+     * Questions it may ask in a chat, in order, with the answers people give and what each one leads to. With none
+     * (decision 164, the owner's 3), a reply answers from the main offer and its lists for content, then asks for the
+     * booking.
      */
     questions: z
       .array(PlaybookQuestion)
@@ -472,12 +511,13 @@ export const blankPlaybook = (): PlaybookDetails => ({
   // Every network that works, as every playbook ran before data version 7; the person unticks any.
   platforms: [...WORKING_PLATFORMS],
   groupWords: [],
-  steps: ['connect', 'engage', 'message', 'follow_up'],
+  steps: ['connect', 'engage', 'message', 'follow_up', 'answer', 'post'],
   pace: {
     messageAfterDays: PACE_LIMITS.messageAfterDays.start,
     followUps: PACE_LIMITS.followUps.start,
     followUpGaps: followUpGapsFor(PACE_LIMITS.followUps.start),
   },
+  script: {},
   tone: null,
   samples: [],
   openerStyles: [],
@@ -487,6 +527,10 @@ export const blankPlaybook = (): PlaybookDetails => ({
   disclaimer: null,
   tags: [],
 });
+
+/** The owner's own first message, as he wrote it on 4 Nov 2026 (decision 152): the CRM demos playbook's. */
+export const CRM_FIRST_MESSAGE =
+  'Hey [first name], if I could get you more deals while also saving you time for your [their kind of business] business using my easy to use CRM software, would you be interested?';
 
 export interface PlaybookTemplate {
   readonly name: string;
@@ -498,7 +542,8 @@ export interface PlaybookTemplate {
 const TEMPLATES = {
   crm_demos: {
     name: 'CRM demos',
-    summary: 'Find small business owners, ask about the CRM they use, and offer a demo.',
+    summary:
+      'Find small business owners, ask if they’d like more deals and time back, and offer a demo.',
     details: {
       ...blankPlaybook(),
       goal: 'demo',
@@ -531,44 +576,12 @@ const TEMPLATES = {
         'leads slipping through',
         'scheduling software',
       ],
-      steps: ['connect', 'engage', 'message', 'follow_up'],
+      steps: ['connect', 'engage', 'message', 'follow_up', 'answer', 'post'],
       tone: 'Friendly and curious, one owner to another. Short messages, no hard sell.',
-      openerStyles: [
-        'Say it could get them more deals while saving them time.',
-        'Say it could stop leads slipping through the cracks.',
-        'Say it could give them their evenings back.',
-      ],
-      questions: [
-        {
-          id: 'q1',
-          text: 'Do you use a CRM?',
-          answers: [
-            { label: 'Yes', tag: 'Uses a CRM', next: 'continue' },
-            { label: 'No', tag: null, next: 'q4' },
-            { label: 'What’s a CRM?', tag: null, next: 'q4' },
-            { label: 'I don’t run a business', tag: 'Not a fit', next: 'stop' },
-          ],
-        },
-        { id: 'q2', text: 'Which one?', answers: [] },
-        {
-          id: 'q3',
-          text: 'Is it doing what you need?',
-          answers: [
-            { label: 'Yes, it’s fine', tag: 'Happy with CRM', next: 'later' },
-            { label: 'Not really', tag: 'Unhappy with CRM', next: 'offer' },
-            { label: 'It’s too much work', tag: 'Unhappy with CRM', next: 'offer' },
-          ],
-        },
-        {
-          id: 'q4',
-          text: 'How do you keep track of follow-ups now?',
-          answers: [
-            { label: 'A spreadsheet or notes', tag: null, next: 'offer' },
-            { label: 'I don’t, really', tag: null, next: 'offer' },
-            { label: 'Someone on my team does it', tag: null, next: 'later' },
-          ],
-        },
-      ],
+      // The owner's own first message (decision 152), and the rest as every playbook starts (decision 164).
+      script: { first: [CRM_FIRST_MESSAGE] },
+      // No questions (decision 164, the owner's 3): a reply answers from the main offer and its lists for content.
+      questions: [],
       tags: [
         'Business owner',
         'Uses a CRM',
@@ -611,13 +624,15 @@ const TEMPLATES = {
       platforms: ['facebook', 'instagram', 'linkedin'],
       worksOnline: false,
       groupWords: ['community', 'neighbors', 'new to town', 'relocating'],
-      steps: ['connect', 'engage', 'message', 'follow_up', 'answer'],
+      steps: ['connect', 'engage', 'message', 'follow_up', 'answer', 'post'],
       tone: 'Warm and helpful, like a neighbor who knows the market. Short messages, no pressure.',
-      openerStyles: [
-        'Say it could help them get the most for their home, with less stress.',
-        'Say it could help them find the right home without the guesswork.',
-        'Say it could show them what their home is worth today.',
-      ],
+      script: {
+        first: [
+          'Hey [first name], if I could help you get the most for your home, with less stress, would you be interested?',
+          'Hey [first name], if I could help you find the right home without the guesswork, would you be interested?',
+          'Hey [first name], if I could show you what your home is worth today, would you be interested?',
+        ],
+      },
       questions: [
         {
           id: 'q1',
@@ -754,13 +769,14 @@ const TEMPLATES = {
       platforms: ['facebook', 'instagram', 'alignable'],
       worksOnline: false,
       groupWords: ['community', 'neighbors', 'homeowners', 'recommendations'],
-      steps: ['connect', 'engage', 'message', 'follow_up', 'answer'],
+      steps: ['connect', 'engage', 'message', 'follow_up', 'answer', 'post'],
       tone: 'Friendly and straight to the point, like a local pro the neighbors trust. Short messages, no pressure.',
-      openerStyles: [
-        'Say it could save them money on their home.',
-        'Say it could get their project done without the hassle.',
-        'Say it could take that repair off their list for good.',
-      ],
+      script: {
+        first: [
+          'Hey [first name], if I could get your project at home done without the hassle using [what your offer is], would you be interested?',
+          'Hey [first name], if I could take that repair off your list for good using [what your offer is], would you be interested?',
+        ],
+      },
       questions: [
         {
           id: 'q1',
@@ -868,13 +884,14 @@ const TEMPLATES = {
       platforms: ['facebook', 'instagram', 'linkedin'],
       worksOnline: true,
       groupWords: ['personal growth', 'entrepreneurs', 'career change', 'self improvement'],
-      steps: ['connect', 'engage', 'message', 'follow_up'],
+      steps: ['connect', 'engage', 'message', 'follow_up', 'answer', 'post'],
       tone: 'Encouraging and curious, never pushy. Short messages that ask more than they tell.',
-      openerStyles: [
-        'Say it could help them reach their goal this year.',
-        'Say it could help them get unstuck.',
-        'Say it could give them more time for what matters to them.',
-      ],
+      script: {
+        first: [
+          'Hey [first name], if I could help you reach your goal this year using [what your offer is], would you be interested?',
+          'Hey [first name], if I could help you get unstuck using [what your offer is], would you be interested?',
+        ],
+      },
       questions: [
         {
           id: 'q1',
@@ -976,6 +993,11 @@ export const PLAYBOOK_V9_KEYS = ['facebookSearches'] as const;
  * empty lists, the AI writing them once Threads or X is on it.
  */
 export const PLAYBOOK_THREADS_X_KEYS = ['threadsSearches', 'xSearches'] as const;
+/**
+ * What it says (decision 164, ./script.ts). No new data version: a playbook saved before has none, and reads with the
+ * starting words, its own openers as its first messages (`upgradePlaybookDetails`).
+ */
+export const PLAYBOOK_SCRIPT_KEYS = ['script'] as const;
 /** What a save that leaves a part out keeps. */
 export const PLAYBOOK_KEPT_KEYS = [
   ...PLAYBOOK_V3_KEYS,
@@ -986,6 +1008,7 @@ export const PLAYBOOK_KEPT_KEYS = [
   ...PLAYBOOK_V8_KEYS,
   ...PLAYBOOK_V9_KEYS,
   ...PLAYBOOK_THREADS_X_KEYS,
+  ...PLAYBOOK_SCRIPT_KEYS,
 ] as const;
 
 /**
@@ -1066,8 +1089,9 @@ export function paceOf(pace: unknown): Pace {
  * worked (Facebook and LinkedIn), so those are put on it; before 8, no words of each network's own, nothing said of
  * working online, and none written by the AI; before 9, no phrases for Facebook's post search, and the hashtags and
  * LinkedIn phrases the AI wrote were about who the playbook is for, so a list it wrote that the person hasn't emptied
- * is let go, to be written again around the playbook's topic (decision 141; one the person emptied stays empty).
- * Anything else passes through for the schema to judge.
+ * is let go, to be written again around the playbook's topic (decision 141; one the person emptied stays empty);
+ * before decision 164, no words of its own for what it says, so it follows the starting ones, with its own openers as
+ * its first messages. Anything else passes through for the schema to judge.
  */
 export function upgradePlaybookDetails(stored: unknown): unknown {
   if (typeof stored !== 'object' || stored === null || Array.isArray(stored)) return stored;
@@ -1090,9 +1114,18 @@ export function upgradePlaybookDetails(stored: unknown): unknown {
     d['facebookSearches'] === undefined && written
       ? REWRITTEN_IN_9.filter((p) => written.includes(p) && filled(p))
       : [];
+  // Before decision 164: its own openers become its first messages, as many as the script takes; the AI's styles go.
+  const firsts =
+    d['script'] === undefined && Array.isArray(d['ownOpeners'])
+      ? (d['ownOpeners'] as unknown[])
+          .flatMap((o) => (typeof o === 'string' ? [openerAsFirst(o)] : []))
+          .filter((o): o is string => o !== null)
+          .slice(0, SCRIPT_LIMITS.first.most)
+      : [];
   return {
     ...Object.fromEntries(PLAYBOOK_KEPT_KEYS.map((k) => [k, blank[k]])),
     ...d,
+    ...(firsts.length ? { script: { first: firsts } } : {}),
     ...(before7
       ? {
           platforms: PLATFORM_KEYS.filter(
@@ -1185,12 +1218,11 @@ export const PLAYBOOK_SUGGESTIONS = {
     'No hard sell',
   ],
   avoid: ['Act now', 'Limited time', 'Guaranteed', 'Buy now', 'Click here'],
-  openerStyles: [
-    'Say it could make them more money while saving them time.',
-    'Say it could bring them more customers without more work.',
-    'Say it could give them their evenings and weekends back.',
-    'Say it could save them money.',
-    'Say it could take something off their plate.',
+  /** First messages to tap (decision 164), each the starting one's shape with what it gets them said. */
+  firsts: [
+    'Hey [first name], if I could get you more customers without more work for your [their kind of business] business using [what your offer is], would you be interested?',
+    'Hey [first name], if I could give you your evenings and weekends back using [what your offer is], would you be interested?',
+    'Hey [first name], quick question. If I could get you [what your offer gets them] using [what your offer is], would you be interested?',
   ],
   tags: ['Prospect', 'Interested', 'Not interested', 'Not a fit', 'Friend or family', 'Customer'],
   answers: ['Yes', 'No', 'Not sure', 'Not really', 'Not now'],
@@ -1204,6 +1236,12 @@ export const Playbook = z.object({
   name: z.string(),
   template: z.string().nullable(),
   details: PlaybookDetails,
+  /**
+   * What it says in full (decision 164, ./script.ts `scriptOf`): every part's words as the AI follows them, the
+   * business's own where `details.script` has them and the starting words for the rest, so whoever reads a playbook
+   * (the Assistant, most of all) sees what each message is written from. Left out by servers from before it.
+   */
+  says: FullScriptOut.optional(),
   archivedAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -1226,6 +1264,11 @@ export const PlaybookListOutput = z.object({
   templates: z
     .array(z.object({ key: z.enum(PLAYBOOK_TEMPLATE_KEYS), name: z.string(), summary: z.string() }))
     .optional(),
+  /**
+   * The rules every message keeps whatever a playbook says (./script.ts `LOCKED_RULES`), as What it says shows them,
+   * locked. Left out by servers from before them.
+   */
+  rules: z.array(z.string()).optional(),
 });
 export type PlaybookListOutput = z.output<typeof PlaybookListOutput>;
 

@@ -1,33 +1,43 @@
 /**
- * Social Outreach's first message is one short question that says how the owner can help them (docs/outreach.md,
- * decisions 137 and 152): the owner's words, with their first name, their kind of business and what the offer is put
- * in. Today's drafts, the one text to someone's Requests on Instagram, and Your messages' first samples all ask for it,
- * as one text, and a playbook's AI style only words the question. Reconnect asks it too, right after a catch-up.
+ * Social Outreach's first message is the playbook's own (docs/outreach.md, decisions 152 and 164): the words under
+ * What it says, kept close to and fitted to each person, with their first name, their kind of business and what the
+ * offer is put in for the words in brackets. Today's drafts, the one text to someone's Requests on Instagram, and
+ * Your messages' samples are all written from them, and so are Reconnect (a catch-up, then the first message's
+ * question) and the ask after a yes. A playbook that never changed them follows the starting words: the owner's own.
  */
 import { describe, expect, it } from 'vitest';
 import {
   DEMO_ASK_EXAMPLE,
-  DEMO_ASK_SHAPE,
   FIRST_MESSAGE_EXAMPLE,
-  FIRST_MESSAGE_SHAPE,
-  FIRST_MESSAGE_WORDS,
   RECONNECT_QUESTION_EXAMPLE,
-  RECONNECT_QUESTION_SHAPE,
   messageRewritePrompt,
   messageSamplesPrompt,
   type SamplesFacts,
 } from '../../src/addons/outreach/conversation';
-import { PLAYBOOK_SUGGESTIONS, PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
+import {
+  CRM_FIRST_MESSAGE,
+  PLAYBOOK_SUGGESTIONS,
+  PLAYBOOK_TEMPLATES,
+} from '../../src/addons/outreach/playbooks';
+import {
+  asMessage,
+  FILL_BLANKS,
+  playbookSays,
+  scriptOf,
+  STARTING_FIRST_MESSAGE,
+  startingScript,
+} from '../../src/addons/outreach/script';
 import {
   firstStepFact,
   RECONNECT_CATCH_UP,
-  REQUESTS_TASK,
+  requestsTask,
   todayDraftPrompt,
 } from '../../src/addons/outreach/today';
 import { VOICE_DEFAULTS } from '../../src/addons/outreach/voice';
 import { firstMessagePreview } from '../../src/main-offer/words';
 
 const crm = { name: 'CRM demos', ...PLAYBOOK_TEMPLATES.crm_demos.details };
+const says = scriptOf(crm);
 const opener = (more: Partial<Parameters<typeof todayDraftPrompt>[0]> = {}) =>
   todayDraftPrompt({
     kind: 'opener',
@@ -40,39 +50,75 @@ const opener = (more: Partial<Parameters<typeof todayDraftPrompt>[0]> = {}) =>
   });
 
 describe('a first message', () => {
-  it('is the owner’s question on how they can help, with their name, kind of business and the offer put in', () => {
-    expect(FIRST_MESSAGE_EXAMPLE.split(/\s+/).length).toBeLessThan(FIRST_MESSAGE_WORDS);
-    // The owner's own words (decision 152).
-    expect(FIRST_MESSAGE_EXAMPLE).toMatch(
-      /^Hey Sam, if I could get you more deals while also saving you time for your roofing business using my easy to use CRM software, would you be interested\?$/,
+  it('starts as the owner’s question on how they can help, with blanks for their name, kind of business and the offer', () => {
+    // The owner's own words (decision 152), as every playbook starts and as the CRM one has them.
+    expect(STARTING_FIRST_MESSAGE).toBe(
+      'Hey [first name], if I could get you [what your offer gets them] for your [their kind of business] business using [what your offer is], would you be interested?',
     );
-    const prompt = opener();
-    expect(prompt).toContain(FIRST_MESSAGE_SHAPE);
-    expect(prompt).toContain(FIRST_MESSAGE_EXAMPLE);
-    expect(prompt).toMatch(/name its kind from the facts or their pages/);
-    expect(prompt).toMatch(/say “your business”/);
-    // "Hey" and their first name (3b), or just "Hey," when their name isn't a person's.
-    expect(prompt).toMatch(/“Hey” and their first name/);
-    expect(prompt).toMatch(/start with just “Hey,”/);
-    // What it is, in a few plain words (2a), never its brand name, how it works, a link or the price.
-    expect(prompt).toMatch(/Name what it is the way the offer does, in a few plain words/);
-    expect(prompt).toMatch(/never by its brand name/);
-    expect(prompt).toMatch(
-      /Never say how it works, a link or the price, and never promise more info/,
+    expect(CRM_FIRST_MESSAGE).toBe(
+      'Hey [first name], if I could get you more deals while also saving you time for your [their kind of business] business using my easy to use CRM software, would you be interested?',
     );
-    expect(prompt).toMatch(/Put nothing else before or after the question: no line about them/);
-    // Only what the offer really does: SEO brings customers, credit repair is for people, not a business.
-    expect(prompt).toMatch(/say only what the offer really does and what it really is/);
-    expect(prompt).toMatch(/help raise your credit score/);
-    expect(prompt).toMatch(/leave out “for your … business”/);
-    expect(prompt).not.toMatch(/for your home/);
-    // Decision 137's mystery and decision 65's ask are gone.
-    expect(prompt).not.toMatch(/Never say what the thing is|makes them curious|no greeting/);
-    expect(prompt).not.toMatch(/will send more info|open to the offer’s outcome|just say hi/);
+    expect(says.first).toEqual([CRM_FIRST_MESSAGE]);
+    expect(FIRST_MESSAGE_EXAMPLE).toBe(
+      'Hey Sam, if I could get you more deals while also saving you time for your roofing business using my easy to use CRM software, would you be interested?',
+    );
+    for (const t of Object.values(PLAYBOOK_TEMPLATES)) {
+      for (const first of scriptOf(t.details).first) expect(first).toMatch(/^Hey \[first name\], /);
+    }
+    for (const first of PLAYBOOK_SUGGESTIONS.firsts) expect(first).toMatch(/\[first name\]/);
   });
 
-  it('is asked without the check’s first step, which is for Reconnect’s catch-up and the rest', () => {
+  it('is written from the playbook’s words: kept close to, fitted to the person, nothing added', () => {
+    const prompt = opener();
+    expect(prompt).toContain(
+      'They and the owner haven’t talked yet, so this is the owner’s first message to them.',
+    );
+    expect(prompt).toContain(asMessage('the first message', CRM_FIRST_MESSAGE, true));
+    expect(prompt).toContain(playbookSays(CRM_FIRST_MESSAGE));
+    expect(prompt).toMatch(/Keep close to those words, fitted to this person/);
+    expect(prompt).toMatch(/so no two people get the very same text/);
+    expect(prompt).toMatch(/Add nothing of your own before or after it/);
+    // The words in brackets are filled in for each person, never guessed from the playbook.
+    expect(prompt).toContain(FILL_BLANKS);
+    expect(prompt).toMatch(/\[their kind of business\] is the kind of business they run/);
+    expect(prompt).toMatch(/say “your business”/);
+    expect(prompt).toMatch(/leave the name out and keep the greeting \(“Hey,”\)/);
+    expect(prompt).toMatch(/never by its brand name/);
+    expect(prompt).toMatch(
+      /Never say how the offer works or the price in it, never promise more info/,
+    );
+    // The old ways are gone: no compliment line, no style, no questions from the old conversation.
+    expect(prompt).not.toMatch(
+      /Word the question in this style|genuinely liked|line about them first/,
+    );
+    expect(prompt).not.toMatch(/Conversation:|Questions it may ask:/);
+    expect(prompt).not.toMatch(/how business is going\?/);
+  });
+
+  it('follows the playbook when its words change, and takes the version whose turn it is', () => {
+    const own =
+      'Hey [first name], quick one: are you taking on new [their kind of business] jobs right now?';
+    const changed = opener({ playbook: { ...crm, script: { first: [own, 'Second version?'] } } });
+    expect(changed).toContain(playbookSays(own));
+    expect(changed).not.toContain(playbookSays(CRM_FIRST_MESSAGE));
+    // The draft's opener is the version picked (`nextOpener`): that one is written.
+    const second = opener({
+      playbook: { ...crm, script: { first: [own, 'Second version?'] } },
+      opener: { kind: 'own', text: 'Second version?' },
+    });
+    expect(second).toContain(playbookSays('Second version?'));
+    expect(second).not.toContain(playbookSays(own));
+    // With no blanks in it, nothing is said about filling any.
+    expect(second).not.toContain(FILL_BLANKS);
+    // A playbook with none of its own follows the starting words.
+    const { script: _s, ...plain } = crm;
+    expect(opener({ playbook: plain })).toContain(playbookSays(STARTING_FIRST_MESSAGE));
+  });
+
+  it('is asked without the check’s first step, which is for Reconnect’s catch-up only', () => {
     expect(firstStepFact('opener', 'Ask how the new shop is going')).toBeNull();
+    expect(firstStepFact('follow_up', 'Ask how business is going')).toBeNull();
+    expect(firstStepFact('check_in', 'Ask how business is going')).toBeNull();
     expect(firstStepFact('reconnect', 'Ask how the new shop is going')).toBe(
       'A good first step: Ask how the new shop is going',
     );
@@ -95,39 +141,22 @@ describe('a first message', () => {
       voice: VOICE_DEFAULTS,
     });
     expect(reply).toMatch(/blank line between texts/);
-    expect(reply).not.toContain(FIRST_MESSAGE_SHAPE);
+    expect(reply).not.toContain(playbookSays(CRM_FIRST_MESSAGE));
   });
 
-  it('is the same question to someone’s Requests on Instagram, and once they follow back', () => {
-    expect(REQUESTS_TASK).toContain(FIRST_MESSAGE_SHAPE);
-    expect(opener({ platform: 'instagram', requests: true })).toContain(REQUESTS_TASK);
+  it('is the same words to someone’s Requests on Instagram, and once they follow back', () => {
+    const task = requestsTask(CRM_FIRST_MESSAGE);
+    expect(task).toContain(asMessage('the first message', CRM_FIRST_MESSAGE, true));
+    expect(task).toMatch(
+      /no link, no video and no web address, whatever the playbook’s words have/,
+    );
+    expect(opener({ platform: 'instagram', requests: true })).toContain(task);
     const back = opener({ platform: 'instagram' });
     expect(back).toContain(
       'They and the owner haven’t talked yet, so this is the owner’s first message to them.',
     );
-    expect(back).toContain(FIRST_MESSAGE_SHAPE);
-    expect(opener({ platform: 'linkedin' })).toContain(FIRST_MESSAGE_SHAPE);
-  });
-
-  it('takes a playbook’s style only for how the question is worded', () => {
-    const style = 'Say it could stop leads slipping through the cracks.';
-    const prompt = opener({ opener: { kind: 'style', text: style } });
-    expect(prompt).toContain(
-      `Word the question in this style, as far as it fits one short question with nothing added: ${style}`,
-    );
-    expect(prompt).not.toMatch(/Write the line about them/);
-  });
-
-  it('is what the ready-made playbooks’ styles and the suggestions word', () => {
-    const styles = [
-      ...Object.values(PLAYBOOK_TEMPLATES).flatMap((t) => t.details.openerStyles),
-      ...PLAYBOOK_SUGGESTIONS.openerStyles,
-    ];
-    expect(styles.length).toBeGreaterThan(0);
-    for (const s of styles) expect(s).toMatch(/^Say it could /);
-    expect(PLAYBOOK_TEMPLATES.crm_demos.details.openerStyles[0]).toBe(
-      'Say it could get them more deals while saving them time.',
-    );
+    expect(back).toContain(playbookSays(CRM_FIRST_MESSAGE));
+    expect(opener({ platform: 'linkedin' })).toContain(playbookSays(CRM_FIRST_MESSAGE));
   });
 
   it('reads the same way in the main offer builder’s preview', () => {
@@ -158,22 +187,28 @@ describe('Reconnect', () => {
       ...more,
     });
 
-  it('catches up first, then asks the first message’s question right after (decision 152)', () => {
-    expect(RECONNECT_QUESTION_EXAMPLE.split(/\s+/).length).toBeLessThan(FIRST_MESSAGE_WORDS);
+  it('catches up first, then asks the first message’s question right after (decisions 152 and 164)', () => {
     expect(RECONNECT_QUESTION_EXAMPLE).toMatch(/^I was wondering if I could get you more deals/);
+    // The starting words say so, and the draft is told them with the playbook's first message.
+    expect(says.reconnect).toMatch(/^A short, warm catch-up first: greet them by first name/);
+    expect(says.reconnect).toMatch(/Ask nothing in it\./);
+    expect(says.reconnect).toMatch(/starting “I was wondering if I could”/);
     const prompt = reconnect();
-    expect(prompt).toMatch(
-      /Write a short, warm catch-up, then right after it why the owner is writing/,
+    expect(prompt).toContain(playbookSays(says.reconnect));
+    expect(prompt).toContain(
+      `The first message it speaks of is the playbook’s: ${playbookSays(CRM_FIRST_MESSAGE)}`,
     );
-    expect(prompt).toMatch(/greets them by first name, says it’s been a while/);
-    // Its catch-up asks nothing, so the question is its only one, as every draft asks at most one.
-    expect(prompt).toMatch(/with no question of its own, so the only question is the one after it/);
-    expect(prompt).toContain(RECONNECT_QUESTION_SHAPE);
-    expect(prompt).toMatch(/name its kind from the facts or their pages/);
+    expect(prompt).toMatch(/Ask one question at most: the first message’s, after the catch-up/);
     // It's told the offer now, for its question.
     expect(prompt).toMatch(/<offer>/);
     expect(prompt).toMatch(/The outcome, in a few words: more deals/);
     expect(prompt).not.toMatch(/Don’t pitch yet/);
+    // The playbook's own way wins when it has one.
+    const own = reconnect({
+      playbook: { ...crm, script: { reconnect: 'Say “Long time!” and ask what they’re up to.' } },
+    });
+    expect(own).toContain(playbookSays('Say “Long time!” and ask what they’re up to.'));
+    expect(own).not.toContain(playbookSays(says.reconnect));
   });
 
   it('is for someone the owner has talked with, and a first message for someone never talked to (decision 155)', () => {
@@ -208,40 +243,58 @@ describe('Reconnect', () => {
     expect(whole).toContain('Write it as one message, with no blank lines.');
   });
 
-  it('only catches up with someone who turned the offer down', () => {
+  it('only catches up with someone who turned the offer down, whatever the playbook says', () => {
     const prompt = reconnect({ declined: { why: 'Said they already have a CRM' } });
     expect(prompt).toContain(RECONNECT_CATCH_UP);
-    expect(prompt).not.toContain(RECONNECT_QUESTION_SHAPE);
+    expect(prompt).not.toContain(playbookSays(CRM_FIRST_MESSAGE));
+    expect(prompt).not.toContain(playbookSays(says.reconnect));
     expect(prompt).toMatch(/Respect it: nothing that pitches/);
     expect(prompt).not.toMatch(/Link:/);
     expect(prompt).toMatch(/1 to 3 short texts/);
   });
 });
 
-describe('Send the link (decision 153)', () => {
-  it('asks for a time to demo it, in the owner’s words, with the link to book', () => {
-    expect(DEMO_ASK_EXAMPLE).toBe(
-      'Let’s schedule a time where I can demo it for you so you can see what it’s about. If you don’t like it, no pressure. How’s that sound?',
-    );
-    const prompt = todayDraftPrompt({
+describe('the ask after a yes (decisions 153 and 164)', () => {
+  const pitch = (playbook: Parameters<typeof todayDraftPrompt>[0]['playbook']) =>
+    todayDraftPrompt({
       kind: 'pitch',
       business: 'Bright Books',
       name: 'Dana Reyes',
       facts: [],
       recent: [{ fromMe: false, text: 'Sure, sounds interesting', at: new Date().toISOString() }],
-      playbook: { ...crm, link: 'https://brightbooks.com/book/demo' },
+      playbook,
     });
-    expect(prompt).toContain(DEMO_ASK_SHAPE);
-    expect(prompt).toMatch(/“demo it for you” when the offer is something that can be shown/);
-    expect(prompt).toMatch(/Never a plan, numbers or results they’ll get from the call/);
+
+  it('asks for a time to demo it, in the playbook’s words, with the link to book', () => {
+    expect(DEMO_ASK_EXAMPLE).toBe(
+      'Let’s schedule a time where I can demo it for you so you can see what it’s about. If you don’t like it, no pressure. How’s that sound?',
+    );
+    // The starting words are the owner's, with blanks for the open times and the link.
+    expect(startingScript('demo').yes).toBe(
+      'Let’s schedule a time where I can demo it for you so you can see what it’s about. If you don’t like it, no pressure. I have [open times], how’s that sound? Or grab any time that works for you here: [booking link]',
+    );
+    expect(startingScript('estimate').yes).toMatch(/^Let’s schedule a time for a free estimate/);
+    const prompt = pitch({ ...crm, link: 'https://brightbooks.com/book/demo' });
+    expect(prompt).toContain(asMessage('the ask', says.yes));
+    expect(prompt).toMatch(/Never a plan, numbers or results they’ll get from it/);
+    expect(prompt).toMatch(/\[open times\] are the times under <times>/);
+    expect(prompt).toMatch(
+      /with none given, leave out the words that offer them and keep the rest/,
+    );
     expect(prompt).toContain(
       'Put this link in every draft, exactly as written: https://brightbooks.com/book/demo',
     );
-    expect(prompt).not.toMatch(/a plan for their business, with their numbers\. No pressure/);
+  });
+
+  it('is the playbook’s own once the business writes it', () => {
+    const own = 'Awesome! Want to hop on a quick 15 minute call this week? [booking link]';
+    const prompt = pitch({ ...crm, script: { yes: own } });
+    expect(prompt).toContain(asMessage('the ask', own));
+    expect(prompt).not.toContain(playbookSays(says.yes));
   });
 });
 
-describe('Your messages’ first samples', () => {
+describe('Your messages’ samples', () => {
   const facts: SamplesFacts = {
     business: 'Pine Roof Leads',
     playbook: {
@@ -254,28 +307,40 @@ describe('Your messages’ first samples', () => {
       disclaimer: null,
       usefulWhat: null,
       hasVideo: false,
+      script: says,
     },
     offer: { line: null, outcome: 'more booked calls' },
     followUps: 6,
     voice: 'No emoji.',
   };
 
-  it('are written, and written again, in the same shape for the niche’s kind of business', () => {
+  it('are written, and written again, from the playbook’s words', () => {
     const all = messageSamplesPrompt(facts);
-    expect(all).toContain(`- first: 2 different first messages`);
-    expect(all).toContain(FIRST_MESSAGE_SHAPE);
-    expect(all).toMatch(/kind of business the playbook’s niche runs/);
+    // One sample for each version of the first message.
+    expect(all).toContain('- first: 1 first message, sent once they accept the friend request.');
+    expect(all).toContain(asMessage('the first message', CRM_FIRST_MESSAGE, true));
+    expect(all).toMatch(
+      /\[their kind of business\] the kind of business the playbook’s niche runs/,
+    );
     expect(all).not.toMatch(/will send more info/);
+    expect(all).toContain(playbookSays(says.followUp));
+    expect(all).toContain(playbookSays(says.checkIn));
+    const three = messageSamplesPrompt({
+      ...facts,
+      playbook: { ...facts.playbook, script: { ...says, first: ['One?', 'Two?', 'Three?'] } },
+    });
+    expect(three).toMatch(/- first: 3 first messages/);
+    for (const v of ['One?', 'Two?', 'Three?']) expect(three).toContain(playbookSays(v));
     const again = messageRewritePrompt({
       ...facts,
       slot: { part: 'first', index: 0 },
       before: 'Hi Sam! Open to more booked calls?',
       others: [],
     });
-    expect(again).toContain(FIRST_MESSAGE_SHAPE);
-    // The link sample asks for the demo the owner's way too (decision 153).
+    expect(again).toContain(asMessage('the first message', CRM_FIRST_MESSAGE, true));
+    // The message after a yes is the playbook's ask too (decision 153).
     expect(all).toContain(
-      `- link: the message when they want a call, with [booking link]: it ${DEMO_ASK_SHAPE}`,
+      `- link: the message after they say yes, with [booking link]. ${asMessage('the ask', says.yes)}`,
     );
     expect(
       messageRewritePrompt({
@@ -284,6 +349,6 @@ describe('Your messages’ first samples', () => {
         before: 'Book here',
         others: [],
       }),
-    ).toContain(DEMO_ASK_SHAPE);
+    ).toContain(asMessage('the ask', says.yes));
   });
 });

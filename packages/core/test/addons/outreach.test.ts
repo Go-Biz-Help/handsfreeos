@@ -19,11 +19,13 @@ import { hashtagOf } from '../../src/addons/outreach/posts';
 import {
   answerNextLabel,
   blankPlaybook,
+  CRM_FIRST_MESSAGE,
   FIND_WORDS_PARTS,
   followUpGapsFor,
   hasWordsOn,
   paceOf,
   nextQuestionId,
+  PLAYBOOK_STEP_KEYS,
   PLAYBOOK_TEMPLATES,
   PlaybookDetails,
   renumberQuestions,
@@ -132,22 +134,14 @@ describe('playbooks', () => {
     expect(PlaybookDetails.parse(blankPlaybook())).toEqual(blankPlaybook());
   });
 
-  it('starts with the owner’s CRM-demo playbook, with their questions and tags', () => {
+  it('starts with the owner’s CRM-demo playbook: their first message, no questions, their tags (decision 164)', () => {
     const crm = PLAYBOOK_TEMPLATES.crm_demos;
     expect(crm.details.goal).toBe('demo');
-    expect(crm.details.questions.map((q) => q.text)).toEqual([
-      'Do you use a CRM?',
-      'Which one?',
-      'Is it doing what you need?',
-      'How do you keep track of follow-ups now?',
-    ]);
-    // "No" skips the questions about the CRM they don't have; "Not really" makes the offer.
-    expect(crm.details.questions[0]!.answers.find((a) => a.label === 'No')!.next).toBe('q4');
-    expect(crm.details.questions[2]!.answers.find((a) => a.label === 'Not really')).toEqual({
-      label: 'Not really',
-      tag: 'Unhappy with CRM',
-      next: 'offer',
-    });
+    // What it says first is the owner's own line; the old CRM questions and the AI's opener styles are gone.
+    expect(crm.details.script).toEqual({ first: [CRM_FIRST_MESSAGE] });
+    expect(crm.details.questions).toEqual([]);
+    expect(crm.details.openerStyles).toEqual([]);
+    expect(crm.details.ownOpeners).toEqual([]);
     expect(crm.details.skip).toContain('Group admins and moderators');
     expect(crm.details.tags).toEqual([
       'Business owner',
@@ -178,9 +172,13 @@ describe('playbooks', () => {
       ['call', true],
     ]);
     for (const { name, details: d } of made) {
-      // Questions and openers to start with, and the words each of its networks looks with.
+      // Questions and first messages to start with, and the words each of its networks looks with.
       expect(d.questions.length, name).toBeGreaterThanOrEqual(4);
-      expect(d.openerStyles, name).toHaveLength(3);
+      expect(d.script!.first!.length, name).toBeGreaterThanOrEqual(2);
+      for (const first of d.script!.first!) expect(first, name).toContain('[first name]');
+      expect(d.openerStyles, name).toEqual([]);
+      // Every step ticked, so nothing stops until the person unticks it (decision 164).
+      expect(d.steps, name).toEqual(PLAYBOOK_STEP_KEYS);
       for (const p of WORDS_PLATFORM_KEYS)
         expect(d[FIND_WORDS_PARTS[p]]!.length > 0, `${name} on ${p}`).toBe(hasWordsOn(d, p));
       // Already the person's own: the AI writes none over them, and they're as a save keeps them.

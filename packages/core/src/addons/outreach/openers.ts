@@ -1,50 +1,40 @@
 /**
- * Which openers work (docs/outreach.md, decision 23). Each playbook has two or three styles the AI writes first
- * messages in, and the business's own openers, sent as written (`openerStyles`, `ownOpeners` in ./playbooks.ts).
- * Drafts for a first message take turns with them: each one goes to the opener the person has used least
- * (`nextOpener`). Copying a draft notes which opener it was (`outreach.opener.use`), and the results card counts, for
- * each, the first messages sent with it, who wrote back and who booked a demo (`outreach.openers`). Browser-safe: the
- * web and the extension draw them.
+ * Which first messages work (docs/outreach.md, decisions 23 and 164). A playbook's first message has up to three
+ * versions in the business's own words (`script.first`, ./script.ts). Drafts for a first message take turns with
+ * them: each one goes to the version the person has used least (`nextOpener`), and the AI keeps close to its words,
+ * fitted to the person. Copying a draft notes which version it was (`outreach.opener.use`), and the results card
+ * counts, for each, the first messages sent with it, who wrote back and who booked a demo (`outreach.openers`).
+ * Browser-safe: the web and the extension draw them.
+ *
+ * Before decision 164 a playbook had styles the AI worded its question in (`style`) and the business's own openers,
+ * sent as written (`own`). Their numbers stay on the card as ones not in the playbook now.
  */
 import { z } from 'zod';
 import { PLAYBOOK_LIMITS, type PlaybookDetails } from './playbooks';
+import { scriptOf } from './script';
 
-/** An AI style, or one of the business's own openers. */
-export const OPENER_KINDS = { style: 'AI style', own: 'Your own' } as const;
+/** One of the playbook's first messages (`own`), or an AI style from before decision 164, kept for its numbers. */
+export const OPENER_KINDS = { style: 'AI style', own: 'Your message' } as const;
 export type OpenerKind = keyof typeof OPENER_KINDS;
 export const OPENER_KIND_KEYS = Object.keys(OPENER_KINDS) as [OpenerKind, ...OpenerKind[]];
 
 export interface Opener {
   readonly kind: OpenerKind;
-  /** The style the AI writes in, or the opener as written. Its words are what it's known by. */
+  /** The first message as the playbook has it, or an old style. Its words are what it's known by. */
   readonly text: string;
 }
 
-/** Where the business's own openers say the person's first name: "Hi {first name}!". */
-export const FIRST_NAME = '{first name}';
-const FIRST_NAME_AT = /\{\s*first[\s_]*name\s*\}/gi;
-/**
- * Where they say the main offer's outcome and guarantee, in a few words each (decision 65): "Open to {outcome} on
- * {guarantee}?". Filled from the version they're pitched with, as the business wrote them.
- */
-export const OUTCOME = '{outcome}';
-export const GUARANTEE = '{guarantee}';
-const OUTCOME_AT = /\{\s*outcome\s*\}/gi;
-const GUARANTEE_AT = /\{\s*guarantee\s*\}/gi;
-
-/** A playbook's openers in order: its styles, then its own. */
-export const openersOf = (d: Pick<PlaybookDetails, 'openerStyles' | 'ownOpeners'>): Opener[] => [
-  ...d.openerStyles.map((text) => ({ kind: 'style' as const, text })),
-  ...d.ownOpeners.map((text) => ({ kind: 'own' as const, text })),
-];
+/** A playbook's first messages, in its order: the versions drafts take turns with. */
+export const openersOf = (d: Pick<PlaybookDetails, 'goal' | 'script'>): Opener[] =>
+  scriptOf(d).first.map((text) => ({ kind: 'own' as const, text }));
 
 /** What an opener is known by in the counts: its kind and its words, whatever the spaces. */
 export const openerKey = (o: Opener) =>
   `${o.kind}:${o.text.trim().replace(/\s+/g, ' ').toLowerCase()}`;
 
 /**
- * The opener a first message takes now: the one the person has used least, the first of those in the playbook's
- * order. Null when the playbook has none, and drafts are written as before.
+ * The first message a draft takes now: the version the person has used least, the first of those in the playbook's
+ * order.
  */
 export function nextOpener(
   openers: readonly Opener[],
@@ -57,36 +47,6 @@ export function nextOpener(
     if (n < fewest) [best, fewest] = [o, n];
   }
   return best;
-}
-
-/**
- * One of the business's own openers with their first name in, and the offer's outcome and guarantee in a few words,
- * as it's sent: "Hi Dana! Open to 10 booked inspections a month on a 60-day guarantee?". One with nothing to put
- * where it asks, in place of a word, isn't sent (`ownOpenerFits`).
- */
-export function ownOpenerText(
-  text: string,
-  name: string,
-  offer: { readonly outcome: string | null; readonly guarantee: string | null } | null = null,
-): string {
-  const first = name.trim().split(/\s+/)[0] ?? '';
-  return text
-    .replace(FIRST_NAME_AT, first)
-    .replace(OUTCOME_AT, offer?.outcome ?? '')
-    .replace(GUARANTEE_AT, offer?.guarantee ?? '')
-    .replace(/\s+([,.!?])/g, '$1')
-    .replace(/[ \t]{2,}/g, ' ')
-    .trim();
-}
-
-/** Whether an own opener has what it asks for: the outcome and the guarantee it names, when it names them. */
-export function ownOpenerFits(
-  text: string,
-  offer: { readonly outcome: string | null; readonly guarantee: string | null } | null,
-): boolean {
-  if (new RegExp(OUTCOME_AT.source, 'i').test(text) && !offer?.outcome) return false;
-  if (new RegExp(GUARANTEE_AT.source, 'i').test(text) && !offer?.guarantee) return false;
-  return true;
 }
 
 /** A long opener cut short for a list: its first line, up to `most` characters. */
@@ -177,9 +137,9 @@ export function bestOpenerOf(list: readonly OpenerResult[]): OpenerResult | null
 
 /** Which openers work, on Results (decision 129) on the web and the phone. */
 export const OPENER_RESULT_WORDS = {
-  title: 'Which openers work',
+  title: 'Which first messages work',
   about: (everyone: boolean) =>
-    `${everyone ? 'Everyone’s first messages' : 'Your first messages'} from Today’s drafts, by how they opened. Drafts take turns with each.`,
+    `${everyone ? 'Everyone’s first messages' : 'Your first messages'} from Today’s drafts, by the version in your playbook. Drafts take turns with each.`,
   notNow: 'Not in the playbook now',
   best: 'Works best so far',
   replies: (o: OpenerResult) => rateWords(o.replies, o.sent, 'wrote back'),

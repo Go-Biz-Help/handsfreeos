@@ -35,17 +35,26 @@ import {
   PLAYBOOK_GOALS,
   PLAYBOOK_STEP_KEYS,
   PLAYBOOK_STEPS,
+  STEPS_HINT,
   PlaybookSaveInput,
   type Playbook,
   type PlaybookDetails,
   type PlaybookQuestion,
   type WordsPlatform,
 } from '@hfos/core/addons/outreach/playbooks';
+import {
+  SCRIPT_LIMITS,
+  SCRIPT_WORDS as SW,
+  scriptOf,
+  scriptToSave,
+  typedFirsts,
+  withFirsts,
+} from '@hfos/core/addons/outreach/script';
 import * as React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 import { change, ChangeError } from '@/changes';
-import { Archive, Check, Plus, RotateCcw, Sparkles, Trash } from '@/components/icons';
+import { Archive, Check, FlaskConical, Plus, RotateCcw, Sparkles, Trash } from '@/components/icons';
 import { useKeyboardHeight } from '@/components/shell/keyboard';
 import { List, ListRow } from '@/components/shell/list';
 import { Screen } from '@/components/shell/screen';
@@ -71,6 +80,8 @@ import {
   useOutreachContext,
 } from './kit';
 import { PHONE_WORDS } from './phone-words';
+import { ScriptEditor, scriptWords } from './playbook-script';
+import { PlaybookTestSheet, type AskTest } from './playbook-test';
 
 /**
  * One playbook on the phone (decision 44): each part of it, and for owners and admins, changing it a part at a time
@@ -80,7 +91,8 @@ import { PHONE_WORDS } from './phone-words';
  * what it writes is only offered, and saved with the part. It needs signal. Its networks are one part: one playbook
  * for every network (Chris), at least one picked. Each network's own words, and whether its clients are online, show
  * on a customers' playbook while that network is ticked (decision 92): Facebook's phrases for its post search too
- * (decision 141).
+ * (decision 141). What it says (decision 164, ./playbook-script.tsx) is one part: its own words for every message.
+ * Test it (./playbook-test.tsx) plays a chat out against the saved playbook, for anyone who uses the add-on.
  */
 
 export type Section = keyof typeof W.playbookSections | 'name';
@@ -101,11 +113,12 @@ export const SECTION_FIELDS: Readonly<
   groupWords: ['groupWords'],
   steps: ['steps'],
   pace: ['pace'],
+  // What it says (decision 164): its own words for every message, saved as only the parts that differ.
+  script: ['script'],
   // The short video (decision 69): its link, and its script, written by the AI and changed as the business likes.
   video: ['videoLink', 'videoScript'],
   tone: ['tone'],
   samples: ['samples'],
-  openers: ['openerStyles', 'ownOpeners'],
   questions: ['questions'],
   avoid: ['avoid'],
   disclaimer: ['disclaimer'],
@@ -149,6 +162,9 @@ export function mergeSection(
   if (section === 'name') return { name: draft.name, details: fresh.details };
   const details: Record<string, unknown> = { ...fresh.details };
   for (const field of SECTION_FIELDS[section]) details[field] = draft.details[field];
+  // What it says goes as only the parts that differ from the starting words, as typed (`scriptToSave`).
+  if (section === 'script')
+    details['script'] = scriptToSave(fresh.details.goal, draft.details.script ?? {});
   return { name: fresh.name, details: details as PlaybookDetails };
 }
 
@@ -195,8 +211,8 @@ export function sectionWords(details: PlaybookDetails, section: Exclude<Section,
           ].join('\n\n')
         : V.none;
     }
-    case 'openers':
-      return list([...details.openerStyles, ...details.ownOpeners]);
+    case 'script':
+      return scriptWords(details);
     case 'questions':
       return details.questions.length
         ? details.questions
@@ -283,6 +299,12 @@ export function PlaybookScreen({ playbookId }: { playbookId: string }) {
         })
       }
       liveVersion={offer.data ?? null}
+      onTest={(input) =>
+        workerPost('/v1/addons/outreach/actions/outreach.playbook.test', {
+          workspaceId: ws,
+          input,
+        })
+      }
       onSave={async (loaded, draft, section) => {
         try {
           // What's there now: someone may have changed it on the web meanwhile.
@@ -328,6 +350,7 @@ export function PlaybookBody({
   onArchive,
   onAssist,
   onScript,
+  onTest,
   liveVersion = null,
 }: {
   playbook: Playbook | null;
@@ -352,8 +375,11 @@ export function PlaybookBody({
   onScript?: (input: VideoScriptInput) => Promise<VideoScript>;
   /** The live main offer's version: a script written for another one says so. */
   liveVersion?: number | null;
+  /** Asks the worker for a move of the Test console (./playbook-test.tsx). Without it, there's no Test it. */
+  onTest?: AskTest;
 }) {
   const [editing, setEditing] = React.useState<Section | null>(null);
+  const [testing, setTesting] = React.useState(false);
   if (!playbook)
     return (
       <Screen title={W.rows.playbooks} leading="back" testID="outreach-playbook">
@@ -383,6 +409,17 @@ export function PlaybookBody({
     >
       {manages ? onAssist ? null : <Note>{W.aiOnTheWeb}</Note> : <Note>{W.readOnly}</Note>}
       {manages && !online ? <NeedsSignal words={W.needsSignal(W.rows.playbooks)} /> : null}
+      {onTest && !playbook.archivedAt ? (
+        <Button
+          variant="secondary"
+          icon={FlaskConical}
+          disabled={!online}
+          onPress={() => setTesting(true)}
+          testID="playbook-test-open"
+        >
+          {SW.test}
+        </Button>
+      ) : null}
       <List>
         <ListRow
           label={W.name}
@@ -436,6 +473,17 @@ export function PlaybookBody({
         onScript={onScript}
         liveVersion={liveVersion}
       />
+      {onTest ? (
+        <PlaybookTestSheet
+          playbookId={playbook.id}
+          name={playbook.name}
+          versions={scriptOf(playbook.details).first.length}
+          platforms={playbook.details.platforms}
+          open={testing}
+          onClose={() => setTesting(false)}
+          onAsk={onTest}
+        />
+      ) : null}
     </Screen>
   );
 }
@@ -580,9 +628,7 @@ type ListKey =
   | 'postSearches'
   | 'businessKinds'
   | 'threadsSearches'
-  | 'xSearches'
-  | 'openerStyles'
-  | 'ownOpeners';
+  | 'xSearches';
 
 function SectionEditor({
   section,
@@ -769,6 +815,7 @@ function SectionEditor({
               </View>
             );
           })}
+          <Note testID="playbook-steps-hint">{STEPS_HINT}</Note>
         </View>
       );
     case 'pace': {
@@ -816,17 +863,39 @@ function SectionEditor({
         </>
       );
     }
-    case 'openers':
+    case 'script': {
+      const script = d.script ?? {};
+      const firsts = typedFirsts(d.goal, script).filter((m) => m.trim());
       return (
-        <>
-          <Text className="text-[14px] font-medium">{W.openerStyles}</Text>
-          <LinesInput value={d.openerStyles} onChange={(openerStyles) => set({ openerStyles })} />
-          {listHelp('openerStyles')}
-          <Text className="text-[14px] font-medium">{W.ownOpeners}</Text>
-          <LinesInput value={d.ownOpeners} onChange={(ownOpeners) => set({ ownOpeners })} />
-          {listHelp('ownOpeners')}
-        </>
+        <ScriptEditor
+          goal={d.goal}
+          script={script}
+          onChange={(next) => set({ script: next })}
+          firstsHelp={
+            onAssist ? (
+              <AiHelp
+                part="firsts"
+                draft={assistDraft}
+                written={firsts.length > 0}
+                onAsk={onAssist}
+                onAdd={(line) => {
+                  if (firsts.some((m) => m.toLowerCase() === line.toLowerCase())) return true;
+                  if (firsts.length >= SCRIPT_LIMITS.first.most) {
+                    toast.error(A.full(SCRIPT_LIMITS.first.most));
+                    return false;
+                  }
+                  set({ script: withFirsts(script, [...firsts, line]) });
+                  return true;
+                }}
+                onReplace={(lines) =>
+                  set({ script: withFirsts(script, lines.slice(0, SCRIPT_LIMITS.first.most)) })
+                }
+              />
+            ) : null
+          }
+        />
       );
+    }
     case 'questions':
       return (
         <>

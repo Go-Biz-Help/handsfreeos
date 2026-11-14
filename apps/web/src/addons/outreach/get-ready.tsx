@@ -32,6 +32,7 @@ import {
 } from '@hfos/core/addons/outreach/readiness';
 import {
   isMine,
+  playbookWorded,
   MESSAGE_CHIPS,
   NO_MESSAGE_NOTES,
   slotKey,
@@ -1104,7 +1105,12 @@ function SampleMessage({
             {M.yours}
           </span>
         ) : null}
-        {!locked && how !== 'change' ? (
+        {/* The first message and the ask after a yes are the playbook's own words (decision 164): changed there. */}
+        {playbookWorded(slot.part) ? (
+          <span className="text-text-3" data-testid="ready-message-from-playbook">
+            {M.fromPlaybook}
+          </span>
+        ) : !locked && how !== 'change' ? (
           <button
             type="button"
             className={link}

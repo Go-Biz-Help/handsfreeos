@@ -33,9 +33,11 @@ import {
   messageNotesOf,
   MessageSamples,
   ownWordsFor,
+  samplesNow,
   stepAfterYes,
   type Answer,
   type ConversationStep,
+  type OwnWords,
 } from '@hfos/core/addons/outreach/conversation';
 import { outreachSettings } from '@hfos/core/addons/outreach/chat-read';
 import {
@@ -54,8 +56,6 @@ import {
   nextOpener,
   openerKey,
   openersOf,
-  ownOpenerFits,
-  ownOpenerText,
   type Opener,
   type OpenerKind,
 } from '@hfos/core/addons/outreach/openers';
@@ -96,7 +96,7 @@ import {
   type TodayDraftOutput,
 } from '@hfos/core/addons/outreach/today';
 import { contactIn, isTimeKind, openTimeOf } from '@hfos/core/addons/outreach/meeting-times';
-import { executeCommand, HfosError, MainOfferParts } from '@hfos/core/server';
+import { executeCommand, HfosError, listsOf, MainOfferParts } from '@hfos/core/server';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import {
@@ -107,11 +107,12 @@ import {
   askedTwice,
   askStructured,
 } from '../../ai/ask';
-import type { AddonWorkerAction } from '../types';
+import type { AddonScopeContext, AddonWorkerAction } from '../types';
+import { VOICE_DEFAULTS } from '@hfos/core/addons/outreach/voice';
 import { groupNamesIn, namesAGroup, withoutGroupLines } from '@hfos/core/addons/outreach/no-groups';
 import { businessKnows } from './knows';
 import { partnerDraft } from './partner-drafts';
-import { bookingOf, draftTimes, keepTimes, meetingFor, offeredWords } from './times';
+import { bookingOf, draftTimes, keepTimes, meetingFor, offeredWords, type Meeting } from './times';
 
 export const TODAY_DRAFT_ACTION = 'outreach.today.draft';
 
@@ -295,6 +296,12 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
             where v.workspace_id = ${ws} and v.version = coalesce(${conversation?.offer_version ?? null}::int,
               (select live_version from app.main_offers where workspace_id = ${ws}))`,
       );
+      // The offer's lists for content (docs/main-offer.md, "For your content"): what a reply answers from, beside the
+      // offer (decision 164). They aren't versioned: the lists as they are now.
+      const [content] = await rows<{ lists: unknown }>(
+        tx,
+        sql`select lists from app.main_offers where workspace_id = ${ws}`,
+      );
       // A demo's reminder, or another time after a no-show (decision 106): when their latest booked through the link
       // is, or was.
       const [demo] =
@@ -375,10 +382,11 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         conversation: conversation ?? null,
         lost: lost ?? null,
         offer: offer ?? null,
+        lists: listsOf(content?.lists),
         friendState: friend?.state ?? null,
         demoAt: demo?.starts_at ?? null,
         occasion: occasion?.detail ?? null,
-        samples: MessageSamples.safeParse(said?.message_samples ?? null).data ?? null,
+        samples: samplesNow(MessageSamples.safeParse(said?.message_samples ?? null).data),
         notes: messageNotesOf(said?.message_notes),
         library: installed ? outreachSettings(installed.settings).videos : undefined,
         sentTexts: sentTexts.map((t) => t.text),
@@ -404,7 +412,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       ...(found.profile?.intro ?? []),
       ...(found.check?.about ? [found.check.about] : []),
       ...(found.check?.why ?? []),
-      // Never in a first message, which is the owner's question and nothing else (decision 152).
+      // Only for Reconnect's catch-up (decision 164): never a first message, a follow-up or a reply.
       ...[firstStepFact(input.kind, found.check?.next_step)].filter((f): f is string => f !== null),
     ];
     const kept = found.playbooks.flatMap((p) => {
@@ -421,7 +429,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       groupName: found.profile?.group ?? null,
     });
     const playbook = playbooks.find((p) => p.id === fit.playbookId) ?? playbooks[0] ?? null;
-    // A first message takes the next of the playbook's openers in turn (decision 23).
+    // A first message takes the next of the playbook's versions in turn (decisions 23 and 164).
     let opener: Opener | null = null;
     if (input.kind === 'opener' && playbook) {
       const used = await asWorker(ctx.db, ctx.scope, (tx) =>
@@ -441,33 +449,15 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     const offer: DraftOffer | null =
       found.offer && parts?.success ? draftOfferOf(found.offer.version, parts.data) : null;
     // A first message on a follow network (Instagram's) to someone who hasn't followed the person back lands in their
-    // Requests: one short text, with no link and no video (core's `REQUESTS_TASK`).
+    // Requests: one short text, with no link and no video (core's `requestsTask`).
     const toRequests =
       input.kind === 'opener' &&
       found.profile !== undefined &&
       NETWORKS[found.profile.platform].follows &&
       found.friendState !== 'friends';
-    // One of the business's own openers goes as written, with their first name and the offer's words in: no AI. One
-    // that names the offer's words when there are none is written by the AI instead, and so is one too long for their
-    // Requests, or with a link.
-    if (opener?.kind === 'own' && !ownOpenerFits(opener.text, offer)) opener = null;
-    if (
-      opener?.kind === 'own' &&
-      toRequests &&
-      !fitsRequests(ownOpenerText(opener.text, name, offer))
-    )
-      opener = null;
+    // The AI keeps close to the version's words, fitted to them (decision 164, the owner's 1a): none goes out word for
+    // word, so no two people get the very same text.
     const drafted = opener && playbook ? { playbookId: playbook.id, ...opener } : null;
-    if (opener?.kind === 'own')
-      return {
-        kind: input.kind,
-        answer: null,
-        drafts: [ownOpenerText(opener.text, name, offer)],
-        opener: drafted,
-        simple: false,
-        unanswered: null,
-        meeting: null,
-      };
     // A client in Contacts (decision 91): written to as a client, never pitched.
     const client = found.profile?.client ?? false;
     // The playbook's link, as the person's demo link for them (decision 24).
@@ -560,115 +550,56 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     // What the AI is told of them: nothing that names one of their groups or says they're in one (decision 157).
     const toldFacts = withoutGroupLines(facts, groupNames);
     const toldLookup = withoutGroupLines(input.lookup, groupNames);
-    const draft = async (
-      kind: CustomerDraftKind,
-      again: readonly string[] | null = null,
-    ): Promise<{ value: TodayDraftAnswer; drafts: string[] }> => {
-      const { value } = await askedTwice((last) =>
-        askStructured(ctx, ctx.scope, {
-          system: todayDraftSystem(platform, {
-            warm: found.post?.warm_up === true && kind === 'comment',
-          }),
-          messages: [
-            {
-              role: 'user',
-              content: todayDraftPrompt({
-                kind,
-                business: found.business?.name ?? 'the business',
-                name,
-                facts: toldFacts,
-                recent,
-                playbook: playbook
-                  ? { name: playbook.name, ...playbook.details, link, videoLink }
-                  : null,
-                offer,
-                conversation,
-                post: found.engaged
-                  ? {
-                      text: `Your post: ${found.engaged.body ?? ''}\n\nTheir comment: ${found.engaged.comment}`,
-                      group: found.engaged.group,
-                    }
-                  : found.post
-                    ? {
-                        text: found.post.body,
-                        group: found.post.group,
-                        warm: found.post.warm_up,
-                        said: found.commentedLately,
-                        // The post check's word on whether they ask for what the business offers (decision 163).
-                        asking: found.post.strong,
-                      }
-                    : null,
-                lookup: toldLookup,
-                opener,
-                voice: found.voice,
-                lastAt: found.lastAt,
-                platform,
-                requests: toRequests,
-                demoWhen: found.demoAt
-                  ? demoWhen(found.demoAt, found.business?.timezone ?? 'America/Chicago')
-                  : null,
-                occasion: found.occasion,
-                knows,
-                declined,
-                times: meeting && isTimeKind(kind) ? draftTimes(meeting, kind, contact) : null,
-                videos,
-                own: ownWordsFor(
-                  kind,
-                  found.samples,
-                  found.notes,
-                  found.conversation,
-                  playbook?.id ?? null,
-                ),
-                again,
-              }),
-            },
-          ],
-          schema: TODAY_DRAFT_SCHEMA,
-          zod: TodayDraftAnswer,
-          maxTokens: 800,
-          usage: { source: 'addon', addonId: ctx.manifest.id },
-          backupWhenDeclined: last,
-        }),
-      );
-      // A first message is one text (decision 137), as a comment is.
-      const checked = checkedDrafts(
-        value,
-        [...(playbook?.details.avoid ?? []), ...(knows?.avoid ?? [])],
-        DRAFTS_FOR[kind],
-        found.voice.split && !underAPost(kind) && kind !== 'warm_lead' && kind !== 'opener',
-      );
-      // Never a group (decision 157): a draft that mentions one goes, and when every one did, the AI writes again once,
-      // told which of their groups' names to leave out.
-      const quiet = checked.filter((d) => !namesAGroup(d, groupNames));
-      if (checked.length && !quiet.length && !again)
-        return draft(kind, [...new Set(checked.flatMap((d) => groupNamesIn(d, groupNames)))]);
-      // To their Requests: only one short text with no link goes. A comment opens with no stock praise (decision 141:
-      // a "Great post!" before its point goes), and one that waits to be posted (Instagram's and Alignable's, decision
-      // 92) never carries a link, and on Instagram no hashtag, within its 30 words; nor does a birthday or new-job note
-      // (decision 108), nor a reply in a group (decision 114).
-      const drafts =
-        toRequests && kind === 'opener'
-          ? quiet.filter(fitsRequests)
-          : kind === 'comment'
-            ? quiet.flatMap((d) => {
-                const said = withoutStockPraise(d);
-                return said && fitsComment(said, platform) ? [said] : [];
-              })
-            : kind === 'group_reply'
-              ? quiet.filter(fitsGroupReply)
-              : isOccasionKind(kind)
-                ? quiet.filter(fitsOccasion)
-                : // At most one of the business's videos, and never one they've had (decision 154).
-                  quiet.filter((d) => fitsVideos(d, videos));
-      // The link always goes with the link and the video with the video (decisions 47 and 66), and the link with
-      // another time after a no-show (decision 106): one the AI left out goes on the end.
-      const must =
-        kind === 'pitch' || kind === 'rebook' ? link : kind === 'video' ? videoLink : null;
-      return {
-        value,
-        drafts: must ? drafts.map((d) => (d.includes(must) ? d : `${d}\n\n${must}`)) : drafts,
-      };
+    // Everything a draft for them is written from: the same for the kind asked and the step after a yes.
+    const base: DraftBase = {
+      platform,
+      told: {
+        business: found.business?.name ?? 'the business',
+        name,
+        facts: toldFacts,
+        recent,
+        playbook: playbook ? { name: playbook.name, ...playbook.details, link, videoLink } : null,
+        offer,
+        lists: found.lists,
+        conversation,
+        post: found.engaged
+          ? {
+              text: `Your post: ${found.engaged.body ?? ''}\n\nTheir comment: ${found.engaged.comment}`,
+              group: found.engaged.group,
+            }
+          : found.post
+            ? {
+                text: found.post.body,
+                group: found.post.group,
+                warm: found.post.warm_up,
+                said: found.commentedLately,
+                // The post check's word on whether they ask for what the business offers (decision 163).
+                asking: found.post.strong,
+              }
+            : null,
+        lookup: toldLookup,
+        opener,
+        voice: found.voice,
+        lastAt: found.lastAt,
+        requests: toRequests,
+        demoWhen: found.demoAt
+          ? demoWhen(found.demoAt, found.business?.timezone ?? 'America/Chicago')
+          : null,
+        occasion: found.occasion,
+        knows,
+        declined,
+        videos,
+      },
+      avoid: [...(playbook?.details.avoid ?? []), ...(knows?.avoid ?? [])],
+      groupNames,
+      meeting,
+      contact,
+      link,
+      videoLink,
+      own: (kind) =>
+        ownWordsFor(kind, found.samples, found.notes, found.conversation, playbook?.id ?? null),
     };
+    const draft = (kind: CustomerDraftKind) => writeDrafts(ctx, base, kind);
     try {
       let kind: CustomerDraftKind = input.kind;
       let made = await draft(kind);
@@ -751,8 +682,115 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
   },
 };
 
+/**
+ * Everything a draft for one person is written from, whatever its kind: what core's prompt is told, and what its
+ * answer is checked against. Today's drafts build it from what's kept of the person; a playbook's Test console
+ * (./playbook-test.ts) from someone made up, so what it shows is what would go out.
+ */
+export interface DraftBase {
+  readonly platform: Platform;
+  /** What the prompt is told (core's `todayDraftPrompt`), less what changes with the kind. */
+  readonly told: Omit<
+    Parameters<typeof todayDraftPrompt>[0],
+    'kind' | 'platform' | 'times' | 'own' | 'again'
+  >;
+  /** The playbook's words to avoid, and the business's. */
+  readonly avoid: readonly string[];
+  /** Their groups, and the post's, never named to them (decision 157). */
+  readonly groupNames: readonly string[];
+  /** The playbook's booking page and its open times (decision 149); null with none. */
+  readonly meeting: Meeting | null;
+  /** The email or number they wrote, for a reply that books. */
+  readonly contact: { readonly email: string | null; readonly phone: string | null };
+  /** The link that always goes with Send the link and another time after a no-show; the video's with the video. */
+  readonly link: string | null;
+  readonly videoLink: string | null;
+  /** What the person said and wrote of this kind's part in Your messages (decision 87). */
+  readonly own: (kind: CustomerDraftKind) => OwnWords | null;
+}
+
+/**
+ * The AI's drafts of one kind for them, checked: no words to avoid, no group named (written again once when every one
+ * names one, decision 157), and what the kind and the network never carry left out.
+ */
+export async function writeDrafts(
+  ctx: AddonScopeContext,
+  base: DraftBase,
+  kind: CustomerDraftKind,
+  again: readonly string[] | null = null,
+): Promise<{ value: TodayDraftAnswer; drafts: string[] }> {
+  const { platform, told, meeting } = base;
+  const warm = told.post?.warm === true && kind === 'comment';
+  const toRequests = told.requests === true;
+  const videos = told.videos ?? null;
+  const voice = told.voice ?? VOICE_DEFAULTS;
+  const { value } = await askedTwice((last) =>
+    askStructured(ctx, ctx.scope, {
+      system: todayDraftSystem(platform, { warm }),
+      messages: [
+        {
+          role: 'user',
+          content: todayDraftPrompt({
+            ...told,
+            kind,
+            platform,
+            times: meeting && isTimeKind(kind) ? draftTimes(meeting, kind, base.contact) : null,
+            own: base.own(kind),
+            again,
+          }),
+        },
+      ],
+      schema: TODAY_DRAFT_SCHEMA,
+      zod: TodayDraftAnswer,
+      maxTokens: 800,
+      usage: { source: 'addon', addonId: ctx.manifest.id },
+      backupWhenDeclined: last,
+    }),
+  );
+  // A first message is one text (decision 137), as a comment is.
+  const checked = checkedDrafts(
+    value,
+    base.avoid,
+    DRAFTS_FOR[kind],
+    voice.split && !underAPost(kind) && kind !== 'warm_lead' && kind !== 'opener',
+  );
+  // Never a group (decision 157): a draft that mentions one goes, and when every one did, the AI writes again once,
+  // told which of their groups' names to leave out.
+  const quiet = checked.filter((d) => !namesAGroup(d, base.groupNames));
+  if (checked.length && !quiet.length && !again)
+    return writeDrafts(ctx, base, kind, [
+      ...new Set(checked.flatMap((d) => groupNamesIn(d, base.groupNames))),
+    ]);
+  // To their Requests: only one short text with no link goes. A comment opens with no stock praise (decision 141:
+  // a "Great post!" before its point goes), and one that waits to be posted (Instagram's and Alignable's, decision
+  // 92) never carries a link, and on Instagram no hashtag, within its 30 words; nor does a birthday or new-job note
+  // (decision 108), nor a reply in a group (decision 114).
+  const drafts =
+    toRequests && kind === 'opener'
+      ? quiet.filter(fitsRequests)
+      : kind === 'comment'
+        ? quiet.flatMap((d) => {
+            const said = withoutStockPraise(d);
+            return said && fitsComment(said, platform) ? [said] : [];
+          })
+        : kind === 'group_reply'
+          ? quiet.filter(fitsGroupReply)
+          : isOccasionKind(kind)
+            ? quiet.filter(fitsOccasion)
+            : // At most one of the business's videos, and never one they've had (decision 154).
+              quiet.filter((d) => fitsVideos(d, videos));
+  // The link always goes with the link and the video with the video (decisions 47 and 66), and the link with
+  // another time after a no-show (decision 106): one the AI left out goes on the end.
+  const must =
+    kind === 'pitch' || kind === 'rebook' ? base.link : kind === 'video' ? base.videoLink : null;
+  return {
+    value,
+    drafts: must ? drafts.map((d) => (d.includes(must) ? d : `${d}\n\n${must}`)) : drafts,
+  };
+}
+
 /** What the person reads when the AI couldn't write a draft, and what to do. */
-function draftRefusal(e: unknown): unknown {
+export function draftRefusal(e: unknown): unknown {
   if (!(e instanceof AiAskError)) return e;
   if (e.code === 'budget_reached' || e.code === 'wallet_empty')
     return HfosError.rule('budget_reached', 429, e.message || AI_BUDGET_MESSAGE);

@@ -1,4 +1,8 @@
-import { NO_MESSAGE_NOTES, type MessageSamples } from '@hfos/core/addons/outreach/conversation';
+import {
+  NO_MESSAGE_NOTES,
+  SAMPLES_RULES,
+  type MessageSamples,
+} from '@hfos/core/addons/outreach/conversation';
 import type { ReadinessOutput } from '@hfos/core/addons/outreach/readiness';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import * as React from 'react';
@@ -30,6 +34,7 @@ const SAMPLES: MessageSamples = {
   at: '2026-10-15T09:00:00.000Z',
   version: 2,
   mine: ['followUps.0'],
+  rules: SAMPLES_RULES,
 };
 
 const readiness = (
@@ -131,24 +136,31 @@ describe('Your messages on the phone', () => {
     await open();
     expect(
       screen.getByText(
-        'Change any message, or tell the AI what’s not quite right. Your real messages follow what you say.',
+        'Tell the AI what’s not quite right about any message, or put a follow-up or the check-in in your own words. Your real messages follow what you say.',
       ),
     ).toBeTruthy();
     expect(screen.getByText('The ones in your words stay as you wrote them.')).toBeTruthy();
     expect(screen.getByTestId('ready-messages-write')).toHaveTextContent('Write them again');
-    const [first] = screen.getAllByTestId('ready-message');
-    await fireEvent.press(within(first!).getByTestId('ready-message-change'));
+    const [first, link, followUp] = screen.getAllByTestId('ready-message');
+    // The first message and the ask after a yes are the playbook's own words (decision 164): changed there.
+    for (const worded of [first!, link!]) {
+      expect(within(worded).queryByTestId('ready-message-change')).toBeNull();
+      expect(within(worded).getByTestId('ready-message-from-playbook')).toHaveTextContent(
+        'These words come from your playbook. Change them under Playbooks → What it says.',
+      );
+    }
+    await fireEvent.press(within(followUp!).getByTestId('ready-message-change'));
     // Nothing changed yet: nothing to save.
-    expect(within(first!).getByTestId('ready-message-save')).toBeDisabled();
+    expect(within(followUp!).getByTestId('ready-message-save')).toBeDisabled();
     await fireEvent.changeText(
-      within(first!).getByTestId('ready-message-text'),
-      'Hi Sam! Want more weekend orders?',
+      within(followUp!).getByTestId('ready-message-text'),
+      'Still open to more weekend orders?',
     );
-    await fireEvent.press(within(first!).getByTestId('ready-message-save'));
+    await fireEvent.press(within(followUp!).getByTestId('ready-message-save'));
     await waitFor(() =>
       expect(a.edit).toHaveBeenCalledWith(
-        { part: 'first', index: 0 },
-        'Hi Sam! Want more weekend orders?',
+        { part: 'followUps', index: 0 },
+        'Still open to more weekend orders?',
       ),
     );
     await waitFor(() => expect(screen.queryByTestId('ready-message-text')).toBeNull());

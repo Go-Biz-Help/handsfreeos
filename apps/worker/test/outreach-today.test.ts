@@ -37,7 +37,11 @@ import {
   setup,
   stages,
 } from '../../../packages/core/src/addons/outreach/tables';
-import { PLAYBOOK_TEMPLATES } from '../../../packages/core/src/addons/outreach/playbooks';
+import { SAMPLES_RULES } from '../../../packages/core/src/addons/outreach/conversation';
+import {
+  CRM_FIRST_MESSAGE,
+  PLAYBOOK_TEMPLATES,
+} from '../../../packages/core/src/addons/outreach/playbooks';
 import { FallbackProvider, type AiProvider, type AiRoute } from '@hfos/ai';
 import { scriptedAi } from '../src/ai/scripted';
 import { buildHttpServer } from '../src/http/server';
@@ -58,6 +62,14 @@ const draft = async (u: TestUser, input: Record<string, unknown>) =>
     headers: { authorization: `Bearer ${await signInTestUser(u)}` },
     payload: { workspaceId: ws, input },
   });
+
+/**
+ * A first message as the stand-in model writes it from the playbook's own words (decision 164): the blanks filled for
+ * the person, and a second with a small change of wording.
+ */
+const SAYS =
+  'if I could get you more deals while also saving you time for your business using my easy to use CRM software, would you be interested?';
+const firsts = (name: string) => [`Hey ${name}, ${SAYS}`, `Hi ${name}, ${SAYS}`];
 
 /** Drafts the model answers next with nothing at all, no words written, as the AI service sometimes does. */
 let blanks = 0;
@@ -160,75 +172,75 @@ afterAll(async () => {
 });
 
 describe('drafts for Today', () => {
-  it('gives a few to pick from, each once, without the words to avoid', async () => {
+  it('writes a first message from the playbook’s own words, each draft once, without the words to avoid', async () => {
     const res = await draft(owner, { kind: 'opener', profileId });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({
       kind: 'opener',
       answer: null,
-      drafts: [
-        'Hi Dana, thanks for adding me! How’s business going?',
-        'Hey Dana, good to connect. What keeps you busiest these days?',
-      ],
-      // The playbook's first style: none has been used yet.
-      opener: {
-        playbookId: expect.any(String),
-        kind: 'style',
-        text: PLAYBOOK_TEMPLATES.crm_demos.details.openerStyles[0],
-      },
+      // The playbook's first message, fitted to Dana. The repeat and the one with “free trial” are dropped.
+      drafts: firsts('Dana'),
+      // The playbook's first message: it has one version, so there are no turns to take.
+      opener: { playbookId: expect.any(String), kind: 'own', text: CRM_FIRST_MESSAGE },
       simple: false,
       unanswered: null,
       meeting: null,
     });
   });
 
-  it('takes turns with the openers, and sends the business’s own as written', async () => {
+  it('takes turns with the first message’s versions, each fitted to the person (decision 164)', async () => {
     const [playbook] = await testDbs()
       .admin.db.select()
       .from(playbooks)
       .where(eq(playbooks.workspaceId, ws));
-    const own = 'Hi {first name}! Do you run your own business?';
+    const second = 'Hey [first name], do you run your own business?';
     await testDbs()
       .admin.db.update(playbooks)
-      .set({ details: { ...playbook!.details, ownOpeners: [own] } })
+      .set({ details: { ...playbook!.details, script: { first: [CRM_FIRST_MESSAGE, second] } } })
       .where(eq(playbooks.id, playbook!.id));
-    // Each style used once by this person, with others: their own opener is next.
-    for (const [i, text] of PLAYBOOK_TEMPLATES.crm_demos.details.openerStyles.entries()) {
-      const [other] = await testDbs()
-        .admin.db.insert(profiles)
-        .values({
-          workspaceId: ws,
-          platform: 'facebook',
-          username: `someone.${i}`,
-          url: `https://www.facebook.com/someone.${i}`,
-          name: `Someone ${i}`,
-        })
-        .returning({ id: profiles.id });
-      await testDbs().admin.db.insert(openerUses).values({
+    // The first version used once by this person, with someone else: the second is next.
+    const [other] = await testDbs()
+      .admin.db.insert(profiles)
+      .values({
         workspaceId: ws,
-        userId: owner.id,
-        profileId: other!.id,
-        playbookId: playbook!.id,
-        kind: 'style',
-        text,
-        usedAt: new Date(),
-      });
-    }
+        platform: 'facebook',
+        username: 'someone.0',
+        url: 'https://www.facebook.com/someone.0',
+        name: 'Someone 0',
+      })
+      .returning({ id: profiles.id });
+    await testDbs().admin.db.insert(openerUses).values({
+      workspaceId: ws,
+      userId: owner.id,
+      profileId: other!.id,
+      playbookId: playbook!.id,
+      kind: 'own',
+      text: CRM_FIRST_MESSAGE,
+      usedAt: new Date(),
+    });
     const res = await draft(owner, { kind: 'opener', profileId });
     expect(res.json()).toEqual({
       kind: 'opener',
       answer: null,
-      drafts: ['Hi Dana! Do you run your own business?'],
-      opener: { playbookId: playbook!.id, kind: 'own', text: own },
+      drafts: ['Hey Dana, do you run your own business?', 'Hi Dana, do you run your own business?'],
+      opener: { playbookId: playbook!.id, kind: 'own', text: second },
       simple: false,
       unanswered: null,
       meeting: null,
     });
-    // Someone else's turns are their own.
-    expect((await draft(member, { kind: 'opener', profileId })).json().opener.kind).toBe('style');
+    // Someone else's turns are their own: they start with the first version.
+    expect((await draft(member, { kind: 'opener', profileId })).json().opener).toEqual({
+      playbookId: playbook!.id,
+      kind: 'own',
+      text: CRM_FIRST_MESSAGE,
+    });
+    await testDbs()
+      .admin.db.update(playbooks)
+      .set({ details: playbook!.details })
+      .where(eq(playbooks.id, playbook!.id));
   });
 
-  it('keeps a first message close to the one the person wrote themselves in Your messages (decision 87)', async () => {
+  it('never swaps the playbook’s first message for one a person wrote in Your messages (decisions 87 and 164)', async () => {
     const [playbook] = await testDbs()
       .admin.db.select()
       .from(playbooks)
@@ -246,6 +258,7 @@ describe('drafts for Today', () => {
         at: new Date().toISOString(),
         version: 1,
         mine: ['first.1'],
+        rules: SAMPLES_RULES,
       },
       messageNotes: { first: ['Shorter.'] },
     };
@@ -253,9 +266,9 @@ describe('drafts for Today', () => {
       .admin.db.insert(setup)
       .values({ workspaceId: ws, userId: member.id, ...said })
       .onConflictDoUpdate({ target: [setup.workspaceId, setup.userId], set: said });
+    // The first message's words are the playbook's: what they wrote of it before is no example to keep close to.
     const res = (await draft(member, { kind: 'opener', profileId })).json();
-    expect(res.drafts).toEqual(['Hey, open to more booked calls this month? (for Dana)']);
-    // The owner wrote none of theirs: their drafts are as before.
+    expect(res.drafts).toEqual(firsts('Dana'));
     expect((await draft(owner, { kind: 'comment', postId })).json().drafts).toHaveLength(2);
     await testDbs()
       .admin.db.update(setup)
@@ -580,10 +593,9 @@ describe('a first message on Instagram', () => {
       .admin.db.update(friends)
       .set({ state: 'friends' })
       .where(eq(friends.profileId, ig!.id));
-    expect((await draft(member, { kind: 'opener', profileId: ig!.id })).json().drafts).toEqual([
-      'Hi Sam, thanks for adding me! How’s business going?',
-      'Hey Sam, good to connect. What keeps you busiest these days?',
-    ]);
+    expect((await draft(member, { kind: 'opener', profileId: ig!.id })).json().drafts).toEqual(
+      firsts('Sam'),
+    );
   });
 });
 

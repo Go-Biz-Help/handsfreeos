@@ -9,7 +9,6 @@
 import { z } from 'zod';
 import { quoteData } from '../../knowledge/prompt';
 import type { MainOfferParts } from '../../main-offer/parts';
-import { FIRST_NAME } from './openers';
 import {
   ANSWER_NEXT_KEYS,
   PLAYBOOK_GOAL_KEYS,
@@ -18,6 +17,10 @@ import {
   type AnswerNext,
 } from './playbooks';
 import { hashtagOf } from './posts';
+import { STARTING_FIRST_MESSAGE } from './script';
+
+/** Where their first name went in an opener from before decision 164: kept for an app that still asks about one. */
+const FIRST_NAME = '{first name}';
 
 /** The parts the AI helps with, and whether each is words, a list or the conversation. */
 export const PLAYBOOK_ASSIST_PARTS = {
@@ -41,6 +44,9 @@ export const PLAYBOOK_ASSIST_PARTS = {
   xSearches: { kind: 'list', label: 'words to search X’s posts with' },
   tags: { kind: 'list', label: 'tags' },
   samples: { kind: 'list', label: 'sample messages' },
+  // The first message's versions (decision 164, ./script.ts).
+  firsts: { kind: 'list', label: 'first messages' },
+  // From before decision 164: asked about only by an app not updated yet.
   openerStyles: { kind: 'list', label: 'styles to open a first message' },
   ownOpeners: { kind: 'list', label: 'your own openers' },
   avoid: { kind: 'list', label: 'words to avoid' },
@@ -64,11 +70,12 @@ type ListPart =
   | 'xSearches'
   | 'tags'
   | 'samples'
+  | 'firsts'
   | 'openerStyles'
   | 'ownOpeners'
   | 'avoid';
 /** The parts whose lines are whole messages, which keep their line breaks. */
-const MESSAGE_PARTS: readonly PlaybookAssistPart[] = ['samples', 'ownOpeners'];
+const MESSAGE_PARTS: readonly PlaybookAssistPart[] = ['samples', 'firsts', 'ownOpeners'];
 
 /** Better words for what's there, or more to add. */
 export const PLAYBOOK_ASSIST_MODES = ['improve', 'suggest'] as const;
@@ -107,6 +114,7 @@ export const AssistDraft = z.object({
   worksOnline: z.boolean().nullable().default(null),
   tags: list(PLAYBOOK_LIMITS.tags.line, PLAYBOOK_LIMITS.tags.most),
   samples: list(PLAYBOOK_LIMITS.samples.line, PLAYBOOK_LIMITS.samples.most),
+  firsts: list(PLAYBOOK_LIMITS.firsts.line, PLAYBOOK_LIMITS.firsts.most),
   openerStyles: list(PLAYBOOK_LIMITS.openerStyles.line, PLAYBOOK_LIMITS.openerStyles.most),
   ownOpeners: list(PLAYBOOK_LIMITS.ownOpeners.line, PLAYBOOK_LIMITS.ownOpeners.most),
   avoid: list(PLAYBOOK_LIMITS.avoid.line, PLAYBOOK_LIMITS.avoid.most),
@@ -193,8 +201,9 @@ function playbookText(d: AssistDraft): string {
     }`,
     `Tone: ${d.tone || '(not written yet)'}`,
     `Sample messages:\n${lines(d.samples)}`,
-    `Styles to open a first message:\n${lines(d.openerStyles)}`,
-    `Their own openers:\n${lines(d.ownOpeners)}`,
+    `First messages:\n${lines(d.firsts)}`,
+    ...(d.openerStyles.length ? [`Styles to open a first message:\n${lines(d.openerStyles)}`] : []),
+    ...(d.ownOpeners.length ? [`Their own openers:\n${lines(d.ownOpeners)}`] : []),
     `Words to avoid:\n${lines(d.avoid)}`,
     `Every message must say: ${d.disclaimer || '(nothing)'}`,
   ].join('\n');
@@ -222,6 +231,8 @@ const SUGGEST_MORE: Partial<Record<ListPart, (d: AssistDraft) => string>> = {
   businessKinds: () =>
     ': kinds of business the people it’s for run, as Alignable names them, like “Roofing Contractor” or “Property Management”',
   tags: () => ': short labels, two or three words each, for sorting people by how they fit',
+  firsts: () =>
+    `: each a whole first message to someone new, a different way to ask the playbook’s one short, straight question that says how the business can help them: “${STARTING_FIRST_MESSAGE}” Keep the words in [square brackets] as they are, since they’re filled in for each person, and say the rest in the playbook’s tone. Never a price or a link, and nothing before or after the question. Each different enough that it’s clear which gets more replies`,
   openerStyles: () =>
     ': each a different way to say what the offer could get them in the first message, which is one short question like “Hey Sam, if I could get you more deals while also saving you time for your roofing business using my easy to use CRM software, would you be interested?”, said as an instruction in one sentence, like “Say it could get them more deals while saving them time.” Each different enough that it’s clear which works better',
   ownOpeners: () =>
@@ -246,7 +257,11 @@ function partTask(part: PlaybookAssistPart, mode: PlaybookAssistMode, d: AssistD
   const few = Math.min(most, part === 'samples' ? 3 : ASSIST_MOST.list);
   return mode === 'improve' && d[part as ListPart].length
     ? `Rewrite the ${label} above as a better list: clearer and more specific, the same meaning, one idea a line, nothing repeated. Keep the person’s own ideas and fix the words. Up to ${Math.min(most, ASSIST_MOST.list)} lines, each under ${line} characters.${
-        part === 'ownOpeners' ? ` Keep ${FIRST_NAME} wherever it is.` : ''
+        part === 'ownOpeners'
+          ? ` Keep ${FIRST_NAME} wherever it is.`
+          : part === 'firsts'
+            ? ' Keep the words in [square brackets] wherever they are.'
+            : ''
       } Put them in "options"; leave "questions" empty.`
     : `Suggest up to ${few} more ${label} that fit this playbook and aren’t already above${
         SUGGEST_MORE[part as ListPart]?.(d) ?? ''

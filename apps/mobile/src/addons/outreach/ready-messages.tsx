@@ -3,6 +3,7 @@ import {
   MESSAGE_CHIPS,
   MESSAGE_NOTE_MOST,
   NO_MESSAGE_NOTES,
+  playbookWorded,
   slotKey,
   type SamplePart,
   type SampleSlot,
@@ -352,7 +353,12 @@ function SampleMessage({
             </Text>
           </View>
         ) : null}
-        {!locked && how !== 'change' ? (
+        {/* The first message and the ask after a yes are the playbook's own words (decision 164): changed there. */}
+        {playbookWorded(slot.part) ? (
+          <Text className="text-[12px] text-text-3" testID="ready-message-from-playbook">
+            {M.fromPlaybook}
+          </Text>
+        ) : !locked && how !== 'change' ? (
           <Button
             size="sm"
             variant="ghost"

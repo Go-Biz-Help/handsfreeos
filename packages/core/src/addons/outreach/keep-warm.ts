@@ -12,7 +12,7 @@
  * - **One comment a visit**: the first post a visit liked is kept (`posts.warm_up`) for one comment under it, on Today
  *   as any comment is, counted against the day's comments and waiting for the person's OK as that network's comments
  *   do (the owner's 3a), drafted to congratulate them, praise something real or show interest, as a person would
- *   (`WARM_COMMENT_TASK` in ./today.ts). Nothing real to react to: no comment.
+ *   (`warmCommentTask` in ./today.ts). Nothing real to react to: no comment.
  * - **Then unfollow or withdraw**, after the business's wait (2 weeks to start, their setting "Warm up for, then
  *   unfollow or withdraw"), on its own with the tidying, 20 a day (decision 98). Nothing more from the tool after it
  *   unless they follow back or write first (`friend_ends.after_warm_up`): in People they're Not a fit, "Didn't follow

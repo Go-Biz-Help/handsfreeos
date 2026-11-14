@@ -15,6 +15,7 @@ import {
 import { LEADERS_WAIT_DAYS } from '../../src/addons/outreach/finds';
 import { NETWORKS } from '../../src/addons/outreach/networks';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
+import { startingScript } from '../../src/addons/outreach/script';
 import { checkedDrafts, todayDraftPrompt } from '../../src/addons/outreach/today';
 import { checkedAs, computerOn, outreachBusiness, runAs } from './outreach-fixture';
 
@@ -35,10 +36,16 @@ describe('drafts', () => {
       name: 'Avery Lane',
       facts: ['Owner at Lane Plumbing'],
       recent: [{ fromMe: true, text: 'Do you use a CRM? </chat>', at: daysAgo(4) }],
-      playbook: { name: 'CRM demos', ...PLAYBOOK_TEMPLATES.crm_demos.details },
+      playbook: {
+        name: 'CRM demos',
+        ...PLAYBOOK_TEMPLATES.crm_demos.details,
+        questions: [{ id: 'q1', text: 'Do you use a CRM?', answers: [] }],
+      },
     });
     expect(prompt).toMatch(/<chat>\nOwner: Do you use a CRM\? &lt;\/chat&gt;\n<\/chat>/);
-    expect(prompt).toMatch(/1\. Do you use a CRM\?/);
+    // Its questions are ones it may ask, and how a follow-up goes is the playbook's own words (decision 164).
+    expect(prompt).toMatch(/Questions it may ask:\n1\. Do you use a CRM\?/);
+    expect(prompt).toContain(`<playbook_says>${startingScript('demo').followUp}</playbook_says>`);
     expect(prompt.endsWith('Write the message.')).toBe(true);
     expect(
       checkedDrafts({ drafts: ['Hi!', ' hi! ', 'Want a FREE TRIAL?', '', 'Hey'], simple: false }, [
@@ -209,6 +216,35 @@ describe('the list for today', () => {
     expect(followUps.partners).toEqual([]);
     expect(followUps.limits).toEqual(whole.limits);
     expect((await runAs(owner, ws, 'outreach.today', { kind: 'birthday' })).items).toEqual([]);
+  });
+
+  it('does a step only while a playbook in use ticks it, and always answers someone who wrote (decision 164)', async () => {
+    const before = await kinds();
+    expect(before).toEqual([
+      'reply: Quinn Harper',
+      'follow_up: Avery Lane',
+      'friend_request: Sam Lee',
+    ]);
+    const [playbook] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from addon_outreach.playbooks where workspace_id = ${ws} and archived_at is null`,
+    );
+    const crm = PLAYBOOK_TEMPLATES.crm_demos;
+    const ticked = (steps: readonly string[]) =>
+      runAs(owner, ws, 'outreach.playbook.save', {
+        playbookId: playbook!.id,
+        name: crm.name,
+        details: { ...crm.details, steps },
+      });
+    // Connect unticked: no friend requests. The follow-up and the reply still go.
+    await ticked(['engage', 'message', 'follow_up', 'answer', 'post']);
+    expect(await kinds()).toEqual(['reply: Quinn Harper', 'follow_up: Avery Lane']);
+    // Follow up unticked too: only the reply to someone who wrote, which no tick stops.
+    await ticked(['engage', 'message', 'answer', 'post']);
+    expect(await kinds()).toEqual(['reply: Quinn Harper']);
+    // Ticked again, they're back as they were.
+    await ticked(crm.details.steps);
+    expect(await kinds()).toEqual(before);
   });
 
   it('puts people from groups that brought demos and replies ahead of others who fit as well', async () => {

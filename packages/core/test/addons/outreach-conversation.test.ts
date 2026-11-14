@@ -17,8 +17,8 @@ import {
   versionWords,
   CHECK_IN_DAYS,
 } from '../../src/addons/outreach/conversation';
-import { ownOpenerFits, ownOpenerText } from '../../src/addons/outreach/openers';
 import { paceOf, PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
+import { playbookSays, STARTING_FIRST_MESSAGE } from '../../src/addons/outreach/script';
 import {
   answerOf,
   draftOfferOf,
@@ -62,15 +62,6 @@ describe('the conversation’s rules', () => {
     expect(stepAfterYes('link')).toBeNull();
   });
 
-  it('fills the business’s own opener with the offer’s words, and holds one with nothing to put in', () => {
-    const offer = { outcome: '10 booked inspections a month', guarantee: 'a 60-day guarantee' };
-    expect(
-      ownOpenerText('Hi {first name}! Open to {outcome} on {guarantee}?', 'Dana Reyes', offer),
-    ).toBe('Hi Dana! Open to 10 booked inspections a month on a 60-day guarantee?');
-    expect(ownOpenerFits('Open to {outcome}?', { outcome: null, guarantee: null })).toBe(false);
-    expect(ownOpenerFits('Hi {first name}!', null)).toBe(true);
-  });
-
   it('tells a draft the offer’s words for the conversation and Reconnect, and the guarantee and price only if they ask', () => {
     const offer = draftOfferOf(
       2,
@@ -101,8 +92,9 @@ describe('the conversation’s rules', () => {
       });
     expect(prompt('opener')).toMatch(/The outcome, in a few words: 10 booked inspections/);
     expect(prompt('opener')).toMatch(/The price, only when they ask: \$2,000 a month/);
-    // The first message is one short question that says how the owner can help them (decisions 137 and 152).
-    expect(prompt('opener')).toMatch(/that says how the owner can help them/);
+    // The first message is the playbook's own words (decision 164): with no playbook, the starting ones, a short
+    // question that says how the owner can help them (decisions 137 and 152).
+    expect(prompt('opener')).toContain(playbookSays(STARTING_FIRST_MESSAGE));
     // No message carries the guarantee (decision 65, 2026-10-26): it's there for a reply to someone who asks.
     expect(prompt('opener')).toMatch(
       /The guarantee, only when they ask whether there is one: a free month if not/,

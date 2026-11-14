@@ -66,8 +66,9 @@ export const SEND_STATE_KEYS = Object.keys(SEND_STATES) as [SendState, ...SendSt
  * the AI writes should reach the messages already drafted.
  *
  * 1. Nothing mentions a group the owner and they are both in (decision 157, ./no-groups.ts).
+ * 2. Every message is written from the playbook's own words (decision 164, ./script.ts; the owner's 5a).
  */
-export const RULES_VERSION = 1;
+export const RULES_VERSION = 2;
 
 /** Why one drafted under older rules can't be OK'd (`RULES_VERSION`), and what happens to it. */
 export const SEND_REWRITTEN =

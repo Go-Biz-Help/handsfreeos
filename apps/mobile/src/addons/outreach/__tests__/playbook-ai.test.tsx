@@ -178,20 +178,33 @@ describe('AI help in a playbook’s sheet', () => {
   it('says when a list is full, and when the AI has nothing new', async () => {
     const full: Playbook = {
       ...PLAYBOOK,
-      details: { ...PLAYBOOK.details, openerStyles: ['Ask a question', 'Compliment', 'Be short'] },
+      details: {
+        ...PLAYBOOK.details,
+        script: { first: ['Open to more orders?', 'Want more orders?', 'More orders this month?'] },
+      },
     };
     const { props, el } = body({ playbook: full });
     props.onAssist
-      .mockResolvedValueOnce(offered({ options: ['Mention their town'] }))
+      .mockResolvedValueOnce(offered({ options: ['Hey [first name], open to more orders?'] }))
       .mockResolvedValueOnce(offered());
     await render(el);
-    await fireEvent.press(screen.getByTestId('playbook-edit-openers'));
-    await fireEvent.press(screen.getByTestId('ai-suggest-openerStyles'));
-    await fireEvent.press(await screen.findByText('Mention their town'));
+    // The first message's versions (decision 164): three take turns at most.
+    await fireEvent.press(screen.getByTestId('playbook-edit-script'));
+    await fireEvent.press(screen.getByTestId('ai-suggest-firsts'));
+    await waitFor(() =>
+      expect(props.onAssist).toHaveBeenCalledWith(
+        'firsts',
+        'suggest',
+        expect.objectContaining({
+          firsts: ['Open to more orders?', 'Want more orders?', 'More orders this month?'],
+        }),
+      ),
+    );
+    await fireEvent.press(await screen.findByText('Hey [first name], open to more orders?'));
     expect(toast.error).toHaveBeenCalledWith('That’s 3, the most it takes. Take one out first.');
     // Still offered, to add once one's taken out.
-    expect(screen.getByText('Mention their town')).toBeTruthy();
-    await fireEvent.press(screen.getByTestId('ai-suggest-ownOpeners'));
+    expect(screen.getByText('Hey [first name], open to more orders?')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('ai-suggest-firsts'));
     await waitFor(() =>
       expect(toast.show).toHaveBeenCalledWith(
         'The AI had nothing new to add here. Try again, or write more first.',

@@ -1893,7 +1893,11 @@ function scriptedTodayDraft(message: string) {
   }
   // A reply to a question in one of the owner's groups (decision 114): answers it; one with a link, for the checks to
   // drop.
-  if (message.includes('Write the owner’s public reply under it, as a friendly neighbour would'))
+  if (
+    message.includes(
+      'Write the owner’s public reply under it. The owner’s playbook says how it goes',
+    )
+  )
     return {
       simple: false,
       answer: 'none',
@@ -1920,6 +1924,21 @@ function scriptedTodayDraft(message: string) {
       answer: 'none',
       drafts: [`Great, ${first}! Here’s a short video on how it works.`],
     };
+  // A first message (decision 164): the playbook's own words with the blanks filled, a second with a small change of
+  // wording, the first again and one with “free trial”, for the checks to drop.
+  if (message.includes('this is the owner’s first message to them')) {
+    const says = scriptedFill(unquote(quotedBlock(message, 'playbook_says') ?? ''), first ?? '');
+    return {
+      simple: false,
+      answer: 'none',
+      drafts: [
+        says,
+        /^Hey\b/.test(says) ? says.replace(/^Hey\b/, 'Hi') : `Hey! ${says}`,
+        says,
+        `Hi ${first}, want a free trial? It’s a great deal.`,
+      ],
+    };
+  }
   // Times to meet (decision 149): a reply naming one that's open ("2026-11-05 15:00") confirms it once they've given an
   // email or a number, and asks for one before; the link's message offers the times given.
   const offered = [...unquote(quotedBlock(message, 'times') ?? '').matchAll(/^- (.+)$/gm)].map(
@@ -2021,6 +2040,33 @@ function scriptedTodayDraft(message: string) {
       `Hi ${first}, want a free trial? It’s a great deal.`,
     ],
   };
+}
+
+/**
+ * A playbook's words (decision 164) with their blanks filled the way the stand-in fills them: the person's first name,
+ * plain words for the offer, and anything else in brackets left out with the space before it.
+ */
+function scriptedFill(words: string, first: string): string {
+  return words
+    .replace(/\[first name\]/g, first)
+    .replace(/ ?\[their kind of business\]/g, '')
+    .replace(/\[what your offer gets them\]/g, 'more customers')
+    .replace(/\[what your offer is\]/g, 'what I offer')
+    .replace(/ ?\[[^\]]+\]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * The made-up person's next text in a playbook's Test console (`outreach.playbook.test`, decision 164): a yes from
+ * someone interested, a question from someone unsure, later from someone busy and a no from someone not interested.
+ */
+function scriptedTestPlay(message: string) {
+  const plays = /^They are (.*)\.$/m.exec(message)?.[1] ?? '';
+  if (/^not interested/.test(plays)) return { reply: 'No thanks, not interested.' };
+  if (/^short on time/.test(plays)) return { reply: 'Not right now, maybe later.' };
+  if (/^doubtful/.test(plays)) return { reply: 'What is it exactly?' };
+  return { reply: 'Sure, sounds good.' };
 }
 
 /**
@@ -2404,6 +2450,7 @@ export const OUTREACH_RULES: readonly ScriptRule[] = [
     json: (message) => scriptedLikePick(message),
   },
   { when: /Write the message\.$/, json: (message) => scriptedTodayDraft(message) },
+  { when: /Write their reply\.$/, json: (message) => scriptedTestPlay(message) },
   {
     when: /Is this post worth a comment from the owner\?$/,
     json: (message) => scriptedPostCheck(message),
