@@ -3318,7 +3318,7 @@
     {
       "path": "Business switcher → Practice tag on a practice business",
       "kind": "see",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:155",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:226",
       "covered": "no",
       "by": "no tool"
     },
