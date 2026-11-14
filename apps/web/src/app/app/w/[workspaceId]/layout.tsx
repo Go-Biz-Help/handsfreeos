@@ -66,7 +66,7 @@ export default async function WorkspaceLayout({
   // A business made while founding spots are on sale picks one and pays before anything in it opens (20261027012700).
   // Its own people only: support looking in, and anyone viewing as a teammate, see it as it is.
   if (current.needsPlan && !viewingAs && !teammateView) redirect(foundingPlanHref(workspaceId));
-  const staff = platform?.staff?.role ?? null;
+  const staff = platform?.staff ?? null;
   return (
     <LiveProvider workspaceId={workspaceId}>
       {/* Inside LiveProvider: the shell is drawn again when an add-on is turned on or off (0108). */}

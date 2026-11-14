@@ -6,7 +6,6 @@ import {
   searchPageHref,
   SEARCH_MIN_CHARS,
   SEARCH_WORDS,
-  type StaffRole,
 } from '@hfos/core';
 import { ArrowLeft, Menu, MoreHorizontal, Search, SquarePen } from 'lucide-react';
 import Link from 'next/link';
@@ -19,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import { GetHelp } from '@/components/support/get-help';
 import { guideOf } from '@/lib/guide';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
-import type { Me, WorkspaceSummary } from '@/lib/api/types';
+import type { Me, StaffMe, WorkspaceSummary } from '@/lib/api/types';
 import { useAttentionSummary } from '@/lib/realtime/attention-summary';
 import { useUnread } from '@/lib/realtime/unread-provider';
 import { cn } from '@/lib/utils';
@@ -51,7 +50,7 @@ export function MobileShell({
 }: {
   me: Me;
   current: WorkspaceSummary;
-  staff: StaffRole | null;
+  staff: StaffMe;
 }) {
   const pathname = usePathname();
   const router = useRouter();

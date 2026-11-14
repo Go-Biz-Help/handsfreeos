@@ -1,9 +1,8 @@
-import type { StaffRole } from '@hfos/core';
 import { AskButton } from '@/components/assistant/ask-button';
 import { CallsPill } from '@/components/calls/calls-pill';
 import { SearchBox } from '@/components/search/search-box';
 import { Brand } from '@/components/ui/brand';
-import type { Me, WorkspaceSummary } from '@/lib/api/types';
+import type { Me, StaffMe, WorkspaceSummary } from '@/lib/api/types';
 import { GetHelp } from '@/components/support/get-help';
 import { guideOf } from '@/lib/guide';
 import { FootLinks, NavLinks } from './nav-links';
@@ -29,7 +28,7 @@ export function Sidebar({
 }: {
   me: Me;
   current: WorkspaceSummary;
-  staff: StaffRole | null;
+  staff: StaffMe;
 }) {
   return (
     <aside className="sticky top-0 hidden max-h-[100dvh] w-60 flex-none flex-col border-r border-border bg-card px-3 pb-3 pt-4 md:flex print:hidden">
