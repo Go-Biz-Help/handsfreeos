@@ -63143,11 +63143,11 @@
     "/v1/commands/practice.start": {
       "post": {
         "operationId": "command_practice_start",
-        "summary": "Admin → Try onboarding: make a practice business, owned by you, to go through an onboarding as a new customer would. Nothing in it leaves HandsFreeOS, and it is deleted when you end it or after 24 hours.",
+        "summary": "Admin → Try onboarding: make a practice business to go through an onboarding as a new customer would: yours, an agency’s client you set up for its owner, or one you’re invited to join. Nothing in it leaves HandsFreeOS, and it is deleted when you end it or after 24 hours.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires platform.practice.use. Emits organization.created, workspace.created.",
+        "description": "Risk level 1. Requires platform.practice.use. Emits organization.created, workspace.created, invitation.created.",
         "requestBody": {
           "required": true,
           "content": {
@@ -63287,6 +63287,32 @@
                       "church",
                       "other"
                     ]
+                  },
+                  "as": {
+                    "default": "owner",
+                    "type": "string",
+                    "enum": [
+                      "owner",
+                      "agency",
+                      "invited"
+                    ]
+                  },
+                  "agencyName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "role": {
+                    "default": "member",
+                    "type": "string",
+                    "enum": [
+                      "admin",
+                      "member"
+                    ]
+                  },
+                  "ready": {
+                    "default": false,
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -63318,12 +63344,25 @@
                       "type": "string",
                       "format": "date-time",
                       "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "invitationId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
                     "organizationId",
                     "workspaceId",
-                    "endsAt"
+                    "endsAt",
+                    "invitationId"
                   ],
                   "additionalProperties": false
                 }
@@ -63421,7 +63460,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires workspace.delete. Emits workspace.deletion_requested.",
+        "description": "Risk level 2. Requires platform.practice.use. Emits workspace.deletion_requested.",
         "requestBody": {
           "required": true,
           "content": {
@@ -134956,6 +134995,12 @@
                           },
                           "ending": {
                             "type": "boolean"
+                          },
+                          "joined": {
+                            "type": "boolean"
+                          },
+                          "invited": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -134964,7 +135009,9 @@
                           "name",
                           "createdAt",
                           "endsAt",
-                          "ending"
+                          "ending",
+                          "joined",
+                          "invited"
                         ],
                         "additionalProperties": false
                       }

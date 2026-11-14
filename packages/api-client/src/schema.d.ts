@@ -10928,7 +10928,7 @@ export interface paths {
         put?: never;
         /**
          * End a practice business: it and everything in it are deleted for good, as Delete business does, without typing its name. Only a practice business can be ended this way.
-         * @description Risk level 2. Requires workspace.delete. Emits workspace.deletion_requested.
+         * @description Risk level 2. Requires platform.practice.use. Emits workspace.deletion_requested.
          */
         post: operations["command_practice_end"];
         delete?: never;
@@ -10967,8 +10967,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Admin → Try onboarding: make a practice business, owned by you, to go through an onboarding as a new customer would. Nothing in it leaves HandsFreeOS, and it is deleted when you end it or after 24 hours.
-         * @description Risk level 1. Requires platform.practice.use. Emits organization.created, workspace.created.
+         * Admin → Try onboarding: make a practice business to go through an onboarding as a new customer would: yours, an agency’s client you set up for its owner, or one you’re invited to join. Nothing in it leaves HandsFreeOS, and it is deleted when you end it or after 24 hours.
+         * @description Risk level 1. Requires platform.practice.use. Emits organization.created, workspace.created, invitation.created.
          */
         post: operations["command_practice_start"];
         delete?: never;
@@ -54037,12 +54037,25 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    agencyName?: string;
+                    /**
+                     * @default owner
+                     * @enum {string}
+                     */
+                    as?: "owner" | "agency" | "invited";
                     businessName: string;
                     /**
                      * @default home_services
                      * @enum {string}
                      */
                     industry?: "home_services" | "hvac" | "plumbing" | "electrical" | "roofing" | "handyman" | "general_contracting" | "remodeling" | "landscaping" | "lawn_care" | "tree_service" | "irrigation" | "pest_control" | "house_cleaning" | "commercial_cleaning" | "carpet_cleaning" | "window_cleaning" | "pressure_washing" | "painting" | "flooring" | "cabinets_countertops" | "windows_doors" | "siding_gutters" | "garage_doors" | "fencing_decks" | "concrete_masonry" | "foundation_waterproofing" | "insulation" | "solar" | "pool_spa" | "appliance_repair" | "locksmith" | "home_security" | "restoration" | "chimney" | "septic" | "water_treatment" | "moving" | "junk_removal" | "snow_removal" | "home_inspection" | "interior_design" | "real_estate" | "property_management" | "vacation_rentals" | "mortgage" | "title_escrow" | "dental" | "medical_practice" | "chiropractic" | "physical_therapy" | "med_spa" | "mental_health" | "eye_care" | "home_care" | "wellness" | "hair_salon" | "barbershop" | "nail_salon" | "spa" | "lashes_brows" | "massage" | "tattoo" | "gym" | "personal_training" | "martial_arts" | "dance_studio" | "pet_grooming" | "veterinary" | "dog_training" | "pet_sitting" | "pet_boarding" | "auto_repair" | "auto_body" | "auto_detailing" | "towing" | "auto_glass" | "car_dealership" | "boat_rv" | "accounting" | "law_firm" | "insurance" | "financial_advising" | "tutoring" | "childcare" | "music_lessons" | "driving_school" | "school_training" | "restaurant" | "catering" | "food_truck" | "bakery" | "event_planning" | "event_venue" | "photography" | "entertainment" | "florist" | "lodging" | "travel" | "equipment_rental" | "party_rentals" | "dumpster_rental" | "self_storage" | "portable_toilets" | "marketing_agency" | "consulting" | "it_services" | "staffing" | "printing_signs" | "courier" | "security_services" | "retail_store" | "online_store" | "nonprofit" | "church" | "other";
+                    /** @default false */
+                    ready?: boolean;
+                    /**
+                     * @default member
+                     * @enum {string}
+                     */
+                    role?: "admin" | "member";
                     /** @default America/Chicago */
                     timezone?: string;
                 };
@@ -54058,6 +54071,7 @@ export interface operations {
                     "application/json": {
                         /** Format: date-time */
                         endsAt: string;
+                        invitationId: string | null;
                         /** Format: uuid */
                         organizationId: string;
                         /** Format: uuid */
@@ -94308,6 +94322,8 @@ export interface operations {
                             ending: boolean;
                             /** Format: date-time */
                             endsAt: string;
+                            invited: boolean;
+                            joined: boolean;
                             name: string;
                             /** Format: uuid */
                             organizationId: string;

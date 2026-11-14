@@ -11,7 +11,7 @@ import {
   PRACTICE_WORDS as W,
   practiceEndsIn,
 } from '@hfos/core';
-import { FlaskConical, Play } from 'lucide-react';
+import { FlaskConical, Mail } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -19,21 +19,20 @@ import { Button, ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import type { Ok } from '@/lib/api/types';
 import { EndPracticeDialog } from './practice-banner';
+import { PracticeStart } from './try-starts';
 
 type Practice = Ok<'/v1/queries/practice.list'>['businesses'][number];
-
-/** Where each ready flow starts. */
-const STARTS: Partial<Record<(typeof PRACTICE_FLOWS)[number]['key'], string>> = {
-  new_business: '/try/sign-up',
-};
 
 export function TryOnboarding({
   businesses,
   ended,
+  email,
 }: {
   businesses: readonly Practice[];
   /** Back from End practice on the business's own banner. */
   ended: boolean;
+  /** Where your practice email goes: an invitation into one comes here. */
+  email: string;
 }) {
   const full = businesses.length >= PRACTICE_MOST;
   // "in 23 hours" is worked out after the page is drawn, so the server's clock and the browser's never disagree.
@@ -80,7 +79,7 @@ export function TryOnboarding({
         ) : (
           <ul className="flex flex-col gap-2">
             {businesses.map((b) => (
-              <PracticeRow key={b.organizationId} business={b} now={now} />
+              <PracticeRow key={b.workspaceId ?? b.organizationId} business={b} now={now} />
             ))}
           </ul>
         )}
@@ -97,41 +96,23 @@ export function TryOnboarding({
       <section className="flex flex-col gap-3">
         <h2 className="text-[15px] font-semibold">Onboardings</h2>
         <ol className="flex flex-col gap-2.5">
-          {PRACTICE_FLOWS.map((f) => {
-            const start = f.ready ? STARTS[f.key] : undefined;
-            return (
-              <Card
-                key={f.key}
-                className="flex flex-wrap items-center gap-3 p-4"
-                data-testid={`try-flow-${f.key}`}
-              >
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="text-[15px] font-semibold leading-snug">{f.title}</span>
-                  <span className="text-[13px] leading-relaxed text-text-2">{f.blurb}</span>
-                </div>
-                {start ? (
-                  full ? (
-                    <Button size="sm" disabled>
-                      <Play className="h-3.5 w-3.5" />
-                      {W.start}
-                    </Button>
-                  ) : (
-                    <ButtonLink
-                      href={start}
-                      variant="primary"
-                      size="sm"
-                      data-testid={`try-start-${f.key}`}
-                    >
-                      <Play className="h-3.5 w-3.5" />
-                      {W.start}
-                    </ButtonLink>
-                  )
-                ) : (
-                  <Badge variant="gray">{W.coming}</Badge>
-                )}
-              </Card>
-            );
-          })}
+          {PRACTICE_FLOWS.map((f) => (
+            <Card
+              key={f.key}
+              className="flex flex-wrap items-center gap-3 p-4"
+              data-testid={`try-flow-${f.key}`}
+            >
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-[15px] font-semibold leading-snug">{f.title}</span>
+                <span className="text-[13px] leading-relaxed text-text-2">{f.blurb}</span>
+              </div>
+              {f.ready ? (
+                <PracticeStart flow={f.key} full={full} email={email} />
+              ) : (
+                <Badge variant="gray">{W.coming}</Badge>
+              )}
+            </Card>
+          ))}
         </ol>
       </section>
     </div>
@@ -145,7 +126,7 @@ function PracticeRow({ business: b, now }: { business: Practice; now: number | n
     <li>
       <Card
         className="flex flex-wrap items-center gap-3 px-4 py-3"
-        data-testid={`try-business-${b.organizationId}`}
+        data-testid={`try-business-${b.workspaceId ?? b.organizationId}`}
       >
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex items-center gap-2">
@@ -159,17 +140,28 @@ function PracticeRow({ business: b, now }: { business: Practice; now: number | n
                 ? '\u00a0'
                 : `Deleted ${practiceEndsIn(b.endsAt, now)}`}
           </span>
+          {b.workspaceId && !b.ending && !b.joined && b.invited ? (
+            <span
+              className="flex items-center gap-1.5 text-[12.5px] text-text-2"
+              data-testid={`try-waiting-${b.workspaceId}`}
+            >
+              <Mail className="h-3.5 w-3.5" strokeWidth={1.75} />
+              {W.waiting}
+            </span>
+          ) : null}
         </div>
         {b.workspaceId && !b.ending ? (
           <div className="flex items-center gap-2">
-            <ButtonLink href={`/app/w/${b.workspaceId}`} size="sm" variant="secondary">
-              {W.open}
-            </ButtonLink>
+            {b.joined ? (
+              <ButtonLink href={`/app/w/${b.workspaceId}`} size="sm" variant="secondary">
+                {W.open}
+              </ButtonLink>
+            ) : null}
             <Button
               size="sm"
               variant="ghost"
               onClick={() => setAsking(true)}
-              data-testid={`try-end-${b.organizationId}`}
+              data-testid={`try-end-${b.workspaceId}`}
             >
               {W.end}
             </Button>

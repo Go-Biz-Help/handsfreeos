@@ -17,10 +17,10 @@ export default async function TryOnboardingPage({
 }) {
   const platform = await getPlatformMe();
   if (!platform?.staff?.permissions.includes('platform.practice.use')) notFound();
-  const { api } = await apiServer();
+  const { api, email } = await apiServer();
   const [{ businesses }, query] = await Promise.all([
     api.POST('/v1/queries/practice.list', { body: {} }).then(unwrap),
     searchParams,
   ]);
-  return <TryOnboarding businesses={businesses} ended={query.ended === '1'} />;
+  return <TryOnboarding businesses={businesses} ended={query.ended === '1'} email={email} />;
 }

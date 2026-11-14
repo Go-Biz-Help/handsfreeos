@@ -47,11 +47,14 @@ export default async function FoundingPlanPage({
       ? (o.trialDays ?? null)
       : (trials?.offers.find((t) => t.offerId === o.offerId)?.trialDays ?? null),
   }));
+  // A practice business's code comes only in the address (its offer link's): the account is the staff member's own.
   const startCode =
     discountCode(query.code) ??
-    discountCode(
-      (await (await supabaseServer()).auth.getUser()).data.user?.user_metadata?.affiliate_code,
-    ) ??
+    (practice
+      ? null
+      : discountCode(
+          (await (await supabaseServer()).auth.getUser()).data.user?.user_metadata?.affiliate_code,
+        )) ??
     null;
   return (
     <SetupPage
