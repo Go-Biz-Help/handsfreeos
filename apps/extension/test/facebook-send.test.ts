@@ -405,6 +405,26 @@ describe('sending a message on Facebook', () => {
     expect(world.noted).toEqual([]);
   });
 
+  it('passes over one whose profile Facebook won’t show, with nothing to report (the owner’s report of 13 Nov 2026)', async () => {
+    // "This content isn’t available right now" where her profile was: she blocked the person, or closed or hid it.
+    const sent: Sent[] = [];
+    world.pages = (url) => {
+      if (url !== DANA) return null;
+      const doc = danaProfile(sent, { opens: true, rileyOpen: false });
+      doc.title = '(2) Facebook';
+      doc.querySelector('[role="main"]')!.innerHTML =
+        '<div><div><h2 dir="auto"><span dir="auto">This content isn’t available right now</span></h2><span dir="auto">When this happens, it’s usually because the owner only shared it with a small group of people, changed who can see it or it’s been deleted.</span></div><a role="link" aria-label="Go to Feed" href="/"><span>Go to Feed</span></a></div><div><div role="button"><span dir="auto">Go back</span></div><a role="link" href="/help"><span dir="auto">Visit Help Center</span></a></div>';
+      return doc;
+    };
+    expect(await send(approved({ kind: 'reconnect', threadKey: null }))).toEqual({
+      done: false,
+      line: 'Dana Reyes: Facebook says their profile isn’t available right now',
+      skip: true,
+    });
+    expect(world.opened).toEqual([DANA]);
+    expect(sent).toEqual([]);
+  });
+
   it('sends nothing into another Dana Reyes’s chat window left open, linking to nobody, when hers doesn’t open', async () => {
     const sent: Sent[] = [];
     world.pages = (url) =>

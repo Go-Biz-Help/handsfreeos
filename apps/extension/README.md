@@ -1269,6 +1269,16 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### A profile Facebook won't show (0.139.3)
+
+The problem check of 14 Nov 2026 found a message that said it "couldn’t find “Message” on their profile". Their
+profile showed Facebook's own page for something it won't show: "This content isn't available right now", a line on
+why, Go to Feed and Go back, and no name. That's what someone sees after the person blocked them, or closed or hid
+their profile. From 0.139.3 the profile reader says so (`unavailable`, from a heading in the main column with those
+words, only when no name was found, as a shared post that's gone carries them too), and every step that opens their
+profile (a message, a like, a friend request) passes them over with "Facebook says their profile isn’t available right
+now", as a skip: nothing went wrong, so nothing is reported, and a message OK'd for them isn't sent.
+
 ### Event hosts, Facebook's new Like, a liked post's Likes box, and chat windows closed first (0.139.1)
 
 The problem check of 13 Nov 2026 found three things the readers didn't know yet, and one the owner picked a fix for:

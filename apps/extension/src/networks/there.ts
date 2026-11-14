@@ -21,6 +21,10 @@ const NOT_THERE: Readonly<Record<Platform, RegExp>> = {
   x: /this account doesn[’']t exist|account suspended|hmm\.\.\.this page doesn[’']t exist/i,
 };
 
+/** Whether these words say the page isn't there, as the network says it ("This content isn't available right now"). */
+export const saysNotThere = (words: string, platform: Platform): boolean =>
+  NOT_THERE[platform].test(words);
+
 const words = (doc: Document) => (doc.body?.textContent ?? '').replace(/\s+/g, ' ');
 
 /** Whether the page has someone's name at its top: a profile's heading, in its main part or its header. */
@@ -31,6 +35,6 @@ function hasProfile(doc: Document): boolean {
 }
 
 export function pageThere(doc: Document, platform: Platform): boolean | null {
-  if (NOT_THERE[platform].test(words(doc))) return false;
+  if (saysNotThere(words(doc), platform)) return false;
   return hasProfile(doc) ? true : null;
 }

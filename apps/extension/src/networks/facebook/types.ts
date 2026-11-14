@@ -93,6 +93,11 @@ export interface ProfilePage {
    * takes their requests only from friends of friends, or lets people only follow them (./profile.ts).
    */
   readonly noAddFriend?: true;
+  /**
+   * Facebook shows "This content isn't available right now" where their profile was, with no name: they blocked you,
+   * or closed or hid their profile (./profile.ts).
+   */
+  readonly unavailable?: true;
   readonly mutualFriends: number | null;
   /** How many follow them, when the top says ("12K followers"): for the AI's partner check (decision 81). */
   readonly followers?: number;

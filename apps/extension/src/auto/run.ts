@@ -325,6 +325,9 @@ function keptOf(item: TodayListItem): ProfileRef | null {
   return kept && !kept.id && id && /^\d{1,20}$/.test(id) ? { ...kept, id } : kept;
 }
 
+/** What the runner says of a profile Facebook won't show. */
+const PROFILE_UNAVAILABLE = 'Facebook says their profile isn’t available right now';
+
 /**
  * Opens someone's profile and checks it's them: the page and its profile, and the profile to note the step against
  * (the one kept, with what the page added); or what stopped it.
@@ -343,6 +346,11 @@ async function openProfile(
   const page = await read();
   const stop = await warnedOn(page, businessId);
   if (stop) return { outcome: { stop } };
+  // Facebook shows "This content isn't available right now" where their profile was: they blocked the person, or
+  // closed or hid it. Nothing's left to try and nothing went wrong, so it isn't reported (the problem report of 13 Nov
+  // 2026, a message that said it couldn't find Message on their profile).
+  if (page.profile?.unavailable)
+    return { outcome: { done: false, line: `${item.name}: ${PROFILE_UNAVAILABLE}`, skip: true } };
   const shown = page.profile?.profile ?? null;
   if (!page.profile || !shown || !samePerson(shown, page.profile.name, want, item.name))
     return {
@@ -939,7 +947,8 @@ async function sendMessage(
   split: boolean,
 ): Promise<Outcome> {
   const send = item.send!;
-  const failed = async (line: string): Promise<Outcome> => {
+  /** `skip`: nothing went wrong to report, as on a profile Facebook won't show. */
+  const failed = async (line: string, skip = false): Promise<Outcome> => {
     const lead = `${item.name}: `;
     await sendDone(
       send.sendId,
@@ -947,10 +956,13 @@ async function sendMessage(
       false,
       line.startsWith(lead) ? line.slice(lead.length) : line,
     );
-    return { done: false, line };
+    return skip ? { done: false, line, skip } : { done: false, line };
   };
   const chat = await openChat(item, businessId, true);
-  if ('outcome' in chat) return 'stop' in chat.outcome ? chat.outcome : failed(chat.outcome.line);
+  if ('outcome' in chat)
+    return 'stop' in chat.outcome
+      ? chat.outcome
+      : failed(chat.outcome.line, 'skip' in chat.outcome && chat.outcome.skip === true);
   const parts = messageParts(send.text, split);
   // Whose chat it goes in: the tab types only into one it shows is with them, by their profile, or by the name
   // Facebook showed for them where a chat links to nobody.
