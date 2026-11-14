@@ -1,11 +1,18 @@
 'use client';
-import { STAFF_ROLE_WORDS, type StaffRole } from '@hfos/core';
+import {
+  STAFF_ROLE_WORDS,
+  SWITCHER_STAFF_SHOWN,
+  SWITCHER_STAFF_WORDS,
+  switcherStaffMatches,
+  switcherStaffSearch,
+} from '@hfos/core';
 import * as Popover from '@radix-ui/react-popover';
 import { Check, ChevronsUpDown, Plus, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
+import { BusinessQuickLook } from '@/components/admin/business-quick-look';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -13,12 +20,63 @@ import { Field } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
 import { agencyHref } from '@/lib/agency/org';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import type { Me, WorkspaceSummary } from '@/lib/api/types';
+import type { Me, Ok, StaffMe, WorkspaceSummary } from '@/lib/api/types';
 import { TIMEZONES } from '@/lib/time-zones';
 import { cn } from '@/lib/utils';
 import { WORKSPACE_COOKIE } from '@/lib/workspace-cookie';
 
-/** `staff` is the person's role at HandsFreeOS support (`platform.me`), or null for everyone who doesn't work here. */
+type DirectoryRow = Ok<'/v1/queries/platform.business.list'>['businesses'][number];
+
+/** Every business's matches for what was typed, or why they couldn't be read. */
+type Found =
+  | {
+      readonly needle: string;
+      readonly rows: readonly DirectoryRow[];
+      readonly more: boolean;
+    }
+  | { readonly needle: string; readonly error: string };
+
+/**
+ * Every business on HandsFreeOS matching `needle` by its name or its agency's, less the person's own, for staff who
+ * may read the directory: the Admin area's own search (`platform.business.list`), asked a moment after they stop
+ * typing. Null while it's being asked, and when there's nothing to ask.
+ */
+function useEveryBusiness(needle: string | null, mine: ReadonlySet<string>): Found | null {
+  const [found, setFound] = useState<Found | null>(null);
+  useEffect(() => {
+    if (!needle) return;
+    let live = true;
+    const timer = setTimeout(() => {
+      apiBrowser()
+        .POST('/v1/queries/platform.business.list', {
+          // One more than shows, to know whether the Admin area has more.
+          body: { search: needle, sort: 'name', limit: SWITCHER_STAFF_SHOWN + 1 },
+        })
+        .then(unwrap)
+        .then(
+          (out) => {
+            if (live) setFound({ needle, ...switcherStaffMatches(out.businesses, mine) });
+          },
+          (e: unknown) => {
+            if (live) setFound({ needle, error: errorMessage(e) });
+          },
+        );
+    }, 250);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [needle, mine]);
+  return needle && found?.needle === needle ? found : null;
+}
+
+/**
+ * `staff` is the person's place at HandsFreeOS support (`platform.me`), or null for everyone who doesn't work here.
+ *
+ * The list is always the person's own businesses. Staff who may read the directory also find every other business on
+ * HandsFreeOS by typing (the owner, 2026-11-14): those open in the Admin area's quick look, over the page they're on,
+ * with its Open as owner or Look at their account. Nobody else's business is ever in the list itself.
+ */
 export function WorkspaceSwitcher({
   me,
   current,
@@ -26,13 +84,24 @@ export function WorkspaceSwitcher({
 }: {
   me: Me;
   current: WorkspaceSummary;
-  staff: StaffRole | null;
+  staff: StaffMe;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const [creating, setCreating] = useState(false);
   const canCreate = me.organizations.length > 0;
+  const searchesAll = staff?.permissions.includes('platform.businesses.read') ?? false;
+  const needle = searchesAll ? switcherStaffSearch(q) : null;
+  const mine = useMemo(() => new Set(me.workspaces.map((w) => w.id)), [me]);
+  const found = useEveryBusiness(needle, mine);
+  // The business open in the quick look, the matches it steps through, and the business it was opened from: Open as
+  // owner lands in the business, and the quick look has done its job there.
+  const [looking, setLooking] = useState<{
+    readonly id: string;
+    readonly rows: readonly DirectoryRow[];
+    readonly from: string;
+  } | null>(null);
 
   const groups = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -109,7 +178,8 @@ export function WorkspaceSwitcher({
             </div>
             <div className="h-px bg-border" />
             <div className="max-h-[320px] overflow-y-auto p-1.5">
-              {groups.length === 0 ? (
+              {/* While every business is searched too, that part says whether anything matched. */}
+              {groups.length === 0 && !needle ? (
                 <div className="px-2.5 py-2.5 text-[13px] text-text-3">No workspaces match.</div>
               ) : null}
               {groups.map(([orgId, g]) => (
@@ -154,6 +224,18 @@ export function WorkspaceSwitcher({
                   ))}
                 </div>
               ))}
+              {needle ? (
+                <EveryBusiness
+                  needle={needle}
+                  found={found}
+                  divided={groups.length > 0}
+                  onOpen={(id, rows) => {
+                    setOpen(false);
+                    setLooking({ id, rows, from: current.id });
+                  }}
+                  onSeeAll={() => setOpen(false)}
+                />
+              ) : null}
             </div>
             {/* HandsFreeOS's own support people open the admin area here, as an organization's owners and admins
                 open its agency area above. It belongs to no business, so it sits outside the list and its search. */}
@@ -163,7 +245,7 @@ export function WorkspaceSwitcher({
                 <div className="p-1.5">
                   <div className="flex items-center gap-2 px-2.5 py-1.5 text-xs font-medium text-text-3">
                     <span className="min-w-0 flex-1 truncate">
-                      HandsFreeOS · {STAFF_ROLE_WORDS[staff]}
+                      HandsFreeOS · {STAFF_ROLE_WORDS[staff.role]}
                     </span>
                     <Link
                       href="/admin"
@@ -205,7 +287,87 @@ export function WorkspaceSwitcher({
           organizations={me.organizations}
         />
       ) : null}
+      {staff && looking?.from === current.id ? (
+        <BusinessQuickLook
+          rows={looking.rows}
+          openId={looking.id}
+          onOpen={(id) => setLooking({ ...looking, id })}
+          onClose={() => setLooking(null)}
+          staff={{
+            canViewAs: staff.permissions.includes('platform.view_as'),
+            founder: staff.founder,
+          }}
+        />
+      ) : null}
     </>
+  );
+}
+
+/**
+ * Find a workspace's second part, for staff: the other businesses on HandsFreeOS that match, each opening the quick
+ * look, and the Admin area's Businesses page with the same search when there are more than fit.
+ */
+function EveryBusiness({
+  needle,
+  found,
+  divided,
+  onOpen,
+  onSeeAll,
+}: {
+  needle: string;
+  found: Found | null;
+  divided: boolean;
+  onOpen: (workspaceId: string, rows: readonly DirectoryRow[]) => void;
+  onSeeAll: () => void;
+}) {
+  return (
+    <div
+      data-testid="switcher-every-business"
+      className={cn(divided && 'mt-1.5 border-t border-border pt-1.5')}
+    >
+      <div className="px-2.5 pb-1 pt-1.5 text-xs font-medium text-text-3">
+        {SWITCHER_STAFF_WORDS.heading}
+      </div>
+      {!found ? (
+        <div className="px-2.5 py-2 text-[13px] text-text-3">{SWITCHER_STAFF_WORDS.searching}</div>
+      ) : 'error' in found ? (
+        <div className="px-2.5 py-2 text-[13px] text-danger-text">{found.error}</div>
+      ) : found.rows.length === 0 ? (
+        <div className="px-2.5 py-2 text-[13px] text-text-3">{SWITCHER_STAFF_WORDS.none}</div>
+      ) : (
+        found.rows.map((b) => (
+          <button
+            key={b.workspaceId}
+            type="button"
+            onClick={() => onOpen(b.workspaceId, found.rows)}
+            data-testid={`switcher-business-${b.workspaceId}`}
+            className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-1.5 text-left text-sm hover:bg-card-2"
+          >
+            <Avatar
+              name={b.name}
+              seed={b.workspaceId}
+              size="sm"
+              square
+              className="bg-card-3 text-text"
+            />
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate">{b.name}</span>
+              <span className="truncate text-xs text-text-3">{SWITCHER_STAFF_WORDS.line(b)}</span>
+            </span>
+          </button>
+        ))
+      )}
+      {found && 'rows' in found && found.more ? (
+        <Link
+          href={`/admin/businesses?${new URLSearchParams({ q: needle, sort: 'name' })}`}
+          onClick={onSeeAll}
+          className="mx-2.5 mb-1 mt-1 inline-block rounded-[4px] text-xs font-semibold text-accent-text hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+          data-testid="switcher-see-all"
+        >
+          {SWITCHER_STAFF_WORDS.seeAll}
+        </Link>
+      ) : null}
+    </div>
   );
 }
 

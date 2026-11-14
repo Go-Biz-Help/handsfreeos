@@ -125,6 +125,50 @@ export const DESK_BUSINESS_WORDS = {
   needsALook: 'Needs a look',
 } as const;
 
+// ---------- Find a workspace, for staff ----------
+
+/**
+ * The workspace switcher's Find a workspace, for HandsFreeOS staff who may read the directory
+ * (`platform.businesses.read`): below their own businesses, every other business on HandsFreeOS whose name or agency
+ * matches, each opening the Admin area's quick look with its Open as owner (the founder) or Look at their account.
+ * The switcher's list stays their own: nobody else's business shows until they type (the owner, 2026-11-14).
+ */
+export const SWITCHER_STAFF_WORDS = {
+  heading: 'All businesses on HandsFreeOS',
+  searching: 'Searching every business…',
+  none: 'No other business matches.',
+  seeAll: 'See them all in the Admin area',
+  /** The line under one: "Lone Star Group · 3 people". */
+  line: (b: { readonly organizationName: string; readonly memberCount: number }) =>
+    [b.organizationName, DESK_WORDS.people(b.memberCount)].filter(Boolean).join(' · '),
+} as const;
+
+/** How many show under the person's own; the rest are one click away in the Admin area. */
+export const SWITCHER_STAFF_SHOWN = 8;
+
+/**
+ * What the staff search asks the directory for, or null while the box is too short to: one letter matches nearly
+ * every business, and their own are already filtered as they type.
+ */
+export function switcherStaffSearch(q: string): string | null {
+  const needle = q.trim();
+  return needle.length >= 2 ? needle : null;
+}
+
+/**
+ * The directory's matches, less the businesses already listed as the person's own, at most `SWITCHER_STAFF_SHOWN`.
+ * `more` when the directory had more than that to give, whoever's they are.
+ */
+export function switcherStaffMatches<T extends { readonly workspaceId: string }>(
+  found: readonly T[],
+  mine: ReadonlySet<string>,
+): { readonly rows: readonly T[]; readonly more: boolean } {
+  return {
+    rows: found.filter((b) => !mine.has(b.workspaceId)).slice(0, SWITCHER_STAFF_SHOWN),
+    more: found.length > SWITCHER_STAFF_SHOWN,
+  };
+}
+
 // ---------- their balance (M16) ----------
 
 export type DeskWalletStage = 'off' | 'warn' | 'enforce' | 'agency';

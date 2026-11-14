@@ -46,12 +46,12 @@
     "apps/web/src/components/settings/profile-form.tsx": "f5a3211463b6",
     "apps/web/src/components/shell/menu-editor.tsx": "bd19438cf152",
     "apps/web/src/components/shell/missing-page.tsx": "fb8ed3e50256",
-    "apps/web/src/components/shell/mobile-shell.tsx": "be5559feb770",
+    "apps/web/src/components/shell/mobile-shell.tsx": "2d7ed48b889a",
     "apps/web/src/components/shell/nav-links.tsx": "7eea8101aa5c",
     "apps/web/src/components/shell/notifications-bell.tsx": "36256aed833a",
-    "apps/web/src/components/shell/sidebar.tsx": "91a4d15e744e",
+    "apps/web/src/components/shell/sidebar.tsx": "3cb3b237cb52",
     "apps/web/src/components/shell/user-menu.tsx": "c9385747fa6f",
-    "apps/web/src/components/shell/workspace-switcher.tsx": "84241c6efbdb",
+    "apps/web/src/components/shell/workspace-switcher.tsx": "a94cb85f3c21",
     "apps/web/src/components/support/get-help.tsx": "a753e0577cbd",
     "packages/core/src/account/notification-rows.ts": "274b05c79aa2"
   },
@@ -171,126 +171,161 @@
     {
       "path": "Web side menu → switcher → current business and organization",
       "kind": "see",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:79",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:148",
       "covered": "yes",
       "by": "context businessName; get_settings business organizationName"
     },
     {
       "path": "Web side menu → switcher → Find a workspace",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:99",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:168",
       "covered": "yes",
       "by": "get_settings my_account businesses: each one they’re in, with its organization and their role"
     },
     {
       "path": "Web side menu → switcher → No workspaces match.",
       "kind": "see",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:113",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:183",
       "covered": "yes",
       "by": "get_settings my_account businesses: one not listed isn’t theirs"
     },
     {
       "path": "Web side menu → switcher → organization header, you are Owner/Admin",
       "kind": "see",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:117",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:187",
       "covered": "yes",
       "by": "get_settings my_account organizations, with their role"
     },
     {
       "path": "Web side menu → switcher → Agency area",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:124",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:194",
       "covered": "partly",
       "by": "get_agency_area; path only"
     },
     {
       "path": "Web side menu → switcher → each business, check on the current one",
       "kind": "see",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:135",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:205",
       "covered": "yes",
       "by": "get_settings my_account businesses, current on this one"
     },
     {
       "path": "Web side menu → switcher → open another business",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:135",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:205",
       "covered": "partly",
       "by": "get_settings my_account businesses give each one’s link; settings-map How to: Switch business; the Assistant works in the business asked from"
     },
     {
+      "path": "Web side menu → switcher → Find a workspace → All businesses on HandsFreeOS (staff)",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:329",
+      "covered": "yes",
+      "by": "read_platform_business_list search, offered to staff only; their own businesses are left out, as here"
+    },
+    {
+      "path": "Web side menu → switcher → All businesses → Searching every business…, No other business matches.",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:332",
+      "covered": "yes",
+      "by": "read_platform_business_list search: an empty list is no match"
+    },
+    {
+      "path": "Web side menu → switcher → All businesses → each one: name, agency, how many people",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:342",
+      "covered": "yes",
+      "by": "read_platform_business_list name, organizationName, memberCount"
+    },
+    {
+      "path": "Web side menu → switcher → All businesses → open one in the quick look, with Open as owner or Look at their account (staff)",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:291",
+      "covered": "yes",
+      "by": "read_platform_business_get and read_platform_business_glance, staff only; the quick look’s own items are in the staff area"
+    },
+    {
+      "path": "Web side menu → switcher → All businesses → See them all in the Admin area",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:365",
+      "covered": "partly",
+      "by": "read_platform_business_list search; path only"
+    },
+    {
       "path": "Web side menu → switcher → HandsFreeOS · staff role",
       "kind": "see",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:166",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:248",
       "covered": "yes",
       "by": "context staffRole"
     },
     {
       "path": "Web side menu → switcher → Admin area (staff)",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:168",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:250",
       "covered": "partly",
       "by": "staff read_platform_* tools, staff only; path only"
     },
     {
       "path": "Web side menu → switcher → Create workspace",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:184",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:266",
       "covered": "yes",
       "by": "add_business"
     },
     {
       "path": "Web side menu → switcher → Add a business → Organization",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:272",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:434",
       "covered": "yes",
       "by": "add_business organization, by name, from get_settings my_account organizations"
     },
     {
       "path": "Web side menu → switcher → Add a business → Business name",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:282",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:444",
       "covered": "yes",
       "by": "add_business name"
     },
     {
       "path": "Web side menu → switcher → Add a business → Give the business a name.",
       "kind": "see",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:242",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:404",
       "covered": "yes",
       "by": "add_business needs a name"
     },
     {
       "path": "Web side menu → switcher → Add a business → Time zone",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:295",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:457",
       "covered": "yes",
       "by": "add_business timezone"
     },
     {
       "path": "Web side menu → switcher → Add a business → Who runs this business?",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:304",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:466",
       "covered": "yes",
       "by": "add_business whoRunsIt me or client"
     },
     {
       "path": "Web side menu → switcher → Add a business → who-runs explanation",
       "kind": "see",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:313",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:475",
       "covered": "partly",
       "by": "add_business field words, shorter"
     },
     {
       "path": "Web side menu → switcher → Add a business → Add business",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:323",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:485",
       "covered": "yes",
       "by": "add_business"
     },
     {
       "path": "Web side menu → switcher → Add a business → added toast, opens its setup",
       "kind": "see",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:250",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:412",
       "covered": "yes",
       "by": "add_business outcome and link: the guided setup (/onboarding/<new>)"
     },
