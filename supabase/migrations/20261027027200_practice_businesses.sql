@@ -218,7 +218,9 @@ create or replace function private.purging_organization(p_org uuid)
 returns boolean language sql stable security definer set search_path = '' as $$
   select exists (select 1 from private.organization_purges p where p.organization_id = p_org)
 $$;
-grant execute on function private.purging_organization(uuid) to public;
+-- Asked by triggers that run as whoever is writing: a person, or HandsFreeOS (as private.purging_workspace is).
+revoke all on function private.purging_organization(uuid) from public;
+grant execute on function private.purging_organization(uuid) to authenticated, service_actor;
 
 -- The event log and the audit log (as 20261027007800 left them): append-only, except for the business being purged,
 -- and now a practice organization being purged.
