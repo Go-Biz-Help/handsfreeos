@@ -65,6 +65,7 @@
     "apps/web/src/addons/outreach/chat-bubbles.tsx": "2be480b27752",
     "apps/web/src/addons/outreach/chat-keep.tsx": "0987dcd6fb0a",
     "apps/web/src/addons/outreach/chats-view.tsx": "7842e3fdeae3",
+    "apps/web/src/addons/outreach/comment-research.tsx": "2b1d327701c2",
     "apps/web/src/addons/outreach/counters.tsx": "94f401c1d213",
     "apps/web/src/addons/outreach/country-picker.tsx": "2ceb90a52fde",
     "apps/web/src/addons/outreach/country-skipped.tsx": "2bb96420f4e5",
@@ -102,7 +103,7 @@
     "apps/web/src/addons/outreach/run-now.tsx": "0e02f32db42a",
     "apps/web/src/addons/outreach/same-name.tsx": "ec38731aaae5",
     "apps/web/src/addons/outreach/settings-link.tsx": "8a590c091aa8",
-    "apps/web/src/addons/outreach/settings-page.tsx": "b5807e78093e",
+    "apps/web/src/addons/outreach/settings-page.tsx": "b3ac210b7b5f",
     "apps/web/src/addons/outreach/settings-view.tsx": "da6c804a5542",
     "apps/web/src/addons/outreach/setup-hub.tsx": "681abf5d4f2c",
     "apps/web/src/addons/outreach/setup-network.tsx": "227daa451460",
@@ -138,7 +139,7 @@
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/setup/page.tsx": "3b4de50baa1d",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/show.tsx": "dd890a09d51f",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/today/page.tsx": "652469b89773",
-    "packages/core/src/addons/outreach/manifest.ts": "aeeb689c6295"
+    "packages/core/src/addons/outreach/manifest.ts": "f055753ba321"
   },
   "items": [
     {
@@ -3577,6 +3578,34 @@
       "file": "apps/web/src/addons/outreach/settings-page.tsx:1022",
       "covered": "yes",
       "by": "do_addon_save_settings rules.networksAllowed"
+    },
+    {
+      "path": "Settings → General → Comment research (HandsFreeOS staff only): where it stands, what it found, the guide",
+      "kind": "see",
+      "file": "apps/web/src/addons/outreach/comment-research.tsx:96",
+      "covered": "never",
+      "by": "HandsFreeOS staff's own study, not a business's: outreach.comment_research.* are in the add-on's notForTheAssistant"
+    },
+    {
+      "path": "Settings → General → Comment research (HandsFreeOS staff only) → Start the research / Run it again",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/comment-research.tsx:210",
+      "covered": "never",
+      "by": "HandsFreeOS staff's own study, not a business's: outreach.comment_research.* are in the add-on's notForTheAssistant"
+    },
+    {
+      "path": "Settings → General → Comment research (HandsFreeOS staff only) → Stop and sum up what it has",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/comment-research.tsx:178",
+      "covered": "never",
+      "by": "HandsFreeOS staff's own study, not a business's: outreach.comment_research.* are in the add-on's notForTheAssistant"
+    },
+    {
+      "path": "Settings → General → Comment research (HandsFreeOS staff only) → Use in everyone’s comments / Stop using it",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/comment-research.tsx:188",
+      "covered": "never",
+      "by": "HandsFreeOS staff's own study, not a business's: outreach.comment_research.* are in the add-on's notForTheAssistant"
     },
     {
       "path": "Settings → Team → each network: daily limits (number fields, up to the most)",

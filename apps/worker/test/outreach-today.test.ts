@@ -336,6 +336,102 @@ describe('drafts for Today', () => {
     expect(await warm('It be like that')).toEqual([]);
   });
 
+  it('comments on what the post shows once the extension took its picture, and never keeps it (decision 166)', async () => {
+    let n = 0;
+    const warm = async (look: unknown) => {
+      const [po] = await testDbs()
+        .admin.db.insert(posts)
+        .values({
+          workspaceId: ws,
+          userId: owner.id,
+          profileId,
+          url: `https://www.instagram.com/dana.reyes/reel/30000${++n}/`,
+          body: 'It be like that',
+          found: 'scroll',
+          checkState: 'good',
+          seenAt: new Date(),
+          warmUp: true,
+        })
+        .returning({ id: posts.id });
+      const res = await draft(owner, { kind: 'comment', postId: po!.id, look });
+      expect(res.statusCode, res.body).toBe(200);
+      return { drafts: res.json().drafts as string[], postId: po!.id };
+    };
+    const jpeg = `/9j/${'A'.repeat(400)}`;
+    // Shown two frames of the video its caption leans on, it says what it saw there and comments on that.
+    const seen = await warm({ kind: 'video', jpegs: [jpeg, jpeg] });
+    expect(seen.drafts).toEqual(['That truck is not going anywhere, Dana']);
+    // Something that isn't a picture is left out: the words alone give nothing, so there's no comment.
+    expect((await warm({ kind: 'photo', jpegs: ['not a picture'] })).drafts).toEqual([]);
+    expect((await warm({ kind: 'photo', jpegs: [] })).drafts).toEqual([]);
+    // Another kind of draft never takes pictures.
+    const opener = await draft(owner, {
+      kind: 'opener',
+      profileId,
+      look: { kind: 'photo', jpegs: [jpeg] },
+    });
+    expect(opener.statusCode, opener.body).toBe(200);
+    // Nothing of what it was shown is kept with the post.
+    const kept = await testDbs().admin.db.execute(
+      sql`select to_jsonb(po)::text as row from addon_outreach.posts po where po.id = ${seen.postId}`,
+    );
+    expect(JSON.stringify(kept)).not.toContain('/9j/');
+  });
+
+  it('writes a warm-up’s comment as real comments sound once a research’s guide is in use (decision 166)', async () => {
+    const db = testDbs().admin.db;
+    const [ig] = await db
+      .insert(profiles)
+      .values({
+        workspaceId: ws,
+        platform: 'instagram',
+        username: 'rio.vance',
+        url: 'https://www.instagram.com/rio.vance/',
+        name: 'Rio Vance',
+      })
+      .returning({ id: profiles.id });
+    let n = 0;
+    const warm = async (profile: string) => {
+      const [po] = await db
+        .insert(posts)
+        .values({
+          workspaceId: ws,
+          userId: owner.id,
+          profileId: profile,
+          url: `https://www.instagram.com/rio.vance/p/40000${++n}/`,
+          body: 'New truck day finally',
+          found: 'scroll',
+          checkState: 'good',
+          seenAt: new Date(),
+          warmUp: true,
+        })
+        .returning({ id: posts.id });
+      const res = await draft(owner, { kind: 'comment', postId: po!.id });
+      expect(res.statusCode, res.body).toBe(200);
+      return res.json().drafts as string[];
+    };
+    // With no guide in use, it's written as before.
+    expect(await warm(ig!.id)).toEqual(['Congrats on this, Rio, big step!']);
+    await db.execute(
+      sql`update platform.comment_guides set stopped_at = now()
+          where platform = 'instagram' and stopped_at is null`,
+    );
+    await db.execute(
+      sql`insert into platform.comment_guides (platform, guide, comments)
+          values ('instagram', 'Half of them are 3 words or fewer.', 2000)`,
+    );
+    try {
+      expect(await warm(ig!.id)).toEqual(['New truck looks clean, Rio']);
+      // Instagram's guide is for Instagram's comments: someone on another network is written to as before.
+      expect(await warm(profileId)).toEqual(['Congrats on this, Dana, big step!']);
+    } finally {
+      await db.execute(
+        sql`update platform.comment_guides set stopped_at = now() where stopped_at is null`,
+      );
+    }
+    expect(await warm(ig!.id)).toEqual(['Congrats on this, Rio, big step!']);
+  });
+
   it('drafts a reply to a question kept in a group, never with a link (decision 114)', async () => {
     const [asked] = await testDbs()
       .admin.db.insert(posts)

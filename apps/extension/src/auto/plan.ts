@@ -84,7 +84,9 @@ export type DailyJob = (typeof DAILY_JOBS)[number];
  * 110, ../jobs/instagram/like-yours.ts); and from 0.104.0 the events near the person on Alignable, once a week
  * (`events`, decision 112, ../jobs/alignable/events.ts); and from 0.109.0 who engaged with the person's helpful posts
  * on LinkedIn on its own (`engaged`, after the day's post is asked for), as it reads with its window in front only
- * while they're away from their computer (decision 120).
+ * while they're away from their computer (decision 120); and from 0.140.0 HandsFreeOS's own comment research on
+ * Instagram, for whoever of its staff started one (`comment_research`, decision 166,
+ * ../jobs/instagram/comment-research.ts).
  */
 export type OwnDailyJob =
   | 'follow_backs'
@@ -96,7 +98,8 @@ export type OwnDailyJob =
   | 'weekly_post'
   | 'like_yours'
   | 'events'
-  | 'engaged';
+  | 'engaged'
+  | 'comment_research';
 
 /** The shortest and longest wait between two steps in the working hours. */
 export const GAP_MS = { least: 60_000, most: 45 * 60_000 } as const;

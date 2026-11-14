@@ -62,6 +62,11 @@ import {
   helperWay,
   helperWays,
 } from './helper';
+import {
+  commentResearchChanged,
+  SUM_COMMENT_RESEARCH_JOB,
+  sumCommentResearchJob,
+} from './comment-research';
 import { likeYoursFound, PICK_LIKE_YOURS_JOB, pickLikeYoursJob } from './like-yours';
 import { TODAY_DRAFT_ACTION, todayDraft } from './today';
 import { TIMES_BOOK_ACTION, timesBook, timesCheck } from './times-check';
@@ -241,6 +246,9 @@ export const outreachAddonWorker: AddonWorkerModule = {
     // An OK'd message with times waits while they're checked again and its booking made (./times-check.ts, decision
     // 149).
     'outreach.times.check': timesCheck,
+    // A comment research started, full or stopped is summed up when its days end, or now (./comment-research.ts,
+    // decision 166).
+    'outreach.comment_research.changed': commentResearchChanged,
   },
   jobs: {
     [READ_CHATS_JOB]: readChatsJob,
@@ -270,6 +278,7 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [GOAL_MIDDAY_JOB]: goalMiddayJob,
     [AUTOPILOT_LIST_JOB]: autopilotListJob,
     [AUTOPILOT_REMINDER_JOB]: autopilotReminderJob,
+    [SUM_COMMENT_RESEARCH_JOB]: sumCommentResearchJob,
   },
   // AI help on a playbook's parts, from the builder (./assist.ts), drafts for Today (./today.ts), and answers to a
   // group's questions when the extension asks to join it (./groups.ts), and which post to like (./likes.ts).

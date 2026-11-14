@@ -13,12 +13,17 @@ import {
 } from '../../src/addons/outreach/about-owner';
 import {
   aboutInPost,
+  COMMENT_SAW_ASK,
+  POST_PICTURE_CHARS,
+  POST_PICTURES_MOST,
   brochureWords,
   claimsTheSame,
   COMMENT_ABOUT_ASK,
   COMMENT_PLAIN_WORDS,
   POST_WORDS_ONLY,
+  postSeen,
   realComments,
+  sawSomething,
   saysNothing,
 } from '../../src/addons/outreach/comment-says';
 import { PLATFORMS, type Platform } from '../../src/addons/outreach/networks';
@@ -28,6 +33,7 @@ import { RULES_VERSION } from '../../src/addons/outreach/sends';
 import {
   TODAY_DRAFT_SCHEMA,
   TodayDraftAnswer,
+  TodayDraftInput,
   todayDraftPrompt,
   todayDraftSystem,
   warmCommentTask,
@@ -298,5 +304,135 @@ describe('a comment says something real about its post', () => {
         warm: false,
       }),
     ).toHaveLength(1);
+  });
+});
+
+describe('a comment shown the post’s picture, or frames of its video (decision 166)', () => {
+  const shownPrompt = (kind: 'photo' | 'video', count: number, warm = true) =>
+    todayDraftPrompt({
+      kind: 'comment',
+      business: 'Bright Books',
+      name: 'Sam Lee',
+      facts: [],
+      recent: [],
+      playbook,
+      post: { text: REEL, group: null, warm, shown: { kind, count } },
+      platform: 'instagram',
+    });
+
+  it('is told what it’s shown in place of “only the words”, and asked what it saw', () => {
+    for (const prompt of [shownPrompt('photo', 1), shownPrompt('video', 3, false)]) {
+      expect(prompt).not.toContain(POST_WORDS_ONLY);
+      expect(prompt).toContain(COMMENT_PLAIN_WORDS);
+      expect(prompt).toContain(COMMENT_ABOUT_ASK);
+      expect(prompt).toContain(COMMENT_SAW_ASK);
+    }
+    expect(shownPrompt('photo', 1)).toContain(postSeen('photo', 1));
+    expect(shownPrompt('video', 3)).toContain(postSeen('video', 3));
+    // Frames aren't the video: it never writes as if it heard it or watched it through.
+    expect(postSeen('video', 3)).toMatch(/3 frames from the post’s video, in order/);
+    expect(postSeen('video', 1)).toMatch(/one frame from the post’s video/);
+    expect(postSeen('video', 2)).toMatch(/haven’t heard its sound or watched the rest/);
+    // Nobody in a picture is named or guessed at, and nothing is said of how anyone looks.
+    for (const told of [postSeen('photo', 1), postSeen('video', 2)]) {
+      expect(told).toMatch(/Never name or guess who a person/);
+      expect(told).toMatch(/nothing of anyone’s looks, body, age, race or health/);
+    }
+    // Shown nothing, everything is as it was.
+    expect(comment(REEL)).toContain(POST_WORDS_ONLY);
+    expect(comment(REEL)).not.toContain(COMMENT_SAW_ASK);
+  });
+
+  it('writes a warm-up’s comment about what the post shows or says, and still none when neither gives one real thing', () => {
+    const words = warmCommentTask(startingScript('demo').warmUp);
+    const photo = warmCommentTask(startingScript('demo').warmUp, 'photo');
+    const video = warmCommentTask(startingScript('demo').warmUp, 'video');
+    expect(photo).toMatch(/Name one real thing the post shows or says/);
+    expect(photo).toMatch(/someone who saw it would/);
+    expect(video).toMatch(/someone who watched it would/);
+    for (const task of [photo, video]) {
+      expect(task).not.toMatch(/you can’t see/);
+      expect(task).toMatch(
+        /neither what you’re shown nor the words give you one real thing to name/,
+      );
+      expect(task).toMatch(/“That caption got me”/);
+      expect(task).toMatch(/Of the owner themselves, only what the rule on <about_owner> allows/);
+      expect(task).toMatch(/No comment is better than one a bot could have left/);
+    }
+    expect(words).toMatch(/lean on a picture or a video you can’t see/);
+    expect(shownPrompt('video', 2)).toContain(video);
+  });
+
+  it('takes only JPEGs, a few and not too big, and anything else is left out rather than refused', () => {
+    const jpeg = `/9j/${'A'.repeat(400)}`;
+    const parsed = (look: unknown) => TodayDraftInput.parse({ kind: 'comment', look }).look;
+    expect(parsed({ kind: 'photo', jpegs: [jpeg] })).toEqual({ kind: 'photo', jpegs: [jpeg] });
+    expect(parsed({ kind: 'video', jpegs: [jpeg, jpeg, jpeg] })?.jpegs).toHaveLength(3);
+    expect(parsed(undefined)).toBeNull();
+    expect(parsed({ kind: 'photo', jpegs: [] })).toBeNull();
+    expect(parsed({ kind: 'photo', jpegs: Array(POST_PICTURES_MOST + 1).fill(jpeg) })).toBeNull();
+    expect(parsed({ kind: 'photo', jpegs: [`iVBOR${'A'.repeat(400)}`] })).toBeNull();
+    expect(parsed({ kind: 'photo', jpegs: [`/9j/${'A'.repeat(POST_PICTURE_CHARS)}`] })).toBeNull();
+    expect(parsed({ kind: 'photo', jpegs: [`/9j/${'A'.repeat(300)}" onload="x`] })).toBeNull();
+    expect(parsed({ kind: 'drawing', jpegs: [jpeg] })).toBeNull();
+  });
+
+  it('asks what it saw in the one answer every draft gives', () => {
+    expect(TODAY_DRAFT_SCHEMA['required']).toContain('saw');
+    expect(TodayDraftAnswer.parse({ drafts: [] }).saw).toBe('');
+    expect(sawSomething('a truck stuck in the mud')).toBe(true);
+    expect(sawSomething('two kids holding up a fish')).toBe(true);
+    for (const nothing of ['', '  ', null, undefined, 'it', 'the post', 'a video', 'so real', '😂'])
+      expect(sawSomething(nothing)).toBe(false);
+  });
+
+  it('lets a warm-up comment be about what it saw, only when it was shown the post', () => {
+    const truck = ['That truck is not going anywhere, Sam'];
+    // Shown the video, with what it saw said: the comment stays though the caption gives nothing.
+    expect(
+      realComments(truck, {
+        post: REEL,
+        about: '',
+        warm: true,
+        shown: true,
+        saw: 'a truck stuck in the mud',
+      }),
+    ).toEqual(truck);
+    // Shown nothing, what it says it saw counts for nothing.
+    expect(
+      realComments(truck, { post: REEL, about: '', warm: true, saw: 'a truck stuck in the mud' }),
+    ).toEqual([]);
+    expect(
+      realComments(truck, {
+        post: REEL,
+        about: '',
+        warm: true,
+        shown: false,
+        saw: 'a truck stuck in the mud',
+      }),
+    ).toEqual([]);
+    // Shown it, and it says nothing of what it saw: still none.
+    expect(
+      realComments(truck, { post: REEL, about: '', warm: true, shown: true, saw: '' }),
+    ).toEqual([]);
+    // The words are still enough on their own, and every other check still holds.
+    expect(
+      realComments(['Day five and no gifts yet? 😂', 'What a charming truck', 'Same 😂'], {
+        post: HERITAGE,
+        about: 'still waiting on my gifts',
+        warm: true,
+        shown: true,
+        saw: '',
+      }),
+    ).toEqual(['Day five and no gifts yet? 😂']);
+    expect(
+      realComments(['So real', 'What a stunning truck', 'That truck is done for, same'], {
+        post: REEL,
+        about: '',
+        warm: true,
+        shown: true,
+        saw: 'a truck stuck in the mud',
+      }),
+    ).toEqual([]);
   });
 });

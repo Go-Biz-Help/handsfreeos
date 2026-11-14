@@ -170,6 +170,7 @@ export const outreachAddon = defineAddon({
       'outreach.times.check',
       'outreach.autopilot.listed',
       'outreach.autopilot.answered',
+      'outreach.comment_research.changed',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts), and
@@ -198,6 +199,8 @@ export const outreachAddon = defineAddon({
     // ./posts.ts).
     // An OK'd message that offers times, or books one, has them checked again and the booking made before it goes
     // (decision 149, ./times.ts).
+    // A comment research started or read has the worker sum it up when its days end or it's full (decision 166,
+    // ./comment-research.ts).
     consumes: [
       'outreach.download.saved',
       'outreach.chats.collected',
@@ -231,6 +234,7 @@ export const outreachAddon = defineAddon({
       'appointment.completed',
       'outreach.like_yours.found',
       'outreach.times.check',
+      'outreach.comment_research.changed',
     ],
   },
   jobs: [
@@ -253,6 +257,7 @@ export const outreachAddon = defineAddon({
     'outreach.goal_midday',
     'outreach.autopilot_list',
     'outreach.autopilot_reminder',
+    'outreach.sum_comment_research',
   ],
   // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
   // morning push, the weekly report, and which countries it reaches: Social Outreach → Settings → General, For your
@@ -265,6 +270,8 @@ export const outreachAddon = defineAddon({
     'automation',
     'autopilot_people',
     'checks',
+    'comment_research',
+    'comment_samples',
     'computers',
     'days',
     'demos',

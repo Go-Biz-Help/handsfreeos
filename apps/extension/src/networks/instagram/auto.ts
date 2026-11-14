@@ -598,6 +598,33 @@ export function postCommentBoxOf(doc: Document, href: string): HTMLElement | nul
   return boxes.length === 1 ? boxes[0]! : null;
 }
 
+/**
+ * The post's own part of its page, for a look at its picture or video before its comment is drafted (decision 166,
+ * ../post-look.ts, from 0.140.0): given only on the post asked for, on its own page, when its own link names them, as
+ * a comment goes (`writeTheirComment`). What's there but isn't the post's is ruled out: anything inside a link to
+ * another post (the tiles under "More posts from").
+ */
+export function theirPostPart(
+  doc: Document,
+  href: string,
+  on: CommentOn,
+): { readonly root: Element; readonly skip: (el: Element) => boolean } | null {
+  const page = instagramUrl(href);
+  const url = page && kindOf(page) === 'post' ? postOf(page) : null;
+  const asked = instagramUrl(on.postUrl);
+  if (!url || !asked || postOf(asked) !== url) return null;
+  const code = partsOf(new URL(url))[1]!;
+  const root = postRootOf(doc);
+  if (!isThem(namedByItsLink(root, href, code), on.profile)) return null;
+  const skip = (el: Element): boolean => {
+    const link = el.closest('a[href]');
+    const to = link ? instagramUrl(link.getAttribute('href') ?? '', href) : null;
+    const other = to ? postOf(to) : null;
+    return other !== null && other !== url;
+  };
+  return { root, skip };
+}
+
 /** The box's own form's Post, while it's on: in its form, else the nearest part around it that holds one. */
 function postFor(box: Element): HTMLElement | null {
   const form = box.closest('form');

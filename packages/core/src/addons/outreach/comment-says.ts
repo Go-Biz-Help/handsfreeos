@@ -22,11 +22,45 @@
  *
  * No comment is the right answer when there's nothing real to say: the like still went, and the next visit picks
  * another post. Browser-safe: the worker's checks, the prompts and the Test console read it.
+ *
+ * **Shown the post (decision 166, the owner's pick of 14 Nov 2026: "the AI looks at the photo, or a frame of the
+ * video, before it comments").** Where the extension could take the post's picture, or a few frames of its video, on
+ * the post's own page (`PostLook`, ./today.ts), the AI is shown them with the words (`postSeen` in place of
+ * `POST_WORDS_ONLY`), and a comment may be about what's seen: it says what (`COMMENT_SAW_ASK`, `sawSomething`) in
+ * place of copying words out. Nothing of what it was shown is kept. With nothing shown, everything above holds as it
+ * was.
  */
 
 /** What a comment's AI is told it has of the post. */
 export const POST_WORDS_ONLY =
   'Under <post> are only the post’s words: its caption, or what the network says its picture shows. You can’t see its picture or its video, so never write as if you had.';
+
+/** What the extension took of a post: its picture, or frames of its video. */
+export const POST_LOOK_KINDS = ['photo', 'video'] as const;
+export type PostLookKind = (typeof POST_LOOK_KINDS)[number];
+/** The most pictures of a post the AI is shown: its photo, or a few frames of its video. */
+export const POST_PICTURES_MOST = 3;
+/** How big each may be, as a JPEG in base64: one about 768 wide is well under it. */
+export const POST_PICTURE_CHARS = 400_000;
+/** How wide the extension makes a photo, and a video's frame. */
+export const POST_PHOTO_WIDTH = 768;
+export const POST_FRAME_WIDTH = 512;
+
+/**
+ * What a comment's AI is told it has of the post when it's shown its picture, or frames of its video (decision 166),
+ * in place of `POST_WORDS_ONLY`.
+ */
+export const postSeen = (kind: PostLookKind, count: number): string =>
+  kind === 'photo'
+    ? 'Before this you’re shown the post’s picture, as anyone who opens the post sees it. Under <post> are the post’s words: its caption, or what the network says the picture shows. React to what’s really there, in the picture or in the words, and never to anything that’s in neither. Never name or guess who a person in the picture is, and say nothing of anyone’s looks, body, age, race or health.'
+    : `Before this you’re shown ${count === 1 ? 'one frame' : `${count} frames`} from the post’s video, in order. Under <post> are the post’s words: its caption. You saw only ${count === 1 ? 'that moment' : 'those moments'}: you haven’t heard its sound or watched the rest, so never write as if you had, and never quote what anyone in it says. React to what’s really there, in what you’re shown or in the words, and never to anything that’s in neither. Never name or guess who a person in it is, and say nothing of anyone’s looks, body, age, race or health.`;
+
+/**
+ * What a comment's AI is asked beside `COMMENT_ABOUT_ASK` when it's shown the post: what it sees there that the
+ * comment is about, for `sawSomething`.
+ */
+export const COMMENT_SAW_ASK =
+  'When the comment is about what you’re shown rather than the post’s words, leave about empty and give, as saw, a few plain words on what’s there that the comment is about (“a new red sign over the shop door”, “two kids holding up a fish”). Leave saw empty when the comment is about the words, and when you write no drafts.';
 
 /** What a comment's AI is asked beside its drafts: the post's own words it reacts to, for `aboutInPost`. */
 export const COMMENT_ABOUT_ASK =
@@ -99,9 +133,45 @@ export function aboutInPost(about: string | null | undefined, post: string): boo
   return said.length > 0 && plain(post).includes(said);
 }
 
-/** Words no one types under a post (`COMMENT_PLAIN_WORDS`): a brochure's, or a greeting card's. */
-const BROCHURE =
-  /\b(?:charming|stunning|lovely|delightful|gorgeous|breathtaking|captivating|heartwarming|exquisite|picturesque|unforgettable|remarkable|inspiring|inspirational|wonderful|magnificent|splendid|adorable|impeccable|vibrant|testament)\b/i;
+/**
+ * Whether the AI said what it saw in the post's picture or video that its comment is about (`COMMENT_SAW_ASK`): at
+ * least two words that say something. "It" and "the post" don't.
+ */
+export function sawSomething(saw: string | null | undefined): boolean {
+  const real = plain(saw ?? '')
+    .split(' ')
+    .filter((w) => w && !EMPTY_WORDS.has(w));
+  return new Set(real).size >= 2;
+}
+
+/**
+ * Words no one types under a post (`COMMENT_PLAIN_WORDS`): a brochure's, or a greeting card's. The comment research
+ * counts each in real comments (./comment-research.ts), so the list can be checked against what people do type.
+ */
+export const BROCHURE_WORDS = [
+  'charming',
+  'stunning',
+  'lovely',
+  'delightful',
+  'gorgeous',
+  'breathtaking',
+  'captivating',
+  'heartwarming',
+  'exquisite',
+  'picturesque',
+  'unforgettable',
+  'remarkable',
+  'inspiring',
+  'inspirational',
+  'wonderful',
+  'magnificent',
+  'splendid',
+  'adorable',
+  'impeccable',
+  'vibrant',
+  'testament',
+] as const;
+const BROCHURE = new RegExp(`\\b(?:${BROCHURE_WORDS.join('|')})\\b`, 'i');
 
 /** Whether a drafted comment uses a word people don't type under a post. */
 export const brochureWords = (text: string): boolean => BROCHURE.test(text);
@@ -127,9 +197,9 @@ export const claimsTheSame = (text: string): boolean => THE_SAME.test(text.trim(
 /**
  * The drafted comments that may wait for an OK (decision 165): none that says nothing and none in a brochure's words.
  * A warm-up comment is only ever a reaction to someone's own post, so there's none at all unless the AI could point at
- * the post's own words it reacts to, and none that claims the owner is the same as them when the owner hasn't said so
- * of themselves. (An expert comment speaks from the owner's own field, where "we've been there" is the business's to
- * say; the rule the AI is given covers it.)
+ * the post's own words it reacts to, or, shown the post (decision 166), say what it saw there; and none that claims
+ * the owner is the same as them when the owner hasn't said so of themselves. (An expert comment speaks from the
+ * owner's own field, where "we've been there" is the business's to say; the rule the AI is given covers it.)
  */
 export function realComments(
   drafts: readonly string[],
@@ -142,9 +212,14 @@ export function realComments(
     readonly warm: boolean;
     /** What the owner said of themselves (./about-owner.ts); empty with nothing said. */
     readonly aboutOwner?: string | null;
+    /** Whether the AI was shown the post's picture or frames of its video (decision 166), and what it said it saw. */
+    readonly shown?: boolean;
+    readonly saw?: string | null;
   },
 ): string[] {
-  if (told.warm && !aboutInPost(told.about, told.post)) return [];
+  const pointsAt =
+    aboutInPost(told.about, told.post) || (told.shown === true && sawSomething(told.saw));
+  if (told.warm && !pointsAt) return [];
   const known = !!told.aboutOwner?.trim();
   return drafts.filter(
     (d) => !saysNothing(d) && !brochureWords(d) && (known || !told.warm || !claimsTheSame(d)),
