@@ -14,6 +14,9 @@ import { classifyUrl, mutualFriendsUrl } from '../src/networks/facebook/urls';
 import { readWarnings } from '../src/networks/facebook/warnings';
 import { load } from './load';
 
+/** Facebook's main column for a profile it won't show (the problem report of 13 Nov 2026), its words as shown. */
+const CONTENT_UNAVAILABLE = `<div><div><svg aria-hidden="true"></svg><div><h2 dir="auto"><span dir="auto">This content isn’t available right now</span></h2><span dir="auto">When this happens, it’s usually because the owner only shared it with a small group of people, changed who can see it or it’s been deleted.</span></div><a role="link" aria-label="Go to Feed" href="/"><div role="none"><div role="none"><span dir="auto"><span>Go to Feed</span></span></div></div></a></div><div><div role="button"><span dir="auto">Go back</span></div><a role="link" href="/help"><span dir="auto">Visit Help Center</span></a></div></div>`;
+
 const NOW = new Date('2026-10-05T12:00:00Z');
 
 function read(fixture: string, url: string) {
@@ -339,6 +342,36 @@ describe('a profile, as Facebook drew it in 2026', () => {
       const profile = withButtons(button('Add Friend Dana Reyes', 'Add friend'));
       expect(profile?.friendship).toBe('not_friends');
       expect(profile?.noAddFriend).toBeUndefined();
+    });
+  });
+
+  describe('a profile Facebook won’t show', () => {
+    // The owner's problem report of 13 Nov 2026 (0.139.0): a message's profile showed "This content isn’t available
+    // right now", a line on why, Go to Feed and Go back, with no name, so it said it couldn't find Message there.
+    const unavailable = (main: string) => {
+      const doc = load('profile-2026.html', url);
+      doc.title = '(2) Facebook';
+      doc.querySelector('[role="main"]')!.innerHTML = main;
+      return readPage(doc, url, NOW).profile;
+    };
+
+    it('says so, with no name', () => {
+      const profile = unavailable(CONTENT_UNAVAILABLE);
+      expect(profile?.unavailable).toBe(true);
+      expect(profile?.name).toBeNull();
+    });
+
+    it('never says so on a profile with its name, though a shared post that’s gone carries the words', () => {
+      const doc = load('profile-2026.html', url);
+      doc
+        .querySelector('[role="main"]')!
+        .insertAdjacentHTML(
+          'beforeend',
+          '<h2><span>This content isn’t available right now</span></h2>',
+        );
+      const profile = readPage(doc, url, NOW).profile;
+      expect(profile?.name).toBe('Dana Reyes');
+      expect(profile?.unavailable).toBeUndefined();
     });
   });
 

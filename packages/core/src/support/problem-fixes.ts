@@ -224,6 +224,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 619,
     said: 'A newer Page’s link has its profile number, which Business Suite won’t open: the Page’s own number (delegate_page) is tried first now, then the others.',
   },
+  {
+    area: 'facebook',
+    job: 'send',
+    note: 'couldn’t find “Message” on their profile',
+    fixedIn: '0.139.3',
+    pr: 621,
+    said: 'Their profile showed Facebook’s “This content isn’t available right now” (they blocked the person, or closed or hid their profile), with no Message on it: a profile Facebook won’t show is passed over now, as one with nothing to report.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */
