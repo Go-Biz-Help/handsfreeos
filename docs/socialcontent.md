@@ -187,6 +187,16 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   apart, from saved ideas first, then new ones, then the Playbook alone. After the first fill it tops up once a week
   on its own (`socialcontent.calendar`, re-armed when the add-on is turned back on). **Write a post** takes the next
   open day; **Write the post** on an idea does the same for the idea's network and marks it used.
+- **Write a post asks two things first** (the owner, 14 Nov), in a window on the web and a sheet on the phone:
+  **which networks**, one or more, starting on the first with posts in the plan (`firstPlannedNetwork`), and **how
+  the AI writes it**: **AI on its own**, or **My direction** with a box for what the post is about (`ask`, 500
+  characters at most, `CALENDAR.askMost`). The worker action takes `networks` and writes a post for each, about the
+  same thing, all at once; each is written in its network's way (Threads within 500 characters, X within 280,
+  Instagram always with a picture) and goes on that network's next open day. One that fails is named in the answer
+  (`missed`) while the others are kept. AI on its own is planned the way Fill the calendar plans each post
+  (`planWrites` for one place): the kind the weekly mix needs next, a waiting idea of that kind or the next line from
+  the lists, and the next look, so it's the same for every network picked. One post opens once written; several
+  show on their days.
 - **Fill on its own** (the owner, 11 Nov): a switch on the Calendar (web and phone) and in Settings → Posting, on
   until an owner or admin turns it off (`settings.auto_fill`, from `20261027025800_socialcontent_auto_fill.sql`).
   Off, a fill under way stops before its next post, the weekly top-up writes nothing and isn't queued again, and

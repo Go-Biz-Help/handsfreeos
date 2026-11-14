@@ -59,7 +59,7 @@ export const POST_LIMITS = {
   shot: 200,
   picture: 600,
   photoPrompt: 1200,
-  ask: 500,
+  ask: CALENDAR.askMost,
   /** What a designed page says, at most. */
   kicker: 40,
   heading: 110,

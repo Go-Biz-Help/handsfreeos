@@ -10,6 +10,7 @@ import {
   CALENDAR,
   DEFAULT_PLAN,
   chainFor,
+  firstPlannedNetwork,
   formatFor,
   placesFor,
   placesLeft,
@@ -30,6 +31,7 @@ import {
   filledLine,
   planShown,
   postingLines,
+  SOCIALCONTENT_WORDS as W,
   timeShown,
 } from '../../src/addons/socialcontent/words';
 import {
@@ -93,6 +95,38 @@ describe('the posting plan', () => {
     });
     expect(plan.facebook.week).toEqual(weekOf(2, '12:30'));
     expect(postsAWeek(plan.linkedin)).toBe(0);
+  });
+
+  it('starts Write a post on the first network with posts in the plan, else Instagram (the owner, 14 Nov)', () => {
+    expect(firstPlannedNetwork(DEFAULT_PLAN)).toBe('instagram');
+    const off = { ...DEFAULT_PLAN.instagram, perWeek: 0 };
+    expect(firstPlannedNetwork({ ...DEFAULT_PLAN, instagram: off })).toBe('facebook');
+    expect(
+      firstPlannedNetwork({
+        ...DEFAULT_PLAN,
+        instagram: off,
+        facebook: off,
+        linkedin: off,
+        threads: { mode: 'mine', perWeek: 0, week: weekOf(2, '10:00') } as typeof off,
+      }),
+    ).toBe('threads');
+    expect(
+      firstPlannedNetwork({ instagram: off, facebook: off, linkedin: off, threads: off, x: off }),
+    ).toBe('instagram');
+  });
+
+  it('says how writing on several networks went, and which to try again (the owner, 14 Nov)', () => {
+    expect(W.calendar.writeGo(1)).toBe('Write it');
+    expect(W.calendar.writeGo(3)).toBe('Write 3 posts');
+    expect(W.calendar.writtenMany(3, [])).toBe(
+      'Written 3 posts, one for each network. They’re waiting for your OK.',
+    );
+    expect(W.calendar.writtenMany(2, ['Threads'])).toMatch(
+      /^Written 2 posts, .* Threads didn’t work this time\. Press Write a post to try it again\.$/,
+    );
+    expect(W.calendar.writtenMany(1, ['Threads', 'X'])).toMatch(
+      /^Written 1 post, .* Threads and X didn’t work this time\. Press Write a post to try them again\.$/,
+    );
   });
 });
 

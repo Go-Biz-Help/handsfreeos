@@ -1,10 +1,10 @@
 {
   "area": "socialcontent",
   "title": "The AI Social Media Content Creator add-on: Creators, Standouts, Playbook, Ideas, Calendar and Settings, on the web and the phone",
-  "checkedOn": "2026-11-13",
+  "checkedOn": "2026-11-14",
   "files": {
     "apps/mobile/src/addons/socialcontent/activity.tsx": "9744b485ef7b",
-    "apps/mobile/src/addons/socialcontent/calendar.tsx": "5dea96ba5dd9",
+    "apps/mobile/src/addons/socialcontent/calendar.tsx": "69ecb81a1921",
     "apps/mobile/src/addons/socialcontent/creators.tsx": "afbddca04aa6",
     "apps/mobile/src/addons/socialcontent/home.tsx": "6973e687d399",
     "apps/mobile/src/addons/socialcontent/ideas.tsx": "355ae79366b6",
@@ -26,7 +26,7 @@
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/standouts.tsx": "adbc9f8ec4fe",
     "apps/web/src/addons/registry.ts": "c925198a00a2",
     "apps/web/src/addons/socialcontent/activity-card.tsx": "ac129c506362",
-    "apps/web/src/addons/socialcontent/calendar-page.tsx": "3e45600eea09",
+    "apps/web/src/addons/socialcontent/calendar-page.tsx": "321c540ffb1a",
     "apps/web/src/addons/socialcontent/creators-page.tsx": "7981cd799c44",
     "apps/web/src/addons/socialcontent/ideas-page.tsx": "38ccbdb2a0f8",
     "apps/web/src/addons/socialcontent/offer-notice.tsx": "bd18d03766c4",
@@ -817,9 +817,30 @@
       "by": "socialcontent_approve_week, on a Confirm card"
     },
     {
-      "path": "Phone → Calendar → Write a post (opens it once written)",
+      "path": "Phone → Calendar → Write a post (opens a sheet asking which networks and how first)",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:213",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:249",
+      "covered": "yes",
+      "by": "socialcontent_write_own_post (worker action) asks for the same: network or networks, and ask"
+    },
+    {
+      "path": "Phone → Calendar → Write a post → Which networks? (one or more; starts on the first with posts in the plan)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:418",
+      "covered": "yes",
+      "by": "socialcontent_write_own_post (networks)"
+    },
+    {
+      "path": "Phone → Calendar → Write a post → How should the AI write it? AI on its own / My direction, and What should the post be about?",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:433",
+      "covered": "yes",
+      "by": "socialcontent_write_own_post (ask, or none for the AI on its own)"
+    },
+    {
+      "path": "Phone → Calendar → Write a post → Write it / Write N posts (one post opens once written; several show on their days)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:457",
       "covered": "yes",
       "by": "socialcontent_write_own_post (worker action)"
     },
@@ -1097,9 +1118,30 @@
       "by": "socialcontent_approve_week, on a Confirm card"
     },
     {
-      "path": "Calendar → Write a post",
+      "path": "Calendar → Write a post (opens a window asking which networks and how first)",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:177",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:209",
+      "covered": "yes",
+      "by": "socialcontent_write_own_post (worker action) asks for the same: network or networks, and ask"
+    },
+    {
+      "path": "Calendar → Write a post → Which networks? (one or more; starts on the first with posts in the plan)",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:419",
+      "covered": "yes",
+      "by": "socialcontent_write_own_post (networks)"
+    },
+    {
+      "path": "Calendar → Write a post → How should the AI write it? AI on its own / My direction, and What should the post be about?",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:446",
+      "covered": "yes",
+      "by": "socialcontent_write_own_post (ask, or none for the AI on its own)"
+    },
+    {
+      "path": "Calendar → Write a post → Write it / Write N posts, or Cancel (one post opens once written; several show on their days)",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:484",
       "covered": "yes",
       "by": "socialcontent_write_own_post (worker action)"
     },
