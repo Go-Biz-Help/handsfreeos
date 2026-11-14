@@ -5,7 +5,7 @@
  * and demos, 20261027001200 for the extension on its own, 20261027001300 for the messages it sends,
  * 20261027001500 for live status: the computers, the day and the feed, and 20261027001600 for Waiting for you: the
  * steps it needs the person for, and the bundled push, 20261027001700 for asking the extension, 20261027002000 for
- * the fits among friends and chats, 20261027002100 for stages, 20261027002200 for checking and joining groups, 20261027002810 for countries, 20261027008400 for partners, 20261027009300 for finding partners by search, 20261027009800 for a code from the person's email, 20261027014100 for finding people by topic, 20261027021500 for counting what the extension does, and 20261027022500 for times to meet offered in the chat):
+ * the fits among friends and chats, 20261027002100 for stages, 20261027002200 for checking and joining groups, 20261027002810 for countries, 20261027008400 for partners, 20261027009300 for finding partners by search, 20261027009800 for a code from the person's email, 20261027014100 for finding people by topic, 20261027021500 for counting what the extension does, 20261027022500 for times to meet offered in the chat, and 20261027027300 for the comment research):
  * the Drizzle mirror its server code reads and writes through.
  * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
@@ -60,6 +60,7 @@ import type { ProfileTicks } from './readiness';
 import type { ListMark } from './lists';
 import type { PartnerFit, PartnerKind, PartnerSearchKind, PartnerStage } from './partners';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
+import type { CommentFindings, ResearchPlatform, ResearchState } from './comment-research';
 import type { LikeYoursState } from './like-yours';
 import type { OccasionKind } from './occasions';
 import type { FriendAnswer, FriendState, TidyKind } from './limits';
@@ -1847,12 +1848,74 @@ export const timeOffers = addonOutreach.table(
   ],
 );
 
+/**
+ * A comment research (./comment-research.ts, decision 166): HandsFreeOS's own, started by its staff. Who started it
+ * (only their browser reads for it), where it stands, the comments kept and left out, the hashtags read so far, and
+ * what it found. One at a time a business.
+ */
+export const commentResearch = addonOutreach.table(
+  'comment_research',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    platform: text('platform').notNull().default('instagram').$type<ResearchPlatform>(),
+    state: text('state').notNull().$type<ResearchState>(),
+    target: integer('target').notNull(),
+    days: integer('days').notNull(),
+    startedAt: ts('started_at').notNull(),
+    kept: integer('kept').notNull().default(0),
+    dropped: integer('dropped').notNull().default(0),
+    posts: integer('posts').notNull().default(0),
+    tags: text('tags')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    findings: jsonb('findings').$type<CommentFindings>(),
+    guide: text('guide'),
+    endedAt: ts('ended_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id)],
+);
+
+/**
+ * A comment a research kept: its words alone, the kind of post it was under, and under how many posts it was seen.
+ * Never who wrote it, the post or its address.
+ */
+export const commentSamples = addonOutreach.table(
+  'comment_samples',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    researchId: uuid('research_id').notNull(),
+    topic: text('topic').notNull(),
+    words: text('words').notNull(),
+    wordsKey: text('words_key').notNull(),
+    seen: integer('seen').notNull().default(1),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.researchId, t.wordsKey),
+    foreignKey({
+      columns: [t.workspaceId, t.researchId],
+      foreignColumns: [commentResearch.workspaceId, commentResearch.id],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   asks,
   automation,
   autopilotPeople,
   checks,
+  commentResearch,
+  commentSamples,
   computers,
   days,
   engagements,

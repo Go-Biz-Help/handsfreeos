@@ -8517,6 +8517,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.comment_research.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A hashtag’s posts the person’s computer read for the comment research they started, each with the comments it showed. Only a comment’s words are kept, with the kind of post: nobody’s name, no link, and nothing that reads like a bot’s or an advert’s. Once enough are kept, the AI sums up how they’re written.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.comment_research.changed.
+         */
+        post: operations["command_outreach_comment_research_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.comment_research.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * HandsFreeOS staff only: start a comment research. Over 3 days the browser of the person who starts it reads about 2,000 real comments under public Instagram posts of many kinds, a little at a time, keeping each comment’s words only (never who wrote it or the post) and leaving out ones that read like a bot’s. One at a time a business.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.comment_research.changed.
+         */
+        post: operations["command_outreach_comment_research_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.comment_research.stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * HandsFreeOS staff only: stop a comment research that is still reading. With 100 comments or more kept, the AI sums up what it has; with fewer, it is only stopped.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.comment_research.changed.
+         */
+        post: operations["command_outreach_comment_research_stop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.comment_research.use": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * HandsFreeOS staff only: put a finished comment research’s guide in every business’s Instagram comments (how real comments sound: their length, words and punctuation), in place of the guide in use; or take the guide in use out again.
+         * @description Risk level 2. Requires outreach.use. Emits outreach.comment_research.changed.
+         */
+        post: operations["command_outreach_comment_research_use"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.computer.remove": {
         parameters: {
             query?: never;
@@ -22131,6 +22211,46 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_checks_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.comment_research.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * HandsFreeOS staff only: the newest comment research run from this business (where it stands, how many real comments it kept and left out, and what it found), and the comment guide every business’s Instagram comments are written with now, if one is in use.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_comment_research_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.comment_research.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the person’s computer reads next for the comment research they started, if they started one: the next hashtags (none once today’s share of the comments is read, so it spreads over its days). Nothing for anyone who didn’t start one.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_comment_research_next"];
         delete?: never;
         options?: never;
         head?: never;
@@ -47453,6 +47573,303 @@ export interface operations {
                 content: {
                     "application/json": {
                         kept: number;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_comment_research_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    id: string;
+                    posts: {
+                        comments: string[];
+                        /** @default 0 */
+                        dropped?: number;
+                    }[];
+                    tag: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        dropped: number;
+                        kept: number;
+                        reading: boolean;
+                        total: number;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_comment_research_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        inUse: {
+                            comments: number;
+                            guide: string;
+                            /** @enum {string} */
+                            platform: "instagram";
+                            thisOne: boolean;
+                            usedAt: string;
+                        } | null;
+                        research: {
+                            days: number;
+                            dropped: number;
+                            endsAt: string;
+                            findings: {
+                                brochure: {
+                                    in: number;
+                                    word: string;
+                                }[];
+                                comments: number;
+                                copied: number;
+                                emoji: number;
+                                exclaim: number;
+                                fullStop: number;
+                                kinds: {
+                                    examples: string[];
+                                    how: string;
+                                    /** @enum {string} */
+                                    topic: "food" | "fitness" | "travel" | "pets" | "family" | "cars" | "sports" | "home" | "business" | "homes" | "style" | "outdoors" | "music" | "funny" | "big_days" | "community" | "trades";
+                                }[];
+                                lowerStart: number;
+                                medianWords: number;
+                                onlyEmoji: number;
+                                patterns: string[];
+                                question: number;
+                                said: {
+                                    seen: number;
+                                    words: string;
+                                }[];
+                                short: number;
+                                words: {
+                                    in: number;
+                                    word: string;
+                                }[];
+                            } | null;
+                            guide: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            kept: number;
+                            mine: boolean;
+                            /** @enum {string} */
+                            platform: "instagram";
+                            posts: number;
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "reading" | "summing" | "done" | "stopped";
+                            target: number;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_comment_research_stop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    id: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        inUse: {
+                            comments: number;
+                            guide: string;
+                            /** @enum {string} */
+                            platform: "instagram";
+                            thisOne: boolean;
+                            usedAt: string;
+                        } | null;
+                        research: {
+                            days: number;
+                            dropped: number;
+                            endsAt: string;
+                            findings: {
+                                brochure: {
+                                    in: number;
+                                    word: string;
+                                }[];
+                                comments: number;
+                                copied: number;
+                                emoji: number;
+                                exclaim: number;
+                                fullStop: number;
+                                kinds: {
+                                    examples: string[];
+                                    how: string;
+                                    /** @enum {string} */
+                                    topic: "food" | "fitness" | "travel" | "pets" | "family" | "cars" | "sports" | "home" | "business" | "homes" | "style" | "outdoors" | "music" | "funny" | "big_days" | "community" | "trades";
+                                }[];
+                                lowerStart: number;
+                                medianWords: number;
+                                onlyEmoji: number;
+                                patterns: string[];
+                                question: number;
+                                said: {
+                                    seen: number;
+                                    words: string;
+                                }[];
+                                short: number;
+                                words: {
+                                    in: number;
+                                    word: string;
+                                }[];
+                            } | null;
+                            guide: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            kept: number;
+                            mine: boolean;
+                            /** @enum {string} */
+                            platform: "instagram";
+                            posts: number;
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "reading" | "summing" | "done" | "stopped";
+                            target: number;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_comment_research_use: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    id: string;
+                    use: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        inUse: {
+                            comments: number;
+                            guide: string;
+                            /** @enum {string} */
+                            platform: "instagram";
+                            thisOne: boolean;
+                            usedAt: string;
+                        } | null;
+                        research: {
+                            days: number;
+                            dropped: number;
+                            endsAt: string;
+                            findings: {
+                                brochure: {
+                                    in: number;
+                                    word: string;
+                                }[];
+                                comments: number;
+                                copied: number;
+                                emoji: number;
+                                exclaim: number;
+                                fullStop: number;
+                                kinds: {
+                                    examples: string[];
+                                    how: string;
+                                    /** @enum {string} */
+                                    topic: "food" | "fitness" | "travel" | "pets" | "family" | "cars" | "sports" | "home" | "business" | "homes" | "style" | "outdoors" | "music" | "funny" | "big_days" | "community" | "trades";
+                                }[];
+                                lowerStart: number;
+                                medianWords: number;
+                                onlyEmoji: number;
+                                patterns: string[];
+                                question: number;
+                                said: {
+                                    seen: number;
+                                    words: string;
+                                }[];
+                                short: number;
+                                words: {
+                                    in: number;
+                                    word: string;
+                                }[];
+                            } | null;
+                            guide: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            kept: number;
+                            mine: boolean;
+                            /** @enum {string} */
+                            platform: "instagram";
+                            posts: number;
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "reading" | "summing" | "done" | "stopped";
+                            target: number;
+                        } | null;
                     };
                 };
             };
@@ -87313,6 +87730,131 @@ export interface operations {
                         }[];
                         perDay: number;
                         today: number;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_comment_research_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        inUse: {
+                            comments: number;
+                            guide: string;
+                            /** @enum {string} */
+                            platform: "instagram";
+                            thisOne: boolean;
+                            usedAt: string;
+                        } | null;
+                        research: {
+                            days: number;
+                            dropped: number;
+                            endsAt: string;
+                            findings: {
+                                brochure: {
+                                    in: number;
+                                    word: string;
+                                }[];
+                                comments: number;
+                                copied: number;
+                                emoji: number;
+                                exclaim: number;
+                                fullStop: number;
+                                kinds: {
+                                    examples: string[];
+                                    how: string;
+                                    /** @enum {string} */
+                                    topic: "food" | "fitness" | "travel" | "pets" | "family" | "cars" | "sports" | "home" | "business" | "homes" | "style" | "outdoors" | "music" | "funny" | "big_days" | "community" | "trades";
+                                }[];
+                                lowerStart: number;
+                                medianWords: number;
+                                onlyEmoji: number;
+                                patterns: string[];
+                                question: number;
+                                said: {
+                                    seen: number;
+                                    words: string;
+                                }[];
+                                short: number;
+                                words: {
+                                    in: number;
+                                    word: string;
+                                }[];
+                            } | null;
+                            guide: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            kept: number;
+                            mine: boolean;
+                            /** @enum {string} */
+                            platform: "instagram";
+                            posts: number;
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "reading" | "summing" | "done" | "stopped";
+                            target: number;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_comment_research_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default instagram
+                     * @enum {string}
+                     */
+                    platform?: "instagram";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        research: {
+                            /** Format: uuid */
+                            id: string;
+                            kept: number;
+                            postsEach: number;
+                            tags: string[];
+                            target: number;
+                        } | null;
                     };
                 };
             };

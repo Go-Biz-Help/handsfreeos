@@ -141,8 +141,8 @@ export const SCREEN_READS = [
 
 /**
  * What a screen loads that the Assistant never reads, and why: the panel's own history, signed-out pages and the
- * extension's, a download, what a screen shows while someone looks as another person, and steps of something only a
- * person does.
+ * extension's, a download, what a screen shows while someone looks as another person, steps of something only a
+ * person does, and HandsFreeOS's own comment research (decision 166 in docs/outreach.md).
  */
 export const NOT_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'assistant_thread.get': 'the panel’s own history, which it already has',
@@ -158,6 +158,8 @@ export const NOT_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
     'the free trial the plan page offers a new business, before it is set up and has an Assistant',
   'file.fingerprints': 'the upload box telling a file it already has',
   'outreach.lookup': 'what the browser extension reads off a network',
+  'outreach.comment_research.get':
+    'HandsFreeOS’s own study of how people comment, which its staff run from Social Outreach → Settings and no business does',
   'outreach.ticker':
     'the ticker’s light read of what the person’s computer is doing, which the Assistant reads through outreach_live',
   'form.response_export': 'a spreadsheet download',
