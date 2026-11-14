@@ -1891,6 +1891,34 @@ function scriptedTodayDraft(message: string) {
       ],
     };
   }
+  // What a comment is about (decision 165): the post's own first words.
+  const postSays = unquote(/<post>\n([\s\S]*?)\n<\/post>/.exec(message)?.[1] ?? '');
+  const about = postSays.split(/\s+/).slice(0, 4).join(' ');
+  // A warm-up's comment (decisions 161 and 165): one that names the post, beside one in a brochure's words for the check
+  // to drop. Under a post about what the person is still waiting on, one that makes the owner one of them, which stays
+  // only when About you says so. Words that lean on a video get filler with nothing pointed at: no comment at all.
+  if (message.includes('No comment is better than one a bot could have left.')) {
+    if (/it be like that/i.test(postSays))
+      return {
+        simple: false,
+        answer: 'none',
+        about: '',
+        drafts: ['That caption got me, so real'],
+      };
+    if (/still waiting/i.test(postSays))
+      return {
+        simple: false,
+        answer: 'none',
+        about,
+        drafts: ['Still waiting on mine too, same', `Day five and nothing, ${first}?`],
+      };
+    return {
+      simple: false,
+      answer: 'none',
+      about,
+      drafts: [`Congrats on this, ${first}, big step!`, 'What a charming spot!'],
+    };
+  }
   // A reply to a question in one of the owner's groups (decision 114): answers it; one with a link, for the checks to
   // drop.
   if (
@@ -2033,6 +2061,7 @@ function scriptedTodayDraft(message: string) {
     simple: theirs !== '' && !theirs.includes('?'),
     answer,
     unanswered: '',
+    about,
     drafts: [
       `Hi ${first}, thanks for adding me! How’s business going?`,
       `Hey ${first}, good to connect. What keeps you busiest these days?`,

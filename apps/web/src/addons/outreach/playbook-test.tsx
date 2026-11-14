@@ -8,14 +8,25 @@
  * playbook as it's handed in: the saved one from the Playbooks page, or what's on screen in the builder, saved or not.
  * Nothing is sent or kept. The moves, their words and the quick replies are core's
  * (packages/core/src/addons/outreach/playbook-test.ts), shared with the phone.
+ *
+ * **Try a comment** (decision 165) sits under the chat: paste what a post says, or tap an example, and see the comment
+ * that would wait for an OK under it, or that there'd be none.
  */
-import { MESSAGE_PLATFORMS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import {
+  MESSAGE_PLATFORMS,
+  PLATFORM_KEYS,
+  PLATFORMS,
+  type Platform,
+} from '@hfos/core/addons/outreach/networks';
+import {
+  TEST_COMMENT_KEYS,
+  TEST_COMMENTS,
   TEST_KNOWN,
   TEST_KNOWN_KEYS,
   TEST_LIMITS,
   TEST_PERSONA_KEYS,
   TEST_PERSONAS,
+  TEST_POSTS,
   TEST_QUICK,
   TEST_START,
   TEST_WORDS as T,
@@ -24,14 +35,15 @@ import {
   testFull,
   testLinesAfter,
   type PlaybookTestOutput,
+  type TestChatMove,
+  type TestComment,
   type TestKnown,
   type TestLine,
   type TestMessage,
-  type TestMove,
   type TestPersona,
   type TestState,
 } from '@hfos/core/addons/outreach/playbook-test';
-import { Bot, FlaskConical, Loader2, MoonStar, RotateCcw, Send } from 'lucide-react';
+import { Bot, FlaskConical, Loader2, MessageCircle, MoonStar, RotateCcw, Send } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
@@ -80,7 +92,7 @@ export function PlaybookTest({
   const [chat, setChat] = useState<TestMessage[]>([]);
   const [lines, setLines] = useState<TestLine[]>([]);
   const [state, setState] = useState<TestState>(TEST_START);
-  const [busy, setBusy] = useState<TestMove | null>(null);
+  const [busy, setBusy] = useState<TestChatMove | null>(null);
   const [reply, setReply] = useState('');
   const [persona, setPersona] = useState<TestPersona>('interested');
   const [shown, setShown] = useState<number | null>(null);
@@ -100,7 +112,7 @@ export function PlaybookTest({
     setShown(null);
   };
 
-  const move = async (kind: TestMove, text = '') => {
+  const move = async (kind: TestChatMove, text = '') => {
     if (busy) return;
     setBusy(kind);
     const fresh = kind === 'start';
@@ -411,8 +423,205 @@ export function PlaybookTest({
               </fieldset>
             )
           ) : null}
+
+          <CommentTest
+            workspaceId={workspaceId}
+            playbookId={playbookId}
+            name={name}
+            details={details}
+            platforms={platforms}
+            person={person}
+          />
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+/**
+ * Try a comment (decision 165): what a post says, pasted or picked from the examples, the kind of comment and the
+ * network, then the comment that would wait for an OK under it, with the post's own words it is about. A post that
+ * gives the AI nothing real to say gets none, and the console says so. It's written to the made-up person above, or
+ * to a stand-in when they have no name yet.
+ */
+function CommentTest({
+  workspaceId,
+  playbookId,
+  name,
+  details,
+  platforms,
+  person,
+}: Pick<PlaybookTestProps, 'workspaceId' | 'playbookId' | 'name' | 'details' | 'platforms'> & {
+  person: { name: string; platform: Platform; business: string; page: string; known: TestKnown };
+}) {
+  const networks = PLATFORM_KEYS.filter((p) => platforms.includes(p));
+  const [post, setPost] = useState('');
+  const [kind, setKind] = useState<TestComment>('warm');
+  const [network, setNetwork] = useState<Platform>(
+    networks.includes('instagram') ? 'instagram' : (networks[0] ?? 'instagram'),
+  );
+  const [busy, setBusy] = useState(false);
+  const [out, setOut] = useState<PlaybookTestOutput | null>(null);
+  const [others, setOthers] = useState(false);
+
+  const go = async () => {
+    if (busy || !post.trim()) return;
+    setBusy(true);
+    try {
+      setOut(
+        await workerPost<PlaybookTestOutput>('/v1/addons/outreach/actions/outreach.playbook.test', {
+          workspaceId,
+          input: {
+            playbookId,
+            name,
+            ...(details !== undefined ? { details } : {}),
+            person: {
+              ...person,
+              name: person.name.trim() || T.comment.person,
+              platform: network,
+            },
+            move: 'comment',
+            post: post.trim(),
+            comment: kind,
+          },
+        }),
+      );
+      setOthers(false);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <fieldset
+      className="space-y-3 border-t border-border pt-4"
+      disabled={busy}
+      data-testid="playbook-test-comment"
+    >
+      <legend className="sr-only">{T.comment.title}</legend>
+      <div>
+        <h3 className="text-[13px] font-semibold">{T.comment.title}</h3>
+        <p className="mt-0.5 text-[12.5px] text-text-3">{T.comment.blurb}</p>
+      </div>
+      <Field label={T.comment.post} htmlFor="pt-post">
+        <Textarea
+          id="pt-post"
+          rows={3}
+          className="min-h-[72px]"
+          value={post}
+          maxLength={TEST_LIMITS.post}
+          placeholder={T.comment.postPlaceholder}
+          onChange={(e) => setPost(e.target.value)}
+          data-testid="playbook-test-post"
+        />
+      </Field>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-[12.5px] text-text-3">{T.comment.examples}</span>
+        {TEST_POSTS.map((p) => (
+          <Button
+            key={p.key}
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setPost(p.text);
+              setKind(p.comment);
+              setOut(null);
+            }}
+            data-testid={`playbook-test-post-${p.key}`}
+          >
+            {p.label}
+          </Button>
+        ))}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label={T.comment.kind} htmlFor="pt-comment-kind" hint={TEST_COMMENTS[kind].hint}>
+          <Select
+            id="pt-comment-kind"
+            value={kind}
+            onChange={(e) => setKind(e.target.value as TestComment)}
+          >
+            {TEST_COMMENT_KEYS.map((k) => (
+              <option key={k} value={k}>
+                {TEST_COMMENTS[k].label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label={T.comment.network} htmlFor="pt-comment-network">
+          <Select
+            id="pt-comment-network"
+            value={network}
+            onChange={(e) => setNetwork(e.target.value as Platform)}
+          >
+            {(networks.length ? networks : PLATFORM_KEYS).map((p) => (
+              <option key={p} value={p}>
+                {PLATFORMS[p]}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </div>
+      <Button
+        variant="secondary"
+        onClick={() => void go()}
+        loading={busy}
+        disabled={!post.trim()}
+        data-testid="playbook-test-comment-go"
+      >
+        <MessageCircle className="h-4 w-4" />
+        {busy ? T.comment.writing : T.comment.go}
+      </Button>
+
+      {out ? (
+        <div
+          className="space-y-2.5 rounded-card border border-border bg-card-2 p-3"
+          aria-live="polite"
+          data-testid="playbook-test-comment-result"
+        >
+          {out.message ? (
+            <div className="flex flex-col items-end">
+              <span className="mb-0.5 text-[11.5px] font-medium text-text-3">{out.label}</span>
+              <div
+                className="max-w-[92%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-accent px-3 py-2 text-[14px] text-white"
+                data-testid="playbook-test-comment-text"
+              >
+                {out.message}
+              </div>
+              {out.about ? (
+                <p className="mt-1 max-w-[92%] text-right text-[12px] text-text-3">
+                  {T.comment.about}: “{out.about}”
+                </p>
+              ) : null}
+              {out.others.length ? (
+                <button
+                  type="button"
+                  className="mt-1 text-[12px] text-accent-text hover:underline"
+                  onClick={() => setOthers((o) => !o)}
+                >
+                  {others ? T.hideOthers : T.others}
+                </button>
+              ) : null}
+              {others
+                ? out.others.map((o) => (
+                    <div
+                      key={o}
+                      className="mt-1 max-w-[92%] whitespace-pre-wrap rounded-2xl border border-border bg-card px-3 py-2 text-[13.5px] text-text-2"
+                    >
+                      {o}
+                    </div>
+                  ))
+                : null}
+            </div>
+          ) : null}
+          {out.note ? <Callout tone="neutral">{out.note}</Callout> : null}
+          <p className="text-[12.5px] text-text-2">{T.comment.aboutYou(out.aboutYou)}</p>
+          <p className="rounded-control bg-card px-3 py-2 text-[13px] text-text-2">
+            <span className="font-medium text-text">{T.next}:</span> {out.next}
+          </p>
+        </div>
+      ) : null}
+    </fieldset>
   );
 }

@@ -20,7 +20,7 @@ import {
   testEnv,
   type TestUser,
 } from '@hfos/db/testing';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { outreachBusiness } from '../../../packages/core/test/addons/outreach-fixture';
@@ -286,6 +286,54 @@ describe('drafts for Today', () => {
     expect(res.json().drafts).toHaveLength(2);
     expect((await draft(owner, { kind: 'comment' })).statusCode).toBe(404);
     expect((await draft(member, { kind: 'comment', postId })).statusCode).toBe(404);
+  });
+
+  it('writes a warm-up’s comment about the post, or none: never a brochure’s words, filler, or the owner as one of them (decision 165)', async () => {
+    let n = 0;
+    const warm = async (body: string) => {
+      const [po] = await testDbs()
+        .admin.db.insert(posts)
+        .values({
+          workspaceId: ws,
+          userId: owner.id,
+          profileId,
+          url: `https://www.facebook.com/dana.reyes/posts/20000${++n}/`,
+          body,
+          found: 'scroll',
+          checkState: 'good',
+          seenAt: new Date(),
+          warmUp: true,
+        })
+        .returning({ id: posts.id });
+      const res = await draft(owner, { kind: 'comment', postId: po!.id });
+      expect(res.statusCode, res.body).toBe(200);
+      return res.json().drafts as string[];
+    };
+    // A win: the comment that names it stays, and the one in a brochure's words goes.
+    expect(await warm('Just got the keys to our second shop on Main Street!')).toEqual([
+      'Congrats on this, Dana, big step!',
+    ]);
+    // Their own heritage: the owner has said nothing of themselves, so "same" goes and the playful one stays.
+    const heritage =
+      'Day 5 of Hispanic Heritage Month and I’m still waiting on my gifts. Somebody tell my family.';
+    expect(await warm(heritage)).toEqual(['Day five and nothing, Dana?']);
+    // Once they've said so of themselves in About you, speaking as one of them stays. A teammate's is their own.
+    await testDbs().admin.db.execute(
+      sql`insert into app.user_about (user_id, about) values (${member.id}, 'I’m Mexican-American.')`,
+    );
+    expect(await warm(heritage.replace('Day 5', 'Day 6'))).toEqual(['Day five and nothing, Dana?']);
+    await testDbs().admin.db.execute(
+      sql`insert into app.user_about (user_id, about) values (${owner.id}, 'I’m Mexican-American, from San Antonio.')`,
+    );
+    expect(await warm(heritage.replace('Day 5', 'Day 7'))).toEqual([
+      'Still waiting on mine too, same',
+      'Day five and nothing, Dana?',
+    ]);
+    await testDbs().admin.db.execute(
+      sql`delete from app.user_about where user_id in (${owner.id}, ${member.id})`,
+    );
+    // A caption that leans on its video gives nothing real to say: no comment, rather than one a bot could have left.
+    expect(await warm('It be like that')).toEqual([]);
   });
 
   it('drafts a reply to a question kept in a group, never with a link (decision 114)', async () => {

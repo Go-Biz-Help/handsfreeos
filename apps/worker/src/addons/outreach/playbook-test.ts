@@ -6,6 +6,10 @@
  * open times on the playbook's booking page and its videos, in the person's own voice. So what it shows is what would
  * go out.
  *
+ * **Try a comment** (decision 165) is the `comment` move: the comment that would wait under a post whose words are
+ * handed in, a warm-up's or an expert's, written and checked as a real one (`writeDrafts` and core's `realComments`),
+ * with About you as the person saved it. A post that gives it nothing real to say gets none, and says so.
+ *
  * Nothing is sent, queued, booked or kept: no answer is noted, no opener is counted, no times are held. The console
  * keeps the chat and where it is, and sends them with each move. It counts against the business's daily AI limit
  * like any other use.
@@ -14,14 +18,17 @@ import { messageNotesOf, ownWordsFor, type Answer } from '@hfos/core/addons/outr
 import { outreachSettings } from '@hfos/core/addons/outreach/chat-read';
 import type { DownloadMessage } from '@hfos/core/addons/outreach/download';
 import { contactIn, isTimeKind, openTimeOf } from '@hfos/core/addons/outreach/meeting-times';
+import { aboutOwnerFor } from '@hfos/core/addons/outreach/ops/about-owner';
 import { voiceFor } from '@hfos/core/addons/outreach/ops/automation';
 import { FOR_CUSTOMERS } from '@hfos/core/addons/outreach/ops/common';
 import {
   checkedPlay,
   PlaybookTestInput,
+  TEST_COMMENTS,
   TEST_PLAY_SCHEMA,
   TEST_PLAY_SYSTEM,
   TEST_READ,
+  TEST_START,
   TEST_WORDS,
   testAnswered,
   testDeclined,
@@ -76,7 +83,7 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
   ai: {
     tool: 'outreach_test_playbook',
     description:
-      'Test a Social Outreach playbook on someone made up, as the playbook’s Test it does: give a person (name, network, what they do, what their page says, how the owner knows them) and a move, and get the message that would go to them, what the AI read in their reply, and what happens next. Moves: start (the first message, or Reconnect for someone talked with a while ago), reply (with text: what they write back), quiet (the next follow-up or check-in), play (the AI writes their reply as interested, skeptical, busy or not_interested, then answers it). Pass back the chat so far and the state from the last move. Give playbookId for a saved playbook, or details to test changes not saved yet. Nothing is sent, booked or saved.',
+      'Test a Social Outreach playbook on someone made up, as the playbook’s Test it does: give a person (name, network, what they do, what their page says, how the owner knows them) and a move, and get the message that would go to them, what the AI read in their reply, and what happens next. Moves: start (the first message, or Reconnect for someone talked with a while ago), reply (with text: what they write back), quiet (the next follow-up or check-in), play (the AI writes their reply as interested, skeptical, busy or not_interested, then answers it). Pass back the chat so far and the state from the last move. Try a comment is the move comment: give post (what a post says, its caption) and comment (warm for a warm-up’s short reaction, expert for a take from the owner’s field), and get the comment that would wait for an OK under it, the post’s words it is about, or a note that there would be none; it uses About you as the person saved it. Give playbookId for a saved playbook, or details to test changes not saved yet. Nothing is sent, booked or saved.',
     autonomy: 'auto',
     keywords: [
       'test playbook',
@@ -84,6 +91,8 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
       'what would it send',
       'try a first message',
       'how would the conversation go',
+      'try a comment',
+      'what would it comment',
     ],
   },
   input: PlaybookTestInput,
@@ -124,6 +133,8 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
         library: installed ? outreachSettings(installed.settings).videos : undefined,
         notes: messageNotesOf(said?.message_notes),
         voice: await voiceFor(tx, ws, ctx.userId),
+        // About you (decision 165), as their real messages are written with it.
+        aboutOwner: await aboutOwnerFor(tx, ctx.userId),
       };
     });
     // The playbook as it is on screen, else the saved one, else the first in use.
@@ -230,6 +241,7 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
           platform: person.platform,
           told: {
             business: found.business?.name ?? 'the business',
+            aboutOwner: found.aboutOwner,
             name,
             facts: lines.facts,
             lookup: lines.lookup,
@@ -287,7 +299,40 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
         next: testNext(o.state, pace),
         unanswered: o.unanswered ?? null,
         state: o.state,
+        about: null,
+        aboutYou: !!found.aboutOwner,
       });
+
+      // Try a comment (decision 165): the comment that would wait under a post with these words, written and checked as
+      // a real one. It stands apart from the chat, so nothing of the chat is told and where the chat is stays as it was.
+      if (input.move === 'comment') {
+        const warm = input.comment === 'warm';
+        const base = await baseFor({ state: TEST_START, gapDays: 0, times: false });
+        const made = await writeDrafts(
+          ctx,
+          {
+            ...base,
+            told: {
+              ...base.told,
+              recent: [],
+              conversation: null,
+              post: { text: input.post, group: null, warm, said: [], asking: false },
+              // What the business knows that the post's words match (decision 122), as a real comment is told.
+              knows: await businessKnows(ctx, [input.post]),
+              declined: null,
+              videos: null,
+            },
+          },
+          'comment',
+        );
+        return {
+          ...out({ kind: 'comment', drafts: made.drafts, state: input.state }),
+          label: made.drafts.length ? TEST_COMMENTS[input.comment].label : null,
+          note: made.drafts.length ? null : TEST_WORDS.comment.none,
+          next: TEST_WORDS.comment.next,
+          about: made.drafts.length ? made.value.about.trim() || null : null,
+        };
+      }
 
       if (input.move === 'start' || input.move === 'quiet') {
         const step = testMove(input.move, input.state, person, pace);

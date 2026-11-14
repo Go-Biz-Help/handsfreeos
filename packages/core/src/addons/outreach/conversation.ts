@@ -21,6 +21,7 @@
  */
 import { z } from 'zod';
 import { quoteData as quote } from '../../knowledge/prompt';
+import { OWNER_LIFE_UNKNOWN } from './about-owner';
 import type { Pace } from './playbooks';
 import { PROFILE_NOTE_MOST } from './profile-check';
 import { asHow, asMessage, FOLLOW_SCRIPT, SCRIPT_LIMITS, type FullScript } from './script';
@@ -455,6 +456,7 @@ export const MESSAGE_SAMPLES_SYSTEM = [
   'You write sample Facebook messages a small business owner will send in their own outreach, so they can see how their messages read before any go out.',
   'Write as the owner, in the first person, to a made-up person who fits the playbook’s niche: friendly, short, no hype, no pressure.',
   PLAIN_WRITING,
+  OWNER_LIFE_UNKNOWN,
   BUSINESS_NAMES,
   'Use the offer’s outcome as it is, and leave its guarantee out, even where the offer’s line has one. Never promise more, never invent a result, and never say the price.',
   'Where a link goes, write [video link] or [booking link] exactly: the real ones go in when the messages are sent.',
@@ -687,6 +689,7 @@ export const MESSAGE_REWRITE_SYSTEM = [
   'You write one Facebook message again for a small business owner’s own outreach, so it reads the way they want before any go out.',
   'Write as the owner, in the first person, to a made-up person who fits the playbook’s niche: friendly, short, no hype, no pressure.',
   PLAIN_WRITING,
+  OWNER_LIFE_UNKNOWN,
   BUSINESS_NAMES,
   'Use the offer’s outcome as it is, and leave its guarantee out, even where the offer’s line has one. Never promise more, never invent a result, and never say the price.',
   'Where a link goes, write [video link] or [booking link] exactly: the real ones go in when the messages are sent.',

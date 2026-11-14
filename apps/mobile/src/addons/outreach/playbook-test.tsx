@@ -1,10 +1,18 @@
-import { MESSAGE_PLATFORMS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import {
+  MESSAGE_PLATFORMS,
+  PLATFORM_KEYS,
+  PLATFORMS,
+  type Platform,
+} from '@hfos/core/addons/outreach/networks';
+import {
+  TEST_COMMENT_KEYS,
+  TEST_COMMENTS,
   TEST_KNOWN,
   TEST_KNOWN_KEYS,
   TEST_LIMITS,
   TEST_PERSONA_KEYS,
   TEST_PERSONAS,
+  TEST_POSTS,
   TEST_QUICK,
   TEST_START,
   TEST_WORDS as T,
@@ -14,17 +22,18 @@ import {
   testLinesAfter,
   type PlaybookTestInput,
   type PlaybookTestOutput,
+  type TestChatMove,
+  type TestComment,
   type TestKnown,
   type TestLine,
   type TestMessage,
-  type TestMove,
   type TestPersona,
   type TestState,
 } from '@hfos/core/addons/outreach/playbook-test';
 import * as React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
-import { Bot, FlaskConical, Moon, RotateCcw, Send } from '@/components/icons';
+import { Bot, FlaskConical, MessageCircle, Moon, RotateCcw, Send } from '@/components/icons';
 import { useKeyboardHeight } from '@/components/shell/keyboard';
 import { Button } from '@/components/ui/button';
 import { FilterChip } from '@/components/ui/filter-chip';
@@ -46,6 +55,9 @@ import { Note } from './kit';
  * The worker writes each message with the same writer Today's drafts use (`outreach.playbook.test`), from the saved
  * playbook. Nothing is sent or kept, and it needs signal. The moves, their words and what a move adds to the chat are
  * core's (packages/core/src/addons/outreach/playbook-test.ts).
+ *
+ * **Try a comment** (decision 165) sits under the chat: what a post says, typed or picked from the examples, then the
+ * comment that would wait for an OK under it, or that there'd be none.
  */
 
 /** Asks the worker for a move: what would go, or throws with why not. */
@@ -83,7 +95,7 @@ export function PlaybookTestSheet({
   const [chat, setChat] = React.useState<TestMessage[]>([]);
   const [lines, setLines] = React.useState<TestLine[]>([]);
   const [state, setState] = React.useState<TestState>(TEST_START);
-  const [busy, setBusy] = React.useState<TestMove | null>(null);
+  const [busy, setBusy] = React.useState<TestChatMove | null>(null);
   const [reply, setReply] = React.useState('');
   const [persona, setPersona] = React.useState<TestPersona>('interested');
   const [shown, setShown] = React.useState<number | null>(null);
@@ -100,7 +112,7 @@ export function PlaybookTestSheet({
     setShown(null);
   };
 
-  const move = async (kind: TestMove, text = '') => {
+  const move = async (kind: TestChatMove, text = '') => {
     if (busy) return;
     setBusy(kind);
     const fresh = kind === 'start';
@@ -400,8 +412,207 @@ export function PlaybookTestSheet({
             </View>
           )
         ) : null}
+
+        <CommentTest
+          playbookId={playbookId}
+          name={name}
+          platforms={platforms}
+          person={person}
+          onAsk={onAsk}
+        />
       </View>
     </Sheet>
+  );
+}
+
+/**
+ * Try a comment (decision 165), as the web has it: what a post says, the kind of comment and the network, then the
+ * comment that would wait for an OK under it with the post's own words it is about. A post that gives the AI nothing
+ * real to say gets none, and the console says so. It's written to the made-up person above, or to a stand-in when
+ * they have no name yet.
+ */
+function CommentTest({
+  playbookId,
+  name,
+  platforms,
+  person,
+  onAsk,
+}: {
+  playbookId: string;
+  name: string;
+  platforms: readonly Platform[];
+  person: { name: string; platform: Platform; business: string; page: string; known: TestKnown };
+  onAsk: AskTest;
+}) {
+  const on = PLATFORM_KEYS.filter((p) => platforms.includes(p));
+  const networks = on.length ? on : PLATFORM_KEYS;
+  const [post, setPost] = React.useState('');
+  const [kind, setKind] = React.useState<TestComment>('warm');
+  const [network, setNetwork] = React.useState<Platform>(
+    networks.includes('instagram') ? 'instagram' : networks[0]!,
+  );
+  const [busy, setBusy] = React.useState(false);
+  const [out, setOut] = React.useState<PlaybookTestOutput | null>(null);
+  const [others, setOthers] = React.useState(false);
+
+  const go = async () => {
+    if (busy || !post.trim()) return;
+    setBusy(true);
+    try {
+      setOut(
+        await onAsk({
+          playbookId,
+          name,
+          person: { ...person, name: person.name.trim() || T.comment.person, platform: network },
+          move: 'comment',
+          post: post.trim(),
+          comment: kind,
+        }),
+      );
+      setOthers(false);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <View className="gap-3 border-t border-border pt-4" testID="playbook-test-comment">
+      <View className="gap-0.5">
+        <Text className="text-[14px] font-semibold">{T.comment.title}</Text>
+        <Text className="text-[12.5px] leading-[18px] text-text-3">{T.comment.blurb}</Text>
+      </View>
+      <Input
+        value={post}
+        multiline
+        maxLength={TEST_LIMITS.post}
+        placeholder={`${T.comment.post}. ${T.comment.postPlaceholder}`}
+        accessibilityLabel={T.comment.post}
+        editable={!busy}
+        onChangeText={setPost}
+        className="h-24 py-3"
+        testID="playbook-test-post"
+      />
+      <View className="gap-1.5">
+        <Text className="text-[13px] font-medium text-text-2">{T.comment.examples}</Text>
+        <View className="flex-row flex-wrap gap-1.5">
+          {TEST_POSTS.map((p) => (
+            <Button
+              key={p.key}
+              size="sm"
+              variant="secondary"
+              disabled={busy}
+              onPress={() => {
+                setPost(p.text);
+                setKind(p.comment);
+                setOut(null);
+              }}
+              testID={`playbook-test-post-${p.key}`}
+            >
+              {p.label}
+            </Button>
+          ))}
+        </View>
+      </View>
+      <Chips
+        label={T.comment.kind}
+        options={TEST_COMMENT_KEYS.map((k) => ({ value: k, label: TEST_COMMENTS[k].label }))}
+        value={kind}
+        onChange={setKind}
+        disabled={busy}
+        testID="playbook-test-comment-kind"
+      />
+      <Text className="-mt-1.5 text-[12.5px] leading-[18px] text-text-3">
+        {TEST_COMMENTS[kind].hint}
+      </Text>
+      {networks.length > 1 ? (
+        <Chips
+          label={T.comment.network}
+          options={networks.map((p) => ({ value: p, label: PLATFORMS[p] }))}
+          value={network}
+          onChange={setNetwork}
+          disabled={busy}
+          testID="playbook-test-comment-network"
+        />
+      ) : null}
+      <Button
+        variant="secondary"
+        icon={MessageCircle}
+        className="self-start"
+        loading={busy}
+        disabled={!post.trim() || busy}
+        onPress={() => void go()}
+        testID="playbook-test-comment-go"
+      >
+        {busy ? T.comment.writing : T.comment.go}
+      </Button>
+
+      {out ? (
+        <View
+          className="gap-2.5 rounded-md border border-border bg-card-2 px-3 py-3"
+          accessibilityLiveRegion="polite"
+          testID="playbook-test-comment-result"
+        >
+          {out.message ? (
+            <View className="items-end gap-0.5">
+              <Text className="text-[11.5px] font-medium text-text-3">{out.label}</Text>
+              <View className="max-w-[92%] rounded-[16px] rounded-br-[5px] bg-accent px-3 py-2">
+                <Text
+                  className="text-[14px] leading-[20px] text-white"
+                  testID="playbook-test-comment-text"
+                >
+                  {out.message}
+                </Text>
+              </View>
+              {out.about ? (
+                <Text
+                  className="max-w-[92%] text-right text-[12px] leading-[17px] text-text-3"
+                  testID="playbook-test-comment-about"
+                >
+                  {`${T.comment.about}: “${out.about}”`}
+                </Text>
+              ) : null}
+              {out.others.length ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onPress={() => setOthers((o) => !o)}
+                  testID="playbook-test-comment-others"
+                >
+                  {others ? T.hideOthers : T.others}
+                </Button>
+              ) : null}
+              {others
+                ? out.others.map((o) => (
+                    <View
+                      key={o}
+                      className="max-w-[92%] rounded-[16px] border border-border bg-card px-3 py-2"
+                    >
+                      <Text className="text-[13.5px] leading-[19px] text-text-2">{o}</Text>
+                    </View>
+                  ))
+                : null}
+            </View>
+          ) : null}
+          {out.note ? (
+            <Text
+              className="rounded-menu bg-card px-3 py-2 text-[13px] leading-[18px] text-text-2"
+              testID="playbook-test-comment-note"
+            >
+              {out.note}
+            </Text>
+          ) : null}
+          <Text className="text-[12.5px] leading-[18px] text-text-2">
+            {T.comment.aboutYou(out.aboutYou)}
+          </Text>
+          <Text className="rounded-menu bg-card px-3 py-2 text-[13px] leading-[18px] text-text-2">
+            <Text className="text-[13px] font-medium text-text">{`${T.next}: `}</Text>
+            {out.next}
+          </Text>
+        </View>
+      ) : null}
+    </View>
   );
 }
 

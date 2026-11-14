@@ -24,6 +24,8 @@ import {
   membershipRemove,
   organizationCreate,
   registry,
+  userAboutGet,
+  userAboutSet,
   userUpdateProfile,
   workspaceCreate,
   workspaceGet,
@@ -235,6 +237,7 @@ describe('registry', () => {
       'user_phone.start_verification',
       'user_phone.record_call',
       'user_phone.verify',
+      'user_about.set',
       'email_domain.add',
       'email_domain.verify',
       'email_domain.remove',
@@ -999,6 +1002,7 @@ describe('registry', () => {
       'notification.list',
       'extension_sign_in.pending',
       'user_phone.get',
+      'user_about.get',
       'workspace.get',
       'workspace.members',
       'permission.settings',
@@ -1576,6 +1580,59 @@ describe('account and reads', () => {
     expect(profile.organizations.map((o) => o.role)).toEqual(['owner']);
     expect(profile.workspaces.find((w) => w.id === wsId)?.role).toBe('owner');
     await expectHfos(() => run(userUpdateProfile, {}, owner), 'validation');
+  });
+
+  it('About you is the person’s own words: saved whole, read by them alone, and its event never says what it holds', async () => {
+    expect(await ask(userAboutGet, {}, admin)).toEqual({ about: '', updatedAt: null });
+    const corr = randomUUID();
+    const mine = 'I grew up in Greenville. Married with two boys.';
+    const set = await run(userAboutSet, { about: `  ${mine}  ` }, admin, meta(corr));
+    expect(set.output).toEqual({ filled: true, changed: true });
+    const got = await ask(userAboutGet, {}, admin);
+    expect(got.about).toBe(mine);
+    expect(got.updatedAt).not.toBeNull();
+    // Nobody else's read has it: each person's is their own.
+    expect((await ask(userAboutGet, {}, owner)).about).toBe('');
+    // That it changed is on the record, and none of its words are.
+    const [ev] = await testDbs()
+      .admin.db.select()
+      .from(events)
+      .where(eq(events.correlationId, corr));
+    expect(ev).toMatchObject({
+      eventType: 'user.about_updated',
+      organizationId: null,
+      workspaceId: null,
+      actorId: admin.id,
+      entityId: admin.id,
+    });
+    expect(ev!.payload).toMatchObject({ filled: true });
+    const [audit] = await testDbs()
+      .admin.db.select()
+      .from(auditLogs)
+      .where(eq(auditLogs.correlationId, corr));
+    expect(audit).toMatchObject({ action: 'user_about.set', before: null, after: null });
+    expect(JSON.stringify([ev, audit])).not.toContain('Greenville');
+    // The same words again change nothing, and say nothing.
+    const again = randomUUID();
+    expect((await run(userAboutSet, { about: mine }, admin, meta(again))).output).toEqual({
+      filled: true,
+      changed: false,
+    });
+    expect(
+      await testDbs().admin.db.select().from(events).where(eq(events.correlationId, again)),
+    ).toHaveLength(0);
+    // Too long is refused, saying how long it may be.
+    const long = await expectHfos(
+      () => run(userAboutSet, { about: 'x'.repeat(2001) }, admin),
+      'validation',
+    );
+    expect(JSON.stringify(long.details)).toContain('Keep it under 2,000 characters.');
+    // Empty clears it.
+    expect((await run(userAboutSet, { about: '   ' }, admin)).output).toEqual({
+      filled: false,
+      changed: true,
+    });
+    expect(await ask(userAboutGet, {}, admin)).toEqual({ about: '', updatedAt: null });
   });
 
   it('workspace.get and audit.list respect permissions and paginate', async () => {

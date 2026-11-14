@@ -59,6 +59,7 @@ import {
   type Opener,
   type OpenerKind,
 } from '@hfos/core/addons/outreach/openers';
+import { aboutOwnerFor } from '@hfos/core/addons/outreach/ops/about-owner';
 import { voiceFor } from '@hfos/core/addons/outreach/ops/automation';
 import { answerNote } from '@hfos/core/addons/outreach/ops/conversation';
 import {
@@ -95,6 +96,7 @@ import {
   type DraftOffer,
   type TodayDraftOutput,
 } from '@hfos/core/addons/outreach/today';
+import { realComments } from '@hfos/core/addons/outreach/comment-says';
 import { contactIn, isTimeKind, openTimeOf } from '@hfos/core/addons/outreach/meeting-times';
 import { executeCommand, HfosError, listsOf, MainOfferParts } from '@hfos/core/server';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
@@ -378,6 +380,8 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         playbooks,
         check,
         voice: await voiceFor(tx, ws, ctx.userId),
+        // What they said of themselves on Settings → Account (About you, decision 165): all the AI knows of them.
+        aboutOwner: await aboutOwnerFor(tx, ctx.userId),
         lastAt: last?.at ?? null,
         conversation: conversation ?? null,
         lost: lost ?? null,
@@ -555,6 +559,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       platform,
       told: {
         business: found.business?.name ?? 'the business',
+        aboutOwner: found.aboutOwner,
         name,
         facts: toldFacts,
         recent,
@@ -761,6 +766,18 @@ export async function writeDrafts(
     return writeDrafts(ctx, base, kind, [
       ...new Set(checked.flatMap((d) => groupNamesIn(d, base.groupNames))),
     ]);
+  // A comment says something real about the post, in the words people type, and never puts the owner in the other
+  // person's group when the owner hasn't said so of themselves (decision 165): one that doesn't goes, and with none
+  // left there's no comment.
+  const realCommentsOn = (drafts: string[]) =>
+    told.post
+      ? realComments(drafts, {
+          post: told.post.text,
+          about: value.about,
+          warm,
+          aboutOwner: told.aboutOwner,
+        })
+      : drafts;
   // To their Requests: only one short text with no link goes. A comment opens with no stock praise (decision 141:
   // a "Great post!" before its point goes), and one that waits to be posted (Instagram's and Alignable's, decision
   // 92) never carries a link, and on Instagram no hashtag, within its 30 words; nor does a birthday or new-job note
@@ -769,10 +786,12 @@ export async function writeDrafts(
     toRequests && kind === 'opener'
       ? quiet.filter(fitsRequests)
       : kind === 'comment'
-        ? quiet.flatMap((d) => {
-            const said = withoutStockPraise(d);
-            return said && fitsComment(said, platform) ? [said] : [];
-          })
+        ? realCommentsOn(
+            quiet.flatMap((d) => {
+              const said = withoutStockPraise(d);
+              return said && fitsComment(said, platform) ? [said] : [];
+            }),
+          )
         : kind === 'group_reply'
           ? quiet.filter(fitsGroupReply)
           : isOccasionKind(kind)
