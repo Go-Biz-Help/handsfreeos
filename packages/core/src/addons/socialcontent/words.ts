@@ -702,7 +702,8 @@ export const SOCIALCONTENT_WORDS = {
     words: 'Words',
     hook: 'Hook',
     hashtags: 'Hashtags',
-    hashtagsHint: 'Without the #, separated by spaces. They’re added at the end when it goes up.',
+    hashtagsHint:
+      'Without the #, separated by spaces. They’re added at the end when it goes up. Instagram takes 5 at most, so only the first 5 go up there.',
     slides: 'Slides',
     slide: (n: number) => `Slide ${n}`,
     addSlide: 'Add a slide',

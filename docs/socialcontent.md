@@ -193,7 +193,7 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   Fill the calendar is hidden (`socialcontent_fill_off` if it's asked for anyway); the posts already written stay,
   and Write a post still works. Turned on again, the worker hears `socialcontent.settings.saved` (`fillTurnedOn`)
   and fills the open days right away.
-- **Writing** asks Claude for the post in the network's way (Instagram's hook and up to 10 hashtags, Facebook like a
+- **Writing** asks Claude for the post in the network's way (Instagram's hook and up to 5 hashtags, all Instagram takes, Facebook like a
   neighbour, LinkedIn a lesson and a question, Threads like a conversation with one topic tag, X short with 1 or 2
   hashtags), as the business, never inventing results, prices or reviews. Its answer is checked (`checkedPost`):
   Instagram never gets words alone, a carousel needs 2 slides, hashtags are kept apart from the words, and the AI picks
@@ -402,7 +402,8 @@ Instagram from 0.133.0, Threads and X from 0.138.0. The post's sheet offers **Co
 - **Each minute, before any reading,** the extension asks for the next post due (`socialcontent.post.next`) on the
   networks it posts on with no warning today. HandsFreeOS hands it the OK'd post whose time has come, soonest first,
   with its words as they go up (`postText`: the words, a blank line, then the hashtags, within what the network
-  takes), its pictures (or the person's video, on a video post), the places it still goes, and the Page's link. It's
+  takes: on Instagram no more than 5 hashtags, words included, since a caption with more goes up without its words),
+  its pictures (or the person's video, on a video post), the places it still goes, and the Page's link. It's
   taken (`posting`), so it goes up once.
 - **Where it goes** (`placesFor`): on Facebook the person's profile, the business's Page, or both, in that order
   (decision 17); on LinkedIn and Instagram their feed. Each place it went up is kept (`posted_to`, with its link when the network

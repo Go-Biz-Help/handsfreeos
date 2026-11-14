@@ -181,6 +181,10 @@ describe('checking what the AI writes', () => {
     expect(post.words).toBe('Here’s how to get it back.\n\nSave this for later.');
     expect(post.hashtags).toEqual(['CRM', 'smallbusiness', 'automation']);
     expect(tidyHashtags(['a', 'b', 'c'], 2)).toEqual(['a', 'b']);
+    // Instagram takes 5; Facebook keeps what the AI gave.
+    const many = Array.from({ length: 10 }, (_, i) => `tag${i + 1}`);
+    expect(checkedPost(answer({ hashtags: many }), 'instagram')!.hashtags).toHaveLength(5);
+    expect(checkedPost(answer({ hashtags: many }), 'facebook')!.hashtags).toHaveLength(10);
   });
 
   it('keeps a post on X or Threads within what it takes, with its tag or two and its chain (decision 41)', () => {
@@ -339,6 +343,15 @@ describe('putting posts up (part 9)', () => {
       'Three ways to save time.\n\n#crm #automation',
     );
     expect(postText('linkedin', 'Words only', [])).toBe('Words only');
+    // Instagram takes 5 hashtags, counting any in the words: a caption with more goes up without its words.
+    const ten = Array.from({ length: 10 }, (_, i) => `tag${i + 1}`);
+    expect(postText('instagram', 'Save this.', ten)).toBe(
+      'Save this.\n\n#tag1 #tag2 #tag3 #tag4 #tag5',
+    );
+    expect(postText('instagram', 'Save this #crm #leads.', ten)).toBe(
+      'Save this #crm #leads.\n\n#tag1 #tag2 #tag3',
+    );
+    expect(postText('facebook', 'Words', ten).match(/#/g)).toHaveLength(10);
     const long = postText('linkedin', 'x'.repeat(3_500), ['tag']);
     expect(long.length).toBeLessThanOrEqual(POSTING.textMost.linkedin);
     expect(long.endsWith('…\n\n#tag')).toBe(true);
