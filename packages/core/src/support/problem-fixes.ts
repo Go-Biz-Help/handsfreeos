@@ -169,14 +169,6 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     said: 'A group’s event draws its hosts in a part of their own, twice, under a label that isn’t a heading, so the rows around them took in the whole page: they’re read from that part now, once each, with the event’s name, and a link to Alignable’s own search of events is passed over.',
   },
   {
-    area: 'instagram',
-    job: 'post_people.likers',
-    note: 'Couldn’t open the post’s Likes box.',
-    fixedIn: '0.139.1',
-    pr: 615,
-    said: 'On a post the person had liked, its bar says Unlike before the count of likes, and only a Like was looked for: an Unlike counts now.',
-  },
-  {
     area: 'facebook',
     job: 'send',
     note: 'couldn’t find a chat open with them',
@@ -231,6 +223,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     fixedIn: '0.139.3',
     pr: 621,
     said: 'Their profile showed Facebook’s “This content isn’t available right now” (they blocked the person, or closed or hid their profile), with no Message on it: a profile Facebook won’t show is passed over now, as one with nothing to report.',
+  },
+  {
+    area: 'instagram',
+    job: 'post_people.likers',
+    note: 'Couldn’t open the post’s Likes box.',
+    fixedIn: '0.140.4',
+    pr: 632,
+    said: 'On a post the person had liked, its bar says Unlike before the count of likes, and only a Like was looked for: an Unlike counts now (0.139.1, #615). Then a reel opened in the reels player, where the bar’s Comment is named by its own count beside its icon, so the count of likes before it was never found: the Comment is known by its icon now.',
   },
 ];
 
