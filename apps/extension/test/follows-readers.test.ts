@@ -777,3 +777,151 @@ describe('Threads’ messages', () => {
     expect(sent).toEqual([]);
   });
 });
+
+describe('Threads’ profiles, as the owner’s Check Threads drew them on 15 Nov 2026 (0.141.1)', () => {
+  const dana = { id: null, username: 'dana.reyes', url: `${TH}/@dana.reyes` };
+
+  /** Its side menu: its feeds list Following, a link like the rest, which read as their profile’s own till 0.141.2. */
+  const SIDE = `<div role="navigation"><a role="link" href="/"><svg role="img" aria-label="Threads"></svg></a>
+    <div><div><a role="link" href="/"><div><svg></svg><span dir="auto"><span>For you</span></span></div></a>
+        <a role="link" href="/search"><div>${titled('Search')}<span dir="auto"><span>Search</span></span></div></a></div>
+      <div><a role="link" href="/messages/"><div><svg role="img" aria-label="Messages"></svg><span dir="auto"><span>Messages</span></span></div></a>
+        <a role="link" href="/@casey.owner"><div><svg></svg><span dir="auto"><span>Profile</span></span></div></a></div>
+      <div><div><span dir="auto">Your feeds</span><div role="button" aria-label="Edit feeds"><span dir="auto">Edit</span></div></div>
+        <a role="link" href="/following/"><div><div aria-hidden="true"><svg></svg></div><span dir="auto"><span>Following</span></span></div></a>
+        <a role="link" href="/saved/"><div>${titled('Saved')}<span dir="auto"><span>Saved</span></span></div></a></div></div></div>`;
+
+  /** One of their posts under the header, a follow badge on its picture and words a header could be taken for. */
+  const POSTED = (name: string) => `<div data-pagelet="threads_profile_posts_timeline_0"><div>
+    <a role="link" href="/@${name}"><img alt="${name}'s profile picture"></a><div role="button">${titled('Follow')}</div>
+    <div><div><a role="link" href="/@${name}"><span dir="auto"><span>${name}</span></span></a>
+        <span dir="auto"><a role="link" href="/@${name}/post/DPro111aaa"><time datetime="2026-11-15T14:40:00.000Z">1h</time></a></span></div>
+      <div><span dir="auto"><span>Who else follows you back here?</span></span>
+        <div><div role="button">${titled('Like')}</div><div role="button">${titled('Reply')}</div></div></div></div></div></div>`;
+
+  /**
+   * A profile as Threads draws it: the bar with its name over a part marked as a region, which holds the header (name,
+   * picture, bio, link, its count of followers as a button), its buttons, its tabs and then its posts.
+   */
+  const profile = (
+    name: string,
+    {
+      buttons = '',
+      pill = '',
+      count = '142',
+      bio = 'Realtor in Austin. Helping first-time buyers.',
+    } = {},
+  ) => `<div><div>${SIDE}<div role="navigation"><a role="link" href="/">${titled('Home')}</a></div>
+    <div><div><div>
+      <div><div><a role="link" aria-label="${name} profile" href="/@${name}"><h1 dir="auto"><span>${name}</span></h1></a></div>
+        <div><a role="link" href="/search?from_author=${name}">${titled('Search their posts')}</a>
+          <div role="button" aria-expanded="false">${titled('More')}</div></div></div>
+      <div role="region" aria-label="Profile header"><div>
+        <div><div><div><div role="button"><h1 dir="auto">Dana Reyes</h1></div><span dir="auto"><span>${name}</span></span>${pill}</div>
+            <div role="button"><img alt="${name}'s profile picture"></div></div>
+          <span dir="auto">${bio}</span>
+          <a role="link" href="https://l.threads.com/?u=https%3A%2F%2Fdanasells.example"><span dir="auto"><span>danasells.example</span></span></a>
+          <div><div><div role="button" class="count"><div><div><img alt="a follower's picture"></div></div><span dir="auto"><span title="${count}">${count}</span> followers</span></div>
+              <div><span aria-hidden="true"><span dir="auto">·</span></span><div role="button"><span dir="auto">Followed by avery.lane</span></div></div></div>
+            <div><div role="button"><svg></svg></div><div role="button" aria-expanded="false">${titled('More')}</div></div></div></div>
+        ${buttons}
+        <div><div><a role="link" aria-label="Threads" aria-current="page" href="/@${name}"><span dir="auto"><span>Threads</span></span></a></div>
+          <a role="link" aria-label="Replies" href="/@${name}/replies"><span dir="auto"><span>Replies</span></span></a></div>
+        <div>${POSTED(name)}</div>
+      </div></div></div></div></div></div></div>`;
+
+  const theirButtons = (follow: string) =>
+    `<div><div role="button" class="follow"><div>${follow}</div></div><div role="button"><div>Message</div></div></div>`;
+
+  it('reads their profile off its own header: never the side menu’s Following, nor the posts under it', () => {
+    const doc = page(
+      profile('dana.reyes', { buttons: theirButtons('Follow') }),
+      `${TH}/@dana.reyes`,
+    );
+    const header = THREADS_SPEC.headerOf(doc)!;
+    expect(header.closest('[role="region"]')).not.toBeNull();
+    expect(readFollow(doc, doc.location.href, THREADS_SPEC).profile).toMatchObject({
+      username: 'dana.reyes',
+      name: 'Dana Reyes',
+      bio: 'Realtor in Austin. Helping first-time buyers.',
+      links: ['Link: danasells.example'],
+      followers: 142,
+      followsYou: false,
+      following: 'no',
+    });
+    expect(nameOfControl(THREADS_SPEC.messages!.messageIn(header))).toBe('Message');
+  });
+
+  it('says they follow the person by its “Follows you”, or by Follow back', () => {
+    const pill = '<div><span dir="auto">Follows you</span></div>';
+    const following = page(
+      profile('dana.reyes', { buttons: theirButtons('Following'), pill }),
+      `${TH}/@dana.reyes`,
+    );
+    expect(readFollow(following, following.location.href, THREADS_SPEC).profile).toMatchObject({
+      bio: 'Realtor in Austin. Helping first-time buyers.',
+      followsYou: true,
+      following: 'following',
+    });
+    const back = page(
+      profile('dana.reyes', { buttons: theirButtons('Follow back') }),
+      `${TH}/@dana.reyes`,
+    );
+    expect(readFollow(back, back.location.href, THREADS_SPEC).profile).toMatchObject({
+      followsYou: true,
+      following: 'no',
+    });
+    // Following them, with no word that they follow back: not yet.
+    const not = page(
+      profile('dana.reyes', { buttons: theirButtons('Following') }),
+      `${TH}/@dana.reyes`,
+    );
+    expect(readFollow(not, not.location.href, THREADS_SPEC).profile?.followsYou).toBe(false);
+  });
+
+  it('presses their own Follow, where the side menu says Following', async () => {
+    const doc = page(
+      profile('dana.reyes', { buttons: theirButtons('Follow') }),
+      `${TH}/@dana.reyes`,
+    );
+    const follow = doc.querySelector<HTMLElement>('.follow')!;
+    let pressed = 0;
+    follow.addEventListener('click', () => {
+      pressed++;
+      follow.firstElementChild!.textContent = 'Following';
+    });
+    expect(await followThem(THREADS_SPEC)(doc, doc.location.href, dana)).toBe('done');
+    expect(pressed).toBe(1);
+    expect(await followThem(THREADS_SPEC)(doc, doc.location.href, dana)).toBe('already');
+    expect(pressed).toBe(1);
+  });
+
+  it('opens the person’s followers with a press on their own count, as a pointer does', () => {
+    const doc = page(
+      profile('casey.owner', {
+        buttons: '<div role="button"><div>Edit profile</div></div>',
+        count: '441',
+        bio: 'We answer every lead.',
+      }),
+      `${TH}/@casey.owner`,
+    );
+    const count = doc.querySelector<HTMLElement>('.count')!;
+    const seen: string[] = [];
+    for (const kind of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'])
+      doc.addEventListener(kind, (e) => {
+        if (e.target === count) seen.push(kind);
+      });
+    expect(THREADS_SPEC.openFollowers!(doc)).toBe(true);
+    expect(seen).toEqual(['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']);
+    // Never on someone else’s profile: only the person’s own, with Edit profile.
+    const theirs = page(
+      profile('dana.reyes', { buttons: theirButtons('Follow') }),
+      `${TH}/@dana.reyes`,
+    );
+    expect(THREADS_SPEC.openFollowers!(theirs)).toBe(false);
+  });
+});
+
+/** What a control says, as the readers name it. */
+const nameOfControl = (control: Element | null): string | null =>
+  control ? (control.textContent ?? '').trim() : null;
