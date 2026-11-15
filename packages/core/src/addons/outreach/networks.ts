@@ -150,9 +150,9 @@ export interface NetworkKit {
   /** How many old requests it withdraws, and friends it removes, in a day once the person ticks them. */
   readonly tidyLimits: Readonly<Record<TidyKind, number>>;
   /**
-   * Whether anything is ever written to someone in their messages there (decision 163): every network but Threads and
-   * X, whose outreach is comments, likes and follows till their messages come in a part of their own. Where it's false
-   * there's no first message, follow-up, reply, Reconnect or partner's ask, and no chat is read.
+   * Whether anything is ever written to someone in their messages there (decision 163): every network but X, whose
+   * outreach is comments, likes and follows till its messages come in a part of their own (Threads' came in decision
+   * 167). Where it's false there's no first message, follow-up, reply, Reconnect or partner's ask, and no chat is read.
    */
   readonly messages: boolean;
   /**
@@ -183,12 +183,22 @@ export interface NetworkKit {
 export const THREADS_X_SINCE = '0.137.0';
 
 /**
+ * The first build that writes in Threads' messages and reads its chats (decision 167): an older one leaves its first
+ * messages, follow-ups and replies on Today for the person, as any network's runner without them does.
+ */
+export const THREADS_MESSAGES_SINCE = '0.141.0';
+
+/**
  * Threads' and X's kits (decision 163), alike but for their addresses, ids, caps and comments' length: a follow is the
  * request and a follow-back the accepting, as on Instagram; the owner's 3b, 30 comments and 80 likes a day, halved for a
  * new account and for a week after a warning; 20 follows a day; comments wait for an OK at first, as Instagram's and
- * LinkedIn's do; the posts its search finds every hour bring the people checked; and no messages, so no first message
- * or follow-up limit. Its runner looks at their account and likes a post or two, follows, and unfollows once the wait
- * ends without a follow-back (decision 161); comments go through `sends`, and it joins no groups.
+ * LinkedIn's do; the posts its search finds every hour bring the people checked. Its runner looks at their account and
+ * likes a post or two, follows, and unfollows once the wait ends without a follow-back (decision 161); comments go
+ * through `sends`, and it joins no groups.
+ *
+ * Messages only where `messages` says (decision 167, Threads'; the owner's 1a 2a 3a): as on Instagram, a first message
+ * once they follow back, 10 a day, and 15 follow-ups, halved as every limit is, and their replies read and answered.
+ * Without it (X's) nothing is written in anyone's messages: no first message or follow-up limit.
  */
 function followNetwork(kit: {
   readonly name: string;
@@ -199,7 +209,9 @@ function followNetwork(kit: {
   readonly friendsCap: number;
   readonly commentCharsMost: number;
   readonly messaging: string;
+  readonly messages?: boolean;
 }): NetworkKit {
+  const messages = kit.messages === true;
   return {
     name: kit.name,
     stage: 'working',
@@ -208,7 +220,14 @@ function followNetwork(kit: {
     username: kit.username,
     threadKey: kit.threadKey,
     friendsCap: kit.friendsCap,
-    dailyLimits: { friend_request: 20, first_message: 0, follow_up: 0, comment: 30, like: 80 },
+    // The owner's 2a (decision 167): Instagram's 10 first messages and 15 follow-ups a day where it messages.
+    dailyLimits: {
+      friend_request: 20,
+      first_message: messages ? 10 : 0,
+      follow_up: messages ? 15 : 0,
+      comment: 30,
+      like: 80,
+    },
     weeklyRequests: null,
     // Its followers aren't checked yet: its people come from the posts its search finds.
     checksPerDay: 0,
@@ -228,7 +247,7 @@ function followNetwork(kit: {
     joinsPerDay: null,
     // Unfollowing who didn't follow back in the warm-up's wait, 20 a day at most; nobody who follows them is removed.
     tidyLimits: { cancel_request: 20, unfriend: 0 },
-    messages: false,
+    messages,
     // Every hour in the working hours (the owner's "every hour"), 2 phrases a look, posts under 2 days old.
     postSearch: { everyMinutes: 60, perLook: 2, newestHours: 48 },
     commentCharsMost: kit.commentCharsMost,
@@ -446,8 +465,8 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
   },
   // Follow networks made of posts (decision 163): the work is finding posts on the business's topic every hour and
   // commenting, a like on the good ones, and a follow and decision 161's visits for the good fits found by them, then
-  // an unfollow once the wait ends without a follow-back. No messages yet (`messages: false`). Built from the sites'
-  // usual buttons and tuned from Check Threads and Check X.
+  // an unfollow once the wait ends without a follow-back. Built from the sites' usual buttons and tuned from Check
+  // Threads and Check X. Threads messages them once they follow back, as Instagram does (decision 167); X doesn't yet.
   threads: followNetwork({
     name: PLATFORMS.threads,
     // threads.com since 2025; threads.net still opens it.
@@ -460,6 +479,8 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     friendsCap: 7_500,
     commentCharsMost: 500,
     messaging: 'Threads messages',
+    // A first message once they follow back, follow-ups, and replies answered (decision 167): from 0.141.0.
+    messages: true,
   }),
   x: followNetwork({
     name: PLATFORMS.x,
@@ -538,10 +559,10 @@ export function networkLimitsNow(
 export const withArticle = (name: string): string =>
   `${/^(?:[aeiou]|x$)/i.test(name) ? 'an' : 'a'} ${name}`;
 
-/** Whether anything is ever written to someone in their messages on a network (decision 163): not on Threads or X. */
+/** Whether anything is ever written to someone in their messages on a network: not on X (decisions 163 and 167). */
 export const messagesOn = (platform: Platform): boolean => NETWORKS[platform].messages;
 
-/** The networks where people are messaged: every one but Threads and X (decision 163). */
+/** The networks where people are messaged: every one but X (decisions 163 and 167). */
 export const MESSAGE_PLATFORMS: readonly Platform[] = PLATFORM_KEYS.filter(
   (p) => NETWORKS[p].messages,
 );

@@ -2,8 +2,8 @@
  * Threads' and X's readers and presses (src/networks/follows/, decision 163), on pages written here by hand in the
  * shape each site draws, of made-up accounts: a post found by the link its time sits in and named by its address, a
  * quoted post never taken for another, a post's replies after it on its own page, a profile read off its header, the
- * person's followers off their rows; and the presses, each only on the page it's for: Like, Follow, Unfollow and a
- * reply typed only in the post's own box.
+ * person's followers off their rows, Threads' chats off its messages (decision 167); and the presses, each only on the
+ * page it's for: Like, Follow, Unfollow, a reply typed only in the post's own box, and a message only in their chat's.
  */
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
@@ -13,9 +13,15 @@ import {
   unfollowThem,
   writeTheirComment,
 } from '../src/networks/follows/auto';
+import {
+  chatRowsOn,
+  followReplies,
+  openTheirChat,
+  writeMessage,
+} from '../src/networks/follows/chats';
 import { countOf, readFollow } from '../src/networks/follows/read';
 import { THREADS } from '../src/networks/threads/kit';
-import { THREADS_SPEC } from '../src/networks/threads/spec';
+import { chatOf, kindOf as threadsKindOf, THREADS_SPEC } from '../src/networks/threads/spec';
 import { kindOf, postOf, profileOf, X_SPEC, xUrl } from '../src/networks/x/spec';
 
 const X = 'https://x.com';
@@ -535,7 +541,6 @@ describe('Threads’ Like and box to reply in, as its pages drew them on 15 Nov 
     ).toBe('none');
     expect(box().textContent).toBe('');
     expect(sent).toEqual([]);
-    // Real waits: 3 s for an arrow that never shows, then emptying the box. Over vitest's 5 s on a busy runner.
   }, 15_000);
 
   it('with no box under the post, replies in the one its own Reply opens over it, sent with Post', async () => {
@@ -587,5 +592,188 @@ describe('Threads’ Like and box to reply in, as its pages drew them on 15 Nov 
     expect(box().textContent).toBe('');
     expect(sent).toEqual([]);
     expect(pressed).toBe(0);
+  });
+});
+
+// ------------------------------------------------------- Threads' messages (decision 167), in Messenger's shape
+
+describe('Threads’ messages', () => {
+  const DANA_CHAT = '340282366841710301';
+  const SAM_CHAT = '340282366841710302';
+  const CHAT = `${TH}/messages/t/${DANA_CHAT}/`;
+  const dana = { id: null, username: 'dana.reyes', url: `${TH}/@dana.reyes` };
+
+  /** The list of chats beside them: each row a link to its chat, the name in a `title`, its last line and its time. */
+  const LIST = `<div role="navigation" aria-label="Chats"><div role="list">
+    <div role="listitem"><a href="/messages/t/${DANA_CHAT}/"><div><img alt=""><span title="Dana Reyes">Dana Reyes</span></div>
+      <div><span>Sounds great, when works?</span><span> · </span><abbr aria-label="3 hours ago">3h</abbr></div></a></div>
+    <div role="listitem"><a href="/messages/t/${SAM_CHAT}/"><div><span title="Sam Lee">Sam Lee</span></div>
+      <div><span>You: Thanks, talk soon!</span><span> · </span><abbr>1d</abbr></div></a></div></div></div>`;
+
+  /** Dana's chat open: its header links to her, its rows say whose each is, and its box to write in. */
+  const chatPage = (box = '<p><br></p>') => `${TH_MENU}<main>${LIST}<div>
+    <div role="banner"><a href="/@dana.reyes"><img alt="Dana Reyes"><h2>Dana Reyes</h2></a></div>
+    <div role="grid" aria-label="Messages in conversation with Dana Reyes">
+      <div role="row"><div><h4>You sent</h4><div dir="auto">Loved your post on open houses.</div></div></div>
+      <div role="row"><div><a href="/@dana.reyes"><img alt="Dana Reyes"></a><h4>Dana Reyes sent</h4>
+        <div dir="auto">Sounds great, when works?</div></div></div>
+    </div>
+    <div><div role="textbox" contenteditable="true" aria-label="Write a message..." aria-placeholder="Write a message...">${box}</div>
+      <div class="send"></div></div>
+  </div></main>`;
+
+  /** Its box as Messenger's: typing shows Send beside it, which sends what's written and empties the box. */
+  const wireChat = (doc: Document, sent: string[]) => {
+    const box = () => doc.querySelector<HTMLElement>('[role="textbox"]')!;
+    const send = doc.querySelector('.send')!;
+    doc.execCommand = (command: string, _u?: boolean, words?: string) => {
+      if (command === 'insertText') box().textContent = words ?? '';
+      if (command === 'delete') box().textContent = '';
+      send.innerHTML = box().textContent ? '<div role="button" aria-label="Send">Send</div>' : '';
+      send.querySelector('[role="button"]')?.addEventListener('click', () => {
+        sent.push(box().textContent ?? '');
+        box().innerHTML = '<p><br></p>';
+        send.innerHTML = '';
+      });
+      return true;
+    };
+    return box;
+  };
+
+  it('knows its messages and a chat by their addresses', () => {
+    const at = (href: string) => new URL(href);
+    expect(threadsKindOf(at(`${TH}/messages/`))).toBe('messages');
+    expect(threadsKindOf(at(`${TH}/messages/requests/`))).toBe('messages');
+    expect(threadsKindOf(at(CHAT))).toBe('chat');
+    expect(chatOf(at(CHAT))).toBe(DANA_CHAT);
+    expect(chatOf(at(`${TH}/@dana.reyes`))).toBeNull();
+    // Its messages are never an account.
+    expect(THREADS_SPEC.profileOf(at(`${TH}/messages/`))).toBeNull();
+  });
+
+  it('reads the list of chats: who, their last line, when, and whose it is', () => {
+    const doc = page(`${TH_MENU}<main>${LIST}</main>`, `${TH}/messages/`);
+    expect(chatRowsOn(doc, doc.location.href, THREADS_SPEC)).toEqual([
+      {
+        name: 'Dana Reyes',
+        preview: 'Sounds great, when works?',
+        yours: false,
+        when: '3h',
+        thread: DANA_CHAT,
+      },
+      {
+        name: 'Sam Lee',
+        preview: 'You: Thanks, talk soon!',
+        yours: true,
+        when: '1d',
+        thread: SAM_CHAT,
+      },
+    ]);
+  });
+
+  it('reads a chat open: who it’s with by its header, whose each message is, and its box', () => {
+    const doc = page(chatPage(), CHAT);
+    expect(readFollow(doc, CHAT, THREADS_SPEC).chat).toEqual({
+      thread: DANA_CHAT,
+      with: { username: 'dana.reyes', url: `${TH}/@dana.reyes` },
+      name: 'Dana Reyes',
+      messages: [
+        { from: 'me', text: 'Loved your post on open houses.' },
+        { from: 'them', text: 'Sounds great, when works?' },
+      ],
+      last: 'them',
+      box: true,
+    });
+  });
+
+  it('says who wrote back, by the chat’s number, never a chat whose last line is the person’s', () => {
+    const doc = page(chatPage(), CHAT);
+    expect(followReplies(doc, CHAT, THREADS_SPEC)).toEqual([
+      {
+        name: 'Dana Reyes',
+        threadKey: DANA_CHAT,
+        profile: { id: null, username: 'dana.reyes', url: `${TH}/@dana.reyes` },
+        when: '3h',
+        last: { line: 'Sounds great, when works?', where: 'list' },
+      },
+    ]);
+    // Anywhere else on Threads, nobody.
+    const home = page(`${TH_MENU}<main>${LIST}</main>`, `${TH}/`);
+    expect(followReplies(home, `${TH}/`, THREADS_SPEC)).toEqual([]);
+  });
+
+  it('presses Message on their profile only, beside its Follow', () => {
+    const profile = (buttons: string) =>
+      page(
+        `${TH_MENU}<main><div><h1>Dana Reyes</h1><span dir="auto">dana.reyes</span>
+          <div role="button"><span>1,204 followers</span></div>${buttons}</div></main>`,
+        `${TH}/@dana.reyes`,
+      );
+    const doc = profile('<div role="button">Following</div><div role="button">Message</div>');
+    let pressed = 0;
+    doc.querySelectorAll('[role="button"]')[2]!.addEventListener('click', () => pressed++);
+    expect(openTheirChat(THREADS_SPEC)(doc, `${TH}/@dana.reyes`, dana)).toBe(true);
+    expect(pressed).toBe(1);
+    // Someone else's profile, or none showing Message: nothing pressed.
+    expect(
+      openTheirChat(THREADS_SPEC)(doc, `${TH}/@dana.reyes`, { ...dana, username: 'sam.lee' }),
+    ).toBe(false);
+    const none = profile('<div role="button">Follow</div>');
+    expect(openTheirChat(THREADS_SPEC)(none, `${TH}/@dana.reyes`, dana)).toBe(false);
+  });
+
+  it('writes a message only in their chat’s own box, and sends it with Send', async () => {
+    const doc = page(chatPage(), CHAT);
+    const sent: string[] = [];
+    const box = wireChat(doc, sent);
+    const text = 'Tuesday at 2 works for me. Does that suit you?';
+    expect(await writeMessage(THREADS_SPEC)(doc, CHAT, text, dana)).toBe('done');
+    expect(sent).toEqual([text]);
+    expect(box().textContent).toBe('');
+    // Not their chat: nothing typed, nothing sent.
+    expect(
+      await writeMessage(THREADS_SPEC)(doc, CHAT, text, { ...dana, username: 'sam.lee' }),
+    ).toBe('none');
+    expect(sent).toEqual([text]);
+  }, 15_000);
+
+  it('leaves the box alone when something is written there already', async () => {
+    const doc = page(chatPage('<p>Half a thought</p>'), CHAT);
+    const sent: string[] = [];
+    const box = wireChat(doc, sent);
+    expect(await writeMessage(THREADS_SPEC)(doc, CHAT, 'Hi Dana', dana)).toBe('not_sent');
+    expect(box().textContent).toBe('Half a thought');
+    expect(sent).toEqual([]);
+  });
+
+  it('sends with Enter where no Send shows', async () => {
+    const doc = page(chatPage(), CHAT);
+    const sent: string[] = [];
+    const box = () => doc.querySelector<HTMLElement>('[role="textbox"]')!;
+    doc.execCommand = (command: string, _u?: boolean, words?: string) => {
+      if (command === 'insertText') box().textContent = words ?? '';
+      if (command === 'delete') box().textContent = '';
+      return true;
+    };
+    box().addEventListener('keydown', (event) => {
+      if ((event as KeyboardEvent).key !== 'Enter') return;
+      sent.push(box().textContent ?? '');
+      box().innerHTML = '<p><br></p>';
+    });
+    expect(await writeMessage(THREADS_SPEC)(doc, CHAT, 'Hi Dana', dana)).toBe('done');
+    expect(sent).toEqual(['Hi Dana']);
+  }, 15_000);
+
+  it('Check Threads finds a chat’s box and who it’s with, never typing in it', async () => {
+    const doc = page(chatPage(), CHAT);
+    const sent: string[] = [];
+    const box = wireChat(doc, sent);
+    const look = await THREADS.looks.message!.look(doc, CHAT);
+    expect(look).toMatchObject({
+      works: true,
+      found: { box: true, with: true, messages: 2, theirs: 1 },
+    });
+    expect(box().textContent).toBe('');
+    expect(sent).toEqual([]);
   });
 });

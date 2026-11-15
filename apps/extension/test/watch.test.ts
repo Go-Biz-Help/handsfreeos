@@ -384,6 +384,29 @@ describe('what’s watched, and when a page is loaded', () => {
       expect(watchedOn({ ...base, ...off })).toEqual([]);
   });
 
+  it('watches Threads’ messages too once it’s on and works on its own there (decision 167), never X’s', () => {
+    const both = {
+      ...base,
+      settings: {
+        ...settings('steps').settings,
+        networks: {
+          ...settings('steps').settings.networks,
+          threads: { sending: 'steps' },
+          x: { sending: 'steps' },
+        },
+      } as never,
+      states: { ...base.states, threads: ON, x: ON },
+    };
+    expect(watchedOn(both)).toEqual(['facebook', 'linkedin', 'instagram', 'alignable', 'threads']);
+    expect(WATCH_PAGES.threads.url).toBe('https://www.threads.com/messages/');
+    const now = 1_000_000_000;
+    const at = (kind: string) =>
+      tabStep({ tab: { status: 'complete' }, kind, platform: 'threads', loadedAt: now, now });
+    expect(at('messages')).toBe('read');
+    expect(at('chat')).toBe('read');
+    expect(at('post')).toBe('wait');
+  });
+
   it('opens, waits for, loads afresh or reads a tab', () => {
     const now = 1_000_000_000;
     const step = (tab: Parameters<typeof tabStep>[0]['tab'], kind: string | null, loadedAt = now) =>

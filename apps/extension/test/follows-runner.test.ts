@@ -3,7 +3,8 @@
  * network's tab stood in for, on pages written here by hand in the shape X draws, of made-up accounts. Its tab presses
  * by X's own kit (src/networks/follows/). What it does on its list: the warm-up (the post someone was found by liked
  * first on its own page, or their reply to a good post, found under it and liked on its own page), the follow on their
- * own profile, and a comment posted only once OK'd, only in the post's own box; never a message. Every hour: its search,
+ * own profile, and a comment posted only once OK'd, only in the post's own box; never a message on X, and on Threads
+ * (decision 167) a message drafted from their profile and sent only in their own chat. Every hour: its search,
  * only the posts under 2 days old sent for the AI's check, and the replies to the person's comments from their
  * mentions. Each step is noted as the extension's own, as the network's.
  */
@@ -297,18 +298,24 @@ describe('what it does on X’s list', () => {
   });
 
   it('does its once-a-day jobs in order, and searches every hour', () => {
-    expect(nextFollowDaily({ daily: {} })).toBe('requests');
-    expect(nextFollowDaily({ daily: { requests: 'a' } })).toBe('follow_backs');
-    expect(nextFollowDaily({ daily: { requests: 'a', follow_backs: 'b' } })).toBe('tidy');
+    expect(nextFollowDaily('x', { daily: {} })).toBe('requests');
+    expect(nextFollowDaily('x', { daily: { requests: 'a' } })).toBe('follow_backs');
+    expect(nextFollowDaily('x', { daily: { requests: 'a', follow_backs: 'b' } })).toBe('tidy');
     const read = { requests: 'a', follow_backs: 'b', tidy: 'c' };
-    expect(nextFollowDaily({ daily: read })).toBe('post_people');
-    expect(nextFollowDaily({ daily: { ...read, post_people: 'd' } })).toBe('found_checks');
-    expect(nextFollowDaily({ daily: { ...read, post_people: 'd', found_checks: 'e' } })).toBe(
+    // No chats on X: nothing is written in anyone's messages there.
+    expect(nextFollowDaily('x', { daily: read })).toBe('post_people');
+    expect(nextFollowDaily('x', { daily: { ...read, post_people: 'd' } })).toBe('found_checks');
+    expect(nextFollowDaily('x', { daily: { ...read, post_people: 'd', found_checks: 'e' } })).toBe(
       'profile',
     );
     expect(
-      nextFollowDaily({ daily: { ...read, post_people: 'd', found_checks: 'e', profile: 'f' } }),
+      nextFollowDaily('x', {
+        daily: { ...read, post_people: 'd', found_checks: 'e', profile: 'f' },
+      }),
     ).toBeNull();
+    // Threads' chats are read after the tidy-up (decision 167).
+    expect(nextFollowDaily('threads', { daily: read })).toBe('chats');
+    expect(nextFollowDaily('threads', { daily: { ...read, chats: 'g' } })).toBe('post_people');
     const at = Date.parse('2026-11-13T15:00:00Z');
     expect(searchDue({ watchAt: null }, at)).toBe(true);
     expect(searchDue({ watchAt: at + 1 }, at)).toBe(false);
@@ -402,6 +409,183 @@ describe('what it does on X’s list', () => {
       sent: true,
     });
     expect(noted()).toEqual([{ kind: 'comment', auto: true, postUrl: POST, platform: 'x' }]);
+  });
+});
+
+// ------------------------------------------------------------------------------------------------- Threads' messages
+
+describe('Threads’ messages (decision 167)', () => {
+  const TH = 'https://www.threads.com';
+  const DANA_TH = `${TH}/@dana.reyes`;
+  const KEY = '340282366841710301';
+  const CHAT = `${TH}/messages/t/${KEY}/`;
+  const TH_MENU = `<nav><a href="/" aria-label="Home">Home</a><a href="/@casey.owner" aria-label="Profile">Profile</a></nav>`;
+  const threadsRunner = FOLLOW_RUNNERS.threads;
+
+  /** Dana's profile, following each other: Message shows beside Following, unless `message` is off. */
+  const danaProfile = ({ message = true } = {}) =>
+    `${TH_MENU}<main><div><h1>Dana Reyes</h1><span dir="auto">dana.reyes</span>
+      <span dir="auto">Realtor in Austin</span>
+      <div role="button"><span>1,204 followers</span></div>
+      <div role="button">Following</div>${message ? '<div role="button">Message</div>' : ''}</div></main>`;
+
+  /** Dana's chat, as Messenger's shape draws it: her header, the rows, and its box with Send once it has words. */
+  const danaChat = `${TH_MENU}<main>
+    <div role="navigation" aria-label="Chats">
+      <a href="/messages/t/${KEY}/"><span title="Dana Reyes">Dana Reyes</span><span>Sounds great</span><abbr>3h</abbr></a>
+      <a href="/messages/t/340282366841710302/"><span title="Sam Lee">Sam Lee</span><span>You: Thanks</span><abbr>1d</abbr></a></div>
+    <div><div role="banner"><a href="/@dana.reyes"><h2>Dana Reyes</h2></a></div>
+      <div role="grid" aria-label="Messages in conversation with Dana Reyes">
+        <div role="row"><div><h4>Dana Reyes sent</h4><div dir="auto">Sounds great</div></div></div></div>
+      <div><div role="textbox" contenteditable="true" aria-label="Write a message..."><p><br></p></div><div class="send"></div></div>
+    </div></main>`;
+
+  /** The chat's box sends what's typed in it with Send, and says what went. */
+  function chatWorks(doc: Document): void {
+    const box = doc.querySelector<HTMLElement>('[role="textbox"]');
+    const send = doc.querySelector('.send');
+    if (!box || !send) return;
+    doc.execCommand = (command: string, _u?: boolean, words?: string) => {
+      if (command === 'insertText') box.textContent = words ?? '';
+      if (command === 'delete') box.textContent = '';
+      send.innerHTML = box.textContent ? '<div role="button" aria-label="Send">Send</div>' : '';
+      send.querySelector('[role="button"]')?.addEventListener('click', () => {
+        world.asked.push({ type: 'sent-on-threads', input: box.textContent });
+        box.innerHTML = '<p><br></p>';
+        send.innerHTML = '';
+      });
+      return true;
+    };
+  }
+
+  it('drafts and sends messages there, as on Instagram, and X still never one', () => {
+    const send = {
+      sendId: 's2',
+      state: 'approved' as const,
+      text: 'Hi Jo',
+      handedOver: false,
+      needsYou: null,
+    };
+    const list = {
+      items: [
+        item({ kind: 'friend_request' }),
+        item({ kind: 'opener', name: 'Jo Day', profileId: 'p-jo', send }),
+        item({ kind: 'opener', name: 'Ari Moss', profileId: 'p-ari' }),
+      ],
+      auto: ['warm_up', 'friend_request'],
+      messages: ['opener', 'follow_up', 'reply'],
+      sending: 'steps',
+    } as never;
+    expect(followWorkLeft(list, [], [], true).map((w) => [w.do, w.item.name])).toEqual([
+      ['send', 'Jo Day'],
+      ['step', 'Dana Reyes'],
+      ['draft', 'Ari Moss'],
+    ]);
+    expect(followWorkLeft(list, []).map((w) => [w.do, w.item.name])).toEqual([
+      ['step', 'Dana Reyes'],
+    ]);
+  });
+
+  it('writes a first message with the AI from their profile, for HandsFreeOS to hold or send', async () => {
+    world.pages = (url) => (url === DANA_TH ? danaProfile() : null);
+    world.hfos['hfos-draft'] = () => ({
+      drafts: ['Hi Dana, loved your take on open houses.'],
+      opener: 'curious',
+      simple: false,
+      unanswered: null,
+      kind: 'opener',
+    });
+    const out = await threadsRunner.doWork(
+      { do: 'draft', item: item({ kind: 'opener', profileUrl: DANA_TH }) },
+      ME.businessId,
+    );
+    expect(out).toEqual({
+      done: true,
+      line: 'Wrote a message to Dana Reyes: it waits for your OK',
+    });
+    expect(world.opened).toEqual([DANA_TH]);
+    const drafted = world.asked.find((a) => a.type === 'hfos-draft') as { input?: unknown };
+    expect(drafted.input).toMatchObject({ kind: 'opener', profileId: PROFILE_ID });
+    expect(
+      (drafted.input as { lookup: string[] }).lookup.some((l) => l.includes('Realtor in Austin')),
+    ).toBe(true);
+    expect(
+      world.posted.find((p) => p.path === '/v1/commands/outreach.send.queue')?.body,
+    ).toMatchObject({
+      profileId: PROFILE_ID,
+      kind: 'opener',
+      text: 'Hi Dana, loved your take on open houses.',
+      opener: 'curious',
+    });
+  });
+
+  it('sends one OK’d in their chat, opened by its number, and notes it as Threads’', async () => {
+    world.pages = (url) => (url === CHAT ? danaChat : null);
+    world.behave = chatWorks;
+    const text = 'Tuesday at 2 works for me.';
+    const out = await threadsRunner.doWork(
+      {
+        do: 'send',
+        item: item({
+          kind: 'reply',
+          profileUrl: DANA_TH,
+          threadKey: KEY,
+          send: { sendId: 'send-2', state: 'approved', text, handedOver: false, needsYou: null },
+        } as Partial<TodayListItem>),
+      },
+      ME.businessId,
+      0,
+      false,
+    );
+    expect(out).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+    expect(world.opened[0]).toBe(CHAT);
+    expect(world.asked.filter((a) => a.type === 'sent-on-threads').map((a) => a.input)).toEqual([
+      text,
+    ]);
+    const step = (world.noted[0]!.note as { step: Record<string, unknown> }).step;
+    expect(step).toMatchObject({
+      kind: 'message',
+      auto: true,
+      replying: true,
+      thread: { id: KEY, url: CHAT },
+    });
+    expect(world.noted[0]!.platform).toBe('threads');
+    expect(
+      world.posted.find((p) => p.path === '/v1/commands/outreach.send.done')?.body,
+    ).toMatchObject({ sendId: 'send-2', sent: true });
+  });
+
+  it('says when their profile shows no Message, and sends nothing', async () => {
+    world.pages = (url) => (url === DANA_TH ? danaProfile({ message: false }) : null);
+    const out = await threadsRunner.doWork(
+      {
+        do: 'send',
+        item: item({
+          kind: 'opener',
+          profileUrl: DANA_TH,
+          send: {
+            sendId: 'send-3',
+            state: 'approved',
+            text: 'Hi',
+            handedOver: false,
+            needsYou: null,
+          },
+        } as Partial<TodayListItem>),
+      },
+      ME.businessId,
+    );
+    expect(out).toEqual({
+      done: false,
+      line: 'Dana Reyes: couldn’t find Message on their profile',
+    });
+    expect(
+      world.posted.find((p) => p.path === '/v1/commands/outreach.send.done')?.body,
+    ).toMatchObject({
+      sendId: 'send-3',
+      sent: false,
+      why: 'couldn’t find Message on their profile',
+    });
+    expect(world.noted).toEqual([]);
   });
 });
 

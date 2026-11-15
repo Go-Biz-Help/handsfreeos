@@ -56,7 +56,7 @@ next is in its kit, never in an `if`.
 | LinkedIn  | `src/networks/linkedin/`  | Yes           | Reads its pages, notes your steps and who wrote back, looks for its warnings, does what you ask, and works its list on its own once you let it, and finds people by topic: who reacted to and commented on good posts its search found, each checked by the AI first (0.95.0)                                                                                                                                                                                                                                                                                                                                                                  |
 | Instagram | `src/networks/instagram/` | Yes           | Reads its pages (0.80.0), notes your steps there, saves your followers and unfollows the ones you tick, checks them, reads your chats and looks people up (0.81.0), works its list on its own once you let it (0.82.0), and grows it from your area's hashtags and places and your notifications (0.83.0); its **Check Instagram** (0.58.0) tries each step up to its last press; it puts your bio in (0.62.0), and your username and name in its Accounts Center (0.94.0); from 0.95.0 it looks at your playbooks' own hashtags, reads who liked and commented on good posts, has each checked by the AI first, and posts the comments you OK |
 | Alignable | `src/networks/alignable/` | Yes           | Reads its pages, notes your steps, does what you ask, works its list on its own once you let it (0.77.0), and reads your chats (0.84.0); **Check Alignable** reads its pages at /biz; from 0.95.0 it searches for businesses like your clients, reads your groups and joins good ones, has everyone found checked by the AI first, and posts the comments you OK                                                                                                                                                                                                                                                                               |
-| Threads   | `src/networks/threads/`   | Yes           | From 0.137.0 (decision 163): searches its newest posts on your topic every hour and posts the comments you OK, reads replies to them, warms up the good fits it finds (likes, then a follow), saves your followers and unfollows who didn't follow back; **Check Threads** reads its pages, pressing nothing. Never writes in anyone's messages                                                                                                                                                                                                                                                                                                |
+| Threads   | `src/networks/threads/`   | Yes           | From 0.137.0 (decision 163): searches its newest posts on your topic every hour and posts the comments you OK, reads replies to them, warms up the good fits it finds (likes, then a follow), saves your followers and unfollows who didn't follow back; **Check Threads** reads its pages, pressing nothing. From 0.141.0 (decision 167) it messages as on Instagram: a first message once they follow back, follow-ups, and answers to whoever writes back, with your messages kept open and read every minute                                                                                                                               |
 | X         | `src/networks/x/`         | Yes           | From 0.137.0 (decision 163): the same as Threads, on X; **Check X** reads its pages, pressing nothing                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 **A network that's off runs nothing, reads nothing and shows nothing** (`src/networks/on.ts`). Two things say a network
@@ -783,8 +783,8 @@ and how. A build that's handed a kind it doesn't know ends it saying so, and goe
 ### On Threads and X (0.137.0)
 
 Threads' and X's rules are Instagram's (decision 163, `src/jobs/follows/`): a person's pace, a window of its own, a
-stop on that network for the day on any warning there, nothing to get around its limits or checks, and nothing ever
-written in anyone's messages. Each kit is built from the site's own words, roles and test ids (`src/networks/threads/`
+stop on that network for the day on any warning there, and nothing to get around its limits or checks. Nothing is ever
+written in anyone's messages on X; on Threads, from 0.141.0, only as on Instagram (decision 167). Each kit is built from the site's own words, roles and test ids (`src/networks/threads/`
 and `src/networks/x/`, read by `src/networks/follows/`), a post found by the time inside the link to it.
 
 | Ask (`kind`)                       | What it does                                                                                                                                                                                                     |
@@ -794,6 +794,7 @@ and `src/networks/x/`, read by `src/networks/follows/`), a post found by the tim
 | Find posts (`posts`)               | The network's search, newest first, with the words given (or the hour's phrases from your playbooks), the posts under 2 days old sent for the AI's check (`search.ts`)                                           |
 | Read my profile (`profile_read`)   | Your own profile, from your feed's own link to it, read and sent for the AI's check                                                                                                                              |
 | Check Threads, Check X (`checkup`) | Your feed, profile, a search, a few authors' profiles (Follow looked for), one post (Like and the box to reply in looked for), notifications and followers, each read and sent with its outline; nothing pressed |
+| Read my chats (`chats`), Threads   | From 0.141.0: your chats, opened one at a time at a person's pace, each one's latest messages sent for the AI, and who wrote last told to HandsFreeOS (`chats.ts`); nothing typed or sent                        |
 
 ### On LinkedIn (0.40.0)
 
@@ -1122,7 +1123,8 @@ own line and turn with its network's asks, its own window, alarm (`hfos-auto-thr
   latest while the day's likes have room; the visits after, while they decide), a follow a day after with their
   profile's own Follow, and comments on good posts and answers to replies, drafted by the AI and posted once OK'd or past
   the hold, only in that post's own box (`src/auto/comments.ts`). A comment pitches only when a post asks for what the
-  business offers. Message drafts are never taken up there (`followWorkLeft`).
+  business offers. On X, message drafts are never taken up (`followWorkLeft`); on Threads, from 0.141.0, they are, as
+  on Instagram (decision 167, below).
 - **At a careful pace:** 3 to 8 minutes between steps, inside the kit's limits (30 comments and 80 likes a day, halved
   while the account is new and for a week after a warning), which HandsFreeOS keeps.
 - **A warning** stops that network for the day, and only it. If it asks you to sign in, it stops and says so.
@@ -1154,10 +1156,11 @@ hour late). From 0.113.0 (docs/outreach.md, decision 125, `src/auto/watch.ts`):
 
 - **A window of its own keeps your messages open.** While Chrome is open, you're signed in, this is the computer that
   works and noting is on, a window opens beside yours and minimizes itself, with one tab for each network that's on and
-  works on its own (not Off): Messenger, LinkedIn's messaging, Instagram's messages and Alignable's. Its tabs are kept
+  works on its own (not Off): Messenger, LinkedIn's messaging, Instagram's messages, Alignable's and, from 0.141.0,
+  Threads'. Its tabs are kept
   from being put to sleep (`autoDiscardable`).
-- **Read every minute, where it stands.** Nothing is pressed, scrolled or typed there. On Facebook, LinkedIn and
-  Instagram the tab's script says who wrote last (`hfos-replies-now`, the same reader as any tab's, decision 22), and
+- **Read every minute, where it stands.** Nothing is pressed, scrolled or typed there. On Facebook, LinkedIn,
+  Instagram and Threads the tab's script says who wrote last (`hfos-replies-now`, the same reader as any tab's, decision 22), and
   the background sends it to HandsFreeOS as that network's (`src/hfos/replies.ts`), so your phone hears who wrote back.
   Alignable's list doesn't say who wrote last, so when a conversation's last line changes, Alignable's runner reads
   its chats again at their next turn, opening only the ones that changed (`alignableChatsAgain`).
@@ -1490,6 +1493,30 @@ minute after posting and before any reading:
 - It says what each place showed (`socialcontent.own.read`), or why it couldn't be read ("didn't show the post at its
   link"). A warning keeps the network's words for the day, for both social add-ons, and says nothing: the read is
   asked for again later, since one handed out is put off half an hour.
+
+### Messages on Threads (0.141.0)
+
+The owner, 15 Nov 2026: "i want threads to work like instagram where if they follow back then we can message them and
+we warm up for 2 weeks and then unfollow if they don’t follow back". The follow, the warm-up and the unfollow after the
+wait were there already; Threads has had messages on the web since May 2026 (`/messages/`, a chat at
+`/messages/t/<number>/`), so from 0.141.0 it messages there as on Instagram (docs/outreach.md, decision 167; the
+owner's picks 1a 2a 3a):
+
+- **Its first message once they follow back,** or to a good fit who follows you already, written by the AI from their
+  profile and sent as your Sending choice says, then follow-ups, within 10 first messages and 15 follow-ups a day
+  (halved while the account is new and after a warning). Never to someone who doesn't follow you: HandsFreeOS refuses
+  one (decision 159).
+- **Only in their own chat:** opened by its number when it's kept, else by Message on their profile, which Threads
+  shows once they follow you. It types only in that chat's own box while it's empty, sends with Send (or Enter where
+  none shows), and takes out what it typed when anything's off (`src/networks/follows/chats.ts`).
+- **Replies read every minute,** in the window that keeps your messages open (`src/auto/watch.ts`), and answered any
+  time of day, as on every network (decision 133). Once a day, while Collect is on, your chats are read for the AI
+  (**Read my chats**, `src/jobs/follows/chats.ts`, 60 a day).
+- **Check Threads** opens your messages and the newest chat too, and looks for its box and who it's with, never typing
+  in it: the other person would see you typing.
+
+The readers were built from Threads' code and Messenger's usual markup, before anyone's Check outlined them, so the
+first Check Threads tunes them. Nothing changes on X.
 
 ### The reply box emptied on Threads (0.140.8)
 
