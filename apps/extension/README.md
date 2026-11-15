@@ -1491,6 +1491,16 @@ minute after posting and before any reading:
   link"). A warning keeps the network's words for the day, for both social add-ons, and says nothing: the read is
   asked for again later, since one handed out is put off half an hour.
 
+### The reply box emptied on Threads (0.140.8)
+
+The owner's second Check Threads (15 Nov 2026, 0.140.7) found the Like and the box under the post, wrote its word
+there and found the arrow to send it, then said "the reply box didn't empty again". Threads' editor (Lexical) ignores
+Chrome's select-all-and-delete, and takes a replacing only once it has seen the selection, a moment after it's made.
+Now a box is emptied with `emptyIn` (`src/networks/looking/looks.ts`): Chrome's delete first, then, while there's still
+writing, all of it selected again and replaced with nothing 150 milliseconds on (longer each try, three tries), only
+ever with the focus in the box. Check Threads and X take their word out with it, and the runner takes out what it typed
+with it when there's no button to send it by. Instagram's boxes, plain ones, are emptied as before.
+
 ### Liking and replying on Threads (0.140.7)
 
 The owner's Check Threads on 15 Nov 2026 (0.140.5) said liking and commenting weren't working: "no Like on the post"

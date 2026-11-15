@@ -11,7 +11,7 @@ import { PROFILE_READ_LIMITS, type ProfileRead } from '@hfos/core/addons/outreac
 import { clean } from '../facebook/dom';
 import { scrollDialog } from '../instagram/browse';
 import { outlineNow } from '../looking/read';
-import { mainOf, namesIn, pause, waitFor, writeIn, writingIn } from '../looking/looks';
+import { emptyIn, mainOf, namesIn, pause, waitFor, writeIn, writingIn } from '../looking/looks';
 import type { LookingPlatform, LookingSite } from '../looking/site';
 import { missingOf, TRY_WORD, untried, went } from '../tries';
 import { followThem, likeTheirPost, theirPosts, unfollowThem, writeTheirComment } from './auto';
@@ -203,7 +203,7 @@ export function followSite(spec: FollowSpec): LookingSite {
             return b ? spec.sendFor(b) : null;
           }, 3_000);
           const live = find();
-          if (live) writeIn(doc, live, '');
+          if (live) await emptyIn(doc, live);
           const emptied =
             (await waitFor(() => (find() && !writingIn(find()!) ? true : null), 2_000)) === true;
           const outline = typed && send && emptied ? null : outlineNow(doc, site);

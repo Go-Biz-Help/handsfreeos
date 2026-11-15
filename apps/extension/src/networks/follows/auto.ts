@@ -20,7 +20,7 @@ import type { AutoResult, TheirPost } from '../facebook/auto';
 import { clean } from '../facebook/dom';
 import { visible } from '../facebook/fetch';
 import type { ProfileRef } from '../facebook/types';
-import { pause, waitFor, writeIn, writingIn } from '../looking/looks';
+import { emptyIn, pause, waitFor, writeIn, writingIn } from '../looking/looks';
 import type { CommentOn } from '../looking/site';
 import { postRootFor, postsOn, sameName } from './read';
 import type { FollowSpec } from './types';
@@ -199,12 +199,12 @@ export const writeTheirComment =
       const b = boxNow(doc, spec);
       return b && writtenIn(b) === clean(text) ? b : null;
     }, 2_000);
-    const takeOut = () => {
+    const takeOut = async () => {
       const b = boxNow(doc, spec);
-      if (b && writingIn(b)) writeIn(doc, b, '');
+      if (b && writingIn(b)) await emptyIn(doc, b);
     };
     if (!typed) {
-      takeOut();
+      await takeOut();
       return 'not_sent';
     }
     const send = await waitFor(() => {
@@ -217,7 +217,7 @@ export const writeTheirComment =
         : null;
     }, 3_000);
     if (!send) {
-      takeOut();
+      await takeOut();
       return 'none';
     }
     send.click();
