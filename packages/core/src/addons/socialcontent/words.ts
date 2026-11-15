@@ -723,6 +723,178 @@ export const SOCIALCONTENT_WORDS = {
     today: 'Today',
     tomorrow: 'Tomorrow',
   },
+  /**
+   * Picking many posts on the Calendar, its List, Week and Month looks, and what a post that didn't post can do (the
+   * owner, 15 Nov; the design they OK'd).
+   */
+  picking: {
+    looks: { list: 'List', week: 'Week', month: 'Month' },
+    looksLabel: 'How the calendar looks',
+    listTitle: 'Today and the next 2 weeks',
+    today: 'Today',
+    back: { week: 'Last week', month: 'Last month' },
+    ahead: { week: 'Next week', month: 'Next month' },
+    select: 'Select',
+    pick: 'Pick',
+    shows: {
+      all: 'All',
+      waiting: 'Waiting for your OK',
+      okd: 'OK’d',
+      posted: 'Posted',
+      failed: 'Didn’t post',
+      hidden: 'Hidden',
+    },
+    showsLabel: 'Show',
+    pickWeek: 'Pick the whole week',
+    pickMonth: (month: string) => `Pick all of ${month}`,
+    pickShown: 'Pick everything shown',
+    pickDay: (day: string) => `Pick all of ${day}`,
+    pickWeekOf: (range: string) => `Pick the whole week of ${range}`,
+    pickLately: 'Pick everything under Lately',
+    pickPost: (title: string) => `Pick “${title}”`,
+    dayPicked: (n: number, of: number) => (n && n === of ? `All ${of}` : `${n} of ${of}`),
+    menu: {
+      quick: 'Quick picks',
+      today: (day: string) => `Today, ${day}`,
+      thisWeek: (range: string) => `This week, ${range}`,
+      thisMonth: (month: string) => `All of ${month}`,
+      inRange: (range: string) => `All in ${range}`,
+      everythingIn: (range: string) => `Everything in ${range}`,
+      anyDate: 'Any date',
+      everything: 'Everything',
+      allWaiting: 'All waiting for your OK',
+      allPast: 'All past posts',
+      allFailed: 'All that didn’t post',
+      allHidden: 'All hidden',
+      waiting: 'Waiting for your OK',
+      okd: 'OK’d',
+      past: 'Past posts',
+      failed: 'Didn’t post',
+      hidden: 'Hidden',
+      clear: 'Clear what’s picked',
+      adds: 'Each pick adds to what’s already picked.',
+      finding: 'Finding them…',
+      more: (n: number) =>
+        `Picked the first ${n.toLocaleString('en-US')}. Act on these, then pick again for the rest.`,
+    },
+    picked: (n: number) => `${n.toLocaleString('en-US')} picked`,
+    pickedIn: (n: number, range: string) => `${n.toLocaleString('en-US')} picked · ${range}`,
+    summary: (s: {
+      waiting: number;
+      okd: number;
+      past: number;
+      failed: number;
+      hidden: number;
+    }) =>
+      [
+        s.waiting ? `${s.waiting} waiting for your OK` : null,
+        s.okd ? `${s.okd} OK’d` : null,
+        s.past
+          ? s.failed
+            ? `${s.past} past, ${s.failed === s.past ? (s.past === 1 ? 'it' : 'all') : s.failed} didn’t post`
+            : `${s.past} past`
+          : null,
+        s.hidden ? `${s.hidden} already hidden` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ') || 'Nothing these can do yet',
+    ok: 'OK',
+    redo: 'Redo',
+    look: 'Check if posted',
+    lookShort: 'Check',
+    mark: 'Mark posted',
+    hide: 'Hide',
+    show: 'Show again',
+    remove: 'Delete',
+    cancel: 'Cancel',
+    more: 'More',
+    actionsLabel: 'What to do with the picked posts',
+    lookHint: 'Looks on the network to see if it went up after all',
+    markHint: 'For posts you can see on the network',
+    /** What each did, in the bar after it's pressed. */
+    approved: (n: number, left: number) =>
+      [
+        n ? `OK’d ${count(n, 'post')}. They go up at their times.` : null,
+        left
+          ? `${count(left, 'post')} couldn’t be OK’d. Open ${left === 1 ? 'it' : 'them'} to see what ${left === 1 ? 'it needs' : 'they need'}.`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' ') || 'Nothing to OK.',
+    hidden: (n: number) =>
+      n
+        ? `Hid ${count(n, 'post')}. ${n === 1 ? 'It stays' : 'They stay'} under Hidden, and ${n === 1 ? 'it won’t' : 'none of them will'} go up while hidden.`
+        : 'Nothing new to hide.',
+    shown: (n: number) =>
+      n ? `${count(n, 'post')} back on the Calendar.` : 'Nothing hidden to show again.',
+    removed: (n: number, left: number) =>
+      [
+        n ? `Deleted ${count(n, 'post')} from the Calendar.` : null,
+        left ? `${count(left, 'post')} couldn’t be deleted: one going up right now waits till it’s done.` : null,
+      ]
+        .filter(Boolean)
+        .join(' ') || 'Nothing to delete.',
+    marked: (n: number, left: number) =>
+      [
+        n ? `Marked ${count(n, 'post')} as posted.` : null,
+        left ? `${count(left, 'post')} weren’t marked: only a post that didn’t post can be.` : null,
+      ]
+        .filter(Boolean)
+        .join(' ') || 'Nothing to mark.',
+    lookAsked: (n: number, left: number) =>
+      [
+        n
+          ? `Looking for ${count(n, 'post')} on the networks, from the computer that posts. Each found is marked as posted.`
+          : null,
+        left ? `${count(left, 'post')} weren’t looked for: only a post that didn’t post can be.` : null,
+      ]
+        .filter(Boolean)
+        .join(' ') || 'Nothing to look for.',
+    /** Delete asks first. */
+    removeTitle: (n: number) => (n === 1 ? 'Delete this post?' : `Delete ${count(n, 'post')}?`),
+    removeSays: (upcoming: number) =>
+      upcoming
+        ? `They come off the Calendar. ${upcoming === 1 ? 'The 1 that hasn’t gone up yet won’t post, and its day opens' : `The ${upcoming} that haven’t gone up yet won’t post, and their days open`} up for Fill the calendar.`
+        : 'They come off the Calendar.',
+    removeUp: (n: number, networks: string) =>
+      `${n === 1 ? '1 of them is' : `${n} of them are`} already up on ${networks}. Deleting here doesn’t take ${n === 1 ? 'it' : 'them'} down there. To take one down, delete it on that network.`,
+    removeHideInstead:
+      'Want them out of sight but kept? Hide them instead. You can show hidden posts again any time.',
+    removeKeep: 'Keep them',
+    removeHide: 'Hide instead',
+    removeGo: (n: number) => (n === 1 ? 'Delete it' : `Delete ${count(n, 'post')}`),
+    removeWho: 'Only an owner or admin can delete posts. Hide them instead, or ask one of them.',
+    /** Mark as posted asks first. */
+    markTitle: (title: string | null, n: number) =>
+      title ? `Mark “${title}” as posted?` : `Mark ${count(n, 'post')} as posted?`,
+    markSays: (network: string) =>
+      `Do this when you can see it on ${network}. It moves to Posted and won’t go up again.`,
+    markLink: 'Link to the post',
+    markLinkOptional: '(you can skip this)',
+    markLinkHint:
+      'With the link, its likes and views show on the Calendar. Don’t have it? Press Check if it posted instead, and Chrome finds it for you.',
+    markMany: 'Marking several at once skips the links. Each one can get its link later.',
+    markGo: 'Mark as posted',
+    markCancel: 'Cancel',
+    /** A post that didn't post. */
+    tryAgain: 'Try again',
+    lookOne: 'Check if it posted',
+    markOne: 'Mark as posted',
+    markAnyway: 'Mark as posted anyway',
+    lookSoon: (time: string) => `It looks for it on its own at ${time}.`,
+    looking: (network: string) =>
+      `Looking on ${network} for it. Chrome does this on the computer that posts, usually in under a minute. If Chrome is closed, it looks once Chrome opens.`,
+    notFound: (network: string, time: string) => `It isn’t on ${network}. Checked at ${time}.`,
+    lookCouldnt: (why: string) => `It couldn’t look: ${why}`,
+    openNoPick: 'Can’t be picked: there’s no post yet.',
+    notFilled: 'Not filled yet',
+    moreOn: (n: number) => `+${n} more`,
+    legendLabel: 'What the colours mean',
+    monthHint: 'Tick a day to pick it. Tick the box left of a week to pick the whole week.',
+    olderHint: 'To pick every past post, even older ones, use Pick → All past posts.',
+    weekdays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    weekdaysShort: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+  },
   post: {
     /** The line from the lists a post is about (decision 34). */
     about: (line: string) => `About: “${line}”`,

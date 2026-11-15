@@ -293,6 +293,18 @@ export const content = addonSocialcontent.table(
     numbers: jsonb('numbers').notNull().$type<OwnNumbers>().default({}),
     checksDueAt: ts('checks_due_at'),
     doneWell: jsonb('done_well').$type<DoneWell>(),
+    /**
+     * Hidden from the Calendar but kept under its Hidden filter (the owner, 15 Nov); one not up yet is skipped too, so
+     * it never goes up while hidden.
+     */
+    hiddenAt: ts('hidden_at'),
+    /**
+     * Check if it posted (the owner, 15 Nov): when the reading computer next looks on the network for a post that
+     * didn't post, when it last looked and didn't find it everywhere, and why it couldn't look.
+     */
+    lookDueAt: ts('look_due_at'),
+    lookedAt: ts('looked_at'),
+    lookFailure: text('look_failure'),
     createdBy: userRef('created_by'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),

@@ -13,7 +13,8 @@
  * for the day (a warning, the day's room used).
  *
  * Before any reading, each minute, it puts up the business's OK'd posts whose time has come (part 9, ./posting.ts),
- * then reads how its own posts did about 2 and 7 days after they went up (part 11, ./own.ts).
+ * looks for a post that didn't post when someone asked or it may have gone up (Check if it posted, ./look.ts), then
+ * reads how its own posts did about 2 and 7 days after they went up (part 11, ./own.ts).
  *
  * It never does Social Outreach's work, and Social Outreach never does its: they share only the extension, the
  * network's pace and its day's warnings (decision 1).
@@ -33,6 +34,7 @@ import {
 import { FOLLOW_READS_BY_KIND } from './follow-read';
 import { INSTAGRAM_READS_BY_KIND } from './instagram-read';
 import { PAGE_READS_BY_KIND } from './page-read';
+import { lookTurn } from './look';
 import { ownTurn } from './own';
 import { postTurn } from './posting';
 import { roomOn, searchRoomOn, type ReadCtx, type ReadEnd } from './read';
@@ -142,6 +144,11 @@ async function next(): Promise<boolean> {
     if (await postTurn(business.id, tabFor, version)) return true;
   }
   // Then how its own posts did, about 2 and 7 days after they went up (part 11, ./own.ts).
+  // Then looking for a post that didn't post (Check if it posted, the owner, 15 Nov, ./look.ts).
+  for (const business of await businessesNow()) {
+    if ((notReaderUntil.get(business.id) ?? 0) > Date.now()) continue;
+    if (await lookTurn(business.id, tabFor)) return true;
+  }
   for (const business of await businessesNow()) {
     if ((notReaderUntil.get(business.id) ?? 0) > Date.now()) continue;
     if (await ownTurn(business.id, tabFor)) return true;

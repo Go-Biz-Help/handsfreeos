@@ -109,12 +109,34 @@ export const POSTING = {
     x: 280,
   } as Readonly<Record<PostingNetwork, number>>,
   /**
-   * Redo (the owner, 15 Nov): posts that came out wrong or didn't go up, ticked on the Calendar, go up again one at a
-   * time on each network, this far apart, so a network never sees a burst of them. Up to this many at once.
+   * Redo (the owner, 15 Nov): posts that came out wrong or didn't go up, picked on the Calendar, go up again one at a
+   * time on each network, this far apart, so a network never sees a burst of them. Any number may be picked (the
+   * owner's OK of the design, 15 Nov: no 30 cap); the screens send them this many at a time.
    */
   redoEveryMs: 30 * 60_000,
-  redoMost: 30,
+  redoMost: 500,
 } as const;
+
+/**
+ * Check if it posted (the owner, 15 Nov): the reading computer looks on the network for a post that didn't post, by its
+ * first words, as a person would. Once on its own this long after one that may have gone up is marked as didn't post
+ * (Facebook can still be publishing when the extension gives up), and whenever a person asks. A look handed out is put
+ * off this long, so one never answered is simply asked again.
+ */
+export const LOOK = {
+  afterFailMs: 10 * 60_000,
+  takenMs: 30 * 60_000,
+} as const;
+
+/**
+ * Picking many posts on the Calendar (the owner, 15 Nov): a picking command takes up to `most` posts at a time (the
+ * screens send more in turns), and a pick across any date lists up to `listMost`.
+ */
+export const PICKING = { most: 500, listMost: 2_000 } as const;
+
+/** Whether a post can be looked for, or marked as posted by hand: it didn't post. */
+export const canLook = (c: { state: ContentState; network: string }): boolean =>
+  c.state === 'failed' && isPostingNetwork(c.network) && POSTING.networks.includes(c.network);
 
 /** Whether a post can be redone: it went up (it goes up again) or didn't go up (it's tried again). */
 export const canRedo = (c: { state: ContentState; network: string }): boolean =>

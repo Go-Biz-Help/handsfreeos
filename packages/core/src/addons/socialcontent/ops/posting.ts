@@ -27,6 +27,7 @@ import {
   chainFor,
   hasPictures,
   isPostingNetwork,
+  LOOK,
   placesFor,
   placesLeft,
   POSTING,
@@ -51,7 +52,14 @@ import { networkName } from '../networks';
 import { content } from '../tables';
 import { SOCIALCONTENT_WORDS as W } from '../words';
 import { inWorkspace, settingsOf } from './common';
-import { contentOut, loadContent, needChangeable, POST_REFUSALS, type ContentRow } from './content';
+import {
+  contentOut,
+  loadContent,
+  needChangeable,
+  NOT_HIDDEN_OR_LOOKED,
+  POST_REFUSALS,
+  type ContentRow,
+} from './content';
 import { needReader } from './reading';
 
 const PATH = 'a/socialcontent/calendar';
@@ -108,6 +116,7 @@ export const postNext = defineAddonCommand(socialcontentAddon, {
     const stuck = await rows<{ record_id: string; network: string }>(
       ctx.tx,
       sql`update addon_socialcontent.content set state = 'failed', posting_at = null, updated_at = now(),
+            look_due_at = now() + make_interval(secs => ${LOOK.afterFailMs / 1000}),
             failure = case network
               when 'facebook' then ${W.posting.unsure(networkName('facebook'))}
               when 'linkedin' then ${W.posting.unsure(networkName('linkedin'))}
@@ -269,6 +278,11 @@ export const postWent = defineAddonCommand(socialcontentAddon, {
         failure,
         postingAt: null,
         ...(state === 'posted' ? { postedAt: at } : {}),
+        // It may have gone up all the same (Facebook was still publishing two Page posts on 14 Nov): looked for on
+        // the network on its own, once, 10 minutes on (the owner, 15 Nov).
+        ...(state === 'failed'
+          ? { lookDueAt: new Date(at.getTime() + LOOK.afterFailMs), lookedAt: null, lookFailure: null }
+          : { lookDueAt: null }),
         // Its numbers are read 2 and 7 days after it first went up (part 11).
         checksDueAt: c.checksDueAt ?? nextCheckAt(postedTo, c.numbers),
         updatedAt: at,
@@ -347,6 +361,7 @@ export const contentPostNow = defineAddonCommand(socialcontentAddon, {
         approvedAt: at,
         failure: null,
         postingAt: null,
+        ...NOT_HIDDEN_OR_LOOKED,
         updatedAt: at,
       })
       .where(eq(content.recordId, c.recordId));
@@ -364,7 +379,7 @@ export const contentPostNow = defineAddonCommand(socialcontentAddon, {
 export const contentRedo = defineAddonCommand(socialcontentAddon, {
   name: 'socialcontent.content.redo',
   description:
-    'Redo several of the business’s own posts at once (the owner, 15 Nov): ones that went up wrong, or didn’t go up, put up again from the computer that posts, the first on each network now and the rest one every 30 minutes on that network. One that went up goes up again everywhere it went (its old numbers go, and the person deletes the old post on the network, since HandsFreeOS can’t take posts down); one that didn’t go up is tried again only where it hadn’t. It counts as the OK (decision 15). Says how many it redid, and which it couldn’t and why.',
+    'Redo several of the business’s own posts at once (the owner, 15 Nov; up to 500 a time): ones that went up wrong, or didn’t go up, put up again from the computer that posts, the first on each network now and the rest one every 30 minutes on that network. A hidden one is shown again. One that went up goes up again everywhere it went (its old numbers go, and the person deletes the old post on the network, since HandsFreeOS can’t take posts down); one that didn’t go up is tried again only where it hadn’t. It counts as the OK (decision 15). Says how many it redid, and which it couldn’t and why.',
   risk: 2,
   input: ContentRedoInput,
   output: ContentRedoOutput,
@@ -451,6 +466,7 @@ export const contentRedo = defineAddonCommand(socialcontentAddon, {
           approvedAt: new Date(now),
           failure: null,
           postingAt: null,
+          ...NOT_HIDDEN_OR_LOOKED,
           // One that went up goes up again everywhere: what it had is the old post's.
           ...(again
             ? {
