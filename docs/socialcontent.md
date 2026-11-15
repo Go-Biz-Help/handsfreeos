@@ -423,8 +423,10 @@ Instagram from 0.133.0, Threads and X from 0.138.0. The post's sheet offers **Co
   HandsFreeOS's storage on the person's own sign-in; the network's box is opened, the words typed, the pictures added
   (its file field, pasting, its photo button with the file picker held back, or dropping them), Next pressed when the
   box asks, then Post. A Facebook Page's post goes through Meta Business Suite's Create post for the Page, so the
-  person's profile is never switched to the Page while Social Outreach works as them; a tick for Instagram there is
-  turned off. A Page of Facebook's newer kind is opened there by its own number, not the one in its link (extension
+  person's profile is never switched to the Page while Social Outreach works as them; Instagram is taken off what it
+  posts to there (a tick, or the Instagram account in Post to, which Business Suite picks for a Page with Instagram
+  linked), and after Publish it waits up to 90 seconds, then looks on the Page for the post before saying it didn't
+  go up (extension 0.140.2, after two Page posts on 14 Nov were marked as failed while still publishing). A Page of Facebook's newer kind is opened there by its own number, not the one in its link (extension
   0.139.2). LinkedIn's newer box takes the pictures in a window of its own (Upload from computer, then Next). Its link comes from the network (LinkedIn's View post), else from the top of the profile, the Page or
   their own posts by its first words.
 - **Instagram** (part 10): **Create** on its home page (then **Post** when it asks which kind), the pictures or the

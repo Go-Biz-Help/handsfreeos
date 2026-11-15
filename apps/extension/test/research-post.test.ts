@@ -144,6 +144,117 @@ describe('putting one of the business’s posts up', () => {
 });
 
 /**
+ * Business Suite's Create post for a Page (2026): the page itself, with Post to's accounts (the Page's and, with
+ * Instagram linked, Instagram's, each picture badged with its network, as Business Suite picks them), the text box,
+ * a file field for the pictures, and Publish. Publish shows it's publishing for `publishMs`, then leaves for the posts
+ * list; `stuck` never does.
+ */
+function businessSuite(opts: { publishMs?: number; stuck?: boolean } = {}) {
+  const { window } = new JSDOM(
+    `<body><div role="main">
+      <div role="heading" aria-level="3">Post to</div>
+      <div role="combobox" aria-expanded="false" id="post-to"><span id="picked"></span><div>Pipe Dreams</div></div>
+      <div role="heading" aria-level="3">Media</div>
+      <input type="file" accept="image/*,video/*" id="field">
+      <div id="media"></div>
+      <div role="combobox" aria-label="Write into the dialog box to include text with your post." contenteditable="true" id="words"></div>
+      <div role="button" id="cancel">Cancel</div>
+      <div role="button" id="publish">Publish</div>
+    </div></body>`,
+    { url: 'https://business.facebook.com/latest/composer/?asset_id=109876543210987' },
+  );
+  const doc = window.document;
+  (window as unknown as { DataTransfer: unknown }).DataTransfer = FakeTransfer;
+  const main = doc.querySelector('[role="main"]')!;
+  const words = doc.getElementById('words')!;
+  doc.execCommand = (_c: string, _u?: boolean, text?: string) => {
+    words.textContent = text ?? '';
+    return true;
+  };
+  doc.getElementById('field')!.addEventListener('change', () => {
+    const img = doc.createElement('img');
+    img.setAttribute('src', 'blob:https://business.facebook.com/1');
+    doc.getElementById('media')!.append(img);
+  });
+  const picked = new Set(['instagram', 'facebook']);
+  const postTo = doc.getElementById('post-to')!;
+  const badges = () => {
+    doc.getElementById('picked')!.innerHTML = [...picked]
+      .map((n) => `<img alt=""><img alt="${n === 'instagram' ? 'Instagram' : 'Facebook'}">`)
+      .join('');
+  };
+  badges();
+  postTo.addEventListener('click', () => {
+    const open = doc.getElementById('accounts');
+    if (open) {
+      open.remove();
+      postTo.setAttribute('aria-expanded', 'false');
+      return;
+    }
+    const list = doc.createElement('div');
+    list.id = 'accounts';
+    list.setAttribute('role', 'listbox');
+    list.innerHTML = `
+      <div role="option" data-net="facebook" aria-selected="true"><img alt=""><img alt="Facebook"><span>Pipe Dreams</span></div>
+      <div role="option" data-net="instagram" aria-selected="true"><img alt=""><img alt="Instagram"><span>pipedreams</span></div>`;
+    for (const row of list.querySelectorAll<HTMLElement>('[role="option"]'))
+      row.addEventListener('click', () => {
+        const net = row.dataset.net!;
+        if (picked.has(net)) picked.delete(net);
+        else picked.add(net);
+        row.setAttribute('aria-selected', String(picked.has(net)));
+        badges();
+      });
+    doc.body.append(list);
+    postTo.setAttribute('aria-expanded', 'true');
+  });
+  const published: { words: string; to: string[] }[] = [];
+  doc.getElementById('publish')!.addEventListener('click', () => {
+    published.push({ words: words.textContent ?? '', to: [...picked] });
+    const busy = doc.createElement('div');
+    busy.innerHTML = `<span role="progressbar"></span><div role="heading" aria-level="4">Publishing your post</div>`;
+    doc.body.append(busy);
+    if (opts.stuck) return;
+    setTimeout(() => {
+      busy.remove();
+      main.innerHTML = '<div role="heading" aria-level="1">Posts</div>';
+    }, opts.publishMs ?? 1_000);
+  });
+  return { doc, published };
+}
+
+describe('putting a post up on a Page with Business Suite', () => {
+  it('takes Instagram off Post to, waits while it publishes, and knows it went up (the owner, 14 Nov)', async () => {
+    const suite = businessSuite({ publishMs: 45_000 });
+    const going = postHere(suite.doc, ask('business'));
+    await vi.advanceTimersByTimeAsync(60_000);
+    const done = await going;
+    expect(done).toMatchObject({ result: 'done', pressed: true });
+    expect(done.steps).toEqual(
+      expect.arrayContaining(['box', 'typed', 'media', 'instagram:list', 'instagram:off', 'post']),
+    );
+    expect(done.steps).not.toContain('instagram:kept');
+    // Only the Page: Instagram has its own post.
+    expect(suite.published).toEqual([
+      { words: 'Three ways to save time.\n\n#crm', to: ['facebook'] },
+    ]);
+    expect(suite.doc.getElementById('accounts')).toBeNull();
+  });
+
+  it('says it pressed Publish when Business Suite never finished, so the Page is looked at', async () => {
+    const suite = businessSuite({ stuck: true });
+    const going = postHere(suite.doc, ask('business'));
+    await vi.advanceTimersByTimeAsync(100_000);
+    const done = await going;
+    expect(done).toMatchObject({ result: 'not_sent', pressed: true });
+    expect(suite.published).toHaveLength(1);
+    expect(failureFor('facebook', 'page', done)).toMatch(
+      /pressed Publish for your Page in Meta Business Suite, but didn’t find the post on your Page/,
+    );
+  });
+});
+
+/**
  * LinkedIn's newer box: Add media opens a window of its own over it, with a place to drop pictures and Upload from
  * computer (which asks for a file field), then Next back to the box with the pictures. `drop`: the window takes only
  * what's dropped on it.

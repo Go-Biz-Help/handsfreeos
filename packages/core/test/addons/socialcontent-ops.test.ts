@@ -1120,6 +1120,7 @@ describe('the business’s own posts', () => {
     await rows(
       admin(),
       sql`update addon_socialcontent.content set state = 'posted', post_at = now() - interval '1 day',
+            approved_at = now() - interval '2 days', approved_by = ${member.id}::uuid,
             posted_at = now() - interval '1 day', checks_due_at = now() + interval '1 day',
             post_link = 'https://www.linkedin.com/feed/update/urn:li:activity:7300000000000000009/',
             posted_to = jsonb_build_array(jsonb_build_object('place', 'feed', 'link', null, 'at', now()))
@@ -1190,7 +1191,8 @@ describe('the business’s own posts', () => {
     // Out of the way of the posting tests after this one.
     await rows(
       admin(),
-      sql`update addon_socialcontent.content set state = 'skipped', posting_at = null
+      sql`update addon_socialcontent.content set state = 'skipped', posting_at = null,
+            approved_at = null, approved_by = null
           where record_id = any(${`{${up},${missed},${half},${hidden}}`}::uuid[])`,
     );
   });
