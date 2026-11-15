@@ -426,27 +426,44 @@ describe('Threads’ Like and box to reply in, as its pages drew them on 15 Nov 
   const dana = { id: null, username: 'dana.reyes', url: `${TH}/@dana.reyes` };
 
   /**
-   * The box under the post, drawn as Threads draws it: typing takes the placeholder away and shows its arrow named
-   * Reply, which sends what's written and empties the box.
+   * The box under the post, drawn as Threads draws it, its editor (Lexical) as the owner's second Check Threads found it
+   * (15 Nov 2026, 0.140.7): typing goes in at the caret, and replaces what's selected once the editor has seen the
+   * selection, a moment after select-all; delete takes out the letter before the caret, and nothing with all of it
+   * selected. Words in it take the placeholder away and show its arrow named Reply (unless `arrow` is off), which sends
+   * them and empties the box.
    */
-  const wireUnder = (doc: Document, sent: string[]) => {
+  const wireUnder = (doc: Document, sent: string[], { arrow = true } = {}) => {
     const box = () => doc.querySelector<HTMLElement>('[role="none"] [contenteditable="true"]')!;
-    doc.execCommand = (_c: string, _u?: boolean, words?: string) => {
-      box().textContent = words ?? '';
-      const tools = doc.querySelector('.tools')!;
-      doc.querySelector('.placeholder')?.remove();
-      doc.querySelector('.send')?.remove();
-      if (words) {
-        tools.insertAdjacentHTML(
-          'afterend',
-          '<div class="send"><div role="button"><span><svg aria-label="Reply" role="img"><title>Reply</title></svg></span></div></div>',
-        );
+    let selecting: ReturnType<typeof setTimeout> | null = null;
+    let whole = false;
+    const drawn = () => {
+      const words = box().textContent ?? '';
+      doc.querySelector('.placeholder')?.toggleAttribute('hidden', words !== '');
+      const had = doc.querySelector('.send');
+      if (words && arrow && !had) {
+        doc
+          .querySelector('.tools')!
+          .insertAdjacentHTML(
+            'afterend',
+            '<div class="send"><div role="button"><span><svg aria-label="Reply" role="img"><title>Reply</title></svg></span></div></div>',
+          );
         doc.querySelector('.send [role="button"]')!.addEventListener('click', () => {
           sent.push(box().textContent ?? '');
           box().textContent = '';
-          doc.querySelector('.send')?.remove();
+          drawn();
         });
-      }
+      } else if (!words && had) had.remove();
+    };
+    doc.execCommand = (command: string, _u?: boolean, words?: string) => {
+      const now = box().textContent ?? '';
+      if (command === 'selectAll') {
+        if (selecting) clearTimeout(selecting);
+        selecting = setTimeout(() => (whole = true), 100);
+      } else if (command === 'insertText') {
+        box().textContent = whole || !now ? (words ?? '') : now + (words ?? '');
+        whole = false;
+      } else if (command === 'delete' && !whole) box().textContent = now.slice(0, -1);
+      drawn();
       return true;
     };
     return box;
@@ -503,6 +520,21 @@ describe('Threads’ Like and box to reply in, as its pages drew them on 15 Nov 
     expect(await writeTheirComment(THREADS_SPEC)(doc, POST, text, on)).toBe('done');
     expect(sent).toEqual([text]);
     expect(opened).toBe(0);
+  });
+
+  it('takes what it typed out of the box under the post again when no arrow shows to send it', async () => {
+    const doc = page(
+      `${TH_MENU}${threadNow('dana.reyes', 'DQx7Ab12cd', 'Who do you use?', { under: UNDER })}`,
+      POST,
+    );
+    const sent: string[] = [];
+    const box = wireUnder(doc, sent, { arrow: false });
+    const text = 'Happy to show you how we do it.';
+    expect(
+      await writeTheirComment(THREADS_SPEC)(doc, POST, text, { profile: dana, postUrl: POST }),
+    ).toBe('none');
+    expect(box().textContent).toBe('');
+    expect(sent).toEqual([]);
   });
 
   it('with no box under the post, replies in the one its own Reply opens over it, sent with Post', async () => {
