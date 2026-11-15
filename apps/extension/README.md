@@ -1482,7 +1482,7 @@ minute after posting and before any reading:
   link"). A warning keeps the network's words for the day, for both social add-ons, and says nothing: the read is
   asked for again later, since one handed out is put off half an hour.
 
-### A Page's posts: Instagram off, and looked for on the Page (0.140.2)
+### A Page's posts: Instagram off, and looked for on the Page (0.140.3)
 
 Twice on 14 Nov 2026 (0.139.3) a post for the owner's Page was marked as didn't post: "It pressed Post on your Page,
 but Facebook didn't show the post going up". Its problem reports showed Business Suite still on Create post 30 seconds

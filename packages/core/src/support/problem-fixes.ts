@@ -232,6 +232,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 621,
     said: 'Their profile showed Facebook’s “This content isn’t available right now” (they blocked the person, or closed or hid their profile), with no Message on it: a profile Facebook won’t show is passed over now, as one with nothing to report.',
   },
+  {
+    area: 'facebook',
+    job: 'post.page',
+    note: 'It pressed Post on your Page, but Facebook didn’t show the post going up',
+    fixedIn: '0.140.3',
+    pr: 631,
+    said: 'Both posts went up: Business Suite was still publishing 30 seconds after Publish (its progress bar and a notice with Learn more over the page), with the Page’s Instagram picked in Post to too. Instagram comes off Post to now, Business Suite gets 90 seconds, and then the Page is read for the post before it says it didn’t go up.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */
