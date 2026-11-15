@@ -8,6 +8,7 @@
  */
 import { clean } from '../facebook/dom';
 import { visible } from '../facebook/fetch';
+import { chatOn, chatRowsOn } from './chats';
 import type {
   FollowAccount,
   FollowFound,
@@ -222,6 +223,9 @@ export function readFollow(doc: Document, href: string, spec: FollowSpec): Follo
     replies: post ? posts.slice(posts.indexOf(post) + 1) : [],
     people: peopleOn(doc, href, spec, me),
     me,
+    // Its messages, where it has them (decision 167): the list of chats, and the chat open.
+    chats: chatRowsOn(doc, href, spec),
+    chat: chatOn(doc, href, spec, me),
   };
 }
 

@@ -568,7 +568,7 @@ export const FOLLOW_SCRIPT =
  */
 export const LOCKED_RULES: readonly string[] = [
   'Never names a group you’re both in, or says it found someone in one.',
-  'Never messages anyone before they accept your request. On Instagram that’s their follow back. On Threads and X it only comments for now.',
+  'Never messages anyone before they accept your request. On Instagram and Threads that’s their follow back. On X it only comments for now.',
   'Gives your price, and your guarantee, only when they ask.',
   'Never pitches someone who said no or not now. They get a kind word, and nothing more unless they write.',
   'Never makes up anything about the person, your results or your business.',

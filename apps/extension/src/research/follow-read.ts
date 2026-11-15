@@ -79,6 +79,8 @@ export function followShownOf(read: unknown): FollowShown | null {
       replies: [],
       people: listOf(found.people),
       me: typeof found.me === 'string' ? found.me : null,
+      chats: [],
+      chat: null,
     },
   };
 }

@@ -1,7 +1,7 @@
 /**
  * Social Outreach on Threads and X (docs/outreach.md decision 163): follow networks whose main work is an hourly search
- * for posts on the business's topic and a comment on the good ones, with the good fits warmed up and followed, no
- * messages, a pitch only when a post asks for someone who offers what the business offers, and replies to the person's
+ * for posts on the business's topic and a comment on the good ones, with the good fits warmed up and followed, messages
+ * on Threads once they follow back (decision 167) and none on X, a pitch only when a post asks for someone who offers what the business offers, and replies to the person's
  * comments kept to answer, each answer waiting for their OK.
  */
 import { rows, sql } from '@hfos/db/client';
@@ -25,9 +25,12 @@ import {
   networkLimitsNow,
   networkOfLink,
   NETWORKS,
+  THREADS_MESSAGES_SINCE,
   THREADS_X_SINCE,
   withArticle,
 } from '../../src/addons/outreach/networks';
+import { ASK_KIND_SINCE_ON, askableOn } from '../../src/addons/outreach/asks';
+import { chatUrlOn } from '../../src/addons/outreach/network-words';
 import { blankPlaybook, FIND_WORDS_PER_DAY } from '../../src/addons/outreach/playbooks';
 import { postSearchWords, searchTurn } from '../../src/addons/outreach/posts';
 import { COMMENT_NEEDS_YOU } from '../../src/addons/outreach/sends';
@@ -40,34 +43,58 @@ const TH = 'https://www.threads.com';
 const X = 'https://x.com';
 const HOUR = 3_600_000;
 
-describe('Threads’ and X’s kits (decision 163)', () => {
-  it('are follow networks with no messages, an hourly search, and the owner’s daily limits', () => {
+describe('Threads’ and X’s kits (decisions 163 and 167)', () => {
+  it('are follow networks with an hourly search, the owner’s daily limits, and messages only on Threads', () => {
     for (const p of ['threads', 'x'] as const) {
       expect(NETWORKS[p]).toMatchObject({
         stage: 'working',
         follows: true,
-        messages: false,
         commentsWait: 'hold',
         postSearch: { everyMinutes: 60, perLook: 2, newestHours: 48 },
       });
-      // 3b: 30 comments and 80 likes a day, and nothing written in their messages.
-      expect(NETWORKS[p].dailyLimits).toMatchObject({
-        comment: 30,
-        like: 80,
-        first_message: 0,
-        follow_up: 0,
-      });
-      expect(messagesOn(p)).toBe(false);
-      // Halved for a new account or after a warning, as everywhere; a step at 0 stays 0.
-      expect(networkLimitsNow(p, true)).toMatchObject({ comment: 15, like: 40, first_message: 0 });
+      // 3b: 30 comments and 80 likes a day.
+      expect(NETWORKS[p].dailyLimits).toMatchObject({ comment: 30, like: 80 });
     }
+    // Threads messages them once they follow back (decision 167, 2a: Instagram's 10 first messages and 15 follow-ups).
+    expect(NETWORKS.threads.messages).toBe(true);
+    expect(messagesOn('threads')).toBe(true);
+    expect(NETWORKS.threads.dailyLimits).toMatchObject({ first_message: 10, follow_up: 15 });
+    expect(networkLimitsNow('threads', true)).toMatchObject({
+      comment: 15,
+      like: 40,
+      first_message: 5,
+      follow_up: 7,
+    });
+    // Nothing is written in anyone's messages on X yet.
+    expect(NETWORKS.x.messages).toBe(false);
+    expect(messagesOn('x')).toBe(false);
+    expect(NETWORKS.x.dailyLimits).toMatchObject({ first_message: 0, follow_up: 0 });
+    // Halved for a new account or after a warning, as everywhere; a step at 0 stays 0.
+    expect(networkLimitsNow('x', true)).toMatchObject({ comment: 15, like: 40, first_message: 0 });
     expect(FOLLOW_PLATFORMS).toEqual(['instagram', 'threads', 'x']);
-    expect(MESSAGE_PLATFORMS).toEqual(['facebook', 'linkedin', 'instagram', 'alignable']);
+    expect(MESSAGE_PLATFORMS).toEqual([
+      'facebook',
+      'linkedin',
+      'instagram',
+      'alignable',
+      'threads',
+    ]);
     expect(REPLY_PLATFORMS).toEqual(['threads', 'x']);
     expect([NETWORKS.threads.commentCharsMost, NETWORKS.x.commentCharsMost]).toEqual([500, 280]);
     expect(THREADS_X_SINCE).toBe('0.137.0');
+    expect(THREADS_MESSAGES_SINCE).toBe('0.141.0');
     expect(withArticle('X')).toBe('an X');
     expect(withArticle('Threads')).toBe('a Threads');
+  });
+
+  it('opens a Threads chat on its messages, and asks Threads alone to read its chats (decision 167)', () => {
+    expect(chatUrlOn('threads', '340282366841710301')).toBe(
+      'https://www.threads.com/messages/t/340282366841710301/',
+    );
+    expect(askableOn('threads', 'chats')).toBe(true);
+    expect(askableOn('x', 'chats')).toBe(false);
+    expect(ASK_KIND_SINCE_ON.threads?.chats).toBe('0.141.0');
+    expect(ASK_KIND_SINCE_ON.threads?.checkup).toBe('0.137.0');
   });
 
   it('knows their links, old and new', () => {

@@ -25,6 +25,7 @@ import {
   inNetworkWords,
   PLATFORM_KEYS,
   PLATFORMS,
+  THREADS_MESSAGES_SINCE,
   THREADS_X_SINCE,
   type Platform,
 } from './networks';
@@ -163,8 +164,8 @@ export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
   ],
   // Threads and X from decision 163: their newest followers saved (a follow-back counts as accepting), the ones the
   // person ticks who didn't follow back unfollowed, a search of their posts now, their profile read and checked, and
-  // their Check. No chats: nothing is written in their messages yet.
-  threads: ['friends', 'cancel', 'posts', 'profile_read', 'checkup'],
+  // their Check. Threads' chats read for the AI from decision 167, as it messages; nothing is written in X's yet.
+  threads: ['friends', 'cancel', 'posts', 'profile_read', 'checkup', 'chats'],
   x: ['friends', 'cancel', 'posts', 'profile_read', 'checkup'],
 };
 export const askableOn = (platform: Platform, kind: AskKind): boolean =>
@@ -456,10 +457,14 @@ export const ASK_KIND_SINCE_ON: Readonly<
     cancel: '0.97.0',
     post: '0.101.0',
   },
-  // Threads and X (decision 163): every ask from the build their kits came in.
-  threads: Object.fromEntries(
-    ['friends', 'cancel', 'posts', 'profile_read', 'checkup'].map((k) => [k, THREADS_X_SINCE]),
-  ),
+  // Threads and X (decision 163): every ask from the build their kits came in; Threads' chats from its messages'
+  // (decision 167).
+  threads: {
+    ...Object.fromEntries(
+      ['friends', 'cancel', 'posts', 'profile_read', 'checkup'].map((k) => [k, THREADS_X_SINCE]),
+    ),
+    chats: THREADS_MESSAGES_SINCE,
+  },
   x: Object.fromEntries(
     ['friends', 'cancel', 'posts', 'profile_read', 'checkup'].map((k) => [k, THREADS_X_SINCE]),
   ),

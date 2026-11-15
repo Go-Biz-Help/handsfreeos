@@ -65,6 +65,41 @@ export interface FollowListed {
   readonly following: Standing | null;
 }
 
+/** A chat in the person's messages (Threads', decision 167), as the list beside them shows it. */
+export interface FollowChatRow {
+  /** Who it's with, as the row names them. */
+  readonly name: string;
+  /** Its last line, as the list shows it, without its time. */
+  readonly preview: string | null;
+  /** The last line is the person's ("You: …"). */
+  readonly yours: boolean;
+  /** When it last moved, as the list says ("3h"). */
+  readonly when: string | null;
+  /** Its number, from the link to it. */
+  readonly thread: string | null;
+}
+
+/** A message in a chat: the person's or theirs. */
+export interface FollowChatMessage {
+  readonly from: 'me' | 'them';
+  readonly text: string;
+}
+
+/** A chat open on its own page (Threads', decision 167). */
+export interface FollowChat {
+  /** Its number, from its address. */
+  readonly thread: string | null;
+  /** Who it's with: the one other account its header links to, or null for a group or when it links nobody. */
+  readonly with: FollowAccount | null;
+  readonly name: string | null;
+  /** Its latest messages, oldest first. */
+  readonly messages: readonly FollowChatMessage[];
+  /** Whose the last message is, written or not (a post shared has no words); null with none read. */
+  readonly last: FollowChatMessage['from'] | null;
+  /** Its box to write in, in sight. */
+  readonly box: boolean;
+}
+
 /** What the kit's readers found on a page. Plain data: it crosses from the tab as JSON. */
 export type FollowFound = {
   /** Someone's profile, on their own page. */
@@ -79,6 +114,10 @@ export type FollowFound = {
   readonly people: readonly FollowListed[];
   /** The person's own username, from the menu's link to their profile. */
   readonly me: string | null;
+  /** On its messages (Threads', decision 167): the chats in the list beside them. */
+  readonly chats: readonly FollowChatRow[];
+  /** On a chat's own page: who it's with, its messages and its box. */
+  readonly chat: FollowChat | null;
 };
 
 export const NOTHING_FOLLOW_FOUND: FollowFound = {
@@ -88,7 +127,28 @@ export const NOTHING_FOLLOW_FOUND: FollowFound = {
   replies: [],
   people: [],
   me: null,
+  chats: [],
+  chat: null,
 };
+
+/**
+ * Where a network's messages are (Threads', decision 167): its list of the person's chats, a chat's own page by its
+ * number, and a profile's own Message. A network without them (X's) has nothing written in anyone's messages.
+ */
+export interface FollowMessages {
+  /** The list of the person's chats. */
+  readonly inbox: string;
+  /** A chat's own page, from its number. */
+  readonly chatUrl: (key: string) => string;
+  /** The chat an address is, by its number: null for any other address. */
+  readonly chatOf: (url: URL) => string | null;
+  /** A profile's own Message, beside its Follow, in the profile's header. */
+  readonly messageIn: (header: Element) => HTMLElement | null;
+  /** What a box to write a message in is named: "Message", "Write a message…". */
+  readonly box: RegExp;
+  /** What the control that sends a message says: "Send". */
+  readonly send: RegExp;
+}
 
 /** Where on a page each part is, on one of the two networks. */
 export interface FollowSpec {
@@ -165,4 +225,6 @@ export interface FollowSpec {
   readonly sendFor: (box: HTMLElement) => HTMLElement | null;
   /** On the person's notifications, whether a post says it answers them. */
   readonly answersMe: (root: Element, me: string) => boolean;
+  /** Its messages, where something is written in them (Threads', decision 167); none on X yet. */
+  readonly messages?: FollowMessages;
 }

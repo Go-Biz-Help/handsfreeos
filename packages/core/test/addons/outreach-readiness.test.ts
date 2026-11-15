@@ -145,7 +145,7 @@ describe('before they’re ready', () => {
       days: [1, 2, 3, 4, 5],
       canSend: 15,
       networks: [{ platform: 'facebook', canSend: 15 }],
-      more: ['linkedin', 'instagram', 'alignable'],
+      more: ['linkedin', 'instagram', 'alignable', 'threads'],
     });
     expect(await refused(runAs(member, ws, 'outreach.day.start', {}))).toBe('outreach_not_ready');
   });
@@ -285,7 +285,7 @@ describe('the goal across networks', () => {
         { platform: 'facebook', canSend: 15 },
         { platform: 'linkedin', canSend: 15 },
       ],
-      more: ['instagram', 'alignable'],
+      more: ['instagram', 'alignable', 'threads'],
     });
     // 20 calls a month take 35 to 69 first messages a day: a day's target is all 30 the two send safely.
     const today = await runAs(member, ws, 'outreach.tracking', { period: 'today' });

@@ -688,7 +688,7 @@ const writtenIn = (box: Element): string =>
  * `done` once the box empties; `none` with no such page or box, or no Post by it (what was typed is taken out again);
  * `not_sent` when the box had writing in it already, what was typed didn't take, or Instagram didn't take it. In the
  * reels player, the reel it opened on, theirs by its account's links (`openedReelOf`), its comments opened by its own
- * Comment for their box (from 0.140.9).
+ * Comment for their box (from 0.141.1).
  */
 export async function writeTheirComment(
   doc: Document,

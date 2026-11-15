@@ -152,7 +152,7 @@ export type AutoResult =
   | 'not_theirs'
   /**
    * The post doesn't let them comment: its bar has its Like or Share but no Comment, and there's no box to comment in,
-   * as Facebook draws a post whose author limited who can comment (from 0.140.9).
+   * as Facebook draws a post whose author limited who can comment (from 0.141.1).
    */
   | 'closed';
 

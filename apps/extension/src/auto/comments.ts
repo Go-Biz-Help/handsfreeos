@@ -31,7 +31,7 @@ import type { ProfileRef } from '../networks/facebook/types';
 import type { Work } from './plan';
 import { lookAtPost, looksAtPosts } from './post-look';
 
-/** Said when the post doesn't let them comment: whoever posted it limited who can (from 0.140.9). */
+/** Said when the post doesn't let them comment: whoever posted it limited who can (from 0.141.1). */
 export const COMMENTS_CLOSED = 'it doesn’t let you comment on it';
 
 /** While the network draws what a press sent. */
