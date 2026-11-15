@@ -550,7 +550,11 @@ function Flyout({
   );
 }
 
-/** In the phone's drawer: the places open in place, and are already open when the page showing is one of them. */
+/**
+ * In the phone's drawer: the places open in place, and are already open when the page showing is one of them. An
+ * add-on inside a group opens this way too, beside the sidebar as well as in the drawer, with the group keeping
+ * whether it's open (`open`, `onOpenChange`) so it stays as it was left while the group's flyout comes and goes.
+ */
 function Fold({
   testId,
   panelTestId,
@@ -560,18 +564,23 @@ function Fold({
   counts,
   onNavigate,
   children,
-}: OpenerProps) {
-  const [open, setOpen] = useState(active);
+  open: kept,
+  onOpenChange,
+}: OpenerProps & { readonly open?: boolean; readonly onOpenChange?: (open: boolean) => void }) {
+  const [own, setOwn] = useState(active);
   useEffect(() => {
-    if (active) setOpen(true);
+    if (active) setOwn(true);
   }, [active]);
+  const open = kept ?? own;
   return (
     <>
       <button
         type="button"
         data-testid={testId}
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        // The full name on a hover, for an add-on whose name is too long for the row.
+        title={label}
+        onClick={() => (onOpenChange ? onOpenChange(!open) : setOwn(!open))}
         className={rowClass(active)}
       >
         <Icon className="h-[18px] w-[18px] flex-none" strokeWidth={1.5} />
@@ -707,8 +716,9 @@ interface GroupProps {
 }
 
 /**
- * A group the person made, as one row that is lit by what is inside it. An add-on they put in it shows its pages
- * there, under its name.
+ * A group the person made, as one row that is lit by what is inside it. An add-on they put in it is still a row that
+ * opens and closes, with its pages under it, rather than every add-on's pages in one long list (the owner,
+ * 2026-11-15). It's open while one of its pages is showing, and otherwise as the person last left it.
  */
 function Group({
   workspaceId,
@@ -721,6 +731,8 @@ function Group({
   onNavigate,
 }: GroupProps) {
   const Opener = variant === 'drawer' ? Fold : Flyout;
+  /** The add-ons in it the person opened or closed: kept here, as the flyout's insides go each time it closes. */
+  const [unfolded, setUnfolded] = useState<Partial<Record<MenuPlaceKey, boolean>>>({});
   return (
     <Opener
       testId={`menu-group-${group.id}`}
@@ -735,18 +747,33 @@ function Group({
         group.keys.map((key) => {
           const item = items.get(key);
           if (!item) return null;
-          if (item.pages)
+          if (item.pages) {
+            const addonId = key.replace(/^addon:/, '');
+            const lit = key === activeKey;
             return (
-              <div key={key} role="group" aria-label={item.label} className="flex flex-col gap-0.5">
-                <p className="px-2.5 pb-1 pt-2 text-xs font-medium text-text-3">{item.label}</p>
-                <AddonPageLinks
-                  workspaceId={workspaceId}
-                  item={item}
-                  pathname={pathname}
-                  onNavigate={picked}
-                />
-              </div>
+              <Fold
+                key={key}
+                testId={`menu-addon-${addonId}`}
+                panelTestId={`menu-addon-panel-${addonId}`}
+                label={item.label}
+                icon={item.icon}
+                active={lit}
+                counts={() => <AddonCount workspaceId={workspaceId} addonId={addonId} />}
+                onNavigate={picked}
+                open={unfolded[key] ?? lit}
+                onOpenChange={(open) => setUnfolded((was) => ({ ...was, [key]: open }))}
+              >
+                {(after) => (
+                  <AddonPageLinks
+                    workspaceId={workspaceId}
+                    item={item}
+                    pathname={pathname}
+                    onNavigate={after}
+                  />
+                )}
+              </Fold>
             );
+          }
           return (
             <NavLink
               key={key}

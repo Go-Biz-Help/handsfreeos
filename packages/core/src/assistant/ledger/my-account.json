@@ -1,7 +1,7 @@
 {
   "area": "my-account",
   "title": "My account: profile, appearance, notifications, the side menu, my cell, my businesses and the More menu",
-  "checkedOn": "2026-11-14",
+  "checkedOn": "2026-11-15",
   "files": {
     "apps/mobile/src/app/app/extension-sign-in/[requestId].tsx": "28e53d7a9844",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx": "cc0007aa5c1d",
@@ -49,7 +49,7 @@
     "apps/web/src/components/shell/menu-editor.tsx": "bd19438cf152",
     "apps/web/src/components/shell/missing-page.tsx": "fb8ed3e50256",
     "apps/web/src/components/shell/mobile-shell.tsx": "2d7ed48b889a",
-    "apps/web/src/components/shell/nav-links.tsx": "7eea8101aa5c",
+    "apps/web/src/components/shell/nav-links.tsx": "1dae70105ca2",
     "apps/web/src/components/shell/notifications-bell.tsx": "36256aed833a",
     "apps/web/src/components/shell/sidebar.tsx": "3cb3b237cb52",
     "apps/web/src/components/shell/user-menu.tsx": "c9385747fa6f",
@@ -370,14 +370,14 @@
     {
       "path": "Web side menu → add-on rows, their pages and gated rows",
       "kind": "do",
-      "file": "apps/web/src/components/shell/nav-links.tsx:658",
+      "file": "apps/web/src/components/shell/nav-links.tsx:667",
       "covered": "partly",
       "by": "context add-on directory; paths only"
     },
     {
-      "path": "Web side menu → groups and the places in them",
+      "path": "Web side menu → groups and the places in them; an add-on in a group is a row that opens and closes, its pages under it",
       "kind": "see",
-      "file": "apps/web/src/components/shell/nav-links.tsx:713",
+      "file": "apps/web/src/components/shell/nav-links.tsx:723",
       "covered": "yes",
       "by": "get_settings my_account sideMenu.asDrawn"
     },
@@ -398,7 +398,7 @@
     {
       "path": "Web side menu → foot → Ideas New dot",
       "kind": "see",
-      "file": "apps/web/src/components/shell/nav-links.tsx:897",
+      "file": "apps/web/src/components/shell/nav-links.tsx:924",
       "covered": "yes",
       "by": "read_whats_new_unseen"
     },
