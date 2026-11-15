@@ -1,7 +1,7 @@
 {
   "area": "outreach",
   "title": "The Social Outreach add-on: every page",
-  "checkedOn": "2026-11-14",
+  "checkedOn": "2026-11-15",
   "files": {
     "apps/mobile/src/addons/outreach/actions.ts": "9d1266692122",
     "apps/mobile/src/addons/outreach/ai-help.tsx": "715ac076ab3b",
@@ -33,9 +33,9 @@
     "apps/mobile/src/addons/outreach/partners.tsx": "5fe0683e908d",
     "apps/mobile/src/addons/outreach/person-menu.tsx": "1a37fc2ef322",
     "apps/mobile/src/addons/outreach/pipeline.tsx": "0e8ba9125d19",
-    "apps/mobile/src/addons/outreach/playbook-script.tsx": "cfe3eb06fe9d",
+    "apps/mobile/src/addons/outreach/playbook-script.tsx": "aa608a7a036f",
     "apps/mobile/src/addons/outreach/playbook-test.tsx": "d508cf5f3f76",
-    "apps/mobile/src/addons/outreach/playbook.tsx": "758ea5f3f430",
+    "apps/mobile/src/addons/outreach/playbook.tsx": "fdf1ddd0cb1b",
     "apps/mobile/src/addons/outreach/playbooks.tsx": "1af36aa24064",
     "apps/mobile/src/addons/outreach/post-quote.tsx": "1fb64117de21",
     "apps/mobile/src/addons/outreach/posted.tsx": "4007346d12e7",
@@ -93,9 +93,9 @@
     "apps/web/src/addons/outreach/person-menu.tsx": "64e84258b057",
     "apps/web/src/addons/outreach/person-panel.tsx": "12eb4039a5b3",
     "apps/web/src/addons/outreach/pipeline-view.tsx": "e1d6f4c59064",
-    "apps/web/src/addons/outreach/playbook-builder.tsx": "fcb0b4c09978",
+    "apps/web/src/addons/outreach/playbook-builder.tsx": "6048dcfd401f",
     "apps/web/src/addons/outreach/playbook-test.tsx": "24d6b30fe7c6",
-    "apps/web/src/addons/outreach/playbooks-page.tsx": "452568c0c65f",
+    "apps/web/src/addons/outreach/playbooks-page.tsx": "c4ecc22101e2",
     "apps/web/src/addons/outreach/post-quote.tsx": "0d00a6705d36",
     "apps/web/src/addons/outreach/pre-day-list.tsx": "dd582568db6f",
     "apps/web/src/addons/outreach/profile-whole.tsx": "6650bd63908f",
@@ -2887,7 +2887,7 @@
       "by": "outreach_openers"
     },
     {
-      "path": "Playbooks → list: each playbook in use: name, goal, steps in order, the first message it starts with, questions it may ask, tags",
+      "path": "Playbooks → list: each playbook in use: name, goal, steps in order, the first message it starts with (or its introduction), questions it may ask, tags",
       "kind": "see",
       "file": "apps/web/src/addons/outreach/playbooks-page.tsx:89",
       "covered": "yes",
@@ -3158,6 +3158,13 @@
       "file": "apps/web/src/addons/outreach/playbook-builder.tsx:1653",
       "covered": "yes",
       "by": "outreach_save_playbook changes.script.first; outreach_improve_playbook_part (firsts)"
+    },
+    {
+      "path": "Playbooks → builder → What it says: How the first message goes (Pitch or Introduction); with Introduction, the Introduction part's words and the first message's versions shown as Your pitch",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/playbook-builder.tsx:1640",
+      "covered": "yes",
+      "by": "outreach_save_playbook changes.opens and changes.script.intro; outreach_playbooks details.opens and says.intro"
     },
     {
       "path": "Playbooks → builder → What it says: Words in [brackets] are filled in for each person (the list)",
@@ -3802,6 +3809,13 @@
       "file": "apps/mobile/src/addons/outreach/playbook-script.tsx:73",
       "covered": "yes",
       "by": "outreach_playbooks says and rules; outreach_save_playbook changes.script, a part at a time"
+    },
+    {
+      "path": "Phone → a playbook → What it says: How the first message goes (Pitch or Introduction), and the Introduction part with it",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/outreach/playbook-script.tsx:99",
+      "covered": "yes",
+      "by": "outreach_save_playbook changes.opens and changes.script.intro; outreach_playbooks details.opens and says.intro"
     },
     {
       "path": "Phone → a playbook → Test it: make someone up, the first message, quick replies, type a reply, Goes quiet, Let the AI play them, Start over",

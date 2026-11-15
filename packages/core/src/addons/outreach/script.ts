@@ -18,6 +18,7 @@ import type { PlaybookGoal } from './playbooks';
 /** The parts, in the order a conversation meets them. */
 export const SCRIPT_PARTS = [
   'first',
+  'intro',
   'reconnect',
   'yes',
   'question',
@@ -64,6 +65,11 @@ export const SCRIPT_INFO: Readonly<
   first: {
     label: 'First message',
     when: 'Once they accept your request or follow you back, after the days you set under Steps and pace. Also to a friend you’ve never talked to.',
+    says: 'message',
+  },
+  intro: {
+    label: 'Introduction',
+    when: 'In place of the first message, when the playbook starts with an introduction: once they accept your request, you accept theirs, or they follow you, after the days you set under Steps and pace. Nothing follows it but a friendly check-in once a month, until they write.',
     says: 'message',
   },
   reconnect: {
@@ -145,7 +151,7 @@ export const SCRIPT_GROUPS: readonly {
   readonly title: string;
   readonly parts: readonly ScriptPart[];
 }[] = [
-  { key: 'start', title: 'Starting a chat', parts: ['first', 'reconnect'] },
+  { key: 'start', title: 'Starting a chat', parts: ['first', 'intro', 'reconnect'] },
   { key: 'answers', title: 'When they answer', parts: ['yes', 'question', 'later', 'no'] },
   { key: 'quiet', title: 'When they go quiet', parts: ['followUp', 'checkIn'] },
   { key: 'booking', title: 'Around a booking', parts: ['reminder', 'missed'] },
@@ -171,6 +177,8 @@ export const SCRIPT_BLANKS = [
   { blank: '[what your offer is]', fills: 'What your main offer is, in a few words' },
   { blank: '[open times]', fills: 'Open times on your booking page, when it’s one of yours' },
   { blank: '[booking link]', fills: 'Your booking link' },
+  { blank: '[your first name]', fills: 'Your first name, from your HandsFreeOS account' },
+  { blank: '[your business name]', fills: 'Your business’s name' },
 ] as const;
 
 const text = (max: number) =>
@@ -194,6 +202,7 @@ export const PlaybookScript = z.object({
     .max(SCRIPT_LIMITS.first.most, `Up to ${SCRIPT_LIMITS.first.most} first messages.`)
     .refine(once, 'Each first message once.')
     .optional(),
+  intro: part,
   reconnect: part,
   yes: part,
   question: part,
@@ -268,6 +277,14 @@ export const STARTING_FIRST_MESSAGE =
   'Hey [first name], if I could get you [what your offer gets them] for your [their kind of business] business using [what your offer is], would you be interested?';
 
 /**
+ * The introduction a playbook starts with (decision 168, the owner, 15 Nov 2026: "thanks for connecting and who we are
+ * and what we offer and if they are ever interested to reach out"): sent in place of the first message's question by
+ * a playbook that starts with one (`opens`).
+ */
+export const STARTING_INTRO =
+  'Hey [first name], thanks for connecting! I’m [your first name] with [your business name]. We help [their kind of business] businesses get [what your offer gets them] with [what your offer is]. If you’re ever interested, just reach out!';
+
+/**
  * The words a playbook starts with, by its goal: the owner's latest way. The first message asks one straight question
  * that says how the business can help (decision 152); Reconnect catches up, then asks it (decisions 152 and 155); a
  * yes gets the ask for a time, with open times and the link (decisions 149 and 153); follow-ups ask again and never
@@ -278,6 +295,7 @@ export function startingScript(goal: PlaybookGoal): FullScript {
   const meet = MEETING[goal];
   return {
     first: [STARTING_FIRST_MESSAGE],
+    intro: STARTING_INTRO,
     reconnect:
       'A short, warm catch-up first: greet them by first name, say it’s been a while and that you hope they and their work are doing well, picking up something real from their page or your last chat. Ask nothing in it. Then, right after it, your first message’s question, starting “I was wondering if I could” in place of “Hey [first name], if I could”.',
     yes: `Let’s schedule a time ${ASK[goal]} so you can see what it’s about. If you don’t like it, no pressure. I have [open times], how’s that sound? Or grab any time that works for you here: [booking link]`,
@@ -380,6 +398,48 @@ export function openerAsFirst(opener: string): string | null {
     .replace(/\{\s*outcome\s*\}/gi, '[what your offer gets them]')
     .trim();
   return said ? said.slice(0, SCRIPT_LIMITS.first.line) : null;
+}
+
+// ---- How a playbook's first message goes (decision 168) ----
+
+/**
+ * How a playbook starts a chat with someone who just connected (decision 168, the owner's 1a): the first message's
+ * question (`pitch`, decisions 152 and 164), or an introduction in its place (`intro`): thanks for connecting, who the
+ * owner is and what the business offers, and to reach out if they're ever interested. Nothing asks after an
+ * introduction: a check-in goes once a month (the owner's 2b) until they write, and a yes gets the ask for a time.
+ */
+export const PLAYBOOK_OPENS = {
+  pitch: {
+    label: 'Pitch',
+    hint: 'Your first message asks straight out if they’d be interested, and follow-ups ask again when they go quiet.',
+  },
+  intro: {
+    label: 'Introduction',
+    hint: 'Thanks them for connecting, says who you are and what you offer, and to reach out if they’re ever interested. No follow-ups, only a friendly check-in once a month.',
+  },
+} as const;
+export type PlaybookOpens = keyof typeof PLAYBOOK_OPENS;
+export const PLAYBOOK_OPENS_KEYS = Object.keys(PLAYBOOK_OPENS) as [
+  PlaybookOpens,
+  ...PlaybookOpens[],
+];
+
+/** Whether a playbook starts a chat with an introduction rather than the first message's question. */
+export const opensWithIntro = (
+  d: { readonly opens?: PlaybookOpens | null | undefined } | null,
+): boolean => d?.opens === 'intro';
+
+/**
+ * The messages a playbook's first drafts take turns with: the first message's versions, or its introduction alone for a
+ * playbook that starts with one (decision 168).
+ */
+export function firstMessagesOf(d: {
+  readonly goal: PlaybookGoal;
+  readonly script?: PlaybookScript | undefined;
+  readonly opens?: PlaybookOpens | null | undefined;
+}): readonly string[] {
+  const says = scriptOf(d);
+  return opensWithIntro(d) ? [says.intro] : says.first;
 }
 
 // ---- The editors' state (the web's and the phone's) ----
@@ -486,6 +546,7 @@ export const FILL_BLANKS = [
   '[their kind of business] is the kind of business they run, from the facts or their pages, in a word or two, as they’d say it (roofing, real estate, photography); when they run more than one, the one the offer fits best. When those don’t show it, say “your business”, and when they work for someone else, put it as their line of work (“as a realtor”). Never guess it from the playbook. When they don’t run a business and the offer is for people, leave “for your … business” out and fit the words to them.',
   '[what your offer gets them] is what the offer really does for them, in a few plain words, never more than the offer says. [what your offer is] names the offer the way the offer does, in a few plain words (“my easy to use CRM software”, “my roof inspections”), never by its brand name.',
   '[open times] are the times under <times>, said the way a person texts them; with none given, leave out the words that offer them and keep the rest. [booking link] is the link you’re given, exactly as written; with none, leave its words out.',
+  '[your first name] is the first word of the name under <owner_name>; with none given, leave it and the words that give it out (“I’m with …”). [your business name] is the business’s name under <business>, written the way people say it.',
   'Anything else in brackets: put in what the facts say, and leave it and the words around it out when they don’t say.',
 ].join(' ');
 
@@ -539,4 +600,10 @@ export const SCRIPT_WORDS = {
   lockedTitle: 'Rules it always keeps',
   lockedBlurb: 'These hold whatever a playbook says.',
   test: 'Test it',
+  opensTitle: 'How the first message goes',
+  opensBlurb: 'Pick what goes once someone connects with you.',
+  /** The first message's label when the playbook starts with an introduction: Reconnect still asks it. */
+  pitchInIntro: 'Your pitch',
+  pitchInIntroWhen:
+    'Reconnect asks this after its catch-up. With an introduction, nobody new gets it as a first message.',
 } as const;

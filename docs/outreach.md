@@ -419,6 +419,10 @@ became.
   study of how real people comment (Settings → General → **Comment research**, staff only): the starter's extension
   reads about 2,000 public comments over 3 days, keeps their words alone, leaves out what reads like a bot's, and the
   guide made of it goes in every business's warm-up comments on Instagram once staff press Use it.
+- **An introduction in place of the pitch** (decision 168, `script.ts`, `ops/checks.ts`): a playbook can start with
+  an introduction (What it says → How the first message goes): thanks for connecting, who the person is and what the
+  business offers, and to reach out if ever interested. It goes to everyone who connects, and only a monthly check-in
+  follows it.
 - **The demo link** (decision 24, `demos.ts`, `ops/demos.ts`, the worker's `demos.ts`): each person's own link to the
   playbook's booking page for someone they reached (**Copy demo link** on Today), with a
   `ref` naming who sent it to whom and nothing else. A booking page keeps the `ref` on the booking
@@ -4358,6 +4362,54 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         as the other person would see someone typing. The readers were built from Threads' code and Messenger's
         usual markup before anyone's Check outlined them, so the first Check Threads tunes them.
 
+168.  **A playbook can start with an introduction in place of the pitch** (Chris, 15 Nov 2026: "need to add an
+      introduction option that instead of doing the pitch we send an introduction after they accept our friend ship
+      or sent a request or follow saying thanks for connecting and who we are and what we offer and if they are ever
+      interested to reach out or something like that"). He answered "your picks", which were 1a 2b 3b 4a 5a:
+      - **The choice is each playbook's** (1a; `details.opens`, `PLAYBOOK_OPENS`, `opensWithIntro`): What it says →
+        **How the first message goes**: **Pitch** (the first message's question, then follow-ups, as before) or
+        **Introduction**, on the web and the phone. A playbook saved before reads as Pitch, and a save that leaves
+        `opens` out keeps what's saved (`PLAYBOOK_KEPT_KEYS`), so an old phone can't undo it. With Introduction, the
+        **Introduction** part (`script.intro`, one version) is the first message (`firstMessagesOf`, which
+        `openersOf` and Test it read), and the first message's versions show as **Your pitch**, since Reconnect still
+        asks it after its catch-up.
+      - **The starting words** (4a; `STARTING_INTRO`): "Hey [first name], thanks for connecting! I’m [your first
+        name] with [your business name]. We help [their kind of business] businesses get [what your offer gets them]
+        with [what your offer is]. If you’re ever interested, just reach out!" Two more blanks: [your first name], the
+        first word of the person's name on their HandsFreeOS account (`<owner_name>`, given only when the task has
+        the blank), and [your business name], from `<business>`. The AI keeps close to the words (`introTask`,
+        `asMessage`), asks nothing they don't, and adds no link. Someone connected more than Say hi's 30 days and
+        never talked to (`connectedLately`) gets a friendly hello in place of the thanks for connecting.
+      - **Nothing follows it but the monthly check-in** (2b; `follow_ups.step` `intro`, `checkInsOnly`): a sent
+        introduction starts its conversation with the follow-ups counted as done (`noteSent`, told by the draft's
+        opener kind, or by `opener_uses` when it was noted by hand), so the next thing is the check-in 30 days on,
+        then once a month, with no ask (`taskFor`'s check-in says nothing was asked). Their reply is answered as any
+        reply and then waits for the check-in again, never restarting follow-ups. A yes still gets the ask for a time
+        (`stepAfterYes`); not now and no work as before.
+      - **Everyone who connects** (3b; `sayHiReady`'s `intro`, `connectedToMe`, `introsOnly`): Say hi takes, besides
+        the person's accepted requests and the friends a check found fit, anyone who connected with the person
+        themselves in the last 30 days (a request the person or the AI confirmed, or a follow) whom no check found
+        not a fit. Clients, Don't pitch and anyone talked to before stay out as always (`pitchable`, `inPlay`). It
+        does so only while every playbook in use on that network starts with an introduction, so nobody a check
+        never found fit is pitched by another playbook. Instagram and every follow network still wait for a
+        follow-back (decision 159). The daily goal's stock counts them the same way (`goalStock`).
+      - **Drafts waiting are written again** (5a; `dropOtherOpening` in `outreach.send.queue`): a first message
+        drafted the other way from how its playbook starts now goes if it waits for an OK, and is skipped if it was
+        OK'd and not sent, so Today lists the person again and the next draft is the new way.
+      - **Results counts it apart** (`OPENER_KINDS.intro`, `opener_uses.kind` `intro`): Which first messages work
+        shows the introduction as its own row, with its replies and demos.
+      - **Test it and Your messages**: the Test console starts with the introduction (labelled Introduction) and
+        shows the check-in next; Your messages' samples show the introduction as the first message and no
+        follow-ups.
+      - **How it's built** (migration 027700, no extension change: the extension sends the opener the worker gave
+        it): `script.ts` (the part, the choice, the blanks), `playbooks.ts` (`opens`), `openers.ts`,
+        `conversation.ts` and `ops/conversation.ts` (the step), `today.ts` and `ops/today.ts` (the task, Say hi),
+        `ops/checks.ts`, `ops/sends.ts`, `playbook-test.ts` in core and the worker, the worker's `today.ts`,
+        `samples.ts` and the stand-in model, the web's builder and Playbooks list, and the phone's playbook screens.
+        The migration lets `follow_ups.step` and `opener_uses.kind` be `intro`.
+      - **The Assistant does it too**: `outreach_playbooks` gives `says.intro` and `details.opens`, and
+        `outreach_save_playbook` takes `changes.opens` and `changes.script.intro`.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -4396,6 +4448,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   (`asMessage` or `asHow`), so the business can see and change it under What it says. Only what no playbook may
   change is a rule in code, and each of those is in `LOCKED_RULES` for the editors to show. Never put how a message
   reads only in a prompt.
+- **An introduction asks nothing, and nothing chases it** (decision 168, `checkInsOnly`): a conversation on step
+  `intro` gets check-ins only, after a reply too. A new kind of first message that asks nothing takes the same path,
+  and Say hi widens to everyone who connected only while every playbook in use on the network starts with one
+  (`introsOnly`).
 - **Nothing the AI writes makes up the owner's life** (decision 165, `about-owner.ts`): a prompt that writes as the
   person carries `ABOUT_OWNER_RULE` with their `<about_owner>` (`aboutOwnerFor`, `aboutOwnerBlock`), or
   `OWNER_LIFE_UNKNOWN` when it isn't given About you. About you is the person's alone: read it only to write as

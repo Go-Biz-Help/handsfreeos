@@ -17,6 +17,7 @@ import {
   AnswerNoteInput,
   AnswerNoteOutput,
   checkInAfter,
+  checkInsOnly,
   ConversationNoteInput,
   ConversationNoteOutput,
   ConversationStopInput,
@@ -30,7 +31,7 @@ import {
 } from '../conversation';
 import { outreachAddon } from '../manifest';
 import { PARTNER_GOAL, paceOf, type Pace } from '../playbooks';
-import { followUps, playbooks, profiles, stages } from '../tables';
+import { followUps, openerUses, playbooks, profiles, stages } from '../tables';
 import { EVER } from './activity';
 import { inWorkspace, type Ctx } from './common';
 import { wantLead } from './leads';
@@ -105,7 +106,8 @@ async function kept(ctx: Ctx, me: string, profileId: string) {
  * no, goes on with a conversation the person stopped (`outreach.conversation.stop`). Reconnect asks the first
  * message's question after its catch-up (decision 152), so it starts a conversation at the first step for someone in
  * none yet, unless they turned the offer down, when it only caught up; a demo's reminder, another time after a no-show
- * and a birthday or new-job note leave it be.
+ * and a birthday or new-job note leave it be. A playbook's introduction in place of the first message (decision 168)
+ * starts it at `intro`, with a check-in a month on and no follow-ups, and a reply there waits for the check-in too.
  */
 export async function noteSent(
   ctx: Ctx,
@@ -115,6 +117,11 @@ export async function noteSent(
     readonly kind: MessageKind;
     readonly at: Date;
     readonly offerVersion: number | null;
+    /**
+     * For a first message: whether it was the playbook's introduction (decision 168), as its draft's opener says. Left
+     * out, the first message noted for them says (`opener_uses`).
+     */
+    readonly intro?: boolean;
   },
 ): Promise<void> {
   // A partner's messages are the Partners list's (./partners.ts), never a customer conversation; a demo's reminder and
@@ -151,15 +158,18 @@ export async function noteSent(
       .onConflictDoNothing();
     return;
   }
-  const step = STEP_OF_KIND[sent.kind];
   const pace = await conversationPace(ctx);
+  // An introduction in place of the first message (decision 168) asks nothing: a check-in a month on, never a follow-up.
+  const intro =
+    sent.kind === 'opener' && (sent.intro ?? (await introducedTo(ctx, me, sent.profileId)));
+  const step = intro ? ('intro' as const) : STEP_OF_KIND[sent.kind];
   if (step) {
     const set = {
       step,
       stepAt: at,
-      sent: 0,
+      sent: intro ? pace.followUps : 0,
       lastAt: at,
-      ...nextAfter(pace, 0, at),
+      ...(intro ? checkInAfter(at) : nextAfter(pace, 0, at)),
       answer: null,
       answeredAt: null,
       // A step sent goes on with a conversation the person stopped.
@@ -209,7 +219,9 @@ export async function noteSent(
     return;
   }
   if (sent.kind === 'reply') {
-    const later = row.answer === 'later';
+    // Not now waits for the monthly check-in; so does any reply after an introduction (decision 168), which never
+    // follows up.
+    const later = row.answer === 'later' || checkInsOnly(row.step);
     await ctx.tx
       .update(followUps)
       .set({
@@ -223,6 +235,21 @@ export async function noteSent(
       })
       .where(eq(followUps.id, row.id));
   }
+}
+
+/** Whether the first message noted for them was the playbook's introduction (decision 168, ./sends.ts `noteOpener`). */
+async function introducedTo(ctx: Ctx, me: string, profileId: string): Promise<boolean> {
+  const [use] = await ctx.tx
+    .select({ kind: openerUses.kind })
+    .from(openerUses)
+    .where(
+      and(
+        eq(openerUses.workspaceId, ctx.scope.workspaceId!),
+        eq(openerUses.userId, me),
+        eq(openerUses.profileId, profileId),
+      ),
+    );
+  return use?.kind === 'intro';
 }
 
 /**

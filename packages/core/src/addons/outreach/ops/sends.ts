@@ -331,6 +331,29 @@ async function dropNotFollowing(ctx: CommandContext, me: string, at: Date): Prom
 }
 
 /**
+ * First messages drafted the other way from how their playbook starts a chat now (decision 168, the owner's 5a): a
+ * question when it starts with an introduction, or an introduction when it's back to the question, as the draft's
+ * opener says. The person's own still waiting for an OK go, and one OK'd is skipped, so Today lists them again and the
+ * next draft is the way the playbook says now. Run as each draft is queued, as `dropStaleCatchUps` is.
+ */
+async function dropOtherOpening(ctx: CommandContext, me: string, at: Date): Promise<void> {
+  const other = sql`s.workspace_id = ${ctx.scope.workspaceId!} and s.user_id = ${me} and s.kind = 'opener'
+    and s.opener is not null and exists (select 1 from addon_outreach.playbooks pb
+      where pb.workspace_id = s.workspace_id and pb.id::text = s.opener ->> 'playbookId'
+        and ((s.opener ->> 'kind') = 'intro') <> (coalesce(pb.details ->> 'opens', 'pitch') = 'intro'))`;
+  await rows(
+    ctx.tx,
+    sql`delete from addon_outreach.sends s where ${other} and s.state = 'waiting'`,
+  );
+  await rows(
+    ctx.tx,
+    sql`update addon_outreach.sends s set state = 'skipped', done_at = ${at.toISOString()}::timestamptz,
+            updated_at = ${at.toISOString()}::timestamptz
+          where ${other} and s.state = 'approved'`,
+  );
+}
+
+/**
  * Messages drafted under older rules (decision 157, ../sends.ts `RULES_VERSION`): the person's own still waiting for an
  * OK, or OK'd and not yet sent, go, so Today lists them again and the extension writes them under the rules as they
  * are. Run as each draft is queued, as `dropStaleCatchUps` is; till then nothing lists, OKs or sends them.
@@ -362,6 +385,7 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     await dropStaleCatchUps(ctx, me, changeMoment(ctx.meta));
     await dropNotFollowing(ctx, me, changeMoment(ctx.meta));
+    await dropOtherOpening(ctx, me, changeMoment(ctx.meta));
     await rewriteOlder(ctx, me);
     const open = () =>
       listed(
@@ -832,6 +856,8 @@ export const sendDone = defineAddonCommand(outreachAddon, {
         kind: row.kind,
         at,
         offerVersion: row.offerVersion,
+        // The playbook's introduction in place of the first message (decision 168): check-ins follow, not follow-ups.
+        ...(row.kind === 'opener' ? { intro: row.opener?.kind === 'intro' } : {}),
       });
     // One that didn't go is the person's to send: it waits in Waiting for you with its words.
     if (!input.sent) {

@@ -7,6 +7,7 @@ import { blankPlaybook, type Playbook } from '@hfos/core/addons/outreach/playboo
 import {
   LOCKED_RULES,
   STARTING_FIRST_MESSAGE,
+  STARTING_INTRO,
   startingScript,
 } from '@hfos/core/addons/outreach/script';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
@@ -144,6 +145,31 @@ describe('What it says, on the phone', () => {
     );
     await fireEvent.press(screen.getByTestId('playbook-save'));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
+    expect(saved(onSave).script).toEqual({});
+  });
+
+  it('starts with an introduction in place of the pitch once picked (decision 168)', async () => {
+    expect(sectionWords(PLAYBOOK.details, 'script')).toContain('How the first message goes\nPitch');
+    expect(sectionWords(PLAYBOOK.details, 'script')).not.toContain(STARTING_INTRO);
+    expect(sectionWords({ ...PLAYBOOK.details, opens: 'intro' }, 'script')).toContain(
+      `How the first message goes\nIntroduction`,
+    );
+    expect(sectionWords({ ...PLAYBOOK.details, opens: 'intro' }, 'script')).toContain(
+      `Introduction\n${STARTING_INTRO}`,
+    );
+    const { onSave, el } = body();
+    await render(el);
+    await fireEvent.press(screen.getByTestId('playbook-edit-script'));
+    expect(screen.queryByTestId('playbook-script-intro')).toBeNull();
+    await fireEvent.press(screen.getByTestId('playbook-opens-intro'));
+    expect(screen.getByTestId('playbook-script-words-intro').props.value).toBe(STARTING_INTRO);
+    // The pitch stays, for Reconnect.
+    expect(
+      within(screen.getByTestId('playbook-script-first')).getByText('Your pitch'),
+    ).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('playbook-save'));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(saved(onSave).opens).toBe('intro');
     expect(saved(onSave).script).toEqual({});
   });
 
