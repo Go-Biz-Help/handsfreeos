@@ -240,6 +240,22 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 631,
     said: 'Both posts went up: Business Suite was still publishing 30 seconds after Publish (its progress bar and a notice with Learn more over the page), with the Page’s Instagram picked in Post to too. Instagram comes off Post to now, Business Suite gets 90 seconds, and then the Page is read for the post before it says it didn’t go up.',
   },
+  {
+    area: 'threads',
+    job: 'checkup.like',
+    note: 'Liking: no Like on the post',
+    fixedIn: '0.140.7',
+    pr: 636,
+    said: 'Threads names its posts’ Like and Reply icons by a title on the icon (and a <title> inside), not an aria-label, which was all the kit read: it reads all three now.',
+  },
+  {
+    area: 'threads',
+    job: 'checkup.comment',
+    note: 'Commenting: no box to reply in',
+    fixedIn: '0.140.7',
+    pr: 636,
+    said: 'The post’s Reply wasn’t found (its icon is named by a title), and the box Threads draws under a post on its own page, named only “Empty text field…”, wasn’t taken for the box to reply in. Both are now, and that box sends with its arrow named Reply.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */
