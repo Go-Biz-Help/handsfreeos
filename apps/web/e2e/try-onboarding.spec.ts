@@ -23,7 +23,8 @@ test('a support admin practises the new-business sign-up in a practice business,
   await page.getByTestId('admin-nav-try').click();
   await expect(page).toHaveURL(/\/admin\/try$/);
   await expect(page.getByRole('heading', { name: 'Try onboarding' })).toBeVisible();
-  await expect(page.getByTestId('try-flow-offer_link')).toContainText('Coming next');
+  // Every onboarding can be started from here.
+  await expect(page.getByTestId('try-start-offer_link')).toBeVisible();
   await page.getByTestId('try-start-new_business').click();
 
   // The sign-up a new customer sees, saying it's practice. Anything goes, and any 6 digits.

@@ -9,6 +9,9 @@
  *
  * The affiliate terms (20261027014500) are agreed to with the application. An approved affiliate who hasn't agreed to
  * the ones that count now is asked first: their link, codes and payouts show once they have.
+ *
+ * `practice` is Admin → Try onboarding's (20261027027500): the form as somebody who hasn't applied sees it, and what
+ * they see once they've sent it, with nothing sent or saved.
  */
 import {
   AFFILIATE_CODE_WORDS,
@@ -21,6 +24,7 @@ import {
   affiliateLink,
   affiliateRateWords,
   money,
+  PRACTICE_WORDS,
 } from '@hfos/core';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
@@ -44,7 +48,16 @@ type Affiliate = NonNullable<Mine['affiliate']>;
 const day = (iso: string): string =>
   new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
-export function AffiliateSelf({ mine, name }: { mine: Mine; name: string }) {
+export function AffiliateSelf({
+  mine,
+  name,
+  practice = false,
+}: {
+  mine: Mine;
+  name: string;
+  practice?: boolean;
+}) {
+  if (practice) return <PracticeApplication mine={mine} name={name} />;
   const a = mine.affiliate;
   const rate = affiliateRateWords(a?.rateBp ?? mine.defaultRateBp);
   const mayApplyAgain =
@@ -92,6 +105,69 @@ export function AffiliateSelf({ mine, name }: { mine: Mine; name: string }) {
       ) : null}
     </div>
   );
+}
+
+/** Admin → Try onboarding's application: the form, then what an applicant sees while they wait. Nothing is sent. */
+function PracticeApplication({ mine, name }: { mine: Mine; name: string }) {
+  const [sent, setSent] = useState(false);
+  const [round, setRound] = useState(0);
+  return (
+    <div data-testid="affiliate-self">
+      <p
+        className="mb-4 rounded-control bg-warning-soft px-3 py-2 text-[13px] leading-relaxed text-warning-text"
+        data-testid="practice-affiliate-note"
+      >
+        {PRACTICE_WORDS.affiliateNote}
+      </p>
+      <h1 className="text-2xl font-semibold leading-tight tracking-tight">{W.title}</h1>
+      {sent ? (
+        <>
+          <p className="mt-2 leading-relaxed text-text-2" data-testid="affiliate-standing">
+            {AFFILIATE_MINE_WORDS.applied}
+          </p>
+          <p className="mt-4 text-[13px] leading-relaxed text-text-3">
+            {PRACTICE_WORDS.affiliateSent}
+          </p>
+          <Button
+            variant="secondary"
+            className="mt-4"
+            onClick={() => {
+              setSent(false);
+              setRound((r) => r + 1);
+            }}
+            data-testid="practice-affiliate-again"
+          >
+            {PRACTICE_WORDS.affiliateAgain}
+          </Button>
+        </>
+      ) : (
+        <>
+          <p className="mt-2 leading-relaxed text-text-2">
+            {W.intro(affiliateRateWords(mine.defaultRateBp))}
+          </p>
+          <ApplyForm
+            key={round}
+            affiliate={null}
+            name={name}
+            code=""
+            onPractice={() => setSent(true)}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+/** What the server would refuse in an application, checked here for a practice one that never reaches it. */
+function practiceProblems(name: string, code: string): Record<string, string> {
+  const typed = code.trim().toLowerCase();
+  const out: Record<string, string> = {};
+  if (!name.trim()) out.name = 'Type the name to call you by.';
+  if (typed.length < 3) out.code = 'A link code is at least 3 letters or digits.';
+  else if (typed.length > 24) out.code = 'A link code is at most 24 letters or digits.';
+  else if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(typed))
+    out.code = 'Use letters, digits and dashes, starting and ending with a letter or digit.';
+  return out;
 }
 
 /** The terms, read on the website and agreed to here, before their link: the first time, or since they changed. */
@@ -270,10 +346,13 @@ function ApplyForm({
   affiliate,
   name: startName,
   code: startCode,
+  onPractice,
 }: {
   affiliate: Affiliate | null;
   name: string;
   code: string;
+  /** A practice application: checked here and handed back, never sent. */
+  onPractice?: () => void;
 }) {
   const router = useRouter();
   const [name, setName] = useState(startName);
@@ -290,9 +369,14 @@ function ApplyForm({
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    setBusy(true);
     setErrors({});
     setError(null);
+    if (onPractice) {
+      const found = practiceProblems(name, code);
+      if (Object.keys(found).length) return setErrors(found);
+      return onPractice();
+    }
+    setBusy(true);
     try {
       unwrap(
         await apiBrowser().POST('/v1/commands/affiliate.apply', {

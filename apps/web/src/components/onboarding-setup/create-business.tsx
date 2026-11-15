@@ -51,6 +51,7 @@ export function CreateBusiness({
   plan = null,
   start = {},
   practice = false,
+  code = null,
 }: {
   /** The founding spot the website's button was for (20261027012700): the plan page comes next, starting on it. */
   plan?: 'yearly' | 'monthly' | null;
@@ -61,6 +62,11 @@ export function CreateBusiness({
    * (`practice.start`), owned by the person practicing and deleted after. An agency's sign-up is a flow of its own.
    */
   practice?: boolean;
+  /**
+   * A practice offer link's trial or discount code (20261027027500), carried to the plan page in its address: a real
+   * sign-up keeps it on the new account instead, which the plan page reads.
+   */
+  code?: string | null;
 } = {}) {
   const router = useRouter();
   const [business, setBusiness] = useState<OnboardingSetupBusinessDraft>(() => ({
@@ -124,7 +130,9 @@ export function CreateBusiness({
       // has to pick a founding spot first is sent on to it from there, or straight to it with the website's pick (its
       // page goes on to the setup when there's nothing to pick).
       router.replace(
-        plan ? foundingPlanHref(workspaceId, plan) : onboardingSetupHref(workspaceId, 'goal'),
+        plan || code
+          ? foundingPlanHref(workspaceId, plan, code)
+          : onboardingSetupHref(workspaceId, 'goal'),
       );
       router.refresh();
     } catch (e) {

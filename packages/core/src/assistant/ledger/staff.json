@@ -57,13 +57,14 @@
     "apps/web/src/app/admin/staff/page.tsx": "df96c8a73bce",
     "apps/web/src/app/admin/tickets/[ticketId]/page.tsx": "337498edb6d5",
     "apps/web/src/app/admin/tickets/page.tsx": "8382a3374603",
-    "apps/web/src/app/admin/try/page.tsx": "f1db358015e5",
+    "apps/web/src/app/admin/try/page.tsx": "d14710d006ff",
     "apps/web/src/app/affiliate/page.tsx": "7ba54efd908d",
     "apps/web/src/app/founding/[token]/page.tsx": "4b894d688fe9",
-    "apps/web/src/app/try/business/page.tsx": "d9f53772132c",
+    "apps/web/src/app/try/affiliate/page.tsx": "466d09ee1807",
+    "apps/web/src/app/try/business/page.tsx": "e8b13a994fec",
     "apps/web/src/app/try/checkout/[workspaceId]/page.tsx": "ddc5374134e6",
     "apps/web/src/app/try/layout.tsx": "386b976f6af2",
-    "apps/web/src/app/try/sign-up/page.tsx": "094b485e0ce5",
+    "apps/web/src/app/try/sign-up/page.tsx": "b12b8d25fc43",
     "apps/web/src/components/admin/accept-support-invite.tsx": "715e026544a0",
     "apps/web/src/components/admin/addon-picks-admin.tsx": "cfbc4b7b5b98",
     "apps/web/src/components/admin/addon-testing-block.tsx": "a0075b2d3cb4",
@@ -105,14 +106,15 @@
     "apps/web/src/components/affiliate/affiliate-codes.tsx": "e41265060535",
     "apps/web/src/components/affiliate/affiliate-earnings.tsx": "46700d201d8e",
     "apps/web/src/components/affiliate/affiliate-payouts.tsx": "2d591c4d73b2",
-    "apps/web/src/components/affiliate/affiliate-self.tsx": "4e23fb68e41b",
+    "apps/web/src/components/affiliate/affiliate-self.tsx": "adf5b53b5809",
     "apps/web/src/components/demo/demo-director.tsx": "43dfbd307ac7",
     "apps/web/src/components/founding/checkout-status.tsx": "4a625aae0ff9",
     "apps/web/src/components/founding/claim-seat.tsx": "958bdcc5d9bb",
-    "apps/web/src/components/founding/pick-plan.tsx": "42dc147eaa62",
+    "apps/web/src/components/founding/pick-plan.tsx": "2473ab3f4140",
     "apps/web/src/components/practice/practice-banner.tsx": "46e0036e247e",
     "apps/web/src/components/practice/practice-checkout.tsx": "a7e2fa7ad454",
-    "apps/web/src/components/practice/try-onboarding.tsx": "ef3416245ec3",
+    "apps/web/src/components/practice/try-onboarding.tsx": "245522d9aa62",
+    "apps/web/src/components/practice/try-starts.tsx": "3d0f7efe3f7e",
     "apps/web/src/components/shell/user-menu.tsx": "c9385747fa6f"
   },
   "items": [
@@ -3234,19 +3236,19 @@
     {
       "path": "Try onboarding → Your practice businesses: name, Practice tag, when it’s deleted",
       "kind": "see",
-      "file": "apps/web/src/components/practice/try-onboarding.tsx:77",
+      "file": "apps/web/src/components/practice/try-onboarding.tsx:76",
       "covered": "no",
       "by": "practice.list is a screen read (screen-reads.ts)"
     },
     {
       "path": "Try onboarding → five at once, end one to start another",
       "kind": "see",
-      "file": "apps/web/src/components/practice/try-onboarding.tsx:92",
+      "file": "apps/web/src/components/practice/try-onboarding.tsx:89",
       "covered": "no",
       "by": "no tool"
     },
     {
-      "path": "Try onboarding → onboardings: title, blurb, Start or Coming next",
+      "path": "Try onboarding → onboardings: title, blurb, Start",
       "kind": "do",
       "file": "apps/web/src/components/practice/try-onboarding.tsx:98",
       "covered": "never",
@@ -3255,7 +3257,49 @@
     {
       "path": "Try onboarding → practice business → Open, End practice (asks first)",
       "kind": "do",
-      "file": "apps/web/src/components/practice/try-onboarding.tsx:166",
+      "file": "apps/web/src/components/practice/try-onboarding.tsx:157",
+      "covered": "never",
+      "by": "Try onboarding is screen-only: practice.start, practice.pay and practice.end are never offered (coverage.ts)"
+    },
+    {
+      "path": "Try onboarding → practice business you were invited to: waiting for you to join, no Open until you have",
+      "kind": "see",
+      "file": "apps/web/src/components/practice/try-onboarding.tsx:146",
+      "covered": "no",
+      "by": "practice.list is a screen read (screen-reads.ts)"
+    },
+    {
+      "path": "Try onboarding → From an offer link: plan, trial or discount code, affiliate’s code, website business and kind, Start",
+      "kind": "do",
+      "file": "apps/web/src/components/practice/try-starts.tsx:158",
+      "covered": "never",
+      "by": "builds a link to the practice sign-up; signing up is never the Assistant's"
+    },
+    {
+      "path": "Try onboarding → An add-on’s setup: add-on, business name, kind, Start (makes a ready practice business, opens its Add-ons)",
+      "kind": "do",
+      "file": "apps/web/src/components/practice/try-starts.tsx:316",
+      "covered": "never",
+      "by": "Try onboarding is screen-only: practice.start, practice.pay and practice.end are never offered (coverage.ts)"
+    },
+    {
+      "path": "Try onboarding → The Main offer builder: business name, kind, Start (turns Content Creator on, opens the builder)",
+      "kind": "do",
+      "file": "apps/web/src/components/practice/try-starts.tsx:238",
+      "covered": "never",
+      "by": "Try onboarding is screen-only: practice.start, practice.pay and practice.end are never offered (coverage.ts)"
+    },
+    {
+      "path": "Try onboarding → An agency setting up a client: agency name, client’s business name, kind, Start (opens the client’s setup)",
+      "kind": "do",
+      "file": "apps/web/src/components/practice/try-starts.tsx:332",
+      "covered": "never",
+      "by": "Try onboarding is screen-only: practice.start, practice.pay and practice.end are never offered (coverage.ts)"
+    },
+    {
+      "path": "Try onboarding → Joining from a team invite: business name, kind, Join as, Start; invitation sent to your email",
+      "kind": "do",
+      "file": "apps/web/src/components/practice/try-starts.tsx:307",
       "covered": "never",
       "by": "Try onboarding is screen-only: practice.start, practice.pay and practice.end are never offered (coverage.ts)"
     },
@@ -3274,9 +3318,23 @@
       "by": "signing up is never the Assistant's; practice is screen-only"
     },
     {
+      "path": "Practice sign-up → what the offer link carried: plan, code, affiliate (nobody credited), website business",
+      "kind": "see",
+      "file": "apps/web/src/app/try/sign-up/page.tsx:32",
+      "covered": "no",
+      "by": "words only; no tool"
+    },
+    {
+      "path": "Practice sign-up → from the affiliate link, on to the practice affiliate application",
+      "kind": "do",
+      "file": "apps/web/src/app/try/sign-up/page.tsx:25",
+      "covered": "never",
+      "by": "signing up is never the Assistant's; practice is screen-only"
+    },
+    {
       "path": "Practice sign-up → Your business with the practice note, makes the practice business",
       "kind": "do",
-      "file": "apps/web/src/components/onboarding-setup/create-business.tsx:164",
+      "file": "apps/web/src/components/onboarding-setup/create-business.tsx:172",
       "covered": "never",
       "by": "Try onboarding is screen-only: practice.start, practice.pay and practice.end are never offered (coverage.ts)"
     },
@@ -3300,6 +3358,20 @@
       "file": "apps/web/src/components/practice/practice-checkout.tsx:86",
       "covered": "never",
       "by": "Try onboarding is screen-only: practice.start, practice.pay and practice.end are never offered (coverage.ts)"
+    },
+    {
+      "path": "Practice affiliate application → practice note, the application form, Apply (checked, never sent)",
+      "kind": "do",
+      "file": "apps/web/src/components/affiliate/affiliate-self.tsx:118",
+      "covered": "never",
+      "by": "practice is screen-only; nothing is sent, so there is nothing to do for anyone"
+    },
+    {
+      "path": "Practice affiliate application → Waiting for a decision, Start the application again",
+      "kind": "see",
+      "file": "apps/web/src/components/affiliate/affiliate-self.tsx:125",
+      "covered": "no",
+      "by": "no tool; nothing was saved"
     },
     {
       "path": "Practice business → banner on every page and setup screen: when it’s deleted, what’s pretended",
