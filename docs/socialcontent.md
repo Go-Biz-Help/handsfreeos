@@ -242,13 +242,22 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   and the lists for content (what makes you different, features and benefits, your voice, never say and the rest),
   the Playbook and the idea it's written from. Ideas read the offer and the lists too.
 - **Pictures** (decisions 14, 39 and 40), made in the worker's `socialcontent.pictures` job, one post at a time:
+  - **Their shape** (the owner, 15 Nov: Instagram pictures weren't the shape Instagram shows, then "apparently 3:4 is
+    the default for instagram now", and their pick of 3:4 over square): Instagram's are 1080 by 1440 (3:4), every
+    other network's 1080 by 1350 (4:5), every page of a carousel alike (`pictureShapeOf` and `PICTURE_SIZES` in
+    `calendar.ts`, so changing Instagram's shape is one line). OpenAI is asked for that shape and its picture cut to
+    it; the check sees each picture whole in its shape; the web and the phone show them in it. The shape is kept in
+    the post's design (`design.shape`). Instagram posts not up yet whose AI pictures aren't in its shape have them
+    made again on their own, the way they had them, keeping their words (`reshapeLeft`): after any post's pictures are
+    made, with the weekly read, and when the add-on comes on. Like **Make it again**, new pictures take an OK back;
+    hidden posts wait until they're shown, and people's own pictures are left alone.
   - **Designed by the AI** (tips, steps, quotes, claims and a carousel's slides): Claude picks one font and three
     colours for the whole design (from colours that go with the business's colour, `paletteFor`, kept readable) and
-    a layout and words for each page; the worker draws each page as a 1080 by 1350 PNG (`draw.ts`). The layouts and
+    a layout and words for each page; the worker draws each page as a PNG in its shape (`draw.ts`). The layouts and
     fonts are under "Variety" below. Words are drawn, never left to an image model, so they're spelled right; emoji
     are left out. Charged as the AI's words, like any ask.
   - **Photo with words, by the AI**: OpenAI's image model (`OPENAI_IMAGE_MODEL`, GPT-Image-2.6 Sunburst) makes a
-    lifelike photo with no words from the AI's description, cropped to 1080 by 1350, and Claude designs the words over
+    lifelike photo with no words from the AI's description, cropped to its shape, and Claude designs the words over
     it in the photo or framed layout, like a picture made in Canva (decision 39); on a carousel it goes under the first
     slide. When it's busy, GPT-Image-2.6 Flare tries once (`OPENAI_IMAGE_BACKUP_MODEL`); it plans at `medium`
     (`OPENAI_IMAGE_COMPLEXITY`). Charged 9¢ each on the balance (`ai.image`), and only when the balance has room; the

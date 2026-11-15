@@ -49,8 +49,11 @@ export interface PictureMaker {
   readonly model: string;
   /** The model tried once when the first is busy, down or gone; null for none. */
   readonly backupModel: string | null;
-  /** One portrait picture (1024x1536). Throws PictureError. */
-  make(prompt: string, opts?: { readonly signal?: AbortSignal }): Promise<MadePicture>;
+  /** One picture: portrait (1024x1536) unless square (1024x1024) is asked for. Throws PictureError. */
+  make(
+    prompt: string,
+    opts?: { readonly signal?: AbortSignal; readonly square?: boolean },
+  ): Promise<MadePicture>;
 }
 
 export class PictureError extends Error {
@@ -155,6 +158,7 @@ export function createPictures(
     prompt: string,
     signal: AbortSignal | undefined,
     ms: number,
+    square: boolean,
   ): Promise<MadePicture> {
     const timeout = signal
       ? AbortSignal.any([signal, AbortSignal.timeout(ms)])
@@ -167,7 +171,7 @@ export function createPictures(
         body: JSON.stringify({
           model: use,
           prompt: prompt.slice(0, 4000),
-          size: '1024x1536',
+          size: square ? '1024x1024' : '1024x1536',
           quality: 'medium',
           ...(takesComplexity(use) ? { complexity } : {}),
           n: 1,
@@ -210,12 +214,12 @@ export function createPictures(
     backupModel,
     async make(prompt, o = {}) {
       try {
-        return await ask(model, prompt, o.signal, TIMEOUT_MS);
+        return await ask(model, prompt, o.signal, TIMEOUT_MS, o.square === true);
       } catch (e) {
         // A refusal, or a request OpenAI turned down as asked, would be turned down by the backup too.
         const worthBackup = e instanceof PictureError && (e.retryable || e.modelGone);
         if (!backupModel || !worthBackup) throw e;
-        return await ask(backupModel, prompt, o.signal, BACKUP_TIMEOUT_MS);
+        return await ask(backupModel, prompt, o.signal, BACKUP_TIMEOUT_MS, o.square === true);
       }
     },
   };

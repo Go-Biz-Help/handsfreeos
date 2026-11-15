@@ -13,6 +13,7 @@ import {
   formatFor,
   hasPictures,
   isShortNetwork,
+  pictureShapeOf,
   POSTING,
   POSTING_NETWORKS,
   postLength,
@@ -20,6 +21,7 @@ import {
   SHORT_POSTS,
   type ContentFormat,
   type FacebookWhere,
+  type PictureShape,
   type PostingNetwork,
 } from '@hfos/core/addons/socialcontent/calendar';
 import { networkName } from '@hfos/core/addons/socialcontent/networks';
@@ -58,12 +60,19 @@ import { apiBrowser, unwrap } from '@/lib/api/client';
 import { errorMessage } from '@/lib/api/errors';
 import { workerPost } from '@/lib/api/worker';
 import { supabaseBrowser } from '@/lib/supabase/client';
+import { cn } from '@/lib/utils';
 import { DidntPost } from './calendar-picking';
 import type { Content, ContentPicture } from './types';
 import { useAct } from './use-act';
 
 const REWRITE = '/v1/addons/socialcontent/actions/socialcontent.content.rewrite';
 const PICTURE = '/v1/addons/socialcontent/actions/socialcontent.content.picture';
+/** A picture shown in its network's shape (Instagram's own, else 4:5). */
+const ASPECT: Record<PictureShape, string> = {
+  '4:5': 'aspect-[4/5]',
+  '3:4': 'aspect-[3/4]',
+  '1:1': 'aspect-square',
+};
 
 export const STATE_BADGE: Record<Content['state'], BadgeVariant> = {
   draft: 'pending',
@@ -876,13 +885,19 @@ export function PostSheet({
                         >
                           <PostPicture
                             picture={pic}
-                            className="aspect-[4/5] w-full rounded-md object-cover"
+                            className={cn(
+                              ASPECT[pictureShapeOf(p.network)],
+                              'w-full rounded-md object-cover',
+                            )}
                           />
                         </button>
                       ) : (
                         <PostPicture
                           picture={pic}
-                          className="aspect-[4/5] w-full rounded-md object-cover"
+                          className={cn(
+                            ASPECT[pictureShapeOf(p.network)],
+                            'w-full rounded-md object-cover',
+                          )}
                         />
                       )}
                       {changeable ? (

@@ -15,7 +15,8 @@
  */
 import { z } from 'zod';
 import { quoteData } from '../../knowledge/prompt';
-import { withoutSideLabel, type DesignPage, type DesignStyle } from './posts-ai';
+import type { PictureShape } from './calendar';
+import { shapeWords, withoutSideLabel, type DesignPage, type DesignStyle } from './posts-ai';
 
 export const CHECKS = {
   /** The picture Claude looks at, made smaller: enough to read every word, far fewer tokens. */
@@ -230,10 +231,12 @@ export function graphicPromptFor(input: {
   readonly page: DesignPage;
   readonly colors: { readonly background: string; readonly accent: string };
   readonly ask: string | null;
+  /** Instagram's shape, else 4:5. */
+  readonly shape?: PictureShape;
 }): string {
   const p = input.page;
   return [
-    'A social media graphic for a small business, portrait (4:5), that looks like its owner made it in Canva: a real-looking photo with a few words laid over it in clean, bold, easy-to-read type, with a soft shade or a colour band behind the words so they read clearly.',
+    `A social media graphic for a small business, ${shapeWords(input.shape ?? '4:5')}, that looks like its owner made it in Canva: a real-looking photo with a few words laid over it in clean, bold, easy-to-read type, with a soft shade or a colour band behind the words so they read clearly.`,
     `The photo: ${input.shows.slice(0, 1000)}`,
     `The words, spelled exactly as written, and no other words or letters anywhere: the big heading "${p.heading}"${
       p.kicker ? `, and above it, small, "${p.kicker}"` : ''

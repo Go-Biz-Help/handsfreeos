@@ -35,6 +35,7 @@ import {
   runPictures,
   runRewrite,
   runTimes,
+  reshapeLeft,
   TIMES_JOB,
   WRITE_ACTION,
   writePostNow,
@@ -102,6 +103,8 @@ async function armChecks(ctx: AddonScopeContext): Promise<void> {
 async function onEnable(ctx: AddonScopeContext): Promise<void> {
   await armChecks(ctx);
   await queueSetup(ctx);
+  // Instagram pictures made before they were in its shape are made again (the owner, 15 Nov).
+  await reshapeLeft(ctx);
   const [s] = await asWorker(ctx.db, ctx.scope, (tx) =>
     rows<{ filled_at: Date | null; auto_fill: boolean }>(
       tx,
@@ -151,8 +154,12 @@ const onOwnNumbersRead: AddonSubscriber = async (ctx) => {
   await queueTimes(ctx, TIMES_LATER_MS);
 };
 
-/** Each studied creator's posts read again; then the next week's. */
+/**
+ * Each studied creator's posts read again; then the next week's. Any Instagram pictures still not in its shape
+ * are made again too (the owner, 15 Nov).
+ */
 const readWeekly: AddonJobHandler = async (ctx) => {
+  await reshapeLeft(ctx);
   await executeCommand(
     ctx.db,
     workQueue,

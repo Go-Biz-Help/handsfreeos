@@ -25,9 +25,11 @@ import {
   HASHTAGS_MOST,
   isShortNetwork,
   PICTURE_WAYS,
+  pictureShapeOf,
   POSTING,
   withParagraphs,
   type ContentFormat,
+  type PictureShape,
   type PictureWay,
   type PostingNetwork,
 } from './calendar';
@@ -756,6 +758,9 @@ export function designPrompt(input: {
         }`
       : '',
     c?.fonts.length ? `Try the ${c.fonts.map((f) => `"${f}"`).join(' or ')} font.` : '',
+    pictureShapeOf(p.network) === '1:1'
+      ? `Each page is a square picture (1:1), shorter than the usual 4:5, so keep its words short enough to fit with room around them.`
+      : '',
     `Design ${pages === 1 ? 'one page' : `${pages} pages, one for each slide in order`}.`,
     DESIGN_ASK,
   ]
@@ -843,12 +848,20 @@ export function designOf(raw: unknown): Design | null {
 
 // ------------------------------------------------------------------------------------------------ photos
 
+/** How a picture's shape is said to OpenAI's image model. */
+export const shapeWords = (shape: PictureShape): string =>
+  shape === '1:1' ? 'square (1:1)' : `portrait (${shape})`;
+
 /** What OpenAI's image model is asked for: the AI's description, and how a picture for a post should look. */
-export function photoPromptFor(description: string, ask: string | null): string {
+export function photoPromptFor(
+  description: string,
+  ask: string | null,
+  shape: PictureShape = '4:5',
+): string {
   return [
     description.slice(0, POST_LIMITS.photoPrompt),
     ask ? `Also: ${ask.slice(0, POST_LIMITS.ask)}` : '',
-    'A lifelike photo for a social media post, portrait (4:5), natural light, real-looking people and places: like a good photo a small business would take or buy, not glossy AI art.',
+    `A lifelike photo for a social media post, ${shapeWords(shape)}, natural light, real-looking people and places: like a good photo a small business would take or buy, not glossy AI art.`,
     'Keep the main subject in the top two thirds and the bottom third calm and simple, since a few words go over it.',
     'No words, letters, logos or watermarks anywhere in the picture.',
   ]

@@ -12,6 +12,7 @@ import {
   formatFor,
   hasPictures,
   isShortNetwork,
+  pictureShapeOf,
   POSTING,
   POSTING_NETWORKS,
   postLength,
@@ -19,6 +20,7 @@ import {
   SHORT_POSTS,
   type ContentFormat,
   type FacebookWhere,
+  type PictureShape,
   type PostingNetwork,
 } from '@hfos/core/addons/socialcontent/calendar';
 import type { Content, ContentPicture } from '@hfos/core/addons/socialcontent/content-shapes';
@@ -1100,6 +1102,7 @@ export function PostBody({
                 <Tile
                   key={pic.fileId}
                   picture={pic}
+                  shape={pictureShapeOf(p.network)}
                   onOpen={() => setViewing(i)}
                   onRemove={changeable ? () => actions.remove(pic.fileId) : null}
                   disabled={busy !== null}
@@ -1357,19 +1360,28 @@ function Chips({ children }: { children: React.ReactNode }) {
   return <View className="flex-row flex-wrap gap-1.5">{children}</View>;
 }
 
+/** A picture's tile, 132 wide, in its shape. */
+const TILE: Record<PictureShape, string> = {
+  '4:5': 'h-[165px] w-[132px]',
+  '3:4': 'h-[176px] w-[132px]',
+  '1:1': 'h-[132px] w-[132px]',
+};
+
 /**
- * One of its pictures (or its video, taller), with a cross to take it off the post. A picture opens full screen
- * when pressed.
+ * One of its pictures (or its video, taller), in its network's shape, with a cross to take it off the post. A picture
+ * opens full screen when pressed.
  */
 function Tile({
   picture,
   tall = false,
+  shape = '4:5',
   onOpen,
   onRemove,
   disabled,
 }: {
   picture: ContentPicture;
   tall?: boolean;
+  shape?: PictureShape;
   onOpen?: () => void;
   onRemove: (() => void) | null;
   disabled: boolean;
@@ -1378,7 +1390,7 @@ function Tile({
     <View
       className={cn(
         'overflow-hidden rounded-md bg-card-2',
-        tall ? 'h-[240px] w-[135px]' : 'h-[165px] w-[132px]',
+        tall ? 'h-[240px] w-[135px]' : TILE[shape],
       )}
       testID={`socialcontent-post-file-${picture.fileId}`}
     >

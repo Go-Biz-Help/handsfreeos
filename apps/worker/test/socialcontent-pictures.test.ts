@@ -3,6 +3,8 @@
  * docs/socialcontent.md, "Variety", decisions 39 and 40), against the local database with a stand-in AI and image
  * model: OpenAI's whole graphic kept when the check passes it, the next photo post's words drawn over a photo, a
  * graphic that fails the check swapped for a photo with drawn words, and a drawn design that fails designed again.
+ * Instagram's are 3:4, and its posts not up yet whose pictures were made before that get them made again (the
+ * owner, 15 Nov).
  */
 import { randomUUID } from 'node:crypto';
 import type { AiProvider, AiRequest, AiTurn } from '@hfos/ai';
@@ -65,15 +67,22 @@ const ai: AiProvider = {
   },
 };
 
-/** The stand-in image model: a plain picture, and every prompt it was asked. */
+/** The stand-in image model: a plain picture, and every prompt it was asked and whether square. */
 const prompts: string[] = [];
+const squares: boolean[] = [];
 const pictures: PictureMaker = {
   model: 'stand-in-image',
   backupModel: null,
-  async make(prompt) {
+  async make(prompt, o) {
     prompts.push(prompt);
+    squares.push(o?.square === true);
     const bytes = await sharp({
-      create: { width: 1024, height: 1536, channels: 3, background: '#7a9e5a' },
+      create: {
+        width: 1024,
+        height: o?.square ? 1024 : 1536,
+        channels: 3,
+        background: '#7a9e5a',
+      },
     })
       .png()
       .toBuffer();
@@ -114,13 +123,17 @@ const op = (name: string) =>
   (socialcontentAddonServer.commands ?? []).find((o) => o.name === name) as CommandDef;
 
 /** A post as the AI wrote it, with no pictures yet. */
-async function post(format: 'photo' | 'carousel', way: 'photo' | 'design'): Promise<string> {
+async function post(
+  format: 'photo' | 'carousel',
+  way: 'photo' | 'design',
+  network = 'instagram',
+): Promise<string> {
   const { output } = await executeCommand(
     testDbs().worker.db,
     op('socialcontent.content.put'),
     {
       workspaceId: ws,
-      network: 'instagram',
+      network,
       ideaId: null,
       postAt: null,
       placedBy: 'ai',
@@ -182,6 +195,18 @@ async function makePictures(postId: string): Promise<void> {
     batchSize: 10,
     reservedOnly: true,
   });
+}
+
+/** The sizes of the pictures the last check was shown, each made smaller but in its own shape. */
+async function checkedSizes(): Promise<number[][]> {
+  const check = script.requests.filter((r) => r.system === PICTURE_CHECK_SYSTEM).at(-1)!;
+  const images = (check.messages[0]!.content as Any[]).filter((c) => c.type === 'image');
+  return Promise.all(
+    images.map(async (i) => {
+      const m = await sharp(Buffer.from(i.data, 'base64')).metadata();
+      return [m.width!, m.height!];
+    }),
+  );
 }
 
 async function made(postId: string) {
@@ -248,6 +273,11 @@ describe('making a post’s pictures, and checking them', () => {
     expect(m.design.graphic).toEqual({ tried: true, passed: true });
     expect(prompts).toHaveLength(1);
     expect(prompts[0]).toContain('"Your pipes can freeze tonight"');
+    // Instagram's picture is 3:4 (the owner, 15 Nov): asked for as a portrait, and checked whole.
+    expect(prompts[0]).toContain('portrait (3:4)');
+    expect(squares.at(-1)).toBe(false);
+    expect(m.design.shape).toBe('3:4');
+    expect(await checkedSizes()).toEqual([[506, 675]]);
     // The check was shown the picture and told the words it should say.
     const check = script.requests.filter((r) => r.system === PICTURE_CHECK_SYSTEM).at(-1)!;
     const content = check.messages[0]!.content as Any[];
@@ -312,9 +342,81 @@ describe('making a post’s pictures, and checking them', () => {
     expect(m.mimes).toEqual(['image/png', 'image/png']);
     expect(m.design.pages.map((p: Any) => p.layout)).toEqual(['clean', 'clean']);
     expect(m.design.check).toEqual({ passes: true, problems: [] });
+    // Every page of an Instagram carousel is drawn 3:4.
+    expect(m.design.shape).toBe('3:4');
+    expect(await checkedSizes()).toEqual([
+      [506, 675],
+      [506, 675],
+    ]);
     const asks = script.requests.filter((r) => r.system === DESIGN_SYSTEM);
     expect(asks).toHaveLength(2);
+    expect(JSON.stringify(asks[0]!.messages)).not.toContain('square picture');
     expect(JSON.stringify(asks[1]!.messages)).toContain('Page 1: Words cut off at the right');
     expect(prompts).toHaveLength(0);
+  });
+});
+
+describe('Instagram’s own picture shape', () => {
+  it('keeps every other network’s pictures 4:5', async () => {
+    script.designs = [design([page({ layout: 'framed' })])];
+    script.checks = [{ passes: true, problems: [] }];
+    prompts.length = 0;
+    squares.length = 0;
+    const id = await post('photo', 'photo', 'facebook');
+    await makePictures(id);
+    const m = await made(id);
+    expect(m).toMatchObject({ state: 'made', way: 'photo', files: 1 });
+    expect(m.design.shape).toBe('4:5');
+    expect(squares).toEqual([false]);
+    expect(prompts[0]).toContain('portrait (4:5)');
+    expect(await checkedSizes()).toEqual([[540, 675]]);
+  });
+
+  it('makes again the pictures of Instagram posts not up yet that were made before they were 3:4', async () => {
+    const pending = () =>
+      rows<{ post_id: string; way: string }>(
+        admin(),
+        sql`select payload->>'postId' as post_id, payload->>'way' as way from app.scheduled_jobs
+            where workspace_id = ${ws} and kind = 'socialcontent.pictures' and status = 'pending'`,
+      );
+    // Pictures made before (no shape in their design), on posts in every state.
+    const before = async (state: string, opts: { network?: string; hidden?: boolean } = {}) => {
+      const id = await post('photo', 'design', opts.network ?? 'instagram');
+      await rows(
+        admin(),
+        sql`update addon_socialcontent.content
+            set state = ${state}, picture_state = 'made', design = '{"pages":[]}'::jsonb,
+                approved_at = case when ${state} in ('ready', 'posting', 'posted') then now() end,
+                hidden_at = ${opts.hidden ? new Date().toISOString() : null}::timestamptz
+            where record_id = ${id}`,
+      );
+      return id;
+    };
+    const draft = await before('draft');
+    const okd = await before('ready');
+    const up = await before('posted');
+    const hidden = await before('draft', { hidden: true });
+    const facebook = await before('draft', { network: 'facebook' });
+    // Any post's pictures being made sets them going.
+    script.designs = [design([page({ layout: 'clean' })])];
+    script.checks = [{ passes: true, problems: [] }];
+    const id = await post('photo', 'design');
+    await makePictures(id);
+    expect((await made(id)).design.shape).toBe('3:4');
+    const queued = await pending();
+    expect(queued.map((q) => q.post_id).sort()).toEqual([draft, okd].sort());
+    expect(queued.every((q) => q.way === 'design')).toBe(true);
+    for (const left of [up, hidden, facebook])
+      expect(queued.some((q) => q.post_id === left)).toBe(false);
+    // Made again, 3:4, they aren't queued again. The OK'd one waits for an OK again, as with Make it again.
+    await makePictures(draft);
+    expect((await made(draft)).design.shape).toBe('3:4');
+    expect((await made(okd)).design.shape).toBe('3:4');
+    expect(await pending()).toEqual([]);
+    const [o] = await rows<{ state: string }>(
+      admin(),
+      sql`select state from addon_socialcontent.content where record_id = ${okd}`,
+    );
+    expect(o!.state).toBe('draft');
   });
 });
