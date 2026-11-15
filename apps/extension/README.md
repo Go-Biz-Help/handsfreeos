@@ -1269,6 +1269,23 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Comments on reels in the reels player, and Facebook posts closed to comments (0.140.9)
+
+The problem check of 15 Nov 2026 (19:23 UTC) found two comments that couldn’t go:
+
+- **Instagram**: "couldn’t find the post’s own box to comment in", on a reel. A reel's link opens the reels player
+  (/reels/<code>/), which has no link to the reel itself and shows no box to comment in till the reel's own Comment
+  opens its comments. From 0.140.9 a comment there goes on the reel the player opened on, while its account's links
+  name them or they made it with its author (as a like goes, `openedReelOf`), by pressing its Comment (known by its
+  icon, named by its count) and writing in the one box to comment in that shows (`writeTheirComment` in
+  `src/networks/instagram/auto.ts`). The next reel is never touched.
+- **Facebook**: "couldn’t find the box to comment in". The post's bar had its Like, React and Share but no Comment, and
+  there was no box anywhere: Facebook draws a post that way when whoever posted it limited who can comment. From
+  0.140.9 `writeComment` says `closed` then (`commentsClosed` in `src/networks/facebook/auto.ts`), and the step passes
+  the post over ("it doesn’t let you comment on it") with nothing handed over or reported; a comment the person OK'd
+  is told to HandsFreeOS as not sent, with that why. A post with its Comment but no box still says it couldn't find
+  one.
+
 ### A reel's Likes box in the reels player (0.140.4)
 
 The problem check of 15 Nov 2026 found a good post's likers that weren't read: "Couldn’t open the post’s Likes box." It

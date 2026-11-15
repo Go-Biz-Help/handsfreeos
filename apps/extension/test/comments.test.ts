@@ -427,6 +427,21 @@ describe('a comment’s send', () => {
     expect(world.noted).toEqual([]);
   });
 
+  it('passes over a post that doesn’t let them comment, tells HandsFreeOS why, and isn’t a failure', async () => {
+    // The owner's problem report of 15 Nov 2026: a post whose author limited who can comment has no Comment and no box.
+    expect(
+      await sendComment(sending(), KIM, BUSINESS, runner({ ok: true, result: 'closed' }).runner),
+    ).toEqual({
+      done: false,
+      line: 'Kim Baker’s post: it doesn’t let you comment on it',
+      skip: true,
+    });
+    expect(done().map((p) => [p.body.sent, p.body.why])).toEqual([
+      [false, 'it doesn’t let you comment on it'],
+    ]);
+    expect(world.noted).toEqual([]);
+  });
+
   it('isn’t tried without the post’s link, and a warning or a sign-in stops it before anything’s written', async () => {
     const nowhere = runner({ ok: true, result: 'done' });
     expect(await sendComment(sending({ postUrl: null }), KIM, BUSINESS, nowhere.runner)).toEqual({

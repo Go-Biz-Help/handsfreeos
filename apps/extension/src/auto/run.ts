@@ -105,6 +105,7 @@ import { groupsToWork, watchPosts } from '../jobs/posts';
 import { postHelpful } from '../jobs/helpful';
 import {
   commentDoing,
+  COMMENTS_CLOSED,
   draftComment,
   isCommentWork,
   sendComment,
@@ -682,6 +683,9 @@ async function comment(item: TodayListItem, businessId: string): Promise<Outcome
       line: `${item.name}’s post: couldn’t find the box to comment in`,
       need: true,
     };
+  // Whoever posted it limited who can comment: nobody can write there, so it's no failure (from 0.140.9).
+  if (wrote.result === 'closed')
+    return { done: false, line: `${item.name}’s post: ${COMMENTS_CLOSED}`, skip: true };
   if (wrote.result !== 'done')
     return {
       done: false,

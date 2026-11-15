@@ -4,6 +4,7 @@
  * Respond opens a menu with Confirm), its post's Like, and a group post's box to comment in, never a reply's; and a
  * message's box, only the chat's that is with them: Messenger's, or their chat window's among others left open.
  */
+import { JSDOM } from 'jsdom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { TodayListItem } from '../src/hfos/messages';
 import {
@@ -887,6 +888,56 @@ describe('writing a comment', () => {
     await vi.advanceTimersByTimeAsync(10_000);
     vi.useRealTimers();
     expect(await writing).toBe('not_sent');
+  });
+});
+
+describe('a post that doesn’t let them comment', () => {
+  // The owner's problem report of 15 Nov 2026: the post opened in its box over the page, its comments under it, its bar
+  // with Like, React and Share but no Comment, and no box to comment in anywhere, as Facebook draws a post whose author
+  // limited who can comment. It said "couldn’t find the box to comment in" and went to the problem reports.
+  const url = `${FB}/dana.reyes.12/posts/pfbid0aaaa1111bbbb2222/`;
+  const postBox = (bar: string) =>
+    new JSDOM(
+      `<!doctype html><html><body><div role="main"><div role="article">A post in the feed behind</div></div>
+      <div><div role="dialog"><div role="dialog"><div aria-hidden="false">
+        <div><h2 dir="auto"><span dir="auto">Dana Reyes's Post</span></h2>
+          <div role="button" aria-label="Close"><svg aria-hidden="true"></svg></div></div>
+        <div><span dir="auto">New tiles in the kitchen</span>
+          <div>${bar}</div>
+          <div><div role="button" aria-expanded="false"><span dir="auto">Most relevant</span></div>
+            <div role="article" aria-label="Comment by Sam Lee 1 week ago">
+              <a role="link" href="/sam.lee?comment_id=1">Sam Lee</a><span dir="auto">Looks great</span>
+              <div role="button" aria-label="Like"><svg role="img"></svg></div>
+              <div role="button" aria-label="React"></div></div></div></div>
+      </div></div></div></div></body></html>`,
+      { url },
+    ).window.document;
+  const LIKE_REACT = `<div role="button" aria-label="React with Like to Dana Reyes's post"><i></i>
+      <div data-ad-rendering-role="like_button"></div></div>
+    <div role="button" aria-label="React to Dana Reyes's post"><svg aria-hidden="true"></svg></div>`;
+  const SHARE_BUTTON = `<div role="button" aria-label="Share Dana Reyes's post"><i></i>
+      <div data-ad-rendering-role="share_button"></div></div>`;
+  const COMMENT_BUTTON = `<div role="button" aria-label="Leave a comment"><i></i>
+      <div data-ad-rendering-role="comment_button"></div></div>`;
+
+  it('says the post is closed to comments: no Comment in its bar and no box, and nothing is typed', async () => {
+    const doc = postBox(`${LIKE_REACT}${SHARE_BUTTON}`);
+    vi.useFakeTimers();
+    const writing = writeComment(doc, 'Love these tiles.');
+    await vi.advanceTimersByTimeAsync(10_000);
+    vi.useRealTimers();
+    expect(await writing).toBe('closed');
+  });
+
+  it('still says no box when the bar has its Comment, or isn’t drawn yet', async () => {
+    for (const bar of [`${LIKE_REACT}${COMMENT_BUTTON}${SHARE_BUTTON}`, '']) {
+      const doc = postBox(bar);
+      vi.useFakeTimers();
+      const writing = writeComment(doc, 'Love these tiles.');
+      await vi.advanceTimersByTimeAsync(10_000);
+      vi.useRealTimers();
+      expect(await writing).toBe('none');
+    }
   });
 });
 

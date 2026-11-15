@@ -6,6 +6,7 @@
  * Message opens their chat instead. It types only into their chat's window, never one left open from the person
  * before, and says so when there's none.
  */
+import { JSDOM } from 'jsdom';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TodayListItem } from '../src/hfos/messages';
 import { theirPosts } from '../src/networks/facebook/auto';
@@ -39,7 +40,11 @@ vi.mock('../src/hfos/session', () => {
   return {
     Refused,
     savingTo: async () => ME,
-    answer: async () => ({ ok: true, value: {} }),
+    // A comment's draft (decision 20) has the AI's words; nothing else here asks the AI.
+    answer: async (ask: { input?: { kind?: string } }) => ({
+      ok: true,
+      value: ask?.input?.kind === 'comment' ? { drafts: ['Love these tiles.'] } : {},
+    }),
     answerWith: async (_t: string, fn: () => Promise<unknown>) => ({ ok: true, value: await fn() }),
     api: () => ({
       POST: async (path: string, options: { body: Record<string, unknown> }) => {
@@ -953,5 +958,81 @@ describe('a warm-up on Facebook', () => {
     world.pages = (url) => (url === DANA ? noPosts(null) : null);
     expect(await step(warmUp)).toEqual({ done: false, line: LINE });
     expect(world.posted.filter((p) => p.path === MISSED)).toHaveLength(1);
+  });
+});
+
+describe('a comment on a good post in their groups on Facebook (decision 20)', () => {
+  const POST = `${FB}/dana.reyes.12/posts/pfbid0aaaa1111bbbb2222/`;
+  const comment = {
+    ...approved(),
+    kind: 'comment',
+    send: null,
+    threadKey: null,
+    postId: '2c3d4e5f-6071-4829-93a4-b5c6d7e8f901',
+    postUrl: POST,
+    post: 'New tiles in the kitchen',
+  } as TodayListItem;
+
+  /**
+   * The post in its box over the page, as the owner's problem report of 15 Nov 2026 outlined it: its bar with Like,
+   * React and Share but no Comment, its comments under it, and no box to comment in, as Facebook draws a post whose
+   * author limited who can comment.
+   */
+  const closed = () =>
+    new JSDOM(
+      `<!doctype html><html><body><div role="main"><div role="article">A post in the feed behind</div></div>
+      <div><div role="dialog"><div role="dialog"><div aria-hidden="false">
+        <div><h2 dir="auto"><span dir="auto">Dana Reyes's Post</span></h2>
+          <div role="button" aria-label="Close"><svg aria-hidden="true"></svg></div></div>
+        <div><span dir="auto">New tiles in the kitchen</span>
+          <div><div role="button" aria-label="React with Like to Dana Reyes's post">
+              <div data-ad-rendering-role="like_button"></div></div>
+            <div role="button" aria-label="React to Dana Reyes's post"></div>
+            <div role="button" aria-label="Share Dana Reyes's post">
+              <div data-ad-rendering-role="share_button"></div></div></div>
+          <div role="article" aria-label="Comment by Sam Lee 1 week ago">
+            <a role="link" href="/sam.lee?comment_id=1">Sam Lee</a><span dir="auto">Looks great</span></div></div>
+      </div></div></div></div></body></html>`,
+      { url: POST },
+    ).window.document;
+
+  async function step(item: TodayListItem) {
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    try {
+      const going = doWork({ do: 'step', item }, ME.businessId, false);
+      await vi.advanceTimersByTimeAsync(60_000);
+      return await going;
+    } finally {
+      vi.useRealTimers();
+    }
+  }
+
+  it('passes over a post that doesn’t let them comment, with nothing to report or hand over', async () => {
+    world.pages = (url) => (url === POST ? closed() : null);
+    expect(await step(comment)).toEqual({
+      done: false,
+      line: 'Dana Reyes’s post: it doesn’t let you comment on it',
+      skip: true,
+    });
+    expect(world.noted).toEqual([]);
+  });
+
+  it('still hands it over when the post has its Comment but no box to comment in shows', async () => {
+    world.pages = (url) => {
+      if (url !== POST) return null;
+      const doc = closed();
+      doc
+        .querySelector('[data-ad-rendering-role="share_button"]')!
+        .parentElement!.insertAdjacentHTML(
+          'beforebegin',
+          '<div role="button" aria-label="Leave a comment"><div data-ad-rendering-role="comment_button"></div></div>',
+        );
+      return doc;
+    };
+    expect(await step(comment)).toEqual({
+      done: false,
+      line: 'Dana Reyes’s post: couldn’t find the box to comment in',
+      need: true,
+    });
   });
 });
