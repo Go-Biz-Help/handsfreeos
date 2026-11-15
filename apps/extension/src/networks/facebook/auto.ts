@@ -204,7 +204,7 @@ const SHARE = /^share\s+\S.*['’]s (post|photo|video|reel)$/i;
 /**
  * A post whose bar Facebook drew with no Like in it: its Share is there, and no Like beside it (the owner's problem
  * reports of 10 to 14 Nov 2026: a cover photo update shows only "Share (name)'s post" and who reacted, so the visit
- * picked it, found nothing to press and stopped). It can't be liked, so it's never offered to pick (from 0.139.4).
+ * picked it, found nothing to press and stopped). It can't be liked, so it's never offered to pick (from 0.140.2).
  */
 function noLikeShown(box: Element): boolean {
   if (likeButton(box) !== null) return false;

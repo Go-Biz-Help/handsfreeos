@@ -23,6 +23,7 @@ import type { MetaServices } from './social/index';
 import type { ObjectStore } from './storage';
 import type { SiteHost } from './hosting';
 import type { Opinly } from './opinly';
+import type { PracticeKit } from './practice/kit';
 import type { PictureMaker } from './pictures';
 import type { TelephonyProvider } from './telephony/provider';
 import type { DriveTimer } from './geo/driving';
@@ -164,6 +165,11 @@ export interface WorkerServices {
    * HandsFreeOS's own accounts there by `<add-on>.<service>`. Missing reads as stand-ins with no accounts.
    */
   readonly addonConnect?: AddonConnect;
+  /**
+   * The stand-ins a practice business is worked for with (Admin → Try onboarding, practice/kit.ts). Missing in some
+   * tests: a practice business's email still reaches only the staff member then.
+   */
+  readonly practice?: PracticeKit;
 }
 
 export interface AddonConnect {

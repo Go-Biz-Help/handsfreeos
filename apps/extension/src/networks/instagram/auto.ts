@@ -4,7 +4,7 @@
  *
  * - **Their latest posts**, read off their account's grid, each by its link with what Instagram says it shows.
  * - **Like** on one of their posts, on that post's own page: only a post whose own link names them, or one they made
- *   with its author (from 0.139.4), only its own Like (in the bar with its Comment, never a comment's, which sits by its
+ *   with its author (from 0.140.2), only its own Like (in the bar with its Comment, never a comment's, which sits by its
  *   Reply), and only while it says Like. It's liked once it says Unlike.
  * - **Like** on their comment (decision 116, from 0.108.0), the warm-up for someone found by their comment on a good
  *   post: on that post's own page, the first comment its own link (/p/<code>/c/<id>/) says they wrote, and only its
@@ -173,7 +173,7 @@ function reelAuthorOf(reel: Element, href: string): string | null {
 }
 
 /**
- * Whether they made the post with its author (`madeWithOf`, from 0.139.4): named beside them, or among the others
+ * Whether they made the post with its author (`madeWithOf`, from 0.140.2): named beside them, or among the others
  * behind its button ("and 2 others"), which only a post picked as theirs, by its own address, is taken to be.
  */
 function madeWithThem(
@@ -615,6 +615,33 @@ export function postCommentBoxOf(doc: Document, href: string): HTMLElement | nul
   const root = postRootOf(doc);
   const boxes = boxesSaying(root, COMMENT_BOX).filter((box) => !amongComments(box, root, href));
   return boxes.length === 1 ? boxes[0]! : null;
+}
+
+/**
+ * The post's own part of its page, for a look at its picture or video before its comment is drafted (decision 166,
+ * ../post-look.ts, from 0.140.0): given only on the post asked for, on its own page, when its own link names them, as
+ * a comment goes (`writeTheirComment`). What's there but isn't the post's is ruled out: anything inside a link to
+ * another post (the tiles under "More posts from").
+ */
+export function theirPostPart(
+  doc: Document,
+  href: string,
+  on: CommentOn,
+): { readonly root: Element; readonly skip: (el: Element) => boolean } | null {
+  const page = instagramUrl(href);
+  const url = page && kindOf(page) === 'post' ? postOf(page) : null;
+  const asked = instagramUrl(on.postUrl);
+  if (!url || !asked || postOf(asked) !== url) return null;
+  const code = partsOf(new URL(url))[1]!;
+  const root = postRootOf(doc);
+  if (!isThem(namedByItsLink(root, href, code), on.profile)) return null;
+  const skip = (el: Element): boolean => {
+    const link = el.closest('a[href]');
+    const to = link ? instagramUrl(link.getAttribute('href') ?? '', href) : null;
+    const other = to ? postOf(to) : null;
+    return other !== null && other !== url;
+  };
+  return { root, skip };
 }
 
 /** The box's own form's Post, while it's on: in its form, else the nearest part around it that holds one. */

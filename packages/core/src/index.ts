@@ -90,6 +90,7 @@ export * from './assistant/answer-text';
 // Asking and leaving: picking an answer back up that came in while nobody was watching.
 export * from './assistant/catch-up';
 export * from './account/settings-words';
+export * from './account/about-you';
 export * from './account/view-as-words';
 export * from './account/sign-in';
 export * from './account/extension-sign-in';
@@ -113,6 +114,8 @@ export * from './main-offer/lists';
 export * from './partners/index';
 // HandsFreeOS's own affiliate program (20261027014000): its words and links.
 export * from './affiliates/index';
+// Practice businesses for Admin → Try onboarding (20261027027400): their words and flows.
+export * from './practice/words';
 export * from './writing';
 export * from './ai-team/index';
 // Funnels: the steps the AI teammate takes each person through.

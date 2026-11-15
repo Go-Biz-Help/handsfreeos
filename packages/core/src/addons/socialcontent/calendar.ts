@@ -219,6 +219,8 @@ export const CALENDAR = {
   everyDays: 7,
   /** AI picks' hours are at least this far apart (decision 24). */
   windowLeastMinutes: 60,
+  /** What the person tells the AI a post is about, or what to change when it's written again. */
+  askMost: 500,
 } as const;
 
 /** Each network's plan is one of these (decision 21): the AI picks the days and times, or the person does. */
@@ -264,6 +266,16 @@ export function weekOf(perWeek: number, time: string): string[][] {
 /** Posts a week on one network as its plan stands: the AI's number, or the times the person picked. */
 export function postsAWeek(p: NetworkPlan): number {
   return p.mode === 'mine' ? p.week.reduce((n, d) => n + d.length, 0) : p.perWeek;
+}
+
+/**
+ * The network a post is written for when nobody says: the first with posts in the plan, else Instagram. Write a post
+ * starts on it, and the worker uses it when it's given none.
+ */
+export function firstPlannedNetwork(
+  plan: Readonly<Record<PostingNetwork, NetworkPlan>>,
+): PostingNetwork {
+  return POSTING_NETWORKS.find((n) => postsAWeek(plan[n]) > 0) ?? 'instagram';
 }
 
 const aiPicks = (perWeek: number, time: string): NetworkPlan => ({

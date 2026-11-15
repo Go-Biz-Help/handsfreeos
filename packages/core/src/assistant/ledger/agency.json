@@ -26,7 +26,7 @@
     "apps/web/src/components/migrations/connect.tsx": "b983ac7b52f1",
     "apps/web/src/components/migrations/wizard.tsx": "65ae1c100765",
     "apps/web/src/components/shell/user-menu.tsx": "c9385747fa6f",
-    "apps/web/src/components/shell/workspace-switcher.tsx": "84241c6efbdb",
+    "apps/web/src/components/shell/workspace-switcher.tsx": "a94cb85f3c21",
     "apps/web/src/components/workflows/add-step-menu.tsx": "8b4a3810e05f",
     "apps/web/src/components/workflows/canvas/canvas.tsx": "9b21ab67252f",
     "apps/web/src/components/workflows/checks.tsx": "312c8bfcc33f",
@@ -224,42 +224,42 @@
     {
       "path": "Client businesses → Add a business → title, Each business gets its own workspace…",
       "kind": "see",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:267",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:429",
       "covered": "yes",
       "by": "add_business description"
     },
     {
       "path": "Client businesses → Add a business → Organization (when more than one)",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:272",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:434",
       "covered": "partly",
       "by": "add_business uses this business’s organization"
     },
     {
       "path": "Client businesses → Add a business → Business name",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:282",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:444",
       "covered": "yes",
       "by": "add_business name"
     },
     {
       "path": "Client businesses → Add a business → Time zone",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:295",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:457",
       "covered": "yes",
       "by": "add_business timezone"
     },
     {
       "path": "Client businesses → Add a business → Who runs this business? (I do / setting it up for someone else) and what each means",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:304",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:466",
       "covered": "yes",
       "by": "add_business whoRunsIt me / client"
     },
     {
       "path": "Client businesses → Add a business → Add business (then the guided setup), Give the business a name error",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:323",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:485",
       "covered": "yes",
       "by": "add_business, person confirms; returns its link"
     },

@@ -492,6 +492,8 @@ describe('the Test console', () => {
       next: 'If they stay quiet, follow-up 1 of 6 goes 1 day later.',
       unanswered: 'whether it works with QuickBooks',
       state: { step: 'first', sent: 0, answer: 'question', stopped: false },
+      about: null,
+      aboutYou: false,
     };
     const added = testAdds(out, 'play');
     expect(added.said).toEqual([

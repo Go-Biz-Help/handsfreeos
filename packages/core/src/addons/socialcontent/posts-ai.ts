@@ -16,7 +16,7 @@
 import { z } from 'zod';
 import { quoteData } from '../../knowledge/prompt';
 import { contrastRatio, readableTextOn } from '../../chat/origins';
-import { noDashes, PLAIN_WRITING } from '../../writing';
+import { noDashes, OWNER_LIFE_UNKNOWN, PLAIN_WRITING } from '../../writing';
 import {
   AI_FORMATS,
   CALENDAR,
@@ -59,7 +59,7 @@ export const POST_LIMITS = {
   shot: 200,
   picture: 600,
   photoPrompt: 1200,
-  ask: 500,
+  ask: CALENDAR.askMost,
   /** What a designed page says, at most. */
   kicker: 40,
   heading: 110,
@@ -88,6 +88,8 @@ const NETWORK_WAYS: Readonly<Record<ContentNetwork, string>> = {
 const STYLE = [
   PLAIN_WRITING,
   'Write as the business, in its own voice, about what it really sells and who it serves. Never invent results, prices, reviews or promises the business profile doesn’t give.',
+  // Never a made-up life for the owner either (docs/outreach.md, decision 165).
+  OWNER_LIFE_UNKNOWN,
 ].join('\n');
 
 export const WRITE_SYSTEM = [

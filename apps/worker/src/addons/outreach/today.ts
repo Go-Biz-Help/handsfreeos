@@ -59,6 +59,7 @@ import {
   type Opener,
   type OpenerKind,
 } from '@hfos/core/addons/outreach/openers';
+import { aboutOwnerFor } from '@hfos/core/addons/outreach/ops/about-owner';
 import { voiceFor } from '@hfos/core/addons/outreach/ops/automation';
 import { answerNote } from '@hfos/core/addons/outreach/ops/conversation';
 import {
@@ -95,6 +96,7 @@ import {
   type DraftOffer,
   type TodayDraftOutput,
 } from '@hfos/core/addons/outreach/today';
+import { realComments } from '@hfos/core/addons/outreach/comment-says';
 import { contactIn, isTimeKind, openTimeOf } from '@hfos/core/addons/outreach/meeting-times';
 import { executeCommand, HfosError, listsOf, MainOfferParts } from '@hfos/core/server';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
@@ -125,8 +127,12 @@ type ChatRow = {
   pitch_why: string | null;
 };
 
+/** What a draft's request may hold: a comment's comes with up to three pictures of its post (decision 166). */
+export const DRAFT_BODY_BYTES = 2 * 1024 * 1024;
+
 export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
   permission: 'outreach.use',
+  bodyBytes: DRAFT_BODY_BYTES,
   ai: {
     tool: 'outreach_draft_message',
     description:
@@ -226,6 +232,18 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
                 where p.workspace_id = ${ws} and p.id = ${profileId}`,
           )
         : [];
+      // How real comments sound, from HandsFreeOS's comment research, once staff put a guide in use (decision 166).
+      const commentGuide =
+        post?.warm_up && input.kind === 'comment' && profile
+          ? (
+              await rows<{ guide: string }>(
+                tx,
+                sql`select guide from platform.comment_guides
+                    where platform = ${profile.platform} and stopped_at is null
+                    order by used_at desc limit 1`,
+              )
+            )[0]?.guide?.trim() || null
+          : null;
       const lines = profileId
         ? await rows<{ lines: string[] }>(
             tx,
@@ -372,12 +390,15 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         chat,
         post,
         commentedLately,
+        commentGuide,
         engaged,
         profile,
         lines: lines[0]?.lines ?? [],
         playbooks,
         check,
         voice: await voiceFor(tx, ws, ctx.userId),
+        // What they said of themselves on Settings → Account (About you, decision 165): all the AI knows of them.
+        aboutOwner: await aboutOwnerFor(tx, ctx.userId),
         lastAt: last?.at ?? null,
         conversation: conversation ?? null,
         lost: lost ?? null,
@@ -550,11 +571,15 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     // What the AI is told of them: nothing that names one of their groups or says they're in one (decision 157).
     const toldFacts = withoutGroupLines(facts, groupNames);
     const toldLookup = withoutGroupLines(input.lookup, groupNames);
+    // The post as the extension just saw it (decision 166): for a comment on a post kept, and nothing else.
+    const look = input.kind === 'comment' && found.post && !found.engaged ? input.look : null;
     // Everything a draft for them is written from: the same for the kind asked and the step after a yes.
     const base: DraftBase = {
       platform,
+      pictures: look?.jpegs ?? [],
       told: {
         business: found.business?.name ?? 'the business',
+        aboutOwner: found.aboutOwner,
         name,
         facts: toldFacts,
         recent,
@@ -573,8 +598,12 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
                 group: found.post.group,
                 warm: found.post.warm_up,
                 said: found.commentedLately,
+                // How real comments sound, when a research's guide is in use (decision 166).
+                guide: found.commentGuide,
                 // The post check's word on whether they ask for what the business offers (decision 163).
                 asking: found.post.strong,
+                // What the extension just took of it on its own page (decision 166): a comment's only.
+                shown: look ? { kind: look.kind, count: look.jpegs.length } : null,
               }
             : null,
         lookup: toldLookup,
@@ -694,6 +723,11 @@ export interface DraftBase {
     Parameters<typeof todayDraftPrompt>[0],
     'kind' | 'platform' | 'times' | 'own' | 'again'
   >;
+  /**
+   * The post's picture, or frames of its video, as JPEGs in base64 (decision 166, core's `PostLook`): shown to the AI
+   * before a comment's words, as `told.post.shown` says, and never kept. Left out, none.
+   */
+  readonly pictures?: readonly string[];
   /** The playbook's words to avoid, and the business's. */
   readonly avoid: readonly string[];
   /** Their groups, and the post's, never named to them (decision 157). */
@@ -724,20 +758,34 @@ export async function writeDrafts(
   const toRequests = told.requests === true;
   const videos = told.videos ?? null;
   const voice = told.voice ?? VOICE_DEFAULTS;
+  // A comment shown the post (decision 166): its pictures go before the words, and only while the prompt says so.
+  const pictures = kind === 'comment' && told.post?.shown ? (base.pictures ?? []) : [];
+  const shown = pictures.length > 0;
+  const prompt = todayDraftPrompt({
+    ...told,
+    post: told.post && !shown ? { ...told.post, shown: null } : told.post,
+    kind,
+    platform,
+    times: meeting && isTimeKind(kind) ? draftTimes(meeting, kind, base.contact) : null,
+    own: base.own(kind),
+    again,
+  });
   const { value } = await askedTwice((last) =>
     askStructured(ctx, ctx.scope, {
       system: todayDraftSystem(platform, { warm }),
       messages: [
         {
           role: 'user',
-          content: todayDraftPrompt({
-            ...told,
-            kind,
-            platform,
-            times: meeting && isTimeKind(kind) ? draftTimes(meeting, kind, base.contact) : null,
-            own: base.own(kind),
-            again,
-          }),
+          content: shown
+            ? [
+                ...pictures.map((data) => ({
+                  type: 'image' as const,
+                  mediaType: 'image/jpeg' as const,
+                  data,
+                })),
+                { type: 'text' as const, text: prompt },
+              ]
+            : prompt,
         },
       ],
       schema: TODAY_DRAFT_SCHEMA,
@@ -761,6 +809,20 @@ export async function writeDrafts(
     return writeDrafts(ctx, base, kind, [
       ...new Set(checked.flatMap((d) => groupNamesIn(d, base.groupNames))),
     ]);
+  // A comment says something real about the post, in the words people type, and never puts the owner in the other
+  // person's group when the owner hasn't said so of themselves (decision 165): one that doesn't goes, and with none
+  // left there's no comment.
+  const realCommentsOn = (drafts: string[]) =>
+    told.post
+      ? realComments(drafts, {
+          post: told.post.text,
+          about: value.about,
+          warm,
+          aboutOwner: told.aboutOwner,
+          shown,
+          saw: value.saw,
+        })
+      : drafts;
   // To their Requests: only one short text with no link goes. A comment opens with no stock praise (decision 141:
   // a "Great post!" before its point goes), and one that waits to be posted (Instagram's and Alignable's, decision
   // 92) never carries a link, and on Instagram no hashtag, within its 30 words; nor does a birthday or new-job note
@@ -769,10 +831,12 @@ export async function writeDrafts(
     toRequests && kind === 'opener'
       ? quiet.filter(fitsRequests)
       : kind === 'comment'
-        ? quiet.flatMap((d) => {
-            const said = withoutStockPraise(d);
-            return said && fitsComment(said, platform) ? [said] : [];
-          })
+        ? realCommentsOn(
+            quiet.flatMap((d) => {
+              const said = withoutStockPraise(d);
+              return said && fitsComment(said, platform) ? [said] : [];
+            }),
+          )
         : kind === 'group_reply'
           ? quiet.filter(fitsGroupReply)
           : isOccasionKind(kind)

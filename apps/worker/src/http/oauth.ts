@@ -56,6 +56,7 @@ import {
 } from '../payments/provider';
 import { nextRefreshAt } from '../payments/refresh';
 import { errorMessage } from '../outbox';
+import { practiceRunFor } from '../practice/scope';
 import { systemActor, workerMeta, type TenantScope } from '../services';
 import {
   answerMetaPick,
@@ -229,6 +230,18 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
     const found = await lookup(provider, state);
     const row = waiting(provider, found);
     if (!row || !state) return expired(reply, kindOf(provider, found), provider);
+    // A practice business (Admin → Try onboarding) connects nothing: the real sign-in page is never opened.
+    if (await practiceRunFor(deps.httpDb, { organizationId: row.organization_id }))
+      return deadEnd(
+        reply,
+        200,
+        'Connecting is pretended here',
+        'This is a practice business, so nothing is really connected and nothing reaches the other service. Go back and carry on: choose Later or Skip where it asks.',
+        {
+          href: `${deps.webUrl}/app/w/${row.workspace_id}`,
+          label: 'Back to the practice business',
+        },
+      );
     if (row.kind === 'meta') return startMeta(row, state, reply);
     if (row.kind === 'payment') return startPayment(row, state, reply);
     if (row.kind === 'calendar') return startCalendar(row, state, reply);

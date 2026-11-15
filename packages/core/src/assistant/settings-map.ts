@@ -1116,13 +1116,14 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
   },
   my_account: {
     label: 'Account',
-    what: 'your own name, how the web app looks, your side menu, your sign-in, what you are told about, your cell, and the businesses you are in with your role in each',
+    what: 'your own name, About you (what the AI that writes as you knows of you), how the web app looks, your side menu, your sign-in, what you are told about, your cell, and the businesses you are in with your role in each',
     where: ['Settings', 'Account'],
     onScreen: [
       'Profile: your name, and the email you sign in with (it can’t be changed here yet); your initials stand in for a photo',
       'Appearance: Light, Dark or System, for the web app, saved to your account; the phone app keeps its own',
       'Side menu: how many places are in it, in groups and hidden, and Edit menu (Move up, Move down, Move to a group, Add a group, Group name, Ungroup, Hide and Show, Use suggested groups, Start over, then Save menu)',
       'Sign-in methods: Password, Google, Passkeys ("Keep at least two so you are never locked out")',
+      'About you: one box in your own words (where you’re from, your heritage, family, faith, hobbies, teams, past jobs) for the AI that writes your outreach messages and comments; only you see it, and Save',
       'Notifications: each kind with its push and email switches, and how many phones the pushes go to; then the ones that only email',
       'My cell phone: your number, Verified or Not verified yet, and Verify my cell',
       'Delete my account: type your email address, then Delete my account; a business you are the only owner of is named first',
@@ -1131,6 +1132,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     permission: null,
     canChange: [
       'your name',
+      'About you, from what you say of yourself (it never guesses)',
       'the web app’s light or dark (the phone app’s is set on that phone, under More, then Settings, then Appearance)',
       'which emails you get, each kind of phone alert, and the daily agency digest (agency owners and admins)',
       'your side menu: hide or show places, move them, put them in a group by name, rename or ungroup a group, use the suggested groups, or start over',

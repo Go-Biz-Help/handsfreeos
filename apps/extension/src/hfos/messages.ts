@@ -144,6 +144,14 @@ export type PostsPeopleNext = Ok<'/v1/queries/outreach.posts.people_next'>;
 export type FindsSaveInput = Body<'/v1/commands/outreach.finds.save'>;
 export type FindsSaved = Ok<'/v1/commands/outreach.finds.save'>;
 /**
+ * The comment research (decision 166, packages/core/src/addons/outreach/comment-research.ts): which hashtags to read
+ * next for the one this person started, and a hashtag's comments read, as words alone.
+ */
+export type CommentResearchNextInput = Body<'/v1/queries/outreach.comment_research.next'>;
+export type CommentResearchNext = Ok<'/v1/queries/outreach.comment_research.next'>;
+export type CommentResearchSaveInput = Body<'/v1/commands/outreach.comment_research.save'>;
+export type CommentResearchSaved = Ok<'/v1/commands/outreach.comment_research.save'>;
+/**
  * Instagram accounts like the business's (decision 110, packages/core/src/addons/outreach/like-yours.ts): what to search
  * for and which kept account to read today, the accounts a search showed, and an account read.
  */
@@ -379,6 +387,8 @@ export type HfosAsk =
   | { readonly type: 'hfos-like-yours-next'; readonly input: LikeYoursNextInput }
   | { readonly type: 'hfos-like-yours-found'; readonly input: LikeYoursFoundInput }
   | { readonly type: 'hfos-like-yours-read'; readonly input: LikeYoursReadInput }
+  | { readonly type: 'hfos-comment-research-next'; readonly input: CommentResearchNextInput }
+  | { readonly type: 'hfos-comment-research-save'; readonly input: CommentResearchSaveInput }
   /** Events near the person on Alignable (decision 112): whether this week's read is due, and a read noted. */
   | { readonly type: 'hfos-events-next'; readonly input: EventsNextInput }
   | { readonly type: 'hfos-events-read'; readonly input: EventsReadInput }
@@ -489,6 +499,8 @@ export interface HfosValues {
   readonly 'hfos-like-yours-next': LikeYoursNext;
   readonly 'hfos-like-yours-found': LikeYoursFound;
   readonly 'hfos-like-yours-read': LikeYoursRead;
+  readonly 'hfos-comment-research-next': CommentResearchNext;
+  readonly 'hfos-comment-research-save': CommentResearchSaved;
   readonly 'hfos-events-next': EventsNext;
   readonly 'hfos-events-read': EventsRead;
   readonly 'hfos-followers-next': FollowersNext;

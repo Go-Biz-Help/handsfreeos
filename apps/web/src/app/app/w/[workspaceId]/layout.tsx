@@ -12,6 +12,7 @@ import { CallOverlays } from '@/components/calls/call-overlays';
 import { DemoDirector } from '@/components/demo/demo-director';
 import { Tour } from '@/components/onboarding/tour';
 import { SearchProvider } from '@/components/search/search-provider';
+import { PracticeBanner } from '@/components/practice/practice-banner';
 import { MenuEditor } from '@/components/shell/menu-editor';
 import { MenuProvider } from '@/components/shell/menu-provider';
 import { MobileShell } from '@/components/shell/mobile-shell';
@@ -66,7 +67,7 @@ export default async function WorkspaceLayout({
   // A business made while founding spots are on sale picks one and pays before anything in it opens (20261027012700).
   // Its own people only: support looking in, and anyone viewing as a teammate, see it as it is.
   if (current.needsPlan && !viewingAs && !teammateView) redirect(foundingPlanHref(workspaceId));
-  const staff = platform?.staff?.role ?? null;
+  const staff = platform?.staff ?? null;
   return (
     <LiveProvider workspaceId={workspaceId}>
       {/* Inside LiveProvider: the shell is drawn again when an add-on is turned on or off (0108). */}
@@ -127,6 +128,15 @@ export default async function WorkspaceLayout({
                           <TeammateViewBanner workspaceId={workspaceId} view={teammateView} />
                         ) : null}
                         {staleView ? <ForgetStaleView workspaceId={workspaceId} /> : null}
+                        {/* A practice business (Admin → Try onboarding, 20261027027400): not real, when it goes,
+                            and End practice. */}
+                        {current.practiceEndsAt ? (
+                          <PracticeBanner
+                            workspaceId={workspaceId}
+                            name={current.name}
+                            endsAt={current.practiceEndsAt}
+                          />
+                        ) : null}
                         {/* A free trial's last days (20261027027000): when the card is charged, for whoever pays. */}
                         {!viewingAs && !teammateView ? (
                           <TrialEndingNote workspaceId={workspaceId} />

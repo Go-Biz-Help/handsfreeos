@@ -6,10 +6,17 @@
  * row or its sheet, which opens its day again. Open days in the plan show where a post is still wanted; **Fill the calendar** has the AI write them all, and after the first time it tops up once a week
  * on its own (decision 18), until **Fill on its own** is turned off (the owner, 11 Nov). OK'd posts go up at their
  * times from the reading computer (part 9), and the card says whose computer that is and when it last checked in.
- * Until the main offer is live, nothing is written, and the page says so (pick 7b, 11 Nov).
+ * **Write a post** asks two things first (the owner, 14 Nov): which networks, one or more (a post for each, about the
+ * same thing), and whether the AI writes it on its own or from what the person says it's about. Until the main offer is live, nothing is written, and the page says so
+ * (pick 7b, 11 Nov).
  */
 import { addDays, localDateOf } from '@hfos/core';
-import { POSTING_NETWORKS, type PostingNetwork } from '@hfos/core/addons/socialcontent/calendar';
+import {
+  CALENDAR,
+  POSTING_NETWORKS,
+  firstPlannedNetwork,
+  type PostingNetwork,
+} from '@hfos/core/addons/socialcontent/calendar';
 import { networkName } from '@hfos/core/addons/socialcontent/networks';
 import {
   SOCIALCONTENT_WORDS as W,
@@ -27,10 +34,15 @@ import { useCan } from '@/components/shell/workspace-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Field } from '@/components/ui/field';
+import { RadioCard } from '@/components/ui/radio-card';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { workerPost } from '@/lib/api/worker';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
+import { cn } from '@/lib/utils';
 import { OfferNotLive } from './offer-notice';
 import { PostPicture, PostSheet, RemovePostDialog, STATE_BADGE, timeIn } from './post-sheet';
 import type { CalendarView, Content } from './types';
@@ -56,6 +68,8 @@ export function CalendarPage({
   const [openId, setOpenId] = useState<string | null>(openPostId);
   const [fetched, setFetched] = useState<Content | null>(null);
   const [removing, setRemoving] = useState<Content | null>(null);
+  // Write a post's two questions are up (the owner, 14 Nov).
+  const [asking, setAsking] = useState(false);
   // Removing a post is archiving its record: owners and admins (records.archive).
   const canRemove = useCan('records.archive');
   const removable = (p: Content) =>
@@ -134,6 +148,24 @@ export function CalendarPage({
     ).then((out) => {
       if (out?.postId) show(out.postId);
     });
+  // Write a post: one post for each network picked, about the same thing (the owner, 14 Nov).
+  const writeFor = (networks: readonly PostingNetwork[], ask: string | null) =>
+    act(
+      'write',
+      () =>
+        workerPost<{ postId: string; postIds?: string[]; missed?: PostingNetwork[] }>(WRITE, {
+          workspaceId,
+          input: { networks, ...(ask ? { ask } : {}) },
+        }),
+      (out) =>
+        networks.length > 1
+          ? W.calendar.writtenMany(out.postIds?.length ?? 1, (out.missed ?? []).map(networkName))
+          : W.calendar.written,
+    ).then((out) => {
+      // One post opens; several show on their days.
+      if (out?.postId && networks.length === 1) show(out.postId);
+      return out;
+    });
 
   const filled = filledLine(c);
   const drafts = c.posts.filter((p) => p.state === 'draft').length;
@@ -173,7 +205,7 @@ export function CalendarPage({
                 variant="secondary"
                 loading={busy === 'write'}
                 disabled={busy !== null && busy !== 'write'}
-                onClick={() => void write(null, null, 'write')}
+                onClick={() => setAsking(true)}
                 data-testid="socialcontent-calendar-write"
               >
                 <PenLine className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
@@ -322,7 +354,147 @@ export function CalendarPage({
         post={removing}
         onClose={() => setRemoving(null)}
       />
+      {asking ? (
+        <WritePostDialog
+          plan={c.plan}
+          busy={busy === 'write'}
+          onClose={() => setAsking(false)}
+          onWrite={(networks, ask) =>
+            void writeFor(networks, ask).then((out) => {
+              // Written, it opens; refused, the questions stay up to change.
+              if (out) setAsking(false);
+            })
+          }
+        />
+      ) : null}
     </div>
+  );
+}
+
+/**
+ * Write a post's two questions (the owner, 14 Nov): which networks, one or more, starting on the first with posts in
+ * the plan, and whether the AI writes it on its own (the same mix Fill the calendar uses) or from what the person says
+ * it's about. Each network gets its own post, written to fit it.
+ */
+function WritePostDialog({
+  plan,
+  busy,
+  onClose,
+  onWrite,
+}: {
+  plan: CalendarView['plan'];
+  busy: boolean;
+  onClose: () => void;
+  onWrite: (networks: readonly PostingNetwork[], ask: string | null) => void;
+}) {
+  const [networks, setNetworks] = useState<readonly PostingNetwork[]>(() => [
+    firstPlannedNetwork(plan),
+  ]);
+  const [how, setHow] = useState<'auto' | 'mine'>('auto');
+  const [about, setAbout] = useState('');
+  const ready = networks.length > 0 && (how === 'auto' || about.trim().length > 0);
+  const flip = (n: PostingNetwork) =>
+    setNetworks((now) =>
+      now.includes(n)
+        ? now.filter((x) => x !== n)
+        : POSTING_NETWORKS.filter((x) => x === n || now.includes(x)),
+    );
+  return (
+    <Dialog open onOpenChange={(open) => (open || busy ? null : onClose())}>
+      <DialogContent title={W.calendar.write} description={W.calendar.writeAsk}>
+        <div data-testid="socialcontent-write-dialog">
+          <p
+            id="socialcontent-write-network"
+            className="mb-1.5 mt-4 text-[13px] font-medium text-text"
+          >
+            {W.calendar.writeNetwork}
+          </p>
+          <div
+            role="group"
+            aria-labelledby="socialcontent-write-network"
+            className="flex flex-wrap gap-1.5"
+          >
+            {POSTING_NETWORKS.map((n) => (
+              <button
+                key={n}
+                type="button"
+                aria-pressed={networks.includes(n)}
+                disabled={busy}
+                onClick={() => flip(n)}
+                data-testid={`socialcontent-write-network-${n}`}
+                className={cn(
+                  'h-8 rounded-full border px-3 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring',
+                  networks.includes(n)
+                    ? 'border-accent bg-accent-soft text-text'
+                    : 'border-border bg-card text-text-2 hover:bg-card-2',
+                )}
+              >
+                {networkName(n)}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[12.5px] text-text-3">{W.calendar.writeNetworkHint}</p>
+
+          <p id="socialcontent-write-how" className="mb-1.5 mt-4 text-[13px] font-medium text-text">
+            {W.calendar.writeHow}
+          </p>
+          <div
+            role="radiogroup"
+            aria-labelledby="socialcontent-write-how"
+            className="flex flex-col gap-2"
+          >
+            <RadioCard
+              selected={how === 'auto'}
+              onSelect={() => setHow('auto')}
+              title={W.calendar.writeAuto}
+              description={W.calendar.writeAutoHint}
+              testId="socialcontent-write-auto"
+            />
+            <RadioCard
+              selected={how === 'mine'}
+              onSelect={() => setHow('mine')}
+              title={W.calendar.writeMine}
+              description={W.calendar.writeMineHint}
+              testId="socialcontent-write-mine"
+            />
+          </div>
+          {how === 'mine' ? (
+            <Field
+              label={W.calendar.writeAbout}
+              htmlFor="socialcontent-write-about"
+              className="mt-3.5"
+            >
+              <Textarea
+                id="socialcontent-write-about"
+                value={about}
+                rows={3}
+                maxLength={CALENDAR.askMost}
+                placeholder={W.calendar.writeAboutPlaceholder}
+                disabled={busy}
+                autoFocus
+                onChange={(e) => setAbout(e.target.value)}
+                data-testid="socialcontent-write-about"
+              />
+            </Field>
+          ) : null}
+
+          <div className="mt-5 flex flex-wrap justify-end gap-2">
+            <Button variant="secondary" disabled={busy} onClick={onClose}>
+              {W.calendar.writeCancel}
+            </Button>
+            <Button
+              loading={busy}
+              disabled={!ready}
+              onClick={() => onWrite(networks, how === 'mine' ? about.trim() : null)}
+              data-testid="socialcontent-write-go"
+            >
+              <PenLine className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+              {busy ? W.calendar.writing : W.calendar.writeGo(networks.length)}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

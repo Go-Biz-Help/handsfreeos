@@ -80,6 +80,7 @@ import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
 import { countriesProblem, TeamSettingsFields, type TeamSettings } from './business-settings';
+import { CommentResearchPart } from './comment-research';
 import { AskButton } from './asks';
 import { ExtensionDownload } from './extension-download';
 import { ExtensionLinkForm } from './extension-link';
@@ -319,6 +320,8 @@ function SettingsPages({
               networks={networksOn(person.value, rules.networksAllowed)}
             />
           ) : null}
+          {/* HandsFreeOS's own comment research, for its staff only (decision 166). */}
+          {mine ? <CommentResearchPart workspaceId={workspaceId} /> : null}
         </>
       )}
     </div>

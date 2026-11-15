@@ -187,6 +187,16 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   apart, from saved ideas first, then new ones, then the Playbook alone. After the first fill it tops up once a week
   on its own (`socialcontent.calendar`, re-armed when the add-on is turned back on). **Write a post** takes the next
   open day; **Write the post** on an idea does the same for the idea's network and marks it used.
+- **Write a post asks two things first** (the owner, 14 Nov), in a window on the web and a sheet on the phone:
+  **which networks**, one or more, starting on the first with posts in the plan (`firstPlannedNetwork`), and **how
+  the AI writes it**: **AI on its own**, or **My direction** with a box for what the post is about (`ask`, 500
+  characters at most, `CALENDAR.askMost`). The worker action takes `networks` and writes a post for each, about the
+  same thing, all at once; each is written in its network's way (Threads within 500 characters, X within 280,
+  Instagram always with a picture) and goes on that network's next open day. One that fails is named in the answer
+  (`missed`) while the others are kept. AI on its own is planned the way Fill the calendar plans each post
+  (`planWrites` for one place): the kind the weekly mix needs next, a waiting idea of that kind or the next line from
+  the lists, and the next look, so it's the same for every network picked. One post opens once written; several
+  show on their days.
 - **Fill on its own** (the owner, 11 Nov): a switch on the Calendar (web and phone) and in Settings → Posting, on
   until an owner or admin turns it off (`settings.auto_fill`, from `20261027025800_socialcontent_auto_fill.sql`).
   Off, a fill under way stops before its next post, the weekly top-up writes nothing and isn't queued again, and
@@ -195,7 +205,8 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   and fills the open days right away.
 - **Writing** asks Claude for the post in the network's way (Instagram's hook and up to 5 hashtags, all Instagram takes, Facebook like a
   neighbour, LinkedIn a lesson and a question, Threads like a conversation with one topic tag, X short with 1 or 2
-  hashtags), as the business, never inventing results, prices or reviews. Its answer is checked (`checkedPost`):
+  hashtags), as the business, never inventing results, prices or reviews, nor anything of the owner's own life
+  (`OWNER_LIFE_UNKNOWN`, docs/outreach.md decision 165). Its answer is checked (`checkedPost`):
   Instagram never gets words alone, a carousel needs 2 slides, hashtags are kept apart from the words, and the AI picks
   how the picture is made. **Write it again** takes what to change.
 - **Threads and X** (decision 41): X takes 280 characters and Threads 500, tags included (`POSTING.textMost`,
@@ -417,8 +428,9 @@ Instagram from 0.133.0, Threads and X from 0.138.0. The post's sheet offers **Co
   0.139.2). LinkedIn's newer box takes the pictures in a window of its own (Upload from computer, then Next). Its link comes from the network (LinkedIn's View post), else from the top of the profile, the Page or
   their own posts by its first words.
 - **Instagram** (part 10): **Create** on its home page (then **Post** when it asks which kind), the pictures or the
-  person's video into Create new post, **OK** when it says a video goes up as a reel, **Next** past cropping and
-  editing, then the words in the caption box and **Share**. Its link comes from the person's own newest posts, as
+  person's video into Create new post, **OK** when it says a video goes up as a reel, **Original** under cropping's
+  **Select crop** (else 4:5: Instagram starts on a square, which cut the bottom off a 4:5 picture's words; extension
+  0.140.1), **Next** past cropping and editing, then the words in the caption box and **Share**. Its link comes from the person's own newest posts, as
   Instagram's page asks for them, by its first words.
 - **Threads and X** (part 16, decision 41; `post-short.ts`): X's compose page (x.com/compose/post) or Threads' home
   page ("What's new?", else Create): the words in its first box, the pictures, then each post of the chain in a box of

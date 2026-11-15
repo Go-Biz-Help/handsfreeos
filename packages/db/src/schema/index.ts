@@ -75,6 +75,13 @@ export const organizations = app.table('organizations', {
    * Set when it is made, never by the business; `private.workspace_needs_plan` is the question to ask.
    */
   needsPlan: boolean('needs_plan').notNull().default(false),
+  /**
+   * A practice business, made from Admin → Try onboarding (20261027027400), and when it is deleted. Null for every real
+   * business. Set only by `private.start_practice`, never changed.
+   */
+  practiceEndsAt: ts('practice_ends_at'),
+  /** The HandsFreeOS staff member practising in it, and who its email goes to. */
+  practiceBy: uuid('practice_by'),
   ...timestamps(),
 });
 
@@ -5044,6 +5051,18 @@ export const userPhones = app.table('user_phones', {
   verifiedAt: ts('verified_at'),
   verificationCount: integer('verification_count').notNull().default(0),
   lastVerificationAt: ts('last_verification_at'),
+  ...timestamps(),
+});
+
+/**
+ * What a person says of themselves, in their own words (20261027027200), for the AI that writes as them. One row a
+ * person, theirs alone: no teammate reads it.
+ */
+export const userAbout = app.table('user_about', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  about: text('about').notNull(),
   ...timestamps(),
 });
 

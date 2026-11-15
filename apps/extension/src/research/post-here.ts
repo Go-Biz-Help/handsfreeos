@@ -12,7 +12,8 @@
  *   when it shows its picture editor.
  * - **Instagram (part 10):** **Create** in its side menu (then **Post**, when Instagram asks which kind), the pictures
  *   or the person's video into Create new post's file field, **OK** when Instagram says a video goes up as a reel,
- *   **Next** past cropping and editing, then the words in its caption box (only while it's empty) and **Share**.
+ *   **Original** under cropping's **Select crop** (Instagram starts on a square, which cut a 4:5 picture's bottom
+ *   off), **Next** past cropping and editing, then the words in its caption box (only while it's empty) and **Share**.
  * - **Threads and X (decision 41):** their own box, with each post of a chain in a box of its own (./post-short.ts).
  *
  * Pictures and the person's video come in as files from HandsFreeOS (the background fetches them). They're added the
@@ -91,6 +92,15 @@ const IG_KIND = /^post$/i;
 const IG_PICK = /^select (from (your )?computer|photos( and videos)?)$/i;
 /** Instagram's note that a video goes up as a reel, and its OK. */
 const IG_OK = /^ok$/i;
+/**
+ * Cropping's button that shows the shapes, and the shape picked: the picture as it was made, else 4:5. Instagram starts
+ * on a square, so a 4:5 picture went up with its top and bottom cut off, its words with them (the owner, 14 Nov 2026).
+ */
+const IG_CROP = /^select crop$/i;
+const IG_SHAPES: readonly { readonly words: RegExp; readonly step: string }[] = [
+  { words: /^original$/i, step: 'crop:original' },
+  { words: /^4\s*:\s*5$/, step: 'crop:4:5' },
+];
 /** Instagram's words once a post or reel is up, and when it didn't take it. */
 export const IG_SHARED =
   /\b(your (post|reel) (has been|was) shared|(post|reel) shared|shared to your (profile|feed))\b/i;
@@ -479,8 +489,37 @@ export function instagramMe(doc: Document): string | null {
 }
 
 /**
- * Puts the post up on Instagram: Create (then Post), the files into Create new post, OK for a reel, Next past
- * cropping and editing, the words in the caption box, then Share. The words go in last, as Instagram asks for them.
+ * Cropping's Select crop, when this step of Create new post shows it: pressed, then the picture's own shape picked
+ * (`IG_SHAPES`). Says whether the button was there, so it's pressed once; a shape that never shows leaves Instagram's.
+ */
+async function igKeepShape(doc: Document, box: Element, steps: string[]): Promise<boolean> {
+  const button =
+    box.querySelector('svg[aria-label="Select crop" i]')?.closest<HTMLElement>(CONTROLS) ??
+    controlIn(box, IG_CROP);
+  if (!button || !shown(button)) return false;
+  button.click();
+  const shape = await waitFor(() => {
+    const here = igDialog(doc) ?? box;
+    for (const s of IG_SHAPES) {
+      const option = controlIn(here, s.words);
+      if (option) return { option, step: s.step };
+    }
+    return null;
+  }, 3_000);
+  if (!shape) {
+    steps.push('crop:none');
+    return true;
+  }
+  shape.option.click();
+  steps.push(shape.step);
+  await pause(400);
+  return true;
+}
+
+/**
+ * Puts the post up on Instagram: Create (then Post), the files into Create new post, OK for a reel, the picture's own
+ * shape under cropping's Select crop, Next past cropping and editing, the words in the caption box, then Share. The
+ * words go in last, as Instagram asks for them.
  */
 async function instagramPost(
   doc: Document,
@@ -566,8 +605,9 @@ async function instagramPost(
   }
   if (!took) return end('no_media');
   steps.push('media');
-  // OK for a reel, then Next past cropping and editing, until the caption box and Share show.
+  // OK for a reel, the picture's own shape, then Next past cropping and editing, until the caption box and Share show.
   let caption: { box: Element; writing: HTMLElement; share: HTMLElement } | null = null;
+  let shaped = false;
   for (let round = 0; round < 8 && !caption; round++) {
     const now = igDialog(doc);
     if (!now) return end('not_sent');
@@ -578,7 +618,9 @@ async function instagramPost(
       break;
     }
     const ok = controlIn(now, IG_OK);
-    const next = ok ? null : controlIn(now, NEXT);
+    if (!ok && !shaped) shaped = await igKeepShape(doc, now, steps);
+    // Next is in the same box as cropping's shapes, which may show over it in a box of their own.
+    const next = ok ? null : controlIn(now.isConnected ? now : (igDialog(doc) ?? now), NEXT);
     if (ok) {
       ok.click();
       steps.push('reel:ok');

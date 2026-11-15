@@ -8517,6 +8517,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.comment_research.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A hashtag’s posts the person’s computer read for the comment research they started, each with the comments it showed. Only a comment’s words are kept, with the kind of post: nobody’s name, no link, and nothing that reads like a bot’s or an advert’s. Once enough are kept, the AI sums up how they’re written.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.comment_research.changed.
+         */
+        post: operations["command_outreach_comment_research_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.comment_research.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * HandsFreeOS staff only: start a comment research. Over 3 days the browser of the person who starts it reads about 2,000 real comments under public Instagram posts of many kinds, a little at a time, keeping each comment’s words only (never who wrote it or the post) and leaving out ones that read like a bot’s. One at a time a business.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.comment_research.changed.
+         */
+        post: operations["command_outreach_comment_research_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.comment_research.stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * HandsFreeOS staff only: stop a comment research that is still reading. With 100 comments or more kept, the AI sums up what it has; with fewer, it is only stopped.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.comment_research.changed.
+         */
+        post: operations["command_outreach_comment_research_stop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.comment_research.use": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * HandsFreeOS staff only: put a finished comment research’s guide in every business’s Instagram comments (how real comments sound: their length, words and punctuation), in place of the guide in use; or take the guide in use out again.
+         * @description Risk level 2. Requires outreach.use. Emits outreach.comment_research.changed.
+         */
+        post: operations["command_outreach_comment_research_use"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.computer.remove": {
         parameters: {
             query?: never;
@@ -10911,6 +10991,66 @@ export interface paths {
          * @description Risk level 2. Requires records.write. Emits portal.access_revoked.
          */
         post: operations["command_portal_access_revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/practice.end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End a practice business: it and everything in it are deleted for good, as Delete business does, without typing its name. Only a practice business can be ended this way.
+         * @description Risk level 2. Requires workspace.delete. Emits workspace.deletion_requested.
+         */
+        post: operations["command_practice_end"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/practice.pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * In a practice business only: the stand-in for paying for a founding spot. The plan picked goes on the business, with its free trial; no card is charged and no spot is used.
+         * @description Risk level 1. Requires money.manage. Emits .
+         */
+        post: operations["command_practice_pay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/practice.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin → Try onboarding: make a practice business, owned by you, to go through an onboarding as a new customer would. Nothing in it leaves HandsFreeOS, and it is deleted when you end it or after 24 hours.
+         * @description Risk level 1. Requires platform.practice.use. Emits organization.created, workspace.created.
+         */
+        post: operations["command_practice_start"];
         delete?: never;
         options?: never;
         head?: never;
@@ -17357,6 +17497,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/user_about.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set About you: what you say of yourself, in your own words (where you’re from, your heritage, family, faith, hobbies, teams, past jobs), for the AI that writes as you. Only you see it. Empty clears it.
+         * @description Risk level 1. Emits user.about_updated.
+         */
+        post: operations["command_user_about_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/user_phone.start_verification": {
         parameters: {
             query?: never;
@@ -22057,6 +22217,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.comment_research.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * HandsFreeOS staff only: the newest comment research run from this business (where it stands, how many real comments it kept and left out, and what it found), and the comment guide every business’s Instagram comments are written with now, if one is in use.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_comment_research_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.comment_research.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the person’s computer reads next for the comment research they started, if they started one: the next hashtags (none once today’s share of the comments is read, so it spreads over its days). Nothing for anyone who didn’t start one.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_comment_research_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.countries.skipped": {
         parameters: {
             query?: never;
@@ -23651,6 +23851,26 @@ export interface paths {
          * @description Requires records.read.
          */
         post: operations["query_portal_access_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/practice.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin → Try onboarding: the practice businesses you have going, newest first, with when each is deleted.
+         * @description Requires platform.practice.use.
+         */
+        post: operations["query_practice_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -25691,6 +25911,26 @@ export interface paths {
          * @description Requires money.read.
          */
         post: operations["query_usage_statement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/user_about.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * About you: what you said of yourself, in your own words, for the AI that writes as you. Only you see it.
+         * @description Any signed-in user.
+         */
+        post: operations["query_user_about_get"];
         delete?: never;
         options?: never;
         head?: never;
@@ -47338,6 +47578,303 @@ export interface operations {
             };
         };
     };
+    command_outreach_comment_research_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    id: string;
+                    posts: {
+                        comments: string[];
+                        /** @default 0 */
+                        dropped?: number;
+                    }[];
+                    tag: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        dropped: number;
+                        kept: number;
+                        reading: boolean;
+                        total: number;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_comment_research_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        inUse: {
+                            comments: number;
+                            guide: string;
+                            /** @enum {string} */
+                            platform: "instagram";
+                            thisOne: boolean;
+                            usedAt: string;
+                        } | null;
+                        research: {
+                            days: number;
+                            dropped: number;
+                            endsAt: string;
+                            findings: {
+                                brochure: {
+                                    in: number;
+                                    word: string;
+                                }[];
+                                comments: number;
+                                copied: number;
+                                emoji: number;
+                                exclaim: number;
+                                fullStop: number;
+                                kinds: {
+                                    examples: string[];
+                                    how: string;
+                                    /** @enum {string} */
+                                    topic: "food" | "fitness" | "travel" | "pets" | "family" | "cars" | "sports" | "home" | "business" | "homes" | "style" | "outdoors" | "music" | "funny" | "big_days" | "community" | "trades";
+                                }[];
+                                lowerStart: number;
+                                medianWords: number;
+                                onlyEmoji: number;
+                                patterns: string[];
+                                question: number;
+                                said: {
+                                    seen: number;
+                                    words: string;
+                                }[];
+                                short: number;
+                                words: {
+                                    in: number;
+                                    word: string;
+                                }[];
+                            } | null;
+                            guide: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            kept: number;
+                            mine: boolean;
+                            /** @enum {string} */
+                            platform: "instagram";
+                            posts: number;
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "reading" | "summing" | "done" | "stopped";
+                            target: number;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_comment_research_stop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    id: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        inUse: {
+                            comments: number;
+                            guide: string;
+                            /** @enum {string} */
+                            platform: "instagram";
+                            thisOne: boolean;
+                            usedAt: string;
+                        } | null;
+                        research: {
+                            days: number;
+                            dropped: number;
+                            endsAt: string;
+                            findings: {
+                                brochure: {
+                                    in: number;
+                                    word: string;
+                                }[];
+                                comments: number;
+                                copied: number;
+                                emoji: number;
+                                exclaim: number;
+                                fullStop: number;
+                                kinds: {
+                                    examples: string[];
+                                    how: string;
+                                    /** @enum {string} */
+                                    topic: "food" | "fitness" | "travel" | "pets" | "family" | "cars" | "sports" | "home" | "business" | "homes" | "style" | "outdoors" | "music" | "funny" | "big_days" | "community" | "trades";
+                                }[];
+                                lowerStart: number;
+                                medianWords: number;
+                                onlyEmoji: number;
+                                patterns: string[];
+                                question: number;
+                                said: {
+                                    seen: number;
+                                    words: string;
+                                }[];
+                                short: number;
+                                words: {
+                                    in: number;
+                                    word: string;
+                                }[];
+                            } | null;
+                            guide: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            kept: number;
+                            mine: boolean;
+                            /** @enum {string} */
+                            platform: "instagram";
+                            posts: number;
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "reading" | "summing" | "done" | "stopped";
+                            target: number;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_comment_research_use: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    id: string;
+                    use: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        inUse: {
+                            comments: number;
+                            guide: string;
+                            /** @enum {string} */
+                            platform: "instagram";
+                            thisOne: boolean;
+                            usedAt: string;
+                        } | null;
+                        research: {
+                            days: number;
+                            dropped: number;
+                            endsAt: string;
+                            findings: {
+                                brochure: {
+                                    in: number;
+                                    word: string;
+                                }[];
+                                comments: number;
+                                copied: number;
+                                emoji: number;
+                                exclaim: number;
+                                fullStop: number;
+                                kinds: {
+                                    examples: string[];
+                                    how: string;
+                                    /** @enum {string} */
+                                    topic: "food" | "fitness" | "travel" | "pets" | "family" | "cars" | "sports" | "home" | "business" | "homes" | "style" | "outdoors" | "music" | "funny" | "big_days" | "community" | "trades";
+                                }[];
+                                lowerStart: number;
+                                medianWords: number;
+                                onlyEmoji: number;
+                                patterns: string[];
+                                question: number;
+                                said: {
+                                    seen: number;
+                                    words: string;
+                                }[];
+                                short: number;
+                                words: {
+                                    in: number;
+                                    word: string;
+                                }[];
+                            } | null;
+                            guide: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            kept: number;
+                            mine: boolean;
+                            /** @enum {string} */
+                            platform: "instagram";
+                            posts: number;
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "reading" | "summing" | "done" | "stopped";
+                            target: number;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_computer_remove: {
         parameters: {
             query?: never;
@@ -53835,6 +54372,113 @@ export interface operations {
                         accessId: string;
                         /** Format: date-time */
                         revokedAt: string;
+                    };
+                };
+            };
+        };
+    };
+    command_practice_end: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        requestedAt: string;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_practice_pay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    offerId: string;
+                    /** @default null */
+                    trialDays?: number | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        plan: "founding_free" | "founding_lifetime" | "monthly";
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_practice_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    businessName: string;
+                    /**
+                     * @default home_services
+                     * @enum {string}
+                     */
+                    industry?: "home_services" | "hvac" | "plumbing" | "electrical" | "roofing" | "handyman" | "general_contracting" | "remodeling" | "landscaping" | "lawn_care" | "tree_service" | "irrigation" | "pest_control" | "house_cleaning" | "commercial_cleaning" | "carpet_cleaning" | "window_cleaning" | "pressure_washing" | "painting" | "flooring" | "cabinets_countertops" | "windows_doors" | "siding_gutters" | "garage_doors" | "fencing_decks" | "concrete_masonry" | "foundation_waterproofing" | "insulation" | "solar" | "pool_spa" | "appliance_repair" | "locksmith" | "home_security" | "restoration" | "chimney" | "septic" | "water_treatment" | "moving" | "junk_removal" | "snow_removal" | "home_inspection" | "interior_design" | "real_estate" | "property_management" | "vacation_rentals" | "mortgage" | "title_escrow" | "dental" | "medical_practice" | "chiropractic" | "physical_therapy" | "med_spa" | "mental_health" | "eye_care" | "home_care" | "wellness" | "hair_salon" | "barbershop" | "nail_salon" | "spa" | "lashes_brows" | "massage" | "tattoo" | "gym" | "personal_training" | "martial_arts" | "dance_studio" | "pet_grooming" | "veterinary" | "dog_training" | "pet_sitting" | "pet_boarding" | "auto_repair" | "auto_body" | "auto_detailing" | "towing" | "auto_glass" | "car_dealership" | "boat_rv" | "accounting" | "law_firm" | "insurance" | "financial_advising" | "tutoring" | "childcare" | "music_lessons" | "driving_school" | "school_training" | "restaurant" | "catering" | "food_truck" | "bakery" | "event_planning" | "event_venue" | "photography" | "entertainment" | "florist" | "lodging" | "travel" | "equipment_rental" | "party_rentals" | "dumpster_rental" | "self_storage" | "portable_toilets" | "marketing_agency" | "consulting" | "it_services" | "staffing" | "printing_signs" | "courier" | "security_services" | "retail_store" | "online_store" | "nonprofit" | "church" | "other";
+                    /** @default America/Chicago */
+                    timezone?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        endsAt: string;
+                        /** Format: uuid */
+                        organizationId: string;
+                        /** Format: uuid */
+                        workspaceId: string;
                     };
                 };
             };
@@ -67878,6 +68522,35 @@ export interface operations {
             };
         };
     };
+    command_user_about_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    about: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        filled: boolean;
+                    };
+                };
+            };
+        };
+    };
     command_user_phone_start_verification: {
         parameters: {
             query?: never;
@@ -70848,6 +71521,7 @@ export interface operations {
                             organizationId: string;
                             organizationName: string;
                             permissions: string[];
+                            practiceEndsAt?: string | null;
                             /** @enum {string} */
                             role: "owner" | "admin" | "member";
                             slug: string;
@@ -87047,6 +87721,131 @@ export interface operations {
             };
         };
     };
+    query_outreach_comment_research_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        inUse: {
+                            comments: number;
+                            guide: string;
+                            /** @enum {string} */
+                            platform: "instagram";
+                            thisOne: boolean;
+                            usedAt: string;
+                        } | null;
+                        research: {
+                            days: number;
+                            dropped: number;
+                            endsAt: string;
+                            findings: {
+                                brochure: {
+                                    in: number;
+                                    word: string;
+                                }[];
+                                comments: number;
+                                copied: number;
+                                emoji: number;
+                                exclaim: number;
+                                fullStop: number;
+                                kinds: {
+                                    examples: string[];
+                                    how: string;
+                                    /** @enum {string} */
+                                    topic: "food" | "fitness" | "travel" | "pets" | "family" | "cars" | "sports" | "home" | "business" | "homes" | "style" | "outdoors" | "music" | "funny" | "big_days" | "community" | "trades";
+                                }[];
+                                lowerStart: number;
+                                medianWords: number;
+                                onlyEmoji: number;
+                                patterns: string[];
+                                question: number;
+                                said: {
+                                    seen: number;
+                                    words: string;
+                                }[];
+                                short: number;
+                                words: {
+                                    in: number;
+                                    word: string;
+                                }[];
+                            } | null;
+                            guide: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            kept: number;
+                            mine: boolean;
+                            /** @enum {string} */
+                            platform: "instagram";
+                            posts: number;
+                            startedAt: string;
+                            /** @enum {string} */
+                            state: "reading" | "summing" | "done" | "stopped";
+                            target: number;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_comment_research_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default instagram
+                     * @enum {string}
+                     */
+                    platform?: "instagram";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        research: {
+                            /** Format: uuid */
+                            id: string;
+                            kept: number;
+                            postsEach: number;
+                            tags: string[];
+                            target: number;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
     query_outreach_countries_skipped: {
         parameters: {
             query?: never;
@@ -94020,6 +94819,42 @@ export interface operations {
                             revokedAt: string | null;
                         } | null;
                         email: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_practice_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        businesses: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            ending: boolean;
+                            /** Format: date-time */
+                            endsAt: string;
+                            name: string;
+                            /** Format: uuid */
+                            organizationId: string;
+                            workspaceId: string | null;
+                        }[];
                     };
                 };
             };
@@ -102330,6 +103165,33 @@ export interface operations {
             };
         };
     };
+    query_user_about_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        about: string;
+                        updatedAt: string | null;
+                    };
+                };
+            };
+        };
+    };
     query_user_phone_get: {
         parameters: {
             query?: never;
@@ -103803,6 +104665,7 @@ export interface operations {
                             organizationId: string;
                             organizationName: string;
                             permissions: string[];
+                            practiceEndsAt?: string | null;
                             /** @enum {string} */
                             role: "owner" | "admin" | "member";
                             settings: {

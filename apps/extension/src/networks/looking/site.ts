@@ -282,6 +282,17 @@ export interface LookingSite {
       on: CommentOn,
     ) => Promise<AutoResult>;
     /**
+     * The post's own part of its page, for a look at its picture or video before its comment is drafted (decision
+     * 166, ../post-look.ts): `on` says whose post and which, as for `comment`, and it's given only on that post's own
+     * page. `skip` rules out what's drawn there but isn't the post's (a tile that opens another post). Null on any
+     * other page. A site without it is never looked at, and its comments are written from the post's words.
+     */
+    readonly postPart?: (
+      doc: Document,
+      href: string,
+      on: CommentOn,
+    ) => { readonly root: Element; readonly skip: (el: Element) => boolean } | null;
+    /**
      * The group's own Join, on its page (Alignable's, decision 92): what came of it, as Facebook's `hfos-join` says.
      * `answerJoin`, where the site asks questions first; a site without it asks none, so the kit says there were none.
      */

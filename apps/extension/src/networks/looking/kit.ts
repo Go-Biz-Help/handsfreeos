@@ -21,6 +21,8 @@ import type {
   CodeAsk,
   CommentLikeAnswer,
   CommentLikeAsk,
+  PostLookAnswer,
+  PostLookAsk,
   TheirCommentAnswer,
   TheirCommentAsk,
   ConnectAsk,
@@ -45,6 +47,7 @@ import type {
 import { centerUrl } from '../accounts-center/pages';
 import { CENTER_ASKS, centerWork, type CenterAsk } from '../accounts-center/work';
 import { isWholeAddress, type Kit } from '../kit';
+import { seePost } from '../post-look';
 import { maskOn, outlineLooking, outlineSiteOf, readLooking, readWarnings } from './read';
 import type { LookingSite } from './site';
 
@@ -173,7 +176,8 @@ export type OnItsOwnAsk =
   | FeedPostAsk
   | StoryAsk
   | TheirCommentAsk
-  | CommentLikeAsk;
+  | CommentLikeAsk
+  | PostLookAsk;
 export const ON_ITS_OWN_ASKS: ReadonlySet<string> = new Set<OnItsOwnAsk['type']>([
   'hfos-their-posts',
   'hfos-like-post',
@@ -187,6 +191,7 @@ export const ON_ITS_OWN_ASKS: ReadonlySet<string> = new Set<OnItsOwnAsk['type']>
   'hfos-like-story',
   'hfos-their-comment',
   'hfos-like-comment',
+  'hfos-post-look',
 ]);
 
 /** The person's own helpful post, OK'd, on a site that declares it (`auto.post`, Alignable's, decision 109). */
@@ -221,6 +226,20 @@ async function likeComment(site: LookingSite, ask: CommentLikeAsk): Promise<Comm
     ok: true,
     ...(await site.auto.likeComment(document, location.href, ask.profile, ask.postUrl)),
   };
+}
+
+/**
+ * A look at their post before its comment is drafted (decision 166, ../post-look.ts): its photo's address or its
+ * video's frames, only from the part of the page the site says is that post's. Nothing seen on a site that doesn't
+ * say, or on any other page.
+ */
+async function postLook(site: LookingSite, ask: PostLookAsk): Promise<PostLookAnswer> {
+  const part = site.auto?.postPart?.(document, location.href, {
+    profile: ask.profile,
+    postUrl: ask.postUrl,
+  });
+  if (!part) return { ok: true, seen: null };
+  return { ok: true, seen: await seePost(part.root, ask.want, { skip: part.skip }) };
 }
 
 /**
@@ -269,9 +288,11 @@ async function onItsOwn(
   | StoryAnswer
   | TheirCommentAnswer
   | CommentLikeAnswer
+  | PostLookAnswer
 > {
   if (ask.type === 'hfos-comment' || ask.type === 'hfos-join' || ask.type === 'hfos-join-answer')
     return commentOrJoin(site, ask);
+  if (ask.type === 'hfos-post-look') return postLook(site, ask);
   if (ask.type === 'hfos-feed-post') return feedPost(site, ask);
   if (ask.type === 'hfos-like-story') return likeStory(site, ask);
   if (ask.type === 'hfos-their-comment') return theirComment(site, ask);

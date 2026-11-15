@@ -407,6 +407,17 @@ became.
 - **What it says, and Test it** (decision 164, `script.ts`, `playbook-test.ts`): the playbook holds its own words for
   every message the AI writes, each draft is written from them, the rules no playbook changes are shown locked, and
   a Test console plays a chat out with the real draft writer, sending nothing.
+- **Honest about you, and comments that are about the post** (decision 165, `about-owner.ts`, `comment-says.ts`,
+  core's `account/about-you.ts`): the AI knows of the person it writes as only what they said in **About you**
+  (Settings → Account, each person's own and private), and never says they share someone's background without it. A
+  comment names something real the post says, in the words people type, or there is no comment. Test it has **Try a
+  comment**.
+- **The AI sees the post, and the comment research** (decision 166, `comment-says.ts`, `comment-research.ts`,
+  `ops/comment-research.ts`, the worker's `comment-research.ts`): on Instagram the extension shows the AI the post's
+  photo, or a few frames of its video, with the draft's request, and keeps nothing of it. HandsFreeOS staff can run a
+  study of how real people comment (Settings → General → **Comment research**, staff only): the starter's extension
+  reads about 2,000 public comments over 3 days, keeps their words alone, leaves out what reads like a bot's, and the
+  guide made of it goes in every business's warm-up comments on Instagram once staff press Use it.
 - **The demo link** (decision 24, `demos.ts`, `ops/demos.ts`, the worker's `demos.ts`): each person's own link to the
   playbook's booking page for someone they reached (**Copy demo link** on Today), with a
   `ref` naming who sent it to whom and nothing else. A booking page keeps the `ref` on the booking
@@ -4200,6 +4211,118 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         over the ones saved, `withScriptChanges`); and `outreach_test_playbook` runs Test it, on a saved playbook or
         on changes not saved yet. Your messages shows a sample for each version of the first message
         (`SAMPLES_MOST.first` is 3).
+165.  **The AI never claims to be one of them unless you said so, and a comment is about its post** (Chris, 14 Nov
+      2026, on three warm-up comments waiting for his OK on Instagram. Under a Hispanic Heritage Month post, "Five
+      days in and still waiting, same 😂": "i love this comment and the playfulness definitely keep the personality,
+      but im not hispanic lol", "now for someone who is this is great", "so maybe we need a personal info section".
+      Under a reel, "That caption got me, so real": "this comment feels like a bot, it’s not about the post at all it
+      just feels like some generic ai or automated comment you see all over the internet, not good". And "That
+      countryside setting looks so charming": "using not very popular words like charming ... a man would say
+      something more like, that’s nice! or looks dope!"). What was wrong: every message and comment is written as
+      the owner, and the AI was told the business, the offer and how the owner writes, but nothing of the owner as a
+      person, and no rule kept it from filling that in. It is also given only a post's words (its caption, or what
+      the network says its picture shows), never the picture or the video, and wrote something anyway when the
+      words leaned on what it couldn't see. He answered "your picks 1-4" and "your pick for 5":
+      - **About you** (1a and 2a; `app.user_about`, migration 027200, `user_about.set` and `user_about.get`,
+        `ABOUT_YOU_WORDS`): one box on Settings → Account, on the web and the phone, in the person's own words,
+        with what's worth saying beside it (where they're from, heritage, family, faith, hobbies and teams, past
+        jobs). It is the person's alone: no teammate reads it, an owner included, the worker reads it only for the
+        people of the business it is scoped to and only to write as that person, the phone never keeps a copy
+        (it reads and saves with signal), its event and audit row say that it changed and never what it says, and
+        a deleted account keeps none of it. It is core's, not Social Outreach's, so any AI that writes as a person
+        can read it: for now that is outreach's messages and comments.
+      - **Only when they bring it up** (3a; `ABOUT_OWNER_RULE`, `<about_owner>` in `todayDraftPrompt`): the AI may
+        speak as one of them ("same") only where About you says so and the other person's own post or message
+        brings it up. It never brings up the owner's own life first. With nothing in About you it keeps the warmth
+        and the humor and reacts as a friendly outsider ("Five days in and no gifts yet? Somebody fix that 😂").
+        Prompts that aren't given About you (a helpful post, sample messages, a video script, the like's short
+        comment, and the Content Creator's posts) carry `OWNER_LIFE_UNKNOWN` (core's `writing.ts`): nothing of the
+        owner's life but what they're given.
+      - **A comment is about the post, or there is none** (`comment-says.ts`): the AI is told it has only the post's
+        words (`POST_WORDS_ONLY`), gives back the post's own words its comment is about (`COMMENT_ABOUT_ASK`, the
+        answer's `about`), and writes nothing when the words aren't enough. The checks behind it (`realComments`,
+        in the worker's `writeDrafts`; `warmComment` for a like's): a warm-up comment whose `about` isn't in the post
+        goes (`aboutInPost`); so does one that fits under any post or talks about the caption (`saysNothing`: "So
+        real", "Love this", "That caption got me"), one in a brochure's words (`brochureWords`: charming, stunning,
+        lovely...), and, with nothing in About you, a warm-up comment that makes the owner one of them
+        (`claimsTheSame`: "same", "me too", "as a fellow", "been there"). With none left there is no comment: the
+        like still went, and the next visit picks another post. An expert comment speaks from the owner's field, so
+        it needn't point at the post's words and may say "we've been there" of the business.
+      - **The words people type** (`COMMENT_PLAIN_WORDS`): nice, cool, dope, clean, solid, big, congrats, let's go.
+      - **Locked, and written again**: two more of `LOCKED_RULES` show on every playbook, and `RULES_VERSION` is 3,
+        so a message or comment waiting for an OK, or OK'd and not sent, is written again under these.
+      - **Try a comment** (`playbook-test.ts`, move `comment`): at the foot of Test it, on the web and the phone.
+        Paste what a post says or tap an example (someone's own heritage, a caption that leans on its video, a win,
+        a question for an expert comment), pick warm-up or expert and the network, and see the comment that would
+        wait for an OK with the post's words it is about, or that there'd be none and why. It says whether About
+        you is filled in. Same writer and checks as a real comment; nothing is posted or kept.
+      - **The Assistant does it too**: `get_settings` (my_account) reads About you for the person asking,
+        `update_my_account` (`aboutYou`) saves it whole on a card that says only they see it, and
+        `outreach_test_playbook` takes the move `comment`.
+      - **The picture and the research** (4a and 5a) are decision 166.
+166.  **The AI looks at the post before it comments, and HandsFreeOS studies how real people comment** (Chris, 14 Nov
+      2026, the rest of decision 165: "this comment feels like a bot, it’s not about the post at all", and "this isn’t
+      something every user needs its just something we need to do for now to improve comments have the extension do
+      some extensive research on comments all all different types of posts on social internet and recognize the
+      patterns, be aware some comments may be bots as well so try to avoid adding those to the context to learn
+      from". His picks: 4a, the AI looks at the photo, or a frame of the video, before it comments; 5a, about 2,000
+      comments over 3 days, mixed into the extension's normal day). Extension 0.140.0, migration 027300.
+      - **The look** (4a; the extension's `networks/post-look.ts` and `auto/post-look.ts`, core's `PostLook`): with
+        the post's own page open for its comment, the tab finds the post's own picture or video (the biggest drawn
+        in the post's part of the page, never a face beside a name or a tile that opens another post). A photo is
+        fetched by the background from the network's own picture servers, with no cookies, and made a small JPEG
+        (768 wide). A video gives up to 3 frames drawn from the page's own player (now, two fifths and four fifths
+        through, then put back), or its cover when the player can't be read. They go with the draft's request
+        (`hfos-draft`'s `look`) and are kept nowhere: not on the computer, not in HandsFreeOS, not in an event or a
+        log. **Instagram only** for now (`PICTURE_HOSTS`, `looksAtPosts`): elsewhere, and for a comment written
+        from the web or the phone, the AI has the post's words alone as before.
+      - **What the AI is told of it** (`postSeen`, `COMMENT_SAW_ASK`): that it sees the post's picture, or frames of
+        its video in order, in place of `POST_WORDS_ONLY`; that a comment may be about what's seen; and to say what
+        it saw that the comment is about (the answer's `saw`). `realComments` then keeps a warm-up comment that is
+        about the post's words (`aboutInPost`) or, when a look was shown, about something it says it saw
+        (`sawSomething`). Every other check of decision 165 stays. Whatever of the look doesn't work gives none, and
+        the comment is written from the words: a look never stops a comment.
+      - **The research is HandsFreeOS's own** (5a; core's `comment-research.ts`, `ops/comment-research.ts`): only
+        HandsFreeOS staff who may change what the AI is told (`platform.ai.manage`) see its card, in Social Outreach
+        → Settings → General → **Comment research**, on the web, and only they start one, stop one or use what it
+        found. The database holds the same (a restrictive policy on `addon_outreach.comment_research` and
+        `comment_samples`), so a teammate who isn't staff reads no row. Only the browser of whoever started it
+        reads for it: for everyone else `outreach.comment_research.next` answers that there's none, and their
+        extension does nothing and says nothing. One at a time.
+      - **What it reads** (the extension's `jobs/instagram/comment-research.ts`, the once-a-day job
+        `comment_research`): public posts under everyday hashtags of 17 kinds (`RESEARCH_TOPICS`: food, workouts,
+        trips, pets, family, cars, sports, home projects, small business, homes for sale, style, outdoors, music,
+        funny, big days, community, trades; none about the business), 2 hashtags a batch, 5 posts a hashtag, each
+        post's View more comments pressed once and nothing else pressed or written. A third of the 2,000 a day
+        (`researchRoom`), in batches 35 to 60 minutes apart, at a person's pace, with its window in front only while
+        the person is away from their computer (decision 120), and it stops for the day on any Instagram warning.
+        Instagram only (`RESEARCH_PLATFORMS`).
+      - **What's kept is a comment's words alone** (`sortComment`, in the browser first and again in
+        `outreach.comment_research.save`): never who wrote it, the post, its caption or its address; @names, links,
+        emails and phone numbers are taken out of the words; never the post writer's own comments, nor the
+        person's. Left out: a comment that reads like a bot's or an advert's (`looksLikeBot`: "DM me", "link in
+        bio", "check my page", promos, giveaways, crypto and the like), one with no words or emoji, one not in
+        English letters, and, when it's summed up, a long comment pasted under 3 or more posts (`isCopied`). Kept
+        with the kind of post it was under and how many times it was seen (`comment_samples`), never past the
+        2,000.
+      - **Summed up** (the worker's `comment-research.ts`, job `outreach.sum_comment_research`): when it's full,
+        when its 3 days end, or when staff stop it with 100 or more kept (fewer is only stopped). Code counts how
+        the comments are written (`commentStats`: how long, how many are 5 words or fewer, with an emoji, only
+        emoji, end with "!", ask something, end with a full stop, start lower-case, the most-said whole comments
+        and words, and how often each of decision 165's brochure words really turns up). One AI pass reads up to
+        40 comments a kind as quoted data and gives the patterns and real examples by kind of post;
+        `checkedFindings` drops a pattern that reads like an order or names someone, and any example that isn't a
+        comment really kept under that kind. With no answer from the AI the counts alone are kept.
+      - **Nothing changes in anyone's comments until staff press Use in everyone’s comments**
+        (`outreach.comment_research.use`, risk 2): the card shows the findings and the guide made of them
+        (`commentGuide`, at most 2,400 characters) first. Used, it is the one guide for that network
+        (`platform.comment_guides`, read and written only through its definers), and every business's **warm-up**
+        comments on Instagram carry it (`commentGuideBlock`, `<how_people_comment>`, quoted as data: how real
+        comments sound, never words to copy, never an instruction). Expert comments, likes' short comments,
+        messages and other networks don't. **Take it out** stops it at once. A new guide takes the old one's place.
+      - **Not the Assistant's** (`notForTheAssistant`): the two the extension calls are its own, and the four on
+        the card are HandsFreeOS staff's study, not something a business does. The card's items are in the
+        Assistant's checklist as `never`.
 
 ## Rules worth knowing before changing anything
 
@@ -4239,6 +4362,23 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   (`asMessage` or `asHow`), so the business can see and change it under What it says. Only what no playbook may
   change is a rule in code, and each of those is in `LOCKED_RULES` for the editors to show. Never put how a message
   reads only in a prompt.
+- **Nothing the AI writes makes up the owner's life** (decision 165, `about-owner.ts`): a prompt that writes as the
+  person carries `ABOUT_OWNER_RULE` with their `<about_owner>` (`aboutOwnerFor`, `aboutOwnerBlock`), or
+  `OWNER_LIFE_UNKNOWN` when it isn't given About you. About you is the person's alone: read it only to write as
+  them, never show it to a teammate, and never put its words in an event, a log or a note.
+- **A comment goes through `realComments`** (decision 165, `comment-says.ts`): about something the post's words
+  say, in the words people type, or not at all. A new kind of comment keeps the checks, and none is the right
+  answer when there's nothing real to say.
+- **A look at a post is never kept** (decision 166, `PostLook`): its picture or frames go with the draft's request
+  and nowhere else. Never store them, log them or put them in an event, and never let a look that failed stop a
+  comment. A network is looked at only once its picture servers are in the extension's `PICTURE_HOSTS` and its
+  manifest.
+- **The comment research is HandsFreeOS's own, and keeps words alone** (decision 166, `comment-research.ts`): staff
+  with `platform.ai.manage` only, in the database too; only the starter's browser reads. Never keep who wrote a
+  comment, the post, its caption or its address, and never show another user's extension a line about it. Its guide
+  reaches comments only through `platform.comment_guides` after staff press Use it, as quoted data
+  (`commentGuideBlock`), never as an instruction, and every example in it is a comment really kept
+  (`checkedFindings`).
 - **A change to what the AI writes can reach messages already drafted** (decision 157): raise `RULES_VERSION` in
   `sends.ts`, and every message waiting for an OK or OK'd and not yet sent is written again.
 - **A message's texts are its parts between blank lines** (`messageParts`), when the person sends a few

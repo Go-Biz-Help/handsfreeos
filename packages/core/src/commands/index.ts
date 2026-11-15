@@ -135,6 +135,7 @@ import { recordHoldCommands } from './record-hold';
 import { binCommands } from './bin';
 import { safetyCommands } from './safety';
 import { supportAccessCommands } from './support-access';
+import { practiceCommands } from './practice';
 import { addonAlertCommands } from './addon-alert';
 export { addonAlertAcknowledge } from './addon-alert';
 export {
@@ -208,6 +209,7 @@ import {
   callStart,
   callUpdateStatus,
 } from './call';
+import { userAboutSet } from './user-about';
 import { userPhoneRecordCall, userPhoneStartVerification, userPhoneVerify } from './user-phone';
 import { accountDelete, accountNoteDeleted, assistantConsent } from './account';
 import { companyCreate } from './company.create';
@@ -599,6 +601,7 @@ export {
   userPhoneRecordCall,
   userPhoneStartVerification,
   userPhoneVerify,
+  userAboutSet,
   accountDelete,
   accountNoteDeleted,
   assistantConsent,
@@ -875,6 +878,7 @@ export const commands: readonly CommandDef[] = [
   userPhoneStartVerification,
   userPhoneRecordCall,
   userPhoneVerify,
+  userAboutSet,
   emailDomainAdd,
   emailDomainVerify,
   emailDomainRemove,
@@ -1199,6 +1203,8 @@ export const commands: readonly CommandDef[] = [
   ...safetyCommands,
   // HandsFreeOS support let into private records (Real Estate step 4).
   ...supportAccessCommands,
+  // Practice businesses for Admin → Try onboarding (20261027027400).
+  ...practiceCommands,
   // Saying you've seen an add-on's alert, from its Home card (Real Estate step 5).
   ...addonAlertCommands,
   ...relationshipCommands,

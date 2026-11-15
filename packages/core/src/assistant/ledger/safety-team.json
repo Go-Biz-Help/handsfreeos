@@ -839,7 +839,7 @@
     {
       "path": "Phone More → Settings → My safety (Who’s told if you don’t check out)",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:260",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:262",
       "covered": "yes",
       "by": "manage_my_safety_contacts (SETTING_TOOLS phone.my_safety); read_safety_mine"
     },

@@ -500,9 +500,10 @@ export const FOLLOW_SCRIPT =
 /**
  * What no playbook can change (the owner's 4a), in the words the editor shows beside the parts. Each is held in code:
  * `NO_GROUPS` and `namesAGroup` (decision 157), `outreach_not_following` and `follows` (decisions 159 and 163),
- * `DRAFT_RULES` (the price, the guarantee, nothing invented, never AI), `declinedLine` (decision 134), the post check's
- * `asking` (decision 163), the tasks' own limits (decisions 108, 114 and 161), `checkedDrafts` (words to avoid) and
- * `isClient` (decision 91).
+ * `DRAFT_RULES` (the price, the guarantee, nothing invented, never AI), `ABOUT_OWNER_RULE` and `realComments`
+ * (decision 165, ./about-owner.ts and ./comment-says.ts), `declinedLine` (decision 134), the post check's `asking`
+ * (decision 163), the tasks' own limits (decisions 108, 114 and 161), `checkedDrafts` (words to avoid) and `isClient`
+ * (decision 91).
  */
 export const LOCKED_RULES: readonly string[] = [
   'Never names a group you’re both in, or says it found someone in one.',
@@ -510,6 +511,8 @@ export const LOCKED_RULES: readonly string[] = [
   'Gives your price, and your guarantee, only when they ask.',
   'Never pitches someone who said no or not now. They get a kind word, and nothing more unless they write.',
   'Never makes up anything about the person, your results or your business.',
+  'Never says or hints that you share someone’s heritage, culture, faith, family or life story unless About you says so. Otherwise it stays warm and playful, as a friendly outsider.',
+  'A comment says something real about the post, in the plain words people type. With nothing real to say, it leaves no comment.',
   'Never says a message was written by AI.',
   'A comment offers to show them only when the post asks for someone who does what you do, and never carries a link.',
   'Birthday and new-job notes, warm-up comments and answers in your groups say nothing about your business.',

@@ -98,12 +98,12 @@
     "apps/web/src/components/search/search-provider.tsx": "dd35231df622",
     "apps/web/src/components/shell/menu-editor.tsx": "bd19438cf152",
     "apps/web/src/components/shell/missing-page.tsx": "fb8ed3e50256",
-    "apps/web/src/components/shell/mobile-shell.tsx": "be5559feb770",
+    "apps/web/src/components/shell/mobile-shell.tsx": "2d7ed48b889a",
     "apps/web/src/components/shell/nav-links.tsx": "7eea8101aa5c",
     "apps/web/src/components/shell/notifications-bell.tsx": "36256aed833a",
-    "apps/web/src/components/shell/sidebar.tsx": "91a4d15e744e",
+    "apps/web/src/components/shell/sidebar.tsx": "3cb3b237cb52",
     "apps/web/src/components/shell/user-menu.tsx": "c9385747fa6f",
-    "apps/web/src/components/shell/workspace-switcher.tsx": "84241c6efbdb",
+    "apps/web/src/components/shell/workspace-switcher.tsx": "a94cb85f3c21",
     "apps/web/src/components/support/get-help.tsx": "a753e0577cbd"
   },
   "items": [
@@ -1258,70 +1258,70 @@
     {
       "path": "Business switcher → businesses by organization, with role",
       "kind": "see",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:22",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:80",
       "covered": "yes",
       "by": "get_settings my_account (account.me)"
     },
     {
       "path": "Business switcher → find a business",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:22",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:80",
       "covered": "partly",
       "by": "it reads the list; no search"
     },
     {
       "path": "Business switcher → switch to another business",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:22",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:80",
       "covered": "no",
       "by": "it works inside this business only"
     },
     {
       "path": "Business switcher → Agency area",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:22",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:80",
       "covered": "partly",
       "by": "the way there in words"
     },
     {
       "path": "Business switcher → Admin area (staff)",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:22",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:80",
       "covered": "never",
       "by": "staff tools are only for staff"
     },
     {
       "path": "Business switcher → Create workspace → Organization",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:216",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:378",
       "covered": "partly",
       "by": "add_business uses this one’s organization"
     },
     {
       "path": "Business switcher → Create workspace → Business name",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:216",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:378",
       "covered": "yes",
       "by": "add_business name"
     },
     {
       "path": "Business switcher → Create workspace → Time zone",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:216",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:378",
       "covered": "yes",
       "by": "add_business timezone"
     },
     {
       "path": "Business switcher → Create workspace → Who runs this business",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:216",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:378",
       "covered": "yes",
       "by": "add_business whoRunsIt"
     },
     {
       "path": "Business switcher → Create workspace → Create",
       "kind": "do",
-      "file": "apps/web/src/components/shell/workspace-switcher.tsx:216",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:378",
       "covered": "yes",
       "by": "add_business, person confirms"
     },

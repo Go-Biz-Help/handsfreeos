@@ -19,11 +19,11 @@
 import { randomUUID } from 'node:crypto';
 import {
   CALENDAR,
+  firstPlannedNetwork,
   hasPictures,
   isPostingNetwork,
   planOf,
   POSTING_NETWORKS,
-  postsAWeek,
   type ContentFormat,
   type PostingNetwork,
 } from '@hfos/core/addons/socialcontent/calendar';
@@ -356,6 +356,8 @@ const emptyPost = () =>
 const WriteInputShape = z
   .object({
     network: z.enum(POSTING_NETWORKS).optional(),
+    /** Several at once (the owner, 14 Nov): a post for each, about the same thing, each written to fit its network. */
+    networks: z.array(z.enum(POSTING_NETWORKS)).min(1).max(POSTING_NETWORKS.length).optional(),
     ideaId: z.uuid().optional(),
     ask: z.string().trim().max(POST_LIMITS.ask).optional(),
     postAt: z.iso.datetime().optional(),
@@ -367,64 +369,133 @@ export const writePostNow: AddonWorkerAction<z.output<typeof WriteInputShape>> =
   ai: {
     tool: 'socialcontent_write_own_post',
     description:
-      'Have the AI write one of the business’s own posts for Instagram, Facebook or LinkedIn, from a content idea (ideaId), or from a few words of what it should be about (ask), using the Playbook and what HandsFreeOS knows about the business. It goes on the next open day in the plan for that network unless postAt is given, and waits for an OK; its picture is made on its own when the AI makes it. Refused until the business’s main offer is live.',
+      'Have the AI write one of the business’s own posts for Instagram, Facebook, LinkedIn, Threads or X (network), or one for each of several networks about the same thing (networks), each written to fit its network: from a content idea (ideaId), or from a few words of what it should be about (ask), using the Playbook and what HandsFreeOS knows about the business. With neither, the AI picks what to write about on its own, the way Fill the calendar does. Each goes on the next open day in the plan for its network unless postAt is given, and waits for an OK; its picture is made on its own when the AI makes it. Refused until the business’s main offer is live.',
     autonomy: 'auto',
     keywords: ['write a post', 'social post', 'caption', 'content calendar'],
   },
   input: WriteInputShape,
   async run(ctx, input) {
     await requireLiveOffer(ctx);
-    const idea = input.ideaId ? await ideaOf(ctx, input.ideaId) : null;
+    const chosen = input.ideaId ? await ideaOf(ctx, input.ideaId) : null;
     const here = await hereOf(ctx);
-    const network: PostingNetwork =
-      input.network ??
-      (idea?.network && isPostingNetwork(idea.network) ? idea.network : null) ??
-      POSTING_NETWORKS.find((n) => postsAWeek(here.plan[n]) > 0) ??
-      'instagram';
-    if (!idea && !input.ask && !here.playbook)
+    const asked = [
+      ...new Set([...(input.network ? [input.network] : []), ...(input.networks ?? [])]),
+    ];
+    const networks: readonly PostingNetwork[] = asked.length
+      ? asked
+      : [
+          (chosen?.network && isPostingNetwork(chosen.network) ? chosen.network : null) ??
+            firstPlannedNetwork(here.plan),
+        ];
+    const first = networks[0]!;
+    const seen = await postsBefore(ctx);
+    // No idea and no direction (AI on its own, the owner, 14 Nov): planned the way Fill the calendar plans each post,
+    // once, so every network's post is about the same thing.
+    const planned = chosen || input.ask ? null : await planOne(ctx, first, seen);
+    const idea = chosen ?? planned?.idea ?? null;
+    // With no Playbook yet, a line from the lists is enough once they're all filled, as when filling (decision 32).
+    const fromLists =
+      !idea && !input.ask && !here.playbook && planned?.topic ? await listsAllFilled(ctx) : false;
+    if (!idea && !input.ask && !here.playbook && !fromLists)
       throw HfosError.rule(
         'socialcontent_nothing_to_write_from',
         409,
         'Say what the post should be about, or pick an idea under Ideas to write it from.',
       );
-    const kind = kindOf(idea);
-    const seen = await postsBefore(ctx);
-    let post: WrittenPost | null;
-    try {
-      post = await writeOne(ctx, {
-        network,
-        playbook: here.playbook,
-        idea: ideaForAi(idea),
-        ask: input.ask ?? null,
-        before: null,
-        ...kind,
-        recent: recentFor(seen),
-        // What the person asked for says how to show it; otherwise it takes the next look (decision 39).
-        look: input.ask ? null : nextLook(seen, network, !!ctx.pictures),
-        examples: examplesFor(
-          [aboutOf(kind.topic, idea), input.ask ?? ''].join(' '),
-          await creatorPosts(ctx),
-        ),
-      });
-    } catch (e) {
-      throw e instanceof AiAskError ? aiRefusal(e) : e;
-    }
-    if (!post) throw emptyPost();
-    const open = (await openSlots(ctx, here)).filter((s) => s.network === network);
-    const postAt = input.postAt ? new Date(input.postAt).getTime() : (open[0]?.at ?? null);
-    // Written into one of the plan's open places (Write one), it's the AI's time; any other time is the person's.
-    const placedBy = postAt === null || open.some((s) => s.at === postAt) ? 'ai' : 'person';
-    const postId = await keep(ctx, post, {
-      network,
-      ideaId: idea?.id ?? null,
-      postAt,
-      askedBy: ctx.userId,
-      placedBy,
-      topic: kind.topic,
+    const kind = planned ? { angle: planned.angle, topic: planned.topic } : kindOf(idea);
+    const business = await businessText(ctx);
+    const examples = examplesFor(
+      [aboutOf(kind.topic, idea), input.ask ?? ''].join(' '),
+      await creatorPosts(ctx),
+    );
+    // Each network's post is written for it, all at once: its own length, tags and formats (Instagram never words
+    // alone, Threads and X short) come from its rules in the writer's prompt and checkedPost.
+    const tries = await Promise.allSettled(
+      networks.map((network) =>
+        writeOne(ctx, {
+          business,
+          network,
+          playbook: here.playbook,
+          idea: ideaForAi(idea),
+          ask: input.ask ?? null,
+          before: null,
+          ...kind,
+          recent: recentFor(seen),
+          // What the person asked for says how to show it; otherwise it takes the next look (decision 39).
+          look: input.ask
+            ? null
+            : planned && network === first
+              ? planned.look
+              : nextLook(seen, network, !!ctx.pictures),
+          examples,
+        }),
+      ),
+    );
+    const done = networks.flatMap((network, i) => {
+      const t = tries[i]!;
+      if (t.status === 'rejected') {
+        ctx.log.warn({ network, err: t.reason }, 'a post for one network wasn’t written');
+        return [];
+      }
+      return t.value ? [{ network, post: t.value }] : [];
     });
-    return { postId, postAt: postAt ? new Date(postAt).toISOString() : null };
+    if (!done.length) {
+      const failed = tries.find((t) => t.status === 'rejected');
+      if (failed)
+        throw failed.reason instanceof AiAskError ? aiRefusal(failed.reason) : failed.reason;
+      throw emptyPost();
+    }
+    const slots = await openSlots(ctx, here);
+    const kept: { postId: string; postAt: number | null }[] = [];
+    for (const { network, post } of done) {
+      const open = slots.filter((s) => s.network === network);
+      const postAt = input.postAt ? new Date(input.postAt).getTime() : (open[0]?.at ?? null);
+      // Written into one of the plan's open places (Write one), it's the AI's time; any other time is the person's.
+      const placedBy = postAt === null || open.some((s) => s.at === postAt) ? 'ai' : 'person';
+      const postId = await keep(ctx, post, {
+        network,
+        ideaId: idea?.id ?? null,
+        postAt,
+        askedBy: ctx.userId,
+        placedBy,
+        topic: kind.topic,
+      });
+      kept.push({ postId, postAt });
+    }
+    const at = kept[0]!.postAt;
+    return {
+      postId: kept[0]!.postId,
+      postAt: at ? new Date(at).toISOString() : null,
+      postIds: kept.map((k) => k.postId),
+      // The networks whose post the AI didn't write this time.
+      missed: networks.filter((n) => !done.some((d) => d.network === n)),
+    };
   },
 };
+
+/**
+ * What AI on its own writes from (the owner, 14 Nov): one post planned the way Fill the calendar plans each, so it
+ * takes the kind the weekly mix needs next and a waiting idea of that kind, or the next line from the lists, and the
+ * next look (decisions 34 to 39).
+ */
+async function planOne(
+  ctx: AddonScopeContext,
+  network: PostingNetwork,
+  seen: readonly PostSeen[],
+): Promise<(PlannedWrite<{ network: PostingNetwork }> & { idea: IdeaRow | null }) | null> {
+  const ideas = await ideasToUse(ctx);
+  // Waiting ideas' topics count as taken, so a post written from the lists isn't about one of them.
+  const reserved = (await ideasBefore(ctx)).map((i) => ({ angle: null, topic: i.topic }));
+  const [p] = planWrites({
+    slots: [{ network }],
+    before: [...reserved, ...seen],
+    ideas: ideas.map(ideaToPlan),
+    lists: await listsHere(ctx),
+    photos: !!ctx.pictures,
+  });
+  if (!p) return null;
+  return { ...p, idea: p.ideaId ? (ideas.find((i) => i.id === p.ideaId) ?? null) : null };
+}
 
 const RewriteInput = z
   .object({ postId: z.uuid(), ask: z.string().trim().max(POST_LIMITS.ask).optional() })

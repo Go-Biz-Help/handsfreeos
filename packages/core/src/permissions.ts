@@ -185,6 +185,8 @@ export const ROLE_PERMISSIONS = {
     'platform.partner_payouts.manage',
     // HandsFreeOS's own affiliate program (20261027014000): who's in, and what HandsFreeOS pays them.
     'platform.affiliates.manage',
+    // Admin → Try onboarding (20261027027400): practice businesses that go through every onboarding, kept by nobody.
+    'platform.practice.use',
   ],
 } as const satisfies Record<string, readonly string[]>;
 
