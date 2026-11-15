@@ -54,6 +54,7 @@ offered to nobody; staff give it to a business from Admin → Businesses.
 | Posting: where a post goes, its words as they go up      | `calendar.ts` (`placesFor`, `postText`, `POSTING`)                               |
 | Posting: next post due, how it went, Post it now, Redo   | `ops/posting.ts`; `supabase/migrations/20261027025100_socialcontent_posting.sql` |
 | Picking many posts: OK, hide, delete, mark, check, pick  | `ops/picked.ts`; `20261027027600_socialcontent_hide_and_look.sql`                |
+| Redo on many waiting posts: written again, one job each  | the worker's `socialcontent/content.ts` (`rewriteManyNow`, `runRewrite`)         |
 | The Calendar's looks, filters and what's picked (shared) | `calendar-looks.ts` (pure, used by the web and the phone)                        |
 | The web's Select bar, Pick menu, Week and Month          | `calendar-picking.tsx` and `calendar-grids.tsx` in the web's folder              |
 | The extension checking if a post went up                 | `apps/extension/src/research/look.ts`                                            |
@@ -188,7 +189,10 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   the **Fill on its own** switch (below).
 - **The Calendar** shows today and the next 14 days, day by day: each post with its picture, title, first line and
   state, and each open place in the plan (a place with no post, or only a skipped one) with **Write one**, saying when
-  AI picks is trying a new time there.
+  AI picks is trying a new time there. Pressing anywhere on an open place writes its post, on List, Week and the
+  phone, and Month shows them as dashed **Open** chips that do the same (the owner, 15 Nov). Today's open places show
+  too while they're at least 30 minutes off (`CALENDAR.todayLeadMs`; `openSlots(…, today: true)`, which only
+  `calendar.get` asks), so deleting or hiding today's post opens its place again; filling still starts tomorrow.
   **Fill the calendar** has the worker write a post for every open day from tomorrow on: 5 at a time, 30 seconds
   apart, from saved ideas first, then new ones, then the Playbook alone. After the first fill it tops up once a week
   on its own (`socialcontent.calendar`, re-armed when the add-on is turned back on). **Write a post** takes the next
@@ -488,11 +492,18 @@ cookie on the web, the phone's own store), and the address carries `?look=&day=`
   past, didn't post, hidden), which asks `socialcontent.content.pick` (up to 500, saying when there are more). Clear
   what's picked empties it.
 - **The bar** says how many are picked and what they are (`summaryOf`), and offers only what fits them, with each
-  button's count: **OK** (waiting ones: `.approve_many`), **Redo** (past ones: `.redo`; with "Also redo the N that
-  posted" before any that went up are included), **Check if posted** (`.look`), **Mark posted** (didn't post ones:
+  button's count: **OK** (waiting ones: `.approve_many`), **Redo** (past ones go up again: `.redo`, with "Also redo
+  the N that posted" before any that went up are included; waiting and OK'd ones are written again, below), **Check if posted** (`.look`), **Mark posted** (didn't post ones:
   `.mark_posted`), **Hide** or **Show again** (`.hide`, `hide: false` to show), and **Delete** (`.remove_many`).
   Every command takes up to 500 posts and says which it left alone and why; the screens send more in turns
   (`inTurns`).
+- **Redo on posts waiting to go up** (the owner, 15 Nov: "should also have a redo option when selecting the posts")
+  has the AI write drafts and OK'd posts again in new words (`canRewrite`). It asks first in a window (a sheet on the
+  phone), then the worker action `socialcontent.content.rewrite_many` queues one `socialcontent.rewrite` job a post,
+  20 seconds apart (`REWRITE_GAP_MS`), so the page needn't stay open. Each is written again as **Write it again**
+  does (`rewriteOne`), so an OK'd one waits for an OK again. One that went up, was hidden or was deleted before its
+  turn is left as it is; one already queued isn't queued twice. It waits for the main offer to be live, as writing
+  does.
 - **Hide** keeps the posts under Hidden. One not up yet is skipped too, so it never goes up while hidden; showing it
   again doesn't OK it again.
 - **Delete** is for owners and admins (`records.archive`, as removing one is). It asks first, says it doesn't take
@@ -506,7 +517,7 @@ cookie on the web, the phone's own store), and the address carries `?look=&day=`
   link. It also looks once on its own, 10 minutes after a post that may have gone up is marked as didn't post
   (`LOOK.afterFailMs`).
 - **The Assistant** does all of these (`socialcontent_pick_own_posts`, `_approve_own_posts`, `_hide_own_posts`,
-  `_remove_own_posts`, `_mark_own_posts_posted`, `_check_own_posts`); OK, Delete and Mark posted wait on a Confirm
+  `_remove_own_posts`, `_mark_own_posts_posted`, `_check_own_posts`, `_rewrite_own_posts`); OK, Delete and Mark posted wait on a Confirm
   card.
 
 ## Its own posts' numbers

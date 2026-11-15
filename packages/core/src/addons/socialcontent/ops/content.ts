@@ -371,6 +371,8 @@ export const calendarGet = defineAddonQuery(socialcontentAddon, {
       timeZone,
       now,
       days: ahead,
+      // Today's places too, while there's time to OK a post there (the owner, 15 Nov: a deleted post's place stays).
+      today: true,
     }).filter((slot) => slot.date >= from && slot.date < end);
     const [counts] = await rows<{ saved: number; ready: number }>(
       ctx.tx,

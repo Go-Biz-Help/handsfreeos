@@ -663,6 +663,8 @@ export const SOCIALCONTENT_WORDS = {
     open: 'Open day',
     openHint: (network: string, time: string) => `${network} at ${time}`,
     writeFor: 'Write one',
+    /** An open place, pressed anywhere (the owner, 15 Nov). */
+    writeOpen: (network: string, time: string) => `Write the ${network} post for ${time}`,
     undated: 'No day yet',
     plan: 'Your plan',
     planEdit: 'Change the plan in Settings.',
@@ -874,7 +876,8 @@ export const SOCIALCONTENT_WORDS = {
     notFound: (network: string, time: string) => `It isn’t on ${network}. Checked at ${time}.`,
     lookCouldnt: (why: string) => `It couldn’t look: ${why}`,
     openNoPick: 'Can’t be picked: there’s no post yet.',
-    notFilled: 'Not filled yet',
+    /** An open place on the Month look: pressing it writes its post. */
+    openChip: 'Open',
     moreOn: (n: number) => `+${n} more`,
     legendLabel: 'What the colors mean',
     monthHint: 'Tick a day to pick it. Tick the box left of a week to pick the whole week.',
@@ -897,6 +900,40 @@ export const SOCIALCONTENT_WORDS = {
     openWeek: (day: string) => `Open the week of ${day}`,
     hiddenBadge: 'Hidden',
     nothingShown: 'Nothing here under this filter.',
+    /**
+     * Redo on posts waiting to go up (the owner, 15 Nov): the AI writes them again. Past ones still go up again.
+     */
+    redoHint: 'Waiting posts are written again by the AI. Past posts go up again.',
+    redoTitle: (n: number) => (n === 1 ? 'Redo this post?' : `Redo ${count(n, 'post')}?`),
+    redoRewrite: (n: number) =>
+      n === 1
+        ? 'The AI writes it again in new words. It waits for your OK again.'
+        : `The AI writes ${n === 2 ? 'both' : `these ${n}`} again in new words, a few at a time. Each waits for your OK again.`,
+    redoPast: (n: number) =>
+      `${count(n, 'post')} that went up or didn’t go up ${n === 1 ? 'goes' : 'go'} up again, 30 minutes apart on each network.`,
+    redoGo: (n: number) => (n === 1 ? 'Redo it' : `Redo ${count(n, 'post')}`),
+    redoCancel: 'Cancel',
+    rewritten: (n: number, left: number) =>
+      [
+        n
+          ? n === 1
+            ? 'The AI is writing it again. Its new words show in a minute or two, waiting for your OK.'
+            : `The AI is writing ${count(n, 'post')} again, a few at a time. Each shows its new words in a minute or two, waiting for your OK.`
+          : null,
+        left
+          ? `${count(left, 'post')} couldn’t be written again. Open ${left === 1 ? 'it' : 'them'} to see why.`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' ') || 'Nothing to write again.',
+    /** Why Redo didn't write a picked post again. */
+    rewriteWhy: {
+      gone: 'It isn’t on the Calendar anymore.',
+      up: 'It went up or is going up. Redo puts a post that went up up again instead.',
+      failed: 'It didn’t post. Redo puts it up again instead.',
+      hidden: 'It’s hidden. Show it again first.',
+      network: 'The AI doesn’t write posts for this network.',
+    },
   },
   post: {
     /** The line from the lists a post is about (decision 34). */

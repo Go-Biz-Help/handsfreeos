@@ -79,6 +79,13 @@ describe('picking many posts', () => {
     expect(s).toMatchObject({ picked: 6, waiting: 1, okd: 1, past: 2, failed: 1, hidden: 1 });
     expect(s.ok).toEqual(['w']);
     expect(s.redo).toEqual(['u', 'f']);
+    // Redo on waiting posts writes them again (the owner, 15 Nov): drafts and OK'd ones, never hidden ones.
+    expect(s.rewrite).toEqual(['w', 'k']);
+    expect(W.picking.redoTitle(2)).toBe('Redo 2 posts?');
+    expect(W.picking.redoRewrite(2)).toMatch(/^The AI writes both again in new words/);
+    expect(W.picking.rewritten(3, 1)).toMatch(
+      /^The AI is writing 3 posts again, a few at a time\..* 1 post couldn’t be written again\./,
+    );
     expect(s.look).toEqual(['f']);
     expect(s.show).toEqual(['h']);
     // Nothing going up right now is hidden or deleted.

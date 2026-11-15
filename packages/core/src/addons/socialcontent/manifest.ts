@@ -165,12 +165,14 @@ export const socialcontentAddon = defineAddon({
   // The calendar topped up once a week from the first fill (decision 18), and each post's pictures made. AI picks'
   // posts moved to the hours it learned (decision 27). Setting itself up, step by step, until it writes (decision 28).
   // News and facts looked up online once a week (decision 38).
+  // Posts Redo asked to be written again, one job each, a little apart (the owner, 15 Nov).
   jobs: [
     'socialcontent.weekly',
     'socialcontent.monthly',
     'socialcontent.notes',
     'socialcontent.calendar',
     'socialcontent.pictures',
+    'socialcontent.rewrite',
     'socialcontent.times',
     'socialcontent.setup',
     'socialcontent.research',

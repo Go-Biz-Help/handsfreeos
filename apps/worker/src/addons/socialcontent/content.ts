@@ -19,12 +19,15 @@
 import { randomUUID } from 'node:crypto';
 import {
   CALENDAR,
+  canRewrite,
   firstPlannedNetwork,
   hasPictures,
   isPostingNetwork,
   planOf,
   POSTING_NETWORKS,
+  REWRITE_GAP_MS,
   type ContentFormat,
+  type ContentState,
   type PostingNetwork,
 } from '@hfos/core/addons/socialcontent/calendar';
 import { movesFor, openSlots as planSlots } from '@hfos/core/addons/socialcontent/schedule';
@@ -57,7 +60,11 @@ import {
   type WrittenPost,
 } from '@hfos/core/addons/socialcontent/posts-ai';
 import type { AiContent } from '@hfos/ai';
-import type { ContentPicturedInput } from '@hfos/core/addons/socialcontent/content-shapes';
+import {
+  ContentRewriteManyInput,
+  type ContentPicturedInput,
+} from '@hfos/core/addons/socialcontent/content-shapes';
+import { SOCIALCONTENT_WORDS as W } from '@hfos/core/addons/socialcontent/words';
 import {
   CHECKS,
   checkedPictureCheck,
@@ -115,9 +122,11 @@ import type { AddonJobHandler, AddonScopeContext, AddonWorkerAction } from '../t
 
 export const CALENDAR_JOB = 'socialcontent.calendar';
 export const PICTURES_JOB = 'socialcontent.pictures';
+export const REWRITE_JOB = 'socialcontent.rewrite';
 export const TIMES_JOB = 'socialcontent.times';
 export const WRITE_ACTION = 'socialcontent.content.write';
 export const REWRITE_ACTION = 'socialcontent.content.rewrite';
+export const REWRITE_MANY_ACTION = 'socialcontent.content.rewrite_many';
 export const FILL_ACTION = 'socialcontent.calendar.fill';
 export const PICTURE_ACTION = 'socialcontent.content.picture';
 
@@ -513,66 +522,178 @@ export const rewritePostNow: AddonWorkerAction<z.output<typeof RewriteInput>> = 
   input: RewriteInput,
   async run(ctx, input) {
     await requireLiveOffer(ctx);
-    const [was] = await asWorker(ctx.db, ctx.scope, (tx) =>
-      rows<{
-        network: string;
-        format: ContentFormat;
-        words: string;
-        idea_id: string | null;
-        state: string;
-        angle: string | null;
-        topic_list: string | null;
-        topic: string | null;
-      }>(
-        tx,
-        sql`select c.network, c.format, c.words, c.idea_id, c.state, c.angle, c.topic_list, c.topic
+    return { postId: await rewriteOne(ctx, input.postId, input.ask ?? null, ctx.userId) };
+  },
+};
+
+/**
+ * Writes one post again: the same kind about the same topic, in new words, or with what to change. It takes the OK
+ * back. Refused for one that went up or is going up, or isn't there anymore.
+ */
+async function rewriteOne(
+  ctx: AddonScopeContext,
+  postId: string,
+  ask: string | null,
+  askedBy: string | null,
+): Promise<string> {
+  const [was] = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{
+      network: string;
+      format: ContentFormat;
+      words: string;
+      idea_id: string | null;
+      state: string;
+      angle: string | null;
+      topic_list: string | null;
+      topic: string | null;
+    }>(
+      tx,
+      sql`select c.network, c.format, c.words, c.idea_id, c.state, c.angle, c.topic_list, c.topic
             from addon_socialcontent.content c
             join app.custom_records r on r.id = c.record_id and r.archived_at is null
-            where c.record_id = ${input.postId}::uuid and c.workspace_id = ${ctx.scope.workspaceId}`,
+            where c.record_id = ${postId}::uuid and c.workspace_id = ${ctx.scope.workspaceId}`,
+    ),
+  );
+  if (!was || !isPostingNetwork(was.network))
+    throw HfosError.notFound(
+      'That post isn’t there anymore. Refresh the page to see the ones there are.',
+    );
+  if (was.state === 'posted' || was.state === 'posting')
+    throw HfosError.rule(
+      'socialcontent_post_posted',
+      409,
+      'That post already went up, so it can’t be written again here.',
+    );
+  const here = await hereOf(ctx);
+  const idea = was.idea_id ? await ideaOf(ctx, was.idea_id).catch(() => null) : null;
+  // Written again, it stays the same kind about the same topic (decisions 34 and 36), in new words.
+  const topic = topicOf(was.topic_list, was.topic);
+  let post: WrittenPost | null;
+  try {
+    post = await writeOne(ctx, {
+      network: was.network,
+      playbook: here.playbook,
+      idea: ideaForAi(idea),
+      ask,
+      before: { words: was.words, format: was.format },
+      angle: isAngle(was.angle) ? was.angle : null,
+      topic,
+      recent: recentFor(await postsBefore(ctx)),
+      examples: examplesFor(
+        [aboutOf(topic, idea), ask ?? '', was.words.slice(0, 300)].join(' '),
+        await creatorPosts(ctx),
+      ),
+    });
+  } catch (e) {
+    throw e instanceof AiAskError ? aiRefusal(e) : e;
+  }
+  if (!post) throw emptyPost();
+  await keep(ctx, post, { network: was.network, postId, askedBy, topic });
+  return postId;
+}
+
+/**
+ * Redo on picked posts waiting to go up (the owner, 15 Nov): each is queued to be written again by the AI
+ * (`socialcontent.rewrite`), `REWRITE_GAP_MS` apart, so a month of posts doesn't ask the AI all at once and the
+ * person needn't keep the page open. Each takes its OK back once it's written. Posts that went up, or didn't post,
+ * are redone by `socialcontent.content.redo` instead; hidden ones are left until they're shown again.
+ */
+export const rewriteManyNow: AddonWorkerAction<z.output<typeof ContentRewriteManyInput>> = {
+  permission: 'socialcontent.use',
+  ai: {
+    tool: 'socialcontent_rewrite_own_posts',
+    description:
+      'Have the AI write several of the business’s own posts waiting to go up (drafts or OK’d ones, not hidden) again, in new words: the Calendar’s Redo on picked posts. They’re written in the background a few at a time, over a few minutes; each takes its OK back, so it waits for an OK again. Says which it couldn’t write again and why. Posts that went up or didn’t post are redone with socialcontent_redo_own_posts instead.',
+    // It writes drafts again, as Write it again does, and reaches nobody.
+    autonomy: 'auto',
+    keywords: ['rewrite posts', 'redo posts', 'write these again'],
+  },
+  input: ContentRewriteManyInput,
+  async run(ctx, input) {
+    await requireLiveOffer(ctx);
+    const ids = [...new Set(input.postIds)];
+    const found = await asWorker(ctx.db, ctx.scope, (tx) =>
+      rows<{ id: string; title: string; network: string; state: ContentState; hidden: boolean }>(
+        tx,
+        sql`select c.record_id as id, r.name as title, c.network, c.state, c.hidden_at is not null as hidden
+            from addon_socialcontent.content c
+            join app.custom_records r on r.id = c.record_id and r.archived_at is null
+            where c.workspace_id = ${ctx.scope.workspaceId} and c.record_id = any(${`{${ids.join(',')}}`}::uuid[])`,
       ),
     );
-    if (!was || !isPostingNetwork(was.network))
-      throw HfosError.notFound(
-        'That post isn’t there anymore. Refresh the page to see the ones there are.',
-      );
-    if (was.state === 'posted' || was.state === 'posting')
-      throw HfosError.rule(
-        'socialcontent_post_posted',
-        409,
-        'That post already went up, so it can’t be written again here.',
-      );
-    const here = await hereOf(ctx);
-    const idea = was.idea_id ? await ideaOf(ctx, was.idea_id).catch(() => null) : null;
-    // Written again, it stays the same kind about the same topic (decisions 34 and 36), in new words.
-    const topic = topicOf(was.topic_list, was.topic);
-    let post: WrittenPost | null;
-    try {
-      post = await writeOne(ctx, {
-        network: was.network,
-        playbook: here.playbook,
-        idea: ideaForAi(idea),
-        ask: input.ask ?? null,
-        before: { words: was.words, format: was.format },
-        angle: isAngle(was.angle) ? was.angle : null,
-        topic,
-        recent: recentFor(await postsBefore(ctx)),
-        examples: examplesFor(
-          [aboutOf(topic, idea), input.ask ?? '', was.words.slice(0, 300)].join(' '),
-          await creatorPosts(ctx),
-        ),
-      });
-    } catch (e) {
-      throw e instanceof AiAskError ? aiRefusal(e) : e;
+    const byId = new Map(found.map((f) => [f.id, f]));
+    const notAsked: { postId: string; title: string; why: string }[] = [];
+    const go: string[] = [];
+    for (const id of ids) {
+      const c = byId.get(id);
+      if (!c) notAsked.push({ postId: id, title: '', why: W.picking.rewriteWhy.gone });
+      else if (canRewrite(c)) go.push(id);
+      else
+        notAsked.push({
+          postId: id,
+          title: c.title,
+          why:
+            c.hidden || c.state === 'skipped'
+              ? W.picking.rewriteWhy.hidden
+              : c.state === 'failed'
+                ? W.picking.rewriteWhy.failed
+                : c.state === 'posted' || c.state === 'posting'
+                  ? W.picking.rewriteWhy.up
+                  : W.picking.rewriteWhy.network,
+        });
     }
-    if (!post) throw emptyPost();
-    await keep(ctx, post, {
-      network: was.network,
-      postId: input.postId,
-      askedBy: ctx.userId,
-      topic,
+    const now = Date.now();
+    await asWorker(ctx.db, ctx.scope, async (tx) => {
+      for (const [i, postId] of go.entries())
+        await scheduleAddonJob(
+          tx,
+          { id: ctx.manifest.id, generation: ctx.generation },
+          {
+            kind: REWRITE_JOB,
+            dedupeKey: `${REWRITE_JOB}:${postId}`,
+            runAt: new Date(now + i * REWRITE_GAP_MS),
+            payload: { postId, askedBy: ctx.userId },
+            workspaceId: ctx.scope.workspaceId,
+            organizationId: ctx.scope.organizationId,
+          },
+        );
     });
-    return { postId: input.postId };
+    return { asked: go.length, notAsked };
   },
+};
+
+/**
+ * `socialcontent.rewrite`: one post Redo asked to be written again. One that went up, is hidden or is gone since is
+ * left as it is; with the main offer no longer live it waits for nothing. What the AI couldn't write is logged, not
+ * tried again: the person sees the old words still and can press Write it again.
+ */
+export const runRewrite: AddonJobHandler = async (ctx) => {
+  const postId = String(ctx.job.payload['postId'] ?? '');
+  const askedBy =
+    typeof ctx.job.payload['askedBy'] === 'string' ? ctx.job.payload['askedBy'] : null;
+  const [c] = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{ network: string; state: ContentState; hidden: boolean }>(
+      tx,
+      sql`select c.network, c.state, c.hidden_at is not null as hidden
+          from addon_socialcontent.content c
+          join app.custom_records r on r.id = c.record_id and r.archived_at is null
+          where c.record_id = ${postId}::uuid and c.workspace_id = ${ctx.scope.workspaceId}`,
+    ),
+  );
+  if (!c || !canRewrite(c)) return;
+  if (!(await offerIsLive(ctx))) {
+    ctx.log.info(
+      { postId },
+      'a post Redo asked for isn’t written again: the main offer isn’t live',
+    );
+    return;
+  }
+  try {
+    await rewriteOne(ctx, postId, null, askedBy);
+  } catch (e) {
+    if (!(e instanceof HfosError)) throw e;
+    ctx.log.warn({ err: e, postId }, 'a post Redo asked for couldn’t be written again');
+  }
 };
 
 // ------------------------------------------------------------------------------------------------ the calendar

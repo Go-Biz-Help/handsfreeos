@@ -101,13 +101,15 @@ import { PostPictureTile, STATE_BADGE } from './own-post';
  * every post ready in the next 7 days, and **Write a post** (or **Write one** on an open day) writes one, asking two
  * things first in a sheet (the owner, 14 Nov). **Fill on its own** stops the AI filling it, or starts it again (the
  * owner, 11 Nov). **Select** picks many posts (one, a day, a week, a kind, or any date from Pick), and the bar at the
- * foot OKs, redoes, checks or hides them, with More for Mark posted, Show again and Delete. A post that didn't post
+ * foot OKs, redoes (past ones go up again; waiting ones are written again by the AI, after asking), checks or hides
+ * them, with More for Mark posted, Show again and Delete. A tap on an open place writes its post. A post that didn't post
  * has Try again, Check if it posted and Mark as posted. Opening a post shows it on its own screen, at the web's own
  * address (`calendar?post=<id>`). It needs signal.
  */
 
 const WRITE = '/v1/addons/socialcontent/actions/socialcontent.content.write';
 const FILL = '/v1/addons/socialcontent/actions/socialcontent.calendar.fill';
+const REWRITE_MANY = '/v1/addons/socialcontent/actions/socialcontent.content.rewrite_many';
 /** The look picked last, kept on this phone. */
 const LOOK_KEY = 'socialcontent.calendar.look';
 
@@ -117,6 +119,7 @@ const networkNameOf = (n: string) => networkName(n as PostingNetwork);
 const doneWords: Record<PickAct, (done: number, left: number) => string> = {
   ok: W.picking.approved,
   redo: W.calendar.redone,
+  rewrite: W.picking.rewritten,
   look: W.picking.lookAsked,
   mark: W.picking.marked,
   hide: (n) => W.picking.hidden(n),
@@ -176,6 +179,14 @@ export function CalendarScreen() {
       case 'redo': {
         const o = (await change('socialcontent.content.redo', body)).output;
         return { done: o?.redone ?? 0, left: o?.notRedone.length ?? 0 };
+      }
+      case 'rewrite': {
+        // Written again by the AI in the background, a little apart (the owner, 15 Nov).
+        const o = await workerPost<{ asked: number; notAsked: unknown[] }>(REWRITE_MANY, {
+          workspaceId: ws,
+          input: { postIds },
+        });
+        return { done: o.asked, left: o.notAsked.length };
       }
       case 'look': {
         const o = (await change('socialcontent.content.look', body)).output;
@@ -507,12 +518,20 @@ export function CalendarBody({
       onMark={(link) => onMarkOne(p.id, link)}
     />
   );
+  // An open place: a tap anywhere on it writes its post (the owner, 15 Nov).
   const openSlot = (o: CalendarView['open'][number]) => {
     const key = `open:${o.network}:${o.date}`;
     return (
-      <View
+      <Pressable
         key={key}
-        className="flex-row items-center gap-3 rounded-card border border-dashed border-border-strong px-3.5 py-3"
+        role="button"
+        accessibilityLabel={W.calendar.writeOpen(
+          networkName(o.network),
+          timeShown(o.at, c.timeZone),
+        )}
+        disabled={selecting || other(key) || busy === key}
+        onPress={() => onWrite(o.network, o.at, key)}
+        className="flex-row items-center gap-3 rounded-card border border-dashed border-border-strong px-3.5 py-3 active:bg-accent-soft"
         testID={`socialcontent-open-${o.network}-${o.date}`}
       >
         <View className="min-w-0 flex-1 gap-0.5">
@@ -536,7 +555,7 @@ export function CalendarBody({
             {W.calendar.writeFor}
           </Button>
         )}
-      </View>
+      </Pressable>
     );
   };
 

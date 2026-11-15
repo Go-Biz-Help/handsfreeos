@@ -813,6 +813,14 @@ describe('the Calendar', () => {
       `${tomorrow}T12:00:00.000Z`,
       `open:facebook:${tomorrow}`,
     );
+    // A tap anywhere on an open place writes it too (the owner, 15 Nov).
+    onWrite.mockClear();
+    await fireEvent.press(screen.getByTestId(`socialcontent-open-facebook-${tomorrow}`));
+    expect(onWrite).toHaveBeenCalledWith(
+      'facebook',
+      `${tomorrow}T12:00:00.000Z`,
+      `open:facebook:${tomorrow}`,
+    );
   });
 
   it('shows Threads’ and X’s posts and open days (decision 41; the owner’s Calendar, 13 Nov)', async () => {
@@ -935,6 +943,29 @@ describe('the Calendar', () => {
     // Cancel ends picking.
     await fireEvent.press(screen.getByTestId('socialcontent-pick-cancel'));
     expect(screen.queryByTestId('socialcontent-pick-bar')).toBeNull();
+  });
+
+  it('redoes waiting posts by having the AI write them again, after asking (the owner, 15 Nov)', async () => {
+    const onAct = jest.fn().mockResolvedValue({ done: 1, left: 0 });
+    const waiting = content(30, { title: 'Porch season' });
+    await render(body({ onAct, data: calendarView({ posts: [waiting], recent: [went] }) }));
+    await fireEvent.press(screen.getByTestId('socialcontent-calendar-select'));
+    await fireEvent.press(screen.getByTestId(`socialcontent-pick-day-${tomorrow}`));
+    await fireEvent.press(screen.getByTestId(`socialcontent-post-${went.id}-pick`));
+    // One waiting and one that went up: Redo takes both.
+    expect(screen.getByTestId('socialcontent-pick-redo')).toHaveTextContent(/2/);
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-redo'));
+    expect(onAct).not.toHaveBeenCalled();
+    expect(screen.getByTestId('socialcontent-pick-redo-sheet')).toHaveTextContent(
+      /The AI writes it again in new words\. It waits for your OK again\./,
+    );
+    expect(screen.getByTestId('socialcontent-pick-redo-sheet')).toHaveTextContent(
+      /1 post that went up or didn’t go up goes up again/,
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-redo-go'));
+    expect(onAct).toHaveBeenCalledWith('redo', [went.id]);
+    expect(onAct).toHaveBeenLastCalledWith('rewrite', [waiting.id]);
+    expect(await screen.findByText('0 picked')).toBeTruthy();
   });
 
   it('leaves Delete to owners and admins, and picks across any date from Pick', async () => {

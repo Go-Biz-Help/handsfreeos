@@ -45,8 +45,8 @@ import { cn } from '@/lib/utils';
 /**
  * Picking many posts on the phone's Calendar, and what a post that didn't post can do (docs/socialcontent.md,
  * "Picking many posts"; the owner, 15 Nov; the design they OK'd), as on the web: the Pick sheet adds posts by day,
- * week, month, kind or any date; the bar at the foot OKs, redoes, checks or hides them, with More for Mark posted,
- * Show again and Delete. Which posts each button takes is core's (`summaryOf`), so the web and the phone decide alike.
+ * week, month, kind or any date; the bar at the foot OKs, redoes (past ones go up again; waiting ones are written again
+ * by the AI, after asking), checks or hides them, with More for Mark posted, Show again and Delete. Which posts each button takes is core's (`summaryOf`), so the web and the phone decide alike.
  */
 
 /** A picked post: enough to say what the buttons do with it. */
@@ -65,7 +65,7 @@ export const itemOf = (
 });
 
 /** What the bar does with picked posts: each sent a turn at a time, then how many it did and how many it couldn't. */
-export type PickAct = 'ok' | 'redo' | 'look' | 'mark' | 'hide' | 'show' | 'remove';
+export type PickAct = 'ok' | 'redo' | 'rewrite' | 'look' | 'mark' | 'hide' | 'show' | 'remove';
 export type Sent = { done: number; left: number } | null;
 
 const networksOf = (items: readonly PickedLike[]) =>
@@ -169,6 +169,7 @@ export function PickBar({
   const [more, setMore] = React.useState(false);
   const [removing, setRemoving] = React.useState(false);
   const [marking, setMarking] = React.useState(false);
+  const [redoing, setRedoing] = React.useState(false);
   const byId = new Map(items.map((p) => [p.id, p]));
   const of = (ids: readonly string[]) => ids.map((id) => byId.get(id)!).filter(Boolean);
   const off = !online || busy !== null;
@@ -177,6 +178,15 @@ export function PickBar({
       if (out) onDone();
       return out;
     });
+  // Redo: past posts go up again, waiting ones are written again by the AI (the owner, 15 Nov).
+  const redo = async () => {
+    const past = s.redo.length ? await onAct('redo', s.redo) : null;
+    const again = s.rewrite.length ? await onAct('rewrite', s.rewrite) : null;
+    if (past || again) {
+      setRedoing(false);
+      onDone();
+    }
+  };
   const hideInBar = s.hide.length > 0 || s.show.length === 0;
   const redoPosted = of(s.redo).filter((p) => p.state === 'posted');
   return (
@@ -209,9 +219,9 @@ export function PickBar({
         <BarButton
           icon={RotateCcw}
           label={W.picking.redo}
-          n={s.redo.length}
+          n={s.redo.length + s.rewrite.length}
           disabled={off}
-          onPress={() => void run('redo', s.redo)}
+          onPress={() => (s.rewrite.length ? setRedoing(true) : void redo())}
           testID="socialcontent-pick-redo"
         />
         <BarButton
@@ -300,6 +310,35 @@ export function PickBar({
           ) : (
             <Text className="text-[12.5px] leading-[17px] text-text-3">{W.picking.removeWho}</Text>
           )}
+        </View>
+      </Sheet>
+
+      <Sheet
+        open={redoing && s.rewrite.length > 0}
+        onClose={() => (busy ? null : setRedoing(false))}
+        title={W.picking.redoTitle(s.redo.length + s.rewrite.length)}
+        testID="socialcontent-pick-redo-sheet"
+      >
+        <View className="mt-2 gap-3">
+          <Text className="text-[14px] leading-[20px] text-text-2">
+            {W.picking.redoRewrite(s.rewrite.length)}
+          </Text>
+          {s.redo.length ? (
+            <Text className="text-[13.5px] leading-[19px] text-text-2">
+              {W.picking.redoPast(s.redo.length)}
+            </Text>
+          ) : null}
+          <Button
+            loading={busy === 'redo' || busy === 'rewrite'}
+            disabled={!online || (busy !== null && busy !== 'redo' && busy !== 'rewrite')}
+            onPress={() => void redo()}
+            testID="socialcontent-pick-redo-go"
+          >
+            {W.picking.redoGo(s.redo.length + s.rewrite.length)}
+          </Button>
+          <Button variant="ghost" disabled={busy !== null} onPress={() => setRedoing(false)}>
+            {W.picking.redoCancel}
+          </Button>
         </View>
       </Sheet>
 
