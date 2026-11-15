@@ -264,6 +264,22 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 638,
     said: 'Threads’ reply box ignores the “select all, delete” the extension used to take its word out again. It now waits for the box to see the selection and types nothing over it, which Threads’ editor takes.',
   },
+  {
+    area: 'instagram',
+    job: 'send',
+    note: 'couldn’t find the post’s own box to comment in',
+    fixedIn: '0.140.9',
+    pr: 643,
+    said: 'A reel opens in the reels player, which has no link to the reel and no box to comment in till its own Comment opens its comments. The comment now goes on the reel the player opened on, while it’s theirs, by pressing its Comment and writing in the box that shows.',
+  },
+  {
+    area: 'facebook',
+    job: 'comment',
+    note: 'couldn’t find the box to comment in',
+    fixedIn: '0.140.9',
+    pr: 643,
+    said: 'The post’s bar had Like and Share but no Comment, and no box: its author limited who can comment. The step now passes such a post over (“it doesn’t let you comment on it”) with nothing reported.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */
