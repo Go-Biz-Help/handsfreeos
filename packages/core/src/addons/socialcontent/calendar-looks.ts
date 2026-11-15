@@ -4,7 +4,7 @@
  * the phone both read these, so the two decide alike. Browser-safe and pure.
  */
 import { addDays, parseLocalDate, weekdayOf } from '../../calendar/engine/zoned';
-import { canLook, canRedo, PICKING, type ContentState } from './calendar';
+import { canLook, canRedo, canRewrite, PICKING, type ContentState } from './calendar';
 
 /** How the Calendar looks: today's list (the default), a week, or a month. */
 export const CALENDAR_LOOKS = ['list', 'week', 'month'] as const;
@@ -171,8 +171,10 @@ export interface PickedSummary {
   readonly hidden: number;
   /** OK: those waiting for an OK. */
   readonly ok: readonly string[];
-  /** Redo: those that went up or didn't. */
+  /** Redo: those that went up or didn't, put up again. */
   readonly redo: readonly string[];
+  /** Redo: those waiting to go up, written again by the AI (the owner, 15 Nov). */
+  readonly rewrite: readonly string[];
   /** Check if posted and Mark posted: those that didn't post. */
   readonly look: readonly string[];
   /** Hide: those not hidden yet. Show again: those hidden. */
@@ -194,6 +196,7 @@ export function summaryOf(posts: readonly PickedLike[]): PickedSummary {
     hidden: posts.filter((p) => p.hidden).length,
     ok: ids((p) => p.state === 'draft'),
     redo: ids((p) => canRedo(p)),
+    rewrite: ids((p) => canRewrite(p)),
     look: ids((p) => canLook(p)),
     hide: ids((p) => !p.hidden && p.state !== 'posting'),
     show: ids((p) => p.hidden),

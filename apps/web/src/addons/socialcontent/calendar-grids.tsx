@@ -217,32 +217,37 @@ export function WeekGrid({
                 </div>
               );
             })}
+            {/* An open place: pressing anywhere on it writes its post (the owner, 15 Nov). */}
             {free.map((o) => (
-              <div
+              <button
                 key={`${o.network}:${o.at}`}
-                className="rounded-card border border-dashed border-border-strong px-2.5 py-2"
+                type="button"
+                disabled={g.selecting || busy !== null}
+                onClick={() => onWrite(o)}
+                aria-label={W.calendar.writeOpen(networkName(o.network), timeIn(o.at, g.timeZone))}
+                className={cn(
+                  'w-full rounded-card border border-dashed border-border-strong px-2.5 py-2 text-left transition-colors',
+                  g.selecting
+                    ? 'cursor-default'
+                    : 'hover:border-accent hover:bg-accent-soft disabled:opacity-60',
+                )}
                 data-testid={`socialcontent-open-${o.network}-${o.date}`}
               >
-                <div className="flex items-center gap-1.5 text-[12px] text-text-3">
+                <span className="flex items-center gap-1.5 text-[12px] text-text-3">
                   <Net network={o.network} />
                   <span>{timeIn(o.at, g.timeZone)}</span>
-                </div>
-                <div className="mt-1 text-[12.5px] text-text-3">
+                </span>
+                <span className="mt-1 block text-[12.5px] text-text-3">
                   {g.selecting ? W.picking.openNoPick : W.calendar.open}
-                </div>
+                </span>
                 {g.selecting ? null : (
-                  <button
-                    type="button"
-                    className="mt-1 text-[12.5px] font-medium text-accent hover:underline disabled:opacity-50"
-                    disabled={busy !== null}
-                    onClick={() => onWrite(o)}
-                  >
+                  <span className="mt-1 block text-[12.5px] font-medium text-accent">
                     {busy === `open:${o.network}:${o.at}`
                       ? W.calendar.writing
                       : W.calendar.writeFor}
-                  </button>
+                  </span>
                 )}
-              </div>
+              </button>
             ))}
           </section>
         );
@@ -259,12 +264,17 @@ export function MonthGrid({
   from,
   month,
   onOpenWeek,
+  onWrite,
+  busy,
   ...g
 }: GridProps & {
   from: string;
   /** The month's first day. */
   month: string;
   onOpenWeek: (day: string) => void;
+  /** Writes a post for an open place. */
+  onWrite: (slot: Slot) => void;
+  busy: string | null;
 }) {
   const weeks = Array.from({ length: 6 }, (_, w) => daysFrom(daysFrom(from, 42)[w * 7]!, 7));
   const inMonth = (day: string) => monthOf(day) === month;
@@ -385,11 +395,34 @@ export function MonthGrid({
                         {W.picking.moreOn(posts.length - MONTH_SHOWN)}
                       </button>
                     ) : null}
-                    {!posts.length && free.length && day >= g.today ? (
-                      <span className="hidden px-1 text-[11.5px] text-text-3 sm:inline">
-                        {W.picking.notFilled}
-                      </span>
-                    ) : null}
+                    {/* Its open places, as many as there's room for: pressing one writes its post (the owner, 15 Nov). */}
+                    {free.slice(0, Math.max(0, MONTH_SHOWN - posts.length)).map((o) => (
+                      <button
+                        key={`${o.network}:${o.at}`}
+                        type="button"
+                        disabled={g.selecting || busy !== null}
+                        onClick={() => onWrite(o)}
+                        title={`${W.calendar.openHint(networkName(o.network), timeIn(o.at, g.timeZone))} · ${W.calendar.writeFor}`}
+                        aria-label={W.calendar.writeOpen(
+                          networkName(o.network),
+                          timeIn(o.at, g.timeZone),
+                        )}
+                        className={cn(
+                          'hidden min-w-0 items-center gap-1 rounded-[5px] border border-dashed border-border-strong px-1 py-[1px] text-left text-[11.5px] text-text-3 sm:flex',
+                          g.selecting ? 'cursor-default' : 'hover:border-accent hover:text-accent',
+                        )}
+                        data-testid={`socialcontent-open-${o.network}-${o.date}`}
+                      >
+                        <span className="flex-none text-[10px] font-semibold uppercase">
+                          {W.picking.short[o.network] ?? o.network.slice(0, 2)}
+                        </span>
+                        <span className="truncate">
+                          {busy === `open:${o.network}:${o.at}`
+                            ? W.calendar.writing
+                            : W.picking.openChip}
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 );
               })}

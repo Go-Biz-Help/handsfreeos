@@ -334,7 +334,9 @@ export const mondayOf = (date: string): string => addDays(date, -((weekdayOf(dat
 
 /**
  * The plan's open slots from tomorrow through the next two weeks, in the business's time zone, soonest first. Today
- * is left out: a post written now still needs an OK before it goes.
+ * is left out when filling: a post written now still needs an OK before it goes. The Calendar asks for today too
+ * (`today`), so a place opened by deleting or skipping today's post shows, ready for Write one, while its time is at
+ * least `CALENDAR.todayLeadMs` off (the owner, 15 Nov).
  *
  * - **I pick:** each time ticked on each day, less one for each post that day (the nearest time).
  * - **AI picks:** each week (Monday to Sunday) gets its posts a week, spread over its days; each post already in that
@@ -348,11 +350,14 @@ export function openSlots(input: {
   readonly timeZone: string;
   readonly now: number;
   readonly days?: number;
+  /** Today's slots too, those at least `CALENDAR.todayLeadMs` off (the Calendar's, never filling's). */
+  readonly today?: boolean;
 }): Slot[] {
   const { plan, times, timeZone } = input;
   const days = input.days ?? CALENDAR.days;
   const today = localDateOf(input.now, timeZone);
-  const first = addDays(today, 1);
+  const start = input.today ? 0 : 1;
+  const first = addDays(today, start);
   const last = addDays(today, days);
   const busy = busyOf(input.taken, timeZone);
   const out: Slot[] = [];
@@ -360,7 +365,7 @@ export function openSlots(input: {
     const p = plan[network];
     const mine = busy.filter((b) => b.network === network);
     if (p.mode === 'mine') {
-      for (let d = 1; d <= days; d++) {
+      for (let d = start; d <= days; d++) {
         const date = addDays(today, d);
         const left = [...(p.week[weekdayOf(date)] ?? [])].map(parseClock);
         for (const b of mine.filter((x) => x.date === date)) {
@@ -405,7 +410,10 @@ export function openSlots(input: {
       });
     }
   }
-  return out.sort((a, b) => a.at - b.at);
+  const soonest = input.now + CALENDAR.todayLeadMs;
+  return out
+    .filter((slot) => slot.date !== today || slot.at >= soonest)
+    .sort((a, b) => a.at - b.at);
 }
 
 /** A post on the calendar that AI picks may move: who set its time, and its state. */

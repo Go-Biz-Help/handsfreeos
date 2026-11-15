@@ -293,6 +293,13 @@ const Picked = z.array(uuid).min(1).max(PICKING.most);
 /** The picked posts a command left alone, and why. */
 const LeftOut = z.array(z.object({ postId: uuid, title: z.string(), why: z.string() }));
 
+/**
+ * Redo on picked posts waiting to go up (the owner, 15 Nov): the worker's `socialcontent.content.rewrite_many` queues
+ * each to be written again by the AI, a little apart, in the background.
+ */
+export const ContentRewriteManyInput = z.object({ postIds: Picked }).strict();
+export const ContentRewriteManyOutput = z.object({ asked: z.number().int(), notAsked: LeftOut });
+
 export const ContentApproveManyInput = z.object({ workspaceId: uuid, postIds: Picked });
 export const ContentApproveManyOutput = z.object({
   approved: z.number().int(),

@@ -50,7 +50,9 @@ import {
   CalendarPlus,
   ChevronLeft,
   ChevronRight,
+  Loader2,
   PenLine,
+  Plus,
   SquareCheck,
   Trash2,
 } from 'lucide-react';
@@ -505,7 +507,14 @@ export function CalendarPage({
           <WeekGrid {...grid} from={c.from} onWrite={writeOpen} busy={busy} />
         ) : look === 'month' ? (
           <>
-            <MonthGrid {...grid} from={c.from} month={month} onOpenWeek={(d) => go('week', d)} />
+            <MonthGrid
+              {...grid}
+              from={c.from}
+              month={month}
+              onOpenWeek={(d) => go('week', d)}
+              onWrite={writeOpen}
+              busy={busy}
+            />
             <Legend hint={selecting ? W.picking.monthHint : null} />
           </>
         ) : (
@@ -553,38 +562,51 @@ export function CalendarPage({
                   </div>
                   <div className="space-y-2">
                     {posts.map((p) => row(p))}
-                    {free.map((o) => (
-                      <div
-                        key={`${o.network}:${o.at}`}
-                        className={cn(
-                          'flex flex-wrap items-center gap-3 rounded-card border border-dashed border-border-strong px-4 py-3',
-                          selecting && 'ml-[30px]',
-                        )}
-                        data-testid={`socialcontent-open-${o.network}-${o.date}`}
-                      >
-                        <span className="text-[13px] text-text-3">{W.calendar.open}</span>
-                        <span className="text-[13.5px] text-text-2">
-                          {W.calendar.openHint(networkName(o.network), timeIn(o.at, c.timeZone))}
-                        </span>
-                        {selecting ? (
-                          <span className="text-[12.5px] text-text-3">{W.picking.openNoPick}</span>
-                        ) : o.trying ? (
-                          <span className="text-[12.5px] text-text-3">{W.calendar.trying}</span>
-                        ) : null}
-                        {selecting ? null : (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="ml-auto"
-                            loading={busy === `open:${o.network}:${o.at}`}
-                            disabled={busy !== null && busy !== `open:${o.network}:${o.at}`}
-                            onClick={() => writeOpen(o)}
-                          >
-                            {W.calendar.writeFor}
-                          </Button>
-                        )}
-                      </div>
-                    ))}
+                    {/* An open place: pressing anywhere on it writes its post (the owner, 15 Nov). */}
+                    {free.map((o) => {
+                      const key = `open:${o.network}:${o.at}`;
+                      return (
+                        <button
+                          key={`${o.network}:${o.at}`}
+                          type="button"
+                          disabled={selecting || busy !== null}
+                          onClick={() => writeOpen(o)}
+                          aria-label={W.calendar.writeOpen(
+                            networkName(o.network),
+                            timeIn(o.at, c.timeZone),
+                          )}
+                          className={cn(
+                            'flex w-full flex-wrap items-center gap-3 rounded-card border border-dashed border-border-strong px-4 py-3 text-left transition-colors',
+                            selecting
+                              ? 'ml-[30px] w-[calc(100%-30px)] cursor-default'
+                              : 'hover:border-accent hover:bg-accent-soft disabled:opacity-60',
+                          )}
+                          data-testid={`socialcontent-open-${o.network}-${o.date}`}
+                        >
+                          <span className="text-[13px] text-text-3">{W.calendar.open}</span>
+                          <span className="text-[13.5px] text-text-2">
+                            {W.calendar.openHint(networkName(o.network), timeIn(o.at, c.timeZone))}
+                          </span>
+                          {selecting ? (
+                            <span className="text-[12.5px] text-text-3">
+                              {W.picking.openNoPick}
+                            </span>
+                          ) : o.trying ? (
+                            <span className="text-[12.5px] text-text-3">{W.calendar.trying}</span>
+                          ) : null}
+                          {selecting ? null : (
+                            <span className="ml-auto inline-flex items-center gap-1.5 text-[13px] font-medium text-accent">
+                              {busy === key ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                              ) : (
+                                <Plus className="h-3.5 w-3.5" aria-hidden />
+                              )}
+                              {busy === key ? W.calendar.writing : W.calendar.writeFor}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </section>
               );

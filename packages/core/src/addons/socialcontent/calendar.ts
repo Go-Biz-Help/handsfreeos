@@ -138,6 +138,20 @@ export const PICKING = { most: 500, listMost: 2_000 } as const;
 export const canLook = (c: { state: ContentState; network: string }): boolean =>
   c.state === 'failed' && isPostingNetwork(c.network) && POSTING.networks.includes(c.network);
 
+/**
+ * Whether a post waiting to go up can be redone by being written again (the owner, 15 Nov): a draft or OK'd one, not
+ * hidden. The AI writes it over in new words, and its OK is taken back.
+ */
+export const canRewrite = (c: {
+  state: ContentState;
+  network: string;
+  hidden?: boolean;
+}): boolean =>
+  (c.state === 'draft' || c.state === 'ready') && !c.hidden && isPostingNetwork(c.network);
+
+/** Posts written again from Redo are written this far apart, so the AI isn't asked for them all at once. */
+export const REWRITE_GAP_MS = 20_000;
+
 /** Whether a post can be redone: it went up (it goes up again) or didn't go up (it's tried again). */
 export const canRedo = (c: { state: ContentState; network: string }): boolean =>
   (c.state === 'posted' || c.state === 'failed') &&
@@ -275,6 +289,11 @@ export const CALENDAR = {
   windowLeastMinutes: 60,
   /** What the person tells the AI a post is about, or what to change when it's written again. */
   askMost: 500,
+  /**
+   * Today's open places show on the Calendar (never filled on its own) while their time is at least this far off, so
+   * a post written there can still be OK'd before it goes (the owner, 15 Nov: a deleted post's place stays).
+   */
+  todayLeadMs: 30 * 60_000,
 } as const;
 
 /** Each network's plan is one of these (decision 21): the AI picks the days and times, or the person does. */

@@ -2,7 +2,8 @@
 /**
  * Picking many posts on the Calendar, and what a post that didn't post can do (docs/socialcontent.md, "Picking many
  * posts"; the owner, 15 Nov; the design they OK'd). The Pick menu adds posts by day, week, month, kind or any date;
- * the bar under the picked posts OKs, redoes, checks, marks, hides or deletes them, each button on only those it can
+ * the bar under the picked posts OKs, redoes (past ones go up again; waiting ones are written again by the AI, after
+ * asking), checks, marks, hides or deletes them, each button on only those it can
  * act on, sent 500 at a time so any number can be picked. Delete asks first and offers Hide instead; Mark as posted
  * asks first, with an optional link for one. Which posts each button takes is core's (`summaryOf`), so the phone
  * decides alike.
@@ -56,6 +57,7 @@ import { Label } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { errorMessage } from '@/lib/api/errors';
+import { workerPost } from '@/lib/api/worker';
 import type { Content } from './types';
 import { useAct } from './use-act';
 
@@ -92,6 +94,8 @@ export function usePicked() {
   const clear = useCallback(() => setPicked(new Map()), []);
   return { picked, pick, clear };
 }
+
+const REWRITE_MANY = '/v1/addons/socialcontent/actions/socialcontent.content.rewrite_many';
 
 const networksOf = (items: readonly PickedLike[]) =>
   listShown([...new Set(items.map((p) => networkName(p.network as PostingNetwork)))]);
@@ -130,6 +134,13 @@ function useSends(workspaceId: string) {
           .POST('/v1/commands/socialcontent.content.redo', { body: { workspaceId, postIds } })
           .then(unwrap)
           .then((o) => ({ done: o.redone, left: o.notRedone.length })),
+      ),
+    rewrite: (ids: readonly string[]) =>
+      inTurnsSent(ids, (postIds) =>
+        workerPost<{ asked: number; notAsked: unknown[] }>(REWRITE_MANY, {
+          workspaceId,
+          input: { postIds },
+        }).then((o) => ({ done: o.asked, left: o.notAsked.length })),
       ),
     look: (ids: readonly string[]) =>
       inTurnsSent(ids, (postIds) =>
@@ -232,6 +243,7 @@ export function PickBar({
   const s = summaryOf(items);
   const [removing, setRemoving] = useState(false);
   const [marking, setMarking] = useState(false);
+  const [redoing, setRedoing] = useState(false);
   const byId = new Map(items.map((p) => [p.id, p]));
   const of = (ids: readonly string[]) => ids.map((id) => byId.get(id)!).filter(Boolean);
   const redoPosted = of(s.redo).filter((p) => p.state === 'posted');
@@ -245,6 +257,27 @@ export function PickBar({
       return o;
     });
   const other = (key: string) => busy !== null && busy !== key;
+  // Redo: past posts go up again; waiting ones are written again by the AI (the owner, 15 Nov), after asking.
+  const redo = () =>
+    act(
+      'redo',
+      async () => ({
+        past: s.redo.length ? await send.redo(s.redo) : null,
+        rewrite: s.rewrite.length ? await send.rewrite(s.rewrite) : null,
+      }),
+      (o) =>
+        [
+          o.past ? W.calendar.redone(o.past.done, o.past.left) : null,
+          o.rewrite ? W.picking.rewritten(o.rewrite.done, o.rewrite.left) : null,
+        ]
+          .filter(Boolean)
+          .join(' '),
+    ).then((o) => {
+      if (o) {
+        setRedoing(false);
+        onDone();
+      }
+    });
 
   return (
     <Card
@@ -286,10 +319,11 @@ export function PickBar({
         <CountButton
           icon={<RotateCcw className="h-3.5 w-3.5" aria-hidden />}
           label={W.picking.redo}
-          n={s.redo.length}
+          n={s.redo.length + s.rewrite.length}
           busy={busy === 'redo'}
           disabled={other('redo')}
-          onClick={() => void run('redo', () => send.redo(s.redo), W.calendar.redone)}
+          title={W.picking.redoHint}
+          onClick={() => (s.rewrite.length ? setRedoing(true) : void redo())}
           testId="socialcontent-pick-redo"
         />
         <CountButton
@@ -392,6 +426,14 @@ export function PickBar({
           )
         }
       />
+      <RedoPostsDialog
+        open={redoing}
+        rewrite={s.rewrite.length}
+        past={s.redo.length}
+        busy={busy}
+        onClose={() => setRedoing(false)}
+        onRedo={() => void redo()}
+      />
       <MarkPostedDialog
         workspaceId={workspaceId}
         items={marking ? of(s.look) : null}
@@ -399,6 +441,54 @@ export function PickBar({
         onDone={onDone}
       />
     </Card>
+  );
+}
+
+/**
+ * Redo asks first when it writes posts again (the owner, 15 Nov): the AI writes the waiting ones over in new words, and
+ * they wait for an OK again; past ones picked too go up again.
+ */
+function RedoPostsDialog({
+  open,
+  rewrite,
+  past,
+  busy,
+  onClose,
+  onRedo,
+}: {
+  open: boolean;
+  rewrite: number;
+  past: number;
+  busy: string | null;
+  onClose: () => void;
+  onRedo: () => void;
+}) {
+  const n = rewrite + past;
+  return (
+    <Dialog open={open && rewrite > 0} onOpenChange={(o) => (o || busy ? null : onClose())}>
+      {open && rewrite ? (
+        <DialogContent title={W.picking.redoTitle(n)} description={W.picking.redoRewrite(rewrite)}>
+          <div data-testid="socialcontent-pick-redo-dialog">
+            {past ? (
+              <p className="mt-3 text-[13px] text-text-2">{W.picking.redoPast(past)}</p>
+            ) : null}
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <Button variant="ghost" disabled={busy !== null} onClick={onClose}>
+                {W.picking.redoCancel}
+              </Button>
+              <Button
+                loading={busy === 'redo'}
+                disabled={busy !== null && busy !== 'redo'}
+                onClick={onRedo}
+                data-testid="socialcontent-pick-redo-go"
+              >
+                {W.picking.redoGo(n)}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      ) : null}
+    </Dialog>
   );
 }
 
