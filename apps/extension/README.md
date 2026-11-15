@@ -1269,6 +1269,15 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### A reel's Likes box in the reels player (0.140.4)
+
+The problem check of 15 Nov 2026 found a good post's likers that weren't read: "Couldn’t open the post’s Likes box." It
+was a reel, which opens in the reels player (/reels/<code>/), the next reel drawn under it. Its bar reads Unlike (or
+Like), its count of likes, then its Comment, Repost and Share, each with its own count. The Comment's count is in the
+same button as its icon, so the button was named "3", not Comment, and the count of likes before it was never taken
+for one. From 0.140.4 a bar's Comment is known by its own icon too (`isCommentControl` in
+`src/networks/instagram/read.ts`), so the reel it opened on has its count of likes pressed, and read, as a post's is.
+
 ### Posts made with others on Instagram, and Facebook posts with no Like (0.140.2)
 
 The problem check of 14 Nov 2026 found warm-up likes that never went, two on each network:
@@ -1482,7 +1491,7 @@ minute after posting and before any reading:
   link"). A warning keeps the network's words for the day, for both social add-ons, and says nothing: the read is
   asked for again later, since one handed out is put off half an hour.
 
-### A Page's posts: Instagram off, and looked for on the Page (0.140.3)
+### A Page's posts: Instagram off, and looked for on the Page (0.140.5)
 
 Twice on 14 Nov 2026 (0.139.3) a post for the owner's Page was marked as didn't post: "It pressed Post on your Page,
 but Facebook didn't show the post going up". Its problem reports showed Business Suite still on Create post 30 seconds
