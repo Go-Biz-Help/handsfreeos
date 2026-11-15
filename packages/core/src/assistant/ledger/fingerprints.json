@@ -1500,7 +1500,7 @@
   "apps/web/src/components/shell/menu-provider.tsx": "a7bb057b10d8",
   "apps/web/src/components/shell/missing-page.tsx": "fb8ed3e50256",
   "apps/web/src/components/shell/mobile-shell.tsx": "2d7ed48b889a",
-  "apps/web/src/components/shell/nav-links.tsx": "7eea8101aa5c",
+  "apps/web/src/components/shell/nav-links.tsx": "d7e6a9250526",
   "apps/web/src/components/shell/notifications-bell.tsx": "36256aed833a",
   "apps/web/src/components/shell/page-header.tsx": "945767d6c6c9",
   "apps/web/src/components/shell/sidebar.tsx": "3cb3b237cb52",

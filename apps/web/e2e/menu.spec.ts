@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { createBusiness, signUpAndConfirm } from './helpers';
+import { turnOnRealestate } from './realestate-helpers';
 
 /**
  * The side menu each person arranges: groups that open beside the sidebar, places taken out of the way, a menu
@@ -142,4 +143,76 @@ test('a group is built by hand, moved, and ungrouped again', async ({ page }) =>
   await expect(nav(page).getByTestId('menu-group-g1')).toHaveCount(0);
   const after = await nav(page).getByRole('link').allTextContents();
   expect(after.indexOf('Audit log')).toBe(after.indexOf('Members') + 1);
+});
+
+test('an add-on put in a group pops its pages out from its own row there, beside the sidebar and in the phone’s drawer', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const { email } = await signUpAndConfirm(page, 'menu-addon-group');
+  const workspaceId = await createBusiness(page, { name: 'Bluebonnet Homes' });
+  await turnOnRealestate(page, email, workspaceId);
+
+  // Real Estate Agent and Audit log in a group of their own.
+  await openMenuEditor(page, workspaceId);
+  await page
+    .getByTestId('menu-row-addon:realestate')
+    .getByLabel(/Move to/)
+    .selectOption('new');
+  await page
+    .getByTestId('menu-row-audit')
+    .getByLabel(/Move to/)
+    .selectOption('g1');
+  await page.getByTestId('menu-save').click();
+  await expect(page.getByText('Menu saved.')).toBeVisible();
+
+  // In the group, the add-on is a row of its own rather than its pages laid out under its name.
+  await page.goto(`/app/w/${workspaceId}`);
+  await nav(page).getByTestId('menu-group-g1').hover();
+  const panel = page.getByTestId('menu-group-panel-g1');
+  const addon = panel.getByTestId('menu-addon-realestate');
+  await expect(addon).toHaveText('Real Estate Agent');
+  await expect(panel.getByRole('link')).toHaveText(['Audit log']);
+
+  // Resting on it pops its pages out beside the group, as it does in the menu itself.
+  await addon.hover();
+  const pages = page.getByTestId('menu-addon-panel-realestate');
+  await expect(pages.getByRole('link')).toHaveText([
+    'Deals',
+    'My duties',
+    'Coordinate',
+    'Vendors',
+    'Deal settings',
+  ]);
+  await pages.getByRole('link', { name: 'Vendors' }).click();
+  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/a/realestate/vendors$`));
+  await expect(pages).toHaveCount(0);
+  await expect(panel).toHaveCount(0);
+
+  // Lit on its page: the group, the add-on in it, and the page. A press opens it too.
+  await expect(nav(page).getByTestId('menu-group-g1')).toHaveClass(/bg-accent-soft/);
+  await nav(page).getByTestId('menu-group-g1').click();
+  await expect(addon).toHaveClass(/bg-accent-soft/);
+  await addon.click();
+  await expect(pages.getByRole('link', { name: 'Vendors' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await pages.getByRole('link', { name: 'Deals' }).click();
+  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/a/realestate$`));
+  await expect(panel).toHaveCount(0);
+
+  // On a phone the group and the add-on in it both open in place in the drawer.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByTestId('mobile-menu').click();
+  const drawer = page.getByTestId('drawer-menu');
+  // The group is open on the page showing, and so is the add-on.
+  const phoneAddon = drawer.getByTestId('menu-addon-realestate');
+  await expect(phoneAddon).toHaveAttribute('aria-expanded', 'true');
+  await phoneAddon.click();
+  await expect(drawer.getByRole('link', { name: 'Deals' })).toHaveCount(0);
+  await phoneAddon.click();
+  await drawer.getByRole('link', { name: 'Vendors' }).click();
+  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/a/realestate/vendors$`));
+  await expect(page.getByTestId('drawer-menu')).toHaveCount(0);
 });

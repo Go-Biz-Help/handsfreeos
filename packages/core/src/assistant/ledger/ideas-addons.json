@@ -1,7 +1,7 @@
 {
   "area": "ideas-addons",
   "title": "Ideas, roadmap, what's new, the Add-ons page and add-on connections",
-  "checkedOn": "2026-11-07",
+  "checkedOn": "2026-11-15",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/add-ons/[addonId].tsx": "d44afafe8d41",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/add-ons/index.tsx": "a777b575cb27",
@@ -43,7 +43,7 @@
     "apps/web/src/components/settings/add-ons/addon-settings-sheet.tsx": "7a99799c9faa",
     "apps/web/src/components/settings/add-ons/move-dialogs.tsx": "ff44fd5150e3",
     "apps/web/src/components/settings/add-ons/planned-list.tsx": "e15cd3a24854",
-    "apps/web/src/components/shell/nav-links.tsx": "7eea8101aa5c"
+    "apps/web/src/components/shell/nav-links.tsx": "d7e6a9250526"
   },
   "items": [
     {
@@ -77,7 +77,7 @@
     {
       "path": "Side menu → Ideas → new dot",
       "kind": "see",
-      "file": "apps/web/src/components/shell/nav-links.tsx:897",
+      "file": "apps/web/src/components/shell/nav-links.tsx:898",
       "covered": "yes",
       "by": "read_whats_new_unseen → unseen"
     },
