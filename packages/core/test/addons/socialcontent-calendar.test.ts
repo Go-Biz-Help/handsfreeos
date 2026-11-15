@@ -23,6 +23,7 @@ import {
   redoTimes,
   stillNeeds,
   weekOf,
+  withParagraphs,
   type ReadyCheck,
 } from '../../src/addons/socialcontent/calendar';
 import {
@@ -391,6 +392,28 @@ describe('putting posts up (part 9)', () => {
     const long = postText('linkedin', 'x'.repeat(3_500), ['tag']);
     expect(long.length).toBeLessThanOrEqual(POSTING.textMost.linkedin);
     expect(long.endsWith('…\n\n#tag')).toBe(true);
+  });
+
+  it('puts a blank line between paragraphs written a line apart (the owner, 15 Nov)', () => {
+    // The Page post that went up as a wall of lines: one line break between paragraphs, and no blank line anywhere.
+    const tight = 'Ever put off a call?\nMost owners do. \nHere’s the truth.';
+    expect(postText('facebook', tight, ['crm'])).toBe(
+      'Ever put off a call?\n\nMost owners do.\n\nHere’s the truth.\n\n#crm',
+    );
+    expect(withParagraphs('linkedin', tight)).toBe(
+      'Ever put off a call?\n\nMost owners do.\n\nHere’s the truth.',
+    );
+    // Words spaced already keep short lines stacked on purpose.
+    const stacked = 'So many buttons.\nSo many settings.\n\nHere’s the fix.';
+    expect(withParagraphs('instagram', stacked)).toBe(stacked);
+    expect(withParagraphs('facebook', 'One line')).toBe('One line');
+    // Threads and X keep theirs: every character counts.
+    expect(withParagraphs('x', tight)).toBe(tight);
+    // What the AI writes is kept spaced, so the Calendar shows it the way it goes up.
+    expect(checkedPost(answer({ words: tight }), 'facebook')!.words).toBe(
+      'Ever put off a call?\n\nMost owners do.\n\nHere’s the truth.',
+    );
+    expect(WRITE_SYSTEM).toContain('blank line between paragraphs');
   });
 
   it('redoes posts that went up or didn’t, one at a time on each network (the owner, 15 Nov)', () => {

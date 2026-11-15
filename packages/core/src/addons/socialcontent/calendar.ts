@@ -204,9 +204,20 @@ export function postLength(words: string, hashtags: readonly string[]): number {
 }
 
 /**
- * The words as they go up: the post's words, then a blank line and its hashtags, each with its #, no more of them
- * than the network takes (`HASHTAGS_MOST`). Kept within what the network takes, cutting the words (never a hashtag
- * in half) when they'd run over.
+ * The words with a blank line between paragraphs (decision 158; the owner, 15 Nov: a Page post "didn’t have line
+ * spaces"). Words with line breaks but no blank line anywhere were written a line to a paragraph, so each break
+ * becomes a blank line. Words with a blank line somewhere keep their spacing as written, short lines stacked on
+ * purpose included. Threads and X keep theirs too: every character counts there.
+ */
+export function withParagraphs(network: string, words: string): string {
+  if (isShortNetwork(network) || !words.includes('\n') || /\n[ \t]*\n/.test(words)) return words;
+  return words.replace(/[ \t]*\n[ \t]*/g, '\n\n');
+}
+
+/**
+ * The words as they go up: the post's words, a blank line between paragraphs (`withParagraphs`), then a blank line
+ * and its hashtags, each with its #, no more of them than the network takes (`HASHTAGS_MOST`). Kept within what the
+ * network takes, cutting the words (never a hashtag in half) when they'd run over.
  */
 export function postText(
   network: PostingNetwork,
@@ -217,13 +228,9 @@ export function postText(
   const most = POSTING.textMost[network];
   const tail = tags ? `\n\n${tags}` : '';
   const room = Math.max(0, most - tail.length);
+  const spaced = withParagraphs(network, words.trim());
   const body =
-    words.trim().length > room
-      ? `${words
-          .trim()
-          .slice(0, Math.max(0, room - 1))
-          .trimEnd()}…`
-      : words.trim();
+    spaced.length > room ? `${spaced.slice(0, Math.max(0, room - 1)).trimEnd()}…` : spaced;
   return body ? `${body}${tail}`.slice(0, most) : tags.slice(0, most);
 }
 

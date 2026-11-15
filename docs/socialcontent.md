@@ -413,7 +413,9 @@ Instagram from 0.133.0, Threads and X from 0.138.0. The post's sheet offers **Co
 - **Each minute, before any reading,** the extension asks for the next post due (`socialcontent.post.next`) on the
   networks it posts on with no warning today. HandsFreeOS hands it the OK'd post whose time has come, soonest first,
   with its words as they go up (`postText`: the words, a blank line, then the hashtags, within what the network
-  takes: on Instagram no more than 5 hashtags, words included, since a caption with more goes up without its words),
+  takes: on Instagram no more than 5 hashtags, words included, since a caption with more goes up without its words;
+  words written a line to a paragraph, with no blank line anywhere, get one between each, as decision 158 in
+  `docs/outreach.md` asks, except on Threads and X, and the writer saves them that way too: `withParagraphs`),
   its pictures (or the person's video, on a video post), the places it still goes, and the Page's link. It's
   taken (`posting`), so it goes up once.
 - **Where it goes** (`placesFor`): on Facebook the person's profile, the business's Page, or both, in that order
