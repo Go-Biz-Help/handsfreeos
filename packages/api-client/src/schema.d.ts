@@ -15797,6 +15797,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/socialcontent.content.approve_many": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * OK several of the business’s own posts at once (the owner, 15 Nov: picked on the Calendar, by post, day, week, month or all), so each goes up at its time (decision 15). Only posts waiting for an OK, each with everything it needs and its time ahead. Says how many it OK’d, and which it couldn’t and why. Up to 500 at a time.
+         * @description Risk level 2. Requires socialcontent.use. Emits socialcontent.content.approved.
+         */
+        post: operations["command_socialcontent_content_approve_many"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/socialcontent.content.approve_week": {
         parameters: {
             query?: never;
@@ -15811,6 +15831,66 @@ export interface paths {
          * @description Risk level 2. Requires socialcontent.use. Emits socialcontent.content.approved.
          */
         post: operations["command_socialcontent_content_approve_week"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.content.hide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hide several of the business’s own posts from the Calendar (the owner, 15 Nov): they’re kept under its Hidden filter, and one that hasn’t gone up is skipped too, so it never goes up while hidden (an OK’d one loses its OK) and its day opens for another. hide: false shows them again, bringing a skipped one back as waiting for an OK. Not one going up right now. Up to 500 at a time.
+         * @description Risk level 1. Requires socialcontent.use. Emits socialcontent.content.hidden.
+         */
+        post: operations["command_socialcontent_content_hide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.content.look": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check if posts that didn’t post went up after all (the owner, 15 Nov): the computer that posts looks on the network for each, by its first words, in Chrome with the HandsFreeOS Social extension, usually within a minute while Chrome is open there. Each one found is marked as posted with its link; one not found says so. Up to 500 at a time.
+         * @description Risk level 1. Requires socialcontent.use. Emits .
+         */
+        post: operations["command_socialcontent_content_look"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.content.mark_posted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark posts that didn’t post as posted (the owner, 15 Nov): for when the person can see them on the network, since one can go up even though the extension didn’t see it go up. Each moves to posted everywhere it hadn’t gone up and won’t go up again. With one post, its link may be given (from that network), so its numbers are read 2 and 7 days on. Up to 500 at a time.
+         * @description Risk level 2. Requires socialcontent.use. Emits socialcontent.content.posted.
+         */
+        post: operations["command_socialcontent_content_mark_posted"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15847,7 +15927,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Redo several of the business’s own posts at once (the owner, 15 Nov): ones that went up wrong, or didn’t go up, put up again from the computer that posts, the first on each network now and the rest one every 30 minutes on that network. One that went up goes up again everywhere it went (its old numbers go, and the person deletes the old post on the network, since HandsFreeOS can’t take posts down); one that didn’t go up is tried again only where it hadn’t. It counts as the OK (decision 15). Says how many it redid, and which it couldn’t and why.
+         * Redo several of the business’s own posts at once (the owner, 15 Nov; up to 500 a time): ones that went up wrong, or didn’t go up, put up again from the computer that posts, the first on each network now and the rest one every 30 minutes on that network. A hidden one is shown again. One that went up goes up again everywhere it went (its old numbers go, and the person deletes the old post on the network, since HandsFreeOS can’t take posts down); one that didn’t go up is tried again only where it hadn’t. It counts as the OK (decision 15). Says how many it redid, and which it couldn’t and why.
          * @description Risk level 2. Requires socialcontent.use. Emits socialcontent.content.approved.
          */
         post: operations["command_socialcontent_content_redo"];
@@ -15867,10 +15947,30 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Remove one of the business’s own posts from the calendar for good, so it never goes up and its day is open for another (Fill the calendar or Write one then writes a new one there). Its record is archived, as an add-on’s records are never deleted. Not a post that went up or is going up. Owners and admins.
+         * Remove one of the business’s own posts from the calendar for good, so it never goes up and its day is open for another (Fill the calendar or Write one then writes a new one there). Its record is archived, as an add-on’s records are never deleted. One that went up comes off the calendar too, but stays on the network: HandsFreeOS can’t take posts down. Not one going up right now. Owners and admins.
          * @description Risk level 2. Requires socialcontent.use. Emits .
          */
         post: operations["command_socialcontent_content_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.content.remove_many": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete several of the business’s own posts from the Calendar for good (the owner, 15 Nov): their records are archived, as an add-on’s records are never deleted. One not up yet never goes up, and its day opens for another; one that went up stays on the network, since HandsFreeOS can’t take posts down. Not one going up right now. Owners and admins. Up to 500 at a time.
+         * @description Risk level 2. Requires socialcontent.use. Emits .
+         */
+        post: operations["command_socialcontent_content_remove_many"];
         delete?: never;
         options?: never;
         head?: never;
@@ -16111,6 +16211,46 @@ export interface paths {
          * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.content.done_well, socialcontent.content.read.
          */
         post: operations["command_socialcontent_own_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.post.look_next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extension: the next of the business’s own posts that didn’t post to look for on the network (Check if it posted, or on its own 10 minutes after one that may have gone up), on the networks given: its words as they went up, and the places it hadn’t gone up. It’s put off half an hour as it’s handed out. Null when none is due.
+         * @description Risk level 0. Requires socialcontent.use. Emits .
+         */
+        post: operations["command_socialcontent_post_look_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.post.looked": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extension: what looking on the network for a post that didn’t post found, place by place. Found everywhere it hadn’t gone up, it’s posted, with its links; otherwise it stays as didn’t post, saying when it looked. Why it couldn’t look at all (signed out, a warning) is kept to show.
+         * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.content.posted.
+         */
+        post: operations["command_socialcontent_post_looked"];
         delete?: never;
         options?: never;
         head?: never;
@@ -25431,6 +25571,26 @@ export interface paths {
          * @description Requires socialcontent.use.
          */
         post: operations["query_socialcontent_content_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/socialcontent.content.pick": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s own posts the Calendar’s Pick menu picks across any date, or the days given (the owner, 15 Nov): everything (all), waiting for an OK (waiting), OK’d (okd), past ones that went up or didn’t (past), ones that didn’t post (failed), or hidden ones (hidden). Only everything and hidden take in hidden posts. Each with its title, network, state and time; up to 2,000, soonest first.
+         * @description Requires socialcontent.use.
+         */
+        post: operations["query_socialcontent_content_pick"];
         delete?: never;
         options?: never;
         head?: never;
@@ -64672,10 +64832,18 @@ export interface operations {
                         /** @enum {string} */
                         format: "photo" | "carousel" | "video" | "text";
                         hashtags: string[];
+                        /** @default false */
+                        hidden: boolean;
                         hook: string | null;
                         /** Format: uuid */
                         id: string;
                         ideaId: string | null;
+                        /** @default null */
+                        lookAt: string | null;
+                        /** @default null */
+                        lookedAt: string | null;
+                        /** @default null */
+                        lookFailure: string | null;
                         /** @enum {string} */
                         madeBy: "ai" | "person";
                         /** @enum {string} */
@@ -64749,6 +64917,42 @@ export interface operations {
             };
         };
     };
+    command_socialcontent_content_approve_many: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    postIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approved: number;
+                        notApproved: {
+                            /** Format: uuid */
+                            postId: string;
+                            title: string;
+                            why: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     command_socialcontent_content_approve_week: {
         parameters: {
             query?: never;
@@ -64779,6 +64983,118 @@ export interface operations {
                             /** Format: uuid */
                             postId: string;
                             title: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_content_hide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default true */
+                    hide?: boolean;
+                    postIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: number;
+                        notChanged: {
+                            /** Format: uuid */
+                            postId: string;
+                            title: string;
+                            why: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_content_look: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    postIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        asked: number;
+                        notAsked: {
+                            /** Format: uuid */
+                            postId: string;
+                            title: string;
+                            why: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_content_mark_posted: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    link?: string | null;
+                    postIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        marked: number;
+                        notMarked: {
+                            /** Format: uuid */
+                            postId: string;
+                            title: string;
+                            why: string;
                         }[];
                     };
                 };
@@ -64829,10 +65145,18 @@ export interface operations {
                         /** @enum {string} */
                         format: "photo" | "carousel" | "video" | "text";
                         hashtags: string[];
+                        /** @default false */
+                        hidden: boolean;
                         hook: string | null;
                         /** Format: uuid */
                         id: string;
                         ideaId: string | null;
+                        /** @default null */
+                        lookAt: string | null;
+                        /** @default null */
+                        lookedAt: string | null;
+                        /** @default null */
+                        lookFailure: string | null;
                         /** @enum {string} */
                         madeBy: "ai" | "person";
                         /** @enum {string} */
@@ -64976,6 +65300,42 @@ export interface operations {
             };
         };
     };
+    command_socialcontent_content_remove_many: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    postIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        notRemoved: {
+                            /** Format: uuid */
+                            postId: string;
+                            title: string;
+                            why: string;
+                        }[];
+                        removed: number;
+                    };
+                };
+            };
+        };
+    };
     command_socialcontent_content_save: {
         parameters: {
             query?: never;
@@ -65043,10 +65403,18 @@ export interface operations {
                         /** @enum {string} */
                         format: "photo" | "carousel" | "video" | "text";
                         hashtags: string[];
+                        /** @default false */
+                        hidden: boolean;
                         hook: string | null;
                         /** Format: uuid */
                         id: string;
                         ideaId: string | null;
+                        /** @default null */
+                        lookAt: string | null;
+                        /** @default null */
+                        lookedAt: string | null;
+                        /** @default null */
+                        lookFailure: string | null;
                         /** @enum {string} */
                         madeBy: "ai" | "person";
                         /** @enum {string} */
@@ -65166,10 +65534,18 @@ export interface operations {
                         /** @enum {string} */
                         format: "photo" | "carousel" | "video" | "text";
                         hashtags: string[];
+                        /** @default false */
+                        hidden: boolean;
                         hook: string | null;
                         /** Format: uuid */
                         id: string;
                         ideaId: string | null;
+                        /** @default null */
+                        lookAt: string | null;
+                        /** @default null */
+                        lookedAt: string | null;
+                        /** @default null */
+                        lookFailure: string | null;
                         /** @enum {string} */
                         madeBy: "ai" | "person";
                         /** @enum {string} */
@@ -65749,10 +66125,194 @@ export interface operations {
                         /** @enum {string} */
                         format: "photo" | "carousel" | "video" | "text";
                         hashtags: string[];
+                        /** @default false */
+                        hidden: boolean;
                         hook: string | null;
                         /** Format: uuid */
                         id: string;
                         ideaId: string | null;
+                        /** @default null */
+                        lookAt: string | null;
+                        /** @default null */
+                        lookedAt: string | null;
+                        /** @default null */
+                        lookFailure: string | null;
+                        /** @enum {string} */
+                        madeBy: "ai" | "person";
+                        /** @enum {string} */
+                        network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
+                        numbers: {
+                            [key: string]: {
+                                [key: string]: {
+                                    at: string;
+                                    comments: number | null;
+                                    days: number;
+                                    likes: number | null;
+                                    shares: number | null;
+                                    views: number | null;
+                                } | {
+                                    at: string;
+                                    days: number;
+                                    failure: string;
+                                };
+                            };
+                        };
+                        picture: string | null;
+                        pictureFailure: string | null;
+                        pictures: {
+                            bucket: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            mimeType: string | null;
+                            name: string;
+                            objectPath: string;
+                        }[];
+                        /** @enum {string} */
+                        pictureState: "none" | "waiting" | "making" | "made" | "failed";
+                        /** @enum {string} */
+                        pictureWay: "design" | "photo" | "own";
+                        /**
+                         * @default ai
+                         * @enum {string}
+                         */
+                        placedBy: "ai" | "person";
+                        postAt: string | null;
+                        postedAt: string | null;
+                        postedTo: {
+                            at: string;
+                            link: string | null;
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                        }[];
+                        postLink: string | null;
+                        script: {
+                            lines: string[];
+                            shots: string[];
+                        } | null;
+                        slides: {
+                            body: string;
+                            heading: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
+                        stillNeeds: string | null;
+                        title: string;
+                        /** @default null */
+                        topic: {
+                            line: string;
+                            /** @enum {string} */
+                            list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                        } | null;
+                        updatedAt: string;
+                        words: string;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_post_look_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    networks: ("instagram" | "facebook" | "linkedin" | "threads" | "x")[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        post: {
+                            facebookPage: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            network: "instagram" | "facebook" | "linkedin" | "threads" | "x";
+                            places: ("profile" | "page" | "feed")[];
+                            postAt: string | null;
+                            text: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_post_looked: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    failure?: string | null;
+                    found: {
+                        /** @default null */
+                        link?: string | null;
+                        /** @enum {string} */
+                        place: "profile" | "page" | "feed";
+                    }[];
+                    /** Format: uuid */
+                    postId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @default null */
+                        angle: ("tip" | "problem" | "story" | "offer") | null;
+                        approvedAt: string | null;
+                        approvedBy: string | null;
+                        chain: string[];
+                        createdAt: string;
+                        doneWell: {
+                            at: string;
+                            /** @enum {string} */
+                            on: "views" | "engagement" | "both";
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                            times: number;
+                        } | null;
+                        facebookWhere: ("profile" | "page")[];
+                        failure: string | null;
+                        /** @enum {string} */
+                        format: "photo" | "carousel" | "video" | "text";
+                        hashtags: string[];
+                        /** @default false */
+                        hidden: boolean;
+                        hook: string | null;
+                        /** Format: uuid */
+                        id: string;
+                        ideaId: string | null;
+                        /** @default null */
+                        lookAt: string | null;
+                        /** @default null */
+                        lookedAt: string | null;
+                        /** @default null */
+                        lookFailure: string | null;
                         /** @enum {string} */
                         madeBy: "ai" | "person";
                         /** @enum {string} */
@@ -65934,10 +66494,18 @@ export interface operations {
                         /** @enum {string} */
                         format: "photo" | "carousel" | "video" | "text";
                         hashtags: string[];
+                        /** @default false */
+                        hidden: boolean;
                         hook: string | null;
                         /** Format: uuid */
                         id: string;
                         ideaId: string | null;
+                        /** @default null */
+                        lookAt: string | null;
+                        /** @default null */
+                        lookedAt: string | null;
+                        /** @default null */
+                        lookFailure: string | null;
                         /** @enum {string} */
                         madeBy: "ai" | "person";
                         /** @enum {string} */
@@ -101106,10 +101674,18 @@ export interface operations {
                             /** @enum {string} */
                             format: "photo" | "carousel" | "video" | "text";
                             hashtags: string[];
+                            /** @default false */
+                            hidden: boolean;
                             hook: string | null;
                             /** Format: uuid */
                             id: string;
                             ideaId: string | null;
+                            /** @default null */
+                            lookAt: string | null;
+                            /** @default null */
+                            lookedAt: string | null;
+                            /** @default null */
+                            lookFailure: string | null;
                             /** @enum {string} */
                             madeBy: "ai" | "person";
                             /** @enum {string} */
@@ -101201,10 +101777,18 @@ export interface operations {
                             /** @enum {string} */
                             format: "photo" | "carousel" | "video" | "text";
                             hashtags: string[];
+                            /** @default false */
+                            hidden: boolean;
                             hook: string | null;
                             /** Format: uuid */
                             id: string;
                             ideaId: string | null;
+                            /** @default null */
+                            lookAt: string | null;
+                            /** @default null */
+                            lookedAt: string | null;
+                            /** @default null */
+                            lookFailure: string | null;
                             /** @enum {string} */
                             madeBy: "ai" | "person";
                             /** @enum {string} */
@@ -101296,10 +101880,18 @@ export interface operations {
                             /** @enum {string} */
                             format: "photo" | "carousel" | "video" | "text";
                             hashtags: string[];
+                            /** @default false */
+                            hidden: boolean;
                             hook: string | null;
                             /** Format: uuid */
                             id: string;
                             ideaId: string | null;
+                            /** @default null */
+                            lookAt: string | null;
+                            /** @default null */
+                            lookedAt: string | null;
+                            /** @default null */
+                            lookFailure: string | null;
                             /** @enum {string} */
                             madeBy: "ai" | "person";
                             /** @enum {string} */
@@ -101418,10 +102010,18 @@ export interface operations {
                         /** @enum {string} */
                         format: "photo" | "carousel" | "video" | "text";
                         hashtags: string[];
+                        /** @default false */
+                        hidden: boolean;
                         hook: string | null;
                         /** Format: uuid */
                         id: string;
                         ideaId: string | null;
+                        /** @default null */
+                        lookAt: string | null;
+                        /** @default null */
+                        lookedAt: string | null;
+                        /** @default null */
+                        lookFailure: string | null;
                         /** @enum {string} */
                         madeBy: "ai" | "person";
                         /** @enum {string} */
@@ -101544,10 +102144,18 @@ export interface operations {
                             /** @enum {string} */
                             format: "photo" | "carousel" | "video" | "text";
                             hashtags: string[];
+                            /** @default false */
+                            hidden: boolean;
                             hook: string | null;
                             /** Format: uuid */
                             id: string;
                             ideaId: string | null;
+                            /** @default null */
+                            lookAt: string | null;
+                            /** @default null */
+                            lookedAt: string | null;
+                            /** @default null */
+                            lookFailure: string | null;
                             /** @enum {string} */
                             madeBy: "ai" | "person";
                             /** @enum {string} */
@@ -101616,6 +102224,50 @@ export interface operations {
                             } | null;
                             updatedAt: string;
                             words: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_socialcontent_content_pick: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    days?: number;
+                    from?: string;
+                    /** @enum {string} */
+                    which: "all" | "waiting" | "okd" | "past" | "failed" | "hidden";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        more: boolean;
+                        posts: {
+                            hidden: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
+                            postAt: string | null;
+                            /** @enum {string} */
+                            state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
+                            title: string;
                         }[];
                     };
                 };

@@ -16049,6 +16049,28 @@
         "required": ["workspaceId", "postId"]
       }
     },
+    "socialcontent.content.approve_many": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postIds": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workspaceId", "postIds"]
+      }
+    },
     "socialcontent.content.approve_week": {
       "offline": "online",
       "input": {
@@ -16064,6 +16086,89 @@
           }
         },
         "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.content.hide": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postIds": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "hide": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "postIds"]
+      }
+    },
+    "socialcontent.content.look": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postIds": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workspaceId", "postIds"]
+      }
+    },
+    "socialcontent.content.mark_posted": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postIds": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "link": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "postIds"]
       }
     },
     "socialcontent.content.post_now": {
@@ -16094,7 +16199,7 @@
           },
           "postIds": {
             "minItems": 1,
-            "maxItems": 30,
+            "maxItems": 500,
             "type": "array",
             "items": {
               "type": "string",
@@ -16120,6 +16225,28 @@
           }
         },
         "required": ["workspaceId", "postId"]
+      }
+    },
+    "socialcontent.content.remove_many": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postIds": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workspaceId", "postIds"]
       }
     },
     "socialcontent.content.save": {

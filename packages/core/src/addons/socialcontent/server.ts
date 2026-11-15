@@ -9,6 +9,7 @@ import { socialcontentAddon } from './manifest';
 import { contentCommands, contentQueries } from './ops/content';
 import { notesCommands, notesQueries } from './ops/notes';
 import { OWN_EXTENSION, ownCommands } from './ops/own';
+import { LOOK_EXTENSION, pickedCommands, pickedQueries } from './ops/picked';
 import { POSTING_EXTENSION, postingCommands } from './ops/posting';
 import { EXTENSION, readingCommands } from './ops/reading';
 import { researchCommands, researchQueries } from './ops/research';
@@ -23,13 +24,14 @@ export const socialcontentAddonServer: AddonServerModule = {
     ...notesCommands,
     ...contentCommands,
     ...postingCommands,
+    ...pickedCommands,
     ...ownCommands,
     ...readingCommands,
     ...workerCommands,
     ...scheduleCommands,
     ...setupCommands,
   ],
-  queries: [...researchQueries, ...notesQueries, ...contentQueries],
+  queries: [...researchQueries, ...notesQueries, ...contentQueries, ...pickedQueries],
   notForTheAssistant: {
     'socialcontent.work.next': EXTENSION,
     'socialcontent.work.finish': EXTENSION,
@@ -39,6 +41,8 @@ export const socialcontentAddonServer: AddonServerModule = {
     'socialcontent.posts.save': EXTENSION,
     'socialcontent.post.next': POSTING_EXTENSION,
     'socialcontent.post.went': POSTING_EXTENSION,
+    'socialcontent.post.look_next': LOOK_EXTENSION,
+    'socialcontent.post.looked': LOOK_EXTENSION,
     'socialcontent.own.next': OWN_EXTENSION,
     'socialcontent.own.read': OWN_EXTENSION,
   },

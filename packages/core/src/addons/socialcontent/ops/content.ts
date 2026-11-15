@@ -71,11 +71,20 @@ export const POST_REFUSALS = {
   notRedoable: 'It hasn’t gone up yet, so there’s nothing to redo. OK it, or press Post it now.',
   removeWho:
     'Only an owner or admin removes posts. Press Skip it instead, which opens its day for another post too, or ask one of them.',
-  removePosted: (network: string) =>
-    `That post already went up, so it stays on the calendar with its numbers. To take it down, delete it on ${network} itself.`,
 } as const;
 
 export type ContentRow = typeof content.$inferSelect & { title: string };
+
+/**
+ * A post that's going up (OK'd, redone, or put up now) is shown again if it was hidden (a hidden post never goes up),
+ * and is no longer looked for (Check if it posted is for one that didn't post).
+ */
+export const NOT_HIDDEN_OR_LOOKED = {
+  hiddenAt: null,
+  lookDueAt: null,
+  lookedAt: null,
+  lookFailure: null,
+} as const;
 
 /** The post, with its record's name, when it's in this business and not in the Deleted bin. */
 export async function loadContent(
@@ -104,7 +113,7 @@ export async function loadContent(
   return { ...c, title: r.title };
 }
 
-const networkWord = (n: string) =>
+export const networkWord = (n: string) =>
   n === 'instagram'
     ? 'Instagram'
     : n === 'facebook'
@@ -175,6 +184,10 @@ function fromRaw(r: RawRow): ContentRow {
     doneWell: isPlainObject(r['done_well'])
       ? (r['done_well'] as unknown as ContentRow['doneWell'])
       : null,
+    hiddenAt: asDate(r['hidden_at']),
+    lookDueAt: asDate(r['look_due_at']),
+    lookedAt: asDate(r['looked_at']),
+    lookFailure: (r['look_failure'] as string | null) ?? null,
     createdBy: (r['created_by'] as string | null) ?? null,
     createdAt: asDate(r['created_at'])!,
     updatedAt: asDate(r['updated_at'])!,
@@ -182,7 +195,7 @@ function fromRaw(r: RawRow): ContentRow {
   };
 }
 
-async function readPosts(ctx: Ctx, where: ReturnType<typeof sql>): Promise<ContentRow[]> {
+export async function readPosts(ctx: Ctx, where: ReturnType<typeof sql>): Promise<ContentRow[]> {
   const found = await rows<RawRow>(
     ctx.tx,
     sql`${POST_SELECT} where c.workspace_id = ${ctx.scope.workspaceId!} and ${where}`,
@@ -280,6 +293,10 @@ export async function contentOut(ctx: Ctx, list: readonly ContentRow[]): Promise
         facebookWhere: c.facebookWhere,
         facebookPage: s.facebookPage,
       }),
+      hidden: c.hiddenAt !== null,
+      lookAt: c.state === 'failed' ? (c.lookDueAt?.toISOString() ?? null) : null,
+      lookedAt: c.state === 'failed' ? (c.lookedAt?.toISOString() ?? null) : null,
+      lookFailure: c.state === 'failed' ? c.lookFailure : null,
       createdAt: c.createdAt.toISOString(),
       updatedAt: c.updatedAt.toISOString(),
     });
@@ -296,7 +313,7 @@ async function nameOf(ctx: Ctx, userId: string): Promise<string | null> {
 }
 
 /** The day range a calendar shows, as instants in the business's time zone. */
-function rangeOf(from: string, days: number, timeZone: string) {
+export function rangeOf(from: string, days: number, timeZone: string) {
   const end = addDays(from, days);
   return {
     end,
@@ -565,7 +582,7 @@ export const contentSave = defineAddonCommand(socialcontentAddon, {
 });
 
 /** OKs a post that's ready to: nothing missing, and its time ahead. Null when it's OK'd; else what it needs. */
-async function okOne(
+export async function okOne(
   ctx: CommandContext,
   c: ContentRow,
   me: string,
@@ -599,7 +616,14 @@ async function okOne(
   const at = changeMoment(ctx.meta);
   await ctx.tx
     .update(content)
-    .set({ state: 'ready', approvedBy: me, approvedAt: at, failure: null, updatedAt: at })
+    .set({
+      state: 'ready',
+      approvedBy: me,
+      approvedAt: at,
+      failure: null,
+      ...NOT_HIDDEN_OR_LOOKED,
+      updatedAt: at,
+    })
     .where(eq(content.recordId, c.recordId));
   await ctx.emit({
     type: 'socialcontent.content.approved',
@@ -750,10 +774,18 @@ export const contentSkip = defineAddonCommand(socialcontentAddon, {
   },
 });
 
+/** Takes a post off the Calendar for good: its record archived, as an add-on's records are never deleted. */
+export async function removeOne(ctx: CommandContext, c: ContentRow): Promise<void> {
+  await executeCommandWithin(ctx, customRecordArchive, {
+    workspaceId: ctx.scope.workspaceId!,
+    customRecordId: c.recordId,
+  });
+}
+
 export const contentRemove = defineAddonCommand(socialcontentAddon, {
   name: 'socialcontent.content.remove',
   description:
-    'Remove one of the business’s own posts from the calendar for good, so it never goes up and its day is open for another (Fill the calendar or Write one then writes a new one there). Its record is archived, as an add-on’s records are never deleted. Not a post that went up or is going up. Owners and admins.',
+    'Remove one of the business’s own posts from the calendar for good, so it never goes up and its day is open for another (Fill the calendar or Write one then writes a new one there). Its record is archived, as an add-on’s records are never deleted. One that went up comes off the calendar too, but stays on the network: HandsFreeOS can’t take posts down. Not one going up right now. Owners and admins.',
   risk: 2,
   input: ContentRemoveInput,
   output: ContentRemoveOutput,
@@ -775,19 +807,14 @@ export const contentRemove = defineAddonCommand(socialcontentAddon, {
     if (!scopeCan(ctx.scope, 'records.archive'))
       throw HfosError.rule('socialcontent_remove_forbidden', 403, POST_REFUSALS.removeWho);
     const c = await loadContent(ctx, input.postId, { lock: true });
-    if (c.state === 'posted')
-      throw HfosError.rule(
-        'socialcontent_post_posted',
-        409,
-        POST_REFUSALS.removePosted(networkWord(c.network)),
-      );
     if (c.state === 'posting')
       throw HfosError.rule('socialcontent_post_posting', 409, POST_REFUSALS.posting);
-    await executeCommandWithin(ctx, customRecordArchive, {
-      workspaceId: ctx.scope.workspaceId!,
-      customRecordId: c.recordId,
-    });
-    const openDay = c.postAt ? localDateOf(c.postAt.getTime(), await timeZoneOf(ctx)) : null;
+    await removeOne(ctx, c);
+    // A post that went up keeps its day: it's on the network still.
+    const openDay =
+      c.postAt && c.state !== 'posted'
+        ? localDateOf(c.postAt.getTime(), await timeZoneOf(ctx))
+        : null;
     return { postId: c.recordId, openDay };
   },
 });

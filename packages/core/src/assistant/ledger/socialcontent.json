@@ -4,13 +4,14 @@
   "checkedOn": "2026-11-15",
   "files": {
     "apps/mobile/src/addons/socialcontent/activity.tsx": "9744b485ef7b",
-    "apps/mobile/src/addons/socialcontent/calendar.tsx": "316f9fb62b9e",
+    "apps/mobile/src/addons/socialcontent/calendar-picking.tsx": "beaeabc03295",
+    "apps/mobile/src/addons/socialcontent/calendar.tsx": "eacd8b69b89b",
     "apps/mobile/src/addons/socialcontent/creators.tsx": "afbddca04aa6",
     "apps/mobile/src/addons/socialcontent/home.tsx": "6973e687d399",
     "apps/mobile/src/addons/socialcontent/ideas.tsx": "355ae79366b6",
     "apps/mobile/src/addons/socialcontent/kit.tsx": "f3734b26ca2f",
     "apps/mobile/src/addons/socialcontent/more.tsx": "41a0e2e099f1",
-    "apps/mobile/src/addons/socialcontent/own-post.tsx": "5889683321ce",
+    "apps/mobile/src/addons/socialcontent/own-post.tsx": "53488a9e2868",
     "apps/mobile/src/addons/socialcontent/playbook.tsx": "f6bbed355f8c",
     "apps/mobile/src/addons/socialcontent/post-card.tsx": "047b4bb8df26",
     "apps/mobile/src/addons/socialcontent/settings.tsx": "965748f592e6",
@@ -26,18 +27,20 @@
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/standouts.tsx": "adbc9f8ec4fe",
     "apps/web/src/addons/registry.ts": "c925198a00a2",
     "apps/web/src/addons/socialcontent/activity-card.tsx": "ac129c506362",
-    "apps/web/src/addons/socialcontent/calendar-page.tsx": "54236b841a20",
+    "apps/web/src/addons/socialcontent/calendar-grids.tsx": "f96255259537",
+    "apps/web/src/addons/socialcontent/calendar-page.tsx": "79e5971bd297",
+    "apps/web/src/addons/socialcontent/calendar-picking.tsx": "8fbbd9e99b84",
     "apps/web/src/addons/socialcontent/creators-page.tsx": "7981cd799c44",
     "apps/web/src/addons/socialcontent/ideas-page.tsx": "38ccbdb2a0f8",
     "apps/web/src/addons/socialcontent/offer-notice.tsx": "bd18d03766c4",
     "apps/web/src/addons/socialcontent/playbook-page.tsx": "add4a230d665",
     "apps/web/src/addons/socialcontent/post-card.tsx": "67aaf4c54254",
-    "apps/web/src/addons/socialcontent/post-sheet.tsx": "4b18f31434f1",
+    "apps/web/src/addons/socialcontent/post-sheet.tsx": "8d43e1ed9a5e",
     "apps/web/src/addons/socialcontent/settings-page.tsx": "58114b70b508",
     "apps/web/src/addons/socialcontent/setup-card.tsx": "c30a470b168c",
     "apps/web/src/addons/socialcontent/standout-links.tsx": "1d5a6acf8414",
     "apps/web/src/addons/socialcontent/standouts-page.tsx": "432ad6ca185d",
-    "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/calendar/page.tsx": "aac72a86dfcf",
+    "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/calendar/page.tsx": "059a522797e6",
     "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/creators/page.tsx": "f4ae2d8b3e77",
     "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/ideas/page.tsx": "6b4e6194b80e",
     "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/page.tsx": "f6d978501d91",
@@ -798,112 +801,168 @@
     {
       "path": "Phone → Calendar → Fill the calendar (while it fills on its own)",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:186",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:590",
       "covered": "yes",
       "by": "socialcontent_fill_calendar (worker action), on its own"
     },
     {
       "path": "Phone → Calendar → Fill on its own: off stops the AI filling it, on fills the open days now",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:229",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:637",
       "covered": "yes",
       "by": "socialcontent_save_settings (autoFill), on a Confirm card"
     },
     {
       "path": "Phone → Calendar → OK the week (when posts wait for an OK)",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:200",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:604",
       "covered": "yes",
       "by": "socialcontent_approve_week, on a Confirm card"
     },
     {
       "path": "Phone → Calendar → Write a post (opens a sheet asking which networks and how first)",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:249",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:617",
       "covered": "yes",
       "by": "socialcontent_write_own_post (worker action) asks for the same: network or networks, and ask"
     },
     {
       "path": "Phone → Calendar → Write a post → Which networks? (one or more; starts on the first with posts in the plan)",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:418",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:944",
       "covered": "yes",
       "by": "socialcontent_write_own_post (networks)"
     },
     {
       "path": "Phone → Calendar → Write a post → How should the AI write it? AI on its own / My direction, and What should the post be about?",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:433",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:961",
       "covered": "yes",
       "by": "socialcontent_write_own_post (ask, or none for the AI on its own)"
     },
     {
       "path": "Phone → Calendar → Write a post → Write it / Write N posts (one post opens once written; several show on their days)",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:457",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:992",
       "covered": "yes",
       "by": "socialcontent_write_own_post (worker action)"
     },
     {
       "path": "Phone → Calendar → when it was filled and fills again, the plan per network, how many are OK’d, whose computer puts them up and the networks posted by hand",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:234",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:646",
       "covered": "yes",
       "by": "socialcontent_get_calendar (filledAt, nextFillAt, plan, ready, poster, postsOn)"
     },
     {
       "path": "Phone → Calendar → no posts yet",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:257",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:815",
       "covered": "yes",
       "by": "socialcontent_get_calendar (posts, undated and open all empty)"
     },
     {
       "path": "Phone → Calendar → a day: its posts, each with picture, network, time, format, state, title, first line, what it still needs or its latest numbers",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:265",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:1003",
       "covered": "yes",
       "by": "socialcontent_get_calendar (posts with stillNeeds, numbers, doneWell)"
     },
     {
       "path": "Phone → Calendar → a day → Open day: network and time, Write one",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:288",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:519",
       "covered": "yes",
       "by": "socialcontent_get_calendar (open); socialcontent_write_own_post (network, postAt)"
     },
     {
       "path": "Phone → Calendar → No day yet, and Lately: what went up with how each did, and what didn’t go up",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:458",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:832",
       "covered": "yes",
       "by": "socialcontent_get_calendar (undated, recent with state, numbers and doneWell)"
     },
     {
-      "path": "Phone → Calendar → Redo posts (when a post went up or didn’t go up): a tick beside each of those posts",
-      "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:312",
+      "path": "Phone → Calendar → List, Week and Month (kept on this phone); back, Today and ahead go a week or a month",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:671",
       "covered": "yes",
-      "by": "socialcontent_redo_own_posts (postIds), on a Confirm card"
+      "by": "socialcontent_get_calendar (from, days: 7 for a week, 42 for a month)"
     },
     {
-      "path": "Phone → Calendar → Redo posts → Redo N posts, Tick the N that didn’t go up, the note to delete the old ones on the network, or Cancel",
-      "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:336",
+      "path": "Phone → Calendar → Week: seven days with a dot per post, then each day’s posts as short rows",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/socialcontent/calendar-picking.tsx:789",
       "covered": "yes",
-      "by": "socialcontent_redo_own_posts (postIds), on a Confirm card; it says which it couldn’t redo and why"
+      "by": "socialcontent_get_calendar (from, days 7)"
+    },
+    {
+      "path": "Phone → Calendar → Month: six weeks of days with a dot per post; a day opens its week, or picks it while selecting",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/socialcontent/calendar-picking.tsx:851",
+      "covered": "yes",
+      "by": "socialcontent_get_calendar (from, days 42)"
+    },
+    {
+      "path": "Phone → Calendar → filters with their counts: All, Waiting for your OK, OK’d, Posted, Didn’t post, Hidden",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:749",
+      "covered": "yes",
+      "by": "socialcontent_get_calendar (posts with state and hidden); socialcontent_pick_own_posts (which)"
+    },
+    {
+      "path": "Phone → Calendar → Select: Cancel, N picked, Pick; a tick beside each post, each day and Lately",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:556",
+      "covered": "yes",
+      "by": "socialcontent_pick_own_posts (which, from, days) finds them; each change takes their postIds"
+    },
+    {
+      "path": "Phone → Calendar → Select → Pick: Today, This week, This month, the kinds in what’s shown or at any date, Clear what’s picked",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/calendar-picking.tsx:633",
+      "covered": "yes",
+      "by": "socialcontent_pick_own_posts (which, from, days)"
+    },
+    {
+      "path": "Phone → Calendar → Select → the bar: what’s picked, OK, Redo (and Also redo the N that posted), Check, Hide; More: Mark posted, Show again, Delete",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/calendar-picking.tsx:152",
+      "covered": "yes",
+      "by": "socialcontent_approve_own_posts, socialcontent_redo_own_posts, socialcontent_check_own_posts, socialcontent_mark_own_posts_posted, socialcontent_hide_own_posts (hide, or show again), socialcontent_remove_own_posts; the changes on Confirm cards, each saying which it couldn’t do and why"
+    },
+    {
+      "path": "Phone → Calendar → Select → Delete: asks first, Hide instead or Delete N (owners and admins; others are told who can)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/calendar-picking.tsx:336",
+      "covered": "yes",
+      "by": "socialcontent_remove_own_posts, on a Confirm card; socialcontent_hide_own_posts"
+    },
+    {
+      "path": "Phone → Calendar → Mark as posted: asks first, with the post’s link if there is one, or Check if it posted instead",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/calendar-picking.tsx:410",
+      "covered": "yes",
+      "by": "socialcontent_mark_own_posts_posted (postIds, link), on a Confirm card; socialcontent_check_own_posts"
+    },
+    {
+      "path": "Phone → Calendar → a post that didn’t post: Try again, Check if it posted, Mark as posted, and Checking… or what the check found",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/calendar-picking.tsx:498",
+      "covered": "yes",
+      "by": "socialcontent_post_own_post_now; socialcontent_check_own_posts; socialcontent_mark_own_posts_posted (link); socialcontent_get_calendar or socialcontent_get_own_post (failure, lookAt, lookedAt, lookFailure)"
     },
     {
       "path": "Phone → Calendar → open a post (its own screen, also from a link with ?post=)",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:339",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:499",
       "covered": "yes",
       "by": "socialcontent_get_own_post; the place links the Calendar"
     },
     {
       "path": "Phone → Calendar or a post with no signal: needs signal, Try again",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:154",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:402",
       "covered": "yes",
       "by": "the Assistant needs signal too; nothing to do"
     },
@@ -936,11 +995,11 @@
       "by": "socialcontent_get_own_post (numbers, doneWell)"
     },
     {
-      "path": "Phone → Post → why it didn’t post, and what to do next",
+      "path": "Phone → Post → why it didn’t post, with Try again, Check if it posted and Mark as posted",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:699",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:728",
       "covered": "yes",
-      "by": "socialcontent_get_own_post (state, failure); the place’s words"
+      "by": "socialcontent_post_own_post_now; socialcontent_check_own_posts; socialcontent_mark_own_posts_posted (link); socialcontent_get_calendar or socialcontent_get_own_post (failure, lookAt, lookedAt, lookFailure)"
     },
     {
       "path": "Phone → Post → Title, Network, Format",
@@ -1069,7 +1128,7 @@
       "by": "socialcontent_approve_own_post (ok), on a Confirm card"
     },
     {
-      "path": "Phone → Post → Post it now (an OK’d post, or one that didn’t post, on Facebook, LinkedIn, Instagram, Threads or X)",
+      "path": "Phone → Post → Post it now (an OK’d post, on Facebook, LinkedIn, Instagram, Threads or X; one that didn’t post has Try again)",
       "kind": "do",
       "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:1091",
       "covered": "yes",
@@ -1106,140 +1165,203 @@
     {
       "path": "Calendar → header: title and that nothing goes up without an OK",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:143",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:307",
       "covered": "yes",
       "by": "socialcontent_get_calendar; the place’s words"
     },
     {
       "path": "Calendar → Fill the calendar (while it fills on its own)",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:153",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:320",
       "covered": "yes",
       "by": "socialcontent_fill_calendar (worker action), on its own"
     },
     {
       "path": "Calendar → Fill on its own: off stops the AI filling it (a fill under way too), on fills the open days now",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:207",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:366",
       "covered": "yes",
       "by": "socialcontent_save_settings (autoFill), on a Confirm card"
     },
     {
       "path": "Calendar → OK the week (when posts wait for an OK)",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:165",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:328",
       "covered": "yes",
       "by": "socialcontent_approve_week, on a Confirm card"
     },
     {
       "path": "Calendar → Write a post (opens a window asking which networks and how first)",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:209",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:344",
       "covered": "yes",
       "by": "socialcontent_write_own_post (worker action) asks for the same: network or networks, and ask"
     },
     {
       "path": "Calendar → Write a post → Which networks? (one or more; starts on the first with posts in the plan)",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:419",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:713",
       "covered": "yes",
       "by": "socialcontent_write_own_post (networks)"
     },
     {
       "path": "Calendar → Write a post → How should the AI write it? AI on its own / My direction, and What should the post be about?",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:446",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:742",
       "covered": "yes",
       "by": "socialcontent_write_own_post (ask, or none for the AI on its own)"
     },
     {
       "path": "Calendar → Write a post → Write it / Write N posts, or Cancel (one post opens once written; several show on their days)",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:484",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:795",
       "covered": "yes",
       "by": "socialcontent_write_own_post (worker action)"
     },
     {
       "path": "Calendar → when it was filled and fills again, or that filling on its own is off, the plan per network",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:194",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:356",
       "covered": "yes",
       "by": "socialcontent_get_calendar (filledAt, nextFillAt, autoFill, plan, ready)"
     },
     {
       "path": "Calendar → an open place: “A new time, to keep learning” where AI picks tries an hour",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:262",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:571",
       "covered": "yes",
       "by": "socialcontent_get_calendar (open[].trying)"
     },
     {
       "path": "Calendar → how many are OK’d and going up, whose computer puts them up and when it last checked in (a warning when none is picked or it’s quiet), and the networks posted by hand for now",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:214",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:378",
       "covered": "yes",
       "by": "socialcontent_get_calendar (ready, poster, postsOn, posts)"
     },
     {
       "path": "Calendar → no posts yet",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:228",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:514",
       "covered": "yes",
       "by": "socialcontent_get_calendar (posts, undated and open all empty)"
     },
     {
-      "path": "Calendar → a day: its posts, each with network, time, format, state, picture, title, first line and what it still needs",
+      "path": "Calendar → a day: its posts, each with network, time, format, state, picture, title, first line, what it still needs, why it didn’t post or its latest numbers",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:326",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:804",
       "covered": "yes",
-      "by": "socialcontent_get_calendar (posts with stillNeeds); socialcontent_list_own_posts"
+      "by": "socialcontent_get_calendar (posts with stillNeeds, failure, numbers); socialcontent_list_own_posts"
     },
     {
-      "path": "Calendar → a post’s row → Remove, after asking (owners and admins); its day opens again",
+      "path": "Calendar → a post’s row → Remove, after asking (owners and admins); its day opens again, and one that went up stays up on its network",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:380",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:905",
       "covered": "yes",
       "by": "socialcontent_remove_own_post (on a Confirm card)"
     },
     {
       "path": "Calendar → a day → Open day: network and time, Write one",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:255",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:565",
       "covered": "yes",
       "by": "socialcontent_get_calendar (open); socialcontent_write_own_post (network, postAt)"
     },
     {
       "path": "Calendar → No day yet: posts without a day",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:280",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:594",
       "covered": "yes",
       "by": "socialcontent_get_calendar (undated)"
     },
     {
       "path": "Calendar → Lately: what went up in the 30 days before, each with its latest numbers or that it did well, and what didn’t go up",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:434",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:613",
       "covered": "yes",
       "by": "socialcontent_get_calendar (recent, each with state, numbers and doneWell)"
     },
     {
-      "path": "Calendar → Redo posts (when a post went up or didn’t go up): a tick beside each of those posts",
-      "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:254",
+      "path": "Calendar → List, Week and Month (each person’s last look is kept); back, Today and ahead go a week or a month; weeks start Monday",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:431",
       "covered": "yes",
-      "by": "socialcontent_redo_own_posts (postIds), on a Confirm card"
+      "by": "socialcontent_get_calendar (from, days: 7 for a week, 42 for the six weeks a month shows)"
     },
     {
-      "path": "Calendar → Redo posts → Tick the N that didn’t go up, the note to delete the old ones on the network, Redo N posts, or Cancel",
-      "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:294",
+      "path": "Calendar → Week: seven days, each post as a card with network, time and state, and open places with Write one",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/calendar-grids.tsx:120",
       "covered": "yes",
-      "by": "socialcontent_redo_own_posts (postIds), on a Confirm card; it says which it couldn’t redo and why"
+      "by": "socialcontent_get_calendar (from, days 7: posts, open); socialcontent_write_own_post (network, postAt)"
+    },
+    {
+      "path": "Calendar → Month: six weeks, each day’s posts as chips (dots on narrow screens), +N more, Not filled yet; a day’s number opens its week; the key under it",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/calendar-grids.tsx:258",
+      "covered": "yes",
+      "by": "socialcontent_get_calendar (from, days 42)"
+    },
+    {
+      "path": "Calendar → filters: All, Waiting for your OK, OK’d, Posted, Didn’t post, Hidden, each with its count; hidden posts show only under Hidden",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:474",
+      "covered": "yes",
+      "by": "socialcontent_get_calendar (posts with state and hidden); socialcontent_pick_own_posts (which)"
+    },
+    {
+      "path": "Calendar → Select: a tick beside each post, each day, each week on Month, and Lately, and one for all that’s shown",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:446",
+      "covered": "yes",
+      "by": "socialcontent_pick_own_posts (which, from, days) finds them; each change takes their postIds"
+    },
+    {
+      "path": "Calendar → Select → Pick: Today, This week or This month; everything, waiting, OK’d, past, didn’t post or hidden in what’s shown; or at any date: everything, waiting, past, didn’t post, hidden; Clear what’s picked",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/calendar-picking.tsx:721",
+      "covered": "yes",
+      "by": "socialcontent_pick_own_posts (which, from, days; it says when there are more than it gives)"
+    },
+    {
+      "path": "Calendar → Select → the bar: N picked and what they are, OK (waiting only), Redo (past only, and Also redo the N that posted), Check if posted, Mark posted (didn’t post only), Hide or Show again, Delete, Cancel",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/calendar-picking.tsx:217",
+      "covered": "yes",
+      "by": "socialcontent_approve_own_posts, socialcontent_redo_own_posts, socialcontent_check_own_posts, socialcontent_mark_own_posts_posted, socialcontent_hide_own_posts (hide, or show again), socialcontent_remove_own_posts; the changes on Confirm cards, each saying which it couldn’t do and why"
+    },
+    {
+      "path": "Calendar → Select → Delete: asks first, says it doesn’t take them down from the networks, Hide instead or Delete N (owners and admins; others are told who can)",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/calendar-picking.tsx:406",
+      "covered": "yes",
+      "by": "socialcontent_remove_own_posts, on a Confirm card; socialcontent_hide_own_posts"
+    },
+    {
+      "path": "Calendar → Select → Mark posted: asks first, with the post’s link if there is one, or Check if it posted instead",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/calendar-picking.tsx:477",
+      "covered": "yes",
+      "by": "socialcontent_mark_own_posts_posted (postIds, link), on a Confirm card; socialcontent_check_own_posts"
+    },
+    {
+      "path": "Calendar → a post that didn’t post: why, Try again, Check if it posted, Mark as posted (Mark as posted anyway after a check), and Checking… or what the check found",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/calendar-picking.tsx:581",
+      "covered": "yes",
+      "by": "socialcontent_post_own_post_now; socialcontent_check_own_posts; socialcontent_mark_own_posts_posted (link); socialcontent_get_calendar or socialcontent_get_own_post (failure, lookAt, lookedAt, lookFailure)"
+    },
+    {
+      "path": "Calendar → a hidden post’s row: the Hidden badge and a dashed edge",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:804",
+      "covered": "yes",
+      "by": "socialcontent_get_calendar (hidden)"
     },
     {
       "path": "Calendar → open a post (also from a link with ?post=)",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:84",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:107",
       "covered": "yes",
       "by": "socialcontent_get_own_post; the place links the Calendar"
     },
@@ -1265,11 +1387,11 @@
       "by": "socialcontent_get_own_post (postedAt, postedTo, postLink)"
     },
     {
-      "path": "Post → why it didn’t post, and what to do next",
+      "path": "Post → why it didn’t post, with Try again, Check if it posted and Mark as posted",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:545",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:573",
       "covered": "yes",
-      "by": "socialcontent_get_own_post (state, failure); the place’s words"
+      "by": "socialcontent_post_own_post_now; socialcontent_check_own_posts; socialcontent_mark_own_posts_posted (link); socialcontent_get_calendar or socialcontent_get_own_post (failure, lookAt, lookedAt, lookFailure)"
     },
     {
       "path": "Post → How it did: its numbers about 2 and 7 days after it went up, in each place, and whether it did well against the business’s own other posts",
@@ -1419,9 +1541,9 @@
       "by": "socialcontent_approve_own_post (ok), on a Confirm card"
     },
     {
-      "path": "Post → Post it now (an OK’d post, or one that didn’t post, on Facebook, LinkedIn, Instagram, Threads or X)",
+      "path": "Post → Post it now (an OK’d post, on Facebook, LinkedIn, Instagram, Threads or X; one that didn’t post has Try again)",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:966",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:1022",
       "covered": "yes",
       "by": "socialcontent_post_own_post_now, on a Confirm card"
     },

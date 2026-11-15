@@ -41,16 +41,16 @@ import type { ResearchTab } from './tab';
 /** The networks this build posts on: Facebook and LinkedIn (part 9), Instagram (part 10), Threads and X (decision 41). */
 export const POSTS_ON = POSTING.networks;
 
-const FACEBOOK_HOME = 'https://www.facebook.com/';
-const FACEBOOK_ME = 'https://www.facebook.com/me';
+export const FACEBOOK_HOME = 'https://www.facebook.com/';
+export const FACEBOOK_ME = 'https://www.facebook.com/me';
 const BUSINESS_COMPOSER = 'https://business.facebook.com/latest/composer/';
 /** How many of a Page's numbers Business Suite is tried with, likeliest first. */
 const PAGE_IDS_TRIED = 3;
 const LINKEDIN_FEED = 'https://www.linkedin.com/feed/';
-const LINKEDIN_OWN_POSTS = 'https://www.linkedin.com/in/me/recent-activity/all/';
-const INSTAGRAM_HOME = 'https://www.instagram.com/';
+export const LINKEDIN_OWN_POSTS = 'https://www.linkedin.com/in/me/recent-activity/all/';
+export const INSTAGRAM_HOME = 'https://www.instagram.com/';
 const X_COMPOSE = 'https://x.com/compose/post';
-const THREADS_HOME = 'https://www.threads.com/';
+export const THREADS_HOME = 'https://www.threads.com/';
 /** While the network puts the post at the top before its link is looked for. */
 const SETTLE_MS = 5_000;
 /** How long after an unsure Publish the Page is looked at for the post, and again: Facebook can take a while. */
@@ -150,14 +150,18 @@ export function failureFor(
 }
 
 /** Opens a page in the window, at a person's pace, and says the network's warning when there's one. */
-async function openAt(tab: ResearchTab, url: string): Promise<string[]> {
+export async function openAt(tab: ResearchTab, url: string): Promise<string[]> {
   await pause(paced(RESEARCH_PACE.answerMs));
   await tab.open(url);
   return (await tab.hands('warnings')) ?? [];
 }
 
 /** The post's link, from the top of a page that lists it (the person's profile, the Page, their own posts). */
-async function linkFrom(tab: ResearchTab, url: string, text: string): Promise<string | null> {
+export async function linkFrom(
+  tab: ResearchTab,
+  url: string,
+  text: string,
+): Promise<string | null> {
   await pause(SETTLE_MS);
   try {
     await tab.open(url);
@@ -174,7 +178,7 @@ async function linkFrom(tab: ResearchTab, url: string, text: string): Promise<st
  * A Threads or X post's link, from the top of the person's own profile (their name from the menu's link to it, on the
  * page it posted from) by its first words. Null when it isn't there yet.
  */
-async function shortLink(
+export async function shortLink(
   tab: ResearchTab,
   network: 'threads' | 'x',
   text: string,
@@ -199,7 +203,7 @@ async function shortLink(
  * An Instagram post's link, from the person's own newest posts as Instagram's page loads them (their name from the
  * Profile link in its side menu), by its first words. Null when it isn't among them yet.
  */
-async function instagramLink(tab: ResearchTab, text: string): Promise<string | null> {
+export async function instagramLink(tab: ResearchTab, text: string): Promise<string | null> {
   await pause(SETTLE_MS);
   try {
     const me = await tab.hands('me');

@@ -148,6 +148,31 @@ export const postWent = (
     }),
   );
 
+/** The next of the business's own posts that didn't post to look for on the network (Check if it posted). */
+export const postLookNext = (workspaceId: string, networks: PostingNetwork[]) =>
+  got(api().POST('/v1/commands/socialcontent.post.look_next', { body: { workspaceId, networks } }));
+
+/** What looking for a post that didn't post found, place by place; or why it couldn't look. */
+export const postLooked = (
+  workspaceId: string,
+  postId: string,
+  found: { place: PostPlace; link: string | null }[],
+  failure: string | null,
+) =>
+  got(
+    api().POST('/v1/commands/socialcontent.post.looked', {
+      body: {
+        workspaceId,
+        postId,
+        found: found.map((f) => ({
+          place: f.place,
+          link: f.link && /^https:\/\//.test(f.link) ? f.link.slice(0, 500) : null,
+        })),
+        failure: failure?.slice(0, 300) ?? null,
+      },
+    }),
+  );
+
 /** The next of the business's own posts whose numbers are due to be read (part 11), put off half an hour as it's handed out. */
 export const ownNext = (workspaceId: string, networks: PostingNetwork[]) =>
   got(api().POST('/v1/commands/socialcontent.own.next', { body: { workspaceId, networks } }));

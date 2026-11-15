@@ -473,12 +473,22 @@ import {
 import {
   Content as SocialcontentContent,
   ContentApproveInput as SocialcontentContentApproveInput,
+  ContentApproveManyInput as SocialcontentContentApproveManyInput,
+  ContentApproveManyOutput as SocialcontentContentApproveManyOutput,
   ContentApproveWeekInput as SocialcontentContentApproveWeekInput,
   ContentApproveWeekOutput as SocialcontentContentApproveWeekOutput,
+  ContentHideInput as SocialcontentContentHideInput,
+  ContentHideOutput as SocialcontentContentHideOutput,
+  ContentLookInput as SocialcontentContentLookInput,
+  ContentLookOutput as SocialcontentContentLookOutput,
+  ContentMarkPostedInput as SocialcontentContentMarkPostedInput,
+  ContentMarkPostedOutput as SocialcontentContentMarkPostedOutput,
   ContentPostNowInput as SocialcontentContentPostNowInput,
   ContentRedoInput as SocialcontentContentRedoInput,
   ContentRedoOutput as SocialcontentContentRedoOutput,
   ContentRemoveInput as SocialcontentContentRemoveInput,
+  ContentRemoveManyInput as SocialcontentContentRemoveManyInput,
+  ContentRemoveManyOutput as SocialcontentContentRemoveManyOutput,
   ContentRemoveOutput as SocialcontentContentRemoveOutput,
   ContentSaveInput as SocialcontentContentSaveInput,
   ContentSkipInput as SocialcontentContentSkipInput,
@@ -950,12 +960,32 @@ export const PHONE_COMMANDS = {
   'safety_contact.save': command(ONLINE, SafetyContactSaveInput, SafetyContactOutput),
   // AI Social Media Content Creator's screens (part 5), with signal: niches and creators picked, added and found,
   // reading someone again, its settings, trying watching, stopping work, and an idea saved, used or skipped. Its
-  // Calendar (part 12): a post saved, OK'd or its OK taken back, the week OK'd, skipped or brought back, Post it now, and
-  // Redo posts (the owner, 15 Nov).
+  // Calendar (part 12): a post saved, OK'd or its OK taken back, the week OK'd, skipped or brought back, Post it now,
+  // Redo posts, and picked posts OK'd, hidden or shown again, deleted, marked as posted or looked for (the owner, 15 Nov).
   'socialcontent.content.approve': command(
     ONLINE,
     SocialcontentContentApproveInput,
     SocialcontentContent,
+  ),
+  'socialcontent.content.approve_many': command(
+    ONLINE,
+    SocialcontentContentApproveManyInput,
+    SocialcontentContentApproveManyOutput,
+  ),
+  'socialcontent.content.hide': command(
+    ONLINE,
+    SocialcontentContentHideInput,
+    SocialcontentContentHideOutput,
+  ),
+  'socialcontent.content.look': command(
+    ONLINE,
+    SocialcontentContentLookInput,
+    SocialcontentContentLookOutput,
+  ),
+  'socialcontent.content.mark_posted': command(
+    ONLINE,
+    SocialcontentContentMarkPostedInput,
+    SocialcontentContentMarkPostedOutput,
   ),
   'socialcontent.content.approve_week': command(
     ONLINE,
@@ -976,6 +1006,11 @@ export const PHONE_COMMANDS = {
     ONLINE,
     SocialcontentContentRemoveInput,
     SocialcontentContentRemoveOutput,
+  ),
+  'socialcontent.content.remove_many': command(
+    ONLINE,
+    SocialcontentContentRemoveManyInput,
+    SocialcontentContentRemoveManyOutput,
   ),
   'socialcontent.content.save': command(
     ONLINE,

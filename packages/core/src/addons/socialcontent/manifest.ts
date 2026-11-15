@@ -130,6 +130,7 @@ export const socialcontentAddon = defineAddon({
       'socialcontent.content.saved',
       'socialcontent.content.approved',
       'socialcontent.content.skipped',
+      'socialcontent.content.hidden',
       'socialcontent.content.pictured',
       'socialcontent.content.posting',
       'socialcontent.content.posted',

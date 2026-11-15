@@ -1491,6 +1491,23 @@ minute after posting and before any reading:
   link"). A warning keeps the network's words for the day, for both social add-ons, and says nothing: the read is
   asked for again later, since one handed out is put off half an hour.
 
+### Check if it posted (0.140.6)
+
+A post marked as didn't post may have gone up all the same: Facebook was still publishing two Page posts on 14 Nov
+2026 when the extension gave up. From 0.140.6 the reading window looks for it on the network, where it hadn't gone
+up, by its first words (`src/research/look.ts`): the top of the person's Facebook profile or the business's Page,
+their own LinkedIn posts, their newest Instagram posts as Instagram's page loads them, or the top of their Threads or
+X profile.
+
+- Each minute, after posting and before reading its own posts' numbers, it asks for the next post to look for
+  (`socialcontent.post.look_next`): one a person pressed **Check if it posted** on in HandsFreeOS, or one that may
+  have gone up, once, 10 minutes after it was marked as didn't post.
+- It says what it found (`socialcontent.post.looked`). Found everywhere, the post is marked as posted, with its
+  links, so its numbers are read. Not found, HandsFreeOS says so and when it looked, and the person can try again or
+  mark it as posted.
+- A network's warning stops it there for the day, for both social add-ons, as posting does. A Facebook Page post with
+  no Page link in Settings → Posting says to add it.
+
 ### A Page's posts: Instagram off, and looked for on the Page (0.140.5)
 
 Twice on 14 Nov 2026 (0.139.3) a post for the owner's Page was marked as didn't post: "It pressed Post on your Page,
