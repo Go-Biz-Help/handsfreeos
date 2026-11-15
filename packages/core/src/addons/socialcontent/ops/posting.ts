@@ -281,7 +281,11 @@ export const postWent = defineAddonCommand(socialcontentAddon, {
         // It may have gone up all the same (Facebook was still publishing two Page posts on 14 Nov): looked for on
         // the network on its own, once, 10 minutes on (the owner, 15 Nov).
         ...(state === 'failed'
-          ? { lookDueAt: new Date(at.getTime() + LOOK.afterFailMs), lookedAt: null, lookFailure: null }
+          ? {
+              lookDueAt: new Date(at.getTime() + LOOK.afterFailMs),
+              lookedAt: null,
+              lookFailure: null,
+            }
           : { lookDueAt: null }),
         // Its numbers are read 2 and 7 days after it first went up (part 11).
         checksDueAt: c.checksDueAt ?? nextCheckAt(postedTo, c.numbers),

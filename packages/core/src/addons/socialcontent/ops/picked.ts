@@ -128,7 +128,8 @@ const count = (o: unknown, key: string) =>
 const leftOf = (o: unknown, key: string) =>
   ((o as Record<string, unknown>)[key] as unknown[] | undefined)?.length ?? 0;
 const picked = (input: unknown) => (input as { postIds?: unknown[] }).postIds?.length ?? 0;
-const these = (n: number, one: string, many: string) => (n === 1 ? one : many.replace('#', String(n)));
+const these = (n: number, one: string, many: string) =>
+  n === 1 ? one : many.replace('#', String(n));
 
 export const contentApproveMany = defineAddonCommand(socialcontentAddon, {
   name: 'socialcontent.content.approve_many',
@@ -143,7 +144,11 @@ export const contentApproveMany = defineAddonCommand(socialcontentAddon, {
     tool: 'socialcontent_approve_own_posts',
     autonomy: 'confirm',
     what: (input) =>
-      these(picked(input), 'OK this post to go up at its time', 'OK these # posts to go up at their times'),
+      these(
+        picked(input),
+        'OK this post to go up at its time',
+        'OK these # posts to go up at their times',
+      ),
     outcome: (output) => ({
       words: W.picking.approved(count(output, 'approved'), leftOf(output, 'notApproved')),
       path: PATH,
@@ -252,7 +257,11 @@ export const contentRemoveMany = defineAddonCommand(socialcontentAddon, {
     tool: 'socialcontent_remove_own_posts',
     autonomy: 'confirm',
     what: (input) =>
-      these(picked(input), 'Delete this post from the Calendar', 'Delete these # posts from the Calendar'),
+      these(
+        picked(input),
+        'Delete this post from the Calendar',
+        'Delete these # posts from the Calendar',
+      ),
     outcome: (output) => ({
       words: W.picking.removed(count(output, 'removed'), leftOf(output, 'notRemoved')),
       path: PATH,
@@ -291,7 +300,8 @@ export const contentMarkPosted = defineAddonCommand(socialcontentAddon, {
   ai: {
     tool: 'socialcontent_mark_own_posts_posted',
     autonomy: 'confirm',
-    what: (input) => these(picked(input), 'Mark this post as posted', 'Mark these # posts as posted'),
+    what: (input) =>
+      these(picked(input), 'Mark this post as posted', 'Mark these # posts as posted'),
     outcome: (output) => ({
       words: W.picking.marked(count(output, 'marked'), leftOf(output, 'notMarked')),
       path: PATH,

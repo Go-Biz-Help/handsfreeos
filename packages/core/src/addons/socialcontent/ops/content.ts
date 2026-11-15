@@ -812,7 +812,9 @@ export const contentRemove = defineAddonCommand(socialcontentAddon, {
     await removeOne(ctx, c);
     // A post that went up keeps its day: it's on the network still.
     const openDay =
-      c.postAt && c.state !== 'posted' ? localDateOf(c.postAt.getTime(), await timeZoneOf(ctx)) : null;
+      c.postAt && c.state !== 'posted'
+        ? localDateOf(c.postAt.getTime(), await timeZoneOf(ctx))
+        : null;
     return { postId: c.recordId, openDay };
   },
 });

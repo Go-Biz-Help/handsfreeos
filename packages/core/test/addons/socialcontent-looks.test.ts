@@ -11,6 +11,7 @@ import {
   monthGridFrom,
   monthMoved,
   monthShown,
+  picks,
   shows,
   summaryOf,
   weekShown,
@@ -28,7 +29,10 @@ describe('the Calendar’s looks', () => {
     expect(monthGridFrom('2026-06-20')).toBe('2026-06-01');
     expect(monthMoved('2026-12-01', 1)).toBe('2027-01-01');
     expect(monthMoved('2026-01-01', -1)).toBe('2025-12-01');
-    expect(lookRange('month', '2026-11-14', '2026-11-14')).toEqual({ from: '2026-10-26', days: 42 });
+    expect(lookRange('month', '2026-11-14', '2026-11-14')).toEqual({
+      from: '2026-10-26',
+      days: 42,
+    });
     expect(lookRange('week', '2026-11-14', '2026-11-14')).toEqual({ from: '2026-11-09', days: 7 });
     expect(lookRange('list', '2026-12-01', '2026-11-14')).toEqual({ from: '2026-11-14', days: 15 });
   });
@@ -88,5 +92,18 @@ describe('picking many posts', () => {
   it('sends any number, 500 at a time', () => {
     const ids = Array.from({ length: 1_201 }, (_, i) => String(i));
     expect(inTurns(ids).map((t) => t.length)).toEqual([500, 500, 201]);
+  });
+
+  it('picks like the server: hidden ones only under everything and Hidden, OK’d is OK’d only', () => {
+    const p = (state: PickedLike['state'], hidden = false) => ({ state, hidden });
+    expect(picks(p('posted', true), 'all')).toBe(true);
+    expect(picks(p('posted', true), 'past')).toBe(false);
+    expect(picks(p('posted', true), 'hidden')).toBe(true);
+    expect(picks(p('failed'), 'past')).toBe(true);
+    expect(picks(p('failed'), 'failed')).toBe(true);
+    expect(picks(p('posting'), 'okd')).toBe(false);
+    expect(picks(p('ready'), 'okd')).toBe(true);
+    expect(picks(p('draft'), 'waiting')).toBe(true);
+    expect(picks(p('draft', true), 'waiting')).toBe(false);
   });
 });

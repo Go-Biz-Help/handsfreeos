@@ -58,6 +58,7 @@ import { apiBrowser, unwrap } from '@/lib/api/client';
 import { errorMessage } from '@/lib/api/errors';
 import { workerPost } from '@/lib/api/worker';
 import { supabaseBrowser } from '@/lib/supabase/client';
+import { DidntPost } from './calendar-picking';
 import type { Content, ContentPicture } from './types';
 import { useAct } from './use-act';
 
@@ -283,8 +284,16 @@ export function RemovePostDialog({
   return (
     <Dialog open={post !== null} onOpenChange={(open) => (open || busy ? null : onClose())}>
       {post ? (
-        <DialogContent title={W.post.removeTitle} description={W.post.removeAsk}>
+        <DialogContent
+          title={W.post.removeTitle}
+          description={post.state === 'posted' ? W.post.removeAskPosted : W.post.removeAsk}
+        >
           <p className="mt-3 truncate text-[13.5px] font-medium text-text">{post.title}</p>
+          {post.state === 'posted' ? (
+            <p className="mt-3 rounded-card bg-warning-soft p-3 text-[13px] text-warning-text">
+              {W.picking.removeUp(1, networkName(post.network))}
+            </p>
+          ) : null}
           <div className="mt-5 flex flex-wrap justify-end gap-2">
             <Button variant="secondary" disabled={busy !== null} onClick={onClose}>
               {W.post.removeNo}
@@ -553,14 +562,20 @@ export function PostSheet({
               ))}
             </div>
           ) : null}
-          {p.failure ? (
+          {p.failure || p.state === 'failed' ? (
             <div
               className="rounded-card bg-danger-soft p-3 text-[13px] text-danger-text"
               data-testid="socialcontent-post-failure"
             >
-              <p>{p.failure}</p>
+              {p.failure ? <p>{p.failure}</p> : null}
+              {/* Try again, Check if it posted, Mark as posted (the owner, 15 Nov). */}
               {p.state === 'failed' && postsHere ? (
-                <p className="mt-1 text-text-2">{W.post.tryAgain}</p>
+                <DidntPost
+                  workspaceId={workspaceId}
+                  post={p}
+                  timeZone={timeZone}
+                  className={p.failure ? 'mt-2' : undefined}
+                />
               ) : null}
             </div>
           ) : null}
@@ -999,7 +1014,8 @@ export function PostSheet({
                   </Button>
                 ) : p.state === 'ready' || p.state === 'failed' ? (
                   <>
-                    {postsHere ? (
+                    {/* A post that didn't post tries again from its box above. */}
+                    {postsHere && p.state === 'ready' ? (
                       <Button
                         loading={busy === 'now'}
                         disabled={other('now') || making}

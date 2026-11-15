@@ -133,7 +133,7 @@ export function planShown(
 }
 
 /** "9:00 AM, 12:00 PM and 6:00 PM". */
-const listShown = (items: readonly string[]) =>
+export const listShown = (items: readonly string[]) =>
   items.length > 1 ? `${items.slice(0, -1).join(', ')} and ${items.at(-1)}` : (items[0] ?? '');
 
 /**
@@ -779,13 +779,7 @@ export const SOCIALCONTENT_WORDS = {
     },
     picked: (n: number) => `${n.toLocaleString('en-US')} picked`,
     pickedIn: (n: number, range: string) => `${n.toLocaleString('en-US')} picked · ${range}`,
-    summary: (s: {
-      waiting: number;
-      okd: number;
-      past: number;
-      failed: number;
-      hidden: number;
-    }) =>
+    summary: (s: { waiting: number; okd: number; past: number; failed: number; hidden: number }) =>
       [
         s.waiting ? `${s.waiting} waiting for your OK` : null,
         s.okd ? `${s.okd} OK’d` : null,
@@ -830,7 +824,9 @@ export const SOCIALCONTENT_WORDS = {
     removed: (n: number, left: number) =>
       [
         n ? `Deleted ${count(n, 'post')} from the Calendar.` : null,
-        left ? `${count(left, 'post')} couldn’t be deleted: one going up right now waits till it’s done.` : null,
+        left
+          ? `${count(left, 'post')} couldn’t be deleted: one going up right now waits till it’s done.`
+          : null,
       ]
         .filter(Boolean)
         .join(' ') || 'Nothing to delete.',
@@ -846,7 +842,9 @@ export const SOCIALCONTENT_WORDS = {
         n
           ? `Looking for ${count(n, 'post')} on the networks, from the computer that posts. Each found is marked as posted.`
           : null,
-        left ? `${count(left, 'post')} weren’t looked for: only a post that didn’t post can be.` : null,
+        left
+          ? `${count(left, 'post')} weren’t looked for: only a post that didn’t post can be.`
+          : null,
       ]
         .filter(Boolean)
         .join(' ') || 'Nothing to look for.',
@@ -889,11 +887,27 @@ export const SOCIALCONTENT_WORDS = {
     openNoPick: 'Can’t be picked: there’s no post yet.',
     notFilled: 'Not filled yet',
     moreOn: (n: number) => `+${n} more`,
-    legendLabel: 'What the colours mean',
+    legendLabel: 'What the colors mean',
     monthHint: 'Tick a day to pick it. Tick the box left of a week to pick the whole week.',
     olderHint: 'To pick every past post, even older ones, use Pick → All past posts.',
     weekdays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
     weekdaysShort: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+    /** A network in a few letters, on the Week and Month looks. */
+    short: {
+      instagram: 'IG',
+      facebook: 'FB',
+      linkedin: 'LI',
+      threads: 'TH',
+      x: 'X',
+      tiktok: 'TT',
+      youtube: 'YT',
+    } as Readonly<Record<string, string>>,
+    listRange: 'today and the next 2 weeks',
+    latelyHint: 'What posted, or didn’t, before today',
+    pickedOfShown: (n: number, of: number) => (n && n === of ? `All ${of} shown` : `${n} of ${of}`),
+    openWeek: (day: string) => `Open the week of ${day}`,
+    hiddenBadge: 'Hidden',
+    nothingShown: 'Nothing here under this filter.',
   },
   post: {
     /** The line from the lists a post is about (decision 34). */
@@ -1018,6 +1032,8 @@ export const SOCIALCONTENT_WORDS = {
     removeTitle: 'Remove this post?',
     removeAsk:
       'It comes off the calendar and isn’t posted. Its day opens up, so Fill the calendar or Write one puts a new post there.',
+    /** One that went up: it comes off the Calendar but stays up on the network. */
+    removeAskPosted: 'It comes off the Calendar. Nothing goes up again.',
     removeYes: 'Remove it',
     removeNo: 'Keep it',
     removed: (hadDay: boolean) =>

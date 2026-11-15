@@ -58,7 +58,11 @@ export function daysFrom(from: string, n: number): string[] {
 }
 
 /** The first day each look shows and how many days, for a day in it. */
-export function lookRange(look: CalendarLook, day: string, today: string): { from: string; days: number } {
+export function lookRange(
+  look: CalendarLook,
+  day: string,
+  today: string,
+): { from: string; days: number } {
   if (look === 'week') return { from: weekStartOf(day), days: WEEK_DAYS };
   if (look === 'month') return { from: monthGridFrom(day), days: MONTH_DAYS };
   // Today and the two weeks after it.
@@ -131,6 +135,29 @@ export function filterCounts(
   const out = Object.fromEntries(SHOW_FILTERS.map((f) => [f, 0])) as Record<ShowFilter, number>;
   for (const p of posts) for (const f of SHOW_FILTERS) if (shows(p, f)) out[f]++;
   return out;
+}
+
+/**
+ * The Pick menu's "all" picks (socialcontent.content.pick reads the same): everything, waiting for an OK, OK'd, past
+ * (went up or didn't), didn't post, or hidden. Only everything and hidden take in hidden posts.
+ */
+export const PICK_WHICH = ['all', 'waiting', 'okd', 'past', 'failed', 'hidden'] as const;
+export type PickWhich = (typeof PICK_WHICH)[number];
+
+export function picks(p: Pick<PickedLike, 'state' | 'hidden'>, which: PickWhich): boolean {
+  if (which === 'all') return true;
+  if (which === 'hidden') return p.hidden;
+  if (p.hidden) return false;
+  switch (which) {
+    case 'waiting':
+      return p.state === 'draft';
+    case 'okd':
+      return p.state === 'ready';
+    case 'failed':
+      return p.state === 'failed';
+    case 'past':
+      return p.state === 'posted' || p.state === 'failed';
+  }
 }
 
 /** What the picked posts are, and which of them each button acts on. */

@@ -17,6 +17,7 @@ import {
   POSTING_NETWORKS,
   SHORT_POSTS,
 } from './calendar';
+import { PICK_WHICH } from './calendar-looks';
 import { OWN_READS } from './own';
 import { POST_LIMITS } from './posts-ai';
 import { AngleShape, LearnedPlanShape, Network, PlanShape, TopicShape, uuid } from './shapes';
@@ -321,8 +322,6 @@ export const ContentLookOutput = z.object({ asked: z.number().int(), notAsked: L
  * The Pick menu's "all" picks across any date (or the days given): everything, waiting for an OK, OK'd, past (posted
  * or didn't post), didn't post, or hidden. Only "everything" and "hidden" take in hidden posts.
  */
-export const PICK_WHICH = ['all', 'waiting', 'okd', 'past', 'failed', 'hidden'] as const;
-export type PickWhich = (typeof PICK_WHICH)[number];
 export const ContentPickInput = z.object({
   workspaceId: uuid,
   which: z.enum(PICK_WHICH),

@@ -1275,7 +1275,11 @@ describe('the business’s own posts', () => {
     const ok = await as(member, 'socialcontent.content.approve_many', { postIds: [a, b, up] });
     expect(ok.approved).toBe(2);
     expect(ok.notApproved).toEqual([
-      { postId: up, title: 'Went up last week', why: expect.stringMatching(/isn’t waiting for an OK/) },
+      {
+        postId: up,
+        title: 'Went up last week',
+        why: expect.stringMatching(/isn’t waiting for an OK/),
+      },
     ]);
     expect((await as(member, 'socialcontent.content.get', { postId: a })).state).toBe('ready');
 
@@ -1304,7 +1308,9 @@ describe('the business’s own posts', () => {
     expect(await pick('okd')).not.toContain(a);
     expect(await pick('past')).not.toContain(up);
     // Showing it again brings a skipped one back as waiting for an OK.
-    expect((await as(member, 'socialcontent.content.hide', { postIds: [a], hide: false })).changed).toBe(1);
+    expect(
+      (await as(member, 'socialcontent.content.hide', { postIds: [a], hide: false })).changed,
+    ).toBe(1);
     expect(await as(member, 'socialcontent.content.get', { postId: a })).toMatchObject({
       hidden: false,
       state: 'draft',
@@ -1319,7 +1325,9 @@ describe('the business’s own posts', () => {
       removed: 2,
       notRemoved: [],
     });
-    expect(await refused(as(member, 'socialcontent.content.get', { postId: up }))).toBe('not_found');
+    expect(await refused(as(member, 'socialcontent.content.get', { postId: up }))).toBe(
+      'not_found',
+    );
 
     // Redo has no 30 cap now: the screens send any number, up to 500 at a time.
     const many = Array.from({ length: 31 }, () => randomUUID());
@@ -1396,7 +1404,9 @@ describe('the business’s own posts', () => {
     );
     expect(await as(member, 'socialcontent.content.look', { postIds: [half, one] })).toEqual({
       asked: 1,
-      notAsked: [{ postId: one, title: 'Marked by hand', why: expect.stringMatching(/didn’t post/) }],
+      notAsked: [
+        { postId: one, title: 'Marked by hand', why: expect.stringMatching(/didn’t post/) },
+      ],
     });
     expect((await as(member, 'socialcontent.content.get', { postId: half })).lookAt).not.toBeNull();
     // Only the reading computer takes the look.
@@ -1412,7 +1422,9 @@ describe('the business’s own posts', () => {
     });
     expect(look.post.text).toMatch(/^Half up: a tip\./);
     // Handed out, it's put off half an hour.
-    expect((await as(owner, 'socialcontent.post.look_next', { networks: ['facebook'] })).post).toBeNull();
+    expect(
+      (await as(owner, 'socialcontent.post.look_next', { networks: ['facebook'] })).post,
+    ).toBeNull();
     const found = await as(owner, 'socialcontent.post.looked', {
       postId: half,
       found: [{ place: 'page', link: 'https://www.facebook.com/pipedreams/posts/2' }],
@@ -1422,7 +1434,9 @@ describe('the business’s own posts', () => {
 
     // Not found: it stays as didn't post, saying when it looked; couldn't look: it says why.
     await as(member, 'socialcontent.content.look', { postIds: [two] });
-    expect((await as(owner, 'socialcontent.post.look_next', { networks: ['linkedin'] })).post.id).toBe(two);
+    expect(
+      (await as(owner, 'socialcontent.post.look_next', { networks: ['linkedin'] })).post.id,
+    ).toBe(two);
     const missing = await as(owner, 'socialcontent.post.looked', { postId: two, found: [] });
     expect(missing).toMatchObject({ state: 'failed', lookAt: null, lookFailure: null });
     expect(missing.lookedAt).not.toBeNull();
@@ -1432,7 +1446,10 @@ describe('the business’s own posts', () => {
       found: [],
       failure: 'LinkedIn showed its sign-in page.',
     });
-    expect(couldnt).toMatchObject({ state: 'failed', lookFailure: 'LinkedIn showed its sign-in page.' });
+    expect(couldnt).toMatchObject({
+      state: 'failed',
+      lookFailure: 'LinkedIn showed its sign-in page.',
+    });
     // Out of the way of the posting tests after this one.
     await rows(
       admin(),
