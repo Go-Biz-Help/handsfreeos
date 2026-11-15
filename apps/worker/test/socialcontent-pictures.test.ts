@@ -408,7 +408,13 @@ describe('Instagram’s own picture shape', () => {
     expect(queued.every((q) => q.way === 'design')).toBe(true);
     for (const left of [up, hidden, facebook])
       expect(queued.some((q) => q.post_id === left)).toBe(false);
-    // Made again, 3:4, they aren't queued again. The OK'd one waits for an OK again, as with Make it again.
+    // Made again, 3:4, they aren't queued again. The OK'd one waits for an OK again, as with Make it again. They're
+    // queued a little apart, so both are brought due first.
+    await rows(
+      admin(),
+      sql`update app.scheduled_jobs set run_at = now()
+          where workspace_id = ${ws} and kind = 'socialcontent.pictures' and status = 'pending'`,
+    );
     await makePictures(draft);
     expect((await made(draft)).design.shape).toBe('3:4');
     expect((await made(okd)).design.shape).toBe('3:4');
