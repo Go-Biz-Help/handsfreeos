@@ -48,7 +48,7 @@ import {
   PlaybookDetails,
   upgradePlaybookDetails,
 } from '@hfos/core/addons/outreach/playbooks';
-import { scriptOf } from '@hfos/core/addons/outreach/script';
+import { firstMessagesOf, opensWithIntro } from '@hfos/core/addons/outreach/script';
 import {
   answerOf,
   draftOfferOf,
@@ -135,6 +135,14 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
         voice: await voiceFor(tx, ws, ctx.userId),
         // About you (decision 165), as their real messages are written with it.
         aboutOwner: await aboutOwnerFor(tx, ctx.userId),
+        // Their own name, for an introduction (decision 168).
+        ownerName:
+          (
+            await rows<{ full_name: string }>(
+              tx,
+              sql`select full_name from app.users where id = ${ctx.userId}`,
+            )
+          )[0]?.full_name?.trim() || null,
       };
     });
     // The playbook as it is on screen, else the saved one, else the first in use.
@@ -161,8 +169,10 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
     const details = read.data;
     const playbookName = input.name || saved?.name || 'Playbook';
     const pace = paceOf(details.pace);
-    const says = scriptOf(details);
-    const version = input.version % says.first.length;
+    // The first message's versions take turns, or the introduction alone in their place (decision 168).
+    const intro = opensWithIntro(details);
+    const firsts = firstMessagesOf(details);
+    const version = input.version % firsts.length;
     const { person } = input;
     const name = person.name;
     const lines = testPersonLines(person);
@@ -253,7 +263,10 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
               ? { step: o.state.step, sent: o.state.sent, followUps: pace.followUps }
               : null,
             post: null,
-            opener: { kind: 'own', text: says.first[version]! },
+            opener: { kind: intro ? 'intro' : 'own', text: firsts[version]! },
+            // Their name for an introduction's [your first name], and whether they just connected (decision 168).
+            ownerName: found.ownerName,
+            fresh: person.known === 'new',
             voice: found.voice,
             lastAt: recent.at(-1)?.at ?? new Date(now - o.gapDays * DAY_MS),
             now,
@@ -335,7 +348,7 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
       }
 
       if (input.move === 'start' || input.move === 'quiet') {
-        const step = testMove(input.move, input.state, person, pace);
+        const step = testMove(input.move, input.state, person, pace, intro);
         if (!step.kind) return out({ kind: null, note: step.note, state: input.state });
         const base = await baseFor({
           state: input.state,
@@ -352,7 +365,8 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
           state: made.drafts.length ? step.state : input.state,
           label: testLabel(step.kind, {
             version,
-            versions: says.first.length,
+            versions: firsts.length,
+            intro,
             followUp: step.state.sent,
             followUps: pace.followUps,
           }),

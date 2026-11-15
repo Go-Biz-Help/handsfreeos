@@ -53,6 +53,8 @@ import { limitNow } from '../limits';
 import { answersRequests, NETWORKS, profileMisfit, type Platform } from '../networks';
 import { outreachAddon } from '../manifest';
 import { partnerReadsPerDay } from '../partners';
+import type { PlaybookDetails } from '../playbooks';
+import { opensWithIntro } from '../script';
 import { requestsHeldOn, TODAY_WINDOW_DAYS } from '../today';
 import type { ProfileRef } from '../saves';
 import { checks, finds, profiles } from '../tables';
@@ -133,17 +135,50 @@ export const acceptedMine = (me: string) => sql`exists (select 1 from addon_outr
     where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'friend_request')`;
 
 /**
+ * They connected with the person themselves (decision 168): sent a request the person or the AI confirmed, or followed
+ * the person. `f` is the friend row and `p` its profile.
+ */
+export const connectedToMe = (me: string) => sql`(f.answer = 'confirm'
+    or exists (select 1 from addon_outreach.checks rc
+      where rc.profile_id = p.id and rc.user_id = ${me} and rc.request_answer is not null)
+    or exists (select 1 from addon_outreach.engagements e
+      where e.profile_id = p.id and e.user_id = ${me} and e.kind = 'follow'))`;
+
+/** No check of the person's found them not a fit (decision 168: an introduction skips only those). `p` is the profile. */
+const notMarkedMisfit = (me: string) => sql`not exists (select 1 from addon_outreach.checks nc
+    where nc.profile_id = p.id and nc.user_id = ${me} and nc.verdict = 'not')`;
+
+/**
+ * Whether Say hi takes everyone who connected lately on a network (decision 168, the owner's 3b): only while every
+ * playbook in use there starts with an introduction, so nobody a check never found fit is pitched by another one.
+ */
+export const introsOnly = (inUse: readonly { readonly details: PlaybookDetails }[]): boolean =>
+  inUse.length > 0 && inUse.every((p) => opensWithIntro(p.details));
+
+/**
  * A friend of the person's they've never talked to, for Say hi's first message (decisions 65 and 155): no message to
  * them from anyone, no chat of the person's with them, and no conversation started. Either they accepted the person's
  * request since `acceptedFrom` (`acceptedMine`), or a check found them a good fit or one who might fit, however they
  * became friends: the person confirmed their request, connected on the network themselves, or has been friends a while.
- * `f` is the friend row, `p` its profile, `ch` the person's check of them (left joined), and `lets` the business's
- * country setting and the network (or, under Autopilot, the day's OK too).
+ * With `intro` (`introsOnly`, decision 168), also anyone who connected with the person themselves since `acceptedFrom`
+ * (`connectedToMe`) whom no check found not a fit. `f` is the friend row, `p` its profile, `ch` the person's check of
+ * them (left joined), and `lets` the business's country setting and the network (or, under Autopilot, the day's OK
+ * too).
  */
-export const sayHiReady = (me: string, acceptedFrom: string, lets: SQL) => sql`(f.user_id = ${me}
+export const sayHiReady = (
+  me: string,
+  acceptedFrom: string,
+  lets: SQL,
+  intro = false,
+) => sql`(f.user_id = ${me}
   and f.state = 'friends' and p.friendship <> 'self' and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
   and ((${acceptedMine(me)} and f.since >= ${acceptedFrom}::timestamptz)
-    or (ch.user_id = ${me} and ch.verdict in ('good', 'maybe')))
+    or (ch.user_id = ${me} and ch.verdict in ('good', 'maybe'))
+    ${
+      intro
+        ? sql`or (${connectedToMe(me)} and f.since >= ${acceptedFrom}::timestamptz and ${notMarkedMisfit(me)})`
+        : sql``
+    })
   and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id and t.kind = 'message')
   and not exists (select 1 from addon_outreach.file_chats c where c.profile_id = p.id and c.user_id = ${me})
   and not exists (select 1 from addon_outreach.follow_ups fu where fu.profile_id = p.id and fu.user_id = ${me}))`;
@@ -319,6 +354,8 @@ export async function goalStock(
   const ws = ctx.scope.workspaceId!;
   const ago = (days: number) => new Date(now - days * DAY).toISOString();
   const lets = sql`(${countryLetsSql(await countryRuleOf(ctx), 'p')} and p.platform = ${platform})`;
+  // Everyone who connected lately counts while every playbook in use there starts with an introduction (decision 168).
+  const intro = introsOnly(await playbooksInUse(ctx, platform));
   const [counted] = await rows<{
     reconnect: number;
     accepted: number;
@@ -335,7 +372,7 @@ export async function goalStock(
             join addon_outreach.profiles p on p.id = f.profile_id
             left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
             where f.workspace_id = ${ws}
-              and ${sayHiReady(me, ago(TODAY_WINDOW_DAYS.opener), lets)}) as accepted,
+              and ${sayHiReady(me, ago(TODAY_WINDOW_DAYS.opener), lets, intro)}) as accepted,
           (select count(*)::int from addon_outreach.checks ch
             join addon_outreach.profiles p on p.id = ch.profile_id
             where ch.workspace_id = ${ws} and ch.user_id = ${me} and ch.verdict in ('good', 'maybe')

@@ -17,7 +17,11 @@ import {
   type PlaybookGoal,
   type PlaybookStep,
 } from '@hfos/core/addons/outreach/playbooks';
-import { SCRIPT_WORDS as SW, scriptOf } from '@hfos/core/addons/outreach/script';
+import {
+  firstMessagesOf,
+  opensWithIntro,
+  SCRIPT_WORDS as SW,
+} from '@hfos/core/addons/outreach/script';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -104,8 +108,14 @@ function PlaybookCard({
   const { busy, act } = useAct();
   const [testing, setTesting] = useState(false);
   const d = p.details;
-  // What it says first: the playbook's own first message, or the starting one while it's left as it came.
-  const firsts = scriptOf({ goal: d.goal as PlaybookGoal, script: d.script }).first;
+  // What it says first: the playbook's own first message, or the starting one while it's left as it came; its
+  // introduction for one that starts with one (decision 168).
+  const firsts = firstMessagesOf({
+    goal: d.goal as PlaybookGoal,
+    script: d.script,
+    opens: d.opens,
+  });
+  const intro = opensWithIntro(d);
   const archive = (archived: boolean) =>
     act(
       'archive',
@@ -134,9 +144,11 @@ function PlaybookCard({
       ) : null}
       {firsts[0] ? (
         <p className="mt-1 text-[13px] text-text-2" data-testid="playbook-first-message">
-          {firsts.length === 1
-            ? `Starts with “${firsts[0]}”`
-            : `Starts with one of ${firsts.length} first messages, like “${firsts[0]}”`}
+          {intro
+            ? `Starts with an introduction: “${firsts[0]}”`
+            : firsts.length === 1
+              ? `Starts with “${firsts[0]}”`
+              : `Starts with one of ${firsts.length} first messages, like “${firsts[0]}”`}
         </p>
       ) : null}
       {d.questions.length ? (

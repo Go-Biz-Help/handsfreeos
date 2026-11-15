@@ -72,6 +72,8 @@ describe('Social Outreach’s data versions 2 to 9', () => {
       wordsWritten: ['facebook', 'instagram'],
       // What it says (decision 164): nothing of its own, so the starting words.
       script: {},
+      // How the first message goes (decision 168): the pitch, as before.
+      opens: 'pitch',
     });
     // A partner playbook saved before version 7 kept to its own networks already (decision 81).
     const partners = { ...before, goal: 'partner' };

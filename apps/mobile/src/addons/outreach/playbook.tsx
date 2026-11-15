@@ -43,9 +43,9 @@ import {
   type WordsPlatform,
 } from '@hfos/core/addons/outreach/playbooks';
 import {
+  firstMessagesOf,
   SCRIPT_LIMITS,
   SCRIPT_WORDS as SW,
-  scriptOf,
   scriptToSave,
   typedFirsts,
   withFirsts,
@@ -113,8 +113,9 @@ export const SECTION_FIELDS: Readonly<
   groupWords: ['groupWords'],
   steps: ['steps'],
   pace: ['pace'],
-  // What it says (decision 164): its own words for every message, saved as only the parts that differ.
-  script: ['script'],
+  // What it says (decision 164): its own words for every message, saved as only the parts that differ; and how the
+  // first message goes (decision 168).
+  script: ['script', 'opens'],
   // The short video (decision 69): its link, and its script, written by the AI and changed as the business likes.
   video: ['videoLink', 'videoScript'],
   tone: ['tone'],
@@ -477,7 +478,7 @@ export function PlaybookBody({
         <PlaybookTestSheet
           playbookId={playbook.id}
           name={playbook.name}
-          versions={scriptOf(playbook.details).first.length}
+          versions={firstMessagesOf(playbook.details).length}
           platforms={playbook.details.platforms}
           open={testing}
           onClose={() => setTesting(false)}
@@ -871,6 +872,8 @@ function SectionEditor({
           goal={d.goal}
           script={script}
           onChange={(next) => set({ script: next })}
+          opens={d.opens ?? 'pitch'}
+          onOpens={(opens) => set({ opens })}
           firstsHelp={
             onAssist ? (
               <AiHelp
