@@ -10,9 +10,12 @@
  *   ones sent for the AI's check (./search.ts).
  * - `profile_read`: their own profile read and sent for the AI's check.
  * - `checkup`: Check Threads or Check X: its main pages opened one at a time and noted with their outlines, and Follow,
- *   Like and the box to reply in looked for, pressing none of them.
+ *   Like and the box to reply in looked for, pressing none of them; on Threads its messages and a chat too, with the
+ *   chat's box looked for and never written in (decision 167).
+ * - `chats` (Threads', decision 167): Read my chats, its chats opened one at a time and sent for the AI, noting who
+ *   wrote last (./chats.ts).
  *
- * Nothing is ever written in anyone's messages there (decision 163).
+ * Nothing is ever written in anyone's messages on X (decision 163).
  */
 import type { AskResult, AskTaken } from '@hfos/core/addons/outreach/asks';
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
@@ -34,6 +37,7 @@ import {
   signedOutEnd,
   type FollowPage,
 } from './read';
+import { readFollowChats } from './chats';
 import { findPostsOn, hourlySearch } from './search';
 import { unfollowTicked } from './unfollow';
 
@@ -114,6 +118,27 @@ async function checkup(job: Job, platform: FollowPlatform): Promise<JobEnd> {
   if (isEnd(notes)) return notes;
   await c.note('your notifications', null);
 
+  // Your messages (Threads', decision 167): the list of chats, and the newest one's own page, whose box to write in is
+  // looked for and never written in.
+  if (spec.messages) {
+    if (stopped(job)) return stopped(job)!;
+    const inbox = await c.open(spec.messages.inbox, 'your messages');
+    if (isEnd(inbox)) return inbox;
+    const listed = await c.readTill(inbox, (p) => p.found.chats.length > 0, 2);
+    if (isEnd(listed)) return listed;
+    await c.note('your messages', listed.found.chats.length);
+    const newest = listed.found.chats.find((r) => r.thread)?.thread ?? null;
+    if (newest) {
+      if (stopped(job)) return stopped(job)!;
+      const chat = await c.open(spec.messages.chatUrl(newest), 'a chat');
+      if (isEnd(chat)) return chat;
+      const drawn = await c.readTill(chat, (p) => p.found.chat?.box === true, 2);
+      if (isEnd(drawn)) return drawn;
+      await c.note('a chat', drawn.found.chat?.messages.length ?? 0);
+      await c.tryHere('message');
+    } else await c.nothingFor('message', 'no chats in your messages');
+  }
+
   // Your followers: X's own page of them, Threads' box over your profile opened by your count of them.
   if (own) {
     if (stopped(job)) return stopped(job)!;
@@ -185,12 +210,19 @@ export function followAsk(platform: FollowPlatform) {
       case 'checkup':
         // Its window in front the whole time, as Chrome draws nothing in a window hidden behind another.
         return onScreen(job, () => checkup(job, platform));
+      case 'chats':
+        // Read my chats, where it messages (Threads', decision 167).
+        if (FOLLOW_SPECS[platform].messages) return readFollowChats(job, platform);
+        return cantYet(platform);
       default:
-        return {
-          line: `This build of HandsFreeOS Social can’t do that on ${NETWORKS[platform].name} yet. Download the newest one, unzip it over the old folder, press Reload on Chrome’s Extensions page, and ask again.`,
-          warned: false,
-          failed: true,
-        };
+        return cantYet(platform);
     }
   };
 }
+
+/** An ask this build can't do there. */
+const cantYet = (platform: FollowPlatform): Ended => ({
+  line: `This build of HandsFreeOS Social can’t do that on ${NETWORKS[platform].name} yet. Download the newest one, unzip it over the old folder, press Reload on Chrome’s Extensions page, and ask again.`,
+  warned: false,
+  failed: true,
+});

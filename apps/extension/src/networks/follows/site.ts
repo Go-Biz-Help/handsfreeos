@@ -2,7 +2,10 @@
  * Threads' and X's site (../looking/site.ts; decision 163), built from each one's spec (./types.ts): its own readers
  * (./read.ts) on every page read, its runner's presses (./auto.ts), unfollowing, its lists scrolled, the person's own
  * profile read for the AI's check, and Check's looks for Follow, Like and the box to reply in, pressing none of them.
- * No message is ever written there (decision 163): the site has no `openMessage`, and its `message` sends nothing.
+ *
+ * Messages only where its spec has them (Threads', decision 167, ./chats.ts): who wrote back, its profile's Message,
+ * a message in their chat, and Check's look for a chat's box to write in, never written in (the other person sees when
+ * someone's typing). Without them (X's) the site has no `openMessage`, and its `message` sends nothing.
  *
  * Both networks warn and limit accounts that go fast, so the extension reads only what the person lets it, at a
  * person's pace, and stops on any warning there.
@@ -15,6 +18,14 @@ import { emptyIn, mainOf, namesIn, pause, waitFor, writeIn, writingIn } from '..
 import type { LookingPlatform, LookingSite } from '../looking/site';
 import { missingOf, TRY_WORD, untried, went } from '../tries';
 import { followThem, likeTheirPost, theirPosts, unfollowThem, writeTheirComment } from './auto';
+import {
+  chatOn,
+  followReplies,
+  meOfPage,
+  openTheirChat,
+  scrollChatList,
+  writeMessage,
+} from './chats';
 import { postRootFor, profileOn, postsOn, readFollow } from './read';
 import type { FollowSpec } from './types';
 
@@ -55,7 +66,8 @@ export function followSite(spec: FollowSpec): LookingSite {
     unfollow: unfollowThem(spec),
     lists: {
       // The person's followers: a box over their profile (Threads'), else the page itself (X's), a screen at a time.
-      scroll: (doc) => scrollDialog(doc, false),
+      // On its messages (Threads'), the list of chats.
+      scroll: (doc, href) => scrollChatList(doc, href, spec) ?? scrollDialog(doc, false),
       showAll: (doc) => spec.openFollowers?.(doc) ?? false,
       closeDialog: async (doc) => {
         if (!doc.querySelector('[role="dialog"]')) return true;
@@ -66,12 +78,16 @@ export function followSite(spec: FollowSpec): LookingSite {
         );
       },
     },
+    // Who wrote back, on its messages (decision 167): none where nothing is written in them.
+    ...(spec.messages ? { replies: (doc, href) => followReplies(doc, href, spec) } : {}),
     auto: {
       theirPosts: theirPosts(spec),
       like: likeTheirPost(spec),
       connect: followThem(spec),
-      // Nothing is ever written in anyone's messages there yet (decision 163).
-      message: async () => 'none',
+      // Their profile's Message, and a message in their chat (decision 167); nothing is written in anyone's messages
+      // where it has none (X's, decision 163).
+      ...(spec.messages ? { openMessage: openTheirChat(spec) } : {}),
+      message: spec.messages ? writeMessage(spec) : async () => 'none',
       comment: writeTheirComment(spec),
     },
     // Their own profile, read for the AI's check: its name, username, bio, links and latest posts.
@@ -94,6 +110,36 @@ export function followSite(spec: FollowSpec): LookingSite {
       },
     },
     looks: {
+      // On a chat's own page (decision 167): its box to write in, never written in, as the other person sees when
+      // someone's typing; and who it's with, by its header.
+      ...(spec.messages
+        ? {
+            message: {
+              on: ['chat'],
+              look: (doc: Document, href: string) => {
+                const chat = chatOn(doc, href, spec, meOfPage(doc, href, spec));
+                const missing = missingOf([
+                  !chat?.box && 'no box to write a message in, on the chat',
+                  !chat?.with && 'the chat’s header doesn’t link to who it’s with',
+                ]);
+                return {
+                  ...went(
+                    'message',
+                    {
+                      box: chat?.box === true,
+                      with: chat?.with != null,
+                      messages: chat?.messages.length ?? 0,
+                      theirs: chat?.messages.filter((m) => m.from === 'them').length ?? 0,
+                    },
+                    missing,
+                    missing.length ? namesIn(mainOf(doc), site) : [],
+                  ),
+                  ...(missing.length ? { outline: outlineNow(doc, site) } : {}),
+                };
+              },
+            },
+          }
+        : {}),
       // On someone's profile: Follow (or Follow back), never pressed; one they follow already isn't tried.
       follow: {
         on: ['profile'],

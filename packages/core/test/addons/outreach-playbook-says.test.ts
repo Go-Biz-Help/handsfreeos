@@ -336,14 +336,20 @@ describe('the Test console', () => {
       gapDays: 60,
       note: null,
     });
-    // Instagram: only once they follow back. Threads: no messages at all, and it says what to do.
+    // Instagram and Threads (decision 167): only once they follow back. X: no messages at all, and it says what to do.
     expect(testMove('start', TEST_START, { platform: 'instagram', known: 'new' }, pace).note).toBe(
       'On Instagram this goes only once they follow you back.',
     );
-    const threads = testMove('start', TEST_START, { platform: 'threads', known: 'new' }, pace);
-    expect(threads.kind).toBeNull();
-    expect(threads.note).toMatch(/only comments on posts for now.*Pick another network/);
-    expect(threads.state).toEqual(TEST_START);
+    expect(
+      testMove('start', TEST_START, { platform: 'threads', known: 'new' }, pace),
+    ).toMatchObject({
+      kind: 'opener',
+      note: 'On Threads this goes only once they follow you back.',
+    });
+    const x = testMove('start', TEST_START, { platform: 'x', known: 'new' }, pace);
+    expect(x.kind).toBeNull();
+    expect(x.note).toMatch(/only comments on posts for now.*Pick another network/);
+    expect(x.state).toEqual(TEST_START);
   });
 
   it('sends each follow-up at the playbook’s pace when they go quiet, then the monthly check-in', () => {

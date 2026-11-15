@@ -15,6 +15,12 @@
  * Its icons are named three ways (the owner's Check Threads, 15 Nov 2026, 0.140.5): most of the post's buttons by a
  * `title` on the icon with a <title> inside (no aria-label, so Like and Reply were never found), others by an
  * aria-label. `iconName` reads all three.
+ *
+ * Its messages (decision 167; on the web since May 2026, as its own code names them): /messages/ for the person's
+ * chats (/messages/<tab>/ for one of its tabs), /messages/t/<number>/ for a chat's own page, a profile's Message beside
+ * its Follow (shown once they follow the person, or they follow each other on Instagram), and a box to write in that
+ * says "Write a message…". Built from its code and Messenger's usual markup, which its messages are made of, and tuned
+ * from Check Threads.
  */
 import { clean } from '../facebook/dom';
 import { visible } from '../facebook/fetch';
@@ -32,6 +38,8 @@ const NAME = /^@([A-Za-z0-9._]{1,30})$/;
 const CODE = /^[A-Za-z0-9_-]{5,64}$/;
 /** The tabs under an account: its own page still. */
 const PROFILE_TABS = new Set(['', 'replies', 'media', 'reposts']);
+/** A chat's number in its address: /messages/t/<this>/. */
+const CHAT = /^[0-9]{1,64}$/;
 
 export const partsOf = (url: URL) => url.pathname.split('/').filter(Boolean);
 
@@ -58,6 +66,9 @@ export function kindOf(url: URL): string {
   if (!first) return 'feed';
   if (lower === 'search') return 'search';
   if (lower === 'activity') return 'notifications';
+  // Its messages (decision 167): a chat's own page, else the list of chats (one of its tabs among them).
+  if (lower === 'messages')
+    return second.toLowerCase() === 't' && CHAT.test(third) ? 'chat' : 'messages';
   if (lower === 'login' || lower === 'logout') return 'login';
   if (lower === 'settings') return 'settings';
   if (lower === 'saved' || lower === 'liked') return 'other';
@@ -82,6 +93,14 @@ export function postOf(url: URL): string | null {
 export function postAuthorOf(url: URL): FollowAccount | null {
   const name = postOf(url) ? accountName(url) : null;
   return name ? { username: name, url: `${ORIGIN}/@${name}` } : null;
+}
+
+/** The chat an address is, by its number in /messages/t/<number>/: null for any other address. */
+export function chatOf(url: URL): string | null {
+  const [first = '', second = '', third = ''] = partsOf(url);
+  return first.toLowerCase() === 'messages' && second.toLowerCase() === 't' && CHAT.test(third)
+    ? third
+    : null;
 }
 
 /** Threads' own words on its pages, as the outline keeps them. */
@@ -164,6 +183,27 @@ const WORDS = new Set(
     'Terms',
     'Privacy Policy',
     'Cookies Policy',
+    // Its messages (decision 167).
+    'Message',
+    'Messages',
+    'New message',
+    'Write a message...',
+    'Write a message…',
+    'Send',
+    'Primary',
+    'General',
+    'Open chat',
+    'Mute',
+    'Unmute',
+    'Block',
+    'Seen',
+    'Delivered',
+    'Active now',
+    'Info',
+    'Conversation information',
+    'Attach media',
+    'Add a GIF',
+    'Choose an emoji',
   ].map((w) => w.toLowerCase()),
 );
 
@@ -182,6 +222,8 @@ const PATH_WORDS = new Set([
   'followers',
   'following',
   'insights',
+  'messages',
+  't',
 ]);
 
 /** Threads' warnings, as its pages word them: Instagram's, as the same account's. */
@@ -193,6 +235,8 @@ const WARNINGS: readonly RegExp[] = [
   /\byour account (has been|was|is) (temporarily )?(locked|restricted|suspended|disabled)\b/i,
   /\bwe suspect automated behaviou?r\b/i,
   /\b(confirm|verify) (it['’]s you|your identity|your account)\b/i,
+  // Its messages' own limit for the day (decision 167, as its code words it).
+  /\byou can['’]t send any more message requests today\b/i,
 ];
 
 const LIKE = /^like$/i;
@@ -203,6 +247,8 @@ const FOLLOW = /^(follow|follow back)$/i;
 const FOLLOWING = /^(following|requested)$/i;
 const EDIT = /^edit profile$/i;
 const FOLLOWERS = /^[\d.,]+\s*[km]?\s+followers?$/i;
+/** A profile's Message, beside its Follow (decision 167). */
+const MESSAGE = /^message$/i;
 
 /**
  * What an icon is named: its aria-label, else the `title` on it, else the <title> inside it. Threads names its posts'
@@ -481,4 +527,14 @@ export const THREADS_SPEC: FollowSpec = {
   answersMe: (root) =>
     /^\/activity\b/i.test(root.ownerDocument.defaultView?.location.pathname ?? '') &&
     /\b(replied|replying to you)\b/i.test(wordsOf(root)),
+  // Its messages (decision 167): the box says "Write a message…" (Messenger's says "Message" or "Aa"), and a message
+  // goes with Send, or Enter where no Send shows.
+  messages: {
+    inbox: `${ORIGIN}/messages/`,
+    chatUrl: (key) => `${ORIGIN}/messages/t/${encodeURIComponent(key)}/`,
+    chatOf,
+    messageIn: (header) => controlsSaying(header, MESSAGE)[0] ?? null,
+    box: /^(write a message|message|aa)\b/i,
+    send: /^(send|press enter to send)$/i,
+  },
 };

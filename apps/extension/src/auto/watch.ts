@@ -3,10 +3,10 @@
  * "keep a page of each platform open at all times and check for messages sent to us each minute locally so that we
  * can reply quickly"). While Chrome is open, someone's signed in, this is the computer that works, and noting is on, a
  * window of its own, kept minimized, holds one tab for each network that's on and works on its own (not Off): Messenger,
- * LinkedIn's messaging, Instagram's messages and Alignable's. Every minute each page is read where it stands, never
- * pressed or scrolled.
+ * LinkedIn's messaging, Instagram's messages, Alignable's and, from 0.141.0, Threads' (decision 167). Every minute each
+ * page is read where it stands, never pressed or scrolled.
  *
- * - On Facebook, LinkedIn and Instagram, the chats whose last message is theirs go to HandsFreeOS as any tab's do
+ * - On Facebook, LinkedIn, Instagram and Threads, the chats whose last message is theirs go to HandsFreeOS as any tab's do
  *   (../hfos/replies.ts). One that answers a message of the person's buzzes their phone, and has that network's runner
  *   draft the reply next (`onReplied`, in the background).
  * - Alignable's list doesn't say who wrote last, so a conversation whose last line changed has its runner read the
@@ -28,16 +28,20 @@ import { LINKEDIN_MESSAGING, MESSENGER_HOME } from '../jobs/chats';
 import { INBOX as INSTAGRAM_INBOX } from '../jobs/instagram/chats';
 import type { RepliesNowAnswer } from '../messages';
 import { KITS } from '../networks';
+import { FOLLOW_SPECS } from '../networks/follows/specs';
 import { isWorking, statesNow, type NetworkStates } from '../networks/on';
 
 export const WATCH_ALARM = 'hfos-watch';
 /** Where the watch keeps its window and tabs, while the browser is open. */
 const WATCH_KEY = 'hfos.watch';
 
-/** The networks with messages to watch: never Threads or X, where nothing is written yet (decision 163). */
-export type Watched = Extract<Platform, 'facebook' | 'linkedin' | 'instagram' | 'alignable'>;
+/** The networks with messages to watch: Threads' from decision 167, never X's, where nothing is written yet. */
+export type Watched = Extract<
+  Platform,
+  'facebook' | 'linkedin' | 'instagram' | 'alignable' | 'threads'
+>;
 /** The networks it watches, in the order their tabs open. */
-const WATCHED: readonly Watched[] = ['facebook', 'linkedin', 'instagram', 'alignable'];
+const WATCHED: readonly Watched[] = ['facebook', 'linkedin', 'instagram', 'alignable', 'threads'];
 
 /** The page kept open on each network, and the kinds of its pages that show the person's messages. */
 export const WATCH_PAGES: Readonly<
@@ -47,6 +51,7 @@ export const WATCH_PAGES: Readonly<
   linkedin: { url: LINKEDIN_MESSAGING.url, kinds: LINKEDIN_MESSAGING.kinds },
   instagram: { url: INSTAGRAM_INBOX, kinds: ['inbox', 'chat'] },
   alignable: { url: ALIGNABLE_MESSAGES, kinds: ['inbox', 'chat'] },
+  threads: { url: FOLLOW_SPECS.threads.messages!.inbox, kinds: ['messages', 'chat'] },
 };
 
 /**
@@ -58,6 +63,7 @@ export const FRESH_MS: Readonly<Record<Watched, number>> = {
   linkedin: 20 * 60_000,
   instagram: 20 * 60_000,
   alignable: 5 * 60_000,
+  threads: 20 * 60_000,
 };
 /** A tab the person closed stays closed this long. */
 export const CLOSED_FOR_MS = 60 * 60_000;
