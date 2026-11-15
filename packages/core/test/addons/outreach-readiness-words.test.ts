@@ -295,7 +295,8 @@ describe('your numbers', () => {
     expect(numbersPace(facebookOnly, NO_RULES)).toEqual({
       canSend: 15,
       networks: [{ platform: 'facebook', canSend: 15 }],
-      more: ['linkedin', 'instagram', 'alignable'],
+      // Threads sends first messages too (decision 167); X doesn't.
+      more: ['linkedin', 'instagram', 'alignable', 'threads'],
     });
     const three = {
       networks: {
@@ -311,7 +312,7 @@ describe('your numbers', () => {
         { platform: 'linkedin', canSend: 15 },
         { platform: 'instagram', canSend: 10 },
       ],
-      more: ['alignable'],
+      more: ['alignable', 'threads'],
     });
     // The business's own limits on each, and only the networks it allows.
     const rules = {
@@ -330,7 +331,11 @@ describe('your numbers', () => {
     });
     // A network whose first messages the business set to none isn't one to turn on.
     const noInstagram = { ...NO_RULES, networkLimits: { instagram: { first_message: 0 } } };
-    expect(numbersPace(facebookOnly, noInstagram).more).toEqual(['linkedin', 'alignable']);
+    expect(numbersPace(facebookOnly, noInstagram).more).toEqual([
+      'linkedin',
+      'alignable',
+      'threads',
+    ]);
     // Working no network at all counts Facebook, as it's on to start.
     const none = {
       networks: {

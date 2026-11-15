@@ -31,7 +31,8 @@ month (decision 99, extension 0.98.0), and Later on a person, a push when a requ
 comments waiting for an OK at first (decisions 100 to 102, extension 0.99.0), and everything it does counted at the top of Today with a ticker of what it's doing now along
 the bottom of every page (decision 140, extension 0.120.0), and Threads and X: a search for posts on the topic every
 hour with comments on the good ones, replies to those comments answered, the warm-up and a follow for the good fits,
-and Check Threads and Check X (decision 163, extension 0.137.0).
+and Check Threads and Check X (decision 163, extension 0.137.0), then messages on Threads as on Instagram (decision 167,
+extension 0.141.0).
 
 The parts below name the tabs they were built on. Since decision 127 those are pages of their own, which pop out from
 Social Outreach's one row in the side menu, in this order: **Set up** (decision 129: how far the setup has come and
@@ -4122,7 +4123,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         and one comment a visit, for the warm-up's wait.
       - **A follow, and unfollowed after the wait** (7a): good fits are followed (their follow is the request, as on
         Instagram), and unfollowed on their own once the wait ends without a follow-back. **No messages there yet**:
-        nothing is ever written to anyone in their messages on Threads or X; that comes in a part of its own.
+        nothing is ever written to anyone in their messages on Threads or X; that comes in a part of its own (Threads'
+        came in decision 167).
       - **Replies to the person's comments** (8a): each hourly look also reads the person's notifications for replies
         to their comments; a reply goes on Needs you with an answer the AI drafted, which waits for an OK (Autopilot's
         too), and the phone gets a push when someone says yes to a demo.
@@ -4323,6 +4325,38 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **Not the Assistant's** (`notForTheAssistant`): the two the extension calls are its own, and the four on
         the card are HandsFreeOS staff's study, not something a business does. The card's items are in the
         Assistant's checklist as `never`.
+
+167.  **Threads messages as Instagram does: once they follow back** (Chris, 15 Nov 2026: "ok once we finish making
+      sure the built actions work i want threads to work like instagram where if they follow back then we can message
+      them and we warm up for 2 weeks and then unfollow if they don’t follow back"). The follow, decision 161's
+      warm-up and the unfollow after the wait (decision 163's 6a and 7a) were there; only messages were missing.
+      Threads has had messages on the web since May 2026: its list at `/messages/`, a chat at
+      `/messages/t/<number>/`, and Message on a profile beside its Follow, which shows once they follow the person
+      (or they follow each other on Instagram). He picked 1a 2a 3a. Extension 0.141.0, no migration.
+      - **The first message is Instagram's** (1a): the AI writes an opener from their profile, which goes as the
+        Sending choice says (waits for an OK, or goes on its own), then follow-ups in turn, and answers to whoever
+        writes back, as on every network. **Never to someone who doesn't follow back** (decision 159):
+        `outreach.send.queue` refuses one on Threads too, as a follow network.
+      - **Instagram's limits** (2a): 10 first messages and 15 follow-ups a day (`followNetwork({ messages: true })`),
+        halved for a new account and for a week after a warning. X keeps none (0 and 0): nothing is written in
+        anyone's messages there.
+      - **Good fits who follow already** (3a): decision 155's catch-up lists a first message to someone who follows
+        the person and a check found a good fit, as on Instagram, with nothing new in Today.
+      - **Only in their own chat** (the extension's `networks/follows/chats.ts`): opened by its number when it's
+        kept, else by Message on their profile; typed only in that chat's own box (whose header links to them) while
+        it's empty, sent with Send or else Enter; whatever was typed is taken out again when it isn't still their
+        chat's box or it didn't go.
+      - **Replies read every minute** (`auto/watch.ts`, decision 125): Threads' `/messages/` is kept open beside
+        the other networks', and who wrote last goes to HandsFreeOS (`outreach.replies.note`) as Threads'. A reply
+        is drafted next and goes any time of day (decision 133). **Read my chats** (`chats`, an ask and the runner's
+        once-a-day job while Collect is on, 60 a day) sends each chat's latest messages for the AI's Chats tab.
+      - **How it's built:** core's kit (`NETWORKS.threads.messages`, `MESSAGE_PLATFORMS`, the `chats` ask from
+        0.141.0 in `ASK_KIND_SINCE_ON`, a chat's address in `network-words.ts`); in the extension the readers and
+        presses (`networks/follows/chats.ts`, the spec's `messages`), the chats job (`jobs/follows/chats.ts`) and the
+        runner's drafts and sends (`auto/follows.ts`, as `auto/instagram.ts` does them). **Check Threads** opens the
+        person's messages and the newest chat, and looks for its box and who it's with; it never types in a chat,
+        as the other person would see someone typing. The readers were built from Threads' code and Messenger's
+        usual markup before anyone's Check outlined them, so the first Check Threads tunes them.
 
 ## Rules worth knowing before changing anything
 
@@ -4609,8 +4643,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   good posts' people a day on Instagram and LinkedIn), `commentsWait` (`hold` where comments go through `sends`:
   Instagram, Alignable and, from decision 102, LinkedIn; `never` on Facebook) and `joinsPerDay` (3 on Facebook and
   Alignable).
-- **Never a message to someone who doesn't follow back on Instagram** (decision 159): their follow-back is the trigger,
-  as accepting is on every other network. Today lists none and `outreach.send.queue` refuses one
+- **Never a message to someone who doesn't follow back on Instagram** (decision 159), nor on Threads (decision 167):
+  their follow-back is the trigger, as accepting is on every other network. X has no messages. Today lists none and `outreach.send.queue` refuses one
   (`outreach_not_following`), whatever drafted it; a comment under their post can still go.
 - **Warm them up while they decide, then let them go** (decision 161): someone waiting on a request gets a visit
   every few days at random (1 to 3 days apart, 1 or 2 likes, one comment under the first), and nothing else, till they accept or the business's

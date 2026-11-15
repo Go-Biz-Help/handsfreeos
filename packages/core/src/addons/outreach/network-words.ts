@@ -184,10 +184,15 @@ export type AlongTick = (typeof ALONG_TICKS)[number];
 
 /**
  * Threads' and X's words (decision 163): follow networks made of posts, whose work is a search for posts on the topic
- * every hour and a comment on the good ones, and a follow and a few visits for the good fits found by them. No messages
- * and no helpful post (the AI Social Media Content Creator puts the business's own posts up there).
+ * every hour and a comment on the good ones, and a follow and a few visits for the good fits found by them; on Threads,
+ * a message once they follow back (decision 167). No helpful post (the AI Social Media Content Creator puts the
+ * business's own posts up there).
  */
-function followNetworkWords(name: string, chatUrl: (key: string) => string): MoreWords {
+function followNetworkWords(
+  name: string,
+  chatUrl: (key: string) => string,
+  messages = false,
+): MoreWords {
   const cap = NETWORKS[name === 'X' ? 'x' : 'threads'].friendsCap.toLocaleString('en-US');
   return {
     confirm: 'Confirm their follow request',
@@ -205,7 +210,7 @@ function followNetworkWords(name: string, chatUrl: (key: string) => string): Mor
       ],
       collect: [
         `Every hour: search ${name} for posts on your topic, and read replies to your comments`,
-        `These fill the list it works from. It searches ${name}’s newest posts with your playbooks’ phrases, the AI keeps the ones about your topic for a comment, and the people who wrote them or replied to them are checked for good fits. Once a day it also saves your newest followers and looks at who followed you back.`,
+        `These fill the list it works from. It searches ${name}’s newest posts with your playbooks’ phrases, the AI keeps the ones about your topic for a comment, and the people who wrote them or replied to them are checked for good fits. Once a day it also saves your newest followers${messages ? ', looks at who followed you back, and reads your chats for the AI' : ' and looks at who followed you back'}.`,
       ],
       watchPosts: [
         'Look for new posts asking for what I offer, every hour',
@@ -394,7 +399,9 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
   },
   threads: followNetworkWords(
     'Threads',
-    (key) => `https://www.threads.com/direct/t/${encodeURIComponent(key)}`,
+    // Its messages on the web (decision 167): threads.com/messages/t/<the chat's number>/.
+    (key) => `https://www.threads.com/messages/t/${encodeURIComponent(key)}/`,
+    true,
   ),
   x: followNetworkWords('X', (key) => `https://x.com/messages/${encodeURIComponent(key)}`),
 };

@@ -151,10 +151,10 @@ describe('a playbook’s Test console', () => {
     const old = await move({ person: { ...sam, known: 'old' }, move: 'start' });
     expect(old).toMatchObject({ kind: 'reconnect', label: 'Reconnect' });
     expect(old.message).toBeTruthy();
-    // Threads only comments for now: no message goes, and it says what to do.
-    const threads = await move({ person: { ...sam, platform: 'threads' }, move: 'start' });
-    expect(threads).toMatchObject({ kind: null, message: null, state: TEST_START });
-    expect(threads.note).toMatch(/On Threads it only comments on posts for now/);
+    // X only comments for now: no message goes, and it says what to do.
+    const x = await move({ person: { ...sam, platform: 'x' }, move: 'start' });
+    expect(x).toMatchObject({ kind: null, message: null, state: TEST_START });
+    expect(x.note).toMatch(/On X it only comments on posts for now/);
   });
 
   it('follows up when they go quiet, reads their reply, and asks for a time after a yes', async () => {

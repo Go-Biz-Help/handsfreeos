@@ -17,38 +17,50 @@
  * - **Once a day,** while the network's Collect choice is on: their newest followers since the last save, the accounts
  *   they followed looked at for who followed back, unfollowing who didn't once the warm-up's wait is over as the person
  *   chose (decision 98), who replied to good posts (../jobs/follows/post-people.ts), the people found checked for good
- *   fits from their own profiles (../jobs/found-checks.ts), and their own profile read on the 1st of the month.
+ *   fits from their own profiles (../jobs/found-checks.ts), and their own profile read on the 1st of the month. On
+ *   Threads (decision 167), their chats read for the AI too (../jobs/follows/chats.ts), as Instagram's are.
  * - **Then its list for today** (`outreach.today` for the network), by turns with the reading above (decision 123):
  *   the warm-up (decision 161: a look at their profile and a like on the post they were found by, or their reply to a
  *   good post, and one of their latest while the day's likes have room; the visits after, while they decide on
  *   following back), a follow a day after, and comments on good posts and answers to replies, drafted by the AI and
  *   sent once OK'd or past the hold (./comments.ts), only in the post's own box. A comment pitches only when a post asks
- *   for what the business offers (decision 79, answer 5a). Nothing is ever written in anyone's messages there.
- * - **At a careful pace:** a few minutes between steps, within the kit's limits (30 comments and 80 likes a day, halved
- *   while the account is new and for a week after a warning), which HandsFreeOS keeps.
+ *   for what the business offers (decision 79, answer 5a).
+ * - **On Threads, messages as on Instagram** (decision 167, the owner's picks 1a 2a 3a): a first message once they
+ *   follow back, or to a good fit who follows the person already, drafted by the AI and sent as the Sending choice
+ *   says; follow-ups; and answers to whoever writes back, read every minute (./watch.ts), any time of day as on every
+ *   network (decision 133). Each goes only in their own chat, opened by its number or their profile's own Message.
+ *   Nothing is ever written in anyone's messages on X.
+ * - **At a careful pace:** a few minutes between steps, within the kit's limits (30 comments and 80 likes a day, and on
+ *   Threads 10 first messages and 15 follow-ups, halved while the account is new and for a week after a warning), which
+ *   HandsFreeOS keeps.
  * - **Stops on any warning** of the network's, for the day, on that network alone: the others go on.
  *
  * Each step is noted as the extension's own (`auto`), as the network's. Anything its page doesn't let it do is handed
  * to the person (`noteNeed`), never guessed.
  */
-import { businessDay } from '@hfos/core/addons/outreach/automation';
+import { businessDay, type MessageKind } from '@hfos/core/addons/outreach/automation';
 import { ASK_FIRST_WORDS } from '@hfos/core/addons/outreach/asks';
 import { buttonFor } from '@hfos/core/addons/outreach/helper';
 import { visitLine } from '@hfos/core/addons/outreach/keep-warm';
 import { LIKE_POSTS_READ, likedText, neverLike } from '@hfos/core/addons/outreach/like-pick';
 import { standDownWords } from '@hfos/core/addons/outreach/live';
+import { chatUrlOn } from '@hfos/core/addons/outreach/network-words';
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
 import type { TodayKind } from '@hfos/core/addons/outreach/today';
+import { messageParts, partPauseMs } from '@hfos/core/addons/outreach/voice';
 import type { ProblemHelper } from '@hfos/core/problem-report';
 import { haltAsk } from '../asks/run';
 import { awayNow } from '../away';
 import { follow, loadSettings } from '../hfos/follow';
 import { feed, keptFor, onBeat, type Kept } from '../hfos/live';
-import type { TodayList, TodayListItem } from '../hfos/messages';
+import type { Drafts, TodayList, TodayListItem } from '../hfos/messages';
 import { isNoting, noteNeed, takeNote } from '../hfos/noting';
+import { chatCollect, NOTHING_TO_ANSWER } from '../hfos/saves';
 import { answer, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
+import { chatMemory } from '../jobs/chats';
 import { checkFound } from '../jobs/found-checks';
+import { followChatPage, readFollowChats } from '../jobs/follows/chats';
 import { saveFollowers, lookForFollowBacks } from '../jobs/follows/people';
 import { readPostRepliers } from '../jobs/follows/post-people';
 import {
@@ -67,7 +79,7 @@ import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/j
 import { readProfileOnItsOwn } from '../jobs/own-read';
 import { reporter } from '../jobs/report';
 import { threads, x } from '../networks';
-import type { ProfileRef } from '../networks/facebook/types';
+import type { ProfileRef, ThreadRef } from '../networks/facebook/types';
 import type { FollowPlatform } from '../networks/follows/types';
 import { isWorking, statesNow } from '../networks/on';
 import { WorkTab } from '../tab';
@@ -78,6 +90,7 @@ import {
   sendComment,
   type CommentRunner,
 } from './comments';
+import { DAILY_CHATS } from './daily';
 import { helpAfter, stepHelp } from './helper';
 import {
   beforeDay,
@@ -92,17 +105,21 @@ import { AWAY_AGAIN_MS, awayEnd, isNotAway, PutOff, waitingFor, waitingWords } f
 import {
   afterDaily,
   AGAIN_WORDS,
+  answersAnyTime,
+  ANSWERING,
   freshState,
   gapAfter,
   isState,
   listSays,
   listTurn,
+  lookOutsideAt,
   needOf,
   networkDay,
   networkWaitWords,
   nextRound,
   nextStart,
   repliedAfter,
+  replyWaiting,
   retryWake,
   roundDue,
   soonestAgain,
@@ -125,25 +142,31 @@ import { askInLine, inTurn } from './turns';
 
 /**
  * The kinds it does on its own there, in order (its kit's `runs.auto`): comments, and answers to replies, go through
- * `sends` (./comments.ts).
+ * `sends` (./comments.ts), and so do Threads' messages (decision 167).
  */
 export const FOLLOW_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'];
 
 /**
  * The once-a-day jobs there, in order: the newest followers (`requests`: who followed back is who accepted), who
- * followed back seen on their own profiles, unfollowing who didn't as the person chose (`tidy`), who replied to good
- * posts, the people found checked for good fits, and their own profile on the 1st of the month. Its search isn't one:
- * it goes every hour (`searchDue`).
+ * followed back seen on their own profiles, unfollowing who didn't as the person chose (`tidy`), the person's chats
+ * read for the AI where it writes in them (Threads', decision 167), who replied to good posts, the people found
+ * checked for good fits, and their own profile on the 1st of the month. Its search isn't one: it goes every hour
+ * (`searchDue`).
  */
 export const FOLLOW_DAILY = [
   'requests',
   'follow_backs',
   'tidy',
+  'chats',
   'post_people',
   'found_checks',
   'profile',
 ] as const satisfies readonly (DailyJob | OwnDailyJob)[];
 export type FollowDaily = (typeof FOLLOW_DAILY)[number];
+
+/** Its once-a-day jobs on a network: its chats only where it writes in them (Threads', decision 167). */
+export const followDailyOn = (platform: FollowPlatform): readonly FollowDaily[] =>
+  FOLLOW_DAILY.filter((job) => job !== 'chats' || NETWORKS[platform].messages);
 
 /** Its jobs that find people, done again in a round while it needs more good fits (decision 126). */
 export const FOLLOW_FINDING: readonly FollowDaily[] = ['post_people', 'found_checks'];
@@ -169,6 +192,7 @@ const DAILY_DOING = (name: string): Readonly<Record<FollowDaily, string>> => ({
   requests: `Reading your newest followers on ${name}…`,
   follow_backs: `Looking at the accounts you followed on ${name} for who followed you back…`,
   tidy: `Unfollowing who didn’t follow you back on ${name}…`,
+  chats: `Reading your ${name} chats for the AI…`,
   post_people: `Reading who replied to good posts on ${name}…`,
   found_checks: `Checking the people found on ${name} for good fits…`,
   profile: `Reading your ${name} profile, as it does on the 1st of each month…`,
@@ -177,18 +201,20 @@ const DAILY_NAMES: Readonly<Record<FollowDaily, string>> = {
   requests: 'Your newest followers',
   follow_backs: 'Who followed you back',
   tidy: 'Tidy up',
+  chats: 'Read my chats',
   post_people: 'Who replied to good posts',
   found_checks: 'Check the people found',
   profile: 'Read my profile',
 };
 
-/** The once-a-day job to do next there: the first not done today. */
+/** The once-a-day job to do next on a network: the first not done today. */
 export const nextFollowDaily = (
+  platform: FollowPlatform,
   state: Pick<AutoState, 'daily' | 'againAt'>,
   passOver: readonly FollowDaily[] = [],
   now = Date.now(),
 ): FollowDaily | null =>
-  FOLLOW_DAILY.find(
+  followDailyOn(platform).find(
     (job) =>
       state.daily?.[job] === undefined && !passOver.includes(job) && !waitsAgain(state, job, now),
   ) ?? null;
@@ -203,7 +229,10 @@ export function nextSearch(platform: FollowPlatform, now: number, random: number
   return now + Math.round(minutes * 60_000 * (1 - SEARCH_JITTER + random * 2 * SEARCH_JITTER));
 }
 
-/** What's left on the network's list for it today: only the kinds it does there. */
+/**
+ * What's left on the network's list for it today: only the kinds it does there. Messages only where it writes in them
+ * (`messages`: Threads', decision 167); on X, only its steps and comments.
+ */
 export function followWorkLeft(
   list: Pick<TodayList, 'items' | 'auto' | 'messages' | 'sending'> & {
     readonly partners?: readonly TodayListItem[];
@@ -211,12 +240,13 @@ export function followWorkLeft(
   },
   tried: readonly string[],
   replied: readonly string[] = [],
+  messages = false,
 ): Work[] {
   return workLeft(
     { ...list, auto: list.auto.filter((k) => FOLLOW_AUTO.includes(k)) },
     tried,
     replied,
-  ).filter((w) => w.do === 'step' || isCommentWork(w));
+  ).filter((w) => messages || w.do === 'step' || isCommentWork(w));
 }
 
 /** The likes the day has room for past one each for the warm-ups still to do (and a visit's own). */
@@ -254,8 +284,16 @@ export interface FollowRunner {
   readonly wake: () => Promise<void>;
   readonly replied: (profileIds: readonly string[]) => Promise<void>;
   readonly tabId: () => number | null;
-  /** A piece of the list's work, one of its once-a-day jobs, and its hour's search, each as its go does them. */
-  readonly doWork: (work: Work, businessId: string, spare?: number) => Promise<Outcome>;
+  /**
+   * A piece of the list's work, one of its once-a-day jobs, and its hour's search, each as its go does them. `split`
+   * sends a message as a few short texts, when the person texts that way.
+   */
+  readonly doWork: (
+    work: Work,
+    businessId: string,
+    spare?: number,
+    split?: boolean,
+  ) => Promise<Outcome>;
   readonly runDaily: (kind: FollowDaily, job: Job) => Promise<JobEnd>;
   readonly searchHour: (businessId: string) => Promise<JobEnd>;
 }
@@ -662,6 +700,232 @@ function followRunner(platform: FollowPlatform): FollowRunner {
     };
   }
 
+  // ----------------------------------------------------------------------------------------------- its messages
+
+  /**
+   * Opens their chat (Threads', decision 167): its own page by its number when it's kept, else their profile's own
+   * Message, which shows once they follow the person. It must be with them, by the name in their profile's address.
+   */
+  async function openChat(
+    item: TodayListItem,
+    businessId: string,
+  ): Promise<
+    | { readonly profile: ProfileRef; readonly thread: ThreadRef | null }
+    | { readonly outcome: Outcome }
+  > {
+    const want = wantOf(item.profileUrl);
+    const url = item.threadKey ? chatUrlOn(platform, item.threadKey) : null;
+    if (item.threadKey && url) {
+      await tab.open(url);
+      await setState({ tabId: tab.tabId });
+      let page = await read();
+      if (!page.found.chat?.with && !page.warnings.length && !page.signedOut) {
+        // Its messages draw a moment after the page.
+        await pause(SETTLE_MS);
+        page = await read();
+      }
+      const stop = await warnedOn(page, businessId);
+      if (stop) return { outcome: { stop } };
+      if (page.signedOut) return { outcome: { again: SIGNED_OUT } };
+      const chat = page.found.chat;
+      const profile =
+        want ??
+        (chat?.with ? { id: null, username: chat.with.username, url: chat.with.url } : null);
+      if (!chat?.with || !profile || !sameAs(chat.with.username, profile.username!))
+        return { outcome: { done: false, line: `${item.name}: ${NAME} showed a different chat` } };
+      return { profile, thread: { id: item.threadKey, encrypted: false, url } };
+    }
+    const opened = await openAccount(item, businessId);
+    if ('outcome' in opened) return opened;
+    const pressed = await tab.ask({ type: 'hfos-open-message', profile: opened.noted });
+    if (!pressed.ok) {
+      // Their Follow, not Follow back, says they don't follow the person: no Message till they do.
+      const shown = opened.page.found.profile;
+      const notYet = shown?.following === 'no' && shown.followsYou === false;
+      return {
+        outcome: {
+          done: false,
+          line: notYet
+            ? `${item.name}: ${NAME} shows Message only once they follow you`
+            : `${item.name}: couldn’t find Message on their profile`,
+        },
+      };
+    }
+    await pause(SETTLE_MS);
+    // Their chat's own page: its number is in its address.
+    const page = await read();
+    const stop = await warnedOn(page, businessId);
+    if (stop) return { outcome: { stop } };
+    const id = page.found.chat?.thread ?? null;
+    const at = id ? chatUrlOn(platform, id) : null;
+    return {
+      profile: opened.noted,
+      thread: id && at ? { id, encrypted: false, url: at } : null,
+    };
+  }
+
+  /** Their chat as it is now, before a reply is drafted: brought into HandsFreeOS as the network's. */
+  async function bringInChat(item: TodayListItem, businessId: string): Promise<Outcome | null> {
+    if (!item.threadKey) return null;
+    const opened = await openChat(item, businessId);
+    if ('outcome' in opened) return 'done' in opened.outcome ? null : opened.outcome;
+    const { found } = await read();
+    const chat = found.chat;
+    const page = chat ? followChatPage(platform, chat) : null;
+    // Its messages carry no time: its row in the list beside it says when it last moved, as the chats read takes it.
+    const row = chat ? found.chats.find((r) => r.thread === chat.thread) : undefined;
+    const built = page ? chatCollect(page, new Date(), row?.when ?? null, platform) : null;
+    if (built)
+      await answer({
+        type: 'hfos-collect-chats',
+        input: { workspaceId: businessId, platform, chats: [built] },
+      });
+    if (chat?.last === 'me')
+      return { done: false, line: `${item.name}: ${NOTHING_TO_ANSWER}`, skip: true };
+    return null;
+  }
+
+  /**
+   * Drafts a message with the AI after reading their profile, and hands it to HandsFreeOS to wait or go, as Instagram's
+   * runner does; a comment on a good post is drafted from the post (decision 92).
+   */
+  async function draftMessage(item: TodayListItem, businessId: string): Promise<Outcome> {
+    if (item.kind === 'reply' || item.kind === 'partner_reply') {
+      const stopped = await bringInChat(item, businessId);
+      if (stopped) return stopped;
+    }
+    const looked = item.profileUrl
+      ? await readThemOn(platform)(jobFor(businessId), {
+          profileId: item.profileId ?? '',
+          name: item.name,
+          url: item.profileUrl,
+        })
+      : { lines: [], missing: true, followers: null };
+    if ('end' in looked)
+      return looked.end.warned ? { stop: looked.end.line } : { done: false, line: looked.end.line };
+    const drafted = await answer({
+      type: 'hfos-draft',
+      workspaceId: businessId,
+      input: {
+        kind: item.kind as MessageKind,
+        profileId: item.profileId,
+        chatId: item.chatId,
+        lookup: looked.lines,
+      },
+    });
+    if (!drafted.ok) return { done: false, line: `${item.name}: ${drafted.problem.message}` };
+    const { drafts, opener, simple, unanswered, kind: draftedKind } = drafted.value as Drafts;
+    const kind = (draftedKind ?? item.kind) as MessageKind;
+    const text = drafts[0];
+    if (!text) return { done: false, line: `${item.name}: the AI had nothing to write` };
+    const queued = await call(
+      api().POST('/v1/commands/outreach.send.queue', {
+        body: {
+          workspaceId: businessId,
+          profileId: item.profileId!,
+          kind,
+          chatId: item.chatId,
+          threadKey: item.threadKey,
+          text,
+          opener: kind === 'opener' ? opener : null,
+          simple: kind === 'reply' && simple,
+          // Something Knowledge doesn't answer: it waits for the person (decision 122).
+          unanswered: kind === 'reply' ? (unanswered ?? null) : null,
+        },
+      }),
+      businessId,
+    );
+    return {
+      done: true,
+      line:
+        queued.state === 'approved'
+          ? `Wrote a message to ${item.name}: it goes soon`
+          : `Wrote a message to ${item.name}: it waits for your OK`,
+    };
+  }
+
+  /** Says how a send went in HandsFreeOS. One the person skipped meanwhile went anyway: nothing more to say. */
+  async function sendDone(sendId: string, businessId: string, sent: boolean, why: string | null) {
+    try {
+      await call(
+        api().POST('/v1/commands/outreach.send.done', {
+          body: { workspaceId: businessId, sendId, sent, why },
+        }),
+        businessId,
+      );
+    } catch (error) {
+      if (!(error instanceof Refused) || error.problem.status !== 404) throw error;
+    }
+  }
+
+  /**
+   * Sends a message OK'd (or on its own, as Sending says) in their chat, as a few short texts when the person texts
+   * that way, and notes it. One to their requests goes as one text.
+   */
+  async function sendMessage(
+    item: TodayListItem,
+    businessId: string,
+    split: boolean,
+  ): Promise<Outcome> {
+    const send = item.send!;
+    const failed = async (line: string): Promise<Outcome> => {
+      const lead = `${item.name}: `;
+      await sendDone(
+        send.sendId,
+        businessId,
+        false,
+        line.startsWith(lead) ? line.slice(lead.length) : line,
+      );
+      return { done: false, line };
+    };
+    const chat = await openChat(item, businessId);
+    if ('outcome' in chat) return 'done' in chat.outcome ? failed(chat.outcome.line) : chat.outcome;
+    const parts = messageParts(send.text, split && item.requests !== true);
+    let partly: string | null = null;
+    for (const [i, part] of parts.entries()) {
+      if (i > 0) await pause(partPauseMs(part, Math.random()));
+      const wrote = await tab.ask({ type: 'hfos-message', text: part, profile: chat.profile });
+      const why = !wrote.ok
+        ? wrote.error
+        : wrote.result === 'none'
+          ? 'couldn’t find the box to write in'
+          : wrote.result === 'not_theirs'
+            ? `its typing didn’t stay in their chat, so it took it out${i === 0 ? ' and sent nothing' : ''}`
+            : wrote.result !== 'done'
+              ? `${NAME} didn’t take the message`
+              : null;
+      if (why === null) continue;
+      if (i === 0) return failed(`${item.name}: ${why}`);
+      partly = `Sent ${item.name} ${i} of ${parts.length} texts, then: ${why}`;
+      break;
+    }
+    // The chat's number, once its own page shows it.
+    const after = await read();
+    const id = chat.thread?.id ?? after.found.chat?.thread ?? null;
+    const at = id ? chatUrlOn(platform, id) : null;
+    await takeNote(
+      {
+        type: 'hfos-noted',
+        step: {
+          kind: 'message',
+          to: { name: item.name, profile: chat.profile },
+          group: null,
+          postUrl: null,
+          thread: id && at ? { id, encrypted: false, url: at } : null,
+          replying: item.kind === 'reply' || item.kind === 'partner_reply',
+          auto: true,
+        },
+        at: now(),
+      },
+      platform,
+    );
+    await sendDone(send.sendId, businessId, true, null);
+    await pause(SETTLE_MS);
+    const stop = await warnedOn(await read(), businessId);
+    if (stop) return { stop };
+    return { done: true, line: partly ?? `Sent ${item.name} a message` };
+  }
+
   /** A job in the runner's window, for the hourly search and the once-a-day jobs, noting warnings as the network's. */
   function jobFor(businessId: string): Job {
     return {
@@ -689,11 +953,16 @@ function followRunner(platform: FollowPlatform): FollowRunner {
       reporter(job.tab, job.hfos, { businessId: job.businessId, platform, askId: null, job: kind }),
   });
 
-  /** Does a piece of work: a step on the list, or a comment's draft or send. */
-  function doWork(work: Work, businessId: string, spare = 0): Promise<Outcome> {
-    if (work.do === 'draft') return draftComment(work.item, businessId);
+  /** Does a piece of work: a step on the list, or a comment's or a message's draft or send. */
+  function doWork(work: Work, businessId: string, spare = 0, split = true): Promise<Outcome> {
+    if (work.do === 'draft')
+      return isCommentWork(work)
+        ? draftComment(work.item, businessId)
+        : draftMessage(work.item, businessId);
     if (work.do === 'send')
-      return sendComment(work.item, wantOf(work.item.profileUrl), businessId, commenting);
+      return isCommentWork(work)
+        ? sendComment(work.item, wantOf(work.item.profileUrl), businessId, commenting)
+        : sendMessage(work.item, businessId, split);
     switch (work.item.kind) {
       case 'warm_up':
       case 'partner_warm_up':
@@ -710,7 +979,11 @@ function followRunner(platform: FollowPlatform): FollowRunner {
 
   const doing = (work: Work) =>
     commentDoing(work) ??
-    `${work.item.kind === 'friend_request' ? 'Following' : `Looking at the ${NAME} of`} ${work.item.name}…`;
+    (work.do === 'step'
+      ? `${work.item.kind === 'friend_request' ? 'Following' : `Looking at the ${NAME} of`} ${work.item.name}…`
+      : work.do === 'draft'
+        ? `Writing a message to ${work.item.name}…`
+        : `Sending ${work.item.name} a message…`);
 
   const doneAs = (work: Work): DoneKind =>
     work.do === 'step'
@@ -719,7 +992,9 @@ function followRunner(platform: FollowPlatform): FollowRunner {
         : (work.item.kind as DoneKind)
       : work.do === 'draft'
         ? 'drafted'
-        : 'comment';
+        : isCommentWork(work)
+          ? 'comment'
+          : 'sent';
 
   // ----------------------------------------------------------------------------------------------- its jobs
 
@@ -732,6 +1007,12 @@ function followRunner(platform: FollowPlatform): FollowRunner {
         return lookForFollowBacks(job, platform);
       case 'tidy':
         return unfollowOnItsOwn(job, platform);
+      case 'chats':
+        return readFollowChats(job, platform, {
+          most: DAILY_CHATS,
+          memory: chatMemory,
+          again: 'The rest wait for tomorrow.',
+        });
       case 'post_people':
         return readPostRepliers(reporting(job, kind), platform);
       case 'found_checks':
@@ -785,7 +1066,7 @@ function followRunner(platform: FollowPlatform): FollowRunner {
     const says = listSays(list);
     const kept = await stateNow();
     if (kept.more !== says.more || (kept.retryAt ?? null) !== says.retryAt) await setState(says);
-    return { list, left: followWorkLeft(list, tried, replied) };
+    return { list, left: followWorkLeft(list, tried, replied, NETWORKS[platform].messages) };
   }
 
   async function go(): Promise<void> {
@@ -831,11 +1112,38 @@ function followRunner(platform: FollowPlatform): FollowRunner {
     });
     const tomorrow = () => nextStart(settings.hours, timezone, Date.now(), random);
     if (!own.go) {
-      // Nothing is written there outside the hours: no messages, so no replies to answer then.
       await setState({ started: false, stopped: own.stopped });
+      // Outside the hours a reply to someone who wrote back still goes, where it writes in their messages (Threads'),
+      // and nothing new does (decision 133): never after Stop for today or a warning, nor while noting's off or an ask
+      // of theirs is in line.
+      const answering =
+        NETWORKS[platform].messages &&
+        own.stopped === null &&
+        !(await warnedNow(platform)) &&
+        (await isNoting()) &&
+        !askInLine(platform)
+          ? await listNow(to.businessId, state.tried, state.replied)
+          : null;
+      const answers = answering?.left.filter(answersAnyTime) ?? [];
+      if (answers[0])
+        return workNext(answers, answering!.list, {
+          businessId: to.businessId,
+          settings,
+          timezone,
+          own: ANSWERING,
+          reading: false,
+          random,
+        });
       await closeWindow();
       await say(networkWaitWords(NAME, own, settings.hours, timezone, at));
-      return goAt(own.next);
+      return goAt(
+        lookOutsideAt(
+          !!answering && replyWaiting(answering.list),
+          at,
+          own.next,
+          answering ? retryWake(await stateNow(), at) : [],
+        ),
+      );
     }
     if (own.started && !state.started) state = await setState({ started: true, stopped: null });
     if (state.stopped === 'warning' || (await warnedNow(platform))) {
@@ -876,7 +1184,7 @@ function followRunner(platform: FollowPlatform): FollowRunner {
       return goAt(Date.now() + AWAY_AGAIN_MS);
     }
     const passOver = putOff.passOver(away);
-    let daily = choices.collect ? nextFollowDaily(state, passOver, at) : null;
+    let daily = choices.collect ? nextFollowDaily(platform, state, passOver, at) : null;
     if (
       choices.collect &&
       !before &&
@@ -885,7 +1193,7 @@ function followRunner(platform: FollowPlatform): FollowRunner {
       roundDue(state, at)
     ) {
       state = await setState(nextRound(state, FOLLOW_FINDING, at));
-      daily = nextFollowDaily(state, passOver, at);
+      daily = nextFollowDaily(platform, state, passOver, at);
     }
     // Its search, every hour, once its first day's followers are saved: what it's there for.
     const searching = choices.collect && !holdsTheDay(before) && searchDue(state, at);
@@ -1013,7 +1321,11 @@ function followRunner(platform: FollowPlatform): FollowRunner {
     const { item } = work;
     await say(doing(work), { working: true, readLast: false });
     const run = () =>
-      inTurn('runner', () => doWork(work, businessId, spareLikes(list, left)), platform);
+      inTurn(
+        'runner',
+        () => doWork(work, businessId, spareLikes(list, left), settings.voice?.split ?? true),
+        platform,
+      );
     let outcome: Outcome;
     try {
       outcome = await run();
