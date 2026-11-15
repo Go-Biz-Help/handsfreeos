@@ -213,7 +213,8 @@ const ONLINE_COMMANDS = [
   'socialcontent.work.stop',
   'socialcontent.idea.decide',
   // Its Calendar on the phone (part 12): a post saved, OK'd or its OK taken back, the week OK'd, a post skipped or
-  // brought back, Post it now, a post removed (the owner, 11 Nov), and posts redone (the owner, 15 Nov).
+  // brought back, Post it now, a post removed (the owner, 11 Nov), posts redone, and picked posts OK'd, hidden or shown
+  // again, deleted, marked as posted or looked for on the network (the owner, 15 Nov).
   'socialcontent.content.save',
   'socialcontent.content.approve',
   'socialcontent.content.approve_week',
@@ -221,6 +222,11 @@ const ONLINE_COMMANDS = [
   'socialcontent.content.post_now',
   'socialcontent.content.remove',
   'socialcontent.content.redo',
+  'socialcontent.content.approve_many',
+  'socialcontent.content.hide',
+  'socialcontent.content.remove_many',
+  'socialcontent.content.mark_posted',
+  'socialcontent.content.look',
   // Contractor Operations in the field (docs/contractor.md, "On the phone"), with signal: a job's own status, and
   // taking a note off.
   'contractor.job.set_status',

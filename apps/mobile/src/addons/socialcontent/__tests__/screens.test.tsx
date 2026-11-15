@@ -775,7 +775,15 @@ describe('the Calendar', () => {
       onOkWeek={jest.fn()}
       onWrite={jest.fn()}
       onWriteFor={jest.fn()}
-      onRedo={jest.fn()}
+      look="list"
+      day={null}
+      canRemove
+      onGo={jest.fn()}
+      onAct={jest.fn().mockResolvedValue({ done: 1, left: 0 })}
+      onAsk={jest.fn().mockResolvedValue([])}
+      onTryAgain={jest.fn()}
+      onLookOne={jest.fn()}
+      onMarkOne={jest.fn().mockResolvedValue({ done: 1, left: 0 })}
       {...props}
     />
   );
@@ -878,8 +886,8 @@ describe('the Calendar', () => {
     expect(onWriteFor).toHaveBeenLastCalledWith(['x'], 'Our spring tune-up special');
   });
 
-  it('redoes the posts ticked: what didn’t go up, and what went up wrong (the owner, 15 Nov)', async () => {
-    const onRedo = jest.fn().mockResolvedValue({ redone: 2, lastAt: null, notRedone: [] });
+  it('picks many posts and acts on them from the bar: OK, Redo, Check, Hide, More (the owner, 15 Nov)', async () => {
+    const onAct = jest.fn().mockResolvedValue({ done: 2, left: 0 });
     const missed = content(33, {
       title: 'Leak or drip',
       network: 'facebook',
@@ -887,29 +895,149 @@ describe('the Calendar', () => {
       postAt: ago(2 * 24 * 60),
       failure: 'Facebook didn’t show the post going up.',
     });
-    await render(body({ onRedo, data: calendarView({ posts: [], recent: [went, missed] }) }));
-    // No ticks until Redo posts is pressed.
-    expect(screen.queryByTestId(`socialcontent-post-${went.id}-redo`)).toBeNull();
-    await fireEvent.press(screen.getByTestId('socialcontent-calendar-redo'));
-    expect(screen.getByTestId('socialcontent-redo-bar')).toHaveTextContent(
-      /Tick the posts to put up again/,
+    const waiting = content(30, { title: 'Porch season' });
+    await render(body({ onAct, data: calendarView({ posts: [waiting], recent: [went, missed] }) }));
+    // No ticks, and no bar, until Select is pressed.
+    expect(screen.queryByTestId(`socialcontent-post-${went.id}-pick`)).toBeNull();
+    expect(screen.queryByTestId('socialcontent-pick-bar')).toBeNull();
+    await fireEvent.press(screen.getByTestId('socialcontent-calendar-select'));
+    expect(screen.getByTestId('socialcontent-pick-count')).toHaveTextContent('0 picked');
+    expect(screen.getByTestId('socialcontent-pick-ok')).toBeDisabled();
+    // Everything under Lately, in one tick.
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-recent'));
+    expect(screen.getByTestId(`socialcontent-post-${missed.id}-pick`)).toBeChecked();
+    expect(screen.getByTestId('socialcontent-pick-count')).toHaveTextContent('2 picked');
+    expect(screen.getByTestId('socialcontent-pick-summary')).toHaveTextContent(
+      '2 past, 1 didn’t post',
     );
-    expect(screen.getByTestId('socialcontent-redo-go')).toBeDisabled();
-    // Every one that didn't go up, in one go.
-    await fireEvent.press(screen.getByTestId('socialcontent-redo-failed'));
-    expect(screen.getByTestId(`socialcontent-post-${missed.id}-redo`)).toBeChecked();
-    expect(screen.queryByTestId('socialcontent-redo-posted')).toBeNull();
-    // One that went up goes up again, and the old one is the person's to delete.
-    await fireEvent.press(screen.getByTestId(`socialcontent-post-${went.id}-redo`));
-    expect(screen.getByTestId('socialcontent-redo-posted')).toHaveTextContent(
+    // Redoing one that went up warns its old one is the person's to delete.
+    expect(screen.getByTestId('socialcontent-pick-redo-posted')).toHaveTextContent(
       /Delete the old ones on Instagram yourself/,
     );
-    expect(screen.getByTestId('socialcontent-redo-go')).toHaveTextContent('Redo 2 posts');
-    await fireEvent.press(screen.getByTestId('socialcontent-redo-go'));
-    expect(onRedo).toHaveBeenCalledWith([went.id, missed.id]);
-    // Done, the ticks go.
-    expect(await screen.findByTestId('socialcontent-calendar-redo')).toBeTruthy();
-    expect(screen.queryByTestId('socialcontent-redo-bar')).toBeNull();
+    // Each button takes only those it can act on.
+    expect(screen.getByTestId('socialcontent-pick-ok')).toBeDisabled();
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-look'));
+    expect(onAct).toHaveBeenLastCalledWith('look', [missed.id], undefined);
+    // Done, what's picked is cleared; the day's own tick picks the one waiting.
+    expect(await screen.findByText('0 picked')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId(`socialcontent-pick-day-${tomorrow}`));
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-ok'));
+    expect(onAct).toHaveBeenLastCalledWith('ok', [waiting.id], undefined);
+    // Delete is under More, and asks first, with Hide instead.
+    await fireEvent.press(screen.getByTestId(`socialcontent-post-${went.id}-pick`));
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-more'));
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-remove'));
+    expect(screen.getByTestId('socialcontent-pick-remove-sheet')).toHaveTextContent(
+      /already up on Instagram\. Deleting here doesn’t take it down there/,
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-remove-go'));
+    expect(onAct).toHaveBeenLastCalledWith('remove', [went.id], undefined);
+    // Cancel ends picking.
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-cancel'));
+    expect(screen.queryByTestId('socialcontent-pick-bar')).toBeNull();
+  });
+
+  it('leaves Delete to owners and admins, and picks across any date from Pick', async () => {
+    const onAsk = jest
+      .fn()
+      .mockResolvedValue([
+        { id: id(70), title: 'Old one', state: 'posted', network: 'linkedin', hidden: false },
+      ]);
+    await render(body({ onAsk, canRemove: false }));
+    await fireEvent.press(screen.getByTestId('socialcontent-calendar-select'));
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-menu'));
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-where-any'));
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-any-past'));
+    expect(onAsk).toHaveBeenCalledWith('past', undefined);
+    expect(await screen.findByText('1 picked')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-more'));
+    expect(screen.queryByTestId('socialcontent-pick-remove')).toBeNull();
+    expect(screen.getByTestId('socialcontent-pick-more-sheet')).toHaveTextContent(
+      /Only an owner or admin can delete posts/,
+    );
+  });
+
+  it('shows a filter’s posts only, and hidden ones only under Hidden', async () => {
+    const hidden = content(35, { title: 'Tucked away', hidden: true });
+    await render(
+      body({ data: calendarView({ posts: [content(30, { title: 'Porch season' }), hidden] }) }),
+    );
+    expect(screen.queryByText('Tucked away')).toBeNull();
+    expect(screen.getByTestId('socialcontent-show-hidden')).toHaveTextContent('Hidden1');
+    await fireEvent.press(screen.getByTestId('socialcontent-show-hidden'));
+    expect(screen.getByText('Tucked away')).toBeTruthy();
+    expect(screen.queryByText('Porch season')).toBeNull();
+  });
+
+  it('moves between List, Week and Month, a week or month at a time, and a Month day opens its week', async () => {
+    const onGo = jest.fn();
+    await render(body({ onGo }));
+    await fireEvent.press(screen.getByTestId('socialcontent-look-week'));
+    expect(onGo).toHaveBeenLastCalledWith('week', today);
+    const monday = '2026-11-09';
+    const week = calendarView({
+      from: monday,
+      days: 7,
+      posts: [content(30, { title: 'Porch season' })],
+    });
+    await render(body({ onGo, look: 'week', day: monday, data: week }));
+    expect(screen.getByTestId('socialcontent-week')).toBeTruthy();
+    expect(screen.getByTestId('socialcontent-calendar-range')).toHaveTextContent('Nov 9 – 15');
+    await fireEvent.press(screen.getByTestId('socialcontent-calendar-ahead'));
+    expect(onGo).toHaveBeenLastCalledWith('week', '2026-11-16');
+    const month = calendarView({ from: '2026-10-26', days: 42 });
+    await render(body({ onGo, look: 'month', day: '2026-11-01', data: month }));
+    expect(screen.getByTestId('socialcontent-calendar-range')).toHaveTextContent('November 2026');
+    await fireEvent.press(screen.getByTestId('socialcontent-month-2026-11-18'));
+    expect(onGo).toHaveBeenLastCalledWith('week', '2026-11-18');
+    await fireEvent.press(screen.getByTestId('socialcontent-calendar-back'));
+    expect(onGo).toHaveBeenLastCalledWith('month', '2026-10-01');
+  });
+
+  it('offers Try again, Check if it posted and Mark as posted on a post that didn’t post', async () => {
+    const onTryAgain = jest.fn();
+    const onLookOne = jest.fn();
+    const onMarkOne = jest.fn().mockResolvedValue({ done: 1, left: 0 });
+    const missed = content(33, {
+      title: 'Leak or drip',
+      network: 'facebook',
+      state: 'failed',
+      postAt: ago(2 * 24 * 60),
+      failure: 'Facebook didn’t show the post going up.',
+      lookAt: new Date(NOW + 8 * 60_000).toISOString(),
+    });
+    await render(
+      body({ onTryAgain, onLookOne, onMarkOne, data: calendarView({ recent: [missed] }) }),
+    );
+    expect(screen.getByTestId(`socialcontent-post-${missed.id}-look-line`)).toHaveTextContent(
+      /^It looks for it on its own at /,
+    );
+    await fireEvent.press(screen.getByTestId(`socialcontent-post-${missed.id}-again`));
+    expect(onTryAgain).toHaveBeenCalledWith(missed.id);
+    await fireEvent.press(screen.getByTestId(`socialcontent-post-${missed.id}-look`));
+    expect(onLookOne).toHaveBeenCalledWith(missed.id);
+    await fireEvent.press(screen.getByTestId(`socialcontent-post-${missed.id}-mark`));
+    await fireEvent.changeText(
+      screen.getByTestId('socialcontent-mark-link'),
+      ' https://www.facebook.com/123 ',
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-mark-go'));
+    expect(onMarkOne).toHaveBeenCalledWith(missed.id, 'https://www.facebook.com/123');
+    // Looked for and not found: try again, or mark it anyway.
+    await render(
+      body({
+        data: calendarView({
+          recent: [{ ...missed, lookAt: null, lookedAt: ago(5) }],
+        }),
+      }),
+    );
+    expect(screen.getByTestId(`socialcontent-post-${missed.id}-look-line`)).toHaveTextContent(
+      /^It isn’t on Facebook\. Checked at /,
+    );
+    expect(screen.queryByTestId(`socialcontent-post-${missed.id}-look`)).toBeNull();
+    expect(screen.getByTestId(`socialcontent-post-${missed.id}-mark`)).toHaveTextContent(
+      'Mark as posted anyway',
+    );
   });
 
   it('stops filling on its own with its switch, and starts again (the owner, 11 Nov)', async () => {
@@ -972,6 +1100,8 @@ describe('one of its posts', () => {
       save: jest.fn(async (_d: PostDraft): Promise<unknown> => undefined),
       approve: jest.fn(),
       postNow: jest.fn(),
+      look: jest.fn(),
+      mark: jest.fn(async (_link: string | null): Promise<unknown> => undefined),
       skip: jest.fn(),
       rewrite: jest.fn(),
       makePicture: jest.fn(),

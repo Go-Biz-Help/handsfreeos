@@ -84,6 +84,7 @@ import {
   useSocialcontentAnswer,
   useSocialcontentContext,
 } from './kit';
+import { DidntPost } from './calendar-picking';
 
 /**
  * One of the business's own posts on the phone, as the web's sheet (docs/socialcontent.md, "Making posts", "Posting"
@@ -345,6 +346,9 @@ export interface PostActions {
   save(d: PostDraft): Promise<unknown>;
   approve(ok: boolean): void;
   postNow(): void;
+  /** A post that didn't post (the owner, 15 Nov): Chrome looks for it on the network, or it's marked as posted. */
+  look(): void;
+  mark(link: string | null): Promise<unknown>;
   skip(skipIt: boolean): void;
   rewrite(ask: string): void;
   makePicture(way: 'design' | 'photo', ask: string): void;
@@ -418,6 +422,27 @@ export function PostScreen({ postId }: { postId: string }) {
         async () =>
           (await change('socialcontent.content.post_now', { workspaceId: ws, postId })).output,
         W.post.postNowAsked,
+      ),
+    look: () =>
+      void act(
+        `look:${postId}`,
+        async () =>
+          (await change('socialcontent.content.look', { workspaceId: ws, postIds: [postId] }))
+            .output,
+        (out) => W.picking.lookAsked(out?.asked ?? 0, out?.notAsked.length ?? 0),
+      ),
+    mark: (link) =>
+      act(
+        `mark:${postId}`,
+        async () =>
+          (
+            await change('socialcontent.content.mark_posted', {
+              workspaceId: ws,
+              postIds: [postId],
+              link,
+            })
+          ).output,
+        (out) => W.picking.marked(out?.marked ?? 0, out?.notMarked.length ?? 0),
       ),
     skip: (skipIt) =>
       void act(
@@ -700,13 +725,27 @@ export function PostBody({
         </Card>
       ) : null}
 
-      {p.failure ? (
+      {p.failure || p.state === 'failed' ? (
         <Card
-          className="gap-1 border-danger-soft bg-danger-soft/40 p-4"
+          className="gap-2 border-danger-soft bg-danger-soft/40 p-4"
           testID="socialcontent-post-failure"
         >
-          <Text className="text-[13.5px] leading-[19px] text-danger-text">{p.failure}</Text>
-          {p.state === 'failed' && postsHere ? <Note>{W.post.tryAgain}</Note> : null}
+          {p.failure ? (
+            <Text className="text-[13.5px] leading-[19px] text-danger-text">{p.failure}</Text>
+          ) : null}
+          {/* Try again, Check if it posted, Mark as posted (the owner, 15 Nov). */}
+          {p.state === 'failed' && postsHere ? (
+            <DidntPost
+              post={p}
+              timeZone={timeZone}
+              now={Date.now()}
+              online={online}
+              busy={busy === 'now' ? `again:${p.id}` : busy}
+              onTryAgain={actions.postNow}
+              onLook={actions.look}
+              onMark={actions.mark}
+            />
+          ) : null}
         </Card>
       ) : null}
 
@@ -1172,7 +1211,8 @@ export function PostBody({
             </Button>
           ) : p.state === 'ready' || p.state === 'failed' ? (
             <>
-              {postsHere ? (
+              {/* A post that didn't post tries again from its card above. */}
+              {postsHere && p.state === 'ready' ? (
                 <Button
                   loading={busy === 'now'}
                   disabled={other('now') || making}
