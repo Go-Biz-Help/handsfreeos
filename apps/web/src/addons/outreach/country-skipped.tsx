@@ -10,9 +10,9 @@
  *   setting says; one a person skipped can be put back under the setting.
  */
 import {
-  COUNTRY_HOW_WORDS,
   COUNTRY_LIST_WORDS as LW,
   countryRuleWords,
+  countryTag,
   SKIPPED_PAGE,
   type CountriesSkippedOutput,
   type CountryChoice,
@@ -241,12 +241,20 @@ function ListCard({
                   {p.skippedByYou ? (
                     <Badge variant="gray">{LW.skippedByYou}</Badge>
                   ) : p.how ? (
-                    <Badge variant={p.how === 'seen' || p.how === 'friends' ? 'ok' : 'gray'}>
-                      {COUNTRY_HOW_WORDS[p.how]}
+                    <Badge variant={countryTag(p.how, p.unsure).sure ? 'ok' : 'gray'}>
+                      {countryTag(p.how, p.unsure).words}
                     </Badge>
                   ) : null}
                   {p.at ? <span>{relativeTime(p.at)}</span> : null}
                 </div>
+                {p.whyUnsure ? (
+                  <p
+                    className="mt-0.5 text-[12.5px] font-medium text-text"
+                    data-testid="country-why-unsure"
+                  >
+                    {p.whyUnsure}
+                  </p>
+                ) : null}
                 {p.reason.length ? (
                   <p className="mt-0.5 text-[12px] text-text-2">{p.reason.join(' · ')}</p>
                 ) : null}

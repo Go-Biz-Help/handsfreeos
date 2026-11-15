@@ -1,7 +1,7 @@
 {
   "area": "outreach",
   "title": "The Social Outreach add-on: every page",
-  "checkedOn": "2026-11-14",
+  "checkedOn": "2026-11-15",
   "files": {
     "apps/mobile/src/addons/outreach/actions.ts": "9d1266692122",
     "apps/mobile/src/addons/outreach/ai-help.tsx": "715ac076ab3b",
@@ -12,7 +12,7 @@
     "apps/mobile/src/addons/outreach/code.tsx": "b93b1102bf09",
     "apps/mobile/src/addons/outreach/computers.tsx": "50b12e6fb646",
     "apps/mobile/src/addons/outreach/counters.tsx": "bffec9a1089f",
-    "apps/mobile/src/addons/outreach/countries.tsx": "0d6892c62c08",
+    "apps/mobile/src/addons/outreach/countries.tsx": "2f03fcedf70c",
     "apps/mobile/src/addons/outreach/country-setting.tsx": "7d3f0edcc4a3",
     "apps/mobile/src/addons/outreach/find.tsx": "b26b6980e71f",
     "apps/mobile/src/addons/outreach/frame.tsx": "c07aca9c6b55",
@@ -68,7 +68,7 @@
     "apps/web/src/addons/outreach/comment-research.tsx": "2b1d327701c2",
     "apps/web/src/addons/outreach/counters.tsx": "94f401c1d213",
     "apps/web/src/addons/outreach/country-picker.tsx": "2ceb90a52fde",
-    "apps/web/src/addons/outreach/country-skipped.tsx": "2bb96420f4e5",
+    "apps/web/src/addons/outreach/country-skipped.tsx": "516d0754c63b",
     "apps/web/src/addons/outreach/download-card.tsx": "825bdd9c2a92",
     "apps/web/src/addons/outreach/drafted.tsx": "52c849cb5740",
     "apps/web/src/addons/outreach/extension-download.tsx": "891862569d90",
@@ -2432,11 +2432,11 @@
       "by": "outreach_partners page"
     },
     {
-      "path": "Needs you → Not sure of their country: each person, Let through / Skip",
+      "path": "Needs you → Not sure of their country: each person, why it can't tell, Let through / Skip",
       "kind": "do",
       "file": "apps/web/src/addons/outreach/country-skipped.tsx:86",
       "covered": "yes",
-      "by": "outreach_country_skipped list unsure; outreach_decide_country"
+      "by": "outreach_country_skipped list unsure (whyUnsure); outreach_decide_country"
     },
     {
       "path": "People → Skipped for country → the rule in words, how many unskipped, how many wait",
@@ -2446,11 +2446,11 @@
       "by": "outreach_country_skipped rule, counts"
     },
     {
-      "path": "People → Skipped for country → each: name link, country, Skipped by you or how it's known, when, reason, why",
+      "path": "People → Skipped for country → each: name link, country, Skipped by you or how it's known (Best guess, not sure), why it can't tell, when, reason, why",
       "kind": "see",
       "file": "apps/web/src/addons/outreach/country-skipped.tsx:189",
       "covered": "yes",
-      "by": "outreach_country_skipped rows"
+      "by": "outreach_country_skipped rows (how, unsure, whyUnsure)"
     },
     {
       "path": "People → Skipped for country → Unskip / Undo skip",

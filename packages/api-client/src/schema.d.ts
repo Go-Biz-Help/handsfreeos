@@ -88528,8 +88528,10 @@ export interface operations {
                             profileId: string;
                             reason: string[];
                             skippedByYou: boolean;
+                            unsure: boolean;
                             url: string;
                             why: string | null;
+                            whyUnsure: string | null;
                         }[];
                         rule: {
                             codes: string[];

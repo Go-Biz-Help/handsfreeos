@@ -349,15 +349,17 @@ became.
   person (up to 200, `/friends_mutual`, while the setting skips anyone); each mutual friend is matched to a profile
   the business keeps, and the AI weighs where those live, against how the person's own friends are spread, with the
   profile's lines (`whereLines`, `lookedCountry`). It answers a country, a second one when the facts split, whether
-  it's sure and why. When a look can't tell (only a name to go on, the AI not sure, or a "Lives in" and friends that
-  point to two countries the setting treats differently), When we can't tell decides. The setting does one of four
+  it's sure and why. When a look can't tell (nothing to go on, a "Lives in" the AI's look says is wrong, or an AI not
+  sure between two countries the setting treats differently: `countryCantTell`, decision 169), When we can't tell
+  decides; an AI not sure but leaning one way decides by its best guess. The setting does one of four
   things with each person (`countryFate`, and `countryFateSql` in `ops/common.ts`, its one copy for queries): reach
   them, wait for a look, ask (the **Not sure where they live** list) or skip. While it skips anyone, Today leaves out
   of everything new anyone it doesn't reach: Confirm their request, Like a post first, friend requests, Say hi, Pitch,
   follow-ups, Reconnect, comments and warm leads (a reply owed still shows); so does the extension, which works from
   Today's list; the Friends tab's good fits leave them out, and so do the Groups tab's people left to reach
   (`countryLetsSql`). The Friends tab's **Not sure where they live** (`outreach.countries.skipped` with `list:
-'unsure'`) lists those waiting for a person's call, with what their profile and friends say and the AI's line, and
+'unsure'`) lists those waiting for a person's call, with why it can't tell (`whyUnsure`), what their profile and
+  friends say and the AI's line, and
   **Let through** and **Skip** (`outreach.country.decide`), both for good; **Skipped for country** lists the skipped,
   the latest first, with the same reasons and how many wait for a look, and **Unskip** (`outreach.country.unskip`) lets
   one through from then on whatever the setting says, or puts one a person skipped back under it.
@@ -4323,6 +4325,32 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **Not the Assistant's** (`notForTheAssistant`): the two the extension calls are its own, and the four on
         the card are HandsFreeOS staff's study, not something a business does. The card's items are in the
         Assistant's checklist as `never`.
+
+<!-- 167 (Threads messages) and 168 (introductions) are written in their own branches: take this comment out when they land. -->
+
+169.  **Not sure where they live holds only the people it really can't place** (Chris, 15 Nov 2026: "it says there
+      are 1676 people it doesn’t know where they live but when i go to look at them it shows the country under their
+      name. i don’t get it", then "Best guess decides"). Changes decision 86. With Only the United States and Ask me,
+      the list held 1,695 people: about 1,260 the AI gave a best guess for but marked not sure (870 of them the United
+      States), about 350 with nothing to go on, 47 whose "Lives in" the AI agreed with but who it also named where
+      they're from (Karla Rodriguez, "Lives in Brookings, South Dakota; originally from Honduras", and DrTricia from
+      decision 86 again), and about 40 torn between two countries. Each row showed the guess under a green "Worked out
+      from their profile and friends", and never why they were there. Built:
+      - **The best guess decides** (`countryCantTell`, and `countryFateSql`): an AI not sure but leaning one way
+        reaches or skips by its guess, like a sure one. When we can't tell covers only nothing to go on, a "Lives in"
+        the AI's look says is wrong (it thinks they live elsewhere), and an AI not sure between two countries the
+        setting treats differently. A sure AI decides whatever second country it named: that was mostly "most of the
+        owner's friends are in the United States", which says nothing about them.
+      - **Where they're from never counts against where they live** (`lookedCountry`): beside a "Lives in" the AI
+        agrees with, its second country isn't kept. Migration `20261027027800_outreach_lives_in_alt.sql` lets go of
+        every one kept before, since which the AI agreed with isn't known. The look's prompts (`checks.ts`,
+        `partners.ts`) now say a second country is only one they might live in: never where they're from, and never
+        just because the owner's friends live there.
+      - **Each row says why** (`whyUnsure`, `countryUnsureWhy`), in bold at its top, on the Not sure list and for
+        anyone When we can't tell skips: "Nothing on their profile or from their mutual friends says where they
+        live.", "Their profile says they live in United States, but the AI thinks it’s Nigeria.", or "It could be
+        Australia or United States, and the AI isn’t sure which." A look the AI wasn't sure of is tagged **Best
+        guess, not sure** in grey (`countryTag`), never as worked out. The list's note and the setting's say the same.
 
 ## Rules worth knowing before changing anything
 

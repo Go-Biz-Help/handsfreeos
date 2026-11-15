@@ -1,9 +1,9 @@
 import {
-  COUNTRY_HOW_WORDS,
   COUNTRY_LIST_WORDS as LW,
   COUNTRY_LISTS,
   countryRuleOn,
   countryRuleWords,
+  countryTag,
   type CountriesSkippedOutput,
   type CountryChoice,
   type CountryList,
@@ -279,8 +279,8 @@ export function CountriesBody({
                     <Text>{LW.skippedByYou}</Text>
                   </Badge>
                 ) : p.how ? (
-                  <Badge variant={p.how === 'seen' || p.how === 'friends' ? 'ok' : 'gray'}>
-                    <Text>{COUNTRY_HOW_WORDS[p.how]}</Text>
+                  <Badge variant={countryTag(p.how, p.unsure).sure ? 'ok' : 'gray'}>
+                    <Text>{countryTag(p.how, p.unsure).words}</Text>
                   </Badge>
                 ) : null}
                 {p.at ? (
@@ -289,6 +289,14 @@ export function CountriesBody({
                   </Text>
                 ) : null}
               </View>
+              {p.whyUnsure ? (
+                <Text
+                  className="text-[14px] font-medium leading-[19px] text-text"
+                  testID="country-why-unsure"
+                >
+                  {p.whyUnsure}
+                </Text>
+              ) : null}
               {p.reason.length ? <Note>{p.reason.join(' · ')}</Note> : null}
               {p.why ? (
                 <Text className="text-[13px] leading-[18px] text-text-3">{p.why}</Text>
