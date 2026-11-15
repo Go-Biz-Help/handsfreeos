@@ -1491,6 +1491,22 @@ minute after posting and before any reading:
   link"). A warning keeps the network's words for the day, for both social add-ons, and says nothing: the read is
   asked for again later, since one handed out is put off half an hour.
 
+### Liking and replying on Threads (0.140.7)
+
+The owner's Check Threads on 15 Nov 2026 (0.140.5) said liking and commenting weren't working: "no Like on the post"
+and "no box to reply in, and no Reply on the post". Its outline showed why. Threads names its posts' Like, Reply,
+Repost and Share icons by a `title` on the icon with a <title> inside, not an aria-label, and the kit looked only for
+aria-labels, so no post's Like or Reply was found (nor its counts). It also draws a box to reply in under a post on
+the post's own page, named only "Empty text field. Type to compose a new post.", its "Reply to …" a placeholder beside
+it, so it wasn't taken for one. Now (`src/networks/threads/spec.ts`):
+
+- **An icon's name** is its aria-label, else the `title` on it, else the <title> inside it (`iconName`). A post's
+  Reply is named Reply, or Comment where Threads shows that (signed out).
+- **The box under the post** is the one to reply in on a post's own page: the box drawn to write in there, outside any
+  box over the page. What's written is sent with the arrow beside it named Reply, which shows once it has words, and
+  never with anything past the box's own part (the post's own Reply only opens another box). With no box under the
+  post, its own Reply opens one over it, sent with its Post, as before.
+
 ### Check if it posted (0.140.6)
 
 A post marked as didn't post may have gone up all the same: Facebook was still publishing two Page posts on 14 Nov

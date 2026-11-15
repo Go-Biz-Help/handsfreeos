@@ -14,6 +14,7 @@ import {
   writeTheirComment,
 } from '../src/networks/follows/auto';
 import { countOf, readFollow } from '../src/networks/follows/read';
+import { THREADS } from '../src/networks/threads/kit';
 import { THREADS_SPEC } from '../src/networks/threads/spec';
 import { kindOf, postOf, profileOf, X_SPEC, xUrl } from '../src/networks/x/spec';
 
@@ -381,5 +382,177 @@ describe('Threads’ readers', () => {
       followsYou: true,
       following: 'no',
     });
+  });
+});
+
+// ------------------------------------------------------- Threads' pages as the owner's Check Threads drew them
+
+/**
+ * An icon as Threads draws its posts' buttons (the owner's Check Threads, 15 Nov 2026, 0.140.5): named by a `title` on
+ * it and a <title> inside, with no aria-label.
+ */
+const titled = (name: string) =>
+  `<svg role="img" title="${name}" viewBox="0 0 18 18"><title>${name}</title><path d=""></path></svg>`;
+
+/** A post on its own page, as that Check's outline drew it, with the box to reply in under it when `under`. */
+const threadNow = (
+  name: string,
+  code: string,
+  text: string,
+  { liked = false, likes = 1, under = '' } = {},
+) => `<div role="region" aria-label="Thread"><div><div data-pagelet="threads_post_page_1"><div>
+  <div role="button"><img alt="${name}'s profile picture"><div role="button">${titled('Follow')}</div></div>
+  <div><div><a href="/@${name}"><span dir="auto"><span>${name}</span></span></a>
+    <span dir="auto"><a href="/@${name}/post/${code}"><time datetime="2026-11-15T14:40:00.000Z" title="Sunday, November 15, 2026 at 2:40 PM"><abbr aria-label="1 minute ago"><span>1m</span></abbr></time></a></span></div>
+    <div role="button" aria-expanded="false">${titled('More')}</div></div>
+  <div><span dir="auto"><span>${text}</span></span>
+    <div><div role="button"><div>${titled(liked ? 'Unlike' : 'Like')}<span dir="auto"><span>${likes}</span></span></div></div>
+      <div role="button">${titled('Reply')}<span dir="auto"><span>3</span></span></div>
+      <div role="button" aria-expanded="false">${titled('Repost')}</div>
+      <div role="button">${titled('Share')}</div></div></div>
+  <div><span dir="auto">Liked by someone</span><div role="button"><span dir="auto">View activity${titled('View activity')}</span></div></div>
+  ${under}
+</div></div></div></div>`;
+
+/** The box to reply in under a post on its own page: its "Reply to …" a placeholder beside it, never its name. */
+const UNDER = `<div role="none"><div><img alt="casey.owner's profile picture"><div>
+    <div role="textbox" aria-label="Empty text field. Type to compose a new post." contenteditable="true"><p dir="auto"><br></p></div>
+    <div aria-hidden="true" class="placeholder"><span dir="auto"><span>Reply to dana.reyes...</span></span></div></div>
+  <div class="tools"><div><div role="button" aria-label="Attach media"><svg></svg></div><div role="button" aria-label="Add a GIF"><svg></svg></div></div>
+    <div role="button" aria-label="Expand composer"><svg></svg></div></div></div></div>`;
+
+describe('Threads’ Like and box to reply in, as its pages drew them on 15 Nov 2026', () => {
+  const POST = `${TH}/@dana.reyes/post/DQx7Ab12cd`;
+  const dana = { id: null, username: 'dana.reyes', url: `${TH}/@dana.reyes` };
+
+  /**
+   * The box under the post, drawn as Threads draws it: typing takes the placeholder away and shows its arrow named
+   * Reply, which sends what's written and empties the box.
+   */
+  const wireUnder = (doc: Document, sent: string[]) => {
+    const box = () => doc.querySelector<HTMLElement>('[role="none"] [contenteditable="true"]')!;
+    doc.execCommand = (_c: string, _u?: boolean, words?: string) => {
+      box().textContent = words ?? '';
+      const tools = doc.querySelector('.tools')!;
+      doc.querySelector('.placeholder')?.remove();
+      doc.querySelector('.send')?.remove();
+      if (words) {
+        tools.insertAdjacentHTML(
+          'afterend',
+          '<div class="send"><div role="button"><span><svg aria-label="Reply" role="img"><title>Reply</title></svg></span></div></div>',
+        );
+        doc.querySelector('.send [role="button"]')!.addEventListener('click', () => {
+          sent.push(box().textContent ?? '');
+          box().textContent = '';
+          doc.querySelector('.send')?.remove();
+        });
+      }
+      return true;
+    };
+    return box;
+  };
+
+  it('reads a post’s Like, its likes and its replies off icons named by their title', () => {
+    const doc = page(
+      `${TH_MENU}${threadNow('dana.reyes', 'DQx7Ab12cd', 'Who do you use for follow-ups?', { likes: 12, under: UNDER })}`,
+      POST,
+    );
+    const found = readFollow(doc, doc.location.href, THREADS_SPEC);
+    expect(found.post).toMatchObject({ url: POST, likes: 12, replies: 3, liked: false });
+    const root = doc.querySelector('[data-pagelet] > div')!;
+    expect(THREADS_SPEC.likeIn(root)?.liked).toBe(false);
+    expect(THREADS_SPEC.replyIn(root)).not.toBeNull();
+  });
+
+  it('likes the post with its Like, done once its icon says Unlike', async () => {
+    const doc = page(`${TH_MENU}${threadNow('dana.reyes', 'DQx7Ab12cd', 'Hello')}`, POST);
+    const like = doc.querySelector('svg[title="Like"]')!.closest('[role="button"]')!;
+    like.addEventListener('click', () => {
+      const icon = like.querySelector('svg')!;
+      icon.setAttribute('title', 'Unlike');
+      icon.querySelector('title')!.textContent = 'Unlike';
+    });
+    expect(await likeTheirPost(THREADS_SPEC)(doc, POST, dana, { index: 0, url: POST })).toEqual({
+      result: 'done',
+      postUrl: POST,
+    });
+    expect(
+      await likeTheirPost(THREADS_SPEC)(doc, POST, dana, { index: 0, url: POST }),
+    ).toMatchObject({ result: 'already' });
+  });
+
+  it('replies in the box under the post, sent with its arrow named Reply, never the post’s own Reply', async () => {
+    const doc = page(
+      `${TH_MENU}${threadNow('dana.reyes', 'DQx7Ab12cd', 'Who do you use?', { under: UNDER })}`,
+      POST,
+    );
+    const sent: string[] = [];
+    const box = wireUnder(doc, sent);
+    let opened = 0;
+    doc
+      .querySelector('svg[title="Reply"]')!
+      .closest('[role="button"]')!
+      .addEventListener('click', () => opened++);
+    // The box empty, nothing beside it sends: the post's own Reply is never taken for its button.
+    expect(THREADS_SPEC.sendFor(box())).toBeNull();
+    const on = { profile: dana, postUrl: POST };
+    const text = 'We follow up for you by text. Happy to show you how.';
+    box().textContent = 'the person’s own words';
+    expect(await writeTheirComment(THREADS_SPEC)(doc, POST, text, on)).toBe('not_sent');
+    box().textContent = '';
+    expect(await writeTheirComment(THREADS_SPEC)(doc, POST, text, on)).toBe('done');
+    expect(sent).toEqual([text]);
+    expect(opened).toBe(0);
+  });
+
+  it('with no box under the post, replies in the one its own Reply opens over it, sent with Post', async () => {
+    const doc = page(`${TH_MENU}${threadNow('dana.reyes', 'DQx7Ab12cd', 'Who do you use?')}`, POST);
+    const sent: string[] = [];
+    doc
+      .querySelector('svg[title="Reply"]')!
+      .closest('[role="button"]')!
+      .addEventListener('click', () => {
+        doc.body.insertAdjacentHTML(
+          'beforeend',
+          `<div role="dialog"><div><div contenteditable="true" role="textbox" aria-label="Empty text field. Type to compose a new post."></div></div>
+            <div><span>Anyone can reply &amp; quote</span><div role="button">Post</div></div></div>`,
+        );
+        const box = () => doc.querySelector<HTMLElement>('[role="dialog"] [contenteditable]')!;
+        doc.execCommand = (_c: string, _u?: boolean, words?: string) => {
+          box().textContent = words ?? '';
+          return true;
+        };
+        doc.querySelector('[role="dialog"] [role="button"]')!.addEventListener('click', () => {
+          sent.push(box().textContent ?? '');
+          doc.querySelector('[role="dialog"]')!.remove();
+        });
+      });
+    const text = 'Happy to show you how we do it.';
+    expect(
+      await writeTheirComment(THREADS_SPEC)(doc, POST, text, { profile: dana, postUrl: POST }),
+    ).toBe('done');
+    expect(sent).toEqual([text]);
+  });
+
+  it('Check Threads finds the post’s Like and its box to reply in, pressing neither', async () => {
+    const doc = page(
+      `${TH_MENU}${threadNow('dana.reyes', 'DQx7Ab12cd', 'Who do you use?', { under: UNDER })}`,
+      POST,
+    );
+    const sent: string[] = [];
+    const box = wireUnder(doc, sent);
+    let pressed = 0;
+    for (const button of doc.querySelectorAll('[data-pagelet] [role="button"]'))
+      button.addEventListener('click', () => pressed++);
+    const like = await THREADS.looks.like!.look(doc, POST);
+    expect(like).toMatchObject({ works: true, found: { like: true, liked: false } });
+    const comment = await THREADS.looks.comment!.look(doc, POST);
+    expect(comment).toMatchObject({
+      works: true,
+      found: { box: true, opened: false, typed: true, send: 1, emptied: true },
+    });
+    expect(box().textContent).toBe('');
+    expect(sent).toEqual([]);
+    expect(pressed).toBe(0);
   });
 });

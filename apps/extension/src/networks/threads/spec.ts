@@ -5,10 +5,16 @@
  * sign in. threads.net, its old address, still opens it.
  *
  * Its pages give few test ids, so the readers go by its words, labels and roles: a post's part is the one it marks as
- * pressable around its own link and time, its Like and Reply are icons labelled Like (Unlike once liked) and Reply in a
- * button, a profile's Follow is a button that says Follow (Follow back when they follow the person, Following once
- * followed), its followers a count that says "followers", which opens them in a box over the profile, and the box to
- * reply in opens over the post when its Reply is pressed, sent with its own Post. Never class names.
+ * pressable around its own link and time, its Like and Reply are icons named Like (Unlike once liked) and Reply
+ * (Comment where it shows that) in a button, a profile's Follow is a button that says Follow (Follow back when they
+ * follow the person, Following once followed), its followers a count that says "followers", which opens them in a box
+ * over the profile. A post's own page has a box to reply in under it ("Reply to …" till something's written), sent
+ * with an arrow named Reply that shows once it has words; elsewhere the box opens over the post when its Reply is
+ * pressed, sent with its own Post. Never class names.
+ *
+ * Its icons are named three ways (the owner's Check Threads, 15 Nov 2026, 0.140.5): most of the post's buttons by a
+ * `title` on the icon with a <title> inside (no aria-label, so Like and Reply were never found), others by an
+ * aria-label. `iconName` reads all three.
  */
 import { clean } from '../facebook/dom';
 import { visible } from '../facebook/fetch';
@@ -191,25 +197,57 @@ const WARNINGS: readonly RegExp[] = [
 
 const LIKE = /^like$/i;
 const UNLIKE = /^unlike$/i;
-const REPLY = /^reply$/i;
+/** A post's Reply: "Comment" on some of its pages (signed out, 15 Nov 2026). */
+const REPLY = /^(reply|comment)$/i;
 const FOLLOW = /^(follow|follow back)$/i;
 const FOLLOWING = /^(following|requested)$/i;
 const EDIT = /^edit profile$/i;
 const FOLLOWERS = /^[\d.,]+\s*[km]?\s+followers?$/i;
 
-/** A button whose icon is labelled with these words, in a part of the page. */
+/**
+ * What an icon is named: its aria-label, else the `title` on it, else the <title> inside it. Threads names its posts'
+ * Like, Reply, Repost and Share by the last two (2026), and its menu's icons and a reply box's send arrow by the first.
+ */
+export function iconName(icon: Element): string {
+  return (
+    clean(icon.getAttribute('aria-label')) ||
+    clean(icon.getAttribute('title')) ||
+    clean([...icon.children].find((c) => c.tagName.toLowerCase() === 'title')?.textContent)
+  );
+}
+
+/** A button whose icon is named with these words, in a part of the page. */
 function iconButton(root: Element, words: RegExp): HTMLElement | null {
-  for (const icon of root.querySelectorAll('svg[aria-label]')) {
-    if (!words.test(clean(icon.getAttribute('aria-label')))) continue;
+  for (const icon of root.querySelectorAll('svg')) {
+    if (!words.test(iconName(icon))) continue;
     const button = icon.closest<HTMLElement>('[role="button"], button');
     if (button && root.contains(button) && visible(button)) return button;
   }
   return null;
 }
 
+/** Whether a part of the page holds a post's own buttons: an icon named Like or Unlike. */
+const hasLike = (part: Element): boolean =>
+  [...part.querySelectorAll('svg')].some((icon) => /^(like|unlike)$/i.test(iconName(icon)));
+
+/** The words in a part, never an icon's own <title>: a button's count beside its icon. */
+function textOutsideIcons(part: Element): string {
+  const walk = part.ownerDocument.createTreeWalker(part, 4 /* text */);
+  let words = '';
+  for (let node = walk.nextNode(); node; node = walk.nextNode())
+    if (!node.parentElement?.closest('svg')) words += ` ${node.textContent ?? ''}`;
+  return clean(words);
+}
+
 /** The count shown in a post's button beside its icon: "12". */
 const countIn = (button: HTMLElement | null): number | null =>
-  button ? countOf(clean(button.textContent)) : null;
+  button ? countOf(textOutsideIcons(button)) : null;
+
+/** Whether the tab shows a post's own page, where the box to reply to it is under it. */
+const onPostPage = (doc: Document): boolean => {
+  const url = threadsUrl(doc.defaultView?.location.href ?? '');
+  return url !== null && kindOf(url) === 'post';
+};
 
 /** The page's part a profile's header is in: the part around its Follow (or Edit profile) that shows its followers. */
 function headerOf(doc: Document): Element | null {
@@ -416,12 +454,26 @@ export const THREADS_SPEC: FollowSpec = {
         '[role="dialog"] [contenteditable="true"], [role="dialog"] [role="textbox"]',
       ),
     ].filter((b) => visible(b));
-    return over.length ? over : boxesSaying(mainOf(doc), /^reply to\b/i);
+    if (over.length) return over;
+    const saying = boxesSaying(mainOf(doc), /^reply to\b/i);
+    if (saying.length || !onPostPage(doc)) return saying;
+    // A post's own page: the box drawn to write in under it, named only "Empty text field…", its "Reply to …" a
+    // placeholder beside it that goes once something's written.
+    return [...mainOf(doc).querySelectorAll<HTMLElement>('[contenteditable="true"]')].filter(
+      (b) => visible(b) && !b.closest('[role="dialog"]'),
+    );
   },
   sendFor: (box) => {
+    const under = !box.closest('[role="dialog"]');
     for (let up = box.parentElement, n = 0; up && n < 14; up = up.parentElement, n++) {
       const post = controlsSaying(up, /^post$/i, true);
       if (post.length) return post.length === 1 ? post[0]! : null;
+      if (!under) continue;
+      // The box under a post sends with an arrow named Reply, once something's written in it. Never past the box's
+      // own part: the post's own Reply (beside its Like) only opens another box.
+      if (hasLike(up)) return null;
+      const reply = controlsSaying(up, /^reply$/i, true).filter((c) => !c.contains(box));
+      if (reply.length) return reply.length === 1 ? reply[0]! : null;
     }
     return null;
   },
