@@ -6,8 +6,11 @@
  *   mind…"), types the words into the box Facebook opens over the page (only while it's empty), adds the pictures,
  *   and presses **Next** when Facebook asks for it before **Post**.
  * - **Facebook, the business's Page:** Meta Business Suite's Create post for the Page (business.facebook.com), so the
- *   person's own profile is never switched to the Page: the words go in its text box, the pictures are added, a tick
- *   for Instagram that's on is turned off (Instagram has its own post, part 10), and it presses **Publish**.
+ *   person's own profile is never switched to the Page: the words go in its text box, the pictures are added,
+ *   Instagram is taken off what it posts to (a tick, or the Instagram account under **Post to**, which Business Suite
+ *   picks for a Page with Instagram linked: Instagram has its own post, part 10), and it presses **Publish**. Business
+ *   Suite stays on its page a while, publishing, so it's given up to 90 seconds (the owner's Page posts, 14 Nov 2026,
+ *   0.139.3: still publishing at 30), and then the background looks on the Page for it (./posting.ts).
  * - **LinkedIn:** their feed's **Start a post**, the same way, with LinkedIn's **Next** or **Done** after the pictures
  *   when it shows its picture editor.
  * - **Instagram (part 10):** **Create** in its side menu (then **Post**, when Instagram asks which kind), the pictures
@@ -25,7 +28,7 @@
  * It never presses anything but the box's own controls, and never posts twice: once Post is pressed it says so.
  */
 import { clean, labelOf } from '../networks/facebook/dom';
-import { shown } from '../networks/facebook/fetch';
+import { shown, visible } from '../networks/facebook/fetch';
 import { putPostIn } from '../networks/post-text';
 import { postShort } from './post-short';
 
@@ -85,6 +88,11 @@ const PUBLISHED =
   /\b(your post (is|was|has been) (now )?(published|shared|live)|post published|post shared)\b/i;
 /** A box to tick for Instagram in Business Suite's "Post to". */
 const INSTAGRAM = /\binstagram\b/i;
+/** The Instagram badge on an account's picture, in Business Suite's Post to and its list of accounts. */
+const IG_BADGE = 'img[alt="Instagram" i]';
+/** A row in an open list of accounts to post to. */
+const ACCOUNT_ROWS =
+  '[role="option"], [role="menuitemcheckbox"], [role="checkbox"], input[type="checkbox"]';
 /** Instagram's Create in its side menu, and Post in the small menu it opens to ask which kind. */
 export const IG_CREATE = /^(create|new post)$/i;
 const IG_KIND = /^post$/i;
@@ -110,6 +118,8 @@ const IG_VIDEO_MS = 170_000;
 
 const WAIT_MS = 8_000;
 const POSTING_MS = 30_000;
+/** Business Suite publishes a Page's post with its page still up, for longer (with Instagram ticked, over 30 s). */
+const BUSINESS_POSTING_MS = 90_000;
 const LOOK_MS = 400;
 
 async function waitFor<T>(find: () => T | null, ms = WAIT_MS): Promise<T | null> {
@@ -412,7 +422,7 @@ async function addInMediaWindow(
 }
 
 /** Turns off a tick for Instagram that's on in Business Suite's "Post to": the Page's post goes to the Page only. */
-function instagramOff(box: Element, steps: string[]): void {
+async function instagramOff(doc: Document, box: Element, steps: string[]): Promise<void> {
   for (const tick of box.querySelectorAll<HTMLElement>(
     'input[type="checkbox"], [role="checkbox"], [role="switch"]',
   )) {
@@ -420,13 +430,55 @@ function instagramOff(box: Element, steps: string[]): void {
       clean(tick.getAttribute('aria-label')) ||
       clean(tick.closest('label')?.textContent) ||
       clean(tick.parentElement?.textContent);
-    const on =
-      (tick as HTMLInputElement).checked === true || tick.getAttribute('aria-checked') === 'true';
-    if (on && INSTAGRAM.test(label)) {
+    if (isOn(tick) && INSTAGRAM.test(label)) {
       tick.click();
       steps.push('instagram:off');
     }
   }
+  // Business Suite's Post to (2026): the accounts it posts to, each picture with its network's badge. With
+  // Instagram linked, Instagram's is there from the start (the owner's Page posts, 14 Nov 2026, 0.139.3).
+  const postTo = [...box.querySelectorAll<HTMLElement>('[role="combobox"]')].find(
+    (c) => c.getAttribute('contenteditable') !== 'true' && !!c.querySelector(IG_BADGE),
+  );
+  if (!postTo) return;
+  postTo.click();
+  steps.push('instagram:list');
+  const rows = await waitFor(() => {
+    const found = instagramRows(doc, postTo);
+    return found.length ? found : null;
+  }, 3_000);
+  for (const row of rows ?? []) {
+    row.click();
+    steps.push('instagram:off');
+    await pause(300);
+  }
+  // The list closes as it opened.
+  if (postTo.isConnected && postTo.getAttribute('aria-expanded') === 'true') postTo.click();
+  await pause(300);
+  if (postTo.isConnected && postTo.querySelector(IG_BADGE)) steps.push('instagram:kept');
+}
+
+/** On: a tick ticked, a switch on, or an account picked in a list. */
+function isOn(e: Element): boolean {
+  return (
+    (e as HTMLInputElement).checked === true ||
+    e.getAttribute('aria-checked') === 'true' ||
+    e.getAttribute('aria-selected') === 'true' ||
+    !!e.querySelector('input[type="checkbox"]:checked, [aria-checked="true"]')
+  );
+}
+
+/** The Instagram accounts picked in Post to's open list: each row once, never the Post to box itself. */
+function instagramRows(doc: Document, postTo: Element): HTMLElement[] {
+  const found: HTMLElement[] = [];
+  for (const e of doc.querySelectorAll<HTMLElement>(ACCOUNT_ROWS)) {
+    if (postTo.contains(e) || !visible(e)) continue;
+    const row = e.closest<HTMLElement>('[role="option"], [role="menuitemcheckbox"], label') ?? e;
+    if (found.some((f) => f === row || f.contains(row) || row.contains(f))) continue;
+    const label = clean(row.getAttribute('aria-label')) || clean(row.textContent);
+    if ((row.querySelector(IG_BADGE) || INSTAGRAM.test(label)) && isOn(row)) found.push(row);
+  }
+  return found;
 }
 
 /** The link to the post just put up, when the network shows one (LinkedIn's View post). */
@@ -747,7 +799,7 @@ export async function postHere(doc: Document, ask: PostAsk): Promise<PostDone> {
     // Facebook uploads the pictures before Post turns on: it's waited on below.
     if (!box.isConnected) box = find(doc) ?? box;
   }
-  if (ask.where === 'business') instagramOff(box, steps);
+  if (ask.where === 'business') await instagramOff(doc, box, steps);
   let post = await waitFor(() => controlIn(box!, POST), ask.files.length ? 20_000 : 4_000);
   if (!post) {
     // The newer Facebook box asks for Next first, then shows its own Post.
@@ -764,15 +816,16 @@ export async function postHere(doc: Document, ask: PostAsk): Promise<PostDone> {
   const posted = box;
   post.click();
   steps.push('post');
+  const business = ask.where === 'business';
   const went = await waitFor(
     () =>
       !posted.isConnected ||
       !shown(posted) ||
-      (ask.where === 'business' && PUBLISHED.test(wordsIn(doc.body))) ||
+      (business && (PUBLISHED.test(wordsIn(doc.body)) || !businessComposer(doc))) ||
       linkShown(doc)
         ? true
         : null,
-    POSTING_MS,
+    business ? BUSINESS_POSTING_MS : POSTING_MS,
   );
   if (!went) return end('not_sent', true);
   return end('done', true, await waitFor(() => linkShown(doc), 4_000));

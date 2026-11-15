@@ -108,7 +108,32 @@ export const POSTING = {
     threads: 500,
     x: 280,
   } as Readonly<Record<PostingNetwork, number>>,
+  /**
+   * Redo (the owner, 15 Nov): posts that came out wrong or didn't go up, ticked on the Calendar, go up again one at a
+   * time on each network, this far apart, so a network never sees a burst of them. Up to this many at once.
+   */
+  redoEveryMs: 30 * 60_000,
+  redoMost: 30,
 } as const;
+
+/** Whether a post can be redone: it went up (it goes up again) or didn't go up (it's tried again). */
+export const canRedo = (c: { state: ContentState; network: string }): boolean =>
+  (c.state === 'posted' || c.state === 'failed') &&
+  isPostingNetwork(c.network) &&
+  POSTING.networks.includes(c.network);
+
+/**
+ * When each redone post goes, in the order given: the first on each network now, the next on that network
+ * `POSTING.redoEveryMs` later, and so on, so the networks each get theirs one at a time.
+ */
+export function redoTimes(networks: readonly string[], now: number): number[] {
+  const seen = new Map<string, number>();
+  return networks.map((n) => {
+    const k = seen.get(n) ?? 0;
+    seen.set(n, k + 1);
+    return now + k * POSTING.redoEveryMs;
+  });
+}
 
 /**
  * Threads and X (decision 41): short posts, a picture about half the time, and now and then a chain of posts for a
@@ -179,9 +204,20 @@ export function postLength(words: string, hashtags: readonly string[]): number {
 }
 
 /**
- * The words as they go up: the post's words, then a blank line and its hashtags, each with its #, no more of them
- * than the network takes (`HASHTAGS_MOST`). Kept within what the network takes, cutting the words (never a hashtag
- * in half) when they'd run over.
+ * The words with a blank line between paragraphs (decision 158; the owner, 15 Nov: a Page post "didn’t have line
+ * spaces"). Words with line breaks but no blank line anywhere were written a line to a paragraph, so each break
+ * becomes a blank line. Words with a blank line somewhere keep their spacing as written, short lines stacked on
+ * purpose included. Threads and X keep theirs too: every character counts there.
+ */
+export function withParagraphs(network: string, words: string): string {
+  if (isShortNetwork(network) || !words.includes('\n') || /\n[ \t]*\n/.test(words)) return words;
+  return words.replace(/[ \t]*\n[ \t]*/g, '\n\n');
+}
+
+/**
+ * The words as they go up: the post's words, a blank line between paragraphs (`withParagraphs`), then a blank line
+ * and its hashtags, each with its #, no more of them than the network takes (`HASHTAGS_MOST`). Kept within what the
+ * network takes, cutting the words (never a hashtag in half) when they'd run over.
  */
 export function postText(
   network: PostingNetwork,
@@ -192,13 +228,9 @@ export function postText(
   const most = POSTING.textMost[network];
   const tail = tags ? `\n\n${tags}` : '';
   const room = Math.max(0, most - tail.length);
+  const spaced = withParagraphs(network, words.trim());
   const body =
-    words.trim().length > room
-      ? `${words
-          .trim()
-          .slice(0, Math.max(0, room - 1))
-          .trimEnd()}…`
-      : words.trim();
+    spaced.length > room ? `${spaced.slice(0, Math.max(0, room - 1)).trimEnd()}…` : spaced;
   return body ? `${body}${tail}`.slice(0, most) : tags.slice(0, most);
 }
 

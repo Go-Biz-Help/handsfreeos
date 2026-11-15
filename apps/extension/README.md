@@ -1491,6 +1491,24 @@ minute after posting and before any reading:
   link"). A warning keeps the network's words for the day, for both social add-ons, and says nothing: the read is
   asked for again later, since one handed out is put off half an hour.
 
+### A Page's posts: Instagram off, and looked for on the Page (0.140.5)
+
+Twice on 14 Nov 2026 (0.139.3) a post for the owner's Page was marked as didn't post: "It pressed Post on your Page,
+but Facebook didn't show the post going up". Its problem reports showed Business Suite still on Create post 30 seconds
+after Publish, with its "publishing" spinner up, and Post to holding the Page's Instagram account as well as the Page:
+Business Suite picks Instagram for a Page that has it linked, and Post to (2026) is a list of accounts with each
+picture badged by its network, not the tick `instagramOff` looked for. Now:
+
+- **Instagram comes off Post to** before Publish: the list is opened, each picked account badged Instagram (or named
+  so) is unpicked, and the list is closed (`instagramOff` in `src/research/post-here.ts`, steps `instagram:list` and
+  `instagram:off`, or `instagram:kept` when it's still there). Instagram has its own post (part 10), so nothing goes
+  up there twice.
+- **Business Suite gets 90 seconds** after Publish, and it counts as gone up once its Create post is gone too (it
+  leaves for the posts list).
+- **Still unsure, it looks on the Page**, as a person would: the Page's newest posts are read for the post's first
+  words, at once and again 45 seconds later (`putUpAt` in `src/research/posting.ts`). Found, it's posted, with its link.
+  Not found, it says it pressed Publish and didn't find the post on the Page, so the person looks before Post it now.
+
 ### Instagram posts keep their shape (0.140.1)
 
 The owner's Instagram carousel went up on 14 Nov 2026 with its slides cut to squares: the words at the bottom of the

@@ -26,6 +26,7 @@ import {
   isShortNetwork,
   PICTURE_WAYS,
   POSTING,
+  withParagraphs,
   type ContentFormat,
   type PictureWay,
   type PostingNetwork,
@@ -97,6 +98,7 @@ export const WRITE_SYSTEM = [
   'You write one post for one network. Pick its format: photo (one picture), carousel (2 to 10 slides people swipe, never on Threads or X), or text (words alone: Facebook, LinkedIn, Threads and X only). Never a video: every post is words with pictures, or words alone. When the idea or the post before was a video or a reel, make it a photo or carousel post that makes the same point.',
   'On Threads and X a tip with steps, or a story, that won’t fit one short post can be a chain: the first post as its words, then up to 4 more posts in chain, each one short post that reads on its own and follows from the one before, with no hashtags and no numbering like "1/5". Keep most posts single; use a chain only when the post truly needs the room. Everywhere else chain is empty.',
   'Give it a short title to know it by; its hook; its words (the caption, with the hook as the first line); its hashtags, without the # sign; and for a carousel, each slide’s heading and a line or two of body.',
+  'In its words, put a blank line between paragraphs, so they never run together.',
   `For its picture, say what it shows in one or two sentences, and how it's made: "design" for a picture with words on it (tips, steps, a quote, a big claim, a carousel's slides); "photo" for a lifelike scene an image AI makes from your photoPrompt, with a few words laid over it like a Canva design (people, places, objects, never a real person or brand by name; on a carousel, the photo goes under the first slide); "own" when only a real photo of the business, its team or its work will do, so the person takes it.`,
   'When you’re told how to show it (a carousel, one picture or words alone, and whether its picture has a photo), show it that way.',
   'Follow the Playbook’s advice where it fits, and never copy a creator’s post.',
@@ -360,7 +362,7 @@ export function checkedPost(
   const hashtags = tidyHashtags(answer.hashtags, most ?? POST_LIMITS.hashtags);
   const words = shortWords(
     network,
-    tidyLines(withoutTrailingTags(answer.words), POST_LIMITS.words),
+    withParagraphs(network, tidyLines(withoutTrailingTags(answer.words), POST_LIMITS.words)),
     hashtags,
   );
   // The planned look's format, when there is one (decision 39), else the one the AI picked.

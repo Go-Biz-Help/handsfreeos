@@ -232,6 +232,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 632,
     said: 'On a post the person had liked, its bar says Unlike before the count of likes, and only a Like was looked for: an Unlike counts now (0.139.1, #615). Then a reel opened in the reels player, where the bar’s Comment is named by its own count beside its icon, so the count of likes before it was never found: the Comment is known by its icon now.',
   },
+  {
+    area: 'facebook',
+    job: 'post.page',
+    note: 'It pressed Post on your Page, but Facebook didn’t show the post going up',
+    fixedIn: '0.140.5',
+    pr: 631,
+    said: 'Both posts went up: Business Suite was still publishing 30 seconds after Publish (its progress bar and a notice with Learn more over the page), with the Page’s Instagram picked in Post to too. Instagram comes off Post to now, Business Suite gets 90 seconds, and then the Page is read for the post before it says it didn’t go up.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */

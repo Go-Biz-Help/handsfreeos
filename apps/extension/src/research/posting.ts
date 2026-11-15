@@ -53,6 +53,8 @@ const X_COMPOSE = 'https://x.com/compose/post';
 const THREADS_HOME = 'https://www.threads.com/';
 /** While the network puts the post at the top before its link is looked for. */
 const SETTLE_MS = 5_000;
+/** How long after an unsure Publish the Page is looked at for the post, and again: Facebook can take a while. */
+const PAGE_LOOKS_MS = [0, 45_000] as const;
 /**
  * The most a post's files may weigh together, as they're handed to the tab: within what Chrome passes to a page in one
  * go once written out (a video can be up to 25 MB, core's most for a file).
@@ -140,6 +142,8 @@ export function failureFor(
       : `${name} didn’t show the box to write a post on ${where}. Check you’re signed in to ${name} in Chrome on the computer that posts, then press Post it now.`;
   if (done.result === 'no_media')
     return `${name} didn’t take its ${video ? 'video' : 'pictures'} on ${where}, so nothing went up. Press Post it now to try again, or copy the words and post it yourself.`;
+  if (done.pressed && place === 'page')
+    return `It pressed Publish for your Page in Meta Business Suite, but didn’t find the post on your Page after. Look on your Page: if it isn’t there, press Post it now.`;
   return done.pressed
     ? `It pressed ${press} on ${where}, but ${name} didn’t show the post going up. Look on ${where}: if it isn’t there, press Post it now.`
     : `${name} didn’t take the post on ${where}. Press Post it now to try again, or copy the words and post it yourself.`;
@@ -307,6 +311,15 @@ async function putUpAt(
     });
     // Only a Business Suite that showed no box at all goes on to the Page's next number: nothing was typed there.
     if (done?.result !== 'none' || done.pressed || done.steps.length) break;
+  }
+  // Publish pressed but Business Suite never showed it going up: it's looked for on the Page itself, as a person
+  // would (the owner's Page posts, 14 Nov 2026: still publishing when the hands gave up).
+  if (done?.result === 'not_sent' && done.pressed && where === 'business' && listed) {
+    for (const wait of PAGE_LOOKS_MS) {
+      await pause(wait);
+      const link = await linkFrom(tab, listed, post.text);
+      if (link) return { place, posted: true, pressed: true, link, failure: null };
+    }
   }
   if (done?.result !== 'done') {
     const failure = failureFor(

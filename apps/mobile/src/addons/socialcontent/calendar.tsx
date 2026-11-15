@@ -2,6 +2,7 @@ import { addDays, localDateOf } from '@hfos/core';
 import {
   CALENDAR,
   POSTING_NETWORKS,
+  canRedo,
   firstPlannedNetwork,
   type PostingNetwork,
 } from '@hfos/core/addons/socialcontent/calendar';
@@ -20,12 +21,13 @@ import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
 import { change } from '@/changes';
-import { CalendarCheck, CalendarPlus, PenLine } from '@/components/icons';
+import { CalendarCheck, CalendarPlus, Check, PenLine, RotateCcw } from '@/components/icons';
 import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { FilterChip } from '@/components/ui/filter-chip';
+import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { Sheet } from '@/components/ui/sheet';
@@ -54,6 +56,8 @@ import { PostPictureTile, STATE_BADGE } from './own-post';
  * post ready in the next 7 days, and **Write a post** (or **Write one** on an open day) writes one. Write a post asks
  * two things first in a sheet (the owner, 14 Nov): which networks, one or more (a post for each, about the same thing),
  * and whether the AI writes it on its own or from what the person says it's about. **Fill on its own** stops the AI filling it, or starts it again (the owner, 11 Nov).
+ * **Redo posts** (the owner, 15 Nov): tick posts that went up wrong or didn't go up, and they go up again, one at a time
+ * on each network; what didn't go up shows under Lately.
  * Opening a post shows it on its own screen, at the web's own address (`calendar?post=<id>`). It needs signal.
  */
 
@@ -144,6 +148,14 @@ export function CalendarScreen() {
           return out;
         })
       }
+      onRedo={(postIds) =>
+        act(
+          'redo',
+          async () =>
+            (await change('socialcontent.content.redo', { workspaceId: ws, postIds })).output,
+          (out) => W.calendar.redone(out?.redone ?? 0, out?.notRedone.length ?? 0),
+        )
+      }
     />
   );
 }
@@ -161,6 +173,7 @@ export function CalendarBody({
   onOkWeek,
   onWrite,
   onWriteFor,
+  onRedo,
 }: {
   data: CalendarView | null;
   error: string | null;
@@ -178,9 +191,14 @@ export function CalendarBody({
    * it gives back, when anything, is what was written (null when it was refused).
    */
   onWriteFor: (networks: readonly PostingNetwork[], ask: string | null) => unknown;
+  /** Redo posts (the owner, 15 Nov): the ticked ones go up again. What it gives back is null when refused. */
+  onRedo: (postIds: string[]) => unknown;
 }) {
   // Write a post's two questions are up (the owner, 14 Nov).
   const [asking, setAsking] = React.useState(false);
+  // Redo posts (the owner, 15 Nov): picking which posts go up again.
+  const [redoing, setRedoing] = React.useState(false);
+  const [ticked, setTicked] = React.useState<ReadonlySet<string>>(new Set());
   const other = (key: string) => !online || (busy !== null && busy !== key);
   if (!c)
     return (
@@ -206,8 +224,38 @@ export function CalendarBody({
   const openByDay = new Map<string, CalendarView['open']>();
   for (const o of c.open) openByDay.set(o.date, [...(openByDay.get(o.date) ?? []), o]);
   const drafts = c.posts.filter((p) => p.state === 'draft').length;
+  const redoable = [...c.posts, ...c.recent].filter(canRedo);
+  const failedIds = redoable.filter((p) => p.state === 'failed').map((p) => p.id);
+  // What's ticked and can still be redone (one may have gone up again since it was ticked).
+  const chosen = redoable.filter((p) => ticked.has(p.id));
+  const tickedPosted = chosen.filter((p) => p.state === 'posted');
+  const flipTick = (id: string) =>
+    setTicked((was) => {
+      const next = new Set(was);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const stopRedo = () => {
+    setRedoing(false);
+    setTicked(new Set());
+  };
+  const redo = () =>
+    void Promise.resolve(onRedo(chosen.map((p) => p.id))).then((out) => {
+      if (out) stopRedo();
+    });
   const row = (p: Content) => (
-    <PostRow key={p.id} post={p} timeZone={c.timeZone} onOpen={() => onOpen(p.id)} />
+    <PostRow
+      key={p.id}
+      post={p}
+      timeZone={c.timeZone}
+      onOpen={() => onOpen(p.id)}
+      tick={
+        redoing && canRedo(p)
+          ? { checked: ticked.has(p.id), onPress: () => flipTick(p.id) }
+          : undefined
+      }
+    />
   );
 
   return (
@@ -255,7 +303,64 @@ export function CalendarBody({
             </Button>
           ) : null}
         </View>
+        {redoable.length && !redoing ? (
+          <Button
+            variant="secondary"
+            icon={RotateCcw}
+            disabled={other('redo')}
+            onPress={() => setRedoing(true)}
+            testID="socialcontent-calendar-redo"
+          >
+            {W.calendar.redo}
+          </Button>
+        ) : null}
       </View>
+      {redoing ? (
+        <Card className="gap-3 border-accent p-4" testID="socialcontent-redo-bar">
+          <Text className="text-[13.5px] leading-[19px] text-text-2">{W.calendar.redoAsk}</Text>
+          {tickedPosted.length ? (
+            <Text
+              className="text-[12.5px] leading-[17px] text-warning-text"
+              testID="socialcontent-redo-posted"
+            >
+              {W.calendar.redoPosted([
+                ...new Set(tickedPosted.map((p) => networkNameOf(p.network))),
+              ])}
+            </Text>
+          ) : null}
+          <Button
+            icon={RotateCcw}
+            loading={busy === 'redo'}
+            disabled={!chosen.length || other('redo')}
+            onPress={redo}
+            testID="socialcontent-redo-go"
+          >
+            {W.calendar.redoGo(chosen.length)}
+          </Button>
+          <View className="flex-row gap-2">
+            {failedIds.length ? (
+              <Button
+                className="flex-1"
+                variant="secondary"
+                disabled={busy !== null}
+                onPress={() => setTicked((was) => new Set([...was, ...failedIds]))}
+                testID="socialcontent-redo-failed"
+              >
+                {W.calendar.redoFailed(failedIds.length)}
+              </Button>
+            ) : null}
+            <Button
+              className="flex-1"
+              variant="ghost"
+              disabled={busy === 'redo'}
+              onPress={stopRedo}
+              testID="socialcontent-redo-cancel"
+            >
+              {W.calendar.redoCancel}
+            </Button>
+          </View>
+        </Card>
+      ) : null}
       <WriteSheet
         open={asking}
         plan={c.plan}
@@ -465,8 +570,45 @@ function WriteSheet({
   );
 }
 
-/** One post on the Calendar: its picture, network, time, format and state, title and first line. */
+/**
+ * One post on the Calendar: its picture, network, time, format and state, title and first line; picking posts to redo,
+ * its tick beside it when it can be redone.
+ */
 function PostRow({
+  post: p,
+  timeZone,
+  onOpen,
+  tick,
+}: {
+  post: Content;
+  timeZone: string;
+  onOpen: () => void;
+  tick?: { checked: boolean; onPress: () => void };
+}) {
+  const shown = <PostRowBody post={p} timeZone={timeZone} onOpen={onOpen} />;
+  if (!tick) return shown;
+  return (
+    <View className="flex-row items-center gap-3">
+      <Pressable
+        role="checkbox"
+        accessibilityState={{ checked: tick.checked }}
+        accessibilityLabel={W.calendar.redoTick(p.title)}
+        onPress={tick.onPress}
+        hitSlop={8}
+        testID={`socialcontent-post-${p.id}-redo`}
+        className={cn(
+          'size-7 items-center justify-center rounded-[8px] border',
+          tick.checked ? 'border-accent bg-accent' : 'border-border-strong bg-card',
+        )}
+      >
+        {tick.checked ? <Icon as={Check} className="size-4 text-white" /> : null}
+      </Pressable>
+      <View className="min-w-0 flex-1">{shown}</View>
+    </View>
+  );
+}
+
+function PostRowBody({
   post: p,
   timeZone,
   onOpen,

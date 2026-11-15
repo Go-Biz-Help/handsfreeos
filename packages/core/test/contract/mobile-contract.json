@@ -16083,6 +16083,28 @@
         "required": ["workspaceId", "postId"]
       }
     },
+    "socialcontent.content.redo": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postIds": {
+            "minItems": 1,
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workspaceId", "postIds"]
+      }
+    },
     "socialcontent.content.remove": {
       "offline": "online",
       "input": {
