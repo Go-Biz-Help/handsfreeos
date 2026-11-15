@@ -535,7 +535,8 @@ describe('Threads’ Like and box to reply in, as its pages drew them on 15 Nov 
     ).toBe('none');
     expect(box().textContent).toBe('');
     expect(sent).toEqual([]);
-  });
+    // Real waits: 3 s for an arrow that never shows, then emptying the box. Over vitest's 5 s on a busy runner.
+  }, 15_000);
 
   it('with no box under the post, replies in the one its own Reply opens over it, sent with Post', async () => {
     const doc = page(`${TH_MENU}${threadNow('dana.reyes', 'DQx7Ab12cd', 'Who do you use?')}`, POST);
