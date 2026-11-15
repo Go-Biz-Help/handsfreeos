@@ -4,6 +4,7 @@
  * model: OpenAI's whole graphic kept when the check passes it, the next photo post's words drawn over a photo, a
  * graphic that fails the check swapped for a photo with drawn words, and a drawn design that fails designed again.
  * Instagram's are 3:4, and its posts not up yet whose pictures were made before that get them made again (the
+ * owner, 15 Nov). A mistake in a photo itself, like a blank screen in someone's hand, has the photo made again (the
  * owner, 15 Nov).
  */
 import { randomUUID } from 'node:crypto';
@@ -39,7 +40,7 @@ const script = {
   /** Each design ask takes the next one; the last repeats. */
   designs: [] as Record<string, unknown>[],
   /** Each check takes the next one; the last repeats. */
-  checks: [] as { passes: boolean; problems: string[] }[],
+  checks: [] as { passes: boolean; problems: string[]; photoProblems?: string[] }[],
   requests: [] as AiRequest[],
 };
 const turn = (value: unknown): AiTurn => ({
@@ -424,5 +425,119 @@ describe('Instagram’s own picture shape', () => {
       sql`select state from addon_socialcontent.content where record_id = ${okd}`,
     );
     expect(o!.state).toBe('draft');
+  });
+});
+
+describe('a mistake in a photo itself', () => {
+  // A carousel never tries OpenAI's whole graphic, so the first picture OpenAI makes is always the photo.
+  const designAsks = () => script.requests.filter((r) => r.system === DESIGN_SYSTEM);
+
+  it('makes the photo again, told what to avoid, under the same design', async () => {
+    script.designs = [design([page(), page({ layout: 'clean', heading: 'Drip the taps' })])];
+    script.checks = [
+      {
+        passes: false,
+        problems: [],
+        photoProblems: ['The phone in her hand has a blank white screen'],
+      },
+      { passes: true, problems: [] },
+    ];
+    script.requests.length = 0;
+    prompts.length = 0;
+    const id = await post('carousel', 'photo', 'facebook');
+    await makePictures(id);
+    const m = await made(id);
+    expect(m).toMatchObject({ state: 'made', way: 'photo', files: 2 });
+    // Two photos: the first, and one made again that's told what was wrong.
+    expect(prompts).toHaveLength(2);
+    for (const asked of prompts)
+      expect(asked).toMatch(
+        /never a blank white, grey or black screen, even if the scene above says so/,
+      );
+    expect(prompts[0]).not.toContain('The last photo had these problems');
+    expect(prompts[1]).toContain(
+      'The last photo had these problems; make sure the new one has none of them: The phone in her hand has a blank white screen',
+    );
+    // Only the photo was wrong, so it wasn't designed again.
+    expect(designAsks()).toHaveLength(1);
+    expect(m.design.check).toEqual({ passes: true, problems: [] });
+    expect(m.design.checked).toBe(2);
+  });
+
+  it('designs it again for the words and makes the photo again for the photo', async () => {
+    script.designs = [design([page(), page({ layout: 'clean', heading: 'Drip the taps' })])];
+    script.checks = [
+      {
+        passes: false,
+        problems: ['The heading runs off the edge'],
+        photoProblems: ['Six fingers on the hand'],
+      },
+      { passes: true, problems: [] },
+    ];
+    script.requests.length = 0;
+    prompts.length = 0;
+    const id = await post('carousel', 'photo', 'facebook');
+    await makePictures(id);
+    expect(prompts).toHaveLength(2);
+    expect(prompts[1]).toContain('Six fingers on the hand');
+    expect(prompts[1]).not.toContain('heading');
+    // The design asked again is told only what a design can fix.
+    const asks = designAsks();
+    expect(asks).toHaveLength(2);
+    const again = JSON.stringify(asks[1]!.messages);
+    expect(again).toContain('The heading runs off the edge');
+    expect(again).not.toContain('Six fingers');
+    expect((await made(id)).design.check.passes).toBe(true);
+  });
+
+  it('never makes a designed picture’s photo, which it hasn’t got', async () => {
+    script.designs = [design([page({ layout: 'clean' })])];
+    script.checks = [
+      { passes: false, problems: [], photoProblems: ['A melted coffee cup'] },
+      { passes: true, problems: [] },
+    ];
+    script.requests.length = 0;
+    prompts.length = 0;
+    const id = await post('photo', 'design', 'facebook');
+    await makePictures(id);
+    expect(prompts).toHaveLength(0);
+    // Without a photo, the design is told every problem.
+    const asks = designAsks();
+    expect(asks).toHaveLength(2);
+    expect(JSON.stringify(asks[1]!.messages)).toContain('A melted coffee cup');
+  });
+
+  it('makes again the photos of posts not up yet that were made before the check looked for this', async () => {
+    const pending = () =>
+      rows<{ post_id: string; way: string }>(
+        admin(),
+        sql`select payload->>'postId' as post_id, payload->>'way' as way from app.scheduled_jobs
+            where workspace_id = ${ws} and kind = 'socialcontent.pictures' and status = 'pending'`,
+      );
+    const before = async (way: 'photo' | 'design', checked: number | null) => {
+      const id = await post('photo', way, 'facebook');
+      await rows(
+        admin(),
+        sql`update addon_socialcontent.content
+            set picture_state = 'made',
+                design = ${JSON.stringify({ pages: [], ...(checked ? { checked } : {}) })}::jsonb
+            where record_id = ${id}`,
+      );
+      return id;
+    };
+    const old = await before('photo', null);
+    const designed = await before('design', null);
+    const checked = await before('photo', 2);
+    script.designs = [design([page({ layout: 'clean' })])];
+    script.checks = [{ passes: true, problems: [] }];
+    const id = await post('photo', 'design', 'facebook');
+    await makePictures(id);
+    // Only the photo made before is queued; a designed picture has no photo, and the other was made under the check.
+    expect(await pending()).toEqual([{ post_id: old, way: 'photo' }]);
+    for (const left of [designed, checked, id])
+      expect((await pending()).some((q) => q.post_id === left)).toBe(false);
+    await makePictures(old);
+    expect((await made(old)).design.checked).toBe(2);
+    expect(await pending()).toEqual([]);
   });
 });
