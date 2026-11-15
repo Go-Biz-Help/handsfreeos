@@ -53,6 +53,8 @@ import {
   LOCKED_RULES,
   partChanged,
   partsChanged,
+  PLAYBOOK_OPENS,
+  PLAYBOOK_OPENS_KEYS,
   SCRIPT_BLANKS,
   SCRIPT_GROUPS,
   SCRIPT_INFO,
@@ -64,6 +66,7 @@ import {
   typedPart,
   withFirsts,
   withPart,
+  type PlaybookOpens,
   type ScriptDraft,
 } from '@hfos/core/addons/outreach/script';
 import {
@@ -162,6 +165,8 @@ interface Draft {
   samples: string[];
   /** What it says for each message (decision 164): the business's own words as typed, the rest the starting words. */
   script: ScriptDraft;
+  /** How the first message goes (decision 168): the question, or an introduction in its place. */
+  opens: PlaybookOpens;
   questions: PlaybookQuestion[];
   avoid: string[];
   disclaimer: string;
@@ -198,6 +203,7 @@ const fromDetails = (name: string, d: PlaybookDetails): Draft => ({
   tone: d.tone ?? '',
   samples: d.samples,
   script: scriptDraftOf(d.script),
+  opens: d.opens ?? 'pitch',
   questions: d.questions,
   avoid: d.avoid,
   disclaimer: d.disclaimer ?? '',
@@ -306,6 +312,7 @@ const toDetails = (d: Draft, sent: readonly FindPart[] = FIND_PARTS): PlaybookDe
   samples: d.samples.map((s) => s.trim()).filter(Boolean),
   // Only the parts in the business's own words: the rest keep following the starting words (decision 164).
   script: scriptToSave(d.goal, d.script),
+  opens: d.opens,
   // The styles and openers from before decision 164 are its first message's versions now.
   openerStyles: [],
   ownOpeners: [],
@@ -1400,6 +1407,8 @@ export function PlaybookBuilder({
           goal={draft.goal}
           script={draft.script}
           onChange={(script) => set('script', script)}
+          opens={draft.opens}
+          onOpens={(opens) => set('opens', opens)}
           issueAt={(path) => issueIn(`script.${path}`)}
           firstsHelp={
             <AiHelp
@@ -1564,7 +1573,11 @@ export function PlaybookBuilder({
           playbookId={playbook?.id ?? null}
           name={draft.name.trim() || PLAYBOOK_GOALS[draft.goal]}
           details={toDetails(withTyping(draft, typing))}
-          versions={typedFirsts(draft.goal, draft.script).filter((m) => m.trim()).length}
+          versions={
+            draft.opens === 'intro'
+              ? 1
+              : typedFirsts(draft.goal, draft.script).filter((m) => m.trim()).length
+          }
           platforms={draft.platforms}
           open
           onClose={() => setTesting(false)}
@@ -1586,6 +1599,8 @@ function ScriptStep({
   goal,
   script,
   onChange,
+  opens,
+  onOpens,
   issueAt,
   firstsHelp,
   onTest,
@@ -1593,12 +1608,16 @@ function ScriptStep({
   goal: PlaybookGoal;
   script: ScriptDraft;
   onChange: (script: ScriptDraft) => void;
+  /** How the first message goes (decision 168). */
+  opens: PlaybookOpens;
+  onOpens: (opens: PlaybookOpens) => void;
   /** The problem with a part, by its path in the script: "first.1", "yes". */
   issueAt: (path: string) => string | undefined;
   firstsHelp: ReactNode;
   onTest: () => void;
 }) {
   const firsts = typedFirsts(goal, script);
+  const intro = opens === 'intro';
   return (
     <div className="space-y-7" data-testid="playbook-script">
       <Callout
@@ -1617,13 +1636,37 @@ function ScriptStep({
           <h3 className="text-[12.5px] font-semibold uppercase tracking-wide text-text-3">
             {g.title}
           </h3>
+          {g.key === 'start' ? (
+            <div data-testid="playbook-opens">
+              <p className="mb-0.5 text-[13.5px] font-medium">{SW.opensTitle}</p>
+              <p className="mb-2 text-[12.5px] text-text-3">{SW.opensBlurb}</p>
+              <div
+                role="radiogroup"
+                aria-label={SW.opensTitle}
+                className="grid gap-2 sm:grid-cols-2"
+              >
+                {PLAYBOOK_OPENS_KEYS.map((k) => (
+                  <RadioCard
+                    key={k}
+                    selected={opens === k}
+                    onSelect={() => onOpens(k)}
+                    title={PLAYBOOK_OPENS[k].label}
+                    description={PLAYBOOK_OPENS[k].hint}
+                    testId={`playbook-opens-${k}`}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
           {g.parts.map((part) => {
+            // The introduction shows only for a playbook that starts with one (decision 168).
+            if (part === 'intro' && !intro) return null;
             const info = SCRIPT_INFO[part];
             const changed = partChanged(goal, script, part);
             const head = (
               <div className="mb-1 flex flex-wrap items-center gap-2">
                 <Label htmlFor={`pb-script-${part}`} className="mb-0">
-                  {info.label}
+                  {part === 'first' && intro ? SW.pitchInIntro : info.label}
                 </Label>
                 {changed ? <Badge variant="accent">{SW.changed}</Badge> : null}
                 {changed ? (
@@ -1645,7 +1688,8 @@ function ScriptStep({
             );
             const when = (
               <p className="mb-2 text-[12.5px] text-text-3">
-                <span className="font-medium">{SW.when}:</span> {info.when}{' '}
+                <span className="font-medium">{SW.when}:</span>{' '}
+                {part === 'first' && intro ? SW.pitchInIntroWhen : info.when}{' '}
                 {info.says === 'message' ? SW.messageHint : ''}
               </p>
             );
@@ -2214,7 +2258,11 @@ function Summary({
       );
     }
     case 'script': {
-      const firsts = typedFirsts(d.goal, d.script).filter((m) => m.trim());
+      // A playbook that starts with an introduction shows it in place of the first message (decision 168).
+      const intro = d.opens === 'intro';
+      const firsts = intro
+        ? [typedPart(d.goal, d.script, 'intro')].filter((m) => m.trim())
+        : typedFirsts(d.goal, d.script).filter((m) => m.trim());
       const changed = partsChanged(d.goal, d.script);
       return (
         <>
@@ -2224,6 +2272,7 @@ function Summary({
             ))}
           </ul>
           <div className="text-[13px] text-text-2">
+            {intro ? `Starts with an introduction. ` : ''}
             {firsts.length > 1 ? `${plural(firsts.length, 'first message')} taking turns. ` : ''}
             {changed
               ? `${plural(changed, 'part')} in your own words, the rest in the starting words.`

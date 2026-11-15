@@ -45588,7 +45588,7 @@ export interface operations {
                                 /** @default null */
                                 opener: {
                                     /** @enum {string} */
-                                    kind: "style" | "own";
+                                    kind: "style" | "own" | "intro";
                                     /** Format: uuid */
                                     playbookId: string;
                                     text: string;
@@ -45664,7 +45664,7 @@ export interface operations {
                                 /** @default null */
                                 opener: {
                                     /** @enum {string} */
-                                    kind: "style" | "own";
+                                    kind: "style" | "own" | "intro";
                                     /** Format: uuid */
                                     playbookId: string;
                                     text: string;
@@ -45711,7 +45711,7 @@ export interface operations {
                         /** @default null */
                         opener?: {
                             /** @enum {string} */
-                            kind: "style" | "own";
+                            kind: "style" | "own" | "intro";
                             /** Format: uuid */
                             playbookId: string;
                             text: string;
@@ -45926,7 +45926,7 @@ export interface operations {
                                 /** @default null */
                                 opener: {
                                     /** @enum {string} */
-                                    kind: "style" | "own";
+                                    kind: "style" | "own" | "intro";
                                     /** Format: uuid */
                                     playbookId: string;
                                     text: string;
@@ -46041,7 +46041,7 @@ export interface operations {
                                 /** @default null */
                                 opener: {
                                     /** @enum {string} */
-                                    kind: "style" | "own";
+                                    kind: "style" | "own" | "intro";
                                     /** Format: uuid */
                                     playbookId: string;
                                     text: string;
@@ -50347,7 +50347,7 @@ export interface operations {
                 "application/json": {
                     opener: {
                         /** @enum {string} */
-                        kind: "style" | "own";
+                        kind: "style" | "own" | "intro";
                         /** Format: uuid */
                         playbookId: string;
                         text: string;
@@ -50624,6 +50624,8 @@ export interface operations {
                             onItsNetworks?: true;
                             /** @default [] */
                             openerStyles: string[];
+                            /** @enum {string} */
+                            opens?: "pitch" | "intro";
                             /** @default [] */
                             ownOpeners: string[];
                             pace: {
@@ -50654,6 +50656,7 @@ export interface operations {
                                 first?: string[];
                                 followUp?: string;
                                 groupReply?: string;
+                                intro?: string;
                                 later?: string;
                                 missed?: string;
                                 newJob?: string;
@@ -50699,6 +50702,7 @@ export interface operations {
                             first: string[];
                             followUp: string;
                             groupReply: string;
+                            intro: string;
                             later: string;
                             missed: string;
                             newJob: string;
@@ -50745,6 +50749,8 @@ export interface operations {
                         /** @enum {boolean} */
                         onItsNetworks?: true;
                         openerStyles?: string[];
+                        /** @enum {string} */
+                        opens?: "pitch" | "intro";
                         ownOpeners?: string[];
                         pace?: {
                             followUpAfterDays?: number;
@@ -50774,6 +50780,7 @@ export interface operations {
                             first?: string[];
                             followUp?: string;
                             groupReply?: string;
+                            intro?: string;
                             later?: string;
                             missed?: string;
                             newJob?: string;
@@ -50827,6 +50834,8 @@ export interface operations {
                         onItsNetworks?: true;
                         /** @default [] */
                         openerStyles?: string[];
+                        /** @enum {string} */
+                        opens?: "pitch" | "intro";
                         /** @default [] */
                         ownOpeners?: string[];
                         pace: {
@@ -50857,6 +50866,7 @@ export interface operations {
                             first?: string[];
                             followUp?: string;
                             groupReply?: string;
+                            intro?: string;
                             later?: string;
                             missed?: string;
                             newJob?: string;
@@ -50930,6 +50940,8 @@ export interface operations {
                             onItsNetworks?: true;
                             /** @default [] */
                             openerStyles: string[];
+                            /** @enum {string} */
+                            opens?: "pitch" | "intro";
                             /** @default [] */
                             ownOpeners: string[];
                             pace: {
@@ -50960,6 +50972,7 @@ export interface operations {
                                 first?: string[];
                                 followUp?: string;
                                 groupReply?: string;
+                                intro?: string;
                                 later?: string;
                                 missed?: string;
                                 newJob?: string;
@@ -51005,6 +51018,7 @@ export interface operations {
                             first: string[];
                             followUp: string;
                             groupReply: string;
+                            intro: string;
                             later: string;
                             missed: string;
                             newJob: string;
@@ -52299,7 +52313,7 @@ export interface operations {
                     /** @default null */
                     opener?: {
                         /** @enum {string} */
-                        kind: "style" | "own";
+                        kind: "style" | "own" | "intro";
                         /** Format: uuid */
                         playbookId: string;
                         text: string;
@@ -52338,7 +52352,7 @@ export interface operations {
                         needsYou: string | null;
                         opener: {
                             /** @enum {string} */
-                            kind: "style" | "own";
+                            kind: "style" | "own" | "intro";
                             /** Format: uuid */
                             playbookId: string;
                             text: string;
@@ -87394,7 +87408,7 @@ export interface operations {
                                 /** @default null */
                                 opener: {
                                     /** @enum {string} */
-                                    kind: "style" | "own";
+                                    kind: "style" | "own" | "intro";
                                     /** Format: uuid */
                                     playbookId: string;
                                     text: string;
@@ -90117,7 +90131,7 @@ export interface operations {
                                 current: boolean;
                                 demos: number;
                                 /** @enum {string} */
-                                kind: "style" | "own";
+                                kind: "style" | "own" | "intro";
                                 replies: number;
                                 sent: number;
                                 text: string;
@@ -90451,6 +90465,8 @@ export interface operations {
                                 onItsNetworks?: true;
                                 /** @default [] */
                                 openerStyles: string[];
+                                /** @enum {string} */
+                                opens?: "pitch" | "intro";
                                 /** @default [] */
                                 ownOpeners: string[];
                                 pace: {
@@ -90481,6 +90497,7 @@ export interface operations {
                                     first?: string[];
                                     followUp?: string;
                                     groupReply?: string;
+                                    intro?: string;
                                     later?: string;
                                     missed?: string;
                                     newJob?: string;
@@ -90526,6 +90543,7 @@ export interface operations {
                                 first: string[];
                                 followUp: string;
                                 groupReply: string;
+                                intro: string;
                                 later: string;
                                 missed: string;
                                 newJob: string;
@@ -91753,7 +91771,7 @@ export interface operations {
                             needsYou: string | null;
                             opener: {
                                 /** @enum {string} */
-                                kind: "style" | "own";
+                                kind: "style" | "own" | "intro";
                                 /** Format: uuid */
                                 playbookId: string;
                                 text: string;
@@ -92463,7 +92481,7 @@ export interface operations {
                                     /** @default null */
                                     opener: {
                                         /** @enum {string} */
-                                        kind: "style" | "own";
+                                        kind: "style" | "own" | "intro";
                                         /** Format: uuid */
                                         playbookId: string;
                                         text: string;
@@ -92502,7 +92520,7 @@ export interface operations {
                                 needsYou: string | null;
                                 opener: {
                                     /** @enum {string} */
-                                    kind: "style" | "own";
+                                    kind: "style" | "own" | "intro";
                                     /** Format: uuid */
                                     playbookId: string;
                                     text: string;
@@ -92545,7 +92563,7 @@ export interface operations {
                                 needsYou: string | null;
                                 opener: {
                                     /** @enum {string} */
-                                    kind: "style" | "own";
+                                    kind: "style" | "own" | "intro";
                                     /** Format: uuid */
                                     playbookId: string;
                                     text: string;

@@ -256,6 +256,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 636,
     said: 'The post’s Reply wasn’t found (its icon is named by a title), and the box Threads draws under a post on its own page, named only “Empty text field…”, wasn’t taken for the box to reply in. Both are now, and that box sends with its arrow named Reply.',
   },
+  {
+    area: 'threads',
+    job: 'checkup.comment',
+    note: 'Commenting: the reply box didn’t empty again',
+    fixedIn: '0.140.8',
+    pr: 638,
+    said: 'Threads’ reply box ignores the “select all, delete” the extension used to take its word out again. It now waits for the box to see the selection and types nothing over it, which Threads’ editor takes.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */

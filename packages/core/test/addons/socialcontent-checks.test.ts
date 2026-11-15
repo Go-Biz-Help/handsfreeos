@@ -7,11 +7,14 @@ import { describe, expect, it } from 'vitest';
 import {
   CHECKS,
   checkedPictureCheck,
+  designProblems,
   fitsGraphic,
   fixAsk,
   graphicDue,
   graphicPromptFor,
   pageToCheck,
+  photoFixAsk,
+  PICTURE_CHECK_SCHEMA,
   PICTURE_CHECK_SYSTEM,
   pictureCheckPrompt,
   withCutWords,
@@ -19,6 +22,9 @@ import {
   type GraphicTry,
 } from '../../src/addons/socialcontent/check-ai';
 import { withoutSideLabel, type DesignPage } from '../../src/addons/socialcontent/posts-ai';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Any = any;
 
 const page = (over: Partial<DesignPage> = {}): DesignPage => ({
   layout: 'photo',
@@ -161,6 +167,74 @@ describe('checking each picture before it’s kept', () => {
     expect(ask).toContain('brighter');
     expect(ask).toContain('Words cut off; Too small');
   });
+
+  it('looks for the mistakes image AIs make in a photo, like a blank screen in her hand', () => {
+    // The owner, 15 Nov: "the phone in her hand is just a blank white screen".
+    expect(PICTURE_CHECK_SYSTEM).toMatch(
+      /phone, laptop, TV or other screen someone is using that is blank, plain white, grey or black/,
+    );
+    expect(PICTURE_CHECK_SYSTEM).toMatch(/too many, too few or joined fingers/);
+    expect(PICTURE_CHECK_SYSTEM).toMatch(/under photoProblems/);
+    const item = (PICTURE_CHECK_SCHEMA as Any).properties.pages.items;
+    expect(item.required).toContain('photoProblems');
+  });
+
+  it('keeps a photo’s mistakes apart, since only a new photo fixes them', () => {
+    const one = checkedPictureCheck(
+      {
+        pages: [
+          {
+            page: 1,
+            passes: false,
+            problems: ['Heading cut off'],
+            photoProblems: [' The phone screen is blank '],
+          },
+        ],
+      },
+      1,
+    );
+    expect(one).toEqual({
+      passes: false,
+      problems: ['Heading cut off', 'The phone screen is blank'],
+      photo: ['The phone screen is blank'],
+    });
+    expect(designProblems(one)).toEqual(['Heading cut off']);
+    // A design asked again is told only what a design can fix.
+    expect(fixAsk(one, null)).toContain('Heading cut off');
+    expect(fixAsk(one, null)).not.toContain('phone');
+    expect(fixAsk({ ...one, problems: one.photo! }, 'brighter')).toBe('brighter');
+    // The photo asked again is told what to avoid, without page numbers.
+    const again = photoFixAsk(['Page 1: The phone screen is blank', 'Six fingers'], 'warmer');
+    expect(again).toContain('warmer');
+    expect(again).toContain(
+      'make sure the new one has none of them: The phone screen is blank; Six fingers',
+    );
+    // A passing page that names only a photo problem isn't a pass.
+    expect(
+      checkedPictureCheck(
+        { pages: [{ page: 1, passes: true, problems: [], photoProblems: ['Melted cup'] }] },
+        1,
+      ),
+    ).toEqual({ passes: false, problems: ['Melted cup'], photo: ['Melted cup'] });
+    // Many words problems still leave room for the photo's.
+    const many = checkedPictureCheck(
+      {
+        pages: [
+          {
+            page: 1,
+            passes: false,
+            problems: ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
+            photoProblems: ['Blank screen'],
+          },
+        ],
+      },
+      1,
+    );
+    expect(many.problems).toHaveLength(CHECKS.problems);
+    expect(many.problems.at(-1)).toBe('Blank screen');
+    // Words that didn't fit keep the photo's problems.
+    expect(withCutWords(one, [true])?.photo).toEqual(['The phone screen is blank']);
+  });
 });
 
 describe('OpenAI’s whole graphics, depending on how they do', () => {
@@ -202,5 +276,6 @@ describe('OpenAI’s whole graphics, depending on how they do', () => {
     expect(prompt).toMatch(/spelled exactly/);
     expect(prompt).toContain('#2d69d8');
     expect(prompt).toMatch(/No logos, watermarks/);
+    expect(prompt).toMatch(/never a blank white, grey or black screen/);
   });
 });

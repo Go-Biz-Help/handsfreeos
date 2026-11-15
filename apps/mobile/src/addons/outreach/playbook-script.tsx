@@ -1,7 +1,10 @@
 import type { PlaybookGoal } from '@hfos/core/addons/outreach/playbooks';
 import {
   LOCKED_RULES,
+  opensWithIntro,
   partChanged,
+  PLAYBOOK_OPENS,
+  PLAYBOOK_OPENS_KEYS,
   SCRIPT_BLANKS,
   SCRIPT_GROUPS,
   SCRIPT_INFO,
@@ -12,13 +15,15 @@ import {
   typedPart,
   withFirsts,
   withPart,
+  type PlaybookOpens,
   type PlaybookScript,
   type ScriptDraft,
 } from '@hfos/core/addons/outreach/script';
 import * as React from 'react';
 import { View } from 'react-native';
 
-import { Lock, Plus, RotateCcw, Trash } from '@/components/icons';
+import { Check, Lock, Plus, RotateCcw, Trash } from '@/components/icons';
+import { List, ListRow } from '@/components/shell/list';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -36,59 +41,100 @@ import { Note } from './kit';
  * core's (packages/core/src/addons/outreach/script.ts).
  */
 
-/** What it says, read: every part with its words, the first message's versions numbered when there are more. */
+/**
+ * What it says, read: how the first message goes, then every part with its words, the first message's versions numbered
+ * when there are more. The introduction shows only for a playbook that starts with one (decision 168).
+ */
 export function scriptWords(details: {
   readonly goal: PlaybookGoal;
   readonly script?: PlaybookScript | undefined;
+  readonly opens?: PlaybookOpens | undefined;
 }): string {
   const says = scriptOf(details);
-  return SCRIPT_GROUPS.flatMap((group) =>
-    group.parts.map((part) => {
-      const words =
-        part === 'first'
-          ? says.first.length > 1
-            ? says.first.map((m, i) => `${i + 1}. ${m}`).join('\n')
-            : says.first[0]
-          : says[part];
-      return `${SCRIPT_INFO[part].label}\n${words}`;
-    }),
-  ).join('\n\n');
+  const intro = opensWithIntro(details);
+  return [
+    `${SW.opensTitle}\n${PLAYBOOK_OPENS[intro ? 'intro' : 'pitch'].label}`,
+    ...SCRIPT_GROUPS.flatMap((group) =>
+      group.parts.flatMap((part) => {
+        if (part === 'intro' && !intro) return [];
+        const words =
+          part === 'first'
+            ? says.first.length > 1
+              ? says.first.map((m, i) => `${i + 1}. ${m}`).join('\n')
+              : says.first[0]
+            : says[part];
+        return [
+          `${part === 'first' && intro ? SW.pitchInIntro : SCRIPT_INFO[part].label}\n${words}`,
+        ];
+      }),
+    ),
+  ].join('\n\n');
 }
 
 export function ScriptEditor({
   goal,
   script,
   onChange,
+  opens,
+  onOpens,
   firstsHelp,
 }: {
   goal: PlaybookGoal;
   /** The playbook's own words as typed. */
   script: ScriptDraft;
   onChange: (script: ScriptDraft) => void;
+  /** How the first message goes (decision 168). */
+  opens: PlaybookOpens;
+  onOpens: (opens: PlaybookOpens) => void;
   /** AI help on the first message (./ai-help.tsx). */
   firstsHelp?: React.ReactNode;
 }) {
   const firsts = typedFirsts(goal, script);
+  const intro = opens === 'intro';
   return (
     <View className="gap-4" testID="playbook-script">
       <Note>{SW.blurb}</Note>
       {SCRIPT_GROUPS.map((group) => (
         <View key={group.key} className="gap-2">
           <Text className="px-1 text-[13px] font-semibold text-text-2">{group.title}</Text>
+          {group.key === 'start' ? (
+            <View className="gap-1.5" testID="playbook-opens">
+              <Text className="px-1 text-[14.5px] font-semibold">{SW.opensTitle}</Text>
+              <Note>{SW.opensBlurb}</Note>
+              <List>
+                {PLAYBOOK_OPENS_KEYS.map((k) => (
+                  <ListRow
+                    key={k}
+                    label={PLAYBOOK_OPENS[k].label}
+                    detail={PLAYBOOK_OPENS[k].hint}
+                    end={
+                      opens === k ? <Icon as={Check} className="size-5 text-accent" /> : undefined
+                    }
+                    chevron={false}
+                    onPress={() => onOpens(k)}
+                    testID={`playbook-opens-${k}`}
+                  />
+                ))}
+              </List>
+            </View>
+          ) : null}
           {group.parts.map((part) => {
+            // The introduction shows only for a playbook that starts with one (decision 168).
+            if (part === 'intro' && !intro) return null;
             const info = SCRIPT_INFO[part];
             const changed = partChanged(goal, script, part);
+            const label = part === 'first' && intro ? SW.pitchInIntro : info.label;
             return (
               <Card key={part} className="gap-2 px-3 py-3" testID={`playbook-script-${part}`}>
                 <View className="flex-row flex-wrap items-center gap-2">
-                  <Text className="text-[14.5px] font-semibold">{info.label}</Text>
+                  <Text className="text-[14.5px] font-semibold">{label}</Text>
                   {changed ? (
                     <Badge variant="accent" testID={`playbook-script-changed-${part}`}>
                       <Text>{SW.changed}</Text>
                     </Badge>
                   ) : null}
                 </View>
-                <Note>{`${SW.when}: ${info.when}`}</Note>
+                <Note>{`${SW.when}: ${part === 'first' && intro ? SW.pitchInIntroWhen : info.when}`}</Note>
                 {part === 'first' ? (
                   <>
                     {firsts.map((m, i) => (

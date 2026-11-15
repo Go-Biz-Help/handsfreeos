@@ -5,8 +5,10 @@
  * look right)":
  *
  * - **The check**: Claude looks at each picture made, beside the words it should say, and says what's wrong: a word
- *   misspelt, garbled, extra, cut off or too small, things overlapping, anything strange in a photo, or a look no
- *   business owner would post. A drawn design that fails is designed once more with the problems to fix.
+ *   misspelt, garbled, extra, cut off or too small, things overlapping, a mistake image AIs make in a photo (a blank
+ *   screen in someone's hand, wrong fingers, melted or doubled things: the owner, 15 Nov), or a look no business
+ *   owner would post. A drawn design that fails is designed once more with the problems to fix, and its photo made
+ *   once more when the problem is in the photo.
  * - **A whole graphic from OpenAI**, words and all, for a single picture with a photo, every other time while the
  *   last ones passed the check. One that fails is never kept: the photo is made again without words and the words
  *   are drawn over it. After two failures in the last four, it waits four photo posts before trying again.
@@ -16,7 +18,13 @@
 import { z } from 'zod';
 import { quoteData } from '../../knowledge/prompt';
 import type { PictureShape } from './calendar';
-import { shapeWords, withoutSideLabel, type DesignPage, type DesignStyle } from './posts-ai';
+import {
+  PHOTO_LOOKS_REAL,
+  shapeWords,
+  withoutSideLabel,
+  type DesignPage,
+  type DesignStyle,
+} from './posts-ai';
 
 export const CHECKS = {
   /** The picture Claude looks at, made smaller: enough to read every word, far fewer tokens. */
@@ -33,9 +41,24 @@ export const CHECKS = {
   problems: 6,
 } as const;
 
+/**
+ * The check a picture was made under, kept on its design as `checked`: 2 looks for the mistakes image AIs make in a
+ * photo and has the photo made again for one (the owner, 15 Nov). Pictures without it were made before.
+ */
+export const PICTURE_CHECK_VERSION = 2;
+
+/**
+ * The mistakes image AIs make that a camera never would (the owner, 15 Nov: "quality control on the content creator
+ * could have done better with this image, as you can see the phone in her hand is just a blank white screen").
+ */
+export const PHOTO_MISTAKES =
+  'Look hard at any photo for the mistakes image AIs make, and fail the page for any of them: a phone, laptop, TV or other screen someone is using that is blank, plain white, grey or black, even when the post is about waiting or nothing happening; hands with too many, too few or joined fingers, or holding things in a way real hands can’t; warped faces, eyes or teeth; people or objects that melt into each other, float, bend or are doubled; made-up writing on signs, screens, boxes or clothes; or anything else a person would look at twice and think isn’t real.';
+
 export const PICTURE_CHECK_SYSTEM = [
   'You check a small business’s social media pictures before they’re posted, one page at a time, as a careful designer would.',
-  'Each page comes with the words it should say. Fail a page when a word is misspelt, garbled or has made-up letters; when there are words that shouldn’t be there; when words are cut off, overlap each other or the edge, or are too small or faint to read; when something in a photo looks wrong (warped hands or faces, melted or doubled objects, nonsense signs); or when it looks broken, cluttered or empty rather than like something a business owner made in Canva.',
+  'Each page comes with the words it should say. Fail a page when a word is misspelt, garbled or has made-up letters; when there are words that shouldn’t be there; when words are cut off, overlap each other or the edge, or are too small or faint to read; or when it looks broken, cluttered or empty rather than like something a business owner made in Canva.',
+  PHOTO_MISTAKES,
+  'Put each problem in the photo itself under photoProblems, since only a new photo fixes it, and each problem with the words or the layout under problems.',
   'Be strict about the words and fair about style: a plain, clean page passes. A page number like “2/6” in a corner is part of the design.',
   'A page may come with a note on what its layout draws on purpose, such as a heading crossed out as a myth or labels on cards; never fail a page for that.',
   'For each page say whether it passes and, if not, each problem in a few plain words a designer could fix.',
@@ -52,11 +75,12 @@ export const PICTURE_CHECK_SCHEMA: Record<string, unknown> = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['page', 'passes', 'problems'],
+        required: ['page', 'passes', 'problems', 'photoProblems'],
         properties: {
           page: { type: 'integer' },
           passes: { type: 'boolean' },
           problems: { type: 'array', items: { type: 'string' } },
+          photoProblems: { type: 'array', items: { type: 'string' } },
         },
       },
     },
@@ -70,6 +94,7 @@ export const PictureCheckAnswer = z.object({
         page: z.number().int().catch(0),
         passes: z.boolean().catch(false),
         problems: z.array(z.string()).catch([]),
+        photoProblems: z.array(z.string()).catch([]),
       }),
     )
     .catch([]),
@@ -140,29 +165,55 @@ export function pictureCheckPrompt(pages: readonly PageToCheck[]): string {
 
 export interface PictureCheck {
   readonly passes: boolean;
-  /** Each problem, with its page when there's more than one. */
+  /** Each problem, with its page when there's more than one: the words and layout's first, then the photo's. */
   readonly problems: string[];
+  /** The problems in a photo itself (also in problems), which only a new photo fixes; left out when there are none. */
+  readonly photo?: string[];
 }
 
 /** The check's answer: it passes only when every page was looked at and passed. */
-export function checkedPictureCheck(answer: PictureCheckAnswer, pages: number): PictureCheck {
+export function checkedPictureCheck(
+  answer: {
+    readonly pages: readonly (Omit<PictureCheckAnswer['pages'][number], 'photoProblems'> & {
+      readonly photoProblems?: readonly string[];
+    })[];
+  },
+  pages: number,
+): PictureCheck {
   const problems: string[] = [];
+  const photo: string[] = [];
   let passes = true;
+  const said = (list: readonly string[], n: number) =>
+    list.flatMap((raw) => {
+      const text = raw.replace(/\s+/g, ' ').trim().slice(0, CHECKS.problem);
+      return text ? [pages > 1 ? `Page ${n}: ${text}` : text] : [];
+    });
   for (let n = 1; n <= pages; n++) {
     const page = answer.pages.find((p) => p.page === n) ?? answer.pages[n - 1];
     if (!page) {
       passes = false;
       continue;
     }
-    if (page.passes && !page.problems.length) continue;
+    const inPhoto = page.photoProblems ?? [];
+    if (page.passes && !page.problems.length && !inPhoto.length) continue;
     passes = false;
-    for (const raw of page.problems) {
-      const text = raw.replace(/\s+/g, ' ').trim().slice(0, CHECKS.problem);
-      if (text) problems.push(pages > 1 ? `Page ${n}: ${text}` : text);
-    }
+    problems.push(...said(page.problems, n));
+    photo.push(...said(inPhoto, n));
   }
-  return { passes, problems: problems.slice(0, CHECKS.problems) };
+  const kept = photo.slice(0, CHECKS.problems);
+  return {
+    passes,
+    problems: [...problems.slice(0, CHECKS.problems - Math.min(kept.length, 2)), ...kept].slice(
+      0,
+      CHECKS.problems,
+    ),
+    ...(kept.length ? { photo: kept } : {}),
+  };
 }
+
+/** The problems a new design can fix: every one but the photo's. */
+export const designProblems = (check: PictureCheck): string[] =>
+  check.problems.filter((p) => !check.photo?.includes(p));
 
 /**
  * The check with the pages whose words didn't fit when drawn (even at the smallest size, so some were left out):
@@ -181,14 +232,30 @@ export function withCutWords(
   return {
     passes: false,
     problems: [...problems, ...(check?.problems ?? [])].slice(0, CHECKS.problems),
+    ...(check?.photo?.length ? { photo: check.photo } : {}),
   };
 }
 
-/** What a design is asked again with, after the check found problems. */
+/** What a design is asked again with, after the check found problems: the ones a design can fix. */
 export function fixAsk(check: PictureCheck, ask: string | null): string {
+  const fixable = designProblems(check);
   return [
     ask ?? '',
-    `The last design had these problems; fix them, with fewer or shorter words where they didn’t fit: ${check.problems.join('; ')}`,
+    fixable.length
+      ? `The last design had these problems; fix them, with fewer or shorter words where they didn’t fit: ${fixable.join('; ')}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+/** What a photo is asked again with, after the check found problems in the one before. */
+export function photoFixAsk(problems: readonly string[], ask: string | null): string {
+  return [
+    ask ?? '',
+    `The last photo had these problems; make sure the new one has none of them: ${problems
+      .map((p) => p.replace(/^Page \d+: /, ''))
+      .join('; ')}`,
   ]
     .filter(Boolean)
     .join('\n');
@@ -242,6 +309,7 @@ export function graphicPromptFor(input: {
       p.kicker ? `, and above it, small, "${p.kicker}"` : ''
     }. Keep them well inside the edges.`,
     `Use ${input.colors.accent} and ${input.colors.background} for the colour band or accents.`,
+    PHOTO_LOOKS_REAL,
     input.ask ? `Also: ${input.ask.slice(0, 500)}` : '',
     'No logos, watermarks, signatures, captions or made-up signs.',
   ]

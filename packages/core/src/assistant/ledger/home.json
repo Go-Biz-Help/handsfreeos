@@ -1,7 +1,7 @@
 {
   "area": "home",
   "title": "Home, Search everything, Needs you, the bell's notifications, Audit log, Changes and the Assistant panel itself",
-  "checkedOn": "2026-11-11",
+  "checkedOn": "2026-11-15",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/get-help.tsx": "a1fa8bee58ff",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/view-as.tsx": "242f970f8798",
@@ -99,7 +99,7 @@
     "apps/web/src/components/shell/menu-editor.tsx": "bd19438cf152",
     "apps/web/src/components/shell/missing-page.tsx": "fb8ed3e50256",
     "apps/web/src/components/shell/mobile-shell.tsx": "2d7ed48b889a",
-    "apps/web/src/components/shell/nav-links.tsx": "7eea8101aa5c",
+    "apps/web/src/components/shell/nav-links.tsx": "d7e6a9250526",
     "apps/web/src/components/shell/notifications-bell.tsx": "36256aed833a",
     "apps/web/src/components/shell/sidebar.tsx": "3cb3b237cb52",
     "apps/web/src/components/shell/user-menu.tsx": "c9385747fa6f",
@@ -1083,7 +1083,7 @@
     {
       "path": "Side menu → places in the person’s order",
       "kind": "see",
-      "file": "apps/web/src/components/shell/nav-links.tsx:777",
+      "file": "apps/web/src/components/shell/nav-links.tsx:778",
       "covered": "yes",
       "by": "get_settings my_account (menu); places map"
     },
@@ -1132,21 +1132,21 @@
     {
       "path": "Side menu → Settings",
       "kind": "do",
-      "file": "apps/web/src/components/shell/nav-links.tsx:873",
+      "file": "apps/web/src/components/shell/nav-links.tsx:874",
       "covered": "partly",
       "by": "get_settings, settings_help; no link"
     },
     {
       "path": "Side menu → Ideas with its new dot",
       "kind": "see",
-      "file": "apps/web/src/components/shell/nav-links.tsx:873",
+      "file": "apps/web/src/components/shell/nav-links.tsx:874",
       "covered": "yes",
       "by": "read_whats_new_unseen"
     },
     {
       "path": "Side menu → opening What’s new marks it seen",
       "kind": "do",
-      "file": "apps/web/src/components/shell/nav-links.tsx:873",
+      "file": "apps/web/src/components/shell/nav-links.tsx:874",
       "covered": "never",
       "by": "whats_new.mark_seen NEVER"
     },

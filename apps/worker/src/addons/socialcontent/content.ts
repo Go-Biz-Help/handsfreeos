@@ -73,10 +73,13 @@ import {
   CHECKS,
   checkedPictureCheck,
   fitsGraphic,
+  designProblems,
   fixAsk,
   graphicDue,
   graphicPromptFor,
+  photoFixAsk,
   PICTURE_CHECK_SCHEMA,
+  PICTURE_CHECK_VERSION,
   PICTURE_CHECK_SYSTEM,
   PictureCheckAnswer,
   pageToCheck,
@@ -1179,6 +1182,8 @@ interface MadePhoto {
   readonly bytes: Buffer;
   /** What it shows, for the design AI. */
   readonly shows: string;
+  /** What OpenAI was asked it shows, to ask again when the check finds a mistake in it. */
+  readonly scene: string;
 }
 
 /** The business's last designs, most recent first: the next one starts with a different layout (decision 39). */
@@ -1313,8 +1318,10 @@ async function checkPictures(
 }
 
 /**
- * Draws a design and has it checked (decision 40); one that fails is designed once more with its problems to fix,
- * and the one with fewer problems is kept.
+ * Draws a design and has it checked (decision 40); one that fails is tried once more, and the one with fewer problems
+ * is kept. A problem in the words or the layout is designed again with the problems to fix; a mistake in the photo
+ * itself, like a blank screen in someone's hand (the owner, 15 Nov), has the photo made again, at its 9¢, told what
+ * to avoid. When the photo can't be made again, the first one stays.
  */
 async function drawChecked(
   ctx: AddonScopeContext,
@@ -1326,8 +1333,9 @@ async function drawChecked(
   first: Design,
   photo: MadePhoto | null,
 ): Promise<{ design: Design; pictures: Drawn[]; check: PictureCheck | null }> {
-  const drawn = async (d: Design) => {
-    const pictures = await drawDesign(d, photo?.bytes ?? null, pictureShapeOf(p.network));
+  const shape = pictureShapeOf(p.network);
+  const drawn = async (d: Design, under: MadePhoto | null) => {
+    const pictures = await drawDesign(d, under?.bytes ?? null, shape);
     const check = withCutWords(
       await checkPictures(
         ctx,
@@ -1338,17 +1346,52 @@ async function drawChecked(
     );
     return { design: d, pictures, check };
   };
-  const one = await drawn(first);
+  const one = await drawn(first, photo);
   if (!one.check || one.check.passes) return one;
+  const failed = one.check;
+  const photoWrong = photo !== null && !!failed.photo?.length;
   ctx.log.info(
-    { postId, problems: one.check.problems },
-    'a design failed its check; designing it again',
+    { postId, problems: failed.problems, photo: photoWrong },
+    photoWrong
+      ? 'a picture’s photo failed its check; making the photo again'
+      : 'a design failed its check; designing it again',
   );
   try {
-    const two = await drawn(
-      await askDesign(ctx, here, business, postId, p, fixAsk(one.check, ask), photo?.shows ?? null),
-    );
-    return !two.check || two.check.problems.length <= one.check.problems.length ? two : one;
+    let again = photo;
+    if (photoWrong && photo)
+      try {
+        again = {
+          ...photo,
+          bytes: await openAiPicture(
+            ctx,
+            postId,
+            p.title,
+            photoPromptFor(photo.scene, photoFixAsk(failed.photo ?? [], ask), shape),
+            'Photo-style picture, made again after its check',
+            shape,
+          ),
+        };
+      } catch (e) {
+        if (!(e instanceof PictureError)) throw e;
+        ctx.log.warn({ err: e, postId }, 'the photo couldn’t be made again; the first one stays');
+      }
+    // Only a photo's mistakes: the same design goes over the new photo.
+    const design =
+      photoWrong && !designProblems(failed).length
+        ? one.design
+        : await askDesign(
+            ctx,
+            here,
+            business,
+            postId,
+            p,
+            // Without a photo, every problem is the design's to fix.
+            fixAsk(photo ? failed : { passes: false, problems: failed.problems }, ask),
+            again?.shows ?? null,
+          );
+    if (design === one.design && again === photo) return one;
+    const two = await drawn(design, again);
+    return !two.check || two.check.problems.length <= failed.problems.length ? two : one;
   } catch (e) {
     if (!(e instanceof AiAskError) && !(e instanceof PictureError)) throw e;
     return one;
@@ -1434,7 +1477,7 @@ async function tryGraphic(
   ask: string | null,
 ): Promise<{
   readonly picture: Drawn | null;
-  readonly graphic: GraphicTry & { problems?: string[] };
+  readonly graphic: GraphicTry & { problems?: string[]; photo?: string[] };
 }> {
   const page = design.pages[0]!;
   let bytes: Buffer;
@@ -1475,7 +1518,12 @@ async function tryGraphic(
   );
   return {
     picture: null,
-    graphic: { tried: true, passed: false, ...(check ? { problems: check.problems } : {}) },
+    graphic: {
+      tried: true,
+      passed: false,
+      ...(check ? { problems: check.problems } : {}),
+      ...(check?.photo?.length ? { photo: check.photo } : {}),
+    },
   };
 }
 
@@ -1487,24 +1535,32 @@ function pictureFailure(e: unknown): string {
 }
 
 /**
- * Instagram posts not up yet whose AI pictures aren't in Instagram's shape (the owner, 15 Nov: "fix that and then redo
- * all instagram images"): each is queued to have them made again, the way it had them (designed or photo), keeping
- * its words. A picture made since says its shape in its design, so this finds nothing once they're done. It
- * runs after any post's pictures are made and with the weekly read. Hidden posts wait until they're shown again;
- * people's own pictures are left alone.
+ * Posts not up yet whose AI pictures were made before they'd be made now, each queued to have them made again, the
+ * way it had them (designed or photo), keeping its words:
+ *
+ * - Instagram's not in its shape (the owner, 15 Nov: "fix that and then redo all instagram images");
+ * - photo-style ones on any network made before the check looked for a photo's mistakes, like a blank screen in
+ *   someone's hand (the owner, 15 Nov), so their photos are made again under it.
+ *
+ * A picture made since says its shape and its check in its design, so this finds nothing once they're done. It runs
+ * after any post's pictures are made, with the weekly read, and when the add-on comes on. Hidden posts wait until
+ * they're shown again; people's own pictures are left alone.
  */
-export async function reshapeLeft(ctx: AddonScopeContext, exceptPostId: string | null = null) {
+export async function remakeLeft(ctx: AddonScopeContext, exceptPostId: string | null = null) {
   const left = await asWorker(ctx.db, ctx.scope, (tx) =>
     rows<{ id: string; way: 'design' | 'photo' }>(
       tx,
       sql`select c.record_id as id, c.picture_way as way
           from addon_socialcontent.content c
           join app.custom_records r on r.id = c.record_id and r.archived_at is null
-          where c.workspace_id = ${ctx.scope.workspaceId} and c.network = 'instagram'
+          where c.workspace_id = ${ctx.scope.workspaceId}
             and c.state in ('draft', 'ready', 'failed') and c.hidden_at is null
             and c.picture_way in ('design', 'photo') and c.picture_state = 'made'
             and c.format in ('photo', 'carousel')
-            and coalesce(c.design ->> 'shape', '4:5') <> ${INSTAGRAM_PICTURE_SHAPE}
+            and ((c.network = 'instagram'
+                and coalesce(c.design ->> 'shape', '4:5') <> ${INSTAGRAM_PICTURE_SHAPE})
+              or (c.picture_way = 'photo'
+                and coalesce(c.design ->> 'checked', '1') <> ${String(PICTURE_CHECK_VERSION)}))
             and c.record_id <> ${exceptPostId ?? '00000000-0000-0000-0000-000000000000'}::uuid
           order by c.post_at nulls last
           limit 50`,
@@ -1527,7 +1583,7 @@ export async function reshapeLeft(ctx: AddonScopeContext, exceptPostId: string |
       ),
     );
   if (left.length)
-    ctx.log.info({ posts: left.length }, 'Instagram pictures queued to be made in its shape');
+    ctx.log.info({ posts: left.length }, 'pictures made before queued to be made again');
 }
 
 /**
@@ -1569,7 +1625,7 @@ export const runPictures: AddonJobHandler = async (ctx) => {
     const business = await businessText(ctx);
     const shows = way === 'photo' ? (p.picture ?? photoShows(p, prompt)) : null;
     let design = await askDesign(ctx, here, business, postId, p, ask, shows);
-    let graphic: (GraphicTry & { problems?: string[] }) | null = null;
+    let graphic: (GraphicTry & { problems?: string[]; photo?: string[] }) | null = null;
     if (way === 'photo' && p.format !== 'carousel' && fitsGraphic(design.pages[0]!)) {
       if (graphicDue(await graphicsBefore(ctx, postId))) {
         const tried = await tryGraphic(ctx, postId, p, design, prompt, ask);
@@ -1584,9 +1640,10 @@ export const runPictures: AddonJobHandler = async (ctx) => {
               ...design,
               graphic,
               shape: pictureShapeOf(p.network),
+              checked: PICTURE_CHECK_VERSION,
             } as unknown as Record<string, unknown>,
           });
-          await reshapeLeft(ctx, postId);
+          await remakeLeft(ctx, postId);
           return;
         }
       } else graphic = { tried: false, passed: false };
@@ -1596,16 +1653,23 @@ export const runPictures: AddonJobHandler = async (ctx) => {
     let photo: MadePhoto | null = null;
     if (way === 'photo')
       try {
+        const scene = photoShows(p, prompt);
         photo = {
           bytes: await openAiPicture(
             ctx,
             postId,
             p.title,
-            photoPromptFor(photoShows(p, prompt), ask, pictureShapeOf(p.network)),
+            // A graphic that failed for a mistake in its photo: the photo is told to avoid it.
+            photoPromptFor(
+              scene,
+              graphic?.photo?.length ? photoFixAsk(graphic.photo, ask) : ask,
+              pictureShapeOf(p.network),
+            ),
             'Photo-style picture',
             pictureShapeOf(p.network),
           ),
           shows: shows ?? '',
+          scene,
         };
       } catch (e) {
         const again =
@@ -1630,9 +1694,10 @@ export const runPictures: AddonJobHandler = async (ctx) => {
         ...(done.check ? { check: done.check } : {}),
         ...(graphic ? { graphic } : {}),
         shape: pictureShapeOf(p.network),
+        checked: PICTURE_CHECK_VERSION,
       } as unknown as Record<string, unknown>,
     });
-    await reshapeLeft(ctx, postId);
+    await remakeLeft(ctx, postId);
   } catch (e) {
     const retryable =
       (e instanceof PictureError && e.retryable) || (e instanceof AiAskError && e.retryable);

@@ -476,7 +476,9 @@ each adds one row, named after it with its icon, and its pages (`ui.nav`, each f
 from that row the way the More group's places do: beside the sidebar on hover or a press, in place in a phone's
 drawer. A person who may open only one of its pages gets a row that goes straight there. The row is a place like any
 other in the person's menu (`addon:<id>`, `packages/core/src/account/menu.ts`): it moves, hides and goes into a group,
-where its pages show under its name. A menu saved before then held each page as a place of its own
+where it's still a row of its own whose pages open from it as they do in the menu: beside the group's flyout on hover
+or a press, in place in a phone's drawer, rather than one long list of every add-on's pages (the owner, 2026-11-15).
+A menu saved before then held each page as a place of its own
 (`addon:<id>:<page>`); it's read as the add-on, where the first of its pages stood. The phone app has no side menu:
 an add-on's places are under its name at the top of More. An add-on may put a count on one of its pages, such as
 Social Outreach's Needs you: the web registry's `navCount` names the page and a component, fetched the first time

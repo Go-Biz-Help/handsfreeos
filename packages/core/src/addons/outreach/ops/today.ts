@@ -111,7 +111,9 @@ import {
 } from './common';
 import {
   acceptedMine,
+  connectedToMe,
   goalStock,
+  introsOnly,
   knowsThem,
   myOwnProfile,
   perDayFor,
@@ -1234,9 +1236,13 @@ export async function todayFor(
   // Then any other friend never talked to whom a check found fit, or might (decision 155): the person accepted their
   // request, connected on the network themselves, or has been friends a while. Never Reconnect's catch-up, which is for
   // a conversation had. Each waits the playbook's days after becoming friends, the good fits before the maybes.
+  // While every playbook in use here starts with an introduction (decision 168, the owner's 3b), everyone who
+  // connected with the person lately is greeted too, a check or not, unless a check found them not a fit.
   const openersLeft = leftToday(limits, 'opener');
   if (openersLeft) {
-    const fresh = sql`(${acceptedMine(me)} and f.since >= ${ago(TODAY_WINDOW_DAYS.opener)}::timestamptz)`;
+    const intro = introsOnly(playbooks);
+    const connected = intro ? connectedToMe(me) : sql`false`;
+    const fresh = sql`((${acceptedMine(me)} or ${connected}) and f.since >= ${ago(TODAY_WINDOW_DAYS.opener)}::timestamptz)`;
     const accepted = await rows<{
       id: string;
       name: string;
@@ -1245,6 +1251,7 @@ export async function todayFor(
       fresh: boolean;
       mine: boolean;
       theirs: boolean;
+      followed: boolean;
       why: string[] | null;
       about: string | null;
       playbook_name: string | null;
@@ -1252,6 +1259,8 @@ export async function todayFor(
       ctx.tx,
       sql`select p.id, p.name, p.url, f.since, ${fresh} as fresh, ${acceptedMine(me)} as mine,
               (f.answer is not null or ch.request_answer is not null) as theirs,
+              exists (select 1 from addon_outreach.engagements e
+                where e.profile_id = p.id and e.user_id = ${me} and e.kind = 'follow') as followed,
               case when ch.verdict in ('good', 'maybe') then ch.why end as why,
               case when ch.verdict in ('good', 'maybe') then ch.about end as about,
               pb.name as playbook_name
@@ -1260,7 +1269,7 @@ export async function todayFor(
             left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
             left join addon_outreach.playbooks pb on pb.id = ch.playbook_id
             where f.workspace_id = ${ws} and f.since <= ${ago(pace.messageAfterDays)}::timestamptz
-              and ${sayHiReady(me, ago(TODAY_WINDOW_DAYS.opener), reach)}
+              and ${sayHiReady(me, ago(TODAY_WINDOW_DAYS.opener), reach, intro)}
             order by ${fresh} desc, (ch.verdict = 'good') desc nulls last, f.since desc, p.id
             limit ${openersLeft}`,
     );
@@ -1272,7 +1281,9 @@ export async function todayFor(
           : SAY_HI_WHY.accepted(when)
         : p.theirs
           ? SAY_HI_WHY.theirs(when)
-          : SAY_HI_WHY.known;
+          : p.followed
+            ? SAY_HI_WHY.followed(when)
+            : SAY_HI_WHY.known;
       items.push(
         item({
           kind: 'opener',

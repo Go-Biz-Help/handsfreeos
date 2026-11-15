@@ -26,6 +26,7 @@ import {
   ANSWERS,
   CHECK_IN_DAYS,
   CONVERSATION_STEP_KEYS,
+  checkInsOnly,
   stepAfterYes,
   type Answer,
 } from './conversation';
@@ -51,6 +52,7 @@ export const TEST_LIMITS = {
 /** How the made-up person and the owner know each other: it decides which message starts the chat. */
 export const TEST_KNOWN = {
   new: { label: 'Just accepted your request', starts: 'your first message' },
+  // A friend of a while gets an introduction's hello in place of its thanks for connecting (decision 168).
   friend: { label: 'A friend you’ve never talked to', starts: 'your first message' },
   old: { label: 'You talked a while ago', starts: 'Reconnect' },
 } as const;
@@ -312,6 +314,8 @@ export function testMove(
   state: TestState,
   person: Pick<TestPerson, 'platform' | 'known'>,
   pace: Pace,
+  /** The playbook starts with an introduction (decision 168): it asks nothing, so only check-ins follow it. */
+  intro = false,
 ): {
   readonly kind: TestKind | null;
   readonly note: string | null;
@@ -337,7 +341,10 @@ export function testMove(
             ? `It goes ${days(pace.messageAfterDays)} after they accept, as Steps and pace says.`
             : null,
       gapDays: kind === 'reconnect' ? 60 : 0,
-      state: { step: 'first', sent: 0, answer: null, stopped: false },
+      state:
+        kind === 'opener' && intro
+          ? { step: 'intro', sent: pace.followUps, answer: null, stopped: false }
+          : { step: 'first', sent: 0, answer: null, stopped: false },
     };
   }
   if (state.step === null) return { kind: null, note: 'Start the chat first.', gapDays: 0, state };
@@ -366,6 +373,7 @@ export function testMove(
 /**
  * Where the chat is once their reply is read and answered, as `noteAnswer` and `noteSent` keep a real one: a yes to
  * the first message moves on to the ask for a time (`pitch`); not now waits for the monthly check-in; a no ends it.
+ * After an introduction (decision 168) any other reply waits for the check-in too: no follow-ups.
  */
 export function testAnswered(
   state: TestState,
@@ -377,9 +385,16 @@ export function testAnswered(
   if (answer === 'no') return { kind: 'reply', state: { ...state, answer, stopped: true } };
   if (answer === 'later')
     return { kind: 'reply', state: { ...state, answer, sent: pace.followUps, stopped: false } };
+  const step = state.step ?? 'first';
   return {
     kind: 'reply',
-    state: { ...state, step: state.step ?? 'first', answer, sent: 0, stopped: false },
+    state: {
+      ...state,
+      step,
+      answer,
+      sent: checkInsOnly(step) ? pace.followUps : 0,
+      stopped: false,
+    },
   };
 }
 
@@ -391,10 +406,13 @@ export function testLabel(
     readonly versions?: number;
     readonly followUp?: number;
     readonly followUps?: number;
+    /** The playbook starts with an introduction (decision 168). */
+    readonly intro?: boolean;
   } = {},
 ): string {
   switch (kind) {
     case 'opener':
+      if (o.intro) return 'Introduction';
       return o.versions && o.versions > 1
         ? `First message, version ${(o.version ?? 0) + 1} of ${o.versions}`
         : 'First message';
