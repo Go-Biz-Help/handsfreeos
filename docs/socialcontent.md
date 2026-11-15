@@ -53,6 +53,10 @@ offered to nobody; staff give it to a business from Admin → Businesses.
 | The Calendar page and a post's sheet                     | `calendar-page.tsx` and `post-sheet.tsx` in the web's folder                     |
 | Posting: where a post goes, its words as they go up      | `calendar.ts` (`placesFor`, `postText`, `POSTING`)                               |
 | Posting: next post due, how it went, Post it now, Redo   | `ops/posting.ts`; `supabase/migrations/20261027025100_socialcontent_posting.sql` |
+| Picking many posts: OK, hide, delete, mark, check, pick  | `ops/picked.ts`; `20261027027600_socialcontent_hide_and_look.sql`                |
+| The Calendar's looks, filters and what's picked (shared) | `calendar-looks.ts` (pure, used by the web and the phone)                        |
+| The web's Select bar, Pick menu, Week and Month          | `calendar-picking.tsx` and `calendar-grids.tsx` in the web's folder              |
+| The extension checking if a post went up                 | `apps/extension/src/research/look.ts`                                            |
 | The extension putting a post up                          | `apps/extension/src/research/posting.ts` and `post-here.ts`                      |
 | Its own posts' numbers: when they're read, doing well    | `own.ts` (pure); `ops/own.ts`; `20261027025200_socialcontent_own_numbers.sql`    |
 | The schedule: open places, the hours it learned, moves   | `schedule.ts` (pure); `ops/schedule.ts`; the worker's `socialcontent.times` job  |
@@ -150,7 +154,8 @@ offered to nobody; staff give it to a business from Admin → Businesses.
 - **The Calendar on the phone** (part 12). Its first screen lists the Calendar too, at the web's own address
   (`a/socialcontent/calendar`). It does what the web's does: Fill the calendar, OK the week, Write a post, the
   Fill on its own switch, when it filled and fills again with the plan and who puts posts up, each day's posts and open days (Write one), No day yet,
-  and Lately with each post's latest numbers and what didn't go up, and Redo posts. A post opens on its own screen at `calendar?post=<id>`, as the
+  and Lately with each post's latest numbers and what didn't go up, the List, Week and Month looks, the filters,
+  and Select with its bar and Pick sheet (see "Picking many posts"). A post opens on its own screen at `calendar?post=<id>`, as the
   web's sheet does, so a link to one opens it there too. That screen changes everything the sheet does (title,
   network, format, a day in the next two weeks and a time in the business's time zone, where on Facebook, hook,
   words, hashtags, slides, script), shows where it went up and How it did, makes its picture again, takes the
@@ -159,7 +164,8 @@ offered to nobody; staff give it to a business from Admin → Businesses.
   swipe between (and pinch to zoom on iPhone). On a network the extension doesn't post on yet, Share the words
   hands them to the phone's share sheet. The day and clock words (`dayShown`, `timeShown`, `filledLine`,
   `planShown`) live in core's words, shared with the web. Its commands (`socialcontent.content.save`, `.approve`,
-  `.approve_week`, `.post_now`, `.skip`, `.remove`, `.redo`) are online commands; uploads ask `file.begin_upload` and `file.confirm`
+  `.approve_week`, `.post_now`, `.skip`, `.remove`, `.redo`, `.approve_many`, `.hide`, `.remove_many`,
+  `.mark_posted`, `.look`) are online commands; uploads ask `file.begin_upload` and `file.confirm`
   straight away (as an anytime command would only be queued) and put the file in storage between. The screens ask
   again every 20 seconds (the Calendar) and 15 (a post) while open, so a picture being made or a post going up shows
   when it's done.
@@ -448,12 +454,13 @@ Instagram from 0.133.0, Threads and X from 0.138.0. The post's sheet offers **Co
 - **Never twice:** once Post is pressed in a place it's never pressed there again on its own. One taken that hasn't
   said how it went within 20 minutes is marked as didn't post ("it may have gone up"), never retried. One still
   waiting a day past its time (the computer was off) is marked as didn't post too.
-- **Post it now** (`socialcontent.content.post_now`, risk 2: the Assistant asks first) puts an OK'd post, or one that
-  didn't post, up now: its time becomes now, and it counts as the OK. Places it already went up in are left out.
+- **Post it now** (`socialcontent.content.post_now`, risk 2: the Assistant asks first) puts an OK'd post up now: its
+  time becomes now, and it counts as the OK. On a post that didn't post the same command is **Try again** (see
+  "Picking many posts"). Places it already went up in are left out.
 - **Redo posts** (the owner, 15 Nov, after Instagram posts went up cut square): on the Calendar, on the web and the
-  phone, **Redo posts** puts a tick beside each post that went up or didn't go up (`canRedo`), with **Tick the N that
-  didn't go up** for all of those at once. **Redo N posts** (`socialcontent.content.redo`, risk 2: the Assistant asks
-  first; up to 30) puts them up again: the first on each network now, the rest one every 30 minutes on that network
+  phone, **Select**, pick posts that went up or didn't go up (`canRedo`), then **Redo** on the bar
+  (`socialcontent.content.redo`, risk 2: the Assistant asks first; no cap since the owner's second design, sent 500 at
+  a time) puts them up again: the first on each network now, the rest one every 30 minutes on that network
   (`redoTimes`, `POSTING.redoEveryMs`), so a network never sees a burst. Each counts as the OK, and its time counts as
   the person's (`placed_by = 'person'`), so AI picks never moves it. One that **didn't go up** keeps where it went, so
   only the rest is tried again. One that **went up** goes up again everywhere it went: its places, link, numbers and
@@ -465,6 +472,42 @@ Instagram from 0.133.0, Threads and X from 0.138.0. The post's sheet offers **Co
   it hasn't checked in for 10 minutes (`postingLines`, shared with the phone).
 - **When a place doesn't work,** a problem report goes to Admin → Problem reports with job `post.profile`,
   `post.page` or `post.feed`: what the hands did, step by step, and the page's outline. Never a name.
+
+## Picking many posts
+
+The owner's design (15 Nov), on the web and the phone. The Calendar has three looks, **List** (today and the next two
+weeks, with Lately; the default), **Week** and **Month**; weeks start Monday. Each person's last look is kept (a
+cookie on the web, the phone's own store), and the address carries `?look=&day=` on the web. `calendar.get` takes
+`from` and `days` (1 to 42), so a week asks 7 days and a month the 6 weeks it shows; `recent` is the 30 days before
+`from`. The looks, ranges, filters and what's picked are worked out once, in `calendar-looks.ts`.
+
+- **Filters**: All, Waiting for your OK, OK'd, Posted, Didn't post and Hidden, each with its count (`shows`,
+  `filterCounts`). A hidden post shows only under Hidden, with a Hidden badge and a dashed edge.
+- **Select** puts a tick beside each post, each day, each week on Month, Lately, and one for everything shown.
+  **Pick** adds Today, This week or This month, a kind in what's shown, or a kind at any date (everything, waiting,
+  past, didn't post, hidden), which asks `socialcontent.content.pick` (up to 500, saying when there are more). Clear
+  what's picked empties it.
+- **The bar** says how many are picked and what they are (`summaryOf`), and offers only what fits them, with each
+  button's count: **OK** (waiting ones: `.approve_many`), **Redo** (past ones: `.redo`; with "Also redo the N that
+  posted" before any that went up are included), **Check if posted** (`.look`), **Mark posted** (didn't post ones:
+  `.mark_posted`), **Hide** or **Show again** (`.hide`, `hide: false` to show), and **Delete** (`.remove_many`).
+  Every command takes up to 500 posts and says which it left alone and why; the screens send more in turns
+  (`inTurns`).
+- **Hide** keeps the posts under Hidden. One not up yet is skipped too, so it never goes up while hidden; showing it
+  again doesn't OK it again.
+- **Delete** is for owners and admins (`records.archive`, as removing one is). It asks first, says it doesn't take
+  posts down from the networks, and offers **Hide instead**. A post that went up can be deleted now; one going up
+  right now can't. Others see who can.
+- **A post that didn't post** shows why, then **Try again** (`.post_now`), **Check if it posted** (`.look`) and **Mark
+  as posted** (`.mark_posted`, after asking, with its link if there is one, so its numbers are read). Checking asks the
+  reading computer, which looks for it on the network by its first words (`socialcontent.post.look_next` and
+  `.looked`, extension 0.140.6). It says Checking… while it looks, then that it isn't there and when it checked (and
+  Mark as posted reads "Mark as posted anyway"), or why it couldn't look. Found, it's marked as posted with its
+  link. It also looks once on its own, 10 minutes after a post that may have gone up is marked as didn't post
+  (`LOOK.afterFailMs`).
+- **The Assistant** does all of these (`socialcontent_pick_own_posts`, `_approve_own_posts`, `_hide_own_posts`,
+  `_remove_own_posts`, `_mark_own_posts_posted`, `_check_own_posts`); OK, Delete and Mark posted wait on a Confirm
+  card.
 
 ## Its own posts' numbers
 
@@ -570,6 +613,11 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
   its own; one that may have gone up is the person's to look at, and Post it now leaves out the places it went up in.
   The one exception is the person's own **Redo posts** on one that went up (the owner, 15 Nov): it goes up again
   everywhere, and the old one is theirs to delete on the network.
+- **HandsFreeOS never takes a post down from a network** (the owner, 15 Nov). Deleting posts takes them off the
+  Calendar only, and says so; Hide keeps them. Only owners and admins delete; anyone who uses the add-on hides.
+- **A hidden post never goes up**: hiding one not up yet skips it, and showing it again leaves it for a person to OK.
+- **Mark as posted is only for a post that didn't post**, and only a person does it, after asking: it's their word
+  that it's up on the network. Check if it posted is the way to let HandsFreeOS look.
 - **A Page's post never switches the person's profile:** it goes through Meta Business Suite, so Social Outreach,
   working at the same time, stays the person.
 - **The business's own posts are weighed only against its own** (part 11): in the same place, by their 7-day numbers,

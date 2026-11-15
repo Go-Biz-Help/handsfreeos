@@ -428,10 +428,6 @@ describe('putting posts up (part 9)', () => {
       [NOW, NOW, NOW + gap, NOW + 2 * gap, NOW + gap],
     );
     expect(redoTimes([], NOW)).toEqual([]);
-    expect(W.calendar.redoGo(0)).toBe('Redo');
-    expect(W.calendar.redoGo(3)).toBe('Redo 3 posts');
-    expect(W.calendar.redoFailed(1)).toBe('Tick the one that didn’t go up');
-    expect(W.calendar.redoFailed(4)).toBe('Tick the 4 that didn’t go up');
     expect(W.calendar.redoPosted(['Instagram', 'Facebook'])).toMatch(
       /Delete the old ones on Instagram and Facebook yourself/,
     );

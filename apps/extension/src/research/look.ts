@@ -1,5 +1,5 @@
 /**
- * Check if it posted (the owner, 15 Nov 2026; docs/socialcontent.md, "Posting"): a post marked as didn't post may have
+ * Check if it posted (the owner, 15 Nov 2026; docs/socialcontent.md, "Picking many posts"): a post marked as didn't post may have
  * gone up all the same (Facebook was still publishing two Page posts on 14 Nov when the extension gave up). The reading
  * computer looks for it where it hadn't gone up, by its first words, as a person would, from its reading window
  * (./tab.ts), the same way posting finds a post's link (./posting.ts):

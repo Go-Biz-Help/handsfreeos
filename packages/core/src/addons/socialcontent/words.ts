@@ -693,20 +693,9 @@ export const SOCIALCONTENT_WORDS = {
     empty: 'No posts yet. Fill the calendar, or write one from an idea under Ideas.',
     /** What went up in the 30 days before, and what didn't go up (the owner, 15 Nov). */
     recent: 'Lately',
-    /**
-     * Redo (the owner, 15 Nov): posts that went up wrong or didn't go up, ticked and put up again, one at a time on
-     * each network.
-     */
-    redo: 'Redo posts',
-    redoAsk:
-      'Tick the posts to put up again. One that didn’t go up is tried again where it didn’t. One that went up goes up again everywhere it went.',
-    redoFailed: (n: number) => `Tick the ${n === 1 ? 'one' : n} that didn’t go up`,
-    redoNone: 'Nothing to redo yet. Posts that went up, or didn’t, can be redone.',
-    redoTick: (title: string) => `Redo “${title}”`,
+    /** Redo (the owner, 15 Nov): picked posts put up again, one every 30 minutes on each network. */
     redoPosted: (networks: readonly string[]) =>
       `The ones that went up go up again. Delete the old ones on ${listShown(networks)} yourself, since HandsFreeOS can’t take posts down.`,
-    redoGo: (n: number) => (n ? `Redo ${count(n, 'post')}` : 'Redo'),
-    redoCancel: 'Cancel',
     redone: (n: number, notRedone: number) =>
       [
         n
