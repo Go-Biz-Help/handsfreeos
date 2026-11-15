@@ -15,23 +15,18 @@ export const practiceList = defineQuery({
   permission: 'platform.practice.use',
   scope: () => ({ kind: 'platform' as const }),
   async handler(ctx) {
-    const me = requireHuman(ctx).userId;
-    // A business being deleted is hidden from everybody (0093), so one on its way out comes back with none.
+    requireHuman(ctx);
+    // A business being deleted is hidden from everybody (0093), so one on its way out comes back with none. One you
+    // were invited to join is listed before you're in it, which row security alone wouldn't show.
     const found = await rows<{
       organization_id: string;
       workspace_id: string | null;
       name: string;
       created_at: Date | string;
       ends_at: Date | string;
-    }>(
-      ctx.tx,
-      sql`select o.id as organization_id, w.id as workspace_id, coalesce(w.name, o.name) as name,
-            o.created_at, o.practice_ends_at as ends_at
-          from app.organizations o
-          left join app.workspaces w on w.organization_id = o.id and w.deletion_requested_at is null
-          where o.practice_by = ${me}::uuid and o.practice_ends_at is not null
-          order by o.created_at desc`,
-    );
+      joined: boolean;
+      invited: boolean;
+    }>(ctx.tx, sql`select * from private.practice_mine()`);
     return {
       businesses: found.map((b) => ({
         organizationId: b.organization_id,
@@ -40,6 +35,8 @@ export const practiceList = defineQuery({
         createdAt: new Date(b.created_at).toISOString(),
         endsAt: new Date(b.ends_at).toISOString(),
         ending: !b.workspace_id,
+        joined: b.joined,
+        invited: b.invited,
       })),
     };
   },

@@ -25,39 +25,43 @@ export const PRACTICE_FLOWS = [
     key: 'offer_link',
     title: 'From an offer link',
     blurb:
-      'The same, starting from $497 a year, $97 a month, a trial or discount code, an affiliate’s link, or the website’s “Try it on your business”.',
-    ready: false,
+      'The same, starting from a link: $497 a year or $97 a month, a trial or discount code, an affiliate’s link, or the website’s “Try it on your business”.',
+    ready: true,
   },
   {
     key: 'addon',
     title: 'An add-on’s setup',
     blurb:
-      'Social Outreach, Content Creator, Sales Coach, Real Estate and Contractor Operations: turned on and set up in a business that’s ready.',
-    ready: false,
+      'Turning on an add-on and setting it up, in a business that’s ready. Every add-on is offered, the ones still being built too.',
+    ready: true,
   },
   {
     key: 'main_offer',
     title: 'The Main offer builder',
-    blurb: 'Building and scoring the main offer with the AI.',
-    ready: false,
+    blurb:
+      'Building and scoring the main offer with the AI, in a business that’s ready with Content Creator on.',
+    ready: true,
   },
   {
     key: 'agency',
     title: 'An agency setting up a client',
-    blurb: 'Setting up a client’s business, handing it over, then the owner’s part.',
-    ready: false,
+    blurb:
+      'An agency adds a client’s business and sets it up, hands it to the owner, then you take the owner’s part from the invitation email.',
+    ready: true,
   },
   {
     key: 'invite',
     title: 'Joining from a team invite',
-    blurb: 'The invitation email, then joining the business.',
-    ready: false,
+    blurb:
+      'You’re invited to a business that’s ready: the invitation email, joining, and the business as a new teammate sees it.',
+    ready: true,
   },
   {
     key: 'affiliate',
     title: 'Signing up as an affiliate',
-    blurb: 'The affiliate application, from the website’s link.',
-    ready: false,
+    blurb:
+      'The website’s affiliate link: making an account, then the application. Nothing is sent to HandsFreeOS.',
+    ready: true,
   },
 ] as const satisfies readonly { key: string; title: string; blurb: string; ready: boolean }[];
 
@@ -74,6 +78,7 @@ export const PRACTICE_WORDS = {
     'The business number is pretend: nothing is bought, and no texts or calls go out.',
     'Connecting Stripe, Square, Google, Outlook, Facebook or Zoom stops at a page saying it’s pretended.',
     'Email goes only to you, marked [Practice].',
+    'An invitation into a practice business comes to you, and you can accept it whoever it was for.',
   ],
   kept: (hours: number) =>
     `Each practice business is deleted for good when you press End practice, or ${hours} hours after it starts.`,
@@ -110,6 +115,45 @@ export const PRACTICE_WORDS = {
   back: 'Back to the plans',
   tooMany: (most: number) =>
     `You have ${most} practice businesses going, the most at once. End one below to start another.`,
+  // Starting the onboardings that begin in a business made here.
+  businessName: 'Business name',
+  kind: 'Kind of business',
+  addon: 'Add-on',
+  agencyName: 'Agency name',
+  clientName: 'Client’s business name',
+  role: 'Join as',
+  roles: { member: 'Member', admin: 'Admin' } as const,
+  startingAddon: (name: string) => `Turning on ${name}…`,
+  addonSlow: (name: string) =>
+    `${name} is still being set up. Turn it on from Add-ons if it doesn’t show as on in a minute.`,
+  /** A practice business you were invited to and haven't joined yet. */
+  waiting: 'Invitation sent to your email. Open it to join.',
+  invitedSent: (email: string) =>
+    `The invitation is on its way to ${email}, marked [Practice]. Open it to join the business.`,
+  // From an offer link.
+  linkPlan: 'Plan on the link',
+  linkPlans: {
+    none: 'None (the plan page’s pick)',
+    yearly: '$497 a year',
+    monthly: '$97 a month',
+  } as const,
+  linkCode: 'Trial or discount code',
+  linkRef: 'Affiliate’s code',
+  linkBusiness: 'Business typed on the website',
+  linkHint: 'Each is optional. Leave them all empty for the website’s plain sign-up link.',
+  /** On the practice sign-up, saying what the link carried. */
+  linkNote: (parts: readonly string[]) => `From an offer link: ${parts.join(', ')}.`,
+  linkNoteRef: (ref: string) =>
+    `${ref}’s affiliate link (a real sign-up credits the business to them; practice credits nobody)`,
+  linkNotePlan: (plan: string) => `the ${plan} plan`,
+  linkNoteCode: (code: string) => `the code ${code}`,
+  linkNoteBusiness: (name: string) => `“${name}” typed on the website`,
+  // The affiliate application.
+  affiliateNote:
+    'Practice application: nothing is sent to HandsFreeOS, and no affiliate is made. In real life staff look at it on Admin → Affiliates.',
+  affiliateSent:
+    'Practice: this is what an applicant sees once they send it. Nothing was saved, so this page starts over if you open it again.',
+  affiliateAgain: 'Start the application again',
 } as const;
 
 /** When a practice business goes, from now: "in 23 hours", "in 40 minutes", "within the hour". */

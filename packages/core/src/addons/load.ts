@@ -67,11 +67,23 @@ export async function loadOverrides(tx: Tx): Promise<Record<string, OverrideStat
   return Object.fromEntries(found.map((r) => [r.addon_id, r.status]));
 }
 
-/** The add-ons HandsFreeOS handed this business to try while they're still being built (`platform.addon_grants`). */
+/**
+ * A practice business (Admin → Try onboarding, 20261027027500) is handed every add-on, the ones still being built
+ * among them (the owner's pick 4a): `loadGrants` says so with this, and `capabilityContextOf` lists them all.
+ */
+export const EVERY_ADDON_GRANT = '*';
+
+/**
+ * The add-ons HandsFreeOS handed this business to try while they're still being built (`platform.addon_grants`), or
+ * `EVERY_ADDON_GRANT` too for a practice business.
+ */
 export async function loadGrants(tx: Tx, workspaceId: string): Promise<string[]> {
   const found = await rows<{ addon_id: string }>(
     tx,
-    sql`select addon_id from platform.addon_grants where workspace_id = ${workspaceId}::uuid order by addon_id`,
+    sql`select addon_id from platform.addon_grants where workspace_id = ${workspaceId}::uuid
+        union all
+        select ${EVERY_ADDON_GRANT} where private.is_practice_workspace(${workspaceId}::uuid)
+        order by addon_id`,
   );
   return found.map((r) => r.addon_id);
 }
@@ -98,7 +110,7 @@ export function capabilityContextOf(
     installations: Object.fromEntries(installations.map((i) => [i.addonId, i.state])),
     overrides,
     permissions,
-    grants,
+    grants: grants.includes(EVERY_ADDON_GRANT) ? catalog.map((m) => m.id) : grants,
   };
 }
 
