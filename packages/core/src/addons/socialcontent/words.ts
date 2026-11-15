@@ -691,7 +691,35 @@ export const SOCIALCONTENT_WORDS = {
     laterOn: (networks: string) =>
       `Posting on ${networks} comes in a later update: copy those and post them yourself until then.`,
     empty: 'No posts yet. Fill the calendar, or write one from an idea under Ideas.',
-    recent: 'Went up lately',
+    /** What went up in the 30 days before, and what didn't go up (the owner, 15 Nov). */
+    recent: 'Lately',
+    /**
+     * Redo (the owner, 15 Nov): posts that went up wrong or didn't go up, ticked and put up again, one at a time on
+     * each network.
+     */
+    redo: 'Redo posts',
+    redoAsk:
+      'Tick the posts to put up again. One that didn’t go up is tried again where it didn’t. One that went up goes up again everywhere it went.',
+    redoFailed: (n: number) => `Tick the ${n === 1 ? 'one' : n} that didn’t go up`,
+    redoNone: 'Nothing to redo yet. Posts that went up, or didn’t, can be redone.',
+    redoTick: (title: string) => `Redo “${title}”`,
+    redoPosted: (networks: readonly string[]) =>
+      `The ones that went up go up again. Delete the old ones on ${listShown(networks)} yourself, since HandsFreeOS can’t take posts down.`,
+    redoGo: (n: number) => (n ? `Redo ${count(n, 'post')}` : 'Redo'),
+    redoCancel: 'Cancel',
+    redone: (n: number, notRedone: number) =>
+      [
+        n
+          ? n === 1
+            ? 'It goes up again in a minute or two, from the computer that posts.'
+            : `${count(n, 'post')} go up again from the computer that posts: the first in a minute or two, then one every 30 minutes on each network.`
+          : null,
+        notRedone
+          ? `${count(notRedone, 'post')} couldn’t be redone. Open ${notRedone === 1 ? 'it' : 'them'} to see what ${notRedone === 1 ? 'it needs' : 'they need'}.`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' '),
     today: 'Today',
     tomorrow: 'Tomorrow',
   },

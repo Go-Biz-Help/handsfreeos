@@ -8,12 +8,14 @@
  * times from the reading computer (part 9), and the card says whose computer that is and when it last checked in.
  * **Write a post** asks two things first (the owner, 14 Nov): which networks, one or more (a post for each, about the
  * same thing), and whether the AI writes it on its own or from what the person says it's about. Until the main offer is live, nothing is written, and the page says so
- * (pick 7b, 11 Nov).
+ * (pick 7b, 11 Nov). **Redo posts** (the owner, 15 Nov): tick posts that went up wrong or didn't go up, and they go up
+ * again, one at a time on each network; what didn't go up shows under Lately so it can be.
  */
 import { addDays, localDateOf } from '@hfos/core';
 import {
   CALENDAR,
   POSTING_NETWORKS,
+  canRedo,
   firstPlannedNetwork,
   type PostingNetwork,
 } from '@hfos/core/addons/socialcontent/calendar';
@@ -26,7 +28,7 @@ import {
   planShown,
   postingLines,
 } from '@hfos/core/addons/socialcontent/words';
-import { CalendarCheck, CalendarPlus, PenLine, Trash2 } from 'lucide-react';
+import { CalendarCheck, CalendarPlus, PenLine, RotateCcw, Trash2 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '@/components/shell/page-header';
@@ -34,6 +36,7 @@ import { useCan } from '@/components/shell/workspace-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Field } from '@/components/ui/field';
 import { RadioCard } from '@/components/ui/radio-card';
@@ -70,6 +73,9 @@ export function CalendarPage({
   const [removing, setRemoving] = useState<Content | null>(null);
   // Write a post's two questions are up (the owner, 14 Nov).
   const [asking, setAsking] = useState(false);
+  // Redo posts (the owner, 15 Nov): picking which posts go up again.
+  const [redoing, setRedoing] = useState(false);
+  const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set());
   // Removing a post is archiving its record: owners and admins (records.archive).
   const canRemove = useCan('records.archive');
   const removable = (p: Content) =>
@@ -80,6 +86,28 @@ export function CalendarPage({
     [c.posts, c.undated, c.recent],
   );
   const open = all.find((p) => p.id === openId) ?? (fetched?.id === openId ? fetched : null);
+  const redoable = all.filter(canRedo);
+  const failedIds = redoable.filter((p) => p.state === 'failed').map((p) => p.id);
+  // What's ticked and can still be redone (one may have gone up again since it was ticked).
+  const chosen = redoable.filter((p) => ticked.has(p.id));
+  const tickedPosted = chosen.filter((p) => p.state === 'posted');
+  const tick = (p: Content) =>
+    redoing && canRedo(p)
+      ? {
+          checked: ticked.has(p.id),
+          onChange: (on: boolean) =>
+            setTicked((was) => {
+              const next = new Set(was);
+              if (on) next.add(p.id);
+              else next.delete(p.id);
+              return next;
+            }),
+        }
+      : undefined;
+  const stopRedo = () => {
+    setRedoing(false);
+    setTicked(new Set());
+  };
 
   // A post asked for that isn't on the page (an older one, or one further ahead) is read on its own.
   useEffect(() => {
@@ -167,6 +195,24 @@ export function CalendarPage({
       return out;
     });
 
+  // The ticked posts go up again, one at a time on each network.
+  const redo = () =>
+    act(
+      'redo',
+      () =>
+        api
+          .POST('/v1/commands/socialcontent.content.redo', {
+            body: {
+              workspaceId,
+              postIds: chosen.map((p) => p.id),
+            },
+          })
+          .then(unwrap),
+      (out) => W.calendar.redone(out.redone, out.notRedone.length),
+    ).then((out) => {
+      if (out) stopRedo();
+    });
+
   const filled = filledLine(c);
   const drafts = c.posts.filter((p) => p.state === 'draft').length;
 
@@ -200,6 +246,17 @@ export function CalendarPage({
                 {W.calendar.approveWeek}
               </Button>
             ) : null}
+            {redoable.length && !redoing ? (
+              <Button
+                variant="secondary"
+                disabled={busy !== null}
+                onClick={() => setRedoing(true)}
+                data-testid="socialcontent-calendar-redo"
+              >
+                <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                {W.calendar.redo}
+              </Button>
+            ) : null}
             {c.offerLive ? (
               <Button
                 variant="secondary"
@@ -215,6 +272,50 @@ export function CalendarPage({
           </div>
         }
       />
+
+      {redoing ? (
+        <Card
+          className="sticky top-2 z-10 space-y-3 border-accent p-4 md:p-5"
+          data-testid="socialcontent-redo-bar"
+        >
+          <p className="text-[13.5px] text-text-2">{W.calendar.redoAsk}</p>
+          {tickedPosted.length ? (
+            <p className="text-[12.5px] text-warning-text" data-testid="socialcontent-redo-posted">
+              {W.calendar.redoPosted([
+                ...new Set(tickedPosted.map((p) => networkName(p.network as PostingNetwork))),
+              ])}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              loading={busy === 'redo'}
+              disabled={!chosen.length || (busy !== null && busy !== 'redo')}
+              onClick={() => void redo()}
+              data-testid="socialcontent-redo-go"
+            >
+              {W.calendar.redoGo(chosen.length)}
+            </Button>
+            {failedIds.length ? (
+              <Button
+                variant="secondary"
+                disabled={busy !== null}
+                onClick={() => setTicked((was) => new Set([...was, ...failedIds]))}
+                data-testid="socialcontent-redo-failed"
+              >
+                {W.calendar.redoFailed(failedIds.length)}
+              </Button>
+            ) : null}
+            <Button
+              variant="ghost"
+              disabled={busy === 'redo'}
+              onClick={stopRedo}
+              data-testid="socialcontent-redo-cancel"
+            >
+              {W.calendar.redoCancel}
+            </Button>
+          </div>
+        </Card>
+      ) : null}
 
       {/* No posts are written until the main offer is live (pick 7b). */}
       {c.offerLive ? null : <OfferNotLive workspaceId={workspaceId} />}
@@ -277,7 +378,8 @@ export function CalendarPage({
                     post={p}
                     timeZone={c.timeZone}
                     onOpen={() => show(p.id)}
-                    onRemove={removable(p)}
+                    onRemove={redoing ? undefined : removable(p)}
+                    tick={tick(p)}
                   />
                 ))}
                 {free.map((o) => (
@@ -333,7 +435,13 @@ export function CalendarPage({
           <h2 className="mb-2 text-[13px] font-semibold text-text-2">{W.calendar.recent}</h2>
           <div className="space-y-2">
             {c.recent.map((p) => (
-              <PostRow key={p.id} post={p} timeZone={c.timeZone} onOpen={() => show(p.id)} />
+              <PostRow
+                key={p.id}
+                post={p}
+                timeZone={c.timeZone}
+                onOpen={() => show(p.id)}
+                tick={tick(p)}
+              />
             ))}
           </div>
         </section>
@@ -503,22 +611,34 @@ function PostRow({
   timeZone,
   onOpen,
   onRemove,
+  tick,
 }: {
   post: Content;
   timeZone: string;
   onOpen: () => void;
   /** Takes it off the calendar, after asking; absent for those who can't, or a post that went up. */
   onRemove?: () => void;
+  /** Picking posts to redo (the owner, 15 Nov): its tick, when it can be redone. */
+  tick?: { checked: boolean; onChange: (on: boolean) => void };
 }) {
   const first = p.pictures[0];
   // A post that went up: its latest numbers, or that it did well, in one line.
   const numbers = numbersLines(p, (n) => networkName(n as PostingNetwork)).at(-1);
   return (
-    <div className="relative">
+    <div className="relative flex items-center gap-3">
+      {tick ? (
+        <Checkbox
+          label={<span className="sr-only">{W.calendar.redoTick(p.title)}</span>}
+          checked={tick.checked}
+          onChange={(e) => tick.onChange(e.currentTarget.checked)}
+          className="flex-none gap-0"
+          data-testid={`socialcontent-post-${p.id}-redo`}
+        />
+      ) : null}
       <button
         type="button"
         onClick={onOpen}
-        className={`flex w-full items-start gap-3 rounded-card border border-border bg-card px-4 py-3 text-left transition-colors hover:bg-card-2 ${p.state === 'skipped' ? 'opacity-60' : ''} ${onRemove ? 'pr-12' : ''}`}
+        className={`flex min-w-0 flex-1 items-start gap-3 rounded-card border border-border bg-card px-4 py-3 text-left transition-colors hover:bg-card-2 ${p.state === 'skipped' ? 'opacity-60' : ''} ${onRemove ? 'pr-12' : ''}`}
         data-testid={`socialcontent-post-${p.id}`}
       >
         <div className="h-[60px] w-12 flex-none overflow-hidden rounded-md bg-card-2">

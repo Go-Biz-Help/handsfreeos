@@ -1,10 +1,10 @@
 {
   "area": "socialcontent",
   "title": "The AI Social Media Content Creator add-on: Creators, Standouts, Playbook, Ideas, Calendar and Settings, on the web and the phone",
-  "checkedOn": "2026-11-14",
+  "checkedOn": "2026-11-15",
   "files": {
     "apps/mobile/src/addons/socialcontent/activity.tsx": "9744b485ef7b",
-    "apps/mobile/src/addons/socialcontent/calendar.tsx": "69ecb81a1921",
+    "apps/mobile/src/addons/socialcontent/calendar.tsx": "316f9fb62b9e",
     "apps/mobile/src/addons/socialcontent/creators.tsx": "afbddca04aa6",
     "apps/mobile/src/addons/socialcontent/home.tsx": "6973e687d399",
     "apps/mobile/src/addons/socialcontent/ideas.tsx": "355ae79366b6",
@@ -26,7 +26,7 @@
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/standouts.tsx": "adbc9f8ec4fe",
     "apps/web/src/addons/registry.ts": "c925198a00a2",
     "apps/web/src/addons/socialcontent/activity-card.tsx": "ac129c506362",
-    "apps/web/src/addons/socialcontent/calendar-page.tsx": "321c540ffb1a",
+    "apps/web/src/addons/socialcontent/calendar-page.tsx": "54236b841a20",
     "apps/web/src/addons/socialcontent/creators-page.tsx": "7981cd799c44",
     "apps/web/src/addons/socialcontent/ideas-page.tsx": "38ccbdb2a0f8",
     "apps/web/src/addons/socialcontent/offer-notice.tsx": "bd18d03766c4",
@@ -873,11 +873,25 @@
       "by": "socialcontent_get_calendar (open); socialcontent_write_own_post (network, postAt)"
     },
     {
-      "path": "Phone → Calendar → No day yet, and Went up lately with how each did",
+      "path": "Phone → Calendar → No day yet, and Lately: what went up with how each did, and what didn’t go up",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:300",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:458",
       "covered": "yes",
-      "by": "socialcontent_get_calendar (undated, recent with numbers and doneWell)"
+      "by": "socialcontent_get_calendar (undated, recent with state, numbers and doneWell)"
+    },
+    {
+      "path": "Phone → Calendar → Redo posts (when a post went up or didn’t go up): a tick beside each of those posts",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:312",
+      "covered": "yes",
+      "by": "socialcontent_redo_own_posts (postIds), on a Confirm card"
+    },
+    {
+      "path": "Phone → Calendar → Redo posts → Redo N posts, Tick the N that didn’t go up, the note to delete the old ones on the network, or Cancel",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:336",
+      "covered": "yes",
+      "by": "socialcontent_redo_own_posts (postIds), on a Confirm card; it says which it couldn’t redo and why"
     },
     {
       "path": "Phone → Calendar → open a post (its own screen, also from a link with ?post=)",
@@ -1202,11 +1216,25 @@
       "by": "socialcontent_get_calendar (undated)"
     },
     {
-      "path": "Calendar → Went up lately: what went up in the 30 days before, each with its latest numbers or that it did well",
+      "path": "Calendar → Lately: what went up in the 30 days before, each with its latest numbers or that it did well, and what didn’t go up",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:297",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:434",
       "covered": "yes",
-      "by": "socialcontent_get_calendar (recent, each with numbers and doneWell)"
+      "by": "socialcontent_get_calendar (recent, each with state, numbers and doneWell)"
+    },
+    {
+      "path": "Calendar → Redo posts (when a post went up or didn’t go up): a tick beside each of those posts",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:254",
+      "covered": "yes",
+      "by": "socialcontent_redo_own_posts (postIds), on a Confirm card"
+    },
+    {
+      "path": "Calendar → Redo posts → Tick the N that didn’t go up, the note to delete the old ones on the network, Redo N posts, or Cancel",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:294",
+      "covered": "yes",
+      "by": "socialcontent_redo_own_posts (postIds), on a Confirm card; it says which it couldn’t redo and why"
     },
     {
       "path": "Calendar → open a post (also from a link with ?post=)",

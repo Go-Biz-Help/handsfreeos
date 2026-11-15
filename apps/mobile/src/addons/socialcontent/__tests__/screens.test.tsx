@@ -775,6 +775,7 @@ describe('the Calendar', () => {
       onOkWeek={jest.fn()}
       onWrite={jest.fn()}
       onWriteFor={jest.fn()}
+      onRedo={jest.fn()}
       {...props}
     />
   );
@@ -875,6 +876,40 @@ describe('the Calendar', () => {
     );
     await fireEvent.press(screen.getByTestId('socialcontent-write-go'));
     expect(onWriteFor).toHaveBeenLastCalledWith(['x'], 'Our spring tune-up special');
+  });
+
+  it('redoes the posts ticked: what didn’t go up, and what went up wrong (the owner, 15 Nov)', async () => {
+    const onRedo = jest.fn().mockResolvedValue({ redone: 2, lastAt: null, notRedone: [] });
+    const missed = content(33, {
+      title: 'Leak or drip',
+      network: 'facebook',
+      state: 'failed',
+      postAt: ago(2 * 24 * 60),
+      failure: 'Facebook didn’t show the post going up.',
+    });
+    await render(body({ onRedo, data: calendarView({ posts: [], recent: [went, missed] }) }));
+    // No ticks until Redo posts is pressed.
+    expect(screen.queryByTestId(`socialcontent-post-${went.id}-redo`)).toBeNull();
+    await fireEvent.press(screen.getByTestId('socialcontent-calendar-redo'));
+    expect(screen.getByTestId('socialcontent-redo-bar')).toHaveTextContent(
+      /Tick the posts to put up again/,
+    );
+    expect(screen.getByTestId('socialcontent-redo-go')).toBeDisabled();
+    // Every one that didn't go up, in one go.
+    await fireEvent.press(screen.getByTestId('socialcontent-redo-failed'));
+    expect(screen.getByTestId(`socialcontent-post-${missed.id}-redo`)).toBeChecked();
+    expect(screen.queryByTestId('socialcontent-redo-posted')).toBeNull();
+    // One that went up goes up again, and the old one is the person's to delete.
+    await fireEvent.press(screen.getByTestId(`socialcontent-post-${went.id}-redo`));
+    expect(screen.getByTestId('socialcontent-redo-posted')).toHaveTextContent(
+      /Delete the old ones on Instagram yourself/,
+    );
+    expect(screen.getByTestId('socialcontent-redo-go')).toHaveTextContent('Redo 2 posts');
+    await fireEvent.press(screen.getByTestId('socialcontent-redo-go'));
+    expect(onRedo).toHaveBeenCalledWith([went.id, missed.id]);
+    // Done, the ticks go.
+    expect(await screen.findByTestId('socialcontent-calendar-redo')).toBeTruthy();
+    expect(screen.queryByTestId('socialcontent-redo-bar')).toBeNull();
   });
 
   it('stops filling on its own with its switch, and starts again (the owner, 11 Nov)', async () => {

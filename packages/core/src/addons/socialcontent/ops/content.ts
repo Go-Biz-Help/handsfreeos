@@ -67,6 +67,8 @@ export const POST_REFUSALS = {
   notOnPost:
     'One of those pictures isn’t on this post anymore. Refresh the page, then add it again with Add your photo.',
   skipped: 'That post is skipped. Bring it back first, then OK it.',
+  /** Redo (the owner, 15 Nov) is for posts that went up or didn't. */
+  notRedoable: 'It hasn’t gone up yet, so there’s nothing to redo. OK it, or press Post it now.',
   removeWho:
     'Only an owner or admin removes posts. Press Skip it instead, which opens its day for another post too, or ask one of them.',
   removePosted: (network: string) =>
@@ -311,7 +313,7 @@ const RECENT_DAYS = 30;
 export const calendarGet = defineAddonQuery(socialcontentAddon, {
   name: 'socialcontent.calendar.get',
   description:
-    'The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the plan’s open places with no post yet (each AI picks hour, and whether it’s an hour the AI is trying out); the plan itself (for each of Instagram, Facebook and LinkedIn: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times picked on each weekday); what AI picks learned (its best hours so far, from the creators’ posts or the business’s own); when it last filled, whether it fills on its own (autoFill) and when it fills again; whether the main offer is live (offerLive: until it is, the AI writes no posts); and how many ideas are saved to write from.',
+    'The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up, or didn’t go up, in the 30 days before, each that went up with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the plan’s open places with no post yet (each AI picks hour, and whether it’s an hour the AI is trying out); the plan itself (for each of Instagram, Facebook and LinkedIn: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times picked on each weekday); what AI picks learned (its best hours so far, from the creators’ posts or the business’s own); when it last filled, whether it fills on its own (autoFill) and when it fills again; whether the main offer is live (offerLive: until it is, the AI writes no posts); and how many ideas are saved to write from.',
   input: CalendarGetInput,
   output: CalendarGetOutput,
   permission: 'socialcontent.use',
@@ -334,10 +336,11 @@ export const calendarGet = defineAddonQuery(socialcontentAddon, {
       ctx,
       sql`c.post_at is null and c.state = 'draft' order by c.created_at desc limit 50`,
     );
-    // What went up in the 30 days before these days, with how each did (part 11).
+    // What went up in the 30 days before these days, with how each did (part 11), and what didn't go up, so it can
+    // be redone (the owner, 15 Nov).
     const recent = await readPosts(
       ctx,
-      sql`jsonb_array_length(c.posted_to) > 0
+      sql`(jsonb_array_length(c.posted_to) > 0 or c.state = 'failed')
           and (c.post_at is null or c.post_at < ${start.toISOString()}::timestamptz)
           and coalesce(c.posted_at, c.updated_at) > ${new Date(now - RECENT_DAYS * 86_400_000).toISOString()}::timestamptz
           order by coalesce(c.posted_at, c.updated_at) desc limit 20`,

@@ -9,6 +9,7 @@ import {
   AI_FORMATS,
   CALENDAR,
   DEFAULT_PLAN,
+  canRedo,
   chainFor,
   firstPlannedNetwork,
   formatFor,
@@ -19,6 +20,7 @@ import {
   postsAWeek,
   SHORT_POSTS,
   postText,
+  redoTimes,
   stillNeeds,
   weekOf,
   type ReadyCheck,
@@ -389,6 +391,36 @@ describe('putting posts up (part 9)', () => {
     const long = postText('linkedin', 'x'.repeat(3_500), ['tag']);
     expect(long.length).toBeLessThanOrEqual(POSTING.textMost.linkedin);
     expect(long.endsWith('…\n\n#tag')).toBe(true);
+  });
+
+  it('redoes posts that went up or didn’t, one at a time on each network (the owner, 15 Nov)', () => {
+    expect(canRedo({ state: 'failed', network: 'facebook' })).toBe(true);
+    expect(canRedo({ state: 'posted', network: 'instagram' })).toBe(true);
+    for (const state of ['draft', 'ready', 'posting', 'skipped'] as const)
+      expect(canRedo({ state, network: 'instagram' })).toBe(false);
+    expect(canRedo({ state: 'failed', network: 'tiktok' })).toBe(false);
+    const gap = 30 * 60_000;
+    expect(POSTING.redoEveryMs).toBe(gap);
+    expect(redoTimes(['instagram', 'facebook', 'instagram', 'instagram', 'facebook'], NOW)).toEqual(
+      [NOW, NOW, NOW + gap, NOW + 2 * gap, NOW + gap],
+    );
+    expect(redoTimes([], NOW)).toEqual([]);
+    expect(W.calendar.redoGo(0)).toBe('Redo');
+    expect(W.calendar.redoGo(3)).toBe('Redo 3 posts');
+    expect(W.calendar.redoFailed(1)).toBe('Tick the one that didn’t go up');
+    expect(W.calendar.redoFailed(4)).toBe('Tick the 4 that didn’t go up');
+    expect(W.calendar.redoPosted(['Instagram', 'Facebook'])).toMatch(
+      /Delete the old ones on Instagram and Facebook yourself/,
+    );
+    expect(W.calendar.redone(1, 0)).toBe(
+      'It goes up again in a minute or two, from the computer that posts.',
+    );
+    expect(W.calendar.redone(4, 1)).toBe(
+      '4 posts go up again from the computer that posts: the first in a minute or two, then one every 30 minutes on each network. 1 post couldn’t be redone. Open it to see what it needs.',
+    );
+    expect(W.calendar.redone(0, 2)).toBe(
+      '2 posts couldn’t be redone. Open them to see what they need.',
+    );
   });
 
   it('posts on Facebook and LinkedIn (part 9), Instagram (part 10), and Threads and X (decision 41)', () => {

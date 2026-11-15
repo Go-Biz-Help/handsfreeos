@@ -158,7 +158,10 @@ export const CalendarGetOutput = z.object({
   /** Posts going in these days, soonest first, and drafts with no day yet. */
   posts: z.array(Content),
   undated: z.array(Content),
-  /** What went up in the 30 days before these days, newest first, with how each did (part 11). */
+  /**
+   * What went up in the 30 days before these days, newest first, with how each did (part 11), and what didn't go up
+   * (the owner, 15 Nov).
+   */
   recent: z.array(Content),
   /** When it last filled the calendar, and when it fills again on its own (null until it first fills). */
   filledAt: z.string().nullable(),
@@ -254,6 +257,22 @@ export const ContentRemoveOutput = z.object({
 });
 
 export const ContentPostNowInput = z.object({ workspaceId: uuid, postId: uuid });
+
+/**
+ * Redo (the owner, 15 Nov): posts that went up wrong or didn't go up, put up again, spaced out on each network. One
+ * that went up goes up again everywhere it went; one that didn't go up is tried again where it hadn't.
+ */
+export const ContentRedoInput = z.object({
+  workspaceId: uuid,
+  postIds: z.array(uuid).min(1).max(POSTING.redoMost),
+});
+export const ContentRedoOutput = z.object({
+  redone: z.number().int(),
+  /** When the last of them goes. */
+  lastAt: z.string().nullable(),
+  /** Which weren't redone, and why. */
+  notRedone: z.array(z.object({ postId: uuid, title: z.string(), why: z.string() })),
+});
 
 // ------------------------------------------------------------------------------------------------ the extension
 

@@ -11,6 +11,9 @@
  *   never puts it up twice there. Nothing pressed (a warning, signed out) puts it back to waiting.
  * - `socialcontent.content.post_now` (a person, or the Assistant on a Confirm card): puts an OK'd post, or one that
  *   didn't post, up now. It's an OK too: nothing goes up without one (decision 15).
+ * - `socialcontent.content.redo` (the owner, 15 Nov): posts that went up wrong or didn't go up, put up again in one go,
+ *   one at a time on each network. One that went up goes up again everywhere it went (its old numbers go with the old
+ *   post, which the person deletes on the network); one that didn't is tried again where it hadn't. An OK too.
  */
 import { rows, sql } from '@hfos/db/client';
 import { eq } from 'drizzle-orm';
@@ -20,6 +23,7 @@ import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand } from '../../server';
 import {
+  canRedo,
   chainFor,
   hasPictures,
   isPostingNetwork,
@@ -27,6 +31,7 @@ import {
   placesLeft,
   POSTING,
   postText,
+  redoTimes,
   stillNeeds,
   type PostedTo,
   type PostPlace,
@@ -34,6 +39,8 @@ import {
 import {
   Content as ContentShape,
   ContentPostNowInput,
+  ContentRedoInput,
+  ContentRedoOutput,
   PostNextInput,
   PostNextOutput,
   PostWentInput,
@@ -354,7 +361,134 @@ export const contentPostNow = defineAddonCommand(socialcontentAddon, {
   },
 });
 
+export const contentRedo = defineAddonCommand(socialcontentAddon, {
+  name: 'socialcontent.content.redo',
+  description:
+    'Redo several of the business’s own posts at once (the owner, 15 Nov): ones that went up wrong, or didn’t go up, put up again from the computer that posts, the first on each network now and the rest one every 30 minutes on that network. One that went up goes up again everywhere it went (its old numbers go, and the person deletes the old post on the network, since HandsFreeOS can’t take posts down); one that didn’t go up is tried again only where it hadn’t. It counts as the OK (decision 15). Says how many it redid, and which it couldn’t and why.',
+  risk: 2,
+  input: ContentRedoInput,
+  output: ContentRedoOutput,
+  permission: 'socialcontent.use',
+  scope: inWorkspace,
+  ai: {
+    tool: 'socialcontent_redo_own_posts',
+    autonomy: 'confirm',
+    what: (input) => {
+      const n = (input as { postIds?: unknown[] }).postIds?.length ?? 0;
+      return n === 1 ? 'Put this post up again' : `Put these ${n} posts up again`;
+    },
+    outcome: (output) => {
+      const o = output as { redone?: number; notRedone?: unknown[] };
+      return { words: W.calendar.redone(o.redone ?? 0, o.notRedone?.length ?? 0), path: PATH };
+    },
+  },
+  emits: ['socialcontent.content.approved'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const s = await settingsOf(ctx);
+    const now = changeMoment(ctx.meta).getTime();
+    const notRedone: { postId: string; title: string; why: string }[] = [];
+    const going: ContentRow[] = [];
+    for (const postId of [...new Set(input.postIds)]) {
+      // One removed meanwhile is left out; the rest are still redone.
+      const c = await loadContent(ctx, postId, { lock: true }).catch((e: unknown) => {
+        if (e instanceof HfosError && e.code === 'not_found') return null;
+        throw e;
+      });
+      if (!c) {
+        notRedone.push({ postId, title: '', why: POST_REFUSALS.gone });
+        continue;
+      }
+      const why =
+        c.state === 'posting'
+          ? POST_REFUSALS.posting
+          : c.state === 'skipped'
+            ? POST_REFUSALS.skipped
+            : !isPostingNetwork(c.network) || !POSTING.networks.includes(c.network)
+              ? W.posting.notOn(networkName(c.network))
+              : !canRedo(c)
+                ? POST_REFUSALS.notRedoable
+                : null;
+      if (why) notRedone.push({ postId, title: c.title, why });
+      else going.push(c);
+    }
+    const shown = await contentOut(ctx, going);
+    const times = redoTimes(
+      going.map((c) => c.network),
+      now,
+    );
+    let redone = 0;
+    let lastAt: number | null = null;
+    for (const [i, c] of going.entries()) {
+      const at = new Date(times[i]!);
+      const pictures = shown[i]!.pictures;
+      const needs = stillNeeds({
+        network: c.network,
+        format: c.format,
+        words: c.words,
+        hashtags: c.hashtags,
+        chain: c.chain ?? [],
+        slides: Array.isArray(c.slides) ? c.slides : [],
+        fileIds: pictures.map((p) => p.fileId),
+        videos: pictures.filter((p) => p.mimeType?.startsWith('video/')).length,
+        postAt: at,
+        facebookWhere: c.facebookWhere,
+        facebookPage: s.facebookPage,
+      });
+      if (needs) {
+        notRedone.push({ postId: c.recordId, title: c.title, why: needs });
+        continue;
+      }
+      const again = c.state === 'posted';
+      await ctx.tx
+        .update(content)
+        .set({
+          state: 'ready',
+          postAt: at,
+          // The person set its time, so AI picks never moves it (decision 27).
+          placedBy: 'person',
+          approvedBy: me,
+          approvedAt: new Date(now),
+          failure: null,
+          postingAt: null,
+          // One that went up goes up again everywhere: what it had is the old post's.
+          ...(again
+            ? {
+                postedTo: [],
+                postedAt: null,
+                postLink: null,
+                numbers: {},
+                checksDueAt: null,
+                doneWell: null,
+              }
+            : {}),
+          updatedAt: new Date(now),
+        })
+        .where(eq(content.recordId, c.recordId));
+      await ctx.emit({
+        type: 'socialcontent.content.approved',
+        entityType: 'custom_record',
+        entityId: c.recordId,
+        payload: {
+          postId: c.recordId,
+          network: c.network,
+          postAt: at.toISOString(),
+          redo: true,
+          again,
+        },
+      });
+      redone++;
+      lastAt = Math.max(lastAt ?? 0, at.getTime());
+    }
+    return {
+      redone,
+      lastAt: lastAt === null ? null : new Date(lastAt).toISOString(),
+      notRedone,
+    };
+  },
+});
+
 export const POSTING_EXTENSION =
   'The HandsFreeOS Social extension sends this in from the computer that posts, as it puts the business’s OK’d posts up; a person never does.';
 
-export const postingCommands = [postNext, postWent, contentPostNow] as const;
+export const postingCommands = [postNext, postWent, contentPostNow, contentRedo] as const;

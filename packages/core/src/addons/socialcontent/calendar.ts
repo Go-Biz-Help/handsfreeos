@@ -108,7 +108,32 @@ export const POSTING = {
     threads: 500,
     x: 280,
   } as Readonly<Record<PostingNetwork, number>>,
+  /**
+   * Redo (the owner, 15 Nov): posts that came out wrong or didn't go up, ticked on the Calendar, go up again one at a
+   * time on each network, this far apart, so a network never sees a burst of them. Up to this many at once.
+   */
+  redoEveryMs: 30 * 60_000,
+  redoMost: 30,
 } as const;
+
+/** Whether a post can be redone: it went up (it goes up again) or didn't go up (it's tried again). */
+export const canRedo = (c: { state: ContentState; network: string }): boolean =>
+  (c.state === 'posted' || c.state === 'failed') &&
+  isPostingNetwork(c.network) &&
+  POSTING.networks.includes(c.network);
+
+/**
+ * When each redone post goes, in the order given: the first on each network now, the next on that network
+ * `POSTING.redoEveryMs` later, and so on, so the networks each get theirs one at a time.
+ */
+export function redoTimes(networks: readonly string[], now: number): number[] {
+  const seen = new Map<string, number>();
+  return networks.map((n) => {
+    const k = seen.get(n) ?? 0;
+    seen.set(n, k + 1);
+    return now + k * POSTING.redoEveryMs;
+  });
+}
 
 /**
  * Threads and X (decision 41): short posts, a picture about half the time, and now and then a chain of posts for a

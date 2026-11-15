@@ -476,6 +476,8 @@ import {
   ContentApproveWeekInput as SocialcontentContentApproveWeekInput,
   ContentApproveWeekOutput as SocialcontentContentApproveWeekOutput,
   ContentPostNowInput as SocialcontentContentPostNowInput,
+  ContentRedoInput as SocialcontentContentRedoInput,
+  ContentRedoOutput as SocialcontentContentRedoOutput,
   ContentRemoveInput as SocialcontentContentRemoveInput,
   ContentRemoveOutput as SocialcontentContentRemoveOutput,
   ContentSaveInput as SocialcontentContentSaveInput,
@@ -948,7 +950,8 @@ export const PHONE_COMMANDS = {
   'safety_contact.save': command(ONLINE, SafetyContactSaveInput, SafetyContactOutput),
   // AI Social Media Content Creator's screens (part 5), with signal: niches and creators picked, added and found,
   // reading someone again, its settings, trying watching, stopping work, and an idea saved, used or skipped. Its
-  // Calendar (part 12): a post saved, OK'd or its OK taken back, the week OK'd, skipped or brought back, and Post it now.
+  // Calendar (part 12): a post saved, OK'd or its OK taken back, the week OK'd, skipped or brought back, Post it now, and
+  // Redo posts (the owner, 15 Nov).
   'socialcontent.content.approve': command(
     ONLINE,
     SocialcontentContentApproveInput,
@@ -963,6 +966,11 @@ export const PHONE_COMMANDS = {
     ONLINE,
     SocialcontentContentPostNowInput,
     SocialcontentContent,
+  ),
+  'socialcontent.content.redo': command(
+    ONLINE,
+    SocialcontentContentRedoInput,
+    SocialcontentContentRedoOutput,
   ),
   'socialcontent.content.remove': command(
     ONLINE,

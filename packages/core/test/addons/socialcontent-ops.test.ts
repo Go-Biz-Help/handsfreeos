@@ -1104,6 +1104,97 @@ describe('the business’s own posts', () => {
     expect(done.postedTo.map((p: Any) => p.place)).toEqual(['profile', 'page']);
   });
 
+  it('redoes posts that went up wrong or didn’t go up, one at a time on each network (the owner, 15 Nov)', async () => {
+    const make = async (network: 'linkedin' | 'facebook', title: string) =>
+      (
+        await worker('socialcontent.content.put', {
+          network,
+          post: written({ title, words: `${title}: a tip.` }),
+        })
+      ).postId as string;
+    const up = await make('linkedin', 'Went up square');
+    const missed = await make('linkedin', 'Never went up');
+    const half = await make('facebook', 'Profile only');
+    const draft = await make('linkedin', 'Still a draft');
+    const hidden = await make('linkedin', 'Missed days ago');
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content set state = 'posted', post_at = now() - interval '1 day',
+            posted_at = now() - interval '1 day', checks_due_at = now() + interval '1 day',
+            post_link = 'https://www.linkedin.com/feed/update/urn:li:activity:7300000000000000009/',
+            posted_to = jsonb_build_array(jsonb_build_object('place', 'feed', 'link', null, 'at', now()))
+          where record_id = ${up}`,
+    );
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content set state = 'failed', failure = 'LinkedIn didn’t take it.',
+            post_at = now() - interval '3 days'
+          where record_id = any(${`{${missed},${hidden}}`}::uuid[])`,
+    );
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content set state = 'failed', post_at = now() - interval '1 day',
+            failure = 'On your Page: Business Suite didn’t show Create post.',
+            posted_to = jsonb_build_array(jsonb_build_object('place', 'profile', 'link', null, 'at', now()))
+          where record_id = ${half}`,
+    );
+    // What didn't go up shows under Lately, so it can be redone, even with nothing up and its day gone.
+    const before = await as(member, 'socialcontent.calendar.get');
+    expect(before.recent.map((p: Any) => p.id)).toEqual(
+      expect.arrayContaining([up, missed, half, hidden]),
+    );
+
+    const out = await as(member, 'socialcontent.content.redo', {
+      postIds: [up, missed, half, draft],
+    });
+    expect(out.redone).toBe(3);
+    expect(out.notRedone).toEqual([
+      { postId: draft, title: 'Still a draft', why: expect.stringMatching(/nothing to redo/) },
+    ]);
+    const [a, b, c] = await Promise.all(
+      [up, missed, half].map((postId) => as(member, 'socialcontent.content.get', { postId })),
+    );
+    // The one that went up goes up again everywhere: what it had was the old post's.
+    expect(a).toMatchObject({
+      state: 'ready',
+      postedTo: [],
+      postedAt: null,
+      postLink: null,
+      placedBy: 'person',
+      failure: null,
+    });
+    expect(a.approvedAt).not.toBeNull();
+    // The second on LinkedIn goes 30 minutes after the first; Facebook's first goes now too.
+    expect(b).toMatchObject({ state: 'ready', failure: null });
+    expect(Date.parse(b.postAt) - Date.parse(a.postAt)).toBe(30 * 60_000);
+    expect(c.postAt).toBe(a.postAt);
+    expect(Date.parse(a.postAt)).toBeLessThanOrEqual(Date.now());
+    // The one half up keeps where it went, so only the Page is tried again.
+    expect(c.postedTo.map((p: Any) => p.place)).toEqual(['profile']);
+    const [due] = await rows<{ checks_due_at: unknown }>(
+      admin(),
+      sql`select checks_due_at from addon_socialcontent.content where record_id = ${up}`,
+    );
+    expect(due!.checks_due_at).toBeNull();
+    // Going up now, it's not redone again until it's done.
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content set state = 'posting', posting_at = now() where record_id = ${b.id}`,
+    );
+    const again = await as(member, 'socialcontent.content.redo', { postIds: [missed] });
+    expect(again).toMatchObject({ redone: 0, lastAt: null });
+    expect(again.notRedone[0].why).toMatch(/going up right now/);
+    expect(await refused(as(member, 'socialcontent.content.redo', { postIds: [] }))).toBe(
+      'validation',
+    );
+    // Out of the way of the posting tests after this one.
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content set state = 'skipped', posting_at = null
+          where record_id = any(${`{${up},${missed},${half},${hidden}}`}::uuid[])`,
+    );
+  });
+
   it('puts one back when nothing was pressed, and marks as didn’t post one that never said or waited too long', async () => {
     const make = async (title: string) =>
       (

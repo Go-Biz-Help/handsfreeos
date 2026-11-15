@@ -52,7 +52,7 @@ offered to nobody; staff give it to a business from Admin → Businesses.
 | OpenAI's photo-style pictures                            | `apps/worker/src/pictures.ts`                                                    |
 | The Calendar page and a post's sheet                     | `calendar-page.tsx` and `post-sheet.tsx` in the web's folder                     |
 | Posting: where a post goes, its words as they go up      | `calendar.ts` (`placesFor`, `postText`, `POSTING`)                               |
-| Posting: the next post due, how it went, Post it now     | `ops/posting.ts`; `supabase/migrations/20261027025100_socialcontent_posting.sql` |
+| Posting: next post due, how it went, Post it now, Redo   | `ops/posting.ts`; `supabase/migrations/20261027025100_socialcontent_posting.sql` |
 | The extension putting a post up                          | `apps/extension/src/research/posting.ts` and `post-here.ts`                      |
 | Its own posts' numbers: when they're read, doing well    | `own.ts` (pure); `ops/own.ts`; `20261027025200_socialcontent_own_numbers.sql`    |
 | The schedule: open places, the hours it learned, moves   | `schedule.ts` (pure); `ops/schedule.ts`; the worker's `socialcontent.times` job  |
@@ -150,7 +150,7 @@ offered to nobody; staff give it to a business from Admin → Businesses.
 - **The Calendar on the phone** (part 12). Its first screen lists the Calendar too, at the web's own address
   (`a/socialcontent/calendar`). It does what the web's does: Fill the calendar, OK the week, Write a post, the
   Fill on its own switch, when it filled and fills again with the plan and who puts posts up, each day's posts and open days (Write one), No day yet,
-  and Went up lately with each post's latest numbers. A post opens on its own screen at `calendar?post=<id>`, as the
+  and Lately with each post's latest numbers and what didn't go up, and Redo posts. A post opens on its own screen at `calendar?post=<id>`, as the
   web's sheet does, so a link to one opens it there too. That screen changes everything the sheet does (title,
   network, format, a day in the next two weeks and a time in the business's time zone, where on Facebook, hook,
   words, hashtags, slides, script), shows where it went up and How it did, makes its picture again, takes the
@@ -159,7 +159,7 @@ offered to nobody; staff give it to a business from Admin → Businesses.
   swipe between (and pinch to zoom on iPhone). On a network the extension doesn't post on yet, Share the words
   hands them to the phone's share sheet. The day and clock words (`dayShown`, `timeShown`, `filledLine`,
   `planShown`) live in core's words, shared with the web. Its commands (`socialcontent.content.save`, `.approve`,
-  `.approve_week`, `.post_now`, `.skip`, `.remove`) are online commands; uploads ask `file.begin_upload` and `file.confirm`
+  `.approve_week`, `.post_now`, `.skip`, `.remove`, `.redo`) are online commands; uploads ask `file.begin_upload` and `file.confirm`
   straight away (as an anytime command would only be queued) and put the file in storage between. The screens ask
   again every 20 seconds (the Calendar) and 15 (a post) while open, so a picture being made or a post going up shows
   when it's done.
@@ -446,6 +446,17 @@ Instagram from 0.133.0, Threads and X from 0.138.0. The post's sheet offers **Co
   waiting a day past its time (the computer was off) is marked as didn't post too.
 - **Post it now** (`socialcontent.content.post_now`, risk 2: the Assistant asks first) puts an OK'd post, or one that
   didn't post, up now: its time becomes now, and it counts as the OK. Places it already went up in are left out.
+- **Redo posts** (the owner, 15 Nov, after Instagram posts went up cut square): on the Calendar, on the web and the
+  phone, **Redo posts** puts a tick beside each post that went up or didn't go up (`canRedo`), with **Tick the N that
+  didn't go up** for all of those at once. **Redo N posts** (`socialcontent.content.redo`, risk 2: the Assistant asks
+  first; up to 30) puts them up again: the first on each network now, the rest one every 30 minutes on that network
+  (`redoTimes`, `POSTING.redoEveryMs`), so a network never sees a burst. Each counts as the OK, and its time counts as
+  the person's (`placed_by = 'person'`), so AI picks never moves it. One that **didn't go up** keeps where it went, so
+  only the rest is tried again. One that **went up** goes up again everywhere it went: its places, link, numbers and
+  next read are cleared, since they were the old post's, and the bar tells the person to delete the old one on the
+  network, as HandsFreeOS can't take posts down. It says which it couldn't redo and why (one going up right now, one
+  skipped, a draft or OK'd one, or what one still needs). What didn't go up now shows under **Lately** (it was **Went
+  up lately**, and a post that went up nowhere dropped off the Calendar once its day passed).
 - **The Calendar** says how many are OK'd and going up, whose computer puts them up, and warns when none is picked or
   it hasn't checked in for 10 minutes (`postingLines`, shared with the phone).
 - **When a place doesn't work,** a problem report goes to Admin → Problem reports with job `post.profile`,
@@ -553,6 +564,8 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
   kind, topic and look, and what comes back is held to them (`checkedPost`, `checkedDesign`).
 - **A post goes up once in each place** (part 9). Once Post is pressed in a place it's never pressed there again on
   its own; one that may have gone up is the person's to look at, and Post it now leaves out the places it went up in.
+  The one exception is the person's own **Redo posts** on one that went up (the owner, 15 Nov): it goes up again
+  everywhere, and the old one is theirs to delete on the network.
 - **A Page's post never switches the person's profile:** it goes through Meta Business Suite, so Social Outreach,
   working at the same time, stays the person.
 - **The business's own posts are weighed only against its own** (part 11): in the same place, by their 7-day numbers,
