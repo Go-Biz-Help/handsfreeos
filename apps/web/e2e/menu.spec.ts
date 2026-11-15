@@ -145,7 +145,7 @@ test('a group is built by hand, moved, and ungrouped again', async ({ page }) =>
   expect(after.indexOf('Audit log')).toBe(after.indexOf('Members') + 1);
 });
 
-test('an add-on put in a group still opens and closes there, beside the sidebar and in the phone’s drawer', async ({
+test('an add-on put in a group pops its pages out from its own row there, beside the sidebar and in the phone’s drawer', async ({
   page,
 }) => {
   test.setTimeout(180_000);
@@ -166,42 +166,41 @@ test('an add-on put in a group still opens and closes there, beside the sidebar 
   await page.getByTestId('menu-save').click();
   await expect(page.getByText('Menu saved.')).toBeVisible();
 
-  // In the group, the add-on is a row of its own, closed, rather than its pages laid out under its name.
+  // In the group, the add-on is a row of its own rather than its pages laid out under its name.
   await page.goto(`/app/w/${workspaceId}`);
-  await nav(page).getByTestId('menu-group-g1').click();
+  await nav(page).getByTestId('menu-group-g1').hover();
   const panel = page.getByTestId('menu-group-panel-g1');
   const addon = panel.getByTestId('menu-addon-realestate');
   await expect(addon).toHaveText('Real Estate Agent');
-  await expect(addon).toHaveAttribute('aria-expanded', 'false');
   await expect(panel.getByRole('link')).toHaveText(['Audit log']);
 
-  // Pressing it opens its pages in place, under it.
-  await addon.click();
-  await expect(addon).toHaveAttribute('aria-expanded', 'true');
-  await expect(panel.getByTestId('menu-addon-panel-realestate').getByRole('link')).toHaveText([
+  // Resting on it pops its pages out beside the group, as it does in the menu itself.
+  await addon.hover();
+  const pages = page.getByTestId('menu-addon-panel-realestate');
+  await expect(pages.getByRole('link')).toHaveText([
     'Deals',
     'My duties',
     'Coordinate',
     'Vendors',
     'Deal settings',
   ]);
-  await panel.getByRole('link', { name: 'Vendors' }).click();
+  await pages.getByRole('link', { name: 'Vendors' }).click();
   await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/a/realestate/vendors$`));
+  await expect(pages).toHaveCount(0);
   await expect(panel).toHaveCount(0);
 
-  // Back in the group, it's open on the page showing; closed again, it stays closed the next time the group opens.
+  // Lit on its page: the group, the add-on in it, and the page. A press opens it too.
+  await expect(nav(page).getByTestId('menu-group-g1')).toHaveClass(/bg-accent-soft/);
   await nav(page).getByTestId('menu-group-g1').click();
-  await expect(addon).toHaveAttribute('aria-expanded', 'true');
-  await expect(panel.getByRole('link', { name: 'Vendors' })).toHaveAttribute(
+  await expect(addon).toHaveClass(/bg-accent-soft/);
+  await addon.click();
+  await expect(pages.getByRole('link', { name: 'Vendors' })).toHaveAttribute(
     'aria-current',
     'page',
   );
-  await addon.click();
-  await expect(panel.getByRole('link', { name: 'Vendors' })).toHaveCount(0);
-  await page.keyboard.press('Escape');
-  await nav(page).getByTestId('menu-group-g1').click();
-  await expect(addon).toHaveAttribute('aria-expanded', 'false');
-  await page.keyboard.press('Escape');
+  await pages.getByRole('link', { name: 'Deals' }).click();
+  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/a/realestate$`));
+  await expect(panel).toHaveCount(0);
 
   // On a phone the group and the add-on in it both open in place in the drawer.
   await page.setViewportSize({ width: 390, height: 844 });
@@ -213,7 +212,7 @@ test('an add-on put in a group still opens and closes there, beside the sidebar 
   await phoneAddon.click();
   await expect(drawer.getByRole('link', { name: 'Deals' })).toHaveCount(0);
   await phoneAddon.click();
-  await drawer.getByRole('link', { name: 'Deals' }).click();
-  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/a/realestate$`));
+  await drawer.getByRole('link', { name: 'Vendors' }).click();
+  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/a/realestate/vendors$`));
   await expect(page.getByTestId('drawer-menu')).toHaveCount(0);
 });

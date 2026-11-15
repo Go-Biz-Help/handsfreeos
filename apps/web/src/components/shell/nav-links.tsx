@@ -550,11 +550,7 @@ function Flyout({
   );
 }
 
-/**
- * In the phone's drawer: the places open in place, and are already open when the page showing is one of them. An
- * add-on inside a group opens this way too, beside the sidebar as well as in the drawer, with the group keeping
- * whether it's open (`open`, `onOpenChange`) so it stays as it was left while the group's flyout comes and goes.
- */
+/** In the phone's drawer: the places open in place, and are already open when the page showing is one of them. */
 function Fold({
   testId,
   panelTestId,
@@ -564,23 +560,18 @@ function Fold({
   counts,
   onNavigate,
   children,
-  open: kept,
-  onOpenChange,
-}: OpenerProps & { readonly open?: boolean; readonly onOpenChange?: (open: boolean) => void }) {
-  const [own, setOwn] = useState(active);
+}: OpenerProps) {
+  const [open, setOpen] = useState(active);
   useEffect(() => {
-    if (active) setOwn(true);
+    if (active) setOpen(true);
   }, [active]);
-  const open = kept ?? own;
   return (
     <>
       <button
         type="button"
         data-testid={testId}
         aria-expanded={open}
-        // The full name on a hover, for an add-on whose name is too long for the row.
-        title={label}
-        onClick={() => (onOpenChange ? onOpenChange(!open) : setOwn(!open))}
+        onClick={() => setOpen((v) => !v)}
         className={rowClass(active)}
       >
         <Icon className="h-[18px] w-[18px] flex-none" strokeWidth={1.5} />
@@ -716,9 +707,9 @@ interface GroupProps {
 }
 
 /**
- * A group the person made, as one row that is lit by what is inside it. An add-on they put in it is still a row that
- * opens and closes, with its pages under it, rather than every add-on's pages in one long list (the owner,
- * 2026-11-15). It's open while one of its pages is showing, and otherwise as the person last left it.
+ * A group the person made, as one row that is lit by what is inside it. An add-on they put in it is still its own row,
+ * whose pages open from it as they do in the menu (the owner, 2026-11-15): beside the group's flyout on hover or a
+ * press, in place in the drawer. Not every add-on's pages in one long list.
  */
 function Group({
   workspaceId,
@@ -731,8 +722,6 @@ function Group({
   onNavigate,
 }: GroupProps) {
   const Opener = variant === 'drawer' ? Fold : Flyout;
-  /** The add-ons in it the person opened or closed: kept here, as the flyout's insides go each time it closes. */
-  const [unfolded, setUnfolded] = useState<Partial<Record<MenuPlaceKey, boolean>>>({});
   return (
     <Opener
       testId={`menu-group-${group.id}`}
@@ -747,33 +736,18 @@ function Group({
         group.keys.map((key) => {
           const item = items.get(key);
           if (!item) return null;
-          if (item.pages) {
-            const addonId = key.replace(/^addon:/, '');
-            const lit = key === activeKey;
+          if (item.pages)
             return (
-              <Fold
+              <AddonRow
                 key={key}
-                testId={`menu-addon-${addonId}`}
-                panelTestId={`menu-addon-panel-${addonId}`}
-                label={item.label}
-                icon={item.icon}
-                active={lit}
-                counts={() => <AddonCount workspaceId={workspaceId} addonId={addonId} />}
+                workspaceId={workspaceId}
+                item={item}
+                active={key === activeKey}
+                pathname={pathname}
+                variant={variant}
                 onNavigate={picked}
-                open={unfolded[key] ?? lit}
-                onOpenChange={(open) => setUnfolded((was) => ({ ...was, [key]: open }))}
-              >
-                {(after) => (
-                  <AddonPageLinks
-                    workspaceId={workspaceId}
-                    item={item}
-                    pathname={pathname}
-                    onNavigate={after}
-                  />
-                )}
-              </Fold>
+              />
             );
-          }
           return (
             <NavLink
               key={key}
