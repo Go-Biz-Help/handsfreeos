@@ -541,7 +541,8 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
   if (!theirs.posts.length) {
     const line = `No post of ${item.name}’s to like: ${after.without}`;
     if (!theirs.none) return missed(line);
-    // Facebook says they have no posts: nothing's left to try, and nothing went wrong to report (decision 145's skip).
+    // Facebook says they have no posts, or shows none with a Like: nothing's left to try, and nothing went wrong to
+    // report (decision 145's skip).
     await missed(line);
     return { done: false, line, skip: true };
   }

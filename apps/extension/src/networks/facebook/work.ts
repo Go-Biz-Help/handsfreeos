@@ -58,6 +58,7 @@ import {
   closeChatWindows,
   likeGroupPost,
   likeTheirPost,
+  noneLikeable,
   openMessage,
   readGroupFeed,
   readTheirPosts,
@@ -132,7 +133,11 @@ async function autoStep(ask: AutoAsk): Promise<AutoAnswer | PostsAnswer> {
     await closeChatWindows(document);
     if (ask.type === 'hfos-their-posts') {
       const posts = await readTheirPosts(document, location.href, ask.profile, window, ask.most);
-      return { ok: true, posts, ...(!posts.length && saysNoPosts(document) ? { none: true } : {}) };
+      // Nothing to like and nothing wrong: Facebook says they have no posts, or shows none with a Like to press.
+      const none =
+        !posts.length &&
+        (saysNoPosts(document) || noneLikeable(document, location.href, ask.profile));
+      return { ok: true, posts, ...(none ? { none: true as const } : {}) };
     }
     return {
       ok: true,
