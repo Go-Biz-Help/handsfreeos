@@ -73,6 +73,7 @@ import { replyNeedsYou } from '@hfos/core/addons/outreach/sends';
 import {
   answerOf,
   checkedDrafts,
+  connectedLately,
   draftOfferOf,
   demoWhen,
   DRAFTS_FOR,
@@ -302,12 +303,20 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       // Where the person stands with them on their network: on a follow network, someone who hasn't followed back gets
       // their first message in their Requests (core's `TodayItem.requests`).
       const [friend] = profileId
-        ? await rows<{ state: string }>(
+        ? await rows<{ state: string; since: Date | string | null }>(
             tx,
-            sql`select state from addon_outreach.friends
+            sql`select state, since from addon_outreach.friends
                 where workspace_id = ${ws} and user_id = ${ctx.userId} and profile_id = ${profileId}`,
           )
         : [];
+      // The person's own name, for an introduction's [your first name] (decision 168).
+      const [owner] =
+        input.kind === 'opener'
+          ? await rows<{ full_name: string }>(
+              tx,
+              sql`select full_name from app.users where id = ${ctx.userId}`,
+            )
+          : [];
       const [offer] = await rows<{ version: number; parts: unknown }>(
         tx,
         sql`select v.version, v.parts from app.main_offer_versions v
@@ -405,6 +414,8 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         offer: offer ?? null,
         lists: listsOf(content?.lists),
         friendState: friend?.state ?? null,
+        friendSince: friend?.since ?? null,
+        ownerName: owner?.full_name?.trim() || null,
         demoAt: demo?.starts_at ?? null,
         occasion: occasion?.detail ?? null,
         samples: samplesNow(MessageSamples.safeParse(said?.message_samples ?? null).data),
@@ -580,6 +591,9 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       told: {
         business: found.business?.name ?? 'the business',
         aboutOwner: found.aboutOwner,
+        ownerName: found.ownerName,
+        // Connected lately (decision 168): an introduction thanks them for connecting; a friend of a while gets a hello.
+        fresh: connectedLately(found.friendSince),
         name,
         facts: toldFacts,
         recent,

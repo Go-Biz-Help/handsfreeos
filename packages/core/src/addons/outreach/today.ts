@@ -77,6 +77,7 @@ import {
   FILL_BLANKS,
   FOLLOW_SCRIPT,
   hasBlanks,
+  opensWithIntro,
   playbookSays,
   scriptOf,
   startingScript,
@@ -262,6 +263,8 @@ export const SAY_HI_WHY = {
   accepted: (when: string) => `Accepted your request ${when}`,
   followedBack: (when: string) => `Followed you back ${when}`,
   theirs: (when: string) => `You accepted their friend request ${when}`,
+  /** They followed the person (decision 168): greeted with an introduction. */
+  followed: (when: string) => `Followed you ${when}`,
   known: 'A friend you haven’t talked to yet',
 } as const;
 /** The most of each kind listed when no limit says: replies. */
@@ -819,7 +822,8 @@ export type DraftPlaybook = Pick<
     Pick<
       PlaybookDetails,
       // What it says for each message (decision 164, ./script.ts): left out, the starting words for its goal.
-      'niche' | 'proof' | 'usefulWhat' | 'usefulLink' | 'videoLink' | 'goal' | 'script'
+      // How it starts a chat (decision 168): left out, with the first message's question.
+      'niche' | 'proof' | 'usefulWhat' | 'usefulLink' | 'videoLink' | 'goal' | 'script' | 'opens'
     >
   > & {
     readonly name: string;
@@ -871,6 +875,28 @@ export interface DraftConversation {
   readonly followUps: number;
 }
 
+/**
+ * The playbook's introduction in place of the first message (decision 168, the owner, 15 Nov 2026: "thanks for
+ * connecting and who we are and what we offer and if they are ever interested to reach out"). `fresh` when they just
+ * connected; a friend of a while who was never talked to gets a hello in place of the thanks for connecting.
+ */
+export function introTask(intro: string, fresh: boolean): string {
+  return [
+    `They and the owner haven’t talked yet, so this is the owner’s first message to them: an introduction, not a pitch. ${asMessage('the introduction', intro, true)}`,
+    fresh
+      ? 'They just connected with the owner: they accepted the owner’s request, the owner accepted theirs, or they followed the owner.'
+      : 'They’ve been connected with the owner a while without ever talking: in place of thanking them for connecting, say a friendly hello, and keep the rest.',
+    'It says who the owner is and what the business offers, and leaves the door open. Ask nothing unless the playbook’s words do: no question, no ask for a call, no follow-up promised. It’s one message. Never say how the offer works or the price in it, and no link or web address unless the playbook’s words have one.',
+  ].join(' ');
+}
+
+/**
+ * Whether someone connected with the owner lately enough for an introduction to thank them for it (decision 168):
+ * within Say hi's window for new accepts. Not known, they did.
+ */
+export const connectedLately = (since: Date | string | null, now = Date.now()): boolean =>
+  since === null || now - new Date(since).getTime() <= TODAY_WINDOW_DAYS.opener * 86_400_000;
+
 /** What a first message keeps to, whatever the playbook's words (decisions 137 and 152). */
 const FIRST_KEEPS =
   'It’s one message. Never say how the offer works or the price in it, never promise more info, and no link or web address unless the playbook’s words have one.';
@@ -880,7 +906,12 @@ const FIRST_KEEPS =
  * whatever it says. `first` is the first message's version whose turn it is (./openers.ts). The words each opens with
  * are what the worker's stand-in model reads (apps/worker/src/ai/scripted.ts).
  */
-function taskFor(kind: CustomerDraftKind, says: FullScript, first: string): string {
+function taskFor(
+  kind: CustomerDraftKind,
+  says: FullScript,
+  first: string,
+  step: ConversationStep | null = null,
+): string {
   switch (kind) {
     // Someone the owner hasn't talked with yet (decision 155): just friends, or friends a while without a chat.
     case 'opener':
@@ -898,7 +929,8 @@ function taskFor(kind: CustomerDraftKind, says: FullScript, first: string): stri
     case 'follow_up':
       return `The owner wrote last and they haven’t answered. Write the owner’s follow-up, fitted to where they stopped. ${asHow('a follow-up', says.followUp)} Never repeat an earlier message.`;
     case 'check_in':
-      return `They haven’t answered the owner’s follow-ups. Write the owner’s check-in. ${asHow('the check-in', says.checkIn)}`;
+      // After an introduction (decision 168) nothing asked them anything: no follow-ups went.
+      return `${step === 'intro' ? 'The owner introduced themselves a while ago and they haven’t written since.' : 'They haven’t answered the owner’s follow-ups.'} Write the owner’s check-in. ${asHow('the check-in', says.checkIn)}`;
     case 'reply':
       return [
         'They wrote last. Read the whole chat first, not only their last message, and write the owner’s reply to where it is now.',
@@ -1302,6 +1334,17 @@ export function todayDraftPrompt(input: {
    * empty, the AI is told nothing is known of them.
    */
   readonly aboutOwner?: string | null;
+  /**
+   * The owner's own name, from their HandsFreeOS account, for [your first name] in an introduction (decision 168).
+   * Left out or empty, the words that give it are left out.
+   */
+  readonly ownerName?: string | null;
+  /**
+   * For a first message: whether they just connected with the owner (decision 168): accepted the owner's request, had
+   * theirs accepted, or followed the owner, lately. An introduction thanks them for connecting only then. Left out,
+   * they did.
+   */
+  readonly fresh?: boolean;
 }): string {
   const p = input.playbook;
   const declined = input.declined && declinedFor(input.kind) ? input.declined : null;
@@ -1325,15 +1368,26 @@ export function todayDraftPrompt(input: {
   // What the playbook says for this message (decision 164, ./script.ts), and the first message's version whose turn
   // it is.
   const says = draftScript(p);
-  const first = input.opener?.text.trim() || says.first[0]!;
+  // A playbook that starts with an introduction (decision 168): its first message is the introduction. Reconnect and
+  // the follow-ups still speak of the first message's question.
+  const intro = input.kind === 'opener' && opensWithIntro(p);
+  const first = (!intro && input.opener?.text.trim()) || says.first[0]!;
+  const introWords = (intro && input.opener?.text.trim()) || says.intro;
   const platform = input.platform ?? 'facebook';
   const task = requests
-    ? requestsTask(first)
+    ? requestsTask(intro ? introWords : first)
     : catchUp
       ? inNetworkWords(RECONNECT_CATCH_UP, platform)
       : warm
         ? warmCommentTask(says.warmUp, input.post?.shown?.kind ?? null)
-        : taskOn(input.kind, taskFor(input.kind, says, first), platform, !!input.post?.group);
+        : intro
+          ? taskOn(input.kind, introTask(introWords, input.fresh ?? true), platform, false)
+          : taskOn(
+              input.kind,
+              taskFor(input.kind, says, first, input.conversation?.step ?? null),
+              platform,
+              !!input.post?.group,
+            );
   const playbook = p
     ? [
         `Name: ${p.name}`,
@@ -1418,6 +1472,10 @@ export function todayDraftPrompt(input: {
         : null;
   return [
     `<business>${quoteData(input.business)}</business>`,
+    // The owner's name, for an introduction's [your first name] (decision 168).
+    hasBlanks(task) && /\[your first name\]/i.test(task) && input.ownerName?.trim()
+      ? `<owner_name>${quoteData(input.ownerName.trim())}</owner_name>`
+      : null,
     aboutOwnerBlock(input.aboutOwner),
     `<playbook>\n${quoteData(playbook)}\n</playbook>`,
     offer ? `<offer>\n${quoteData(offer)}\n</offer>` : null,

@@ -11,10 +11,17 @@
  */
 import { z } from 'zod';
 import { PLAYBOOK_LIMITS, type PlaybookDetails } from './playbooks';
-import { scriptOf } from './script';
+import { firstMessagesOf, opensWithIntro } from './script';
 
-/** One of the playbook's first messages (`own`), or an AI style from before decision 164, kept for its numbers. */
-export const OPENER_KINDS = { style: 'AI style', own: 'Your message' } as const;
+/**
+ * One of the playbook's first messages (`own`), its introduction in their place (`intro`, decision 168), or an AI style
+ * from before decision 164, kept for its numbers.
+ */
+export const OPENER_KINDS = {
+  style: 'AI style',
+  own: 'Your message',
+  intro: 'Introduction',
+} as const;
 export type OpenerKind = keyof typeof OPENER_KINDS;
 export const OPENER_KIND_KEYS = Object.keys(OPENER_KINDS) as [OpenerKind, ...OpenerKind[]];
 
@@ -24,9 +31,14 @@ export interface Opener {
   readonly text: string;
 }
 
-/** A playbook's first messages, in its order: the versions drafts take turns with. */
-export const openersOf = (d: Pick<PlaybookDetails, 'goal' | 'script'>): Opener[] =>
-  scriptOf(d).first.map((text) => ({ kind: 'own' as const, text }));
+/**
+ * A playbook's first messages, in its order: the versions drafts take turns with. A playbook that starts with an
+ * introduction (decision 168) has that one alone.
+ */
+export const openersOf = (d: Pick<PlaybookDetails, 'goal' | 'script' | 'opens'>): Opener[] => {
+  const kind = opensWithIntro(d) ? ('intro' as const) : ('own' as const);
+  return firstMessagesOf(d).map((text) => ({ kind, text }));
+};
 
 /** What an opener is known by in the counts: its kind and its words, whatever the spaces. */
 export const openerKey = (o: Opener) =>

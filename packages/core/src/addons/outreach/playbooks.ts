@@ -8,7 +8,13 @@
 import { z } from 'zod';
 import { PLATFORM_KEYS, PLATFORMS, type Platform, WORKING_PLATFORMS } from './networks';
 import { loosened } from './loose';
-import { FullScriptOut, openerAsFirst, PlaybookScript, SCRIPT_LIMITS } from './script';
+import {
+  FullScriptOut,
+  openerAsFirst,
+  PLAYBOOK_OPENS_KEYS,
+  PlaybookScript,
+  SCRIPT_LIMITS,
+} from './script';
 import { VideoLink, VideoScript } from './video';
 
 /** The social networks it knows, each with its kit in ./networks.ts. */
@@ -410,6 +416,12 @@ export const PlaybookDetails = z
      * saved.
      */
     script: PlaybookScript.optional(),
+    /**
+     * How it starts a chat with someone who just connected (decision 168, ./script.ts `PLAYBOOK_OPENS`): the first
+     * message's question (`pitch`), or an introduction in its place (`intro`). Left out of a save, it keeps what's saved;
+     * a playbook saved before it pitches.
+     */
+    opens: z.enum(PLAYBOOK_OPENS_KEYS).optional(),
     /** How it sounds: "Friendly, one owner to another. No hard sell." */
     tone: words(PLAYBOOK_LIMITS.tone),
     /** A few of the business's own messages, for the AI to sound like. */
@@ -518,6 +530,7 @@ export const blankPlaybook = (): PlaybookDetails => ({
     followUpGaps: followUpGapsFor(PACE_LIMITS.followUps.start),
   },
   script: {},
+  opens: 'pitch',
   tone: null,
   samples: [],
   openerStyles: [],
@@ -998,6 +1011,10 @@ export const PLAYBOOK_THREADS_X_KEYS = ['threadsSearches', 'xSearches'] as const
  * starting words, its own openers as its first messages (`upgradePlaybookDetails`).
  */
 export const PLAYBOOK_SCRIPT_KEYS = ['script'] as const;
+/**
+ * How it starts a chat (decision 168). No new data version: a playbook saved before has none, and pitches.
+ */
+export const PLAYBOOK_OPENS_PART_KEYS = ['opens'] as const;
 /** What a save that leaves a part out keeps. */
 export const PLAYBOOK_KEPT_KEYS = [
   ...PLAYBOOK_V3_KEYS,
@@ -1009,6 +1026,7 @@ export const PLAYBOOK_KEPT_KEYS = [
   ...PLAYBOOK_V9_KEYS,
   ...PLAYBOOK_THREADS_X_KEYS,
   ...PLAYBOOK_SCRIPT_KEYS,
+  ...PLAYBOOK_OPENS_PART_KEYS,
 ] as const;
 
 /**

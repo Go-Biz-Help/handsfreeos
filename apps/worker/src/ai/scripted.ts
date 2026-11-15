@@ -1972,7 +1972,15 @@ function scriptedTodayDraft(message: string) {
   // A first message (decision 164): the playbook's own words with the blanks filled, a second with a small change of
   // wording, the first again and one with “free trial”, for the checks to drop.
   if (message.includes('this is the owner’s first message to them')) {
-    const says = scriptedFill(unquote(quotedBlock(message, 'playbook_says') ?? ''), first ?? '');
+    // An introduction (decision 168) names the owner and the business too.
+    const owner = unquote(quotedBlock(message, 'owner_name') ?? '').split(/\s+/)[0] ?? '';
+    const business = unquote(quotedBlock(message, 'business') ?? '');
+    const says = scriptedFill(
+      unquote(quotedBlock(message, 'playbook_says') ?? '')
+        .replace(/\[your first name\]/g, owner)
+        .replace(/\[your business name\]/g, business),
+      first ?? '',
+    );
     return {
       simple: false,
       answer: 'none',

@@ -30,6 +30,8 @@ import { BUSINESS_NAMES, noDashes, PLAIN_WRITING } from './voice';
 /** Where a conversation is: the last step sent. */
 export const CONVERSATION_STEPS = {
   first: 'First message sent',
+  /** An introduction in place of the first message (decision 168): check-ins follow it, never follow-ups. */
+  intro: 'Introduction sent',
   video: 'Video sent',
   link: 'Link sent',
 } as const;
@@ -41,6 +43,7 @@ export const CONVERSATION_STEP_KEYS = Object.keys(CONVERSATION_STEPS) as [
 
 /** The message kind that is each step (./automation.ts `MESSAGE_KINDS`). */
 export const STEP_OF_KIND: Readonly<Partial<Record<string, ConversationStep>>> = {
+  // An introduction in its place starts at `intro` (decision 168, ./ops/conversation.ts `noteSent`).
   opener: 'first',
   video: 'video',
   pitch: 'link',
@@ -90,13 +93,19 @@ export const checkInAfter = (
 });
 
 /**
- * The step a yes leads to: the demo ask with the link (decision 153), after the first message or, for someone sent a
- * playbook's video before the library (decision 154, 3a: the video step is gone), after the video. After the link, a
- * yes is theirs to book: it's a reply.
+ * The step a yes leads to: the demo ask with the link (decision 153), after the first message or an introduction in its
+ * place (decision 168), or, for someone sent a playbook's video before the library (decision 154, 3a: the video step is
+ * gone), after the video. After the link, a yes is theirs to book: it's a reply.
  */
 export function stepAfterYes(step: ConversationStep): 'pitch' | null {
-  return step === 'first' || step === 'video' ? 'pitch' : null;
+  return step === 'first' || step === 'intro' || step === 'video' ? 'pitch' : null;
 }
+
+/**
+ * Whether a conversation gets only check-ins when they go quiet (decision 168, the owner's 2b): one an introduction
+ * started asks nothing of them, so no follow-up ever nudges them, before or after a reply that isn't a yes.
+ */
+export const checkInsOnly = (step: ConversationStep): boolean => step === 'intro';
 
 // ---- Your messages (Get ready, decision 63) ----
 
@@ -448,7 +457,7 @@ export const DEMO_ASK_EXAMPLE =
  * as they are for the real ones.
  */
 const SAMPLE_BLANKS =
-  'Words in [square brackets] under <playbook_says> are filled in for the made-up person: [first name] a first name, [their kind of business] the kind of business the playbook’s niche runs, in a word or two, [what your offer gets them] what the offer really does for them in a few plain words, never more than the offer says, [what your offer is] the offer named the way the offer does, in a few plain words, never by its brand name, and [open times] two made-up times said the way a person texts them (“tomorrow at 11 ct or friday at noon ct”). [booking link] stays exactly as written.';
+  'Words in [square brackets] under <playbook_says> are filled in for the made-up person: [first name] a first name, [their kind of business] the kind of business the playbook’s niche runs, in a word or two, [what your offer gets them] what the offer really does for them in a few plain words, never more than the offer says, [what your offer is] the offer named the way the offer does, in a few plain words, never by its brand name, [your business name] the business’s name under <business>, and [open times] two made-up times said the way a person texts them (“tomorrow at 11 ct or friday at noon ct”). [booking link] and [your first name] stay exactly as written.';
 
 export const MESSAGE_SAMPLES_ASK = 'Write the sample messages.';
 
@@ -589,7 +598,10 @@ export function messageSamplesPrompt(f: SamplesFacts): string {
         ? '- video: the message after they say yes, with [video link]: a short video on how it works and how others got results, and if a quick call sounds good, they can just say.'
         : '- video: null.',
       `- link: the message after they say yes, with [booking link]. ${asMessage('the ask', p.script.yes)}`,
-      `- followUps: ${f.followUps} short follow-ups in turn, for when they go quiet after the first message, each different, never repeating one before. ${asHow('a follow-up', p.script.followUp)}`,
+      // A playbook that starts with an introduction sends none (decision 168).
+      f.followUps > 0
+        ? `- followUps: ${f.followUps} short follow-ups in turn, for when they go quiet after the first message, each different, never repeating one before. ${asHow('a follow-up', p.script.followUp)}`
+        : '- followUps: an empty list: none go.',
       `- checkIn: a monthly check-in${p.usefulWhat ? ', with the useful thing' : ', with nothing to send yet'}. ${asHow('the check-in', p.script.checkIn)}`,
     ].join('\n'),
     SAMPLE_BLANKS,

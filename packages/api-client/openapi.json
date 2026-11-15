@@ -90897,6 +90897,11 @@
                               "maxLength": 600
                             }
                           },
+                          "intro": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
                           "reconnect": {
                             "type": "string",
                             "minLength": 1,
@@ -90973,6 +90978,13 @@
                             "maxLength": 800
                           }
                         }
+                      },
+                      "opens": {
+                        "type": "string",
+                        "enum": [
+                          "pitch",
+                          "intro"
+                        ]
                       },
                       "tone": {
                         "anyOf": [
@@ -91533,6 +91545,11 @@
                               "maxLength": 600
                             }
                           },
+                          "intro": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
                           "reconnect": {
                             "type": "string",
                             "minLength": 1,
@@ -91609,6 +91626,13 @@
                             "maxLength": 800
                           }
                         }
+                      },
+                      "opens": {
+                        "type": "string",
+                        "enum": [
+                          "pitch",
+                          "intro"
+                        ]
                       },
                       "tone": {
                         "anyOf": [
@@ -92182,6 +92206,11 @@
                                 "maxLength": 600
                               }
                             },
+                            "intro": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
                             "reconnect": {
                               "type": "string",
                               "minLength": 1,
@@ -92259,6 +92288,13 @@
                             }
                           },
                           "additionalProperties": false
+                        },
+                        "opens": {
+                          "type": "string",
+                          "enum": [
+                            "pitch",
+                            "intro"
+                          ]
                         },
                         "tone": {
                           "anyOf": [
@@ -92437,6 +92473,9 @@
                             "type": "string"
                           }
                         },
+                        "intro": {
+                          "type": "string"
+                        },
                         "reconnect": {
                           "type": "string"
                         },
@@ -92485,6 +92524,7 @@
                       },
                       "required": [
                         "first",
+                        "intro",
                         "reconnect",
                         "yes",
                         "question",
@@ -93002,6 +93042,11 @@
                                 "maxLength": 600
                               }
                             },
+                            "intro": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
                             "reconnect": {
                               "type": "string",
                               "minLength": 1,
@@ -93079,6 +93124,13 @@
                             }
                           },
                           "additionalProperties": false
+                        },
+                        "opens": {
+                          "type": "string",
+                          "enum": [
+                            "pitch",
+                            "intro"
+                          ]
                         },
                         "tone": {
                           "anyOf": [
@@ -93257,6 +93309,9 @@
                             "type": "string"
                           }
                         },
+                        "intro": {
+                          "type": "string"
+                        },
                         "reconnect": {
                           "type": "string"
                         },
@@ -93305,6 +93360,7 @@
                       },
                       "required": [
                         "first",
+                        "intro",
                         "reconnect",
                         "yes",
                         "question",
@@ -96268,7 +96324,8 @@
                         "type": "string",
                         "enum": [
                           "style",
-                          "own"
+                          "own",
+                          "intro"
                         ]
                       },
                       "text": {
@@ -99799,7 +99856,8 @@
                             "type": "string",
                             "enum": [
                               "style",
-                              "own"
+                              "own",
+                              "intro"
                             ]
                           },
                           "text": {
@@ -99959,7 +100017,8 @@
                               "type": "string",
                               "enum": [
                                 "style",
-                                "own"
+                                "own",
+                                "intro"
                               ]
                             },
                             "text": {
@@ -103020,7 +103079,8 @@
                                           "type": "string",
                                           "enum": [
                                             "style",
-                                            "own"
+                                            "own",
+                                            "intro"
                                           ]
                                         },
                                         "text": {
@@ -104373,7 +104433,8 @@
                                     "type": "string",
                                     "enum": [
                                       "style",
-                                      "own"
+                                      "own",
+                                      "intro"
                                     ]
                                   },
                                   "text": {
@@ -104666,7 +104727,8 @@
                                           "type": "string",
                                           "enum": [
                                             "style",
-                                            "own"
+                                            "own",
+                                            "intro"
                                           ]
                                         },
                                         "text": {
@@ -104999,7 +105061,8 @@
                                           "type": "string",
                                           "enum": [
                                             "style",
-                                            "own"
+                                            "own",
+                                            "intro"
                                           ]
                                         },
                                         "text": {
@@ -105328,7 +105391,8 @@
                                           "type": "string",
                                           "enum": [
                                             "style",
-                                            "own"
+                                            "own",
+                                            "intro"
                                           ]
                                         },
                                         "text": {
@@ -232362,6 +232426,11 @@
                                       "maxLength": 600
                                     }
                                   },
+                                  "intro": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
                                   "reconnect": {
                                     "type": "string",
                                     "minLength": 1,
@@ -232439,6 +232508,13 @@
                                   }
                                 },
                                 "additionalProperties": false
+                              },
+                              "opens": {
+                                "type": "string",
+                                "enum": [
+                                  "pitch",
+                                  "intro"
+                                ]
                               },
                               "tone": {
                                 "anyOf": [
@@ -232617,6 +232693,9 @@
                                   "type": "string"
                                 }
                               },
+                              "intro": {
+                                "type": "string"
+                              },
                               "reconnect": {
                                 "type": "string"
                               },
@@ -232665,6 +232744,7 @@
                             },
                             "required": [
                               "first",
+                              "intro",
                               "reconnect",
                               "yes",
                               "question",
@@ -238269,7 +238349,8 @@
                                   "type": "string",
                                   "enum": [
                                     "style",
-                                    "own"
+                                    "own",
+                                    "intro"
                                   ]
                                 },
                                 "text": {
@@ -240725,7 +240806,8 @@
                                     "type": "string",
                                     "enum": [
                                       "style",
-                                      "own"
+                                      "own",
+                                      "intro"
                                     ]
                                   },
                                   "text": {
@@ -243018,7 +243100,8 @@
                                                     "type": "string",
                                                     "enum": [
                                                       "style",
-                                                      "own"
+                                                      "own",
+                                                      "intro"
                                                     ]
                                                   },
                                                   "text": {
@@ -243265,7 +243348,8 @@
                                             "type": "string",
                                             "enum": [
                                               "style",
-                                              "own"
+                                              "own",
+                                              "intro"
                                             ]
                                           },
                                           "text": {
@@ -243498,7 +243582,8 @@
                                             "type": "string",
                                             "enum": [
                                               "style",
-                                              "own"
+                                              "own",
+                                              "intro"
                                             ]
                                           },
                                           "text": {
@@ -244289,7 +244374,8 @@
                                             "type": "string",
                                             "enum": [
                                               "style",
-                                              "own"
+                                              "own",
+                                              "intro"
                                             ]
                                           },
                                           "text": {
