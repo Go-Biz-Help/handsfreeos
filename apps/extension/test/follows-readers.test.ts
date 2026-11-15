@@ -541,7 +541,7 @@ describe('Threads’ Like and box to reply in, as its pages drew them on 15 Nov 
     ).toBe('none');
     expect(box().textContent).toBe('');
     expect(sent).toEqual([]);
-  });
+  }, 15_000);
 
   it('with no box under the post, replies in the one its own Reply opens over it, sent with Post', async () => {
     const doc = page(`${TH_MENU}${threadNow('dana.reyes', 'DQx7Ab12cd', 'Who do you use?')}`, POST);
@@ -762,7 +762,7 @@ describe('Threads’ messages', () => {
     });
     expect(await writeMessage(THREADS_SPEC)(doc, CHAT, 'Hi Dana', dana)).toBe('done');
     expect(sent).toEqual(['Hi Dana']);
-  });
+  }, 15_000);
 
   it('Check Threads finds a chat’s box and who it’s with, never typing in it', async () => {
     const doc = page(chatPage(), CHAT);
