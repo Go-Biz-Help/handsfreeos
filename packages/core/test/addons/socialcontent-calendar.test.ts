@@ -359,6 +359,11 @@ describe('checking what the AI designs', () => {
     expect(prompt).toContain('Also: make it brighter');
     expect(prompt).toMatch(/No words, letters, logos/);
     expect(prompt).toMatch(/bottom third calm/);
+    // A screen in use shows something, even when the scene asked for a blank one (the owner, 15 Nov).
+    expect(prompt).toMatch(
+      /never a blank white, grey or black screen, even if the scene above says so/,
+    );
+    expect(prompt).toMatch(/five fingers/);
   });
 });
 
