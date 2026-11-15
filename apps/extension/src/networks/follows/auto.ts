@@ -165,8 +165,8 @@ function boxNow(doc: Document, spec: FollowSpec): HTMLElement | null {
 
 /**
  * Replies under their post (decision 92), once the person OK'd it or the comment hold is past: only on the post asked
- * for, on its own page, when its own address names them (`on`); only in the box to reply to it (under it on X; on
- * Threads, the box its own Reply opens), only while that box is empty; typed as a person types (`writeIn`), then sent
+ * for, on its own page, when its own address names them (`on`); only in the box to reply to it (under it, or the box
+ * its own Reply opens where none shows), only while that box is empty; typed as a person types (`writeIn`), then sent
  * with that box's own button. `done` once the box empties or closes; `none` with no such page or box, or no button by
  * it (what was typed is taken out again); `not_sent` when the box had writing in it already, what was typed didn't
  * take, or the site didn't take it.
@@ -179,7 +179,7 @@ export const writeTheirComment =
     if (!sameName(here.author.username, on.profile.username)) return 'none';
     let box = await waitFor(() => boxNow(doc, spec), 2_000);
     if (!box) {
-      // Threads draws no box under a post: its own Reply opens one over it.
+      // No box under the post: its own Reply opens one over it.
       const reply = spec.replyIn(here.root);
       if (!reply) return 'none';
       reply.click();
