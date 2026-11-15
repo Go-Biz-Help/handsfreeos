@@ -618,6 +618,28 @@ export function postCommentBoxOf(doc: Document, href: string): HTMLElement | nul
 }
 
 /**
+ * A reel's own Comment in the reels player: the button in its bar whose icon says Comment, named by its count beside
+ * it. Pressing it opens the reel's comments, with their box to comment in (the owner's problem report of 15 Nov 2026:
+ * a comment on a reel found no box, as the player shows none till its comments are open).
+ */
+function reelCommentOf(reel: Element): HTMLElement | null {
+  const like = postLikeOf(reel);
+  const bar = like ? postLikeBar(like) : null;
+  const icon = bar
+    ? [...bar.querySelectorAll('svg[aria-label]')].find((i) =>
+        COMMENT.test(clean(i.getAttribute('aria-label'))),
+      )
+    : undefined;
+  return icon?.closest<HTMLElement>('button, [role="button"]') ?? null;
+}
+
+/** The box to comment on the reel in, once its comments are open: the only one on the page that says so. */
+function reelCommentBoxOf(doc: Document): HTMLElement | null {
+  const boxes = boxesSaying(doc, COMMENT_BOX);
+  return boxes.length === 1 ? boxes[0]! : null;
+}
+
+/**
  * The post's own part of its page, for a look at its picture or video before its comment is drafted (decision 166,
  * ../post-look.ts, from 0.140.0): given only on the post asked for, on its own page, when its own link names them, as
  * a comment goes (`writeTheirComment`). What's there but isn't the post's is ruled out: anything inside a link to
@@ -664,7 +686,9 @@ const writtenIn = (box: Element): string =>
  * post asked for, on its own page, when its own link names them (`on`); only in the post's own box, never one among its
  * comments, and only while that box is empty; typed as a person types (`writeIn`), then sent with that box's own Post.
  * `done` once the box empties; `none` with no such page or box, or no Post by it (what was typed is taken out again);
- * `not_sent` when the box had writing in it already, what was typed didn't take, or Instagram didn't take it.
+ * `not_sent` when the box had writing in it already, what was typed didn't take, or Instagram didn't take it. In the
+ * reels player, the reel it opened on, theirs by its account's links (`openedReelOf`), its comments opened by its own
+ * Comment for their box (from 0.141.1).
  */
 export async function writeTheirComment(
   doc: Document,
@@ -677,9 +701,19 @@ export async function writeTheirComment(
   const asked = instagramUrl(on.postUrl);
   if (!url || !asked || postOf(asked) !== url || !text.trim()) return 'none';
   const code = partsOf(new URL(url))[1]!;
-  if (!isThem(namedByItsLink(postRootOf(doc), href, code), on.profile)) return 'none';
+  // In the reels player, the reel it opened on, theirs by its account's links over it (as a like goes), with its
+  // comments opened by its own Comment to show its box.
+  const reel = openedReelOf(doc, href);
+  if (reel) {
+    const author = reelAuthorOf(reel, href);
+    if (!isThem(author, on.profile) && !madeWithThem(reel, href, author, on.profile, true))
+      return 'none';
+    const opener = reelCommentOf(reel);
+    if (!opener) return 'none';
+    if (opener.getAttribute('aria-expanded') !== 'true') opener.click();
+  } else if (!isThem(namedByItsLink(postRootOf(doc), href, code), on.profile)) return 'none';
   // Instagram draws the form again once its box has the focus (Post shows), so the box is found again each look.
-  const now = () => postCommentBoxOf(doc, href);
+  const now = () => (reel ? reelCommentBoxOf(doc) : postCommentBoxOf(doc, href));
   const box = await waitFor(now, WENT_MS);
   if (!box) return 'none';
   // Something written there already is the person's: left alone.

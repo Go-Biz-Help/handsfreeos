@@ -31,6 +31,9 @@ import type { ProfileRef } from '../networks/facebook/types';
 import type { Work } from './plan';
 import { lookAtPost, looksAtPosts } from './post-look';
 
+/** Said when the post doesn't let them comment: whoever posted it limited who can (from 0.141.1). */
+export const COMMENTS_CLOSED = 'it doesn’t let you comment on it';
+
 /** While the network draws what a press sent. */
 const SETTLE_MS = 2_000;
 /** While a post's picture comes, or its video starts, before it's looked at (decision 166). */
@@ -42,7 +45,8 @@ const LOOK_MS = 2_500;
  */
 export type CommentOutcome =
   | { readonly done: true; readonly line: string }
-  | { readonly done: false; readonly line: string }
+  /** `skip`: nothing could be done there (the post doesn't let them comment), so it's no failure (decision 145). */
+  | { readonly done: false; readonly line: string; readonly skip?: true }
   | { readonly stop: string }
   | { readonly again: string };
 
@@ -173,9 +177,11 @@ export async function sendComment(
 ): Promise<CommentOutcome> {
   const send = item.send!;
   const lead = `${postOf(item)}: `;
-  const failed = async (why: string): Promise<CommentOutcome> => {
+  const failed = async (why: string, skip = false): Promise<CommentOutcome> => {
     await sendDone(send.sendId, businessId, false, why);
-    return { done: false, line: `${lead}${why}` };
+    return skip
+      ? { done: false, line: `${lead}${why}`, skip }
+      : { done: false, line: `${lead}${why}` };
   };
   if (!them || !item.postUrl) return failed('no link to it kept');
   await runner.tab.open(item.postUrl);
@@ -190,6 +196,7 @@ export async function sendComment(
   });
   if (!wrote.ok) return failed(wrote.error);
   if (wrote.result === 'none') return failed('couldn’t find the post’s own box to comment in');
+  if (wrote.result === 'closed') return failed(COMMENTS_CLOSED, true);
   if (wrote.result !== 'done') return failed(`${name} didn’t take the comment`);
   await takeNote(
     {

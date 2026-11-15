@@ -149,7 +149,12 @@ export type AutoResult =
    * A message the extension didn't send itself: the typing didn't land in their chat's box only, or the box stopped
    * being theirs before it went. What it typed is taken out again, or said where it couldn't be (`MessageWrote`).
    */
-  | 'not_theirs';
+  | 'not_theirs'
+  /**
+   * The post doesn't let them comment: its bar has its Like or Share but no Comment, and there's no box to comment in,
+   * as Facebook draws a post whose author limited who can comment (from 0.141.1).
+   */
+  | 'closed';
 
 /**
  * A post's own Like button, not one of its comments': "Like", or "Remove Like" once liked, by its label or, where
@@ -487,6 +492,29 @@ export function sendButton(box: Element): HTMLElement | null {
   return null;
 }
 
+/** Facebook's own mark on a post's Comment button, in the bar its Like and Share sit in. */
+const COMMENT_HOOK = '[data-ad-rendering-role="comment_button"]';
+
+/**
+ * Whether the post the page shows doesn't let them comment (the owner's problem report of 15 Nov 2026): its bar is
+ * drawn, with its Like or Share, but has no Comment, and there's no box to comment in. Facebook draws a post that way
+ * when whoever posted it limited who can comment, so there's nothing to write in. In the post's box over the page
+ * when one is open, as `commentBox` looks.
+ */
+export function commentsClosed(doc: Document): boolean {
+  const dialog = [...doc.querySelectorAll('[role="dialog"]')].filter(shown).at(-1);
+  const root = dialog ?? mainOf(doc);
+  const bar = root.querySelector(`${LIKE_HOOK}, ${SHARE_HOOK}`);
+  return (
+    bar !== null &&
+    root.querySelector(COMMENT_HOOK) === null &&
+    commentBox(doc) === null &&
+    ![...root.querySelectorAll('[role="button"], button')].some((b) =>
+      /^(leave a comment|comment)$/i.test(labelOf(b)),
+    )
+  );
+}
+
 /** The post's Comment, which some posts need pressed before they show their box to comment in. */
 export function commentOpener(doc: Document): HTMLElement | null {
   return (
@@ -498,7 +526,8 @@ export function commentOpener(doc: Document): HTMLElement | null {
 
 /**
  * Writes a comment under the post the page shows, and sends it (decision 26): types it into the post's box to
- * comment in, presses the button that sends it (or Enter), and waits for the box to empty.
+ * comment in, presses the button that sends it (or Enter), and waits for the box to empty. `closed` when the post
+ * doesn't let them comment (`commentsClosed`).
  */
 export async function writeComment(doc: Document, text: string): Promise<AutoResult> {
   let box = commentBox(doc);
@@ -507,7 +536,7 @@ export async function writeComment(doc: Document, text: string): Promise<AutoRes
     await pause(1_200);
     box = commentBox(doc);
   }
-  if (!box) return 'none';
+  if (!box) return commentsClosed(doc) ? 'closed' : 'none';
   return (await typeAndSend(doc, box, text)).result;
 }
 
