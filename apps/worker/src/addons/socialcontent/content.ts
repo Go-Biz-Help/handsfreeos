@@ -22,12 +22,16 @@ import {
   canRewrite,
   firstPlannedNetwork,
   hasPictures,
+  INSTAGRAM_PICTURE_SHAPE,
   isPostingNetwork,
+  PICTURE_SIZES,
+  pictureShapeOf,
   planOf,
   POSTING_NETWORKS,
   REWRITE_GAP_MS,
   type ContentFormat,
   type ContentState,
+  type PictureShape,
   type PostingNetwork,
 } from '@hfos/core/addons/socialcontent/calendar';
 import { movesFor, openSlots as planSlots } from '@hfos/core/addons/socialcontent/schedule';
@@ -114,7 +118,7 @@ import { chargeUsage } from '../../money/wallet';
 import { PictureError } from '../../pictures';
 import { scheduleAddonJob } from '../queue';
 import { businessText, listsAllFilled, listsHere, offerIsLive, requireLiveOffer } from './business';
-import { drawDesign, PICTURE_HEIGHT, PICTURE_WIDTH, type Drawn } from './draw';
+import { drawDesign, type Drawn } from './draw';
 import { aiRefusal, suggestIdeas } from './notes';
 import { everResearched, queueResearch, researchNow } from './research';
 import { aboutOf, creatorPosts, ideasBefore, postsBefore, topicOf, type PostSeen } from './variety';
@@ -1170,7 +1174,7 @@ async function keepPicture(
   return fileId;
 }
 
-/** A photo or graphic OpenAI made for a post, cut to the 4:5 portrait every network shows whole. */
+/** A photo or graphic OpenAI made for a post, cut to its network's shape: Instagram's own (3:4), else 4:5. */
 interface MadePhoto {
   readonly bytes: Buffer;
   /** What it shows, for the design AI. */
@@ -1284,7 +1288,8 @@ async function checkPictures(
         mediaType: 'image/jpeg',
         data: (
           await sharp(bytes)
-            .resize(CHECKS.width, CHECKS.height, { fit: 'cover' })
+            // Smaller but whole, in its own shape: Instagram's isn't cut to 4:5 for the check.
+            .resize(CHECKS.width, CHECKS.height, { fit: 'inside' })
             .jpeg({ quality: 82 })
             .toBuffer()
         ).toString('base64'),
@@ -1322,7 +1327,7 @@ async function drawChecked(
   photo: MadePhoto | null,
 ): Promise<{ design: Design; pictures: Drawn[]; check: PictureCheck | null }> {
   const drawn = async (d: Design) => {
-    const pictures = await drawDesign(d, photo?.bytes ?? null);
+    const pictures = await drawDesign(d, photo?.bytes ?? null, pictureShapeOf(p.network));
     const check = withCutWords(
       await checkPictures(
         ctx,
@@ -1380,6 +1385,7 @@ async function openAiPicture(
   title: string,
   prompt: string,
   what: string,
+  shape: PictureShape,
 ): Promise<Buffer> {
   const maker = ctx.pictures;
   if (!maker)
@@ -1391,7 +1397,7 @@ async function openAiPicture(
     walletRoom(tx, ctx.scope.workspaceId, 'ai', (m, e) => ctx.log.error({ err: e }, m)),
   );
   if (!room.allowed) throw new PictureError(WALLET_REFUSALS.ai, false);
-  const made = await maker.make(prompt);
+  const made = await maker.make(prompt, { square: shape === '1:1' });
   if (made.model !== maker.model)
     ctx.log.warn(
       { postId, model: maker.model, backup: made.model },
@@ -1404,8 +1410,9 @@ async function openAiPicture(
     // What OpenAI really counted, kept beside the 9¢ so the price can be checked against it (owner's pick, 11 Nov).
     meta: { postId, model: made.model, ...(made.usage ? { openAi: made.usage } : {}) },
   });
+  const size = PICTURE_SIZES[shape];
   return sharp(made.bytes)
-    .resize(PICTURE_WIDTH, PICTURE_HEIGHT, { fit: 'cover', position: 'attention' })
+    .resize(size.width, size.height, { fit: 'cover', position: 'attention' })
     .jpeg({ quality: 92 })
     .toBuffer();
 }
@@ -1436,8 +1443,15 @@ async function tryGraphic(
       ctx,
       postId,
       p.title,
-      graphicPromptFor({ shows: photoShows(p, prompt), page, colors: design, ask }),
+      graphicPromptFor({
+        shows: photoShows(p, prompt),
+        page,
+        colors: design,
+        ask,
+        shape: pictureShapeOf(p.network),
+      }),
       'OpenAI graphic',
+      pictureShapeOf(p.network),
     );
   } catch (e) {
     if (e instanceof PictureError && !e.retryable && !e.refused) throw e;
@@ -1470,6 +1484,50 @@ function pictureFailure(e: unknown): string {
   if (e instanceof PictureError) return e.message.slice(0, 300);
   if (e instanceof AiAskError) return aiRefusal(e).message.slice(0, 300);
   return 'Something went wrong making the picture. Press Make it again to try once more.';
+}
+
+/**
+ * Instagram posts not up yet whose AI pictures aren't in Instagram's shape (the owner, 15 Nov: "fix that and then redo
+ * all instagram images"): each is queued to have them made again, the way it had them (designed or photo), keeping
+ * its words. A picture made since says its shape in its design, so this finds nothing once they're done. It
+ * runs after any post's pictures are made and with the weekly read. Hidden posts wait until they're shown again;
+ * people's own pictures are left alone.
+ */
+export async function reshapeLeft(ctx: AddonScopeContext, exceptPostId: string | null = null) {
+  const left = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{ id: string; way: 'design' | 'photo' }>(
+      tx,
+      sql`select c.record_id as id, c.picture_way as way
+          from addon_socialcontent.content c
+          join app.custom_records r on r.id = c.record_id and r.archived_at is null
+          where c.workspace_id = ${ctx.scope.workspaceId} and c.network = 'instagram'
+            and c.state in ('draft', 'ready', 'failed') and c.hidden_at is null
+            and c.picture_way in ('design', 'photo') and c.picture_state = 'made'
+            and c.format in ('photo', 'carousel')
+            and coalesce(c.design ->> 'shape', '4:5') <> ${INSTAGRAM_PICTURE_SHAPE}
+            and c.record_id <> ${exceptPostId ?? '00000000-0000-0000-0000-000000000000'}::uuid
+          order by c.post_at nulls last
+          limit 50`,
+    ),
+  );
+  for (const [i, l] of left.entries())
+    await asWorker(ctx.db, ctx.scope, (tx) =>
+      scheduleAddonJob(
+        tx,
+        { id: ctx.manifest.id, generation: ctx.generation },
+        {
+          kind: PICTURES_JOB,
+          dedupeKey: `${PICTURES_JOB}:${l.id}`,
+          // A little apart, so a month of posts doesn't ask the AI all at once.
+          runAt: new Date(Date.now() + i * REWRITE_GAP_MS),
+          payload: { postId: l.id, way: l.way, prompt: null, ask: null },
+          workspaceId: ctx.scope.workspaceId,
+          organizationId: ctx.scope.organizationId,
+        },
+      ),
+    );
+  if (left.length)
+    ctx.log.info({ posts: left.length }, 'Instagram pictures queued to be made in its shape');
 }
 
 /**
@@ -1522,8 +1580,13 @@ export const runPictures: AddonJobHandler = async (ctx) => {
             state: 'made',
             way,
             fileIds,
-            design: { ...design, graphic } as unknown as Record<string, unknown>,
+            design: {
+              ...design,
+              graphic,
+              shape: pictureShapeOf(p.network),
+            } as unknown as Record<string, unknown>,
           });
+          await reshapeLeft(ctx, postId);
           return;
         }
       } else graphic = { tried: false, passed: false };
@@ -1538,8 +1601,9 @@ export const runPictures: AddonJobHandler = async (ctx) => {
             ctx,
             postId,
             p.title,
-            photoPromptFor(photoShows(p, prompt), ask),
+            photoPromptFor(photoShows(p, prompt), ask, pictureShapeOf(p.network)),
             'Photo-style picture',
+            pictureShapeOf(p.network),
           ),
           shows: shows ?? '',
         };
@@ -1565,8 +1629,10 @@ export const runPictures: AddonJobHandler = async (ctx) => {
         ...done.design,
         ...(done.check ? { check: done.check } : {}),
         ...(graphic ? { graphic } : {}),
+        shape: pictureShapeOf(p.network),
       } as unknown as Record<string, unknown>,
     });
+    await reshapeLeft(ctx, postId);
   } catch (e) {
     const retryable =
       (e instanceof PictureError && e.retryable) || (e instanceof AiAskError && e.retryable);

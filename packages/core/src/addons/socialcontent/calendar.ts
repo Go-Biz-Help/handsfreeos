@@ -18,6 +18,24 @@ export type PostingNetwork = (typeof POSTING_NETWORKS)[number];
 export const isPostingNetwork = (n: unknown): n is PostingNetwork =>
   typeof n === 'string' && (POSTING_NETWORKS as readonly string[]).includes(n);
 
+/**
+ * The shapes of the pictures the AI makes, width to height, each 1080 wide. Instagram's have their own shape (the
+ * owner, 15 Nov: "the system is still creating non 1:1 images for instagram", then "apparently 3:4 is the default
+ * for instagram now"); every other network's are the 4:5 portrait. Each page of a carousel is the same shape, as
+ * Instagram wants.
+ */
+export const PICTURE_SHAPES = ['4:5', '3:4', '1:1'] as const;
+export type PictureShape = (typeof PICTURE_SHAPES)[number];
+export const PICTURE_SIZES: Readonly<Record<PictureShape, { width: number; height: number }>> = {
+  '4:5': { width: 1080, height: 1350 },
+  '3:4': { width: 1080, height: 1440 },
+  '1:1': { width: 1080, height: 1080 },
+};
+/** Instagram's shape: its profile grid and feed show 3:4 whole. */
+export const INSTAGRAM_PICTURE_SHAPE: PictureShape = '3:4';
+export const pictureShapeOf = (network: string): PictureShape =>
+  network === 'instagram' ? INSTAGRAM_PICTURE_SHAPE : '4:5';
+
 /** What a post is: a picture, a carousel of slides, a video, or words alone (Facebook and LinkedIn only). */
 export const CONTENT_FORMATS = ['photo', 'carousel', 'video', 'text'] as const;
 export type ContentFormat = (typeof CONTENT_FORMATS)[number];
