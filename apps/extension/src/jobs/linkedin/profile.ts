@@ -20,9 +20,9 @@ import { partStepsWords } from '@hfos/core/addons/outreach/profile-parts';
 import { partSteps, putParts, shownParts, unseenParts, unseenPartsWords } from '../own-parts';
 import type { OwnProfileAnswer } from '../../messages';
 import { PROFILE_CHECK_WORDS as P } from '@hfos/core/addons/outreach/profile-check';
-import { onScreen, valueOf, warnedOn, type Job, type JobEnd } from '../job';
+import { ASK_AGAIN, onScreen, valueOf, warnedOn, type Job, type JobEnd } from '../job';
 import { aboutNote, headlineNote, loadNote, ownProfileNote, type ReportNote } from '../report';
-import { LINKEDIN, OWN_PROFILE, readLinkedIn, SIGNED_IN } from './read';
+import { LINKEDIN, OWN_PROFILE, readLinkedIn } from './read';
 
 type EditTask = Extract<AskTask, { kind: 'profile_edit' }>;
 
@@ -38,7 +38,7 @@ async function openOwn(job: Job): Promise<JobEnd | null> {
     (page.kind !== 'profile' && page.kind !== 'own-profile') ||
     page.profile?.connection !== 'self'
   )
-    return failed(`LinkedIn didn’t open your own profile. ${SIGNED_IN}`);
+    return failed(`LinkedIn didn’t open your own profile. ${ASK_AGAIN}`);
   return null;
 }
 

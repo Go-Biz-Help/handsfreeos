@@ -11,7 +11,13 @@ import {
   type OutreachSettings,
 } from '@hfos/core/addons/outreach/chat-read';
 import type { CountriesSkippedOutput, CountryList } from '@hfos/core/addons/outreach/countries';
-import { networksOn } from '@hfos/core/addons/outreach/network-words';
+import {
+  withHandsOff,
+  withHandsOffEverywhere,
+  type HandsOff,
+} from '@hfos/core/addons/outreach/hands-off';
+import type { NetworkStatus } from '@hfos/core/addons/outreach/network-status';
+import { networkOfWaiting, networksOn } from '@hfos/core/addons/outreach/network-words';
 import { PLATFORM_KEYS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import {
   isNetworkPart,
@@ -49,7 +55,7 @@ import {
 import { SaveLine } from './settings-bits';
 import { VideoLibraryPart } from './video-library';
 import { GeneralMine, GeneralTeam } from './settings-general';
-import { NetworkMine, NetworkTeam } from './settings-network';
+import { NetworkMine, NetworkTeam, type NetworkHere } from './settings-network';
 import { useAskActions, useAsks, type AskActions } from './asks';
 import { useProfileProps, type ProfileProps } from './ready';
 
@@ -174,6 +180,29 @@ export function SettingsScreen({ whose, part: raw }: { whose?: string; part?: st
     asks.data,
     W.rows.settings,
   );
+  // The status card at the top of a network's page (decision 170): its live view, and what waits on the person there.
+  // No card when any of it can't be had.
+  const here = useOutreachAnswer<NetworkHere | null>(
+    networkPart && isNetworkPart(part)
+      ? async () => {
+          const [live, waiting, autopilot] = await Promise.all([
+            api.POST('/v1/queries/outreach.live', { body: { workspaceId: ws, platform: part } }),
+            api.POST('/v1/queries/outreach.waiting', { body: { workspaceId: ws, items: true } }),
+            api.POST('/v1/queries/outreach.autopilot', { body: { workspaceId: ws } }),
+          ]);
+          if (!live.data || !waiting.data) return null;
+          return {
+            live: live.data,
+            waiting: waiting.data.items.filter((i) => networkOfWaiting(i) === part).length,
+            people: (autopilot.data?.people ?? []).filter(
+              (p) => p.platform === part && p.state === 'waiting',
+            ).length,
+          };
+        }
+      : null,
+    `network-here:${ws}:${part}`,
+    W.rows.settings,
+  );
   // Back on the menu from a part: asked again, so each network's On or Off is as just saved.
   const shown = React.useRef(false);
   const { reload: reloadAutomation } = automation;
@@ -215,6 +244,15 @@ export function SettingsScreen({ whose, part: raw }: { whose?: string; part?: st
       asks={asks.data}
       askActions={askActions}
       profile={profile}
+      here={networkPart ? here.data : null}
+      onAct={(act) =>
+        act === 'computer'
+          ? openOutreach(ws, 'live')
+          : act === 'today'
+            ? openOutreach(ws, 'today', isNetworkPart(part) ? `net=${part}` : '')
+            : openOutreach(ws, 'waiting')
+      }
+      onToday={isNetworkPart(part) ? () => openOutreach(ws, 'today', `net=${part}`) : null}
       mine={mine}
       business={ctx.manages ? business.data : null}
       manages={ctx.manages}
@@ -240,14 +278,16 @@ export function SettingsScreen({ whose, part: raw }: { whose?: string; part?: st
         }
       }}
       onRetry={automation.reload}
-      onSaveMine={async (settings) => {
+      onSaveMine={async (settings, picked) => {
         try {
           await change('outreach.automation.save', {
             workspaceId: ws,
             ...(mine ? {} : { userId: userId! }),
             settings,
+            ...(picked.length ? { picked: [...picked] } : {}),
           });
           automation.reload();
+          if (networkPart) here.reload();
           return null;
         } catch (e) {
           return failed(e);
@@ -440,8 +480,11 @@ interface PartProps {
   manages: boolean;
   online: boolean;
   onRetry: () => void;
-  /** Saves the person's settings: the problem's words, or null once saved. */
-  onSaveMine: (settings: AutomationSettings) => Promise<string | null>;
+  /**
+   * Saves the person's settings: the problem's words, or null once saved. `picked` names the networks whose picks were
+   * chosen under How hands-off? as Autopilot went off there, which the save keeps (decision 170).
+   */
+  onSaveMine: (settings: AutomationSettings, picked: readonly Platform[]) => Promise<string | null>;
   /** Saves some of the business's settings, made on what's kept as the save goes; the others stay as they are. */
   onSaveBusiness: (
     edit: (now: OutreachSettings) => Partial<OutreachSettings>,
@@ -451,6 +494,11 @@ interface PartProps {
   askActions?: AskActions | null;
   /** On a network's page, the person's own profile there, read and checked (decision 80). */
   profile?: ProfileProps | null;
+  /** On a network's page, the person's own: its status card's live view and what waits there (decision 170). */
+  here?: NetworkHere | null;
+  /** The status card's button, and its link to Today. */
+  onAct?: ((act: NonNullable<NetworkStatus['act']>) => void) | null;
+  onToday?: (() => void) | null;
   /** On General: how many the country setting holds back, and opening its lists. */
   countries?: CountriesSkippedOutput | null;
   onCountries?: (list: CountryList) => void;
@@ -508,6 +556,9 @@ function PartPage({
   asks = null,
   askActions = null,
   profile = null,
+  here = null,
+  onAct = null,
+  onToday = null,
   countries = null,
   onCountries,
   onLikeYours = null,
@@ -534,7 +585,28 @@ function PartPage({
   const report = (testID: string) => (state: SaveState) => {
     if (state.kind !== 'idle') setLine({ testID, state });
   };
-  const form = useAutosave(automation.settings, onSaveMine, report(mineID));
+  // The networks whose picks were chosen under How hands-off? as Autopilot went off there, since the last save: that
+  // save keeps those picks over the person's own from before Autopilot (decision 170).
+  const picked = React.useRef(new Set<Platform>());
+  const form = useAutosave(
+    automation.settings,
+    (settings) => {
+      const chosen = [...picked.current];
+      picked.current.clear();
+      return onSaveMine(settings, chosen);
+    },
+    report(mineID),
+  );
+  // How hands-off? picked on a network's page, or on You for every network.
+  const handsOff = (platform: Platform | null, level: HandsOff) =>
+    form.change((v) => {
+      const next =
+        platform === null
+          ? withHandsOffEverywhere(v, level, automation.rules)
+          : withHandsOff(v, platform, level, automation.rules);
+      for (const p of next.picked) picked.current.add(p);
+      return next.settings;
+    });
   return (
     <Screen
       title={title}
@@ -619,7 +691,13 @@ function PartPage({
           ) : null
         ) : part === 'general' ? (
           <>
-            <GeneralMine automation={automation} form={form} online={online} />
+            <GeneralMine
+              automation={automation}
+              form={form}
+              online={online}
+              manages={manages}
+              onHandsOff={(level) => handsOff(null, level)}
+            />
             {manages ? (
               <TeamMoved
                 words={SETTINGS_WORDS.teamMovedAll}
@@ -645,6 +723,10 @@ function PartPage({
               askActions={mine ? askActions : null}
               profile={mine ? profile : null}
               onLikeYours={onLikeYours}
+              here={mine ? here : null}
+              onHandsOff={(level) => handsOff(part, level)}
+              onAct={onAct}
+              onToday={onToday}
             />
             {manages ? (
               <TeamMoved

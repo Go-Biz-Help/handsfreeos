@@ -22,15 +22,7 @@ import { FOLLOW_SPECS } from '../../networks/follows/specs';
 import type { FollowListed, FollowPlatform } from '../../networks/follows/types';
 import { counted } from '../../words';
 import { onScreen, paced, pause, valueOf, warnedOn, type Job, type JobEnd } from '../job';
-import {
-  accountIn,
-  ended,
-  gather,
-  isTheirs,
-  readFollowIn,
-  signedInWords,
-  signedOutEnd,
-} from './read';
+import { accountIn, ended, gather, isTheirs, readFollowIn, signedOutEnd } from './read';
 
 /** The most a save reads: the newest followers. */
 export const FOLLOWERS_MOST = 200;
@@ -62,7 +54,7 @@ async function followersSaved(job: Job, platform: FollowPlatform): Promise<JobEn
   const own = accountIn(platform, home.own);
   if (!own)
     return {
-      line: `Couldn’t find your own profile in ${spec.name}’s menu. ${signedInWords(platform)}`,
+      line: `Couldn’t find your own profile in ${spec.name}’s menu.`,
       warned: false,
       failed: true,
     };

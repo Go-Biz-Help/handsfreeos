@@ -63,7 +63,16 @@ import {
 } from './accounts-center';
 import { eventStops, groupStops } from './alignable/checkup';
 import { Checkup, isEnd, SEARCH_WORDS, wholeProfile } from './checkup';
-import { onScreen, readPageIn, valueOf, warnedOn, type Job, type JobEnd, type JobTab } from './job';
+import {
+  ASK_AGAIN,
+  onScreen,
+  readPageIn,
+  valueOf,
+  warnedOn,
+  type Job,
+  type JobEnd,
+  type JobTab,
+} from './job';
 import { partSteps, putParts, shownParts, unseenParts, unseenPartsWords } from './own-parts';
 import { checkUsernames, putInByHand, type ByHandPart } from './profile-parts';
 import { ownProfileNote } from './report';
@@ -597,7 +606,7 @@ export async function instagramProfileRead(
   if (isEnd(feed)) return feed;
   if (!feed.own)
     return {
-      line: `Instagram didn’t show your own account. ${SIGNED_IN_INSTAGRAM}`,
+      line: `Instagram didn’t show your own account. ${ASK_AGAIN}`,
       warned: false,
       failed: true,
     };
@@ -681,7 +690,7 @@ async function instagramProfileEdit(job: Job, task: EditTask): Promise<JobEnd> {
     const was = usernameAt(feed.own);
     if (!was)
       return {
-        line: `Instagram didn’t show your own account. ${SIGNED_IN_INSTAGRAM}`,
+        line: `Instagram didn’t show your own account. ${ASK_AGAIN}`,
         warned: false,
         failed: true,
       };
@@ -848,7 +857,7 @@ export async function alignableProfileRead(
   if (job.stopped()) return { line: 'Stopped.', warned: false };
   if (!read.name && !read.about)
     return {
-      line: 'Alignable didn’t show your profile. Check you’re signed in to Alignable in this browser, then ask again.',
+      line: `Alignable didn’t show your profile. ${ASK_AGAIN}`,
       warned: false,
       failed: true,
     };
@@ -998,9 +1007,6 @@ async function alignableProfileEdit(job: Job, task: EditTask): Promise<JobEnd> {
   ];
   return { line: words.filter(Boolean).join(' '), warned: false };
 }
-
-/** What Instagram says when it isn't the person's own account in front of the extension. */
-const SIGNED_IN_INSTAGRAM = 'Check you’re signed in to Instagram in this browser, then ask again.';
 
 /** Check Instagram or Check Alignable: with its window in front the whole time, then the person's own back. */
 function inFront(job: Job, work: (job: Job) => Promise<JobEnd>): Promise<JobEnd> {

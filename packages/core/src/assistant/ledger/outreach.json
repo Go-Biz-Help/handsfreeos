@@ -1,7 +1,7 @@
 {
   "area": "outreach",
   "title": "The Social Outreach add-on: every page",
-  "checkedOn": "2026-11-15",
+  "checkedOn": "2026-11-16",
   "files": {
     "apps/mobile/src/addons/outreach/actions.ts": "9d1266692122",
     "apps/mobile/src/addons/outreach/ai-help.tsx": "715ac076ab3b",
@@ -21,10 +21,10 @@
     "apps/mobile/src/addons/outreach/group-page.tsx": "8d39529ff667",
     "apps/mobile/src/addons/outreach/groups.tsx": "fecbf5a6ef5b",
     "apps/mobile/src/addons/outreach/home.tsx": "0a19980803e9",
-    "apps/mobile/src/addons/outreach/hub.tsx": "85698b61064d",
+    "apps/mobile/src/addons/outreach/hub.tsx": "c2834d2f20c3",
     "apps/mobile/src/addons/outreach/kit.tsx": "0674b20046bb",
     "apps/mobile/src/addons/outreach/like-yours.tsx": "90036aef3364",
-    "apps/mobile/src/addons/outreach/live.tsx": "8ba3b0f92869",
+    "apps/mobile/src/addons/outreach/live.tsx": "65dc89b2fc2f",
     "apps/mobile/src/addons/outreach/more.tsx": "292fe6e6f062",
     "apps/mobile/src/addons/outreach/networks.tsx": "40a6f31b8c0e",
     "apps/mobile/src/addons/outreach/never-contact.tsx": "6f976e49cde7",
@@ -43,10 +43,11 @@
     "apps/mobile/src/addons/outreach/ready-messages.tsx": "928494dff1ce",
     "apps/mobile/src/addons/outreach/ready.tsx": "25850d1b5887",
     "apps/mobile/src/addons/outreach/results.tsx": "aa922c1891d0",
-    "apps/mobile/src/addons/outreach/settings-bits.tsx": "648476e0d785",
-    "apps/mobile/src/addons/outreach/settings-general.tsx": "0cbb1abcb059",
-    "apps/mobile/src/addons/outreach/settings-network.tsx": "b08f54b34f72",
-    "apps/mobile/src/addons/outreach/settings.tsx": "aa830d433553",
+    "apps/mobile/src/addons/outreach/settings-bits.tsx": "e0f6d6ee5cdb",
+    "apps/mobile/src/addons/outreach/settings-general.tsx": "55d12a212e9e",
+    "apps/mobile/src/addons/outreach/settings-hands-off.tsx": "ef85541b7b94",
+    "apps/mobile/src/addons/outreach/settings-network.tsx": "79254085d0bc",
+    "apps/mobile/src/addons/outreach/settings.tsx": "88c5092078ce",
     "apps/mobile/src/addons/outreach/setup.tsx": "88dc516bdf04",
     "apps/mobile/src/addons/outreach/social-card.tsx": "9dfd419415b9",
     "apps/mobile/src/addons/outreach/ticker.tsx": "3ac4c69f8f42",
@@ -81,11 +82,12 @@
     "apps/web/src/addons/outreach/group-page.tsx": "e9e6a23888ab",
     "apps/web/src/addons/outreach/groups-view.tsx": "4a2b658eb365",
     "apps/web/src/addons/outreach/helpful-card.tsx": "df3b34602d3e",
-    "apps/web/src/addons/outreach/home.tsx": "f2388b1e8e58",
+    "apps/web/src/addons/outreach/home.tsx": "5e7307fe706a",
     "apps/web/src/addons/outreach/install-pictures.tsx": "d328a02984f0",
     "apps/web/src/addons/outreach/like-yours.tsx": "8168753d9e13",
     "apps/web/src/addons/outreach/live-view.tsx": "94bdd04df2c6",
     "apps/web/src/addons/outreach/menu-count.tsx": "1c09b867d874",
+    "apps/web/src/addons/outreach/network-settings.tsx": "576348d35a06",
     "apps/web/src/addons/outreach/network-ui.tsx": "0f7af0719ac5",
     "apps/web/src/addons/outreach/offer-panel.tsx": "9a4c91de27e6",
     "apps/web/src/addons/outreach/opener-results.tsx": "d8c1b233c8ac",
@@ -103,8 +105,8 @@
     "apps/web/src/addons/outreach/run-now.tsx": "0e02f32db42a",
     "apps/web/src/addons/outreach/same-name.tsx": "ec38731aaae5",
     "apps/web/src/addons/outreach/settings-link.tsx": "8a590c091aa8",
-    "apps/web/src/addons/outreach/settings-page.tsx": "b3ac210b7b5f",
-    "apps/web/src/addons/outreach/settings-view.tsx": "da6c804a5542",
+    "apps/web/src/addons/outreach/settings-page.tsx": "95925ce03f75",
+    "apps/web/src/addons/outreach/settings-view.tsx": "7d337b5453dd",
     "apps/web/src/addons/outreach/setup-hub.tsx": "681abf5d4f2c",
     "apps/web/src/addons/outreach/setup-network.tsx": "227daa451460",
     "apps/web/src/addons/outreach/setup-row.tsx": "8af713fac69e",
@@ -112,9 +114,9 @@
     "apps/web/src/addons/outreach/setup-view.tsx": "fa79b7cf0445",
     "apps/web/src/addons/outreach/start-fresh.tsx": "c06ae2bf1bb3",
     "apps/web/src/addons/outreach/start-refused.tsx": "ab1a23a363fa",
-    "apps/web/src/addons/outreach/status-strip.tsx": "bb788e0caee6",
+    "apps/web/src/addons/outreach/status-strip.tsx": "cf43b1c1f4b5",
     "apps/web/src/addons/outreach/ticker.tsx": "3bf4c993fe11",
-    "apps/web/src/addons/outreach/today-view.tsx": "72e53d9de8cd",
+    "apps/web/src/addons/outreach/today-view.tsx": "c3be613e54f9",
     "apps/web/src/addons/outreach/touched-posts.tsx": "a25e60b0a355",
     "apps/web/src/addons/outreach/tracking-view.tsx": "6894838d24e1",
     "apps/web/src/addons/outreach/video-library.tsx": "de0fb2af8146",
@@ -137,7 +139,7 @@
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/settings/[part]/page.tsx": "cb082e95ac39",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/settings/page.tsx": "e0247a8457c3",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/setup/page.tsx": "3b4de50baa1d",
-    "apps/web/src/app/app/w/[workspaceId]/a/outreach/show.tsx": "dd890a09d51f",
+    "apps/web/src/app/app/w/[workspaceId]/a/outreach/show.tsx": "be70abb06b55",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/today/page.tsx": "652469b89773",
     "packages/core/src/addons/outreach/manifest.ts": "f055753ba321"
   },
@@ -1697,11 +1699,11 @@
       "by": "outreach_start_day / outreach_stop_day per network"
     },
     {
-      "path": "Today → status: each network's row: its day, Start/Stop, warning, held (Get ready first)",
+      "path": "Today → status: each network’s row: its status chip (as Settings’ status card), its day, Start/Stop, warning, stuck line, held (Get ready first)",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/status-strip.tsx:368",
+      "file": "apps/web/src/addons/outreach/status-strip.tsx:416",
       "covered": "yes",
-      "by": "outreach_live platform day, warning; outreach_get_ready"
+      "by": "outreach_live platform day, warning, steps; outreach_get_ready"
     },
     {
       "path": "Today → status: each network's row: show its list",
@@ -1970,9 +1972,9 @@
       "by": "outreach_today partners"
     },
     {
-      "path": "Today → Done today: each step at its time, Show N more, nothing yet",
+      "path": "Today → Done today: each step at its time (a failed one in amber), Show N more, nothing yet",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:597",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:616",
       "covered": "yes",
       "by": "outreach_live feed (steps)"
     },
@@ -3281,23 +3283,23 @@
     {
       "path": "Settings → General → Set up again / Open Set up",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-page.tsx:428",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:516",
       "covered": "yes",
       "by": "outreach_setup; outreach_save_setup"
     },
     {
       "path": "Settings → General → changed by an owner, when",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/settings-page.tsx:457",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:531",
       "covered": "yes",
       "by": "outreach_automation changedBy"
     },
     {
-      "path": "Settings → General → Autopilot switch, how it asks, training wheels note",
+      "path": "Settings → General → How hands-off, on every network: four levels at once, they differ, not allowed, training wheels note",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-view.tsx:473",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:537",
       "covered": "yes",
-      "by": "outreach_save_automation autopilot"
+      "by": "outreach_save_automation changes (each network’s sending, replies, autopilot) and picked"
     },
     {
       "path": "Settings → General → How you write: voice ticks and a sample message",
@@ -3323,7 +3325,7 @@
     {
       "path": "Settings → General → team settings moved (Open Team); not an owner note",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/settings-page.tsx:475",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:553",
       "covered": "yes",
       "by": "navigation"
     },
@@ -3337,135 +3339,177 @@
     {
       "path": "Settings → network → On switch, saved or problem, not allowed / off notes",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-page.tsx:727",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:864",
       "covered": "yes",
       "by": "outreach_save_automation networks.on"
     },
     {
-      "path": "Settings → network → Set up X (opens its setup)",
+      "path": "Settings → network → More settings → Set up X again (opens its setup)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-page.tsx:755",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:1141",
       "covered": "yes",
       "by": "outreach_setup"
     },
     {
-      "path": "Settings → network → Chrome allowed, or blocked on <computer>",
+      "path": "Settings → network → Chrome hasn’t let it on the network: the status card, or a line on its own",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/settings-page.tsx:788",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:911",
       "covered": "yes",
       "by": "outreach_asks computer.allowed"
     },
     {
       "path": "Settings → network → we're looking at X (coming)",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/settings-page.tsx:805",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:894",
       "covered": "partly",
       "by": "the screen's words; outreach_setup"
     },
     {
-      "path": "Settings → network → training wheels: how far, or fresh account half pace",
+      "path": "Settings → network → Daily limits line: training wheels, or fresh account half pace",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/settings-page.tsx:814",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:1009",
       "covered": "yes",
       "by": "outreach_automation wheels, fresh; outreach_training_wheels"
     },
     {
-      "path": "Settings → network → On its own: off, after OK, on its own (radio cards), training wheels start",
+      "path": "Settings → network → How hands-off?: I do it myself, I OK each message, Autopilot, All on its own; your own mix; not allowed",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-view.tsx:264",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:917",
       "covered": "yes",
-      "by": "outreach_save_automation sending"
+      "by": "outreach_save_automation changes networks.<network>.sending, replies, autopilot (autopilot for Facebook) and picked"
     },
     {
-      "path": "Settings → network → Replies: draft, OK first, on its own",
+      "path": "Settings → network → More settings → Replies: draft, OK first, on its own",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-view.tsx:288",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:1060",
       "covered": "yes",
       "by": "outreach_save_automation replies"
     },
     {
-      "path": "Settings → network → Helpful posts: how they go up",
+      "path": "Settings → network → More settings → Helpful posts: how they go up",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-view.tsx:310",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:1060",
       "covered": "yes",
       "by": "outreach_save_automation posting"
     },
     {
-      "path": "Settings → network → not allowed by the team (list)",
+      "path": "Settings → network → levels the team doesn’t allow (list)",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/settings-view.tsx:328",
+      "file": "apps/web/src/addons/outreach/network-settings.tsx:237",
       "covered": "yes",
       "by": "outreach_automation rules"
     },
     {
-      "path": "Settings → network → Along the way ticks (like first, confirm requests that fit, …)",
+      "path": "Settings → network → What it does: short switches (like first, collect, join groups, cancel old requests, answer requests that fit, …)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-view.tsx:368",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:941",
       "covered": "yes",
       "by": "outreach_save_automation ticks"
     },
     {
-      "path": "Settings → network → Friend requests you get: how to answer them",
+      "path": "Settings → network → More settings → How it answers friend requests",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-view.tsx:380",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:1084",
       "covered": "yes",
       "by": "outreach_save_automation requests mode"
     },
     {
-      "path": "Settings → network → Groups: which groups it works",
+      "path": "Settings → network → What it does → Join groups that fit",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-view.tsx:403",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:941",
       "covered": "yes",
       "by": "outreach_save_automation groups mode"
     },
     {
-      "path": "Settings → network → Tidy up: cancel or unfriend choice",
+      "path": "Settings → network → What it does → Cancel old requests; More settings → Unfriend instead",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-view.tsx:427",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:1100",
       "covered": "yes",
       "by": "outreach_save_automation tidy"
     },
     {
-      "path": "Settings → Instagram → Accounts like yours moved to Find people",
+      "path": "Settings → Instagram → More settings → Accounts like yours moved to Find people",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/settings-page.tsx:857",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:1111",
       "covered": "yes",
       "by": "navigation"
     },
     {
-      "path": "Settings → Facebook → The extension: noting, read chats, mark posts",
+      "path": "Settings → Facebook → While you use Facebook: noting, read chats, mark posts",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-view.tsx:528",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:1004",
       "covered": "yes",
       "by": "outreach_save_automation noting, readChats, markPosts"
     },
     {
-      "path": "Settings → network → Your limits: each daily limit and the most",
+      "path": "Settings → network → Daily limits: in a line, Show every limit, the most",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/settings-page.tsx:879",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:1035",
       "covered": "yes",
       "by": "outreach_automation rules; outreach_live limits"
     },
     {
-      "path": "Settings → network → young account switch; full speed switch",
+      "path": "Settings → network → Go full speed; More settings → young account switch",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-page.tsx:903",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:1045",
       "covered": "yes",
       "by": "outreach_save_automation young, fullSpeed"
     },
     {
       "path": "Settings → network → Your profile: N of M right, or not read; Check your profile (sheet)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-page.tsx:965",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:1050",
       "covered": "yes",
       "by": "outreach_get_ready profileCheck; outreach_tick_profile_item"
     },
     {
-      "path": "Settings → network → Check-up: ask your computer to check your account",
+      "path": "Settings → network → More settings → Check-up: ask your computer to check your account",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-page.tsx:930",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:1127",
       "covered": "yes",
       "by": "outreach_ask_computer kind checkup"
+    },
+    {
+      "path": "Settings → network → status card: Running, Waiting on you, Stuck, Stopped for today, Resting, Yours; what’s going on; its button (Review, OK the people, Your computer, Open Today); See what happened",
+      "kind": "see",
+      "file": "apps/web/src/addons/outreach/network-settings.tsx:73",
+      "covered": "yes",
+      "by": "outreach_live platform (day, computer, limits, warning, steps); outreach_waiting items; outreach_autopilot people; outreach_asks computer.allowed"
+    },
+    {
+      "path": "Settings → network → More settings: folded, what’s inside",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/network-settings.tsx:247",
+      "covered": "never",
+      "by": "opening a fold on the screen; every setting inside is outreach_save_automation"
+    },
+    {
+      "path": "Settings → network → More settings → Messages first each morning (while I OK each message)",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:1080",
+      "covered": "yes",
+      "by": "outreach_save_automation changes networks.<network>.sending approve_all"
+    },
+    {
+      "path": "Phone → Settings → network: status card, How hands-off?, What it does, Daily limits, profile, More settings (as the web)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/outreach/settings-network.tsx:245",
+      "covered": "yes",
+      "by": "as the web’s: outreach_live, outreach_waiting, outreach_autopilot; outreach_save_automation changes and picked"
+    },
+    {
+      "path": "Phone → Settings → General → How hands-off, on every network",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/outreach/settings-general.tsx:113",
+      "covered": "yes",
+      "by": "outreach_save_automation changes (each network’s sending, replies, autopilot) and picked"
+    },
+    {
+      "path": "Phone → Today → each network’s card: status chip, stuck line; Live: a failed step in amber",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/outreach/hub.tsx:422",
+      "covered": "yes",
+      "by": "outreach_live platform day, steps"
     },
     {
       "path": "Settings → Your computer → Download the extension, how to install (folded)",

@@ -174,7 +174,7 @@ export async function checkSent(job: Job, scrolls = FRIENDS_SCROLLS): Promise<Jo
   if (!pressed.ok) return { line: pressed.error, warned: false, failed: true };
   if (pressed.result !== 'done' && pressed.result !== 'already')
     return {
-      line: 'Couldn’t find View sent requests on your friend requests page. Check you’re signed in to Facebook in this browser; it tries again in a few minutes.',
+      line: 'Couldn’t find View sent requests on your friend requests page. It tries again in a few minutes.',
       warned: false,
       failed: true,
     };
@@ -221,7 +221,7 @@ export async function saveFriends(job: Job): Promise<JobEnd> {
   if (ended(got)) return got;
   if (!got.people.length)
     return {
-      line: 'Facebook showed no friends. Check you’re signed in to Facebook in this browser, then ask again.',
+      line: 'Facebook showed no friends. If you have some, ask again in a few minutes.',
       warned: false,
       failed: true,
     };

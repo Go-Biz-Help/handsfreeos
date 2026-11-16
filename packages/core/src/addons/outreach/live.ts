@@ -104,11 +104,14 @@ export const SHOWN_STATES = {
 export type ShownState = keyof typeof SHOWN_STATES;
 export const SHOWN_STATE_KEYS = Object.keys(SHOWN_STATES) as [ShownState, ...ShownState[]];
 
-/** The feed's lines: a step done, one passed over, a once-a-day job, a stop on a warning, and the day pressed. */
-export const STEP_KINDS = ['done', 'passed', 'job', 'stopped', 'day'] as const;
+/**
+ * The feed's lines: a step done, one passed over, a once-a-day job, a job that failed (decision 170: three the same in
+ * a row is stuck, ./network-status.ts), a stop on a warning, and the day pressed.
+ */
+export const STEP_KINDS = ['done', 'passed', 'job', 'failed', 'stopped', 'day'] as const;
 export type StepKind = (typeof STEP_KINDS)[number];
 /** The extension sends these; HandsFreeOS writes `stopped` (a warning) and `day` itself. */
-export const SENT_STEP_KINDS = ['done', 'passed', 'job'] as const;
+export const SENT_STEP_KINDS = ['done', 'passed', 'job', 'failed'] as const;
 
 export const DAY_STATES = ['started', 'stopped'] as const;
 export type DayState = (typeof DAY_STATES)[number];

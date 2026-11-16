@@ -149,7 +149,7 @@ export async function readMyGroups(job: Job): Promise<JobEnd> {
   if (!groups.length) {
     await job.report?.({ note: 'Alignable didn’t show any groups of yours.', outline: true });
     return {
-      line: 'Alignable didn’t show any groups of yours. Check you’re signed in to Alignable in this browser; groups found for your niche come next.',
+      line: 'Alignable didn’t show any groups of yours. Groups found for your niche come next.',
       warned: false,
     };
   }

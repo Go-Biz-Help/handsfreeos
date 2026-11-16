@@ -89,10 +89,12 @@ import {
   beatSoon,
   dayChange,
   feed,
+  jobKind,
   keptFor,
   liveNow,
   onWake,
   pressDay,
+  outcomeKind,
   pressWaiting,
 } from '../hfos/live';
 import { isNoting, noteNeed, takeNote } from '../hfos/noting';
@@ -1355,7 +1357,7 @@ async function go(): Promise<void> {
       return goAt(tomorrow());
     }
     const line = beforeDayLine(before, end);
-    void feed('job', line);
+    void feed(jobKind(end), line);
     if (((before.do === 'save' && before.first) || before.do === 'group_checks') && end.failed) {
       // The first time, the day waits for the lists and the groups: it tries again in a few minutes.
       await closeWindow();
@@ -1383,7 +1385,7 @@ async function go(): Promise<void> {
       return goAt(tomorrow());
     }
     await say(`${DAILY_NAMES[daily]}: ${end.line}`, { readLast: true });
-    void feed('job', `${DAILY_NAMES[daily]}: ${end.line}`);
+    void feed(jobKind(end), `${DAILY_NAMES[daily]}: ${end.line}`);
     if ((await stateNow()).stopped) {
       await closeWindow();
       return goAt(tomorrow());
@@ -1421,7 +1423,7 @@ async function go(): Promise<void> {
     }
     if (settled) {
       await say(`Helpful post: ${end.line}`);
-      void feed(end.posted ? 'done' : 'passed', `Helpful post: ${end.line}`);
+      void feed(end.posted ? 'done' : 'failed', `Helpful post: ${end.line}`);
       return goAt(
         Date.now() + gapAfter({ now: Date.now(), until: null, left: 0, started: true, random }),
       );
@@ -1437,7 +1439,7 @@ async function go(): Promise<void> {
       return goAt(tomorrow());
     }
     await say(`Newest posts: ${end.line}`);
-    void feed('job', `Newest posts: ${end.line}`);
+    void feed(jobKind(end), `Newest posts: ${end.line}`);
     if ((await stateNow()).stopped) {
       await closeWindow();
       return goAt(tomorrow());
@@ -1587,7 +1589,7 @@ async function workNext(
   // A step tried again that it found done already is cleared (decision 145).
   if (work.do === 'step') void clearRetried(item, outcome, businessId);
   // The feed of today's steps in HandsFreeOS. A stop on a warning isn't one: HandsFreeOS writes that line itself.
-  void feed(outcome.done ? 'done' : 'passed', outcome.line);
+  void feed(outcomeKind(outcome), outcome.line);
   // Stop for today, pressed while that step went.
   if ((await stateNow()).stopped) {
     await closeWindow();

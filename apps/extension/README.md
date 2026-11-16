@@ -1541,6 +1541,24 @@ minute after posting and before any reading:
   link"). A warning keeps the network's words for the day, for both social add-ons, and says nothing: the read is
   asked for again later, since one handed out is put off half an hour.
 
+### Steps that couldn't go, and sign-in lines only on a sign-in page (0.142.0)
+
+Decision 170's status card says when a network is stuck on one step, so the feed now tells a step that couldn't go
+from one passed over:
+
+- A job's line (a list saved, the day's reading, an hour's search, newest posts) goes to HandsFreeOS as `failed` when
+  it couldn't do what it set out to (`jobKind`), else as `job`.
+- A step handed to the person (a button or box it couldn't find, a different page) goes as `failed` (`outcomeKind`),
+  one passed over (a profile it can't open, found done already) as `passed`. A helpful post that couldn't go up is
+  `failed`.
+- HandsFreeOS takes `failed` from migration `20261027027900`; an older API refuses it, so this build goes on a
+  computer only once the API that takes it is live.
+
+"Check you're signed in" now goes only with a page that really asked the person to sign in (`signedOutEnd`, Instagram's
+and Alignable's "asked you to sign in"), or one that sent the window somewhere else. A page that didn't show a menu,
+a profile or a list says what it didn't show, then "Ask again in a few minutes" (`ASK_AGAIN`), or that it tries again
+on its own; a list that showed nobody asks again only if the person has some.
+
 ### The person's followers on Threads open now (0.141.4)
 
 The owner's Check Threads on 16 Nov 2026 (0.141.3) found Follow and pressed their count of followers, and still no box

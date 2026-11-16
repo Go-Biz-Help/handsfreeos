@@ -96780,6 +96780,9 @@
                                   "all",
                                   "delete"
                                 ]
+                              },
+                              "autopilot": {
+                                "type": "boolean"
                               }
                             }
                           },
@@ -96879,6 +96882,9 @@
                                   "all",
                                   "delete"
                                 ]
+                              },
+                              "autopilot": {
+                                "type": "boolean"
                               }
                             }
                           },
@@ -96978,6 +96984,9 @@
                                   "all",
                                   "delete"
                                 ]
+                              },
+                              "autopilot": {
+                                "type": "boolean"
                               }
                             }
                           },
@@ -97062,6 +97071,9 @@
                                   "all",
                                   "delete"
                                 ]
+                              },
+                              "autopilot": {
+                                "type": "boolean"
                               }
                             }
                           },
@@ -97146,6 +97158,9 @@
                                   "all",
                                   "delete"
                                 ]
+                              },
+                              "autopilot": {
+                                "type": "boolean"
                               }
                             }
                           }
@@ -97379,6 +97394,9 @@
                                   "all",
                                   "delete"
                                 ]
+                              },
+                              "autopilot": {
+                                "type": "boolean"
                               }
                             }
                           },
@@ -97450,6 +97468,9 @@
                                   "all",
                                   "delete"
                                 ]
+                              },
+                              "autopilot": {
+                                "type": "boolean"
                               }
                             }
                           },
@@ -97521,6 +97542,9 @@
                                   "all",
                                   "delete"
                                 ]
+                              },
+                              "autopilot": {
+                                "type": "boolean"
                               }
                             }
                           },
@@ -97592,6 +97616,9 @@
                                   "all",
                                   "delete"
                                 ]
+                              },
+                              "autopilot": {
+                                "type": "boolean"
                               }
                             }
                           },
@@ -97663,11 +97690,29 @@
                                   "all",
                                   "delete"
                                 ]
+                              },
+                              "autopilot": {
+                                "type": "boolean"
                               }
                             }
                           }
                         }
                       }
+                    }
+                  },
+                  "picked": {
+                    "maxItems": 6,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "facebook",
+                        "linkedin",
+                        "instagram",
+                        "alignable",
+                        "threads",
+                        "x"
+                      ]
                     }
                   }
                 },
@@ -98068,6 +98113,9 @@
                                     "all",
                                     "delete"
                                   ]
+                                },
+                                "autopilot": {
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -98183,6 +98231,9 @@
                                     "all",
                                     "delete"
                                   ]
+                                },
+                                "autopilot": {
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -98298,6 +98349,9 @@
                                     "all",
                                     "delete"
                                   ]
+                                },
+                                "autopilot": {
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -98413,6 +98467,9 @@
                                     "all",
                                     "delete"
                                   ]
+                                },
+                                "autopilot": {
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -98528,6 +98585,9 @@
                                     "all",
                                     "delete"
                                   ]
+                                },
+                                "autopilot": {
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -100687,7 +100747,8 @@
                           "enum": [
                             "done",
                             "passed",
-                            "job"
+                            "job",
+                            "failed"
                           ]
                         },
                         "line": {
@@ -238887,6 +238948,9 @@
                                     "all",
                                     "delete"
                                   ]
+                                },
+                                "autopilot": {
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -239002,6 +239066,9 @@
                                     "all",
                                     "delete"
                                   ]
+                                },
+                                "autopilot": {
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -239117,6 +239184,9 @@
                                     "all",
                                     "delete"
                                   ]
+                                },
+                                "autopilot": {
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -239232,6 +239302,9 @@
                                     "all",
                                     "delete"
                                   ]
+                                },
+                                "autopilot": {
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -239347,6 +239420,9 @@
                                     "all",
                                     "delete"
                                   ]
+                                },
+                                "autopilot": {
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -240574,6 +240650,21 @@
                     "on": {
                       "type": "boolean"
                     },
+                    "networks": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "facebook",
+                          "linkedin",
+                          "instagram",
+                          "alignable",
+                          "threads",
+                          "x"
+                        ]
+                      }
+                    },
                     "allowed": {
                       "type": "boolean"
                     },
@@ -240713,6 +240804,7 @@
                   },
                   "required": [
                     "on",
+                    "networks",
                     "allowed",
                     "day",
                     "timezone",
@@ -241743,6 +241835,7 @@
                               "done",
                               "passed",
                               "job",
+                              "failed",
                               "stopped",
                               "day"
                             ]
@@ -242616,6 +242709,7 @@
                               "done",
                               "passed",
                               "job",
+                              "failed",
                               "stopped",
                               "day"
                             ]

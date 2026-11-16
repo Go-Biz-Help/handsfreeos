@@ -22,9 +22,9 @@
  */
 import { instagramListSave, type InstagramListed } from '../../hfos/saves';
 import { counted } from '../../words';
-import { onScreen, pause, valueOf, type Job, type JobEnd } from '../job';
+import { ASK_AGAIN, onScreen, pause, valueOf, type Job, type JobEnd } from '../job';
 import { lookForFollowBacks } from './follow-backs';
-import { ended, gather, INSTAGRAM, readInstagramIn, SIGNED_IN, signedOutEnd } from './read';
+import { ended, gather, INSTAGRAM, readInstagramIn, signedOutEnd } from './read';
 
 /** The most a save reads: the newest followers, a few minutes of screens at a person's pace. */
 export const FOLLOWERS_MOST = 200;
@@ -43,9 +43,6 @@ const PRESS_AFTER = 2;
 const REACHED = 3;
 
 const keyOf = (person: InstagramListed) => person.username.toLowerCase();
-
-/** "check you're signed in…", after another sentence's start. */
-const SIGNED_IN_LOWER = `${SIGNED_IN.charAt(0).toLowerCase()}${SIGNED_IN.slice(1)}`;
 
 const newOnes = (added: number) => (added ? `, ${added.toLocaleString()} new` : '');
 
@@ -67,7 +64,7 @@ async function followersSaved(job: Job): Promise<JobEnd> {
   if (home.signedOut) return signedOutEnd();
   if (!home.own)
     return {
-      line: `Couldn’t find your own account in Instagram’s menu. ${SIGNED_IN}`,
+      line: `Couldn’t find your own account in Instagram’s menu. ${ASK_AGAIN}`,
       warned: false,
       failed: true,
     };
@@ -115,7 +112,7 @@ async function followersSaved(job: Job): Promise<JobEnd> {
   if (ended(got)) return got;
   if (!got.items.length)
     return {
-      line: `Instagram showed nobody in your followers. If you have some, ${SIGNED_IN_LOWER}`,
+      line: 'Instagram showed nobody in your followers. If you have some, ask again in a few minutes.',
       warned: false,
       failed: true,
     };

@@ -33,7 +33,6 @@ import {
   sendingModesOn,
   ticksOn,
   ticksShownOn,
-  tidyChoiceOn,
 } from '@hfos/core/addons/outreach/network-words';
 import { runsOnItsOwn, type Platform } from '@hfos/core/addons/outreach/networks';
 import { SETTINGS_WORDS } from '@hfos/core/addons/outreach/settings-parts';
@@ -277,6 +276,8 @@ export function NetworkModes({
   postingAllowed = POSTING_MODE_KEYS,
   wheelsFrom,
   piloted = false,
+  sendingPart = true,
+  repliesAbout,
   boxed,
   disabled: off,
   testID,
@@ -288,6 +289,10 @@ export function NetworkModes({
   wheelsFrom?: string | null;
   /** Autopilot is on (decision 151): its picks show, and wait under it to be picked again. */
   piloted?: boolean;
+  /** Sending's own part: under More settings, How hands-off? sets it (decision 170). */
+  sendingPart?: boolean;
+  /** Replies' line in place of its own, under More settings (decision 170). */
+  repliesAbout?: string;
   boxed: boolean;
   disabled: boolean;
   testID: string;
@@ -318,29 +323,31 @@ export function NetworkModes({
   return (
     <>
       {piloted ? <Note testID={`${testID}-piloted`}>{AUTOPILOT_WORDS.picked}</Note> : null}
-      <Section
-        boxed={boxed}
-        title={W.sections.onItsOwn}
-        about={runs ? onItsOwnAbout(platform) : noRunnerWords(platform)}
-        testID={`${testID}-on-its-own`}
-      >
-        {sending.map((m) => (
-          <Choice
-            key={m}
-            label={modes[m]}
-            about={starts({ sending: m, replies: value.replies })}
-            selected={value.sending === m}
-            onPress={() => onChange({ sending: m })}
-            disabled={disabled}
-            testID={`${testID}-sending-${m}`}
-          />
-        ))}
-      </Section>
+      {sendingPart ? (
+        <Section
+          boxed={boxed}
+          title={W.sections.onItsOwn}
+          about={runs ? onItsOwnAbout(platform) : noRunnerWords(platform)}
+          testID={`${testID}-on-its-own`}
+        >
+          {sending.map((m) => (
+            <Choice
+              key={m}
+              label={modes[m]}
+              about={starts({ sending: m, replies: value.replies })}
+              selected={value.sending === m}
+              onPress={() => onChange({ sending: m })}
+              disabled={disabled}
+              testID={`${testID}-sending-${m}`}
+            />
+          ))}
+        </Section>
+      ) : null}
       {runs ? (
         <Section
           boxed={boxed}
           title={W.sections.replies}
-          about={value.sending === 'off' ? W.abouts.repliesOff : W.abouts.replies}
+          about={repliesAbout ?? (value.sending === 'off' ? W.abouts.repliesOff : W.abouts.replies)}
         >
           {replies.map((m) => (
             <Choice
@@ -386,6 +393,8 @@ export function NetworkTicks({
   value,
   onChange,
   piloted = false,
+  only,
+  title,
   boxed,
   disabled,
   testID,
@@ -395,15 +404,19 @@ export function NetworkTicks({
   onChange: (change: Partial<NetworkChoices>) => void;
   /** Autopilot is on (decision 151): it answers the requests, so that choice waits under it. */
   piloted?: boolean;
+  /** Only how the requests they get are answered: under More settings on a network's page (decision 170). */
+  only?: 'requests';
+  /** That pick's title in place of its own. */
+  title?: string;
   boxed: boolean;
   disabled: boolean;
   testID: string;
 }) {
   const ticks = ticksOn(platform);
   // None on a network whose runner reads none yet.
-  const shown = ticksShownOn(platform);
+  const shown = only ? [] : ticksShownOn(platform);
   const requests = requestsChoiceOn(platform);
-  const groups = groupsChoiceOn(platform);
+  const groups = only ? null : groupsChoiceOn(platform);
   if (!shown.length && !requests && !groups) return null;
   const answering = requestModeOf(value);
   const grouping = groupModeOf(value);
@@ -429,7 +442,7 @@ export function NetworkTicks({
       {requests ? (
         <Section
           boxed={boxed}
-          title={requests.label}
+          title={title ?? requests.label}
           about={requests.about}
           testID={`${testID}-requests`}
         >
@@ -471,45 +484,6 @@ export function NetworkTicks({
   );
 }
 
-/**
- * Tidying up on its own on one network (decision 98), in its words: only who the person ticks, the old requests, or on
- * Facebook those and friends to unfriend. Only where the extension works on its own.
- */
-export function NetworkTidy({
-  platform,
-  value,
-  onChange,
-  boxed,
-  disabled,
-  testID,
-}: {
-  platform: Platform;
-  value: NetworkChoices;
-  onChange: (change: Partial<NetworkChoices>) => void;
-  boxed: boolean;
-  disabled: boolean;
-  testID: string;
-}) {
-  if (!runsOnItsOwn(platform)) return null;
-  const choice = tidyChoiceOn(platform);
-  // A server from before it says nothing: old requests, as it starts.
-  const picked = value.tidy ?? 'cancel';
-  return (
-    <Section boxed={boxed} title={choice.label} about={choice.about} testID={`${testID}-tidy`}>
-      {choice.options.map((o) => (
-        <Choice
-          key={o.key}
-          label={o.label}
-          selected={picked === o.key}
-          onPress={() => onChange({ tidy: o.key })}
-          disabled={disabled}
-          testID={`${testID}-tidy-${o.key}`}
-        />
-      ))}
-    </Section>
-  );
-}
-
 /** What the extension does while the person uses Facebook themselves: Facebook's alone. */
 export function ExtensionTicks({
   value,
@@ -539,46 +513,6 @@ export function ExtensionTicks({
           />
         ))}
       </View>
-    </Section>
-  );
-}
-
-/**
- * Autopilot (decision 151, answer 7a): one switch for every network the person works, first on General. Hidden when the
- * business doesn't allow it, unless it's on already (so it can be turned off).
- */
-export function AutopilotPart({
-  value,
-  onChange,
-  allowed,
-  wheels,
-  boxed,
-  disabled,
-  testID,
-}: {
-  value: AutomationSettings;
-  onChange: Edit<AutomationSettings>;
-  allowed: boolean;
-  /** Training wheels are on somewhere they work: each message still waits for their OK there. */
-  wheels: boolean;
-  boxed: boolean;
-  disabled: boolean;
-  testID: string;
-}) {
-  if (!allowed && !value.autopilot) return null;
-  return (
-    <Section boxed={boxed} title={AUTOPILOT_WORDS.name} about={AUTOPILOT_WORDS.about}>
-      <Tick
-        label={AUTOPILOT_WORDS.name}
-        about={value.autopilot ? AUTOPILOT_WORDS.howItAsks : AUTOPILOT_WORDS.offPutsBack}
-        checked={value.autopilot}
-        onChange={(on) => onChange((v) => ({ ...v, autopilot: on }))}
-        disabled={disabled}
-        testID={`${testID}-autopilot`}
-      />
-      {value.autopilot && wheels ? (
-        <Note testID={`${testID}-autopilot-wheels`}>{AUTOPILOT_WORDS.wheels}</Note>
-      ) : null}
     </Section>
   );
 }

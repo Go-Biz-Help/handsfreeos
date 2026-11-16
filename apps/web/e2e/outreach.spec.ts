@@ -1064,10 +1064,10 @@ test('a network’s On for you saves at once on its page, with a line beside it,
   );
   expect((await kept()).networks.linkedin.on).toBe(true);
 
-  // Its choices show, and one picked saves by itself too: no Save button.
+  // Its choices show, and How hands-off? picked saves by itself too (decision 170): no Save button.
   await expect(page.getByTestId('outreach-my-save')).toHaveCount(0);
   const picked = page.waitForResponse((r) => isSave(r.url(), r.request().method()));
-  await page.getByTestId('outreach-my-networks-linkedin-sending-steps').click();
+  await page.getByTestId('outreach-my-networks-linkedin-hands-off-each').click();
   expect((await picked).ok()).toBe(true);
   expect((await kept()).networks.linkedin).toMatchObject({ on: true, sending: 'steps' });
 
@@ -1211,12 +1211,19 @@ test('Settings opens You, LinkedIn’s page, Facebook’s and Team from its menu
   await expect(page.getByTestId('outreach-team-moved-linkedin')).toContainText(
     'Your team’s say on LinkedIn is on Team.',
   );
-  // On for you: its choices, that it works there from install, and its limits as they stand show; the menu says it's on.
+  // On for you: its status card (no computer yet, decision 170), How hands-off?, and its limits as they stand show,
+  // every one of them a press away; the menu says it's on.
   await page.getByTestId('outreach-my-networks-linkedin-on').click();
   await expect(page.getByTestId('outreach-my-networks-linkedin-saved')).toBeVisible();
-  await expect(page.getByTestId('outreach-my-networks-linkedin-chrome')).toContainText(
-    'nothing to allow in Chrome',
+  await page.reload();
+  await expect(page.getByTestId('outreach-my-networks-linkedin-status-title')).toHaveText(
+    'LinkedIn waits for your computer',
   );
+  await expect(page.getByTestId('outreach-my-networks-linkedin-hands-off-myself')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await page.getByTestId('outreach-my-networks-linkedin-limits-all').click();
   await expect(
     page.getByTestId('outreach-my-networks-linkedin-limit-friend_request'),
   ).toContainText('At most 80 in any 7 days');
@@ -1234,6 +1241,8 @@ test('Settings opens You, LinkedIn’s page, Facebook’s and Team from its menu
   await expect(profileSheet).toHaveCount(0);
   // The team's daily invitations, typed on Team: saved once it's left, and their own limit on LinkedIn's page follows,
   // half while LinkedIn is new to them (decision 96).
+  // The team's say sits under More settings, folded to start (decision 170).
+  await page.getByTestId('outreach-my-networks-linkedin-more-toggle').click();
   await page.getByTestId('outreach-team-moved-linkedin-open').click();
   await expect(page).toHaveURL(new RegExp(`/a/outreach/settings/team$`));
   const invites = page.getByTestId('outreach-rules-linkedin-limit-friend_request');
@@ -1245,9 +1254,10 @@ test('Settings opens You, LinkedIn’s page, Facebook’s and Team from its menu
   await page.reload();
   await expect(invites).toHaveValue('10');
   await page.getByTestId('outreach-settings-part-linkedin').click();
-  await expect(page.getByTestId('outreach-my-networks-linkedin-fresh')).toContainText(
+  await expect(page.getByTestId('outreach-my-networks-linkedin-limits-line')).toContainText(
     'New on LinkedIn',
   );
+  await page.getByTestId('outreach-my-networks-linkedin-limits-all').click();
   await expect(
     page.getByTestId('outreach-my-networks-linkedin-limit-friend_request').locator('div').first(),
   ).toHaveText('5');

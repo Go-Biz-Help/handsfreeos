@@ -18,7 +18,6 @@ import {
   readAlignableIn,
   SCROLL_PACE_MS,
   signedOutEnd,
-  SIGNED_IN,
 } from './read';
 
 /** Screens of the town's posts it reads. */
@@ -34,7 +33,7 @@ export async function findPostsInTown(job: Job): Promise<JobEnd> {
   const someoneElse = notMine(own.business);
   if (!town)
     return {
-      line: `Alignable didn’t show your town on your profile. Add your business’s town on Alignable, then ask again. ${SIGNED_IN}`,
+      line: 'Alignable didn’t show your town on your profile. Add your business’s town on Alignable, then ask again.',
       warned: false,
       failed: true,
     };

@@ -139,7 +139,7 @@ export function failureFor(
   if (done.result === 'none')
     return place === 'page'
       ? `Meta Business Suite didn’t show Create post for your Page. Check you’re an admin of the Page in Settings → Posting’s link, then press Post it now.`
-      : `${name} didn’t show the box to write a post on ${where}. Check you’re signed in to ${name} in Chrome on the computer that posts, then press Post it now.`;
+      : `${name} didn’t show the box to write a post on ${where}. Press Post it now to try again.`;
   if (done.result === 'no_media')
     return `${name} didn’t take its ${video ? 'video' : 'pictures'} on ${where}, so nothing went up. Press Post it now to try again, or copy the words and post it yourself.`;
   if (done.pressed && place === 'page')

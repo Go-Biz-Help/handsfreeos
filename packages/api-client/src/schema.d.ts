@@ -46290,6 +46290,7 @@ export interface operations {
                         markPosts?: boolean;
                         networks?: {
                             alignable?: {
+                                autopilot?: boolean;
                                 collect?: boolean;
                                 confirmRequests?: boolean;
                                 fullSpeed?: boolean;
@@ -46319,6 +46320,7 @@ export interface operations {
                                 young?: boolean;
                             };
                             instagram?: {
+                                autopilot?: boolean;
                                 collect?: boolean;
                                 confirmRequests?: boolean;
                                 fullSpeed?: boolean;
@@ -46339,6 +46341,7 @@ export interface operations {
                                 young?: boolean;
                             };
                             linkedin?: {
+                                autopilot?: boolean;
                                 collect?: boolean;
                                 confirmRequests?: boolean;
                                 fullSpeed?: boolean;
@@ -46359,6 +46362,7 @@ export interface operations {
                                 young?: boolean;
                             };
                             threads?: {
+                                autopilot?: boolean;
                                 collect?: boolean;
                                 confirmRequests?: boolean;
                                 fullSpeed?: boolean;
@@ -46379,6 +46383,7 @@ export interface operations {
                                 young?: boolean;
                             };
                             x?: {
+                                autopilot?: boolean;
                                 collect?: boolean;
                                 confirmRequests?: boolean;
                                 fullSpeed?: boolean;
@@ -46418,6 +46423,7 @@ export interface operations {
                         warmUp?: boolean;
                         watchPosts?: boolean;
                     };
+                    picked?: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[];
                     settings?: {
                         acceptedPush?: boolean;
                         autopilot?: boolean;
@@ -46454,6 +46460,7 @@ export interface operations {
                              *     }
                              */
                             alignable?: {
+                                autopilot?: boolean;
                                 /** @default true */
                                 collect?: boolean;
                                 /** @default true */
@@ -46541,6 +46548,7 @@ export interface operations {
                              *     }
                              */
                             instagram?: {
+                                autopilot?: boolean;
                                 /** @default true */
                                 collect?: boolean;
                                 /** @default true */
@@ -46601,6 +46609,7 @@ export interface operations {
                              *     }
                              */
                             linkedin?: {
+                                autopilot?: boolean;
                                 /** @default true */
                                 collect?: boolean;
                                 /** @default true */
@@ -46644,6 +46653,7 @@ export interface operations {
                                 young?: boolean;
                             };
                             threads?: {
+                                autopilot?: boolean;
                                 /** @default true */
                                 collect?: boolean;
                                 /** @default true */
@@ -46687,6 +46697,7 @@ export interface operations {
                                 young?: boolean;
                             };
                             x?: {
+                                autopilot?: boolean;
                                 /** @default true */
                                 collect?: boolean;
                                 /** @default true */
@@ -47091,6 +47102,7 @@ export interface operations {
                                  *     }
                                  */
                                 alignable: {
+                                    autopilot?: boolean;
                                     /** @default true */
                                     collect: boolean;
                                     /** @default true */
@@ -47178,6 +47190,7 @@ export interface operations {
                                  *     }
                                  */
                                 instagram: {
+                                    autopilot?: boolean;
                                     /** @default true */
                                     collect: boolean;
                                     /** @default true */
@@ -47238,6 +47251,7 @@ export interface operations {
                                  *     }
                                  */
                                 linkedin: {
+                                    autopilot?: boolean;
                                     /** @default true */
                                     collect: boolean;
                                     /** @default true */
@@ -47298,6 +47312,7 @@ export interface operations {
                                  *     }
                                  */
                                 threads: {
+                                    autopilot?: boolean;
                                     /** @default true */
                                     collect: boolean;
                                     /** @default true */
@@ -47358,6 +47373,7 @@ export interface operations {
                                  *     }
                                  */
                                 x: {
+                                    autopilot?: boolean;
                                     /** @default true */
                                     collect: boolean;
                                     /** @default true */
@@ -49617,7 +49633,7 @@ export interface operations {
                         /** Format: uuid */
                         id: string;
                         /** @enum {string} */
-                        kind: "done" | "passed" | "job";
+                        kind: "done" | "passed" | "job" | "failed";
                         line: string;
                     }[];
                     /** Format: uuid */
@@ -87797,6 +87813,7 @@ export interface operations {
                                  *     }
                                  */
                                 alignable: {
+                                    autopilot?: boolean;
                                     /** @default true */
                                     collect: boolean;
                                     /** @default true */
@@ -87884,6 +87901,7 @@ export interface operations {
                                  *     }
                                  */
                                 instagram: {
+                                    autopilot?: boolean;
                                     /** @default true */
                                     collect: boolean;
                                     /** @default true */
@@ -87944,6 +87962,7 @@ export interface operations {
                                  *     }
                                  */
                                 linkedin: {
+                                    autopilot?: boolean;
                                     /** @default true */
                                     collect: boolean;
                                     /** @default true */
@@ -88004,6 +88023,7 @@ export interface operations {
                                  *     }
                                  */
                                 threads: {
+                                    autopilot?: boolean;
                                     /** @default true */
                                     collect: boolean;
                                     /** @default true */
@@ -88064,6 +88084,7 @@ export interface operations {
                                  *     }
                                  */
                                 x: {
+                                    autopilot?: boolean;
                                     /** @default true */
                                     collect: boolean;
                                     /** @default true */
@@ -88233,6 +88254,8 @@ export interface operations {
                         day: string;
                         listAt: string | null;
                         made: boolean;
+                        /** @default [] */
+                        networks: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[];
                         on: boolean;
                         people: {
                             dontPitch: boolean;
@@ -89872,7 +89895,7 @@ export interface operations {
                             /** Format: date-time */
                             at: string;
                             /** @enum {string} */
-                            kind: "done" | "passed" | "job" | "stopped" | "day";
+                            kind: "done" | "passed" | "job" | "failed" | "stopped" | "day";
                             line: string;
                         }[];
                         timezone: string;
@@ -92061,7 +92084,7 @@ export interface operations {
                             /** Format: date-time */
                             at: string;
                             /** @enum {string} */
-                            kind: "done" | "passed" | "job" | "stopped" | "day";
+                            kind: "done" | "passed" | "job" | "failed" | "stopped" | "day";
                             line: string;
                         }[];
                         timezone: string;

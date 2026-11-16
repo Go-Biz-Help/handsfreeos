@@ -63,7 +63,6 @@ import {
   sendingModesOn,
   ticksOn,
   ticksShownOn,
-  tidyChoiceOn,
   withNetwork,
 } from '@hfos/core/addons/outreach/network-words';
 import {
@@ -222,6 +221,7 @@ export function NetworkModes({
   wheelsStart = false,
   sendingPart = true,
   piloted = false,
+  repliesAbout,
   testId,
 }: Allowed & {
   platform: Platform;
@@ -233,6 +233,8 @@ export function NetworkModes({
   sendingPart?: boolean;
   /** Autopilot is on (decision 151): these are its picks, shown but not to change. */
   piloted?: boolean;
+  /** Replies' line in place of its own: under More settings, that How hands-off? sets it (decision 170). */
+  repliesAbout?: string;
   testId: string;
 }) {
   const modes = sendingModesOn(platform);
@@ -288,7 +290,7 @@ export function NetworkModes({
       {runs ? (
         <Part
           title={W.sections.replies}
-          about={value.sending === 'off' ? W.abouts.repliesOff : W.abouts.replies}
+          about={repliesAbout ?? (value.sending === 'off' ? W.abouts.repliesOff : W.abouts.replies)}
           card={card}
         >
           <Piloted on={piloted}>
@@ -344,6 +346,8 @@ export function NetworkTicks({
   onChange,
   card = false,
   piloted = false,
+  only,
+  title,
   testId,
 }: {
   platform: Platform;
@@ -352,13 +356,17 @@ export function NetworkTicks({
   card?: boolean;
   /** Autopilot is on (decision 151): how the requests they get are answered is its pick. */
   piloted?: boolean;
+  /** Only how the requests they get are answered: under More settings on a network's page (decision 170). */
+  only?: 'requests';
+  /** That pick's title in place of its own. */
+  title?: string;
   testId: string;
 }) {
   const ticks = ticksOn(platform);
   // None on a network whose runner reads none yet.
-  const shown = ticksShownOn(platform);
+  const shown = only ? [] : ticksShownOn(platform);
   const requests = requestsChoiceOn(platform);
-  const groups = groupsChoiceOn(platform);
+  const groups = only ? null : groupsChoiceOn(platform);
   if (!shown.length && !requests && !groups) return null;
   const answering = requestModeOf(value);
   const grouping = groupModeOf(value);
@@ -379,7 +387,7 @@ export function NetworkTicks({
       ) : null}
       {requests ? (
         <Part
-          title={requests.label}
+          title={title ?? requests.label}
           about={requests.about}
           card={card}
           testId={`${testId}-requests`}
@@ -420,84 +428,12 @@ export function NetworkTicks({
   );
 }
 
-/**
- * Tidying up on its own on one network (decision 98), in its words: only who the person ticks, the old requests, or on
- * Facebook those and friends to unfriend. Only where the extension works on its own.
- */
-export function NetworkTidy({
-  platform,
-  value,
-  onChange,
-  card = false,
-  testId,
-}: {
-  platform: Platform;
-  value: NetworkChoices;
-  onChange: (change: Partial<NetworkChoices>) => void;
-  card?: boolean;
-  testId: string;
-}) {
-  if (!runsOnItsOwn(platform)) return null;
-  const choice = tidyChoiceOn(platform);
-  // A server from before it says nothing: old requests, as it starts.
-  const picked = value.tidy ?? 'cancel';
-  return (
-    <Part title={choice.label} about={choice.about} card={card} testId={`${testId}-tidy`}>
-      <div role="radiogroup" aria-label={choice.label} className="flex flex-col gap-2">
-        {choice.options.map((o) => (
-          <RadioCard
-            key={o.key}
-            selected={picked === o.key}
-            onSelect={() => onChange({ tidy: o.key })}
-            title={o.label}
-            testId={`${testId}-tidy-${o.key}`}
-          />
-        ))}
-      </div>
-    </Part>
-  );
-}
-
 /** The person's own on every network: one part of their settings, changed as a whole. */
 interface Own {
   value: AutomationSettings;
   onChange: (next: AutomationSettings) => void;
   card?: boolean;
   testId: string;
-}
-
-/**
- * Autopilot (decision 151, answer 7a): one switch for every network the person works, first on Settings → You. Shown
- * while the business allows it, or while it's on, so it can be turned off.
- */
-export function AutopilotPart({
-  value,
-  onChange,
-  allowed,
-  wheels,
-  card = false,
-  testId,
-}: Own & { allowed: boolean; wheels: boolean }) {
-  if (!allowed && !value.autopilot) return null;
-  return (
-    <Part title={AUTOPILOT_WORDS.name} about={AUTOPILOT_WORDS.about} card={card} testId={testId}>
-      <Tick
-        words={[
-          AUTOPILOT_WORDS.name,
-          value.autopilot ? AUTOPILOT_WORDS.howItAsks : AUTOPILOT_WORDS.offPutsBack,
-        ]}
-        checked={value.autopilot}
-        onChange={(on) => onChange({ ...value, autopilot: on })}
-        switches
-        testId={`${testId}-switch`}
-      />
-      {value.autopilot && wheels ? (
-        <p className="text-[13px] text-text-2" data-testid={`${testId}-wheels`}>
-          {AUTOPILOT_WORDS.wheels}
-        </p>
-      ) : null}
-    </Part>
-  );
 }
 
 /** How the AI writes for them (decision 53), with a sample of how a message from them reads. */

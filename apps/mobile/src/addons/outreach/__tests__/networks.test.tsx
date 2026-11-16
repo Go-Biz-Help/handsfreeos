@@ -11,7 +11,7 @@ import type { FindsWeekOutput } from '@hfos/core/addons/outreach/finds';
 import { outreachSettings, type OutreachSettings } from '@hfos/core/addons/outreach/chat-read';
 import { NO_MESSAGE_NOTES } from '@hfos/core/addons/outreach/conversation';
 import type { LiveOutput } from '@hfos/core/addons/outreach/live';
-import { NETWORKS, type NetworkKit } from '@hfos/core/addons/outreach/networks';
+import { NETWORKS, type NetworkKit, type Platform } from '@hfos/core/addons/outreach/networks';
 import type { ReadinessOutput } from '@hfos/core/addons/outreach/readiness';
 import type { StagesOutput } from '@hfos/core/addons/outreach/stages';
 import type { TodayItem, TodayOutput } from '@hfos/core/addons/outreach/today';
@@ -127,6 +127,8 @@ describe('Today’s strip, a row for each network', () => {
     const row = screen.getByTestId('today-network-linkedin');
     expect(within(row).getByText('LinkedIn')).toBeTruthy();
     expect(within(row).getByText('Not started today')).toBeTruthy();
+    // The status card's chip, as on its page in Settings (decision 170).
+    expect(screen.getByTestId('today-network-linkedin-status')).toHaveTextContent('Waiting on you');
     // Its own bars, on its own card (decision 127).
     expect(screen.queryByTestId('today-limits')).toBeNull();
     expect(screen.getByTestId('today-limits-linkedin')).toBeTruthy();
@@ -641,7 +643,10 @@ const partProps = () => ({
   manages: false,
   online: true,
   onRetry: jest.fn(),
-  onSaveMine: jest.fn(async (_settings: AutomationSettings): Promise<string | null> => null),
+  onSaveMine: jest.fn(
+    async (_settings: AutomationSettings, _picked: readonly Platform[]): Promise<string | null> =>
+      null,
+  ),
   onSaveBusiness: jest.fn(
     async (_edit: (now: OutreachSettings) => Partial<OutreachSettings>): Promise<string | null> =>
       null,
@@ -664,51 +669,57 @@ describe('A network’s page of Settings on the phone, saved as it’s changed',
     expect(screen.getByTestId('settings-networks-linkedin-off')).toHaveTextContent(
       'LinkedIn is off for you: nothing runs, reads or shows there.',
     );
-    expect(screen.queryByTestId('settings-networks-linkedin-sending-steps')).toBeNull();
+    expect(screen.queryByTestId('settings-networks-linkedin-hands-off')).toBeNull();
     await fireEvent.press(screen.getByTestId('settings-networks-linkedin-on'));
     expect(p.onSaveMine).toHaveBeenCalledTimes(1);
-    expect(p.onSaveMine).toHaveBeenLastCalledWith(withLinkedIn(true));
+    expect(p.onSaveMine).toHaveBeenLastCalledWith(withLinkedIn(true), []);
     expect(screen.getByTestId('settings-networks-linkedin-saved')).toHaveTextContent(
       'LinkedIn is on. The extension picks it up in a few seconds.',
     );
-    // Its comments wait for an OK at first, as Instagram's and Alignable's do (decision 102).
-    expect(
-      screen.getByText(
-        'Invitations to connect, likes and comments on their own; each message waits for one tap. Each comment waits for your OK until you’ve OK’d 25 and a week has gone by.',
-      ),
-    ).toBeTruthy();
+    // How hands-off? in place of the Sending, Replies and helpful posts lists (decision 170): I do it myself to start.
+    expect(screen.getByTestId('settings-networks-linkedin-hands-off-myself')).toBeChecked();
+    expect(screen.getByTestId('settings-networks-linkedin-hands-off-about')).toHaveTextContent(
+      'You do every step. It notes them and keeps your lists.',
+    );
+    expect(screen.queryByTestId('settings-networks-linkedin-sending-steps')).toBeNull();
     // Only the switches LinkedIn's runner does: it never accepts invitations on its own.
     expect(screen.queryByText('Accept invitations from people who fit a playbook')).toBeNull();
     expect(screen.getByTestId('settings-networks-linkedin-collect')).toBeTruthy();
-    expect(screen.getByTestId('settings-networks-linkedin-chrome')).toHaveTextContent(
-      /nothing to allow in Chrome\.$/,
-    );
     // Facebook's own switches aren't LinkedIn's.
     expect(screen.queryByTestId('settings-networks-linkedin-noting')).toBeNull();
-    // Its choices save at once too, with the plain Saved.
-    await fireEvent.press(screen.getByTestId('settings-networks-linkedin-sending-steps'));
+    // A level saves at once too, with the plain Saved, and the save keeps the picks it set.
+    await fireEvent.press(screen.getByTestId('settings-networks-linkedin-hands-off-each'));
     expect(p.onSaveMine).toHaveBeenCalledTimes(2);
-    expect(p.onSaveMine).toHaveBeenLastCalledWith(withLinkedIn(true, { sending: 'steps' }));
+    const [saved, picked] = p.onSaveMine.mock.lastCall!;
+    expect(choicesFor(saved, 'linkedin')).toMatchObject({
+      sending: 'steps',
+      replies: 'draft',
+      autopilot: false,
+    });
+    expect(picked).toEqual(['linkedin']);
+    expect(screen.getByTestId('settings-networks-linkedin-hands-off-each')).toBeChecked();
+    // Its comments wait for an OK at first, as Instagram's and Alignable's do (decision 102).
+    expect(screen.getByTestId('settings-networks-linkedin-hands-off-about')).toHaveTextContent(
+      /^Invitations to connect, likes and comments go on their own\. Each message and reply waits for your tap under Needs you\. Each comment waits for your OK/,
+    );
     expect(screen.getByTestId('settings-networks-linkedin-saved')).toHaveTextContent(
       'Saved. The extension follows it in a few seconds.',
     );
     expect(screen.queryByText('Save')).toBeNull();
   });
 
-  it('says beside a choice that it starts LinkedIn’s training wheels, until they’ve started', async () => {
+  it('says beside a reply choice under More settings that it starts LinkedIn’s training wheels, until they’ve started', async () => {
     const starts = /^Choosing this starts training wheels/;
     const automation = { ...AUTOMATION, settings: withLinkedIn(true, { sending: 'steps' }) };
     await render(<SettingsPartBody part="linkedin" automation={automation} {...partProps()} />);
-    const everything = screen.getByTestId('settings-networks-linkedin-sending-everything');
-    expect(within(everything).getByText(starts)).toBeTruthy();
+    // Folded to start (decision 170).
+    expect(screen.queryByTestId('settings-networks-linkedin-replies-simple')).toBeNull();
+    await fireEvent.press(screen.getByTestId('settings-networks-linkedin-more-toggle'));
     expect(
       within(screen.getByTestId('settings-networks-linkedin-replies-simple')).getByText(starts),
     ).toBeTruthy();
-    expect(
-      within(screen.getByTestId('settings-networks-linkedin-sending-approve_all')).queryByText(
-        starts,
-      ),
-    ).toBeNull();
+    // Messages first each morning, while each message waits for an OK.
+    expect(screen.getByTestId('settings-networks-linkedin-messages-first')).toBeTruthy();
     // Started: each is as it is, and the page says where they stand.
     const wheels = { on: true, from: '2026-10-09T15:00:00.000Z', ok: 3, daysLeft: 6, edits: 0 };
     await render(
@@ -721,9 +732,79 @@ describe('A network’s page of Settings on the phone, saved as it’s changed',
         {...partProps()}
       />,
     );
+    await fireEvent.press(screen.getByTestId('settings-networks-linkedin-more-toggle'));
     expect(screen.queryByText(starts)).toBeNull();
-    expect(screen.getByTestId('settings-networks-linkedin-wheels')).toHaveTextContent(
-      /^Training wheels: every message waits for your OK/,
+    expect(screen.getByTestId('settings-networks-linkedin-limits-line')).toHaveTextContent(
+      /Training wheels: every message waits for your OK/,
+    );
+  });
+
+  it('says at the top what the extension is really doing there, with a button when there’s something to do (decision 170)', async () => {
+    const onAct = jest.fn();
+    const onToday = jest.fn();
+    await render(
+      <SettingsPartBody
+        part="linkedin"
+        automation={{ ...AUTOMATION, settings: withLinkedIn(true, { sending: 'steps' }) }}
+        {...partProps()}
+        here={{ live: LIVE, waiting: 0, people: 0 }}
+        onAct={onAct}
+        onToday={onToday}
+      />,
+    );
+    expect(screen.getByTestId('settings-networks-linkedin-status-title')).toHaveTextContent(
+      'LinkedIn waits for your computer',
+    );
+    expect(screen.getByTestId('settings-networks-linkedin-status-chip')).toHaveTextContent(
+      'Waiting on you',
+    );
+    await fireEvent.press(screen.getByTestId('settings-networks-linkedin-status-act'));
+    expect(onAct).toHaveBeenCalledWith('computer');
+    await fireEvent.press(screen.getByTestId('settings-networks-linkedin-status-today'));
+    expect(onToday).toHaveBeenCalled();
+    // Someone else's settings: no card.
+    await render(
+      <SettingsPartBody
+        part="linkedin"
+        automation={{ ...AUTOMATION, settings: withLinkedIn(true) }}
+        {...partProps()}
+        mine={false}
+        here={{ live: LIVE, waiting: 0, people: 0 }}
+      />,
+    );
+    expect(screen.queryByTestId('settings-networks-linkedin-status')).toBeNull();
+  });
+
+  it('turns Autopilot on for LinkedIn alone, and can’t be picked where the business doesn’t allow it', async () => {
+    const p = partProps();
+    await render(
+      <SettingsPartBody
+        part="linkedin"
+        automation={{ ...AUTOMATION, settings: withLinkedIn(true, { sending: 'steps' }) }}
+        {...p}
+      />,
+    );
+    await fireEvent.press(screen.getByTestId('settings-networks-linkedin-hands-off-autopilot'));
+    const [saved, picked] = p.onSaveMine.mock.lastCall!;
+    expect(choicesFor(saved, 'linkedin').autopilot).toBe(true);
+    expect(choicesFor(saved, 'facebook').autopilot).toBe(false);
+    expect(picked).toEqual([]);
+    await render(
+      <SettingsPartBody
+        part="linkedin"
+        automation={{
+          ...AUTOMATION,
+          settings: withLinkedIn(true, { sending: 'steps' }),
+          rules: { ...AUTOMATION.rules, autopilotAllowed: false },
+        }}
+        {...partProps()}
+      />,
+    );
+    expect(screen.queryByTestId('settings-networks-linkedin-hands-off-autopilot')).toBeNull();
+    expect(
+      screen.getByTestId('settings-networks-linkedin-hands-off-not-allowed'),
+    ).toHaveTextContent(
+      'Your business doesn’t allow Autopilot. Ask an owner of this business to allow it under Social Outreach → Settings → Team.',
     );
   });
 
@@ -754,13 +835,17 @@ describe('A network’s page of Settings on the phone, saved as it’s changed',
     expect(
       screen.getByText('Settings needs signal. Try again when you’re back online.'),
     ).toBeTruthy();
+    // More settings still opens, to see what's in it.
+    await fireEvent.press(screen.getByTestId('settings-networks-facebook-more-toggle'));
     for (const testID of [
       'settings-networks-facebook-on',
-      'settings-networks-facebook-sending-steps',
-      'settings-networks-facebook-replies-simple',
-      'settings-networks-facebook-posting-own',
+      'settings-networks-facebook-hands-off-each',
+      'settings-networks-facebook-hands-off-own',
       'settings-networks-facebook-warmUp',
       'settings-networks-facebook-noting',
+      'settings-networks-facebook-full-speed',
+      'settings-networks-facebook-replies-simple',
+      'settings-networks-facebook-posting-own',
     ])
       expect(screen.getByTestId(testID)).toBeDisabled();
   });
@@ -793,7 +878,13 @@ describe('A network’s page of Settings on the phone, saved as it’s changed',
       rules: { ...AUTOMATION.rules, dailyLimits: { friend_request: 12 } },
     };
     await render(<SettingsPartBody part="facebook" automation={automation} {...p} />);
-    expect(screen.getByText('Your daily limits on Facebook')).toBeTruthy();
+    // In a line, and every one of them a press away (decision 170).
+    expect(screen.getByText('Daily limits')).toBeTruthy();
+    expect(screen.getByTestId('settings-networks-facebook-limits-line')).toHaveTextContent(
+      /^Up to 12 friend requests, /,
+    );
+    expect(screen.queryByTestId('settings-networks-facebook-limit-friend_request')).toBeNull();
+    await fireEvent.press(screen.getByTestId('settings-networks-facebook-limits-all'));
     expect(screen.getByTestId('settings-networks-facebook-limit-friend_request')).toHaveTextContent(
       '12Friend requests',
     );
@@ -803,7 +894,7 @@ describe('A network’s page of Settings on the phone, saved as it’s changed',
     // No Chrome note on Facebook: the extension is let on there from the start.
     expect(screen.queryByTestId('settings-networks-facebook-chrome')).toBeNull();
     await fireEvent.press(screen.getByTestId('settings-networks-facebook-noting'));
-    expect(p.onSaveMine).toHaveBeenLastCalledWith({ ...AUTOMATION_DEFAULTS, noting: false });
+    expect(p.onSaveMine).toHaveBeenLastCalledWith({ ...AUTOMATION_DEFAULTS, noting: false }, []);
     await render(
       <SettingsPartBody
         part="facebook"
@@ -811,6 +902,7 @@ describe('A network’s page of Settings on the phone, saved as it’s changed',
         {...partProps()}
       />,
     );
+    await fireEvent.press(screen.getByTestId('settings-networks-facebook-limits-all'));
     expect(screen.getByTestId('settings-networks-facebook-limit-friend_request')).toHaveTextContent(
       '6Friend requests',
     );
@@ -824,6 +916,7 @@ describe('A network’s page of Settings on the phone, saved as it’s changed',
         {...partProps()}
       />,
     );
+    await fireEvent.press(screen.getByTestId('settings-networks-linkedin-limits-all'));
     expect(screen.getByTestId('settings-networks-linkedin-limit-friend_request')).toHaveTextContent(
       '15Invitations to connect',
     );
@@ -873,6 +966,8 @@ describe('A network’s page and the person’s computer (decisions 74 and 77)',
     expect(screen.getByTestId('settings-networks-linkedin-chrome-blocked')).toHaveTextContent(
       'Chrome on Mac 12 isn’t allowed on LinkedIn yet. Open the extension’s panel on a LinkedIn page and press Allow on LinkedIn, then Allow in Chrome’s box.',
     );
+    // Check LinkedIn is under More settings (decision 170).
+    await fireEvent.press(screen.getByTestId('settings-networks-linkedin-more-toggle'));
     expect(screen.getByTestId('settings-networks-linkedin-checkup')).toHaveTextContent(
       /^Check LinkedInIf something on LinkedIn isn’t working, press this once\./,
     );
@@ -893,6 +988,7 @@ describe('A network’s page and the person’s computer (decisions 74 and 77)',
     );
     expect(screen.queryByTestId('settings-networks-facebook-chrome')).toBeNull();
     expect(screen.queryByTestId('settings-networks-facebook-chrome-blocked')).toBeNull();
+    await fireEvent.press(screen.getByTestId('settings-networks-facebook-more-toggle'));
     expect(screen.getByTestId('settings-networks-facebook-checkup')).toHaveTextContent(
       /^Check FacebookIf something on Facebook isn’t working, press this once\./,
     );
@@ -927,12 +1023,13 @@ describe('A network’s page and the person’s computer (decisions 74 and 77)',
     );
     // Not looked at anymore, and on its own from its runner (part 14): Instagram's starting limits.
     expect(screen.queryByTestId('settings-networks-instagram-looking')).toBeNull();
-    expect(screen.getByTestId('settings-networks-instagram-on-its-own')).not.toHaveTextContent(
-      /on its own yet/,
-    );
+    expect(screen.getByTestId('settings-networks-instagram-hands-off')).toBeTruthy();
+    expect(screen.queryByTestId('settings-networks-instagram-no-runner')).toBeNull();
+    await fireEvent.press(screen.getByTestId('settings-networks-instagram-limits-all'));
     expect(
       screen.getByTestId('settings-networks-instagram-limit-friend_request'),
     ).toHaveTextContent(/^20Follows$/);
+    await fireEvent.press(screen.getByTestId('settings-networks-instagram-more-toggle'));
     expect(screen.getByTestId('settings-networks-instagram-checkup')).toHaveTextContent(
       /^Check Instagram/,
     );
@@ -1046,6 +1143,7 @@ describe('A network’s page and the person’s computer (decisions 74 and 77)',
         onLikeYours={onLikeYours}
       />,
     );
+    await fireEvent.press(screen.getByTestId('settings-networks-instagram-more-toggle'));
     expect(screen.getByTestId('settings-networks-instagram-like-yours-moved')).toHaveTextContent(
       /Accounts like yours.*under Find people now/,
     );
@@ -1093,6 +1191,7 @@ describe('A network’s page and the person’s computer (decisions 74 and 77)',
         askActions={actions}
       />,
     );
+    await fireEvent.press(screen.getByTestId('settings-networks-facebook-more-toggle'));
     expect(screen.getByTestId('outreach-ask-too-old')).toHaveTextContent(
       /^HandsFreeOS Social on Chrome on Mac 12 is an older build \(0\.56\.0\) that can’t do this yet\. Download the newest one/,
     );
@@ -1111,7 +1210,6 @@ describe('A network’s page and the person’s computer (decisions 74 and 77)',
       />,
     );
     expect(screen.queryByTestId('settings-networks-linkedin-chrome-blocked')).toBeNull();
-    expect(screen.getByTestId('settings-networks-linkedin-chrome')).toBeTruthy();
     await render(
       <SettingsPartBody
         part="linkedin"
@@ -1120,6 +1218,7 @@ describe('A network’s page and the person’s computer (decisions 74 and 77)',
         mine={false}
       />,
     );
+    await fireEvent.press(screen.getByTestId('settings-networks-linkedin-more-toggle'));
     expect(screen.queryByTestId('settings-networks-linkedin-checkup')).toBeNull();
   });
 });

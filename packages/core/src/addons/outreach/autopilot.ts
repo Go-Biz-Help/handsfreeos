@@ -193,8 +193,10 @@ export type AutopilotPerson = z.output<typeof AutopilotPerson>;
 export const AutopilotInput = z.object({ workspaceId: z.uuid() });
 export type AutopilotInput = z.input<typeof AutopilotInput>;
 export const AutopilotOutput = z.object({
-  /** Autopilot is on for them now, and the business allows it. */
+  /** Autopilot is on for them now on any network they work, and the business allows it. */
   on: z.boolean(),
+  /** The networks they work it's on for (decision 170: each network has its own). */
+  networks: z.array(z.enum(PLATFORM_KEYS)).default([]),
   /** The business lets people turn it on. */
   allowed: z.boolean(),
   /** The business's day today: "2026-11-04", and its time zone, which `listAt` is shown on. */

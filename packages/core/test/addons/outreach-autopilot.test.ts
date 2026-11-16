@@ -27,6 +27,7 @@ import {
   nextAutopilotList,
   waitsForPeopleOk,
 } from '../../src/addons/outreach/autopilot';
+import { withHandsOff } from '../../src/addons/outreach/hands-off';
 import { outreachAddon } from '../../src/addons/outreach/manifest';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { goesAsItIs } from '../../src/addons/outreach/sends';
@@ -328,6 +329,46 @@ describe('Autopilot in a business', () => {
     expect(await runAs(member, ws, 'outreach.autopilot.answer', { answer: 'ok' })).toEqual({
       changed: 0,
       waiting: 0,
+    });
+  });
+
+  it('lets each network have its own (decision 170), whatever an older screen sends', async () => {
+    const said = await runAs(owner, ws, 'outreach.automation.save', {
+      changes: { autopilot: false, networks: { linkedin: { on: true, autopilot: true } } },
+    });
+    expect(said.settings.autopilot).toBe(false);
+    expect(said.settings.networks.linkedin).toMatchObject({
+      autopilot: true,
+      sending: 'everything',
+    });
+    expect(said.settings.networks.threads.autopilot).toBe(false);
+    // Facebook's list isn't held for the day's OK, and the day's list is LinkedIn's alone.
+    expect(await names()).toEqual(['Casey Moreno', 'Dana Reyes', 'Sam Lee']);
+    expect(await list()).toMatchObject({ on: true, networks: ['linkedin'] });
+    // A screen from before sends everything without each network's: LinkedIn's stays on.
+    const linkedin = { ...AUTOMATION_DEFAULTS.networks.linkedin, on: true };
+    const older = await runAs(owner, ws, 'outreach.automation.save', {
+      settings: {
+        ...AUTOMATION_DEFAULTS,
+        warmUp: false,
+        networks: { ...AUTOMATION_DEFAULTS.networks, linkedin },
+      },
+    });
+    expect(older.settings.networks.linkedin.autopilot).toBe(true);
+    // Off with All on its own picked just now: those picks stay, rather than their own from before coming back.
+    const own = withHandsOff(older.settings, 'linkedin', 'own', BusinessRules.parse({}));
+    const picked = await runAs(owner, ws, 'outreach.automation.save', {
+      settings: own.settings,
+      picked: own.picked,
+    });
+    expect(picked.settings.networks.linkedin).toMatchObject({
+      autopilot: false,
+      sending: 'everything',
+      replies: 'everything',
+    });
+    expect(await list()).toMatchObject({ on: false, networks: [] });
+    await runAs(owner, ws, 'outreach.automation.save', {
+      changes: { networks: { linkedin: { on: false, sending: 'off', replies: 'draft' } } },
     });
   });
 

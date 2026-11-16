@@ -482,11 +482,9 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
               .limit(1)
           : [];
     // The person's choices and training wheels on the network the message goes on: each network's are its own.
-    const {
-      choices: settings,
-      wheels,
-      settings: { autopilot },
-    } = await automationOf(ctx, me, Date.now(), profile.platform);
+    const { choices: settings, wheels } = await automationOf(ctx, me, Date.now(), profile.platform);
+    // Autopilot on the network the message goes on (decision 170: each network has its own).
+    const autopilot = settings.autopilot === true;
     // Under Autopilot (decision 151), nothing goes to someone the person hasn't OK'd on a day's list but an answer to
     // them: Today doesn't list them, so this holds whatever drafted it.
     const [okd] =

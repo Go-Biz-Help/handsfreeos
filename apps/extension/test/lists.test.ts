@@ -235,12 +235,13 @@ describe('saving the requests you’ve sent', () => {
     expect(end).toEqual({ line: 'Saved 3 sent requests.', warned: false, whole: true });
   });
 
-  it('says what to check when View sent requests isn’t there, and saves nothing', async () => {
+  it('says it tries again when View sent requests isn’t there, never to check the sign-in, and saves nothing', async () => {
     const { tab } = requestsTab('missing');
     const { hfos, sent } = fakeHfos();
     const end = await checkSent(jobOf(tab, hfos));
     expect(end.failed).toBe(true);
-    expect(end.line).toContain('signed in to Facebook');
+    expect(end.line).toContain('It tries again in a few minutes.');
+    expect(end.line).not.toContain('signed in');
     expect(sent).toEqual([]);
   });
 
