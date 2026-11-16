@@ -86,7 +86,9 @@ const stopped = (job: Job): JobEnd | null =>
   job.stopped() ? { line: 'Stopped.', warned: false } : null;
 
 /** A group HandsFreeOS keeps, as the saves take it: its name in its address, its page, and its name. */
-function cardOf(group: Pick<WorkGroup, 'url' | 'name' | 'members'>): AlignableGroupCard | null {
+export function cardOf(
+  group: Pick<WorkGroup, 'url' | 'name' | 'members'>,
+): AlignableGroupCard | null {
   let url: URL;
   try {
     url = new URL(group.url);
@@ -455,7 +457,7 @@ export async function joinGroupsOn(job: Job): Promise<JobEnd> {
 // ------------------------------------------------------------------------------------------------ members and posts
 
 /** The Alignable groups the person is in, marked Work these, else Maybe, as HandsFreeOS picks them. */
-async function groupsToWorkOn(job: Job, most: number): Promise<WorkGroup[]> {
+export async function groupsToWorkOn(job: Job, most: number): Promise<WorkGroup[]> {
   const [work, maybe] = await Promise.all(
     (['work', 'maybe'] as const).map(
       async (view) =>

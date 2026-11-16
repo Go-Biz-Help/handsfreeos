@@ -9,6 +9,7 @@ import { JSDOM } from 'jsdom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { POST_PICTURE_CHARS } from '@hfos/core/addons/outreach/comment-says';
 import { PostLook } from '@hfos/core/addons/outreach/today';
+import { PLATFORM_KEYS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { LOOK_WANT, lookAtPost, looksAtPosts, pictureFrom } from '../src/auto/post-look';
 import type { PostLookAnswer, PostLookAsk } from '../src/messages';
 import { INSTAGRAM } from '../src/networks/instagram/site';
@@ -315,6 +316,33 @@ describe('a photo fetched by the background', () => {
     expect(fetched).toHaveLength(2);
   });
 
+  it('fetches each network’s photos only from its own picture servers (decision 172)', async () => {
+    const fetched: string[] = [];
+    vi.stubGlobal('fetch', async (url: string) => {
+      fetched.push(url);
+      return picture();
+    });
+    const own: readonly (readonly [string, Platform])[] = [
+      ['https://scontent.xx.fbcdn.net/v/t39.30808-6/a.jpg', 'facebook'],
+      ['https://scontent-dfw5-1.cdninstagram.com/v/t51.2885-15/a.jpg', 'threads'],
+      ['https://media.licdn.com/dms/image/v2/D4E22AQ/feedshare-shrink_800/0/1.jpg', 'linkedin'],
+      ['https://pbs.twimg.com/media/GabcDEF.jpg?format=jpg&name=small', 'x'],
+      ['https://assets.alignable.com/discussions/photo.jpg', 'alignable'],
+    ];
+    for (const [address, platform] of own)
+      expect(await pictureFrom(address, platform, 768, make)).toBe(JPEG);
+    // Another network's servers, or a look-alike host: never fetched.
+    for (const [address, platform] of [
+      ['https://pbs.twimg.com/media/GabcDEF.jpg', 'linkedin'],
+      ['https://media.licdn.com/dms/image/1.jpg', 'x'],
+      ['https://scontent-dfw5-1.cdninstagram.com/v/a.jpg', 'facebook'],
+      ['https://alignable.com.example.com/photo.jpg', 'alignable'],
+      ['https://twimg.com.example.com/media/a.jpg', 'x'],
+    ] as const)
+      expect(await pictureFrom(address, platform, 768, make)).toBeNull();
+    expect(fetched).toHaveLength(own.length);
+  });
+
   it('is nothing when the servers refuse, send something that isn’t a picture, or send too much', async () => {
     const answers: (() => Response | Promise<Response>)[] = [
       () => new Response('gone', { status: 404, headers: { 'content-type': 'image/jpeg' } }),
@@ -347,7 +375,7 @@ describe('the look that goes with a comment’s draft', () => {
     const asks: PostLookAsk[] = [];
     return {
       asks,
-      runner: (platform: 'instagram' | 'alignable' = 'instagram') => ({
+      runner: (platform: Platform = 'instagram') => ({
         platform,
         tab: {
           ask: async (message: PostLookAsk) => {
@@ -430,12 +458,21 @@ describe('the look that goes with a comment’s draft', () => {
     ).toBeNull();
   });
 
-  it('is only on a network whose posts are looked at: the tab is never asked on another', async () => {
-    expect(looksAtPosts('instagram')).toBe(true);
-    for (const other of ['facebook', 'linkedin', 'alignable', 'threads', 'x'] as const)
-      expect(looksAtPosts(other)).toBe(false);
+  it('is on every network built from 0.144.0 (decision 172), and never on one whose picture servers it doesn’t know', async () => {
+    for (const platform of PLATFORM_KEYS) expect(looksAtPosts(platform)).toBe(true);
+    for (const platform of PLATFORM_KEYS) {
+      const asked = tab({ ok: true, seen: { kind: 'video', jpegs: [JPEG], poster: null } });
+      expect(await lookAtPost(asked.runner(platform), ON, make)).toEqual({
+        kind: 'video',
+        jpegs: [JPEG],
+      });
+      expect(asked.asks).toHaveLength(1);
+    }
+    // A network added later is never looked at till its picture servers are listed: the tab isn't asked.
+    const later = 'myspace' as Platform;
+    expect(looksAtPosts(later)).toBe(false);
     const asked = tab({ ok: true, seen: { kind: 'video', jpegs: [JPEG], poster: null } });
-    expect(await lookAtPost(asked.runner('alignable'), ON, make)).toBeNull();
+    expect(await lookAtPost(asked.runner(later), ON, make)).toBeNull();
     expect(asked.asks).toEqual([]);
   });
 });

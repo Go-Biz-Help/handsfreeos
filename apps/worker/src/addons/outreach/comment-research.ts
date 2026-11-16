@@ -10,7 +10,7 @@
 import {
   checkedFindings,
   COMMENT_RESEARCH_SCHEMA,
-  COMMENT_RESEARCH_SYSTEM,
+  commentResearchSystem,
   CommentResearchAnswer,
   commentResearchPrompt,
   commentStats,
@@ -19,6 +19,7 @@ import {
   researchEnds,
   type CommentFindings,
   type CommentSample,
+  type ResearchPlatform,
   type ResearchState,
 } from '@hfos/core/addons/outreach/comment-research';
 import { commentResearchSum } from '@hfos/core/addons/outreach/ops/comment-research';
@@ -73,9 +74,14 @@ export async function sumCommentResearchJob(ctx: AddonJobContext): Promise<JobRe
   if (!id) return;
   const found = await asWorker(ctx.db, ctx.scope, async (tx) => ({
     run: (
-      await rows<{ started_at: Date | string; days: number; state: ResearchState }>(
+      await rows<{
+        started_at: Date | string;
+        days: number;
+        state: ResearchState;
+        platform: ResearchPlatform;
+      }>(
         tx,
-        sql`select started_at, days, state from addon_outreach.comment_research
+        sql`select started_at, days, state, platform from addon_outreach.comment_research
             where workspace_id = ${ctx.scope.workspaceId} and id = ${id}`,
       )
     )[0],
@@ -101,7 +107,7 @@ export async function sumCommentResearchJob(ctx: AddonJobContext): Promise<JobRe
     try {
       answer = (
         await askStructured(ctx, ctx.scope, {
-          system: COMMENT_RESEARCH_SYSTEM,
+          system: commentResearchSystem(run.platform),
           messages: [{ role: 'user', content: commentResearchPrompt(stats, samples) }],
           schema: COMMENT_RESEARCH_SCHEMA,
           zod: CommentResearchAnswer,

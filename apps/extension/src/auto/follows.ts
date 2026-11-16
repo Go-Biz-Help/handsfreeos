@@ -75,6 +75,8 @@ import { readCommentReplies } from '../jobs/follows/replies';
 import { hourlySearch } from '../jobs/follows/search';
 import { unfollowOnItsOwn } from '../jobs/follows/unfollow';
 import { followAsk } from '../jobs/follows';
+import { NO_RESEARCH, researchRuns } from '../jobs/comment-research';
+import { readFollowComments } from '../jobs/follows/comment-research';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { readProfileOnItsOwn } from '../jobs/own-read';
 import { reporter } from '../jobs/report';
@@ -88,7 +90,7 @@ import {
   draftComment,
   isCommentWork,
   sendComment,
-  type CommentRunner,
+  type LookingRunner,
 } from './comments';
 import { DAILY_CHATS } from './daily';
 import { helpAfter, stepHelp } from './helper';
@@ -150,8 +152,9 @@ export const FOLLOW_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'];
  * The once-a-day jobs there, in order: the newest followers (`requests`: who followed back is who accepted), who
  * followed back seen on their own profiles, unfollowing who didn't as the person chose (`tidy`), the person's chats
  * read for the AI where it writes in them (Threads', decision 167), who replied to good posts, the people found
- * checked for good fits, and their own profile on the 1st of the month. Its search isn't one: it goes every hour
- * (`searchDue`).
+ * checked for good fits, from 0.144.0 HandsFreeOS's own comment research for whoever of its staff started one
+ * (`comment_research`, decision 172), and their own profile on the 1st of the month. Its search isn't one: it goes
+ * every hour (`searchDue`).
  */
 export const FOLLOW_DAILY = [
   'requests',
@@ -160,6 +163,7 @@ export const FOLLOW_DAILY = [
   'chats',
   'post_people',
   'found_checks',
+  'comment_research',
   'profile',
 ] as const satisfies readonly (DailyJob | OwnDailyJob)[];
 export type FollowDaily = (typeof FOLLOW_DAILY)[number];
@@ -193,6 +197,7 @@ const DAILY_DOING = (name: string): Readonly<Record<FollowDaily, string>> => ({
   chats: `Reading your ${name} chats for the AI…`,
   post_people: `Reading who replied to good posts on ${name}…`,
   found_checks: `Checking the people found on ${name} for good fits…`,
+  comment_research: `Reading replies under posts on ${name} for HandsFreeOS’s comment research…`,
   profile: `Reading your ${name} profile, as it does on the 1st of each month…`,
 });
 const DAILY_NAMES: Readonly<Record<FollowDaily, string>> = {
@@ -202,6 +207,7 @@ const DAILY_NAMES: Readonly<Record<FollowDaily, string>> = {
   chats: 'Read my chats',
   post_people: 'Who replied to good posts',
   found_checks: 'Check the people found',
+  comment_research: 'Comment research',
   profile: 'Read my profile',
 };
 
@@ -374,7 +380,7 @@ function followRunner(platform: FollowPlatform): FollowRunner {
     return account ? { id: null, username: account.username, url: account.url } : null;
   }
 
-  const commenting: CommentRunner = {
+  const commenting: LookingRunner = {
     platform,
     tab,
     async onPage(businessId) {
@@ -954,8 +960,12 @@ function followRunner(platform: FollowPlatform): FollowRunner {
   /** Does a piece of work: a step on the list, or a comment's or a message's draft or send. */
   function doWork(work: Work, businessId: string, spare = 0, split = true): Promise<Outcome> {
     if (work.do === 'draft')
+      // A comment's post's picture or video goes with its draft (decision 172, from 0.144.0).
       return isCommentWork(work)
-        ? draftComment(work.item, businessId)
+        ? draftComment(work.item, businessId, {
+            runner: commenting,
+            them: wantOf(work.item.profileUrl),
+          })
         : draftMessage(work.item, businessId);
     if (work.do === 'send')
       return isCommentWork(work)
@@ -1015,6 +1025,8 @@ function followRunner(platform: FollowPlatform): FollowRunner {
         return readPostRepliers(reporting(job, kind), platform);
       case 'found_checks':
         return checkFound(job, { platform, read: readThemOn(platform) });
+      case 'comment_research':
+        return readFollowComments(job, platform);
       case 'profile':
         return readProfileOnItsOwn(job, platform, (j) =>
           followAsk(platform)({ kind: 'profile_read' }, j),
@@ -1183,6 +1195,15 @@ function followRunner(platform: FollowPlatform): FollowRunner {
     }
     const passOver = putOff.passOver(away);
     let daily = choices.collect ? nextFollowDaily(platform, state, passOver, at) : null;
+    // HandsFreeOS's own comment research (decision 172) is only for whoever of its staff started one: asked without a
+    // word once its turn comes, and for anyone else it's done for the day before a line of it is ever shown.
+    if (
+      daily === 'comment_research' &&
+      !(await researchRuns(answer as Hfos, to.businessId, platform))
+    ) {
+      state = await setState({ daily: { ...state.daily, comment_research: NO_RESEARCH } });
+      daily = nextFollowDaily(platform, state, passOver, at);
+    }
     if (
       choices.collect &&
       !before &&

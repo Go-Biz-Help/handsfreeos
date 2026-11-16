@@ -2,7 +2,8 @@
  * The comment research on the database (docs/outreach.md, decision 166): HandsFreeOS's own, so only its staff who may
  * change what the AI is told start one, read one or use what it found, and the database holds the same; only the
  * browser of whoever started it reads for it; what's kept of a comment is its words alone; and its guide goes in every
- * business's comments only once staff press Use it.
+ * business's comments only once staff press Use it. On every network from decision 172: one Start begins all six, each
+ * network its own research, its own searches and its own guide.
  */
 import { asUser, rows, sql } from '@hfos/db/client';
 import { workspaceMemberships } from '@hfos/db/schema';
@@ -12,10 +13,13 @@ import {
   checkedFindings,
   commentStats,
   RESEARCH_DAYS,
+  RESEARCH_PLATFORMS,
   RESEARCH_POSTS_A_TAG,
   RESEARCH_TAGS,
   RESEARCH_TARGET,
+  researchSearches,
   type CommentResearchOutput,
+  type ResearchPlatform,
   type CommentSample,
 } from '../../src/addons/outreach/comment-research';
 import { outreachBusiness, refused, runAs, runAsSystem } from './outreach-fixture';
@@ -46,7 +50,13 @@ let ws: string;
 
 const get = (u: TestUser): Promise<CommentResearchOutput> =>
   runAs(u, ws, 'outreach.comment_research.get', {});
-const next = (u: TestUser) => runAs(u, ws, 'outreach.comment_research.next', {});
+const next = (u: TestUser, platform: ResearchPlatform = 'instagram') =>
+  runAs(u, ws, 'outreach.comment_research.next', { platform });
+/** One network's row on the card. */
+const on = (out: CommentResearchOutput, platform: ResearchPlatform = 'instagram') =>
+  out.networks.find((n) => n.platform === platform)!;
+/** Instagram's research on the card. */
+const ig = (out: CommentResearchOutput) => on(out).research;
 
 beforeAll(async () => {
   [staff, lead, member] = await Promise.all([
@@ -90,18 +100,22 @@ describe('the comment research', () => {
       // Their browser is told there's none, and does nothing.
       expect(await next(u)).toEqual({ research: null });
     }
-    expect((await get(staff)).research).toBeNull();
+    const card = await get(staff);
+    expect(card.networks.map((n) => n.platform)).toEqual([...RESEARCH_PLATFORMS]);
+    expect(card.networks.every((n) => n.research === null && n.inUse === null)).toBe(true);
     expect(await next(staff)).toEqual({ research: null });
   });
 
-  it('starts one at a time, read only by the browser of whoever started it', async () => {
+  it('starts on every network at once, one at a time a network, read only by whoever started it', async () => {
     const started: CommentResearchOutput = await runAs(
       staff,
       ws,
       'outreach.comment_research.start',
       {},
     );
-    expect(started.research).toMatchObject({
+    for (const platform of RESEARCH_PLATFORMS)
+      expect(on(started, platform).research).toMatchObject({ platform, state: 'reading' });
+    expect(ig(started)).toMatchObject({
       state: 'reading',
       platform: 'instagram',
       mine: true,
@@ -113,10 +127,13 @@ describe('the comment research', () => {
       findings: null,
       guide: null,
     });
-    id = started.research!.id;
+    id = ig(started)!.id;
     expect(await refused(runAs(staff, ws, 'outreach.comment_research.start', {}))).toBe(
       'outreach_research_running',
     );
+    expect(
+      await refused(runAs(staff, ws, 'outreach.comment_research.start', { platform: 'x' })),
+    ).toBe('outreach_research_running');
     expect(await next(staff)).toEqual({
       research: {
         id,
@@ -128,11 +145,20 @@ describe('the comment research', () => {
     });
     expect(await next(lead)).toEqual({ research: null });
     expect(await next(member)).toEqual({ research: null });
+    // Each network reads its own searches: X its everyday words, LinkedIn its work words, Alignable its places.
+    for (const platform of ['x', 'linkedin', 'alignable'] as const)
+      expect((await next(staff, platform)).research.tags).toEqual(
+        researchSearches(platform)
+          .slice(0, 2)
+          .map((s) => s.search),
+      );
   });
 
   it('is kept from everyone but that staff in the database itself', async () => {
     const mine = sql`select id from addon_outreach.comment_research where workspace_id = ${ws}`;
-    expect(await as(staff)<{ id: string }>(mine)).toEqual([{ id }]);
+    const seen = await as(staff)<{ id: string }>(mine);
+    expect(seen).toHaveLength(RESEARCH_PLATFORMS.length);
+    expect(seen).toContainEqual({ id });
     expect(await as(lead)(mine)).toEqual([]);
     expect(await as(member)(mine)).toEqual([]);
     // Nobody signed in reads or writes the guide's table: only its definers do.
@@ -169,16 +195,18 @@ describe('the comment research', () => {
       { words: 'need the recipe', topic: 'food', seen: 1 },
       { words: 'so good 😍', topic: 'food', seen: 1 },
     ]);
-    const card = (await get(staff)).research!;
+    const card = ig(await get(staff))!;
     expect(card).toMatchObject({ kept: 4, dropped: 2, posts: 2, state: 'reading' });
     // The hashtag read isn't read again.
     expect((await next(staff)).research.tags).toEqual(RESEARCH_TAGS.slice(1, 3));
-    // A hashtag that isn't the research's is refused; someone who didn't start it adds nothing.
-    expect(
-      await refused(
-        runAs(staff, ws, 'outreach.comment_research.save', { id, tag: 'crypto', posts: [] }),
-      ),
-    ).toBe('outreach_research_tag');
+    // A hashtag that isn't the research's is refused, and so is another network's search; someone who didn't start
+    // it adds nothing.
+    for (const other of ['crypto', 'my dog'])
+      expect(
+        await refused(
+          runAs(staff, ws, 'outreach.comment_research.save', { id, tag: other, posts: [] }),
+        ),
+      ).toBe('outreach_research_tag');
     expect(
       await runAs(member, ws, 'outreach.comment_research.save', {
         id,
@@ -186,7 +214,35 @@ describe('the comment research', () => {
         posts: [{ comments: ['nice one'] }],
       }),
     ).toEqual({ kept: 0, dropped: 0, total: 0, reading: false });
-    expect((await get(staff)).research).toMatchObject({ kept: 4, posts: 2 });
+    expect(ig(await get(staff))).toMatchObject({ kept: 4, posts: 2 });
+  });
+
+  it('keeps another network’s comments under its own research, with the kind its search finds', async () => {
+    const x = on(await get(staff), 'x').research!;
+    const saved = await runAs(staff, ws, 'outreach.comment_research.save', {
+      id: x.id,
+      tag: ' My  Dog ',
+      posts: [{ comments: ['what a good boy', 'Love this'] }],
+    });
+    expect(saved).toEqual({ kept: 2, dropped: 0, total: 2, reading: true });
+    expect(
+      await rows<{ words: string; topic: string }>(
+        admin(),
+        sql`select words, topic from addon_outreach.comment_samples
+            where research_id = ${x.id} order by words`,
+      ),
+    ).toEqual([
+      { words: 'Love this', topic: 'pets' },
+      { words: 'what a good boy', topic: 'pets' },
+    ]);
+    // Instagram's research is untouched, and X goes on to its next words.
+    expect(ig(await get(staff))).toMatchObject({ kept: 4 });
+    expect((await next(staff, 'x')).research.tags).toEqual(
+      researchSearches('x')
+        .filter((s) => s.search !== 'my dog')
+        .slice(0, 2)
+        .map((s) => s.search),
+    );
   });
 
   it('stopped with too few to learn from is only stopped, and another can start', async () => {
@@ -199,16 +255,20 @@ describe('the comment research', () => {
       'outreach.comment_research.stop',
       { id },
     );
-    expect(stopped.research).toMatchObject({ id, state: 'stopped', findings: null });
+    expect(ig(stopped)).toMatchObject({ id, state: 'stopped', findings: null });
     expect(await next(staff)).toEqual({ research: null });
+    // The others read on; Start begins only the one that isn't.
+    expect(on(stopped, 'x').research!.state).toBe('reading');
+    const x = on(stopped, 'x').research!.id;
     const again: CommentResearchOutput = await runAs(
       staff,
       ws,
       'outreach.comment_research.start',
       {},
     );
-    expect(again.research!.id).not.toBe(id);
-    id = again.research!.id;
+    expect(ig(again)!.id).not.toBe(id);
+    expect(on(again, 'x').research!.id).toBe(x);
+    id = ig(again)!.id;
   });
 
   it('never keeps more than it set out to, and is summed up once it’s full', async () => {
@@ -222,7 +282,7 @@ describe('the comment research', () => {
       posts: [{ comments: ['clean build', 'that paint though', 'so sick'] }],
     });
     expect(saved).toEqual({ kept: 1, dropped: 0, total: RESEARCH_TARGET, reading: false });
-    expect((await get(staff)).research).toMatchObject({ state: 'summing', kept: RESEARCH_TARGET });
+    expect(ig(await get(staff))).toMatchObject({ state: 'summing', kept: RESEARCH_TARGET });
     expect(await next(staff)).toEqual({ research: null });
     // Nothing to use until it's summed up.
     expect(
@@ -247,10 +307,10 @@ describe('the comment research', () => {
       id,
       state: 'done',
     });
-    const card = (await get(staff)).research!;
+    const card = ig(await get(staff))!;
     expect(card.state).toBe('done');
     expect(card.findings).toEqual(findings);
-    expect(card.guide).toContain('From 5 real comments under public Instagram posts');
+    expect(card.guide).toContain('From 5 real comments under Instagram posts');
     expect(card.guide).toContain('- Most are two or three plain words.');
     // Summed up once: a second answer changes nothing.
     expect(await runAsSystem(ws, 'outreach.comment_research.sum', { id, findings: null })).toEqual({
@@ -267,14 +327,16 @@ describe('the comment research', () => {
       id,
       use: true,
     });
-    expect(used.inUse).toMatchObject({ platform: 'instagram', comments: 5, thisOne: true });
-    expect(used.inUse!.guide).toBe(used.research!.guide);
+    expect(on(used).inUse).toMatchObject({ comments: 5, thisOne: true });
+    expect(on(used).inUse!.guide).toBe(ig(used)!.guide);
+    // Instagram's guide is Instagram's alone.
+    expect(on(used, 'x').inUse).toBeNull();
     const [live] = await rows<{ guide: string; research_id: string; used_by: string }>(
       admin(),
       sql`select guide, research_id, used_by from platform.comment_guides
           where platform = 'instagram' and stopped_at is null`,
     );
-    expect(live).toEqual({ guide: used.research!.guide, research_id: id, used_by: staff.id });
+    expect(live).toEqual({ guide: ig(used)!.guide, research_id: id, used_by: staff.id });
     // Used again, it takes its own place: one in use a network.
     await runAs(staff, ws, 'outreach.comment_research.use', { id, use: true });
     const [inUse] = await rows<{ n: number }>(
@@ -287,6 +349,6 @@ describe('the comment research', () => {
       id,
       use: false,
     });
-    expect(out.inUse).toBeNull();
+    expect(on(out).inUse).toBeNull();
   });
 });

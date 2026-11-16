@@ -2,7 +2,8 @@
  * The comment research (docs/outreach.md, decision 166; the owner, 14 Nov 2026: "have the extension do some extensive
  * research on comments on all different types of posts … and recognize the patterns, be aware some comments may be
  * bots as well so try to avoid adding those to the context to learn from"): what's kept of a comment, what's left out,
- * how the kept ones are counted, what may come of the AI's read, and how the guide goes in a comment's prompt.
+ * how the kept ones are counted, what may come of the AI's read, and how the guide goes in a comment's prompt. On
+ * every network from decision 172 (16 Nov 2026: "it should be on all the platforms we have built").
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -14,24 +15,30 @@ import {
   commentResearchPrompt,
   CommentFindings,
   CommentResearchSaveInput,
+  commentResearchSystem,
   commentStats,
   isCopied,
   looksLikeBot,
   nextTags,
   RESEARCH_DAYS,
+  RESEARCH_PLATFORMS,
   RESEARCH_TAGS,
   RESEARCH_TAGS_A_BATCH,
   RESEARCH_TARGET,
   RESEARCH_TOPICS,
   RESEARCH_WORDS_MOST,
   researchEnds,
+  researchNetworkName,
   researchProgress,
   researchRoom,
+  researchSearches,
+  researchTopicName,
   scrubComment,
   sortComment,
   sortComments,
   statLines,
   topicOfTag,
+  WORK_TOPICS,
   type CommentSample,
 } from '../../src/addons/outreach/comment-research';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
@@ -48,20 +55,72 @@ describe('what a research reads', () => {
       expect(topic.id).toMatch(/^[a-z_]{2,24}$/);
       for (const tag of topic.tags) {
         expect(tag).toMatch(/^[a-z0-9_]{2,40}$/);
-        expect(topicOfTag(tag)).toBe(topic.id);
+        expect(topicOfTag('instagram', tag)).toBe(topic.id);
       }
     }
     // The first hashtags are each a different kind of post.
-    const first = RESEARCH_TAGS.slice(0, RESEARCH_TOPICS.length).map(topicOfTag);
+    const first = RESEARCH_TAGS.slice(0, RESEARCH_TOPICS.length).map((t) =>
+      topicOfTag('instagram', t),
+    );
     expect(new Set(first).size).toBe(RESEARCH_TOPICS.length);
-    expect(topicOfTag('FOODIE')).toBe('food');
-    expect(topicOfTag('crypto')).toBeNull();
+    expect(topicOfTag('instagram', 'FOODIE')).toBe('food');
+    expect(topicOfTag('instagram', 'crypto')).toBeNull();
   });
 
-  it('goes on to hashtags it hasn’t read, and from the start again once all were', () => {
-    expect(nextTags([])).toEqual(RESEARCH_TAGS.slice(0, RESEARCH_TAGS_A_BATCH));
-    expect(nextTags(RESEARCH_TAGS.slice(0, 2))).toEqual(RESEARCH_TAGS.slice(2, 4));
-    expect(nextTags([...RESEARCH_TAGS])).toEqual(RESEARCH_TAGS.slice(0, RESEARCH_TAGS_A_BATCH));
+  it('reads every network, each with searches of its own that a save takes', () => {
+    expect([...RESEARCH_PLATFORMS].sort()).toEqual(
+      ['alignable', 'facebook', 'instagram', 'linkedin', 'threads', 'x'].sort(),
+    );
+    for (const platform of RESEARCH_PLATFORMS) {
+      const searches = researchSearches(platform);
+      expect(searches.length).toBeGreaterThanOrEqual(2);
+      expect(new Set(searches.map((s) => s.search)).size).toBe(searches.length);
+      for (const { search, topic } of searches) {
+        expect(topicOfTag(platform, search)).toBe(topic);
+        // What the extension sends back as the search it read passes the save's own check.
+        expect(
+          CommentResearchSaveInput.safeParse({
+            workspaceId: '00000000-0000-4000-8000-000000000001',
+            id: '00000000-0000-4000-8000-000000000002',
+            tag: search,
+            posts: [],
+          }).success,
+        ).toBe(true);
+        expect(researchTopicName(topic)).not.toBe(topic);
+      }
+    }
+  });
+
+  it('searches everyday words on Facebook, Threads and X, work words on LinkedIn, and places on Alignable', () => {
+    for (const platform of ['facebook', 'threads', 'x'] as const) {
+      expect(topicOfTag(platform, 'my dog')).toBe('pets');
+      expect(topicOfTag(platform, 'dogsofinstagram')).toBeNull();
+    }
+    expect(researchSearches('linkedin').map((s) => s.topic)).toEqual(
+      expect.arrayContaining(WORK_TOPICS.map((t) => t.id)),
+    );
+    expect(topicOfTag('linkedin', 'we are hiring')).toBe('hiring');
+    expect(topicOfTag('linkedin', 'my dog')).toBeNull();
+    expect(researchSearches('alignable').map((s) => s.search)).toEqual(['town', 'groups']);
+  });
+
+  it('goes on to searches it hasn’t read, and from the start again once all were', () => {
+    expect(nextTags('instagram', [])).toEqual(RESEARCH_TAGS.slice(0, RESEARCH_TAGS_A_BATCH));
+    expect(nextTags('instagram', RESEARCH_TAGS.slice(0, 2))).toEqual(RESEARCH_TAGS.slice(2, 4));
+    expect(nextTags('instagram', [...RESEARCH_TAGS])).toEqual(
+      RESEARCH_TAGS.slice(0, RESEARCH_TAGS_A_BATCH),
+    );
+    const words = researchSearches('x').map((s) => s.search);
+    expect(nextTags('x', words.slice(0, 2))).toEqual(words.slice(2, 4));
+    expect(nextTags('alignable', ['town'])).toEqual(['groups']);
+    expect(nextTags('alignable', ['town', 'groups'])).toEqual(['town', 'groups']);
+  });
+
+  it('asks the AI about the network it read', () => {
+    for (const platform of RESEARCH_PLATFORMS)
+      expect(commentResearchSystem(platform)).toContain(
+        `comment under ${researchNetworkName(platform)} posts`,
+      );
   });
 
   it('spreads over its days: about a third of the comments a day, and never past what it set out to keep', () => {
@@ -151,7 +210,9 @@ describe('what’s kept of a comment', () => {
       CommentResearchSaveInput.safeParse({ ...input, posts: Array(11).fill({ comments: [] }) })
         .success,
     ).toBe(false);
-    expect(CommentResearchSaveInput.safeParse({ ...input, tag: 'not a tag' }).success).toBe(false);
+    // Search words have spaces (decision 172), kept one apart; anything else isn't a search.
+    expect(CommentResearchSaveInput.parse({ ...input, tag: ' My   Dog ' }).tag).toBe('my dog');
+    expect(CommentResearchSaveInput.safeParse({ ...input, tag: '#not-a-tag' }).success).toBe(false);
   });
 });
 
@@ -292,7 +353,10 @@ describe('what the kept comments show', () => {
     const findings = checkedFindings(stats, null, samples);
     expect(findings.patterns).toEqual([]);
     expect(findings.kinds).toEqual([]);
-    expect(commentGuide(findings)).toContain('From 17 real comments under public Instagram posts');
+    expect(commentGuide(findings)).toContain('From 17 real comments under Instagram posts');
+    expect(commentGuide(findings, 'linkedin')).toContain(
+      'From 17 real comments under LinkedIn posts',
+    );
   });
 });
 
@@ -324,7 +388,7 @@ describe('the guide a comment’s writer is given', () => {
     expect(long.length).toBeLessThanOrEqual(COMMENT_GUIDE_MOST);
   });
 
-  it('goes in a warm-up comment’s prompt as how comments sound, and nowhere else', () => {
+  it('goes in a comment’s prompt as how comments sound there, and nowhere else', () => {
     const playbook = { name: 'CRM demos', ...PLAYBOOK_TEMPLATES.crm_demos.details };
     const told = (kind: 'comment' | 'opener', warm: boolean, with_: string | null) =>
       todayDraftPrompt({
@@ -343,8 +407,12 @@ describe('the guide a comment’s writer is given', () => {
     expect(warm).toMatch(/still names one real thing in this post, and never copies an example/);
     expect(told('comment', true, null)).not.toContain('<how_people_comment>');
     expect(told('comment', true, '  ')).not.toContain('<how_people_comment>');
-    // A comment that helps under a post in a group has its own sound; an opener isn't a comment.
-    expect(told('comment', false, guide)).not.toContain('<how_people_comment>');
+    // A comment on a post found by its topic carries it too (decision 172's 3b), saying what its task asks.
+    const found = told('comment', false, guide);
+    expect(found).toContain('<how_people_comment>');
+    expect(found).toMatch(/What your comment says is still what your task asks/);
+    expect(found).not.toMatch(/Match the sound: the length/);
+    // An opener isn't a comment.
     expect(told('opener', true, guide)).not.toContain('<how_people_comment>');
   });
 

@@ -456,17 +456,20 @@ describe('what it does on LinkedIn’s list', () => {
     const all = { ...asked, engaged: 'e' };
     expect(nextLinkedInDaily({ daily: all })).toBe('post_people');
     expect(nextLinkedInDaily({ daily: { ...all, post_people: 's' } })).toBe('found_checks');
-    // And on the 1st of each month, their own profile read (decision 99).
-    expect(nextLinkedInDaily({ daily: { ...all, post_people: 's', found_checks: 't' } })).toBe(
-      'profile',
-    );
+    // Then HandsFreeOS's own comment research (decision 172), marked done before its turn for anyone who didn't
+    // start one, and on the 1st of each month, their own profile read (decision 99).
+    const found = { ...all, post_people: 's', found_checks: 't' };
+    expect(nextLinkedInDaily({ daily: found })).toBe('comment_research');
+    expect(nextLinkedInDaily({ daily: { ...found, comment_research: 'r' } })).toBe('profile');
     expect(
-      nextLinkedInDaily({ daily: { ...all, post_people: 's', found_checks: 't', profile: 'p' } }),
+      nextLinkedInDaily({ daily: { ...found, comment_research: 'r', profile: 'p' } }),
     ).toBeNull();
     // While the person is at their computer, those put off as they needed the screen are passed over (decision 120).
     const putOff = ['engaged', 'post_people', 'profile'] as const;
     expect(nextLinkedInDaily({ daily: asked }, putOff)).toBe('found_checks');
-    expect(nextLinkedInDaily({ daily: { ...all, found_checks: 't' } }, putOff)).toBeNull();
+    expect(
+      nextLinkedInDaily({ daily: { ...all, found_checks: 't', comment_research: 'r' } }, putOff),
+    ).toBeNull();
   });
 
   it('notes a good post with no reactions count to open, as LinkedIn’s, with the page’s outline', async () => {
@@ -848,6 +851,7 @@ describe('what it does on LinkedIn’s list', () => {
   const POST_ID = '3c4d5e6f-7081-4293-a4b5-c6d7e8f90a1b';
 
   it('drafts a comment on a good post from the post, to wait for an OK at first (decision 102)', async () => {
+    world.pages = (url) => (url === POST ? { fixture: 'linkedin-post.html' } : null);
     world.hfos['hfos-draft'] = () => ({ drafts: ['Good reminder. Ours went at 12 years.'] });
     world.answers['/v1/commands/outreach.send.queue'] = () => ({ state: 'waiting' });
     const outcome = await doWork(
@@ -871,8 +875,9 @@ describe('what it does on LinkedIn’s list', () => {
       postId: POST_ID,
       text: 'Good reminder. Ours went at 12 years.',
     });
-    // Nothing is written on LinkedIn till it's OK'd.
-    expect(world.opened).toEqual([]);
+    // Nothing is written on LinkedIn till it's OK'd: the post is only opened, for the AI to see its picture (decision
+    // 172, from 0.144.0), and nothing is pressed there.
+    expect(world.opened).toEqual([POST]);
     expect(notedAs()).toEqual([]);
   });
 

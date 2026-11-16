@@ -61,7 +61,9 @@ import { chatCollect, NOTHING_TO_ANSWER, yoursLast } from '../hfos/saves';
 import { answer, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
 import { chatMemory, LINKEDIN_MESSAGING, readChats } from '../jobs/chats';
+import { NO_RESEARCH, researchRuns } from '../jobs/comment-research';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
+import { readLinkedInComments } from '../jobs/linkedin/comment-research';
 import { reporter } from '../jobs/report';
 import { checkConnections, isThem, readThemOnLinkedIn } from '../jobs/linkedin/checks';
 import { checkFound } from '../jobs/found-checks';
@@ -90,7 +92,7 @@ import {
   isCommentWork,
   sendComment,
   type CommentOutcome,
-  type CommentRunner,
+  type LookingRunner,
 } from './comments';
 import { DAILY_CHATS } from './daily';
 import { AWAY_AGAIN_MS, awayEnd, isNotAway, PutOff, waitingFor, waitingWords } from './on-screen';
@@ -161,7 +163,8 @@ export const LINKEDIN_AUTO: readonly TodayKind[] = ['confirm', 'warm_up', 'frien
  * its search found is read after the helpful post (`post_people`), and the people found are checked last
  * (`found_checks`), inside its 40 profiles read, found people first. From 0.109.0 who engaged with their helpful posts
  * is read on its own after the day's post is asked for (`engaged`), as that read needs its window in front, so waits
- * till they're away from their computer (decision 120) while the post goes up as ever.
+ * till they're away from their computer (decision 120) while the post goes up as ever. From 0.144.0 HandsFreeOS's own
+ * comment research before the profile (`comment_research`, decision 172), only for whoever of its staff started one.
  */
 export const LINKEDIN_DAILY = [
   'requests',
@@ -175,6 +178,7 @@ export const LINKEDIN_DAILY = [
   'engaged',
   'post_people',
   'found_checks',
+  'comment_research',
   'profile',
 ] as const satisfies readonly (DailyJob | OwnDailyJob)[];
 type LinkedInDaily = (typeof LINKEDIN_DAILY)[number];
@@ -191,6 +195,7 @@ const DAILY_DOING: Readonly<Record<LinkedInDaily, string>> = {
   engaged: 'Reading who engaged with your helpful posts on LinkedIn…',
   post_people: 'Reading who reacted to and commented on good posts on LinkedIn…',
   found_checks: 'Checking the people found on LinkedIn for good fits…',
+  comment_research: 'Reading comments under posts on LinkedIn for HandsFreeOS’s comment research…',
   profile: 'Reading your LinkedIn profile, as it does on the 1st of each month…',
 };
 const DAILY_NAMES: Readonly<Record<LinkedInDaily, string>> = {
@@ -205,6 +210,7 @@ const DAILY_NAMES: Readonly<Record<LinkedInDaily, string>> = {
   engaged: 'Who engaged with your posts',
   post_people: 'Who reacted and commented',
   found_checks: 'Check the people found',
+  comment_research: 'Comment research',
   profile: 'Read my profile',
 };
 
@@ -806,7 +812,7 @@ async function invite(item: TodayListItem, businessId: string): Promise<Outcome>
  * What a comment's send (./comments.ts, decisions 92 and 102) borrows: this window's tab, and a look at the page it
  * opened for LinkedIn's warning. LinkedIn's pages never ask to sign in mid-run, so it never stops for now.
  */
-const commenting: CommentRunner = {
+const commenting: LookingRunner = {
   platform: PLATFORM,
   tab,
   async onPage(businessId) {
@@ -931,7 +937,14 @@ async function bringInChat(
 
 /** Drafts a message with the AI after looking them up on LinkedIn, and hands it to HandsFreeOS to wait or go. */
 async function draftMessage(item: TodayListItem, businessId: string): Promise<Outcome> {
-  if (item.kind === 'comment') return commentOutcome(await draftComment(item, businessId));
+  // The post's picture or video goes with its draft (decision 172, from 0.144.0).
+  if (item.kind === 'comment')
+    return commentOutcome(
+      await draftComment(item, businessId, {
+        runner: commenting,
+        them: keptMember(item.profileUrl, item.platformId),
+      }),
+    );
   if (item.kind === 'reply' || item.kind === 'partner_reply') {
     const stopped = await bringInChat(item, businessId);
     if (stopped) return stopped;
@@ -1204,6 +1217,8 @@ export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<J
       return readPostPeople(reporting(job, kind));
     case 'found_checks':
       return checkFound(job, { platform: PLATFORM, read: readThemOnLinkedIn });
+    case 'comment_research':
+      return readLinkedInComments(job);
     case 'profile':
       return readProfileOnItsOwn(job, PLATFORM, linkedInProfileRead);
   }
@@ -1328,6 +1343,15 @@ async function go(): Promise<void> {
   const away = await awayNow();
   const passOver = putOff.passOver(away);
   let daily = choices.collect ? nextLinkedInDaily(state, passOver, at) : null;
+  // HandsFreeOS's own comment research (decision 172) is only for whoever of its staff started one: asked without a
+  // word once its turn comes, and for anyone else it's done for the day before a line of it is ever shown.
+  if (
+    daily === 'comment_research' &&
+    !(await researchRuns(answer as Hfos, to.businessId, PLATFORM))
+  ) {
+    state = await setState({ daily: { ...state.daily, comment_research: NO_RESEARCH } });
+    daily = nextLinkedInDaily(state, passOver, at);
+  }
   // Short of good fits once the day's reading is done (decision 126, answer 6a): it finds people again, with the next
   // search words, and checks them.
   if (

@@ -418,6 +418,11 @@ import {
   HelpfulSkipInput,
 } from '@hfos/core/addons/outreach/helpful';
 import {
+  ReferralChangeOutput,
+  ReferralDoneInput,
+  ReferralSkipInput,
+} from '@hfos/core/addons/outreach/referrals';
+import {
   LikeYoursAddInput,
   LikeYoursChangeOutput,
   LikeYoursRemoveInput,
@@ -767,6 +772,9 @@ export const PHONE_COMMANDS = {
   'outreach.helpful.ok': command(ONLINE, HelpfulOkInput, HelpfulChangeOutput),
   'outreach.helpful.posted': command(ONLINE, HelpfulPostedInput, HelpfulChangeOutput),
   'outreach.helpful.skip': command(ONLINE, HelpfulSkipInput, HelpfulChangeOutput),
+  // Refer someone on Today (decision 174): done by hand, or put aside, with signal.
+  'outreach.referral.done': command(ONLINE, ReferralDoneInput, ReferralChangeOutput),
+  'outreach.referral.skip': command(ONLINE, ReferralSkipInput, ReferralChangeOutput),
   // Later, or Take off Later, from the person menu on a name (decision 100): with signal, as Mark as client is.
   'outreach.later.set': command(ONLINE, LaterSetInput, LaterSetOutput),
   // Settings → Instagram's accounts like yours (decision 110): added or removed by an owner or admin, with signal.

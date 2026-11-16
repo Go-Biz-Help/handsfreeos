@@ -5,6 +5,7 @@
  * the extension's own with what the post said and the comment; and one that couldn't go told to HandsFreeOS as not
  * sent, with why, so it hands it to the person. On made-up people and posts.
  */
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as Looks from '../src/auto/post-look';
 import type { TodayListItem } from '../src/hfos/messages';
@@ -153,7 +154,7 @@ const FRAME = `/9j/${'B'.repeat(4_000)}`;
 function looking(
   seen: PostLookAnswer,
   pageSays: ({ stop: string } | { again: string } | null)[] = [],
-  platform: 'instagram' | 'alignable' = 'instagram',
+  platform: Platform = 'instagram',
 ) {
   const steps: string[] = [];
   const looks: PostLookAsk[] = [];
@@ -332,10 +333,11 @@ describe('a comment’s draft', () => {
     expect(warned.steps).toEqual([`open ${POST}`, 'page']);
     expect(world.asked).toEqual([]);
     expect(world.posted).toEqual([]);
-    // A network whose posts aren't looked at, a post with no link kept, nobody to say whose it is, and a reply in a
-    // group: drafted from the words, and the tab is left where it was.
-    const alignable = looking({ ok: true, seen: null }, [], 'alignable');
-    await draftComment(item(), BUSINESS, { runner: alignable.runner, them: KIM });
+    // A network whose posts aren't looked at (every network built is, from 0.144.0: one added later till its picture
+    // servers are listed), a post with no link kept, nobody to say whose it is, and a reply in a group: drafted from
+    // the words, and the tab is left where it was.
+    const later = looking({ ok: true, seen: null }, [], 'myspace' as Platform);
+    await draftComment(item(), BUSINESS, { runner: later.runner, them: KIM });
     const noLink = looking({ ok: true, seen: null });
     await draftComment(item({ postUrl: null }), BUSINESS, { runner: noLink.runner, them: KIM });
     const nobody = looking({ ok: true, seen: null });
@@ -345,7 +347,7 @@ describe('a comment’s draft', () => {
       runner: reply.runner,
       them: KIM,
     });
-    for (const one of [alignable, noLink, nobody, reply]) expect(one.steps).toEqual([]);
+    for (const one of [later, noLink, nobody, reply]) expect(one.steps).toEqual([]);
     expect(world.asked).toHaveLength(4);
     for (const asked of world.asked) expect(asked.input).not.toHaveProperty('look');
   });

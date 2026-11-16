@@ -1020,9 +1020,10 @@ describe('a comment on a good post in their groups on Facebook (decision 20)', (
     expect(world.noted).toEqual([]);
   });
 
-  it('passes over a post the AI had nothing real to say on, with nothing opened, reported or handed over', async () => {
+  it('passes over a post the AI had nothing real to say on, with nothing written, reported or handed over', async () => {
     // The owner's problem reports of 13 to 15 Nov 2026: each came right after the AI wrote, its drafts all taken out by
-    // the checks, and no comment is the right answer then (decision 165).
+    // the checks, and no comment is the right answer then (decision 165). From 0.144.0 the post opens first, for the
+    // AI to see its picture (decision 172), and nothing is written there.
     world.commentDrafts = [];
     world.pages = (url) => (url === POST ? closed() : null);
     expect(await step(comment)).toEqual({
@@ -1030,7 +1031,7 @@ describe('a comment on a good post in their groups on Facebook (decision 20)', (
       line: 'Dana Reyes’s post: the AI had nothing to say on it',
       skip: true,
     });
-    expect(world.opened).toEqual([]);
+    expect(world.opened).toEqual([POST]);
     expect(world.noted).toEqual([]);
   });
 

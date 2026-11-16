@@ -430,6 +430,11 @@ export const PlaybookDetails = z
      * before it has every one on. Nothing for a playbook that pitches.
      */
     networking: PlaybookNetworking.optional(),
+    /**
+     * Whether its people may be referred on posts asking for a recommendation (decision 174, ./script.ts
+     * `PLAYBOOK_REFER`). Left out of a save, it keeps what's saved; a playbook saved before it refers.
+     */
+    refer: z.boolean().optional(),
     /** How it sounds: "Friendly, one owner to another. No hard sell." */
     tone: words(PLAYBOOK_LIMITS.tone),
     /** A few of the business's own messages, for the AI to sound like. */
@@ -540,6 +545,7 @@ export const blankPlaybook = (): PlaybookDetails => ({
   script: {},
   opens: 'pitch',
   networking: { ...NETWORKING_ON },
+  refer: true,
   tone: null,
   samples: [],
   openerStyles: [],
@@ -1029,6 +1035,11 @@ export const PLAYBOOK_OPENS_PART_KEYS = ['opens'] as const;
  * before has none, and has every switch on.
  */
 export const PLAYBOOK_NETWORKING_KEYS = ['networking'] as const;
+/**
+ * Whether its people may be referred on posts (decision 174). No new data version: a playbook saved before has none,
+ * and refers.
+ */
+export const PLAYBOOK_REFER_KEYS = ['refer'] as const;
 /** What a save that leaves a part out keeps. */
 export const PLAYBOOK_KEPT_KEYS = [
   ...PLAYBOOK_V3_KEYS,
@@ -1042,6 +1053,7 @@ export const PLAYBOOK_KEPT_KEYS = [
   ...PLAYBOOK_SCRIPT_KEYS,
   ...PLAYBOOK_OPENS_PART_KEYS,
   ...PLAYBOOK_NETWORKING_KEYS,
+  ...PLAYBOOK_REFER_KEYS,
 ] as const;
 
 /**

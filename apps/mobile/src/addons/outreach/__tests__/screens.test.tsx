@@ -1,5 +1,6 @@
 import type { LiveOutput, LiveTeamOutput } from '@hfos/core/addons/outreach/live';
 import type { HelpfulListOutput } from '@hfos/core/addons/outreach/helpful';
+import { REFER_WORDS, type Referral } from '@hfos/core/addons/outreach/referrals';
 import type { StagesOutput } from '@hfos/core/addons/outreach/stages';
 import type { TodayItem, TodayOutput } from '@hfos/core/addons/outreach/today';
 import { blankPlaybook, type Playbook } from '@hfos/core/addons/outreach/playbooks';
@@ -487,6 +488,90 @@ describe('Today on the phone', () => {
     expect(actions.ok).toHaveBeenCalledWith(id(60));
     await fireEvent.press(screen.getByTestId('today-helpful-skip'));
     expect(actions.skip).toHaveBeenCalledWith(id(60));
+  });
+
+  it('offers a referral with both texts to copy, and notes it done or puts it aside (decision 174)', async () => {
+    const on = { done: jest.fn(), skip: jest.fn() };
+    const today: TodayOutput = {
+      limits: LIVE.limits,
+      items: [],
+      partners: [],
+      readAdmins: [],
+      hasPlaybook: true,
+      warning: null,
+      auto: [],
+      messages: [],
+      sending: 'off',
+      wheels: { on: false, from: null, ok: 0, daysLeft: 0, edits: 0 },
+      ready: true,
+      week: null,
+      fresh: { on: false, from: null, until: null, days: 14 },
+      fullSpeed: false,
+      newMessagesWait: false,
+      requestsHeld: null,
+      profileOwn: null,
+      goal: null,
+      retryAt: null,
+    };
+    const referral: Referral = {
+      referralId: id(70),
+      platform: 'facebook',
+      postId: id(71),
+      postUrl: 'https://www.facebook.com/groups/1/posts/2/',
+      post: 'Can anyone recommend a good roofer in Boise?',
+      postWhole: null,
+      asks: 'a roofer in Boise',
+      writer: 'Kim Asks',
+      profileId: id(72),
+      name: 'Dana Reyes',
+      profileUrl: 'https://www.facebook.com/dana.roofs',
+      why: 'Runs a roofing business in Boise',
+      comment: 'You should reach out to Dana Reyes! They do roofing in Boise.',
+      note: 'Hey Dana, someone was just asking for a roofer. https://www.facebook.com/groups/1/posts/2/',
+      state: 'waiting',
+      createdAt: new Date(NOW).toISOString(),
+    };
+    const { rerender } = await render(
+      <TodayBody
+        today={today}
+        referrals={[referral]}
+        onReferral={on}
+        error={null}
+        wheels={null}
+        onRetry={jest.fn()}
+        onOk={jest.fn()}
+        onSkip={jest.fn()}
+        onNotForMe={jest.fn()}
+        onEndWheels={jest.fn()}
+      />,
+    );
+    const part = screen.getByTestId('today-refer');
+    expect(within(part).getByText(`${REFER_WORDS.title} · 1`)).toBeTruthy();
+    expect(within(part).getByText('Refer Dana Reyes')).toBeTruthy();
+    expect(within(part).getByText('Kim Asks · Asking for a roofer in Boise')).toBeTruthy();
+    expect(screen.getByTestId('today-refer-comment').props.children).toBe(referral.comment);
+    expect(screen.getByTestId('today-refer-comment').props.selectable).toBe(true);
+    expect(screen.getByTestId('today-refer-note').props.children).toBe(referral.note);
+    await fireEvent.press(screen.getByTestId('today-refer-done'));
+    expect(on.done).toHaveBeenCalledWith(id(70), 'Dana Reyes');
+    await fireEvent.press(screen.getByTestId('today-refer-skip'));
+    expect(on.skip).toHaveBeenCalledWith(id(70));
+    // None waiting: no part.
+    await rerender(
+      <TodayBody
+        today={today}
+        referrals={[]}
+        onReferral={on}
+        error={null}
+        wheels={null}
+        onRetry={jest.fn()}
+        onOk={jest.fn()}
+        onSkip={jest.fn()}
+        onNotForMe={jest.fn()}
+        onEndWheels={jest.fn()}
+      />,
+    );
+    expect(screen.queryByTestId('today-refer')).toBeNull();
   });
 
   it('puts LinkedIn’s helpful post on the person’s own feed, to copy and post there', async () => {
