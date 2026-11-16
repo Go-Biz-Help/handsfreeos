@@ -48,6 +48,10 @@ export function pastesLikeFacebook(box: Element): void {
 export const paragraphs = (box: Element): string[] =>
   [...box.querySelectorAll('p')].map((p) => p.textContent ?? '');
 
+/** A paragraph of a web page's copy as its words: an empty one holds a line break, and marks stand for characters. */
+const unescaped = (html: string) =>
+  html === '<br>' ? '' : html.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+
 /**
  * The box takes a paste as LinkedIn's does (ProseMirror's way, the owner's post of 15 Nov 2026): plain words a line to
  * a paragraph with the blank lines dropped, and a web page's copy (HTML) paragraph by paragraph, an empty one too.
@@ -61,11 +65,9 @@ export function pastesLikeLinkedIn(box: Element, { html = true } = {}): void {
     const page = data.getData('text/html');
     if (page && !html) return;
     let lines: string[];
-    if (page) {
-      const copy = doc.createElement('template');
-      copy.innerHTML = page;
-      lines = [...copy.content.querySelectorAll('p')].map((p) => p.textContent ?? '');
-    } else lines = data.getData('text/plain').split(/\n+/);
+    // A web page's copy, read paragraph by paragraph as text: never put in the page as HTML.
+    if (page) lines = [...page.matchAll(/<p>(.*?)<\/p>/g)].map((p) => unescaped(p[1] ?? ''));
+    else lines = data.getData('text/plain').split(/\n+/);
     box.replaceChildren(
       ...lines.map((line) => {
         const p = doc.createElement('p');
