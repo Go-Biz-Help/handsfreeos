@@ -288,6 +288,22 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 644,
     said: 'Threads’ side menu lists Following among its feeds, as a link, and the profile reader took it for the profile’s own Following, so every profile read as followed. The header now leaves out side menus and the posts under it, and starts from a button that isn’t a link.',
   },
+  {
+    area: 'instagram',
+    job: 'draft',
+    note: 'the AI had nothing to say on it',
+    fixedIn: '0.141.3',
+    pr: 646,
+    said: 'Each came right after the AI wrote, with its drafts all taken out by the checks: no comment is the right answer when there’s nothing real to say (decision 165), so it’s passed over now with nothing reported. A reel in the reels player is now looked at before its comment is drafted, as a post is: till now the AI had only its words.',
+  },
+  {
+    area: 'facebook',
+    job: 'comment',
+    note: 'the AI had nothing to say on it',
+    fixedIn: '0.141.3',
+    pr: 646,
+    said: 'Each came right after the AI wrote, with its drafts all taken out by the checks: no comment is the right answer when there’s nothing real to say (decision 165), so it’s passed over now with nothing reported.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */

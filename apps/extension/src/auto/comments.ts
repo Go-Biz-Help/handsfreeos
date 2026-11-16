@@ -34,6 +34,12 @@ import { lookAtPost, looksAtPosts } from './post-look';
 /** Said when the post doesn't let them comment: whoever posted it limited who can (from 0.141.1). */
 export const COMMENTS_CLOSED = 'it doesn’t let you comment on it';
 
+/**
+ * Said when the AI wrote no comment on a post, or none that passed the checks: no comment is the right answer when
+ * there's nothing real to say (decision 165), so it's no failure, and the next visit picks another post (from 0.141.3).
+ */
+export const NOTHING_TO_SAY = 'the AI had nothing to say on it';
+
 /** While the network draws what a press sent. */
 const SETTLE_MS = 2_000;
 /** While a post's picture comes, or its video starts, before it's looked at (decision 166). */
@@ -45,7 +51,10 @@ const LOOK_MS = 2_500;
  */
 export type CommentOutcome =
   | { readonly done: true; readonly line: string }
-  /** `skip`: nothing could be done there (the post doesn't let them comment), so it's no failure (decision 145). */
+  /**
+   * `skip`: nothing could be done there (the post doesn't let them comment), or nothing should (the AI had nothing real
+   * to say on it), so it's no failure (decision 145).
+   */
   | { readonly done: false; readonly line: string; readonly skip?: true }
   | { readonly stop: string }
   | { readonly again: string };
@@ -123,7 +132,10 @@ export async function draftComment(
   });
   if (!drafted.ok) return { done: false, line: `${lead}: ${drafted.problem.message}` };
   const text = (drafted.value as Drafts).drafts[0];
-  if (!text) return { done: false, line: `${lead}: the AI had nothing to say on it` };
+  if (!text)
+    return kind === 'comment'
+      ? { done: false, line: `${lead}: ${NOTHING_TO_SAY}`, skip: true }
+      : { done: false, line: `${lead}: ${NOTHING_TO_SAY}` };
   const queued = await call(
     api().POST('/v1/commands/outreach.send.queue', {
       body: {

@@ -108,6 +108,7 @@ import {
   COMMENTS_CLOSED,
   draftComment,
   isCommentWork,
+  NOTHING_TO_SAY,
   sendComment,
   type CommentOutcome,
   type CommentRunner,
@@ -669,7 +670,8 @@ async function comment(item: TodayListItem, businessId: string): Promise<Outcome
   });
   if (!drafted.ok) return { done: false, line: `${item.name}’s post: ${drafted.problem.message}` };
   const text = (drafted.value as { drafts: readonly string[] }).drafts[0];
-  if (!text) return { done: false, line: `${item.name}’s post: the AI had nothing to say on it` };
+  // No comment is the right answer when there's nothing real to say (decision 165): no failure (from 0.141.3).
+  if (!text) return { done: false, line: `${item.name}’s post: ${NOTHING_TO_SAY}`, skip: true };
   await tab.open(item.postUrl);
   await setState({ tabId: tab.tabId });
   const page = await read();

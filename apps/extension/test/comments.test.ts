@@ -236,10 +236,18 @@ describe('a comment’s draft', () => {
       done: false,
       line: 'Kim Baker’s post: no post kept',
     });
+    // No comment is the right answer with nothing real to say (decision 165): passed over, never reported, as the
+    // owner's problem reports of 13 to 15 Nov 2026 had it (each after the AI wrote, its drafts all checked out).
     world.draft = [];
     expect(await draftComment(item(), BUSINESS)).toEqual({
       done: false,
       line: 'Kim Baker’s post: the AI had nothing to say on it',
+      skip: true,
+    });
+    // A reply to a question asked in their group still says so as before.
+    expect(await draftComment(item({ kind: 'group_reply' }), BUSINESS)).toEqual({
+      done: false,
+      line: 'Kim Baker’s question: the AI had nothing to say on it',
     });
     expect(world.posted).toEqual([]);
   });

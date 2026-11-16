@@ -128,6 +128,48 @@ describe('which picture on the page is the post’s', () => {
     expect(part(postPage(), { ...ON, postUrl: `${IG}/p/C9zzzzzzz/` })).toBeNull();
     expect(part(postPage(), { ...ON, postUrl: 'https://example.com/p/C3xyzabcd/' })).toBeNull();
   });
+
+  // The owner's problem report of 15 Nov 2026 (23:29 UTC): a comment's draft on a reel opened the reels player
+  // (/reels/<code>/), which draws the reel and the next one under it with no article and no link to the reel itself,
+  // so no part was given, nothing was looked at, and the AI had only the reel's words: nothing to say. Here as the
+  // reports outlined it: each reel's account over its video, and its bar with Like, its count and Comment by its count.
+  const reelPart = (by: string, video: string, others = '') => `<div>
+    <div><img aria-hidden="true" alt=""><div>
+      <video width="468" height="832" poster="${CDN}/${video}.jpg"></video>
+      <div role="group" aria-label="Video player"><div role="presentation"><div role="button"><div>
+        <a role="link" aria-label="${by} reels" href="/${by}/reels/"><div>
+          <span role="link"><img alt="${by}'s profile picture" width="32" height="32" src="${CDN}/face.jpg"></span></div></a>
+        <div><span dir="auto"><a role="link" aria-label="${by} reels" href="/${by}/reels/">${by}</a>${others}</span></div>
+      </div></div></div></div></div></div>
+    <div><div><div role="button"><svg role="img" aria-label="Like"></svg></div>
+        <div role="button"><span dir="auto"><span>218</span></span></div></div>
+      <div role="button" aria-expanded="false"><div><svg role="img" aria-label="Comment"></svg>
+        <span dir="auto"><span>77</span></span></div></div>
+      <div><div role="button"><svg role="img" aria-label="Share"></svg></div></div>
+      <a role="link" href="/reels/audio/1234567/"><div><img alt="Original audio"></div></a></div>
+  </div>`;
+  const reels = (first: string, next: string, others = '') =>
+    new JSDOM(
+      `<!doctype html><html><body><main role="main"><div>${reelPart(first, 'first', others)}${reelPart(next, 'next')}</div></main></body></html>`,
+      { url: `${IG}/reels/C4ddddddd/` },
+    ).window.document;
+  const REEL: CommentOn = { ...ON, postUrl: `${IG}/reel/C4ddddddd/` };
+
+  it('is the reel the reels player opened on, when it’s theirs or made with them: never the next one', () => {
+    const found = part(reels('dana.reyes', 'sam.lee'), REEL)!;
+    expect(found).not.toBeNull();
+    expect(postMediaIn(found.root, found.skip)?.getAttribute('poster')).toBe(`${CDN}/first.jpg`);
+    const made = part(
+      reels('sam.lee', 'kim_bakes', '<span>and</span><div role="button">2 others</div>'),
+      REEL,
+    )!;
+    expect(postMediaIn(made.root, made.skip)?.getAttribute('poster')).toBe(`${CDN}/first.jpg`);
+    // Someone else's reel opened, though theirs is next; or another reel asked for.
+    expect(part(reels('sam.lee', 'dana.reyes'), REEL)).toBeNull();
+    expect(
+      part(reels('dana.reyes', 'sam.lee'), { ...ON, postUrl: `${IG}/reel/C9zzzzzzz/` }),
+    ).toBeNull();
+  });
 });
 
 describe('what the tab hands over', () => {

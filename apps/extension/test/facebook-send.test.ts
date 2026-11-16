@@ -29,6 +29,8 @@ const world = vi.hoisted(() => ({
   posted: [] as { path: string; body: Record<string, unknown> }[],
   /** A command that can't reach HandsFreeOS. */
   unreachable: null as string | null,
+  /** What the AI wrote for a comment, checked. */
+  commentDrafts: ['Love these tiles.'] as string[],
 }));
 
 vi.mock('../src/hfos/session', () => {
@@ -43,7 +45,7 @@ vi.mock('../src/hfos/session', () => {
     // A comment's draft (decision 20) has the AI's words; nothing else here asks the AI.
     answer: async (ask: { input?: { kind?: string } }) => ({
       ok: true,
-      value: ask?.input?.kind === 'comment' ? { drafts: ['Love these tiles.'] } : {},
+      value: ask?.input?.kind === 'comment' ? { drafts: world.commentDrafts } : {},
     }),
     answerWith: async (_t: string, fn: () => Promise<unknown>) => ({ ok: true, value: await fn() }),
     api: () => ({
@@ -146,6 +148,7 @@ beforeEach(() => {
   world.noted = [];
   world.posted = [];
   world.unreachable = null;
+  world.commentDrafts = ['Love these tiles.'];
 });
 
 /** Dana's follow-up, OK'd, to go in her chat. */
@@ -1014,6 +1017,20 @@ describe('a comment on a good post in their groups on Facebook (decision 20)', (
       line: 'Dana Reyes’s post: it doesn’t let you comment on it',
       skip: true,
     });
+    expect(world.noted).toEqual([]);
+  });
+
+  it('passes over a post the AI had nothing real to say on, with nothing opened, reported or handed over', async () => {
+    // The owner's problem reports of 13 to 15 Nov 2026: each came right after the AI wrote, its drafts all taken out by
+    // the checks, and no comment is the right answer then (decision 165).
+    world.commentDrafts = [];
+    world.pages = (url) => (url === POST ? closed() : null);
+    expect(await step(comment)).toEqual({
+      done: false,
+      line: 'Dana Reyes’s post: the AI had nothing to say on it',
+      skip: true,
+    });
+    expect(world.opened).toEqual([]);
     expect(world.noted).toEqual([]);
   });
 
