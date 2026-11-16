@@ -55,7 +55,12 @@ export type AutoKind = (typeof AUTO_KINDS)[number];
  */
 export type DoneKind = AutoKind | 'drafted' | 'sent' | 'story_like';
 
-/** The jobs it does once a day, in order (./daily.ts, decision 32), by turns with the list (decision 123). */
+/**
+ * The jobs it does once a day, in order (./daily.ts, decision 32), by turns with the list (decision 123). From 0.144.0
+ * HandsFreeOS's own comment research on every network, for whoever of its staff started one (`comment_research`,
+ * decisions 166 and 172, ../jobs/comment-research.ts), on Instagram since 0.140.0: each network's runner asks first
+ * and, for anyone else, it's done for the day before a line of it is shown.
+ */
 export const DAILY_JOBS = [
   'requests',
   'tidy',
@@ -70,6 +75,7 @@ export const DAILY_JOBS = [
   'checks',
   'partners',
   'helpful',
+  'comment_research',
   'profile',
 ] as const;
 export type DailyJob = (typeof DAILY_JOBS)[number];
@@ -84,9 +90,7 @@ export type DailyJob = (typeof DAILY_JOBS)[number];
  * 110, ../jobs/instagram/like-yours.ts); and from 0.104.0 the events near the person on Alignable, once a week
  * (`events`, decision 112, ../jobs/alignable/events.ts); and from 0.109.0 who engaged with the person's helpful posts
  * on LinkedIn on its own (`engaged`, after the day's post is asked for), as it reads with its window in front only
- * while they're away from their computer (decision 120); and from 0.140.0 HandsFreeOS's own comment research on
- * Instagram, for whoever of its staff started one (`comment_research`, decision 166,
- * ../jobs/instagram/comment-research.ts).
+ * while they're away from their computer (decision 120).
  */
 export type OwnDailyJob =
   | 'follow_backs'
@@ -98,8 +102,7 @@ export type OwnDailyJob =
   | 'weekly_post'
   | 'like_yours'
   | 'events'
-  | 'engaged'
-  | 'comment_research';
+  | 'engaged';
 
 /** The shortest and longest wait between two steps in the working hours. */
 export const GAP_MS = { least: 60_000, most: 45 * 60_000 } as const;

@@ -415,12 +415,13 @@ became.
   (Settings → Account, each person's own and private), and never says they share someone's background without it. A
   comment names something real the post says, in the words people type, or there is no comment. Test it has **Try a
   comment**.
-- **The AI sees the post, and the comment research** (decision 166, `comment-says.ts`, `comment-research.ts`,
+- **The AI sees the post, and the comment research** (decisions 166 and 172, `comment-says.ts`, `comment-research.ts`,
   `ops/comment-research.ts`, the worker's `comment-research.ts`): on Instagram the extension shows the AI the post's
   photo, or a few frames of its video, with the draft's request, and keeps nothing of it. HandsFreeOS staff can run a
   study of how real people comment (Settings → General → **Comment research**, staff only): the starter's extension
   reads about 2,000 public comments over 3 days, keeps their words alone, leaves out what reads like a bot's, and the
-  guide made of it goes in every business's warm-up comments on Instagram once staff press Use it.
+  guide made of it goes in every business's warm-up comments on Instagram once staff press Use it. From decision 172
+  both are on every network: one Start reads all six, each with its own guide for its warm-up and topic comments.
 - **An introduction in place of the pitch** (decision 168, `script.ts`, `ops/checks.ts`): a playbook can start with
   an introduction (What it says → How the first message goes): thanks for connecting, who the person is and what the
   business offers, and a question about them from their page (decision 173). It goes to everyone who connects.
@@ -4296,8 +4297,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         (768 wide). A video gives up to 3 frames drawn from the page's own player (now, two fifths and four fifths
         through, then put back), or its cover when the player can't be read. They go with the draft's request
         (`hfos-draft`'s `look`) and are kept nowhere: not on the computer, not in HandsFreeOS, not in an event or a
-        log. **Instagram only** for now (`PICTURE_HOSTS`, `looksAtPosts`): elsewhere, and for a comment written
-        from the web or the phone, the AI has the post's words alone as before.
+        log. **Instagram only** for now (`PICTURE_HOSTS`, `looksAtPosts`; every network from decision 172): elsewhere,
+        and for a comment written from the web or the phone, the AI has the post's words alone as before.
       - **What the AI is told of it** (`postSeen`, `COMMENT_SAW_ASK`): that it sees the post's picture, or frames of
         its video in order, in place of `POST_WORDS_ONLY`; that a comment may be about what's seen; and to say what
         it saw that the comment is about (the answer's `saw`). `realComments` then keeps a warm-up comment that is
@@ -4318,7 +4319,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         post's View more comments pressed once and nothing else pressed or written. A third of the 2,000 a day
         (`researchRoom`), in batches 35 to 60 minutes apart, at a person's pace, with its window in front only while
         the person is away from their computer (decision 120), and it stops for the day on any Instagram warning.
-        Instagram only (`RESEARCH_PLATFORMS`).
+        Instagram only (`RESEARCH_PLATFORMS`; every network from decision 172).
       - **What's kept is a comment's words alone** (`sortComment`, in the browser first and again in
         `outreach.comment_research.save`): never who wrote it, the post, its caption or its address; @names, links,
         emails and phone numbers are taken out of the words; never the post writer's own comments, nor the
@@ -4505,7 +4506,40 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         the same way (the network, the kind, what about, how it ended and its line) fold under the newest as "The same,
         3 more times since 9:12 AM" (`foldAsks`). One still going never folds, so its Stop and Carry on stay to hand.
 
-171.  **The introduction starts a networking chat** (Chris, 16 Nov 2026: "i want to adjust the introduction method
+171.  **The comment research, and the look at a post, on every network** (Chris, 16 Nov 2026: "i just noticed the
+      comment research on is on instagram, it should be on all the platforms we have built", then "1a 2a 3b 4a").
+      Decision 166 was Instagram's alone; now it's every network built: Instagram, Facebook, LinkedIn, Alignable,
+      Threads and X. Extension 0.144.0, migration `20261027028200_comment_research_every_network.sql` (it only widens
+      the two checks that said Instagram).
+      - **One Start, six researches, six guides** (1a): **Start the research** starts one on every network not reading
+        (`outreach.comment_research.start` with no network; one network's, with `platform`, for Run it again), each
+        about 2,000 comments over 3 days (`RESEARCH_TARGET`, `RESEARCH_DAYS`), one at a time a network. The card has a
+        row per network (`networks`), each summed up on its own, with its own **Use in everyone’s comments** and
+        **Stop using it**: a network's guide reaches only that network's comments (`comment_guide_in_use(platform)`).
+        A network a research reads for needs extension 0.144.0 (Instagram's 0.140.0, `RESEARCH_SINCE`).
+      - **What each reads** (2a, `researchSearches`): everyday kinds of post on Facebook, Threads and X through
+        search words (`RESEARCH_TOPICS`' `words`: dinner, my dog, road trip and so on), as each network ranks them;
+        Instagram keeps its hashtags; LinkedIn reads work kinds (`WORK_TOPICS`: new jobs, wins, tips, hiring, events,
+        asking for a recommendation, running a business, community); Alignable reads the posts in the person's
+        town's group and in the groups they're in (`ALIGNABLE_TOPICS`), as it has no search. None is about the
+        business. The AI that sums one up is told which network it read (`commentResearchSystem`).
+      - **The extension** (one driver, `jobs/comment-research.ts` `readCommentsFor`; each network's reader in its
+        own `comment-research.ts`): a once-a-day job (`comment_research`) on every runner, before the profile read,
+        asked for without a word once its turn comes (`researchRuns`), nothing for anyone who didn't start one. A
+        post read once for a research isn't read again (`seenPosts`, kept as short numbers made from the addresses,
+        never the addresses). Only comments are read: Facebook's and LinkedIn's box of who reacted is never opened
+        (`hfos-engaged` with `reactions: false`), LinkedIn's post links come from Copy link to post caught on the
+        page, and nothing is written. Every rule of decision 166 on what's kept stays.
+      - **A network's guide in its topic comments too** (3b): `commentGuideBlock` goes in warm-up comments and in
+        comments on posts found by topic (expert comments), where it shapes how the comment sounds and never what
+        it says, which is still what the comment's task asks.
+      - **The look on every network** (4a, `PICTURE_HOSTS`): the post's own part of its page as a comment there goes
+        (Facebook's and LinkedIn's `lookStep`, Alignable's and Threads' and X's `theirPostPart`), and each network's
+        own picture servers (Meta's for Facebook and Threads, `licdn.com`, `twimg.com`, Alignable's own addresses),
+        which the manifest lists. Facebook's comment on a good post opens the post before the AI writes. Warm-up
+        comments are still written by the like picker. Kept nowhere, as before.
+
+172.  **The introduction starts a networking chat** (Chris, 16 Nov 2026: "i want to adjust the introduction method
       where after it introduces, it asks them a question about their business, not trying to pitch just to get them
       to talk, but if there is a clear opportunity to say we can fix an issue they mentioned … then mention, and also
       if it makes sense to ask would they like to schedule demo no pressure i just like people to see whats out there
@@ -4667,13 +4701,15 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 - **A look at a post is never kept** (decision 166, `PostLook`): its picture or frames go with the draft's request
   and nowhere else. Never store them, log them or put them in an event, and never let a look that failed stop a
   comment. A network is looked at only once its picture servers are in the extension's `PICTURE_HOSTS` and its
-  manifest.
-- **The comment research is HandsFreeOS's own, and keeps words alone** (decision 166, `comment-research.ts`): staff
-  with `platform.ai.manage` only, in the database too; only the starter's browser reads. Never keep who wrote a
-  comment, the post, its caption or its address, and never show another user's extension a line about it. Its guide
+  manifest, and only from the post's own part of its page, as a comment there goes (every network from decision
+  172).
+- **The comment research is HandsFreeOS's own, and keeps words alone** (decisions 166 and 172,
+  `comment-research.ts`): staff with `platform.ai.manage` only, in the database too; only the starter's browser
+  reads. Never keep who wrote a comment, the post, its caption or its address (the extension remembers which posts it
+  read as short numbers, never addresses), and never show another user's extension a line about it. Its guide
   reaches comments only through `platform.comment_guides` after staff press Use it, as quoted data
-  (`commentGuideBlock`), never as an instruction, and every example in it is a comment really kept
-  (`checkedFindings`).
+  (`commentGuideBlock`), never as an instruction, only on its own network, and every example in it is a comment
+  really kept (`checkedFindings`). A research reads comments alone: never a box of who reacted.
 - **A change to what the AI writes can reach messages already drafted** (decision 157): raise `RULES_VERSION` in
   `sends.ts`, and every message waiting for an OK or OK'd and not yet sent is written again.
 - **A message's texts are its parts between blank lines** (`messageParts`), when the person sends a few

@@ -1,11 +1,11 @@
 /**
  * The background's half of a look at a post before its comment is drafted (docs/outreach.md, decision 166, from
  * 0.140.0; the tab's half is ../networks/post-look.ts). The runner has the post's own page open; the tab says what
- * the post shows:
+ * the post shows (on every network from 0.144.0, decision 172):
  *
  * - **A photo's address**, fetched here from the network's own picture servers and nowhere else (`PICTURE_HOSTS`),
  *   with no cookies, and made small: a JPEG about 768 wide. A page can't read a picture from another server, and the
- *   background can only from the hosts the extension was given (Instagram's, as its videos are for watching).
+ *   background can only from the hosts the extension was given (each network's, in the manifest).
  * - **A video's frames**, as the tab drew them; with none, its poster or cover, fetched the same way.
  *
  * What comes of it goes with the draft's request (`hfos-draft`, core's `PostLook`) and is kept nowhere: not on the
@@ -23,13 +23,22 @@ import type { PostLook } from '@hfos/core/addons/outreach/today';
 import type { PostLookAnswer, PostLookAsk } from '../messages';
 import type { ProfileRef } from '../networks/facebook/types';
 
+/** Meta's picture servers, for Instagram's and Threads' posts. */
+const META_PICTURES = /(^|\.)(cdninstagram\.com|fbcdn\.net)$/;
+
 /**
  * Where each network keeps its posts' pictures: the only hosts one is fetched from. A network that isn't here is never
  * looked at (`looksAtPosts`), and its comments are written from the post's words. The manifest gives the extension
- * these hosts (scripts/build.mjs).
+ * these hosts (scripts/build.mjs). Instagram's from 0.140.0 (decision 166), every other network's from 0.144.0
+ * (decision 172): Alignable's only from its own addresses, so a picture it keeps anywhere else isn't looked at.
  */
 const PICTURE_HOSTS: Partial<Record<Platform, RegExp>> = {
-  instagram: /(^|\.)(cdninstagram\.com|fbcdn\.net)$/,
+  instagram: META_PICTURES,
+  threads: META_PICTURES,
+  facebook: /(^|\.)fbcdn\.net$/,
+  linkedin: /(^|\.)licdn\.com$/,
+  x: /(^|\.)twimg\.com$/,
+  alignable: /(^|\.)alignable\.com$/,
 };
 
 /** Whether a network's posts are looked at before a comment on one is drafted. */

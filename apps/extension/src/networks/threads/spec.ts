@@ -428,6 +428,7 @@ export const THREADS_SPEC: FollowSpec = {
     home: `${ORIGIN}/`,
     search: (words) =>
       `${ORIGIN}/search?q=${encodeURIComponent(words)}&serp_type=default&filter=recent`,
+    topSearch: (words) => `${ORIGIN}/search?q=${encodeURIComponent(words)}&serp_type=default`,
     notifications: `${ORIGIN}/activity`,
     followers: () => null,
   },

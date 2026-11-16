@@ -69,6 +69,7 @@ import type { FetchStep } from '../networks/facebook/fetch';
 import { facebook } from '../networks/facebook/kit';
 import { FRIENDSHIP_WORDS, NO_ADD_FRIEND } from '../networks/facebook/tidy';
 import type { ProfileRef, ReadResult, ThreadRef } from '../networks/facebook/types';
+import { NO_RESEARCH, researchRuns } from '../jobs/comment-research';
 import { valueOf, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { nameForms, sameName } from '../networks/facebook/people';
 import { FACEBOOK, facebookUrl, profileFromUrl } from '../networks/facebook/urls';
@@ -110,11 +111,13 @@ import {
   COMMENTS_CLOSED,
   draftComment,
   isCommentWork,
+  LOOK_MS,
   NOTHING_TO_SAY,
   sendComment,
   type CommentOutcome,
-  type CommentRunner,
+  type LookingRunner,
 } from './comments';
+import { lookAtPost } from './post-look';
 import { DAILY_DOING, DAILY_NAMES, postSender, runDaily } from './daily';
 import {
   beforeDay,
@@ -660,25 +663,30 @@ async function warmComment(
   return { done: true };
 }
 
-/** Writes the AI's comment under a good post in their groups (decision 20). */
+/**
+ * Writes the AI's comment under a good post in their groups (decision 20). From 0.144.0 the post's own page opens
+ * first, and its picture or its video's frames go with the draft (decision 172), as on Instagram.
+ */
 async function comment(item: TodayListItem, businessId: string): Promise<Outcome> {
   const author = profileOf(item.profileUrl);
   if (!author || !item.postUrl || !item.postId)
     return { done: false, line: `${item.name}’s post: no link kept` };
-  const drafted = await answer({
-    type: 'hfos-draft',
-    workspaceId: businessId,
-    input: { kind: 'comment', postId: item.postId },
-  });
-  if (!drafted.ok) return { done: false, line: `${item.name}’s post: ${drafted.problem.message}` };
-  const text = (drafted.value as { drafts: readonly string[] }).drafts[0];
-  // No comment is the right answer when there's nothing real to say (decision 165): no failure (from 0.141.3).
-  if (!text) return { done: false, line: `${item.name}’s post: ${NOTHING_TO_SAY}`, skip: true };
   await tab.open(item.postUrl);
   await setState({ tabId: tab.tabId });
   const page = await read();
   const stop = await warnedOn(page, businessId);
   if (stop) return { stop };
+  await pause(LOOK_MS);
+  const look = await lookAtPost(commenting, { profile: author, postUrl: item.postUrl });
+  const drafted = await answer({
+    type: 'hfos-draft',
+    workspaceId: businessId,
+    input: { kind: 'comment', postId: item.postId, ...(look ? { look } : {}) },
+  });
+  if (!drafted.ok) return { done: false, line: `${item.name}’s post: ${drafted.problem.message}` };
+  const text = (drafted.value as { drafts: readonly string[] }).drafts[0];
+  // No comment is the right answer when there's nothing real to say (decision 165): no failure (from 0.141.3).
+  if (!text) return { done: false, line: `${item.name}’s post: ${NOTHING_TO_SAY}`, skip: true };
   const wrote = await tab.ask({ type: 'hfos-comment', text });
   if (!wrote.ok) throw new Error(wrote.error);
   if (wrote.result === 'none')
@@ -715,7 +723,8 @@ async function comment(item: TodayListItem, businessId: string): Promise<Outcome
     },
     at: now(),
   });
-  return { done: true, line: `Commented on ${item.name}’s post` };
+  const from = look ? (look.kind === 'video' ? ', from its video' : ', from its picture') : '';
+  return { done: true, line: `Commented on ${item.name}’s post${from}` };
 }
 
 // ------------------------------------------------------------------------------------------------- messages
@@ -1080,7 +1089,7 @@ const doneAs = (work: Work): DoneKind =>
  * The day's reply under a question in one of the person's groups (decision 114): drafted from the post and posted
  * under it as a comment through `sends` is (./comments.ts), the post's own page looked at for a warning first.
  */
-const commenting: CommentRunner = {
+const commenting: LookingRunner = {
   platform: 'facebook',
   tab,
   async onPage(businessId) {
@@ -1325,6 +1334,15 @@ async function go(): Promise<void> {
   if (JSON.stringify(state.lists) !== JSON.stringify(lists)) state = await setState({ lists });
   const before = beforeDay(lists, state.before ?? {}, at, timezone);
   let daily = settings.collect ? nextDaily(state, at) : null;
+  // HandsFreeOS's own comment research (decision 172) is only for whoever of its staff started one: asked without a
+  // word once its turn comes, and for anyone else it's done for the day before a line of it is ever shown.
+  if (
+    daily === 'comment_research' &&
+    !(await researchRuns(answer as Hfos, to.businessId, 'facebook'))
+  ) {
+    state = await setState({ daily: { ...state.daily, comment_research: NO_RESEARCH } });
+    daily = nextDaily(state, at);
+  }
   // Short of good fits once the day's reading is done (decision 126, answer 6a): it finds people again, with the next
   // search words, and checks them.
   if (settings.collect && !before && !daily && roundDue(state, at)) {

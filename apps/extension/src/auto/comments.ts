@@ -43,7 +43,7 @@ export const NOTHING_TO_SAY = 'the AI had nothing to say on it';
 /** While the network draws what a press sent. */
 const SETTLE_MS = 2_000;
 /** While a post's picture comes, or its video starts, before it's looked at (decision 166). */
-const LOOK_MS = 2_500;
+export const LOOK_MS = 2_500;
 
 /**
  * What a comment's draft or send came to, as the runners' own outcomes say it: done, not done (the line says why), a

@@ -3,11 +3,12 @@
  * part a person runs is for HandsFreeOS staff who may change what the AI is told (`platform.ai.manage`), and the
  * database holds the same (the tables' staff policies, and the guide's definers).
  *
- * - **Staff, on Social Outreach → Settings:** the newest research and the guide in use (`get`), Start, Stop and sum
- *   up, and Use it in every business's comments or take it out again.
- * - **The browser of whoever started it:** which hashtags to read next (`next`: nothing for anyone else, and nothing
- *   once today's share is read), and a hashtag's posts read (`save`: each comment's words sorted and scrubbed here
- *   again, whatever the browser sent).
+ * - **Staff, on Social Outreach → Settings:** each network's newest research and the guide in use there (`get`),
+ *   Start (every network at once, decision 172, or one), Stop and sum up, and Use it in every business's comments on
+ *   that network or take it out again.
+ * - **The browser of whoever started it:** what to read next on a network (`next`: nothing for anyone else, and
+ *   nothing once today's share is read), and a search's posts read (`save`: each comment's words sorted and scrubbed
+ *   here again, whatever the browser sent).
  * - **The worker:** what it found, once it's read (`sum`).
  *
  * Server-only.
@@ -36,13 +37,16 @@ import {
   nextTags,
   RESEARCH_DAYS,
   RESEARCH_MIN_TO_SUM,
+  RESEARCH_PLATFORMS,
   RESEARCH_POSTS_A_TAG,
   RESEARCH_TARGET,
   researchEnds,
+  researchNetworkName,
   researchRoom,
   sortComments,
   topicOfTag,
   type CommentResearch,
+  type CommentResearchNetwork,
   type ResearchPlatform,
   type ResearchState,
 } from '../comment-research';
@@ -50,7 +54,6 @@ import { outreachAddon } from '../manifest';
 import { commentResearch } from '../tables';
 import { inWorkspace, type Ctx } from './common';
 
-const PLATFORM: ResearchPlatform = 'instagram';
 /** The staff permission that runs it: it changes what the AI is told for every business. */
 const STAFF = 'platform.ai.manage';
 const CHANGED = 'outreach.comment_research.changed';
@@ -91,15 +94,19 @@ const shown = (r: Row, me: string | null): CommentResearch => {
   };
 };
 
-/** The business's newest research and the guide in use, as the card shows them. */
-async function card(ctx: Ctx, me: string | null): Promise<CommentResearchOutput> {
+/** One network's newest research here and the guide in use on it, as the card shows them. */
+async function networkCard(
+  ctx: Ctx,
+  me: string | null,
+  platform: ResearchPlatform,
+): Promise<CommentResearchNetwork> {
   const [newest] = await ctx.tx
     .select()
     .from(commentResearch)
     .where(
       and(
         eq(commentResearch.workspaceId, ctx.scope.workspaceId!),
-        eq(commentResearch.platform, PLATFORM),
+        eq(commentResearch.platform, platform),
       ),
     )
     .orderBy(desc(commentResearch.createdAt), desc(commentResearch.id))
@@ -111,13 +118,13 @@ async function card(ctx: Ctx, me: string | null): Promise<CommentResearchOutput>
     used_at: Date | string;
   }>(
     ctx.tx,
-    sql`select guide, comments, research_id, used_at from private.comment_guide_in_use(${PLATFORM})`,
+    sql`select guide, comments, research_id, used_at from private.comment_guide_in_use(${platform})`,
   );
   return {
+    platform,
     research: newest ? shown(newest, me) : null,
     inUse: used
       ? {
-          platform: PLATFORM,
           guide: used.guide,
           comments: used.comments,
           usedAt: new Date(used.used_at).toISOString(),
@@ -125,6 +132,13 @@ async function card(ctx: Ctx, me: string | null): Promise<CommentResearchOutput>
         }
       : null,
   };
+}
+
+/** Every network's newest research here and the guide in use on it, as the card shows them. */
+async function card(ctx: Ctx, me: string | null): Promise<CommentResearchOutput> {
+  const networks: CommentResearchNetwork[] = [];
+  for (const platform of RESEARCH_PLATFORMS) networks.push(await networkCard(ctx, me, platform));
+  return { networks };
 }
 
 async function changed(ctx: CommandContext, id: string, state: ResearchState): Promise<void> {
@@ -152,7 +166,7 @@ async function researchOr404(ctx: Ctx, id: string): Promise<Row> {
 export const commentResearchGet = defineAddonQuery(outreachAddon, {
   name: 'outreach.comment_research.get',
   description:
-    'HandsFreeOS staff only: the newest comment research run from this business (where it stands, how many real comments it kept and left out, and what it found), and the comment guide every business’s Instagram comments are written with now, if one is in use.',
+    'HandsFreeOS staff only: on each network (Instagram, Facebook, LinkedIn, Alignable, Threads and X), the newest comment research run from this business (where it stands, how many real comments it kept and left out, and what it found), and the comment guide every business’s comments there are written with now, if one is in use.',
   input: CommentResearchGetInput,
   output: CommentResearchOutput,
   permission: 'outreach.use',
@@ -166,45 +180,54 @@ export const commentResearchGet = defineAddonQuery(outreachAddon, {
 export const commentResearchStart = defineAddonCommand(outreachAddon, {
   name: 'outreach.comment_research.start',
   description:
-    'HandsFreeOS staff only: start a comment research. Over 3 days the browser of the person who starts it reads about 2,000 real comments under public Instagram posts of many kinds, a little at a time, keeping each comment’s words only (never who wrote it or the post) and leaving out ones that read like a bot’s. One at a time a business.',
+    'HandsFreeOS staff only: start a comment research, on every network with none running (or on the one named). Over 3 days the browser of the person who starts it reads about 2,000 real comments a network under posts of many kinds, a little at a time, keeping each comment’s words only (never who wrote it or the post) and leaving out ones that read like a bot’s. One at a time a network.',
   risk: 1,
   input: CommentResearchStartInput,
   output: CommentResearchOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
   emits: [CHANGED],
-  async handler(ctx) {
+  async handler(ctx, input) {
     await requireStaff(ctx);
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
-    const [open] = await rows<{ id: string }>(
-      ctx.tx,
-      sql`select id from addon_outreach.comment_research
-          where workspace_id = ${ws} and platform = ${PLATFORM} and state in ('reading', 'summing')
-          limit 1`,
+    const open = new Set(
+      (
+        await rows<{ platform: ResearchPlatform }>(
+          ctx.tx,
+          sql`select platform from addon_outreach.comment_research
+              where workspace_id = ${ws} and state in ('reading', 'summing')`,
+        )
+      ).map((r) => r.platform),
     );
-    if (open)
+    const asked = input.platform ? [input.platform] : RESEARCH_PLATFORMS;
+    const starting = asked.filter((platform) => !open.has(platform));
+    if (!starting.length)
       throw HfosError.rule(
         'outreach_research_running',
         409,
-        'A comment research is already running here. Press Stop and sum up what it has, or wait for it to finish, then start another.',
+        input.platform
+          ? `A comment research is already running on ${researchNetworkName(input.platform)}. Press Stop and sum up what it has, or wait for it to finish, then start another.`
+          : 'A comment research is already running on every network. Press Stop and sum up what it has on one, or wait for them to finish, then start again.',
       );
-    const [row] = await ctx.tx
+    const started = await ctx.tx
       .insert(commentResearch)
-      .values({
-        workspaceId: ws,
-        userId: me,
-        platform: PLATFORM,
-        state: 'reading',
-        target: RESEARCH_TARGET,
-        days: RESEARCH_DAYS,
-        startedAt: at,
-        createdAt: at,
-        updatedAt: at,
-      })
+      .values(
+        starting.map((platform) => ({
+          workspaceId: ws,
+          userId: me,
+          platform,
+          state: 'reading' as const,
+          target: RESEARCH_TARGET,
+          days: RESEARCH_DAYS,
+          startedAt: at,
+          createdAt: at,
+          updatedAt: at,
+        })),
+      )
       .returning({ id: commentResearch.id });
-    await changed(ctx, row!.id, 'reading');
+    for (const row of started) await changed(ctx, row.id, 'reading');
     return card(ctx, me);
   },
 });
@@ -238,7 +261,7 @@ export const commentResearchStop = defineAddonCommand(outreachAddon, {
 export const commentResearchUse = defineAddonCommand(outreachAddon, {
   name: 'outreach.comment_research.use',
   description:
-    'HandsFreeOS staff only: put a finished comment research’s guide in every business’s Instagram comments (how real comments sound: their length, words and punctuation), in place of the guide in use; or take the guide in use out again.',
+    'HandsFreeOS staff only: put a finished comment research’s guide in every business’s comments on its network (how real comments sound there: their length, words and punctuation), in place of the guide in use on that network; or take the guide in use there out again.',
   risk: 2,
   input: CommentResearchUseInput,
   output: CommentResearchOutput,
@@ -271,7 +294,7 @@ export const commentResearchUse = defineAddonCommand(outreachAddon, {
 export const commentResearchNext = defineAddonQuery(outreachAddon, {
   name: 'outreach.comment_research.next',
   description:
-    'What the person’s computer reads next for the comment research they started, if they started one: the next hashtags (none once today’s share of the comments is read, so it spreads over its days). Nothing for anyone who didn’t start one.',
+    'What the person’s computer reads next on a network for the comment research they started there, if they started one: the next hashtags or search words (none once today’s share of the comments is read, so it spreads over its days). Nothing for anyone who didn’t start one.',
   input: CommentResearchNextInput,
   output: CommentResearchNextOutput,
   permission: 'outreach.use',
@@ -303,7 +326,7 @@ export const commentResearchNext = defineAddonQuery(outreachAddon, {
     return {
       research: {
         id: run.id,
-        tags: room > 0 ? nextTags(run.tags) : [],
+        tags: room > 0 ? nextTags(run.platform, run.tags) : [],
         postsEach: RESEARCH_POSTS_A_TAG,
         kept: run.kept,
         target: run.target,
@@ -315,7 +338,7 @@ export const commentResearchNext = defineAddonQuery(outreachAddon, {
 export const commentResearchSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.comment_research.save',
   description:
-    'A hashtag’s posts the person’s computer read for the comment research they started, each with the comments it showed. Only a comment’s words are kept, with the kind of post: nobody’s name, no link, and nothing that reads like a bot’s or an advert’s. Once enough are kept, the AI sums up how they’re written.',
+    'A search’s posts (a hashtag, search words or an Alignable place) the person’s computer read for the comment research they started, each with the comments it showed. Only a comment’s words are kept, with the kind of post: nobody’s name, no link, and nothing that reads like a bot’s or an advert’s. Once enough are kept, the AI sums up how they’re written.',
   risk: 0,
   input: CommentResearchSaveInput,
   output: CommentResearchSaveOutput,
@@ -326,21 +349,27 @@ export const commentResearchSave = defineAddonCommand(outreachAddon, {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
-    const topic = topicOfTag(input.tag);
-    if (!topic)
-      throw HfosError.rule(
-        'outreach_research_tag',
-        422,
-        `#${input.tag} isn’t one of the comment research’s hashtags, so nothing from it was kept. Update the extension and it reads the right ones.`,
-      );
-    const [run] = await rows<{ id: string; state: ResearchState; kept: number; target: number }>(
+    const [run] = await rows<{
+      id: string;
+      platform: ResearchPlatform;
+      state: ResearchState;
+      kept: number;
+      target: number;
+    }>(
       ctx.tx,
-      sql`select id, state, kept, target from addon_outreach.comment_research
+      sql`select id, platform, state, kept, target from addon_outreach.comment_research
           where workspace_id = ${ws} and id = ${input.id} and user_id = ${me}
           for update`,
     );
     if (!run || run.state !== 'reading')
       return { kept: 0, dropped: 0, total: run?.kept ?? 0, reading: false };
+    const topic = topicOfTag(run.platform, input.tag);
+    if (!topic)
+      throw HfosError.rule(
+        'outreach_research_tag',
+        422,
+        `“${input.tag}” isn’t one of the comment research’s searches on ${researchNetworkName(run.platform)}, so nothing from it was kept. Update the extension and it reads the right ones.`,
+      );
     // Each post's comments once, sorted here whatever the browser sent; the same words under several posts count up.
     const counts = new Map<string, { w: string; n: number }>();
     let dropped = 0;
@@ -412,7 +441,7 @@ export const commentResearchSum = defineAddonCommand(outreachAddon, {
       .set({
         state,
         findings: input.findings,
-        guide: input.findings ? commentGuide(input.findings) : null,
+        guide: input.findings ? commentGuide(input.findings, row.platform) : null,
         endedAt: row.endedAt ?? at,
         updatedAt: at,
       })

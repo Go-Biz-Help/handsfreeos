@@ -2,7 +2,8 @@
  * Social Outreach in the worker: a comment research summed up (decision 166). One that's stopped with enough kept, or
  * full, is summed up at once: how its comments are written is counted, the AI (the stand-in model here) gives the
  * patterns and examples, and only examples that are comments really kept stay. One whose days end with too few to
- * learn from is only stopped. The guide goes in nobody's comments until staff say so.
+ * learn from is only stopped. The guide goes in nobody's comments until staff say so. Each network's research is
+ * summed up on its own, with the AI told which network's comments they are (decision 172).
  */
 import { randomUUID } from 'node:crypto';
 import type { AiProvider } from '@hfos/ai';
@@ -73,8 +74,11 @@ function counting(inner: AiProvider = scriptedAi()) {
   return { provider, asks: () => asks };
 }
 
-const card = (ws: string): Promise<CommentResearchOutput> =>
-  runAs(staff, ws, 'outreach.comment_research.get', {});
+/** Instagram's row on the card: the research these tests start. */
+const card = async (ws: string): Promise<CommentResearchOutput['networks'][number]> =>
+  (
+    (await runAs(staff, ws, 'outreach.comment_research.get', {})) as CommentResearchOutput
+  ).networks.find((n) => n.platform === 'instagram')!;
 
 /** The sum-up job waiting for a research: when it runs. */
 const waiting = (ws: string) =>
@@ -104,9 +108,9 @@ describe('a comment research summed up', () => {
       staff,
       ws,
       'outreach.comment_research.start',
-      {},
+      { platform: 'instagram' },
     );
-    const id = started.research!.id;
+    const id = started.networks.find((n) => n.platform === 'instagram')!.research!.id;
     await drain(s, ws);
     // Its end is queued for when its days are over, not now.
     expect(await waiting(ws)).toEqual([{ soon: false }]);
@@ -143,7 +147,7 @@ describe('a comment research summed up', () => {
         },
       ],
     });
-    expect(done.guide).toContain('From 119 real comments under public Instagram posts');
+    expect(done.guide).toContain('From 119 real comments under Instagram posts');
     expect(done.guide).toContain('Like “need this”.');
     expect(await waiting(ws)).toEqual([]);
     // Summed up, it's in nobody's comments until staff say so.
@@ -158,9 +162,9 @@ describe('a comment research summed up', () => {
       staff,
       ws,
       'outreach.comment_research.start',
-      {},
+      { platform: 'instagram' },
     );
-    const id = started.research!.id;
+    const id = started.networks.find((n) => n.platform === 'instagram')!.research!.id;
     await runAs(staff, ws, 'outreach.comment_research.save', {
       id,
       tag: RESEARCH_TAGS[0]!,

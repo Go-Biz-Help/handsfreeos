@@ -80,6 +80,21 @@ describe('the manifest', () => {
     );
   });
 
+  it('reaches each network’s picture servers, for the AI to see a post before its comment (decision 172), never with its script', () => {
+    expect(manifest.host_permissions).toEqual(
+      expect.arrayContaining([
+        'https://*.fbcdn.net/*',
+        'https://*.cdninstagram.com/*',
+        'https://*.licdn.com/*',
+        'https://*.twimg.com/*',
+        'https://*.alignable.com/*',
+      ]),
+    );
+    const scripts = JSON.stringify(manifest.content_scripts);
+    for (const host of ['licdn', 'twimg', 'fbcdn', 'cdninstagram'])
+      expect(scripts).not.toContain(host);
+  });
+
   it('reaches Meta Business Suite, to put the business’s OK’d posts up on its Facebook Page, never with its script', () => {
     expect(manifest.host_permissions).toContain('https://business.facebook.com/*');
     expect(JSON.stringify(manifest.content_scripts)).not.toContain('business.facebook.com');

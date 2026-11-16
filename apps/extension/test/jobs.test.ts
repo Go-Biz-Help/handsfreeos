@@ -132,6 +132,7 @@ describe('the once-a-day jobs, in order', () => {
       'checks',
       'partners',
       'helpful',
+      'comment_research',
       'profile',
     ]);
     const fresh = freshState('2026-10-10');
@@ -186,6 +187,28 @@ describe('the once-a-day jobs, in order', () => {
           helpful: '',
         },
       }),
+    ).toBe('comment_research');
+    // HandsFreeOS's own comment research (decision 172), then the profile: for anyone who didn't start one, the runner
+    // marks the research done before its turn.
+    expect(
+      nextDaily({
+        daily: {
+          requests: '',
+          tidy: '',
+          occasions: '',
+          group_checks: '',
+          join: '',
+          members: '',
+          posts: '',
+          active: '',
+          chats: '',
+          followers: '',
+          checks: '',
+          partners: '',
+          helpful: '',
+          comment_research: '',
+        },
+      }),
     ).toBe('profile');
     expect(
       nextDaily({
@@ -203,6 +226,7 @@ describe('the once-a-day jobs, in order', () => {
           checks: '',
           partners: '',
           helpful: '',
+          comment_research: '',
           profile: '',
         },
       }),
