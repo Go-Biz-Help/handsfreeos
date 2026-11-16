@@ -69,10 +69,19 @@ async function followersSaved(job: Job, platform: FollowPlatform): Promise<JobEn
   job.progress('Opening your followers…');
   const page = spec.pages.followers(own);
   await job.tab.open(page ?? own.url);
+  // Their count of followers as their profile shows it (Threads'): none, and there's nobody to save.
+  let shown: number | null = null;
   for (let look = 0; look < LIST_LOOKS; look++) {
     await pause(LIST_MS);
     const read = await readFollowIn(job.tab, platform);
     if (read.found.people.length || read.signedOut || read.warnings.length) break;
+    shown = read.found.profile?.followers ?? shown;
+    if (shown === 0)
+      return {
+        line: `No followers on ${spec.name} yet, so nobody to save.`,
+        warned: false,
+        whole: true,
+      };
     // Threads' followers open from the count on their own profile, pressed once as a person does.
     if (!page && look === 0) await job.tab.ask({ type: 'hfos-show-all' });
   }
@@ -109,9 +118,12 @@ async function followersSaved(job: Job, platform: FollowPlatform): Promise<JobEn
   if (ended(got)) return got;
   // Closed again where it was a box over their profile.
   if (!page) await job.tab.ask({ type: 'hfos-close-dialog' });
+  // Signed in, as their own profile showed: the list itself didn't show.
   if (!got.items.length)
     return {
-      line: `${spec.name} showed nobody in your followers. If you have some, ${signedInWords(platform).replace(/^C/, 'c')}`,
+      line: page
+        ? `${spec.name} showed nobody on your page of followers.`
+        : `Your followers didn’t open on ${spec.name} from your count of them${shown ? ` (${shown.toLocaleString()})` : ''}.`,
       warned: false,
       failed: true,
     };

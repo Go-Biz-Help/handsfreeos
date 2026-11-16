@@ -801,7 +801,8 @@ describe('Threads’ profiles, as the owner’s Check Threads drew them on 15 No
 
   /**
    * A profile as Threads draws it: the bar with its name over a part marked as a region, which holds the header (name,
-   * picture, bio, link, its count of followers as a button), its buttons, its tabs and then its posts.
+   * picture, bio, link, its count of followers as a button in two parts that say just what it says), its buttons, its
+   * tabs and then its posts.
    */
   const profile = (
     name: string,
@@ -821,7 +822,7 @@ describe('Threads’ profiles, as the owner’s Check Threads drew them on 15 No
             <div role="button"><img alt="${name}'s profile picture"></div></div>
           <span dir="auto">${bio}</span>
           <a role="link" href="https://l.threads.com/?u=https%3A%2F%2Fdanasells.example"><span dir="auto"><span>danasells.example</span></span></a>
-          <div><div><div role="button" class="count"><div><div><img alt="a follower's picture"></div></div><span dir="auto"><span title="${count}">${count}</span> followers</span></div>
+          <div><div><div><div><div role="button" class="count"><div><div><img alt="a follower's picture"></div></div><span dir="auto"><span title="${count}">${count}</span> followers</span></div></div></div>
               <div><span aria-hidden="true"><span dir="auto">·</span></span><div role="button"><span dir="auto">Followed by avery.lane</span></div></div></div>
             <div><div role="button"><svg></svg></div><div role="button" aria-expanded="false">${titled('More')}</div></div></div></div>
         ${buttons}
@@ -896,7 +897,7 @@ describe('Threads’ profiles, as the owner’s Check Threads drew them on 15 No
     expect(pressed).toBe(1);
   });
 
-  it('opens the person’s followers with a press on their own count, as a pointer does', () => {
+  it('opens the person’s followers with a press on the button around their count, never the parts around it', () => {
     const doc = page(
       profile('casey.owner', {
         buttons: '<div role="button"><div>Edit profile</div></div>',
@@ -919,6 +920,37 @@ describe('Threads’ profiles, as the owner’s Check Threads drew them on 15 No
       `${TH}/@dana.reyes`,
     );
     expect(THREADS_SPEC.openFollowers!(theirs)).toBe(false);
+  });
+
+  it('reads the person’s followers off Threads’ box of them, as the owner’s Chrome drew it on 16 Nov 2026', () => {
+    // Each row: their username a link, their name beside it (not a link), and Following or Follow back.
+    const row = (
+      username: string,
+      name: string,
+      button: string,
+    ) => `<div><div><div><span><div><span><div>
+      <a role="link" href="/@${username}"><span><span>${username}</span></span></a></div></span></div></span></div>
+      <div><span><span>${name}</span></span></div></div><div role="button"><div>${button}</div></div></div>`;
+    const tab = (words: string, count: string) =>
+      `<div><div role="tab"><div role="button" aria-label="${words}"><div><span><span>${words}</span></span></div><span><span>${count}</span></span></div></div></div>`;
+    const doc = page(
+      `${profile('casey.owner', { buttons: '<div role="button"><div>Edit profile</div></div>', count: '441' })}
+      <div role="dialog"><div></div><div><div><div role="tablist">${tab('Followers', '441')}${tab('Following', '60')}</div>
+        <div><div><div><svg role="img"><title>Search</title></svg><input aria-label="Search"></div></div>
+          <div>${row('avery.lane', 'Avery Lane', 'Follow back')}${row('sam.lee', 'Sam Lee', 'Following')}${row('avery.lane', 'Avery Lane', 'Follow back')}</div></div></div></div></div>`,
+      `${TH}/@casey.owner`,
+    );
+    expect(THREADS_SPEC.openFollowers!(doc)).toBe(true);
+    expect(
+      readFollow(doc, doc.location.href, THREADS_SPEC).people.map((p) => [
+        p.username,
+        p.url,
+        p.following,
+      ]),
+    ).toEqual([
+      ['avery.lane', `${TH}/@avery.lane`, 'no'],
+      ['sam.lee', `${TH}/@sam.lee`, 'following'],
+    ]);
   });
 });
 

@@ -289,6 +289,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     said: 'Threads’ side menu lists Following among its feeds, as a link, and the profile reader took it for the profile’s own Following, so every profile read as followed. The header now leaves out side menus and the posts under it, and starts from a button that isn’t a link.',
   },
   {
+    area: 'threads',
+    job: 'checkup.followers',
+    note: 'Your followers: pressed your count of followers',
+    fixedIn: '0.141.4',
+    pr: 647,
+    said: 'Threads wraps the button around the count of followers in two parts that say just the same, and the outer one was pressed, which opens nothing. The innermost part is taken now and the button around it pressed, as tried in the owner’s own Chrome.',
+  },
+  {
     area: 'instagram',
     job: 'draft',
     note: 'the AI had nothing to say on it',
