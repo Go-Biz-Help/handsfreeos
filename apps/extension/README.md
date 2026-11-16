@@ -1272,6 +1272,21 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### LinkedIn posts keep their blank lines (0.141.5)
+
+The owner's Content Creator post on LinkedIn of 15 Nov 2026 went up with every paragraph straight under the one before,
+the hashtags too, though its words had a blank line between each (`postText`). LinkedIn's box takes pasted words a
+line to a paragraph but drops the blank lines, as a ProseMirror box does; Facebook's and Instagram's (Lexical), X's
+(Draft.js) and a Quill box keep them, which a test in Chromium with each showed. The same words copied from a web page
+come with its paragraphs (HTML), an empty one for each blank line, and LinkedIn's kind of box keeps those.
+
+From 0.141.5, when a box shows the pasted words but none of their blank lines (`lostBlankLines` in
+`src/networks/post-text.ts`, reading the box's lines as a person sees them), it's emptied and the words are pasted
+again with a web page's paragraphs (`postHtml`). A box that won't empty keeps the words as they went in, and one that
+ignores the second paste gets the plain words back, so a post never goes in twice or empty. Boxes that kept the blank
+lines get one paste, as before. It's every post `putPostIn` puts up: the Content Creator's on LinkedIn, and helpful
+posts on LinkedIn, as well as anywhere else a box turns out to drop them.
+
 ### A look at reels before their comment, and no report when there's nothing to say (0.141.3)
 
 The problem check of 16 Nov 2026 (01:23 UTC) looked again at "the AI had nothing to say on it", on Facebook's comments

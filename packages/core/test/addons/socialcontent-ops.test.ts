@@ -11,6 +11,7 @@ import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
+import { CALENDAR } from '../../src/addons/socialcontent/calendar';
 import { socialcontentAddon } from '../../src/addons/socialcontent/manifest';
 import { socialcontentAddonServer } from '../../src/addons/socialcontent/server';
 import { SOCIALCONTENT_TABLES } from '../../src/addons/socialcontent/tables';
@@ -696,10 +697,12 @@ describe('the business’s own posts', () => {
     // None of its own posts went up yet: what it knows comes from the creators' posts read above.
     expect(cal.learned.linkedin).toMatchObject({ own: 0 });
     expect(cal.filledAt).toBeNull();
-    // Five a week on LinkedIn is every weekday in the two weeks shown, none of them today, between its hours.
+    // Five a week on LinkedIn is every weekday in the two weeks shown, between its hours. Today's shows only while
+    // it's at least half an hour off (`CALENDAR.todayLeadMs`), so a place there can still be written and OK'd.
     const linkedin = cal.open.filter((o: Any) => o.network === 'linkedin');
     expect(linkedin.length).toBeGreaterThanOrEqual(9);
-    expect(linkedin.some((o: Any) => o.date === cal.today)).toBe(false);
+    for (const o of linkedin.filter((o: Any) => o.date === cal.today))
+      expect(Date.parse(o.at) - Date.now()).toBeGreaterThan(CALENDAR.todayLeadMs - 60_000);
     for (const o of linkedin) {
       const hour = Number(clockOf(o.at, cal.timeZone).slice(0, 2));
       expect(hour).toBeGreaterThanOrEqual(8);
