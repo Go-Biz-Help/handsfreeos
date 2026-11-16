@@ -4025,6 +4025,11 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **A run-together post is found again:** posts are compared with no spaces or line breaks at all (`foundPost`,
         LinkedIn's `startsLike`, Alignable's `linkToIt`), so one put up before 0.134.2 is found by the next daily read
         in its fortnight, and who commented and reacted become warm leads.
+      - **LinkedIn's blank lines** (Chris, 16 Nov 2026, with a picture of his Content Creator post on LinkedIn: "this
+        linked in post didn't have any line breaks"). LinkedIn's box takes pasted words a line to a paragraph but drops
+        the blank lines, as a ProseMirror box does. From extension 0.141.5 a box that shows the words but none of their
+        blank lines is emptied and gets them pasted again as a web page gives them (HTML, an empty paragraph for each
+        blank line), which it keeps (`lostBlankLines` and `postHtml`). Boxes that kept them get one paste, as before.
 159.  **Never a message to someone who doesn't follow back on Instagram** (Chris, 11 Nov 2026: "the social outreach
       tool add people to message that have not followed us back on instagram", then "again we never message people
       that don't follow us because it doesn't go to their inbox and them following us is the trigger to inbox them").
