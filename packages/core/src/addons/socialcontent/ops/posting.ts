@@ -96,7 +96,7 @@ async function markFailed(ctx: CommandContext, c: ContentRow, why: string): Prom
 export const postNext = defineAddonCommand(socialcontentAddon, {
   name: 'socialcontent.post.next',
   description:
-    'Extension: the next of the business’s own posts to put up now, on the networks the extension posts on: OK’d, its time come, within a day of it, soonest first. It’s taken, so it goes up once. What a computer took and never said how it went is marked as didn’t post (it may have gone up), and what waited more than a day past its time too. Null when nothing is due.',
+    'Extension: the next of the business’s own posts to put up now, on the networks the extension posts on: OK’d, its time come, within a day of it, soonest first, Facebook last of those due at the same time. It’s taken, so it goes up once. What a computer took and never said how it went is marked as didn’t post (it may have gone up), and what waited more than a day past its time too. Null when nothing is due.',
   risk: 0,
   input: PostNextInput,
   output: PostNextOutput,
@@ -146,7 +146,9 @@ export const postNext = defineAddonCommand(socialcontentAddon, {
             join app.custom_records r on r.id = c.record_id and r.archived_at is null
             where c.workspace_id = ${ws} and c.state = 'ready' and c.post_at <= now()
               and c.network = any(${`{${networks.join(',')}}`}::text[])
-            order by c.post_at, c.created_at limit 1
+            -- Facebook last of the posts due at the same time: it goes to two places and waits on Business Suite,
+            -- so the rest never queue behind it (the owner's 12 PM posts of 16 Nov 2026).
+            order by c.post_at, c.network = 'facebook', c.created_at limit 1
             for update of c skip locked`,
       );
       if (!due) return { post: null };

@@ -4598,7 +4598,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **Next** (the owner's 6a to 9a, its own part): referring the people the owner has really talked with on posts asking
         for a recommendation.
 
-172.  **Refer the people you've really talked with on posts asking for a recommendation** (Chris, 16 Nov 2026: "we
+173.  **Refer the people you've really talked with on posts asking for a recommendation** (Chris, 16 Nov 2026: "we
       need to build the skill of referring these people on relevant posts, only the ones that we've had a decent
       conversation with"). The answers: 6a, 7a, 8a, 9a. It goes with decision 173's "I'll send people your way":
       - **The posts are those already read** (6a; `posts.asks`, `POST_CHECK_SYSTEM`, `checkedPostAsks`): the post check
