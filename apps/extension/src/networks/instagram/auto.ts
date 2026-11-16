@@ -643,7 +643,9 @@ function reelCommentBoxOf(doc: Document): HTMLElement | null {
  * The post's own part of its page, for a look at its picture or video before its comment is drafted (decision 166,
  * ../post-look.ts, from 0.140.0): given only on the post asked for, on its own page, when its own link names them, as
  * a comment goes (`writeTheirComment`). What's there but isn't the post's is ruled out: anything inside a link to
- * another post (the tiles under "More posts from").
+ * another post (the tiles under "More posts from"). In the reels player it's the reel it opened on, theirs by its
+ * account's links over it or made with them, as a comment goes there, and never the next reel under it (from 0.141.3:
+ * till then a reel's comment was written from its words alone, which for a reel are mostly in its video).
  */
 export function theirPostPart(
   doc: Document,
@@ -655,8 +657,13 @@ export function theirPostPart(
   const asked = instagramUrl(on.postUrl);
   if (!url || !asked || postOf(asked) !== url) return null;
   const code = partsOf(new URL(url))[1]!;
-  const root = postRootOf(doc);
-  if (!isThem(namedByItsLink(root, href, code), on.profile)) return null;
+  const reel = openedReelOf(doc, href);
+  const root = reel ?? postRootOf(doc);
+  if (reel) {
+    const author = reelAuthorOf(reel, href);
+    if (!isThem(author, on.profile) && !madeWithThem(reel, href, author, on.profile, true))
+      return null;
+  } else if (!isThem(namedByItsLink(root, href, code), on.profile)) return null;
   const skip = (el: Element): boolean => {
     const link = el.closest('a[href]');
     const to = link ? instagramUrl(link.getAttribute('href') ?? '', href) : null;

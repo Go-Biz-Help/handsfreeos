@@ -280,6 +280,22 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 643,
     said: 'The post’s bar had Like and Share but no Comment, and no box: its author limited who can comment. The step now passes such a post over (“it doesn’t let you comment on it”) with nothing reported.',
   },
+  {
+    area: 'instagram',
+    job: 'draft',
+    note: 'the AI had nothing to say on it',
+    fixedIn: '0.141.3',
+    pr: 645,
+    said: 'Each came right after the AI wrote, with its drafts all taken out by the checks: no comment is the right answer when there’s nothing real to say (decision 165), so it’s passed over now with nothing reported. A reel in the reels player is now looked at before its comment is drafted, as a post is: till now the AI had only its words.',
+  },
+  {
+    area: 'facebook',
+    job: 'comment',
+    note: 'the AI had nothing to say on it',
+    fixedIn: '0.141.3',
+    pr: 645,
+    said: 'Each came right after the AI wrote, with its drafts all taken out by the checks: no comment is the right answer when there’s nothing real to say (decision 165), so it’s passed over now with nothing reported.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */

@@ -1272,6 +1272,21 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### A look at reels before their comment, and no report when there's nothing to say (0.141.3)
+
+The problem check of 16 Nov 2026 (01:23 UTC) looked again at "the AI had nothing to say on it", on Facebook's comments
+and Instagram's drafts (10 from 13 to 15 Nov). Each came right after the AI wrote, its drafts all taken out by the
+checks (decision 165), and no comment is the right answer when there's nothing real to say:
+
+- From 0.141.3 a comment the AI had nothing to say on is passed over (`skip`, `NOTHING_TO_SAY` in
+  `src/auto/comments.ts`, and Facebook's group posts in `src/auto/run.ts`): nothing reported, and one tried again is
+  cleared. A reply to a question in a group still says so as before.
+- **Instagram reels**: the look before a comment's draft (decision 166) found no part on the reels player
+  (/reels/<code>/), which has no article and no link to the reel itself, so the AI had only the reel's words, which
+  for a reel are mostly in its video. From 0.141.3 `theirPostPart` (`src/networks/instagram/auto.ts`) gives the reel
+  the player opened on, while its account's links name them or they made it with its author (`openedReelOf`, as a
+  comment goes there), and never the next reel under it.
+
 ### Comments on reels in the reels player, and Facebook posts closed to comments (0.141.1)
 
 The problem check of 15 Nov 2026 (19:23 UTC) found two comments that couldn’t go:
