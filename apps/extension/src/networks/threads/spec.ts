@@ -295,29 +295,72 @@ const onPostPage = (doc: Document): boolean => {
   return url !== null && kindOf(url) === 'post';
 };
 
-/** The page's part a profile's header is in: the part around its Follow (or Edit profile) that shows its followers. */
+/**
+ * The parts of a profile's page that are never its header: its side menus (whose feeds now list "Following", which
+ * read as the profile's own Following till 0.141.2, so Follow was never pressed) and the posts under it.
+ */
+const NOT_HEADER = '[role="navigation"], nav, [data-pagelet], [data-pressable-container="true"]';
+const inHeader = (part: Element): boolean => !part.closest(NOT_HEADER);
+
+/** A profile header's own controls that say these words: never one in a side menu or a post under it. */
+const headerControls = (header: ParentNode, words: RegExp): HTMLElement[] =>
+  controlsSaying(header, words, true).filter(inHeader);
+
+/** A profile's own buttons: Follow (Follow back, Following, Requested), or Edit profile on the person's own. */
+const HEADER_BUTTON = /^(follow|follow back|following|requested|edit profile)$/i;
+
+/**
+ * The page's part a profile's header is in: the part around its Follow (or Edit profile) that shows its followers. Its
+ * buttons are never links, and the part never takes in a side menu.
+ */
 function headerOf(doc: Document): Element | null {
-  const main = mainOf(doc);
-  const button = controlsSaying(
-    main,
-    /^(follow|follow back|following|requested|edit profile)$/i,
-    true,
-  )[0];
+  const button = headerControls(mainOf(doc), HEADER_BUTTON).find((c) => !c.matches('a[href]'));
   if (!button) return null;
-  for (let up = button.parentElement, n = 0; up && n < 12; up = up.parentElement, n++)
+  for (let up = button.parentElement, n = 0; up && n < 12; up = up.parentElement, n++) {
+    if (up.querySelector('[role="navigation"], nav')) return null;
     if (
-      [...up.querySelectorAll('span, div, a')].some((part) =>
-        FOLLOWERS.test(clean(part.textContent)),
+      [...up.querySelectorAll('span, div, a')].some(
+        (part) => inHeader(part) && FOLLOWERS.test(clean(part.textContent)),
       )
     )
       return up;
+  }
   return null;
+}
+
+/**
+ * Presses as a person's pointer does: over it, down and up, then the click. The owner's Check Threads (15 Nov 2026,
+ * 0.141.1) found their box of followers never showed after a click alone on their count.
+ */
+function pressAsAPerson(button: HTMLElement): void {
+  const view = button.ownerDocument.defaultView;
+  if (view) {
+    const at = { bubbles: true, cancelable: true, view, button: 0 };
+    const pointer = { ...at, pointerId: 1, pointerType: 'mouse', isPrimary: true };
+    const Pointer = view.PointerEvent ?? view.MouseEvent;
+    button.dispatchEvent(new Pointer('pointerover', pointer));
+    button.dispatchEvent(new view.MouseEvent('mouseover', at));
+    button.dispatchEvent(new Pointer('pointerdown', { ...pointer, buttons: 1 }));
+    button.dispatchEvent(new view.MouseEvent('mousedown', { ...at, buttons: 1 }));
+    button.dispatchEvent(new Pointer('pointerup', pointer));
+    button.dispatchEvent(new view.MouseEvent('mouseup', at));
+  }
+  button.click();
+}
+
+/** A header's own words, without its posts' (a post may say "follows you"). */
+function headerWords(header: Element): string {
+  const walk = header.ownerDocument.createTreeWalker(header, 4 /* text */);
+  let words = '';
+  for (let node = walk.nextNode(); node; node = walk.nextNode())
+    if (node.parentElement && inHeader(node.parentElement)) words += ` ${node.textContent ?? ''}`;
+  return clean(words);
 }
 
 /** A profile's count of its followers, as it says: "1,234 followers". */
 function followersIn(header: Element): HTMLElement | null {
   const parts = [...header.querySelectorAll<HTMLElement>('span, div, a, [role="button"]')].filter(
-    (part) => FOLLOWERS.test(clean(part.textContent)),
+    (part) => inHeader(part) && FOLLOWERS.test(clean(part.textContent)),
   );
   // The smallest that says it: the count itself, or the button around it.
   return (
@@ -425,38 +468,43 @@ export const THREADS_SPEC: FollowSpec = {
     const heading = header.querySelector('h1, h2');
     const name = clean(heading?.textContent) || null;
     const lines = [...header.querySelectorAll('span[dir="auto"], div[dir="auto"]')]
-      .filter((part) => !part.querySelector('span[dir="auto"], div[dir="auto"]'))
-      .filter((part) => !part.closest('a[href], [role="button"], button, h1, h2'))
+      .filter((part) => inHeader(part) && !part.querySelector('span[dir="auto"], div[dir="auto"]'))
+      .filter(
+        (part) => !part.closest('a[href], [role="button"], button, h1, h2, [aria-hidden="true"]'),
+      )
       .map((part) => clean(part.textContent))
       .filter(
         (words) =>
           words &&
+          words !== '·' &&
           words.toLowerCase() !== account.username.toLowerCase() &&
           !FOLLOWERS.test(words) &&
+          !/^follows you$/i.test(words) &&
           !WORDS.has(words.toLowerCase()),
       );
     const links = [...header.querySelectorAll('a[href]')]
-      .filter((a) => !threadsUrl(a.getAttribute('href') ?? '', ORIGIN))
+      .filter((a) => inHeader(a) && !threadsUrl(a.getAttribute('href') ?? '', ORIGIN))
       .map((a) => `Link: ${clean(a.textContent)}`)
       .filter((line) => line !== 'Link: ');
-    const follow = controlsSaying(header, FOLLOW, true)[0] ?? null;
+    const follow = headerControls(header, FOLLOW)[0] ?? null;
     return {
       name: name && name.toLowerCase() !== account.username.toLowerCase() ? name : null,
       bio: lines.join('\n') || null,
       links,
       followers: countOf(followersIn(header)?.textContent),
+      // Its "Follows you" beside their name, or Follow back.
       followsYou:
-        /\bfollows you\b/i.test(clean(header.textContent)) ||
+        /\bfollows you\b/i.test(headerWords(header)) ||
         (follow !== null && /^follow back$/i.test(nameOf(follow)))
           ? true
-          : follow || controlsSaying(header, FOLLOWING, true).length
+          : follow || headerControls(header, FOLLOWING).length
             ? false
             : null,
     };
   },
   followIn: (header) => {
-    const following = controlsSaying(header, FOLLOWING, true)[0] ?? null;
-    const follow = following ? null : (controlsSaying(header, FOLLOW, true)[0] ?? null);
+    const following = headerControls(header, FOLLOWING)[0] ?? null;
+    const follow = following ? null : (headerControls(header, FOLLOW)[0] ?? null);
     return {
       follow,
       following,
@@ -487,11 +535,11 @@ export const THREADS_SPEC: FollowSpec = {
   openFollowers: (doc) => {
     if (THREADS_SPEC.listIn(doc)) return true;
     const header = headerOf(doc);
-    if (!header || !controlsSaying(header, EDIT, true).length) return false;
+    if (!header || !headerControls(header, EDIT).length) return false;
     const count = followersIn(header);
     const button = count?.closest<HTMLElement>('[role="button"], a[href], button') ?? count;
     if (!button) return false;
-    button.click();
+    pressAsAPerson(button);
     return true;
   },
   replyBoxes: (doc) => {
@@ -533,7 +581,7 @@ export const THREADS_SPEC: FollowSpec = {
     inbox: `${ORIGIN}/messages/`,
     chatUrl: (key) => `${ORIGIN}/messages/t/${encodeURIComponent(key)}/`,
     chatOf,
-    messageIn: (header) => controlsSaying(header, MESSAGE)[0] ?? null,
+    messageIn: (header) => headerControls(header, MESSAGE)[0] ?? null,
     box: /^(write a message|message|aa)\b/i,
     send: /^(send|press enter to send)$/i,
   },

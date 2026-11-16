@@ -277,7 +277,13 @@ describe('replies to the person’s comments, in a business (decision 163, 8a)',
   it('lists the replies first on Today, and holds each answer for an OK, Autopilot’s too', async () => {
     const list = await runAs(owner, ws, 'outreach.today', { platform: 'threads' });
     const comments = (list.items as TodayItem[]).filter((i) => i.kind === 'comment');
-    expect(comments.slice(0, 2).map((i) => [i.name, i.why[0]])).toEqual([
+    // Both replies went in one save, so they share a moment (Today orders by it): first, in either order.
+    expect(
+      comments
+        .slice(0, 2)
+        .map((i) => [i.name, i.why[0]])
+        .sort(),
+    ).toEqual([
       ['kim.siding', REPLY_WHY],
       ['sam.roofs', REPLY_WHY],
     ]);

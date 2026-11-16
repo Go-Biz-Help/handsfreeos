@@ -1511,6 +1511,22 @@ minute after posting and before any reading:
   link"). A warning keeps the network's words for the day, for both social add-ons, and says nothing: the read is
   asked for again later, since one handed out is put off half an hour.
 
+### Following, and the person's followers, on Threads (0.141.2)
+
+The owner's Check Threads on 15 Nov 2026 (0.141.1) said each profile it looked at was followed already, so Follow
+was never tried, and read none of the person's 441 followers; the runner's Your newest followers had failed every 15
+minutes that day. Threads' side menu now lists the person's feeds, Following among them, as a link like the rest, and
+the profile reader took the first control saying Following anywhere on the page for the profile's own. So the header
+was the whole page: every profile read as followed, its bio took in the posts under it, and its name was the bar's.
+From 0.141.2 the header (`headerOf` in `src/networks/threads/spec.ts`) starts from a button that isn't a link, never
+takes in a side menu, and its controls and words leave out side menus and posts (`NOT_HEADER`). "Follows you" beside
+their name, which Threads shows (its `BarcelonaProfileFollowsYouPill`), says they follow back, as Follow back does.
+
+The count of followers is a button that opens their box. After a click alone on it nothing showed, so it's now pressed
+as a pointer presses (over, down, up, then the click), and Check Threads brings its window in front first and waits
+longer for the box. If it still doesn't show, Check notes `checkup.followers` with whether the count was there to
+press, beside the page's outline.
+
 ### Messages on Threads (0.141.0)
 
 The owner, 15 Nov 2026: "i want threads to work like instagram where if they follow back then we can message them and
