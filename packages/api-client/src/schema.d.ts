@@ -9757,6 +9757,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.referral.done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person commented on the post naming someone they talked with, and sent that person the heads-up: the referral is noted as done, with the words they sent when they changed them.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.referral.done.
+         */
+        post: operations["command_outreach_referral_done"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.referral.skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a referral aside: nothing is commented or sent, and it doesn’t come back.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.referral.skipped.
+         */
+        post: operations["command_outreach_referral_skip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.replies.note": {
         parameters: {
             query?: never;
@@ -23111,6 +23151,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_readiness"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.referrals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s referrals waiting for them (Refer someone on Today): posts from the last week asking for a recommendation of what someone they talked with does, each with who, why, the comment naming them and the heads-up to them. Nothing is posted or sent: the person does both, then outreach_referral_done notes it.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_referrals"];
         delete?: never;
         options?: never;
         head?: never;
@@ -50672,6 +50732,7 @@ export interface operations {
                                 id: string;
                                 text: string;
                             }[];
+                            refer?: boolean;
                             samples: string[];
                             script?: {
                                 birthday?: string;
@@ -50692,6 +50753,8 @@ export interface operations {
                                 postReply?: string;
                                 question?: string;
                                 reconnect?: string;
+                                referComment?: string;
+                                referNote?: string;
                                 reminder?: string;
                                 sendPeople?: string;
                                 warmUp?: string;
@@ -50743,6 +50806,8 @@ export interface operations {
                             postReply: string;
                             question: string;
                             reconnect: string;
+                            referComment: string;
+                            referNote: string;
                             reminder: string;
                             sendPeople: string;
                             warmUp: string;
@@ -50814,6 +50879,7 @@ export interface operations {
                             id: string;
                             text: string;
                         }[];
+                        refer?: boolean;
                         samples?: string[];
                         script?: {
                             birthday?: string;
@@ -50834,6 +50900,8 @@ export interface operations {
                             postReply?: string;
                             question?: string;
                             reconnect?: string;
+                            referComment?: string;
+                            referNote?: string;
                             reminder?: string;
                             sendPeople?: string;
                             warmUp?: string;
@@ -50913,6 +50981,7 @@ export interface operations {
                             id: string;
                             text: string;
                         }[];
+                        refer?: boolean;
                         samples: string[];
                         script?: {
                             birthday?: string;
@@ -50933,6 +51002,8 @@ export interface operations {
                             postReply?: string;
                             question?: string;
                             reconnect?: string;
+                            referComment?: string;
+                            referNote?: string;
                             reminder?: string;
                             sendPeople?: string;
                             warmUp?: string;
@@ -51032,6 +51103,7 @@ export interface operations {
                                 id: string;
                                 text: string;
                             }[];
+                            refer?: boolean;
                             samples: string[];
                             script?: {
                                 birthday?: string;
@@ -51052,6 +51124,8 @@ export interface operations {
                                 postReply?: string;
                                 question?: string;
                                 reconnect?: string;
+                                referComment?: string;
+                                referNote?: string;
                                 reminder?: string;
                                 sendPeople?: string;
                                 warmUp?: string;
@@ -51103,6 +51177,8 @@ export interface operations {
                             postReply: string;
                             question: string;
                             reconnect: string;
+                            referComment: string;
+                            referNote: string;
                             reminder: string;
                             sendPeople: string;
                             warmUp: string;
@@ -52072,6 +52148,76 @@ export interface operations {
                             } | null;
                         } | null;
                         ready: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_referral_done: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    comment?: string;
+                    note?: string;
+                    /** Format: uuid */
+                    referralId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        referralId: string;
+                        /** @enum {string} */
+                        state: "waiting" | "done" | "skipped";
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_referral_skip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    referralId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        referralId: string;
+                        /** @enum {string} */
+                        state: "waiting" | "done" | "skipped";
                     };
                 };
             };
@@ -90598,6 +90744,7 @@ export interface operations {
                                     id: string;
                                     text: string;
                                 }[];
+                                refer?: boolean;
                                 samples: string[];
                                 script?: {
                                     birthday?: string;
@@ -90618,6 +90765,8 @@ export interface operations {
                                     postReply?: string;
                                     question?: string;
                                     reconnect?: string;
+                                    referComment?: string;
+                                    referNote?: string;
                                     reminder?: string;
                                     sendPeople?: string;
                                     warmUp?: string;
@@ -90669,6 +90818,8 @@ export interface operations {
                                 postReply: string;
                                 question: string;
                                 reconnect: string;
+                                referComment: string;
+                                referNote: string;
                                 reminder: string;
                                 sendPeople: string;
                                 warmUp: string;
@@ -91851,6 +92002,60 @@ export interface operations {
                             } | null;
                         } | null;
                         ready: boolean;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_referrals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        referrals: {
+                            asks: string | null;
+                            comment: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            name: string;
+                            note: string;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
+                            post: string;
+                            /** Format: uuid */
+                            postId: string;
+                            postUrl: string;
+                            postWhole: string | null;
+                            /** Format: uuid */
+                            profileId: string;
+                            profileUrl: string;
+                            /** Format: uuid */
+                            referralId: string;
+                            /** @enum {string} */
+                            state: "waiting" | "done" | "skipped";
+                            why: string | null;
+                            writer: string;
+                        }[];
                     };
                 };
             };

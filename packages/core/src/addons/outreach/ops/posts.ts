@@ -12,6 +12,7 @@ import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
 import { NETWORKS } from '../networks';
 import {
+  checkedPostAsks,
   dayNumber,
   searchTurn,
   PostCheckInput,
@@ -168,7 +169,7 @@ export const postsSave = defineAddonCommand(outreachAddon, {
 export const postCheck = defineAddonCommand(outreachAddon, {
   name: 'outreach.post.check',
   description:
-    'Worker: what the AI made of a group post kept as worth a look: good for the person to comment on, or not, with why, whether its writer is asking now for what the business offers, and whether its writer is someone the business is for; or that it couldn’t be read. On Instagram, LinkedIn or Alignable a good post’s writer is found, and so is one who fits though their post isn’t good, for the AI’s check of them.',
+    'Worker: what the AI made of a group post kept as worth a look: good for the person to comment on, or not, with why, whether its writer is asking now for what the business offers, whether its writer is someone the business is for, and what it asks people to recommend someone for; or that it couldn’t be read. On Instagram, LinkedIn or Alignable a good post’s writer is found, and so is one who fits though their post isn’t good, for the AI’s check of them.',
   risk: 0,
   input: PostCheckInput,
   output: PostCheckOutput,
@@ -191,9 +192,12 @@ export const postCheck = defineAddonCommand(outreachAddon, {
     const check: PostCheck = input.check ? (input.check.good ? 'good' : 'not') : 'failed';
     // Strong only ever for a good post (decision 49).
     const strong = check === 'good' && input.check?.strong === true;
+    // What it asks people to recommend someone for (decision 174), whatever the check: someone the person talked
+    // with who does it may be referred.
+    const asks = checkedPostAsks(input.check?.asks);
     await ctx.tx
       .update(posts)
-      .set({ checkState: check, checkWhy: input.check?.why ?? null, strong, checkedAt: at })
+      .set({ checkState: check, checkWhy: input.check?.why ?? null, strong, asks, checkedAt: at })
       .where(eq(posts.id, post.id));
     // A good post's writer, on a network that checks people found (decision 92), is found: the AI checks them from
     // their own page before anything is done for them. So is a writer the business is for whose post isn't one to
@@ -204,8 +208,9 @@ export const postCheck = defineAddonCommand(outreachAddon, {
       type: 'outreach.post.checked',
       entityType: 'workspace',
       entityId: ws,
-      // The worker pushes a strong one to the person who found it, when it's fresh.
-      payload: { postId: post.id, check, strong, userId: post.userId },
+      // The worker pushes a strong one to the person who found it, when it's fresh, and looks for someone to refer
+      // on one that asks for a recommendation (decision 174).
+      payload: { postId: post.id, check, strong, asks: asks !== null, userId: post.userId },
     });
     return { postId: post.id, check, strong };
   },

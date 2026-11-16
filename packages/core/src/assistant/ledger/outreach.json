@@ -33,15 +33,16 @@
     "apps/mobile/src/addons/outreach/partners.tsx": "5fe0683e908d",
     "apps/mobile/src/addons/outreach/person-menu.tsx": "1a37fc2ef322",
     "apps/mobile/src/addons/outreach/pipeline.tsx": "0e8ba9125d19",
-    "apps/mobile/src/addons/outreach/playbook-script.tsx": "b4d3e72e2e3e",
+    "apps/mobile/src/addons/outreach/playbook-script.tsx": "c8a6693b55ad",
     "apps/mobile/src/addons/outreach/playbook-test.tsx": "d508cf5f3f76",
-    "apps/mobile/src/addons/outreach/playbook.tsx": "4f4e2d958607",
+    "apps/mobile/src/addons/outreach/playbook.tsx": "9c90e01fad8a",
     "apps/mobile/src/addons/outreach/playbooks.tsx": "1af36aa24064",
     "apps/mobile/src/addons/outreach/post-quote.tsx": "1fb64117de21",
     "apps/mobile/src/addons/outreach/posted.tsx": "4007346d12e7",
     "apps/mobile/src/addons/outreach/profile-whole.tsx": "48b345076f5e",
     "apps/mobile/src/addons/outreach/ready-messages.tsx": "928494dff1ce",
     "apps/mobile/src/addons/outreach/ready.tsx": "25850d1b5887",
+    "apps/mobile/src/addons/outreach/referrals.tsx": "737b9f81bf19",
     "apps/mobile/src/addons/outreach/results.tsx": "aa922c1891d0",
     "apps/mobile/src/addons/outreach/settings-bits.tsx": "e0f6d6ee5cdb",
     "apps/mobile/src/addons/outreach/settings-general.tsx": "298225c415ed",
@@ -51,7 +52,7 @@
     "apps/mobile/src/addons/outreach/setup.tsx": "88dc516bdf04",
     "apps/mobile/src/addons/outreach/social-card.tsx": "9dfd419415b9",
     "apps/mobile/src/addons/outreach/ticker.tsx": "3ac4c69f8f42",
-    "apps/mobile/src/addons/outreach/today.tsx": "fd905b517a63",
+    "apps/mobile/src/addons/outreach/today.tsx": "33d312fbbb11",
     "apps/mobile/src/addons/outreach/video-library.tsx": "44d9f03cf97f",
     "apps/mobile/src/addons/outreach/waiting.tsx": "a46827c2596a",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/outreach/_layout.tsx": "182d0b21e1d1",
@@ -82,7 +83,7 @@
     "apps/web/src/addons/outreach/group-page.tsx": "e9e6a23888ab",
     "apps/web/src/addons/outreach/groups-view.tsx": "4a2b658eb365",
     "apps/web/src/addons/outreach/helpful-card.tsx": "df3b34602d3e",
-    "apps/web/src/addons/outreach/home.tsx": "5e7307fe706a",
+    "apps/web/src/addons/outreach/home.tsx": "26916e143085",
     "apps/web/src/addons/outreach/install-pictures.tsx": "d328a02984f0",
     "apps/web/src/addons/outreach/like-yours.tsx": "8168753d9e13",
     "apps/web/src/addons/outreach/live-view.tsx": "08145c749e82",
@@ -95,12 +96,13 @@
     "apps/web/src/addons/outreach/person-menu.tsx": "64e84258b057",
     "apps/web/src/addons/outreach/person-panel.tsx": "12eb4039a5b3",
     "apps/web/src/addons/outreach/pipeline-view.tsx": "e1d6f4c59064",
-    "apps/web/src/addons/outreach/playbook-builder.tsx": "46080f5e5166",
+    "apps/web/src/addons/outreach/playbook-builder.tsx": "84f0c8d0b62b",
     "apps/web/src/addons/outreach/playbook-test.tsx": "24d6b30fe7c6",
     "apps/web/src/addons/outreach/playbooks-page.tsx": "c4ecc22101e2",
     "apps/web/src/addons/outreach/post-quote.tsx": "0d00a6705d36",
     "apps/web/src/addons/outreach/pre-day-list.tsx": "dd582568db6f",
     "apps/web/src/addons/outreach/profile-whole.tsx": "8949c6c61c1c",
+    "apps/web/src/addons/outreach/referral-card.tsx": "f4c19d561c11",
     "apps/web/src/addons/outreach/research.tsx": "f73a68cdb5b2",
     "apps/web/src/addons/outreach/run-now.tsx": "234d0572c78c",
     "apps/web/src/addons/outreach/same-name.tsx": "ec38731aaae5",
@@ -116,7 +118,7 @@
     "apps/web/src/addons/outreach/start-refused.tsx": "ab1a23a363fa",
     "apps/web/src/addons/outreach/status-strip.tsx": "cf43b1c1f4b5",
     "apps/web/src/addons/outreach/ticker.tsx": "3bf4c993fe11",
-    "apps/web/src/addons/outreach/today-view.tsx": "c3be613e54f9",
+    "apps/web/src/addons/outreach/today-view.tsx": "7e502cb3e646",
     "apps/web/src/addons/outreach/touched-posts.tsx": "a25e60b0a355",
     "apps/web/src/addons/outreach/tracking-view.tsx": "6894838d24e1",
     "apps/web/src/addons/outreach/video-library.tsx": "de0fb2af8146",
@@ -139,9 +141,9 @@
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/settings/[part]/page.tsx": "cb082e95ac39",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/settings/page.tsx": "e0247a8457c3",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/setup/page.tsx": "3b4de50baa1d",
-    "apps/web/src/app/app/w/[workspaceId]/a/outreach/show.tsx": "be70abb06b55",
+    "apps/web/src/app/app/w/[workspaceId]/a/outreach/show.tsx": "1d733617458b",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/today/page.tsx": "652469b89773",
-    "packages/core/src/addons/outreach/manifest.ts": "f055753ba321"
+    "packages/core/src/addons/outreach/manifest.ts": "7159a88c44fd"
   },
   "items": [
     {
@@ -1832,6 +1834,48 @@
       "by": "outreach_helpful_posts postUrl, comments, reactions"
     },
     {
+      "path": "Today → Refer someone you’ve talked with → title, how many waiting",
+      "kind": "see",
+      "file": "apps/web/src/addons/outreach/referral-card.tsx:33",
+      "covered": "yes",
+      "by": "outreach_referrals referrals"
+    },
+    {
+      "path": "Today → Refer someone you’ve talked with → each one: who to refer and why, the post (More) with who wrote it and what it asks for",
+      "kind": "see",
+      "file": "apps/web/src/addons/outreach/referral-card.tsx:89",
+      "covered": "yes",
+      "by": "outreach_referrals name, why, writer, asks, post, postWhole"
+    },
+    {
+      "path": "Today → Refer someone you’ve talked with → the comment to change, Copy, Open the post (type @ to tag)",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/referral-card.tsx:108",
+      "covered": "yes",
+      "by": "outreach_referrals comment, postUrl"
+    },
+    {
+      "path": "Today → Refer someone you’ve talked with → the heads-up to change, Copy, Open their chat",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/referral-card.tsx:142",
+      "covered": "yes",
+      "by": "outreach_referrals note, profileUrl"
+    },
+    {
+      "path": "Today → Refer someone you’ve talked with → I did both (with the words as changed)",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/referral-card.tsx:175",
+      "covered": "yes",
+      "by": "outreach_referral_done comment, note"
+    },
+    {
+      "path": "Today → Refer someone you’ve talked with → Not this one",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/referral-card.tsx:179",
+      "covered": "yes",
+      "by": "outreach_skip_referral"
+    },
+    {
       "path": "Today → list title (on network), how many",
       "kind": "see",
       "file": "apps/web/src/addons/outreach/today-view.tsx:357",
@@ -3183,6 +3227,13 @@
       "by": "outreach_save_playbook changes.networking and changes.script.nudge, demoOffer, callOffer, sendPeople and callYes; outreach_playbooks details.networking and says"
     },
     {
+      "path": "Playbooks → builder → What it says → Referring people you’ve talked with: Refer them on posts switch, and its parts (the comment on the post, the heads-up to them)",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/playbook-builder.tsx:1698",
+      "covered": "yes",
+      "by": "outreach_save_playbook changes.refer and changes.script.referComment, referNote; outreach_playbooks details.refer and says"
+    },
+    {
       "path": "Playbooks → builder → What it says: Words in [brackets] are filled in for each person (the list)",
       "kind": "see",
       "file": "apps/web/src/addons/outreach/playbook-builder.tsx:1740",
@@ -3902,6 +3953,27 @@
       "file": "apps/mobile/src/addons/outreach/playbook-script.tsx:121",
       "covered": "yes",
       "by": "outreach_save_playbook changes.networking and changes.script.nudge, demoOffer, callOffer, sendPeople and callYes; outreach_playbooks details.networking and says"
+    },
+    {
+      "path": "Phone → a playbook → What it says → Referring people you’ve talked with: Refer them on posts switch, and its parts (the comment on the post, the heads-up to them)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/outreach/playbook-script.tsx:161",
+      "covered": "yes",
+      "by": "outreach_save_playbook changes.refer and changes.script.referComment, referNote; outreach_playbooks details.refer and says"
+    },
+    {
+      "path": "Phone → Today → Refer someone you’ve talked with: who and why, the post with who wrote it and what it asks for, the comment and the heads-up to hold and copy, Open the post, Open their chat",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/outreach/referrals.tsx:35",
+      "covered": "yes",
+      "by": "outreach_referrals name, why, writer, asks, post, comment, note, postUrl, profileUrl"
+    },
+    {
+      "path": "Phone → Today → Refer someone you’ve talked with → I did both, Not this one",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/outreach/referrals.tsx:93",
+      "covered": "yes",
+      "by": "outreach_referral_done; outreach_skip_referral"
     },
     {
       "path": "Phone → a playbook → Test it: make someone up, the first message, quick replies, type a reply, Goes quiet, Let the AI play them, Start over",

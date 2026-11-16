@@ -2148,15 +2148,56 @@ function scriptedPostCheck(message: string) {
   const post = /<post>\n([\s\S]*?)\n<\/post>/.exec(message)?.[1] ?? '';
   const good = /\b(recommend|looking for|anyone)\b/i.test(post);
   const strong = good && /\blooking for\b[^.?!]*\bcrm\b/i.test(post);
+  // What it asks people to recommend someone for (decision 174): the words after "recommend a", "know a good" or
+  // "looking for a", up to the end of the sentence.
+  const asks =
+    /\b(?:recommend|know of|know|looking for)\s+(?:a|an|any)?\s*(?:good\s+)?([^?.!\n]{3,60})/i
+      .exec(unquote(post))?.[1]
+      ?.trim() ?? null;
   return {
     good,
     strong,
     fits: /\b(my|our) (business|company|shop|crew)\b/i.test(post),
+    asks: asks ? `a ${asks}` : null,
     why: strong
       ? 'Looking for a CRM now'
       : good
         ? 'Asking for a recommendation'
         : 'Nothing to answer',
+  };
+}
+
+/**
+ * Social Outreach's referral pick (decision 174): the first person whose facts or words have the trade the post asks
+ * for (its first word of four letters or more, by its first four, so "roofer" finds "roofing", and never the place),
+ * else nobody.
+ */
+function scriptedReferPick(message: string) {
+  const asks = unquote(/<asks>([\s\S]*?)<\/asks>/.exec(message)?.[1] ?? '').toLowerCase();
+  const people = unquote(/<people>\n?([\s\S]*?)\n?<\/people>/.exec(message)?.[1] ?? '');
+  const stems = asks
+    .split(/[^a-z]+/)
+    .filter((w) => w.length >= 4 && !['good', 'anyone', 'near', 'some'].includes(w))
+    .slice(0, 1)
+    .map((w) => w.slice(0, 4));
+  const blocks = people.split(/\n\n(?=\d+\. )/);
+  const at = blocks.findIndex((b) => {
+    const said = b.toLowerCase().replace(/^\d+\. [^\n]*\n/, '');
+    return stems.some((st) => said.includes(st));
+  });
+  return at < 0
+    ? { pick: null, why: 'Nobody does that' }
+    : { pick: at + 1, why: 'Does what the post asks for' };
+}
+
+/** The referral's comment and heads-up (decision 174): the playbook's starting words, filled in plainly. */
+function scriptedReferWrite(message: string) {
+  const name = unquote(/<person>([\s\S]*?)<\/person>/.exec(message)?.[1] ?? 'them').trim();
+  const asks = unquote(/<asks>([\s\S]*?)<\/asks>/.exec(message)?.[1] ?? 'help').trim();
+  const first = name.split(/\s+/)[0] ?? name;
+  return {
+    comment: `You should reach out to ${name}! I’ve really enjoyed getting to know them.`,
+    note: `Hey ${first}, someone was just asking for ${asks}, so I mentioned you. Here’s the post if you want to jump in: [post link]`,
   };
 }
 
@@ -2530,6 +2571,14 @@ export const OUTREACH_RULES: readonly ScriptRule[] = [
     json: (message) => scriptedPostCheck(message),
   },
   { when: /Read this Facebook chat\.$/, json: (message) => scriptedChatRead(message) },
+  {
+    when: /Who should the owner refer\? Give their number, or none\.$/,
+    json: (message) => scriptedReferPick(message),
+  },
+  {
+    when: /Write the comment and the heads-up\.$/,
+    json: (message) => scriptedReferWrite(message),
+  },
   { when: /Could this person be a customer\?$/, json: (message) => scriptedFitCheck(message) },
   {
     when: /Could this person send the business its customers\?$/,

@@ -114,8 +114,9 @@ export const SECTION_FIELDS: Readonly<
   steps: ['steps'],
   pace: ['pace'],
   // What it says (decision 164): its own words for every message, saved as only the parts that differ; how the first
-  // message goes (decision 168); and what the networking chat after an introduction may offer (decision 173).
-  script: ['script', 'opens', 'networking'],
+  // message goes (decision 168); what the networking chat after an introduction may offer (decision 173); and whether
+  // its people are referred on posts (decision 174).
+  script: ['script', 'opens', 'networking', 'refer'],
   // The short video (decision 69): its link, and its script, written by the AI and changed as the business likes.
   video: ['videoLink', 'videoScript'],
   tone: ['tone'],
@@ -876,6 +877,8 @@ function SectionEditor({
           onOpens={(opens) => set({ opens })}
           networking={d.networking}
           onNetworking={(networking) => set({ networking })}
+          refer={d.refer}
+          onRefer={(refer) => set({ refer })}
           firstsHelp={
             onAssist ? (
               <AiHelp

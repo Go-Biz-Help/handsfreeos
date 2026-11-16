@@ -36,6 +36,7 @@ import type {
   SendKind,
 } from './automation';
 import type { EngagementKind, HelpfulState } from './helpful';
+import type { ReferralState } from './referrals';
 import type { TallyKind } from './tallies';
 import type { KeptTime, TimeBooking, TimeOfferState } from './meeting-times';
 import type { AutopilotState } from './autopilot';
@@ -620,6 +621,8 @@ export const posts = addonOutreach.table(
     replyAt: ts('reply_at'),
     /** A post a warm-up visit liked, kept for its one comment while they decide on the request (decision 161). */
     warmUp: boolean('warm_up').notNull().default(false),
+    /** What the writer asks people to recommend someone for (decision 174): "a roofer in Boise"; null for none. */
+    asks: text('asks'),
     checkedAt: ts('checked_at'),
     skippedAt: ts('skipped_at'),
     seenAt: ts('seen_at').notNull(),
@@ -628,6 +631,45 @@ export const posts = addonOutreach.table(
   (t) => [
     unique().on(t.workspaceId, t.id),
     unique().on(t.workspaceId, t.userId, t.url),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * Someone the person talked with, referred under a post asking for what they do (decision 174, ../referrals.ts): the
+ * post, who, why they fit, the comment naming them and the heads-up to them, as the AI wrote them; and where it stands:
+ * waiting for the person, done, or put aside. One a post. Each person's own.
+ */
+export const referrals = addonOutreach.table(
+  'referrals',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    postId: uuid('post_id').notNull(),
+    /** Who is referred. */
+    profileId: uuid('profile_id').notNull(),
+    why: text('why'),
+    comment: text('comment').notNull(),
+    note: text('note').notNull(),
+    state: text('state').notNull().default('waiting').$type<ReferralState>(),
+    doneAt: ts('done_at'),
+    skippedAt: ts('skipped_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.postId),
+    foreignKey({
+      columns: [t.workspaceId, t.postId],
+      foreignColumns: [posts.workspaceId, posts.id],
+    }).onDelete('cascade'),
     foreignKey({
       columns: [t.workspaceId, t.profileId],
       foreignColumns: [profiles.workspaceId, profiles.id],
