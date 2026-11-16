@@ -74,6 +74,8 @@ describe('Social Outreach’s data versions 2 to 9', () => {
       script: {},
       // How the first message goes (decision 168): the pitch, as before.
       opens: 'pitch',
+      // What the networking chat after an introduction may offer (decision 173): everything, to start.
+      networking: { demo: true, call: true, sendPeople: true },
     });
     // A partner playbook saved before version 7 kept to its own networks already (decision 81).
     const partners = { ...before, goal: 'partner' };

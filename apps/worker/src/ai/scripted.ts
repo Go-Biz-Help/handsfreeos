@@ -1778,6 +1778,23 @@ function scriptedChatRead(message: string) {
   };
 }
 
+/**
+ * In the networking chat after an introduction (decision 173): what a yes took, by their words, a call or a demo; a yes
+ * that names neither took nothing.
+ */
+function withTook<T extends { answer?: string }>(message: string, draft: T): T & { took: string } {
+  const theirs = [...message.matchAll(/^Them: (.*)$/gm)].at(-1)?.[1] ?? '';
+  const took =
+    draft.answer === 'yes' && message.includes('this is a networking chat')
+      ? /\bcall\b/i.test(theirs)
+        ? 'call'
+        : /\bdemo\b/i.test(theirs)
+          ? 'demo'
+          : 'none'
+      : 'none';
+  return { ...draft, took };
+}
+
 /** Someone's answer to the owner's last message, by its words: yes, a question, not now, or no. */
 function scriptedAnswer(text: string): string {
   const t = text.toLowerCase();
@@ -2030,7 +2047,7 @@ function scriptedTodayDraft(message: string) {
           time: picked,
           drafts: [`That works, ${first}! What’s the best email for the invite?`],
         };
-  if (message.includes('asks to set up a time to show them'))
+  if (/asks to set up a time to (?:show them|talk)/.test(message))
     return {
       simple: false,
       answer: 'none',
@@ -2503,7 +2520,10 @@ export const OUTREACH_RULES: readonly ScriptRule[] = [
     when: /Which post should they like\? Give its number, or none\.$/,
     json: (message) => scriptedLikePick(message),
   },
-  { when: /Write the message\.$/, json: (message) => scriptedTodayDraft(message) },
+  {
+    when: /Write the message\.$/,
+    json: (message) => withTook(message, scriptedTodayDraft(message)),
+  },
   { when: /Write their reply\.$/, json: (message) => scriptedTestPlay(message) },
   {
     when: /Is this post worth a comment from the owner\?$/,

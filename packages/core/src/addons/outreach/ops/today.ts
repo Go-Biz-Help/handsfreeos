@@ -1588,10 +1588,13 @@ export async function todayFor(
                   f.answer === 'later' ? 'Said not now' : `No answer since ${day(f.last_at)}`,
                   'once a month',
                 ]
-              : [
-                  `${CONVERSATION_STEPS[f.step]}, no answer yet`,
-                  `${Math.min(f.sent + 1, of)} of ${of}`,
-                ],
+              : f.step === 'intro'
+                ? // The one nudge after an introduction (decision 173), never one of the follow-ups.
+                  [`${CONVERSATION_STEPS[f.step]}, no answer yet`, 'one nudge']
+                : [
+                    `${CONVERSATION_STEPS[f.step]}, no answer yet`,
+                    `${Math.min(f.sent + 1, of)} of ${of}`,
+                  ],
           summary: f.summary,
           nextStep: f.next_step,
           demoLink: demoFor(f.id),

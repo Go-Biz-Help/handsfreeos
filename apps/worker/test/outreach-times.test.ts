@@ -292,6 +292,40 @@ describe('a reply where they took a time', () => {
   });
 });
 
+describe('a networking call after an introduction (decision 173)', () => {
+  it('asks for a time on the person’s own calendar, not the demo page', async () => {
+    // The person's own calendar, beside the demo page the playbook links to.
+    const own = await makeCalendar(w, 'Owner’s calendar');
+    await admin().execute(
+      sql`update addon_outreach.playbooks set details = details || '{"opens": "intro"}'::jsonb
+          where workspace_id = ${w.workspaceId}`,
+    );
+    const nia = await person('Nia Park', ['Lives in Chicago, Illinois']);
+    await admin().execute(
+      sql`insert into addon_outreach.follow_ups (workspace_id, user_id, profile_id, step, step_at, sent, last_at,
+            next, due_at)
+          values (${w.workspaceId}, ${w.owner.id}, ${nia}, 'intro', now() - interval '1 day', 6,
+            now() - interval '1 day', 'check_in', now() + interval '29 days')`,
+    );
+    const chatId = await chatWith(nia, 'Nia Park', 'Sure, a call sounds good');
+    const out = await draft({ kind: 'reply', profileId: nia, chatId });
+    expect(out.kind).toBe('pitch');
+    expect(out.meeting?.offered).toHaveLength(3);
+    expect(out.drafts[0]).toContain('work for a quick call');
+    const [kept] = await rows<{ call: boolean; calendar_id: string }>(
+      admin(),
+      sql`select f.call, o.calendar_id from addon_outreach.follow_ups f
+          join addon_outreach.time_offers o on o.profile_id = f.profile_id
+          where f.workspace_id = ${w.workspaceId} and f.profile_id = ${nia}`,
+    );
+    expect(kept).toEqual({ call: true, calendar_id: own.id });
+    await admin().execute(
+      sql`update addon_outreach.playbooks set details = details - 'opens'
+          where workspace_id = ${w.workspaceId}`,
+    );
+  });
+});
+
 describe('any other link', () => {
   it('offers no times', async () => {
     await admin().execute(

@@ -51,8 +51,12 @@ import {
 import { hashtagLetters, hashtagOf } from '@hfos/core/addons/outreach/posts';
 import {
   LOCKED_RULES,
+  NETWORKING_KEYS,
+  NETWORKING_ON,
   partChanged,
+  partShown,
   partsChanged,
+  PLAYBOOK_NETWORKING,
   PLAYBOOK_OPENS,
   PLAYBOOK_OPENS_KEYS,
   SCRIPT_BLANKS,
@@ -66,6 +70,7 @@ import {
   typedPart,
   withFirsts,
   withPart,
+  type PlaybookNetworking,
   type PlaybookOpens,
   type ScriptDraft,
 } from '@hfos/core/addons/outreach/script';
@@ -167,6 +172,8 @@ interface Draft {
   script: ScriptDraft;
   /** How the first message goes (decision 168): the question, or an introduction in its place. */
   opens: PlaybookOpens;
+  /** What the networking chat after an introduction may offer (decision 173). */
+  networking: PlaybookNetworking;
   questions: PlaybookQuestion[];
   avoid: string[];
   disclaimer: string;
@@ -204,6 +211,7 @@ const fromDetails = (name: string, d: PlaybookDetails): Draft => ({
   samples: d.samples,
   script: scriptDraftOf(d.script),
   opens: d.opens ?? 'pitch',
+  networking: { ...NETWORKING_ON, ...(d.networking ?? {}) },
   questions: d.questions,
   avoid: d.avoid,
   disclaimer: d.disclaimer ?? '',
@@ -313,6 +321,7 @@ const toDetails = (d: Draft, sent: readonly FindPart[] = FIND_PARTS): PlaybookDe
   // Only the parts in the business's own words: the rest keep following the starting words (decision 164).
   script: scriptToSave(d.goal, d.script),
   opens: d.opens,
+  networking: d.networking,
   // The styles and openers from before decision 164 are its first message's versions now.
   openerStyles: [],
   ownOpeners: [],
@@ -1409,6 +1418,8 @@ export function PlaybookBuilder({
           onChange={(script) => set('script', script)}
           opens={draft.opens}
           onOpens={(opens) => set('opens', opens)}
+          networking={draft.networking}
+          onNetworking={(networking) => set('networking', networking)}
           issueAt={(path) => issueIn(`script.${path}`)}
           firstsHelp={
             <AiHelp
@@ -1601,6 +1612,8 @@ function ScriptStep({
   onChange,
   opens,
   onOpens,
+  networking,
+  onNetworking,
   issueAt,
   firstsHelp,
   onTest,
@@ -1611,6 +1624,9 @@ function ScriptStep({
   /** How the first message goes (decision 168). */
   opens: PlaybookOpens;
   onOpens: (opens: PlaybookOpens) => void;
+  /** What the networking chat after an introduction may offer (decision 173). */
+  networking: PlaybookNetworking;
+  onNetworking: (networking: PlaybookNetworking) => void;
   /** The problem with a part, by its path in the script: "first.1", "yes". */
   issueAt: (path: string) => string | undefined;
   firstsHelp: ReactNode;
@@ -1631,11 +1647,34 @@ function ScriptStep({
       >
         See what these words would send someone, and how the chat goes from there.
       </Callout>
-      {SCRIPT_GROUPS.map((g) => (
+      {SCRIPT_GROUPS.filter((g) => g.parts.some((part) => partShown(part, intro))).map((g) => (
         <section key={g.key} className="space-y-4">
           <h3 className="text-[12.5px] font-semibold uppercase tracking-wide text-text-3">
             {g.title}
           </h3>
+          {g.key === 'networking' ? (
+            // What the networking chat may offer, each once, when it fits (decision 173).
+            <div data-testid="playbook-networking">
+              <p className="mb-0.5 text-[13.5px] font-medium">{SW.networkingTitle}</p>
+              <p className="mb-2 text-[12.5px] text-text-3">{SW.networkingBlurb}</p>
+              <div className="divide-y divide-border rounded-card border border-border bg-card">
+                {NETWORKING_KEYS.map((k) => (
+                  <div key={k} className="flex items-start justify-between gap-3 p-3.5">
+                    <div>
+                      <div className="text-[14px] font-medium">{PLAYBOOK_NETWORKING[k].label}</div>
+                      <div className="text-[13px] text-text-2">{PLAYBOOK_NETWORKING[k].hint}</div>
+                    </div>
+                    <Switch
+                      checked={networking[k]}
+                      onChange={(v) => onNetworking({ ...networking, [k]: v })}
+                      label={PLAYBOOK_NETWORKING[k].label}
+                      testId={`playbook-networking-${k}`}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {g.key === 'start' ? (
             <div data-testid="playbook-opens">
               <p className="mb-0.5 text-[13.5px] font-medium">{SW.opensTitle}</p>
@@ -1659,8 +1698,9 @@ function ScriptStep({
             </div>
           ) : null}
           {g.parts.map((part) => {
-            // The introduction shows only for a playbook that starts with one (decision 168).
-            if (part === 'intro' && !intro) return null;
+            // The introduction and its chat's words show only for a playbook that starts with one (decisions 168 and
+            // 173).
+            if (!partShown(part, intro)) return null;
             const info = SCRIPT_INFO[part];
             const changed = partChanged(goal, script, part);
             const head = (

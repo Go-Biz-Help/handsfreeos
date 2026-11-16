@@ -124,7 +124,7 @@ describe('a playbook’s Test console', () => {
       note: 'It goes 1 day after they accept, as Steps and pace says.',
       next: 'If they stay quiet, follow-up 1 of 6 goes 1 day later.',
       unanswered: null,
-      state: { step: 'first', sent: 0, answer: null, stopped: false },
+      state: { step: 'first', sent: 0, answer: null, stopped: false, call: false },
       about: null,
       aboutYou: false,
     });
@@ -185,7 +185,7 @@ describe('a playbook’s Test console', () => {
       read: TEST_READ.yes,
       kind: 'pitch',
       label: 'They said yes: your ask for a time',
-      state: { step: 'link', sent: 0, answer: null, stopped: false },
+      state: { step: 'link', sent: 0, answer: null, stopped: false, call: false },
     });
     expect(yes.message).toBe('Here’s my link to book a quick call, Sam.');
 
@@ -214,6 +214,47 @@ describe('a playbook’s Test console', () => {
       message: null,
       note: 'They said no, so nothing more goes to them unless they write.',
     });
+  });
+
+  it('starts a networking chat with an introduction: one nudge, and a yes to a call asks for a time for it (decision 173)', async () => {
+    const details = { ...crm.details, avoid: ['free trial'], opens: 'intro' };
+    const intro = async (input: Record<string, unknown>): Promise<PlaybookTestOutput> => {
+      const res = await ask(owner, { details, name: crm.name, person: sam, ...input });
+      expect(res.statusCode, res.body).toBe(200);
+      return res.json();
+    };
+    const first = await intro({ move: 'start' });
+    expect(first).toMatchObject({
+      kind: 'opener',
+      label: 'Introduction',
+      state: { step: 'intro', sent: 5 },
+      next: 'If they stay quiet, one friendly nudge goes 2 days later, then a check-in once a month.',
+    });
+    const chat = [{ fromMe: true, text: first.message! }];
+    const nudge = await intro({ move: 'quiet', chat, state: first.state });
+    expect(nudge).toMatchObject({ kind: 'follow_up', label: 'Nudge', state: { sent: 6 } });
+    // A friendly answer to the question about them is no yes: the chat goes on.
+    const told = await intro({
+      move: 'reply',
+      text: 'Sure, about 12 years now',
+      chat,
+      state: first.state,
+    });
+    expect(told).toMatchObject({ answer: null, kind: 'reply', state: { step: 'intro' } });
+    // A yes to a call: the ask for a time, for the call.
+    const call = await intro({
+      move: 'reply',
+      text: 'Sure, a call sounds good',
+      chat,
+      state: first.state,
+    });
+    expect(call).toMatchObject({
+      answer: 'yes',
+      kind: 'pitch',
+      label: 'They said yes to a call: your ask for a time',
+      state: { step: 'link', call: true },
+    });
+    expect(await kept()).toBe(0);
   });
 
   it('has the AI play them as the kind of person picked, then answers what they wrote', async () => {

@@ -27,8 +27,10 @@ import {
   CHECK_IN_DAYS,
   CONVERSATION_STEP_KEYS,
   checkInsOnly,
+  introSent,
   stepAfterYes,
   type Answer,
+  type Took,
 } from './conversation';
 import { messagesOn, NETWORKS, PLATFORM_KEYS } from './networks';
 import { PLAYBOOK_LIMITS, type Pace } from './playbooks';
@@ -188,9 +190,17 @@ export const TestState = z.object({
   sent: z.int().min(0).max(100).default(0),
   answer: z.enum(ANSWER_KEYS).nullable().default(null),
   stopped: z.boolean().default(false),
+  /** A yes after an introduction was to a networking call (decision 173): what follows is about the call. */
+  call: z.boolean().default(false),
 });
 export type TestState = z.output<typeof TestState>;
-export const TEST_START: TestState = { step: null, sent: 0, answer: null, stopped: false };
+export const TEST_START: TestState = {
+  step: null,
+  sent: 0,
+  answer: null,
+  stopped: false,
+  call: false,
+};
 
 export const PlaybookTestInput = z
   .object({
@@ -293,6 +303,9 @@ export function testNext(state: TestState, pace: Pace): string {
   if (state.answer === 'later' || state.sent >= pace.followUps)
     return `If they stay quiet, a check-in goes in ${CHECK_IN_DAYS} days, then once a month.`;
   const gap = pace.followUpGaps[state.sent] ?? pace.followUpGaps.at(-1) ?? 1;
+  // The one nudge after an introduction (decision 173).
+  if (state.step === 'intro')
+    return `If they stay quiet, one friendly nudge goes ${days(gap)} later, then a check-in once a month.`;
   return `If they stay quiet, follow-up ${state.sent + 1} of ${pace.followUps} goes ${days(gap)} later.`;
 }
 
@@ -314,7 +327,7 @@ export function testMove(
   state: TestState,
   person: Pick<TestPerson, 'platform' | 'known'>,
   pace: Pace,
-  /** The playbook starts with an introduction (decision 168): it asks nothing, so only check-ins follow it. */
+  /** The playbook starts with an introduction (decision 168): one nudge follows it, then check-ins (decision 173). */
   intro = false,
 ): {
   readonly kind: TestKind | null;
@@ -343,8 +356,8 @@ export function testMove(
       gapDays: kind === 'reconnect' ? 60 : 0,
       state:
         kind === 'opener' && intro
-          ? { step: 'intro', sent: pace.followUps, answer: null, stopped: false }
-          : { step: 'first', sent: 0, answer: null, stopped: false },
+          ? { step: 'intro', sent: introSent(pace), answer: null, stopped: false, call: false }
+          : { step: 'first', sent: 0, answer: null, stopped: false, call: false },
     };
   }
   if (state.step === null) return { kind: null, note: 'Start the chat first.', gapDays: 0, state };
@@ -373,15 +386,27 @@ export function testMove(
 /**
  * Where the chat is once their reply is read and answered, as `noteAnswer` and `noteSent` keep a real one: a yes to
  * the first message moves on to the ask for a time (`pitch`); not now waits for the monthly check-in; a no ends it.
- * After an introduction (decision 168) any other reply waits for the check-in too: no follow-ups.
+ * After an introduction (decisions 168 and 173) any other reply waits for the check-in too, and a yes to a networking
+ * call (`took`) gets the ask for a time on the person's own calendar.
  */
 export function testAnswered(
   state: TestState,
   answer: Answer | null,
   pace: Pace,
+  took: Took | null = null,
 ): { readonly kind: 'reply' | 'pitch'; readonly state: TestState } {
   const next = answer === 'yes' && state.step ? stepAfterYes(state.step) : null;
-  if (next) return { kind: next, state: { step: 'link', sent: 0, answer: null, stopped: false } };
+  if (next)
+    return {
+      kind: next,
+      state: {
+        step: 'link',
+        sent: 0,
+        answer: null,
+        stopped: false,
+        call: state.step === 'intro' && took === 'call',
+      },
+    };
   if (answer === 'no') return { kind: 'reply', state: { ...state, answer, stopped: true } };
   if (answer === 'later')
     return { kind: 'reply', state: { ...state, answer, sent: pace.followUps, stopped: false } };
@@ -408,8 +433,14 @@ export function testLabel(
     readonly followUps?: number;
     /** The playbook starts with an introduction (decision 168). */
     readonly intro?: boolean;
+    /** Where the chat was: a follow-up after an introduction is its one nudge (decision 173). */
+    readonly step?: TestState['step'];
+    /** The ask for a time is for a networking call (decision 173). */
+    readonly call?: boolean;
   } = {},
 ): string {
+  if (kind === 'follow_up' && o.step === 'intro') return 'Nudge';
+  if (kind === 'pitch' && o.call) return 'They said yes to a call: your ask for a time';
   switch (kind) {
     case 'opener':
       if (o.intro) return 'Introduction';

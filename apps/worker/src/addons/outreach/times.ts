@@ -147,6 +147,41 @@ export async function meetingFor(
   };
 }
 
+/**
+ * Where a networking call books (decision 173, the owner, 16 Nov 2026: "use the chris's calendar for the networking call
+ * and the demo calendar if it's a demo"): the person's own calendar, the oldest one they own that's on, public and isn't
+ * the playbook's demo page, on the business's booking site. Its link has no demo ref, so a call booked on it never
+ * counts as a demo. Null when they own none, or the booking site is off: the call's ask then goes with no link.
+ */
+export async function callLinkFor(
+  ctx: AddonScopeContext,
+  userId: string,
+  demoLink: string | null | undefined,
+): Promise<string | null> {
+  const demo = bookingPageOf(demoLink);
+  const ws = ctx.scope.workspaceId;
+  const [own] = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{ site: string; calendar: string }>(
+      tx,
+      sql`select bs.slug::text as site, c.slug as calendar
+          from app.calendars c join app.booking_sites bs on bs.workspace_id = c.workspace_id
+          where c.workspace_id = ${ws} and c.owner_user_id = ${userId} and c.status = 'active' and c.public
+            and bs.enabled
+            and not (lower(bs.slug::text) = ${demo?.site ?? ''} and lower(c.slug) = ${demo?.calendar ?? ''})
+            and c.id::text <> ${demo?.site === 'c' ? demo.calendar : ''}
+          order by c.created_at, c.id
+          limit 1`,
+    ),
+  );
+  if (!own) return null;
+  // On the demo page's own address when it's this site's (a business's own domain stays), else HandsFreeOS's.
+  const origin =
+    demo && demo.site === own.site.toLowerCase() && demoLink
+      ? new URL(demoLink).origin
+      : ctx.webUrl.replace(/\/+$/, '');
+  return `${origin}/book/${own.site}/${own.calendar}`;
+}
+
 /** The times a draft offers, in words. */
 export const offeredWords = (meeting: Meeting): string[] =>
   meeting.offer.map((t) => sayTime(t.at, meeting.zone, meeting.now));
