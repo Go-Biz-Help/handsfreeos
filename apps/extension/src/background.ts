@@ -47,6 +47,7 @@ import { RESEARCH_ALARM, researchTabIds, researchTick, wakeResearch } from './re
 import { kitOf } from './networks';
 import { isWorking, NETWORKS_KEY, statesNow } from './networks/on';
 import { syncNetworks } from './networks/scripts';
+import { forgetWindow, ready } from './opened';
 import { follow, loadSettings, SETTINGS_KEY } from './hfos/follow';
 import { BEAT_ALARM, beat, heard, keepBeating, markActive, signOff } from './hfos/live';
 import { isLooked, looked } from './hfos/looked';
@@ -248,10 +249,16 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 chrome.permissions.onAdded.addListener(() => void syncNetworks());
 chrome.permissions.onRemoved.addListener(() => void syncNetworks());
-// The person closed the messages kept open: each stays closed for an hour (src/auto/watch.ts).
-chrome.windows.onRemoved.addListener((windowId) => void windowClosed(windowId));
+// The person closed the messages kept open: each stays closed for an hour (src/auto/watch.ts). Whatever window closed,
+// it's no longer one of the extension's (src/opened.ts).
+chrome.windows.onRemoved.addListener((windowId) => {
+  void windowClosed(windowId);
+  void forgetWindow(windowId);
+});
 chrome.tabs.onRemoved.addListener((tabId, info) => void tabClosed(tabId, info.isWindowClosing));
-// The messages kept open, every minute from now.
+// What an earlier run left open closes first, once Chrome started or a new build was loaded (src/opened.ts, decision
+// 171); then the messages kept open, every minute from now.
+void ready();
 void watchTick();
 // Chrome started, or the extension was updated: the alarm may be gone.
 chrome.runtime.onStartup.addListener(() => {
