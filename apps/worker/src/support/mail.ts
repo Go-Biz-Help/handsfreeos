@@ -20,7 +20,10 @@ export type SupportMailContext = Pick<
 >;
 
 /** support@handsfreeos.com, and the address a reply to this ticket comes back to. */
-function addresses(ctx: SupportMailContext, replyToken: string | null) {
+export function supportAddresses(
+  ctx: Pick<SupportMailContext, 'support'>,
+  replyToken: string | null,
+) {
   const local = ctx.support.addresses[0] ?? 'support';
   const domain = ctx.support.mailDomain;
   return {
@@ -37,7 +40,10 @@ function addresses(ctx: SupportMailContext, replyToken: string | null) {
  * turn. It cannot happen by accident today, but "cannot happen" is what a loop is made of, so the door is
  * shut here as well as at the inbound end.
  */
-export function isOurSupportAddress(ctx: SupportMailContext, address: string): boolean {
+export function isOurSupportAddress(
+  ctx: Pick<SupportMailContext, 'support'>,
+  address: string,
+): boolean {
   const email = address.trim().toLowerCase();
   const at = email.lastIndexOf('@');
   if (at < 1 || email.slice(at + 1) !== ctx.support.mailDomain) return false;
@@ -166,7 +172,7 @@ export async function sendTicketReply(
   // A note never leaves the building, and a message already sent is never sent twice.
   if (!message || message.internal || message.email_message_id) return;
 
-  const { from, replyTo } = addresses(ctx, ticket.replyToken);
+  const { from, replyTo } = supportAddresses(ctx, ticket.replyToken);
   const staffName = message.staff_name || message.full_name || 'HandsFreeOS Support';
   const inReplyTo = await lastFromCustomer(ctx, ticket.id);
   const body = `${message.body_text}\n\n${signOff(staffName, message.signature ?? '')}`;
@@ -208,7 +214,7 @@ export async function acknowledgeTicket(ctx: SupportMailContext, ticketId: strin
     ),
   );
   if (already.length > 0) return;
-  const { from, replyTo } = addresses(ctx, ticket.replyToken);
+  const { from, replyTo } = supportAddresses(ctx, ticket.replyToken);
   const first = (ticket.requesterName || '').split(' ')[0] ?? '';
   const text = [
     `${first ? `${first}, thanks` : 'Thanks'} for writing in. We have your message and it is ticket #${ticket.number}.`,

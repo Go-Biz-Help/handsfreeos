@@ -248,7 +248,7 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
     about:
       'to is the web person’s email, name their name if known. fixes is any of form (add the sign-up form), policy (the privacy policy and terms’ part about texts) and chat (the website chat’s code). formId is one of the business’s published forms from list_forms, or null for a form of their own (they get the box and its words); left out, the newest published form. A refusal saying the form or chat isn’t allowed on the website is fixed by adding the website to its sites first.',
     warning:
-      'This emails the person named, from HandsFreeOS in the business’s name, with each change in its own text file. Replies go to you, and you get a copy.',
+      'This emails the person named, from HandsFreeOS support in the business’s name, with each change in its own text file. You get a copy, and replies go to you and to a HandsFreeOS support ticket.',
   },
   'number_import.start': {},
   'number_import.check_now': {},
