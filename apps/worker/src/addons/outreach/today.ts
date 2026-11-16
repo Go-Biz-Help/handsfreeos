@@ -73,6 +73,7 @@ import { replyNeedsYou } from '@hfos/core/addons/outreach/sends';
 import {
   answerOf,
   checkedDrafts,
+  tookOf,
   connectedLately,
   draftOfferOf,
   demoWhen,
@@ -115,7 +116,15 @@ import { VOICE_DEFAULTS } from '@hfos/core/addons/outreach/voice';
 import { groupNamesIn, namesAGroup, withoutGroupLines } from '@hfos/core/addons/outreach/no-groups';
 import { businessKnows } from './knows';
 import { partnerDraft } from './partner-drafts';
-import { bookingOf, draftTimes, keepTimes, meetingFor, offeredWords, type Meeting } from './times';
+import {
+  bookingOf,
+  callLinkFor,
+  draftTimes,
+  keepTimes,
+  meetingFor,
+  offeredWords,
+  type Meeting,
+} from './times';
 
 export const TODAY_DRAFT_ACTION = 'outreach.today.draft';
 
@@ -285,9 +294,10 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
             sent: number;
             offer_version: number | null;
             answer: Answer | null;
+            call: boolean;
           }>(
             tx,
-            sql`select step, sent, offer_version, answer from addon_outreach.follow_ups
+            sql`select step, sent, offer_version, answer, call from addon_outreach.follow_ups
                 where workspace_id = ${ws} and user_id = ${ctx.userId} and profile_id = ${profileId}`,
           )
         : [];
@@ -494,11 +504,17 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     const client = found.profile?.client ?? false;
     // The playbook's link, as the person's demo link for them (decision 24).
     const profileId = input.profileId ?? found.chat?.profile_id ?? found.post?.profile_id ?? null;
-    const link = client
+    const demoLinkFor = client
       ? null
       : playbook && profileId
         ? demoLink(playbook.details.link, demoRef(ctx.userId, profileId))
         : (playbook?.details.link ?? null);
+    // After a yes to a networking call (decision 173, the owner's 5): the ask for a time and what follows it go on the
+    // person's own calendar, with no demo ref, never the playbook's demo page.
+    const callLink = () => callLinkFor(ctx, ctx.userId, playbook?.details.link);
+    const onCall =
+      !client && found.conversation?.call === true && found.conversation.step === 'link';
+    const link = onCall ? await callLink() : demoLinkFor;
     // The short video (decision 66): this playbook's, else the first in use with one, as Today picks it.
     const videoLink = client
       ? null
@@ -540,6 +556,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
           step: found.conversation.step,
           sent: found.conversation.sent,
           followUps: paceOf(playbook?.details.pace ?? null).followUps,
+          call: onCall,
         }
       : null;
     // The network the message goes on: the profile's.
@@ -549,23 +566,28 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     // said no, or their Requests. The email or number they wrote is who a reply books.
     const theirWords = recent.filter((m) => !m.fromMe).map((m) => m.text);
     const contact = contactIn(theirWords);
+    const meetingOn = (on: string | null | undefined) =>
+      meetingFor(ctx, {
+        link: on,
+        userId: ctx.userId,
+        lines: [...found.lines, ...(found.profile?.intro ?? []), ...input.lookup],
+        country: found.profile?.country ?? null,
+      }).catch((e: unknown) => {
+        // No times is no reason to stop the draft: its link goes as before.
+        ctx.log.warn({ err: e }, 'outreach: open times for a draft failed');
+        return null;
+      });
+    // A reply in the networking chat after an introduction (decision 173) offers no times: it's about them. A yes to a
+    // demo or a call there gets them with its ask.
     const meeting =
       profileId &&
       !client &&
       !declined &&
       !toRequests &&
       isTimeKind(input.kind) &&
-      (input.kind !== 'follow_up' || found.conversation?.step === 'link')
-        ? await meetingFor(ctx, {
-            link: playbook?.details.link,
-            userId: ctx.userId,
-            lines: [...found.lines, ...(found.profile?.intro ?? []), ...input.lookup],
-            country: found.profile?.country ?? null,
-          }).catch((e: unknown) => {
-            // No times is no reason to stop the draft: its link goes as before.
-            ctx.log.warn({ err: e }, 'outreach: open times for a draft failed');
-            return null;
-          })
+      (input.kind !== 'follow_up' || found.conversation?.step === 'link') &&
+      !(input.kind === 'reply' && found.conversation?.step === 'intro')
+        ? await meetingOn(onCall ? link : playbook?.details.link)
         : null;
     // What the business knows (decision 122): its profile and Knowledge, with what matches their latest words, their
     // post or their comment first. Read once, for the reply and the step after a yes alike.
@@ -585,7 +607,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     // The post as the extension just saw it (decision 166): for a comment on a post kept, and nothing else.
     const look = input.kind === 'comment' && found.post && !found.engaged ? input.look : null;
     // Everything a draft for them is written from: the same for the kind asked and the step after a yes.
-    const base: DraftBase = {
+    let base: DraftBase = {
       platform,
       pictures: look?.jpegs ?? [],
       told: {
@@ -646,8 +668,11 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     try {
       let kind: CustomerDraftKind = input.kind;
       let made = await draft(kind);
-      // A reply: what they answered to the person's last step is kept, and a yes gets the next step instead.
-      const answer = answerOf(kind, made.value, recent);
+      // A reply: what they answered to the person's last step is kept, and a yes gets the next step instead. After an
+      // introduction (decision 173), only a yes to a demo or a networking call is one, and it says which.
+      const step = found.conversation?.step ?? null;
+      const answer = answerOf(kind, made.value, recent, step);
+      const took = tookOf(made.value, step);
       // A reply where they took one of the open times (decision 149): the booking is the next step, not the link.
       const picked =
         meeting && kind === 'reply'
@@ -663,6 +688,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
             profileId,
             answer,
             writtenAt: recent.at(-1)?.at ?? null,
+            took,
           },
           ctx.actor,
           ctx.meta,
@@ -672,26 +698,45 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
           answer === 'yes' && found.conversation && !client && !picked
             ? stepAfterYes(found.conversation.step)
             : null;
+        if (next && step === 'intro') {
+          // After an introduction (decision 173): a call's ask goes on the person's own calendar, a demo's on the
+          // playbook's link, each with its own open times, since the chat's reply offered none.
+          const nextLink = took === 'call' ? await callLink() : demoLinkFor;
+          const nextMeeting = await meetingOn(took === 'call' ? nextLink : playbook?.details.link);
+          base = {
+            ...base,
+            told: {
+              ...base.told,
+              playbook: base.told.playbook ? { ...base.told.playbook, link: nextLink } : null,
+              conversation: base.told.conversation
+                ? { ...base.told.conversation, call: took === 'call' }
+                : null,
+            },
+            meeting: nextMeeting,
+            link: nextLink,
+          };
+        }
         if (next) {
           kind = next;
           made = await draft(kind);
         }
       }
+      // The times the drafts were written with: a yes after an introduction's own (decision 173).
+      const times = base.meeting;
       const theirs = [...recent].reverse().find((m) => !m.fromMe)?.text ?? null;
       // Something they asked that nothing given answers (decision 122): the reply says the owner will check, and waits.
       const unanswered = unansweredOf(kind, made.value, recent);
       // The times the drafts offer, and the time a reply books (decision 149): kept for the message queued from one of
       // them, and checked again before it goes. A reply that books waits for the person unless every reply goes.
-      const booking =
-        meeting && kind === 'reply' ? bookingOf(meeting, picked, name, contact) : null;
+      const booking = times && kind === 'reply' ? bookingOf(times, picked, name, contact) : null;
       // A time the AI says they took that isn't open: the person reads it before it goes.
-      const missed = meeting !== null && kind === 'reply' && !!made.value.time?.trim() && !picked;
+      const missed = times !== null && kind === 'reply' && !!made.value.time?.trim() && !picked;
       const offerId =
-        meeting && profileId && isTimeKind(kind) && made.drafts.length
+        times && profileId && isTimeKind(kind) && made.drafts.length
           ? await keepTimes(ctx, {
               userId: ctx.userId,
               profileId,
-              meeting,
+              meeting: times,
               drafts: made.drafts,
               booking,
             })
@@ -711,10 +756,10 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
           !missed,
         unanswered,
         meeting:
-          meeting && offerId
+          times && offerId
             ? {
                 offerId,
-                offered: booking ? [] : offeredWords(meeting),
+                offered: booking ? [] : offeredWords(times),
                 books: booking?.says ?? null,
               }
             : null,

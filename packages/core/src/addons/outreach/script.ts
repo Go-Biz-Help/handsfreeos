@@ -9,6 +9,10 @@
  * its starting words (`startingScript`, by the playbook's goal), which are the owner's own latest way (decisions 144,
  * 152, 153, 155, 161 and 163). What no playbook can change is in `LOCKED_RULES`, shown beside the parts.
  *
+ * A playbook that starts with an introduction (decisions 168 and 173) has a networking chat's parts too: the nudge after
+ * it, the offers of a demo and a networking call, the line about sending people their way, and the ask for a time on a
+ * networking call. Each offer goes only while its switch is on (`PLAYBOOK_NETWORKING`).
+ *
  * Words in [square brackets] are filled in for each person (`SCRIPT_BLANKS`, `FILL_BLANKS`). Browser-safe: the web's
  * and the phone's editors, the Test console and the server read it.
  */
@@ -19,6 +23,11 @@ import type { PlaybookGoal } from './playbooks';
 export const SCRIPT_PARTS = [
   'first',
   'intro',
+  'nudge',
+  'demoOffer',
+  'callOffer',
+  'sendPeople',
+  'callYes',
   'reconnect',
   'yes',
   'question',
@@ -69,7 +78,32 @@ export const SCRIPT_INFO: Readonly<
   },
   intro: {
     label: 'Introduction',
-    when: 'In place of the first message, when the playbook starts with an introduction: once they accept your request, you accept theirs, or they follow you, after the days you set under Steps and pace. Nothing follows it but a friendly check-in once a month, until they write.',
+    when: 'In place of the first message, when the playbook starts with an introduction: once they accept your request, you accept theirs, or they follow you, after the days you set under Steps and pace. It ends with a question about them, to get them talking.',
+    says: 'message',
+  },
+  nudge: {
+    label: 'Nudge after the introduction',
+    when: 'Once, a couple of days after your introduction, when they haven’t written. After it, only a friendly check-in once a month.',
+    says: 'how',
+  },
+  demoOffer: {
+    label: 'Offering a demo',
+    when: 'Once in a chat, when they mention a problem you fix. Only while Offer a demo when it fits is on.',
+    says: 'message',
+  },
+  callOffer: {
+    label: 'Offering a networking call',
+    when: 'Once in a chat, when a demo doesn’t fit or they pass on it, once you’ve gone back and forth a bit. Only while Offer a networking call is on.',
+    says: 'message',
+  },
+  sendPeople: {
+    label: 'Sending people their way',
+    when: 'Once in a chat, after they say what they do and where. Only while Offer to send people their way is on.',
+    says: 'message',
+  },
+  callYes: {
+    label: 'When they say yes to a call',
+    when: 'Right after they say yes to a networking call. It offers times on your own calendar, not your demo’s.',
     says: 'message',
   },
   reconnect: {
@@ -152,6 +186,11 @@ export const SCRIPT_GROUPS: readonly {
   readonly parts: readonly ScriptPart[];
 }[] = [
   { key: 'start', title: 'Starting a chat', parts: ['first', 'intro', 'reconnect'] },
+  {
+    key: 'networking',
+    title: 'The networking chat',
+    parts: ['nudge', 'demoOffer', 'callOffer', 'sendPeople', 'callYes'],
+  },
   { key: 'answers', title: 'When they answer', parts: ['yes', 'question', 'later', 'no'] },
   { key: 'quiet', title: 'When they go quiet', parts: ['followUp', 'checkIn'] },
   { key: 'booking', title: 'Around a booking', parts: ['reminder', 'missed'] },
@@ -179,6 +218,12 @@ export const SCRIPT_BLANKS = [
   { blank: '[booking link]', fills: 'Your booking link' },
   { blank: '[your first name]', fills: 'Your first name, from your HandsFreeOS account' },
   { blank: '[your business name]', fills: 'Your business’s name' },
+  {
+    blank: '[a question about them]',
+    fills: 'One friendly question about them, from something specific on their page',
+  },
+  { blank: '[what they do]', fills: 'What they do, in their own words' },
+  { blank: '[their area]', fills: 'Where they work, or “anywhere” when they work nationwide' },
 ] as const;
 
 const text = (max: number) =>
@@ -203,6 +248,11 @@ export const PlaybookScript = z.object({
     .refine(once, 'Each first message once.')
     .optional(),
   intro: part,
+  nudge: part,
+  demoOffer: part,
+  callOffer: part,
+  sendPeople: part,
+  callYes: part,
   reconnect: part,
   yes: part,
   question: part,
@@ -278,11 +328,25 @@ export const STARTING_FIRST_MESSAGE =
 
 /**
  * The introduction a playbook starts with (decision 168, the owner, 15 Nov 2026: "thanks for connecting and who we are
- * and what we offer and if they are ever interested to reach out"): sent in place of the first message's question by
- * a playbook that starts with one (`opens`).
+ * and what we offer"): sent in place of the first message's question by a playbook that starts with one (`opens`). It
+ * ends with a question about them (decision 173, the owner, 16 Nov 2026: "people like talking about themselves so if
+ * there is anything from their profile we can pick up specifically then we should try to do that so it doesn't look
+ * like a generic message").
  */
 export const STARTING_INTRO =
-  'Hey [first name], thanks for connecting! I’m [your first name] with [your business name]. We help [their kind of business] businesses get [what your offer gets them] with [what your offer is]. If you’re ever interested, just reach out!';
+  'Hey [first name], thanks for connecting! I’m [your first name] with [your business name]. We help [their kind of business] businesses get [what your offer gets them] with [what your offer is]. [a question about them]';
+
+/**
+ * The networking chat's offers (decision 173, the owner's words, 16 Nov 2026): a demo "no pressure i just like people
+ * to see whats out there for them", a networking call "where i can learn a bit more about them", and "if I know of
+ * anyone in their area (or if they are nationwide) that needs what they do i'll make sure to mention them".
+ */
+export const STARTING_DEMO_OFFER =
+  'Would you be open to a quick demo sometime? No pressure, I just like people to see what’s out there for them.';
+export const STARTING_CALL_OFFER =
+  'Would you be up for a quick networking call sometime? I’d love to learn a bit more about you and what you do.';
+export const STARTING_SEND_PEOPLE =
+  'If I come across anyone in [their area] who needs [what they do], I’ll send them your way.';
 
 /**
  * The words a playbook starts with, by its goal: the owner's latest way. The first message asks one straight question
@@ -296,6 +360,13 @@ export function startingScript(goal: PlaybookGoal): FullScript {
   return {
     first: [STARTING_FIRST_MESSAGE],
     intro: STARTING_INTRO,
+    nudge:
+      'One short, friendly line: pick up your question about them lightly, in new words, or ask another easy one about them from their page. No pitch and no ask for a call, and never “just following up” or “bumping this”.',
+    demoOffer: STARTING_DEMO_OFFER,
+    callOffer: STARTING_CALL_OFFER,
+    sendPeople: STARTING_SEND_PEOPLE,
+    callYes:
+      'Great! I have [open times], do any of those work? Or grab any time that works for you here: [booking link]',
     reconnect:
       'A short, warm catch-up first: greet them by first name, say it’s been a while and that you hope they and their work are doing well, picking up something real from their page or your last chat. Ask nothing in it. Then, right after it, your first message’s question, starting “I was wondering if I could” in place of “Hey [first name], if I could”.',
     yes: `Let’s schedule a time ${ASK[goal]} so you can see what it’s about. If you don’t like it, no pressure. I have [open times], how’s that sound? Or grab any time that works for you here: [booking link]`,
@@ -405,8 +476,9 @@ export function openerAsFirst(opener: string): string | null {
 /**
  * How a playbook starts a chat with someone who just connected (decision 168, the owner's 1a): the first message's
  * question (`pitch`, decisions 152 and 164), or an introduction in its place (`intro`): thanks for connecting, who the
- * owner is and what the business offers, and to reach out if they're ever interested. Nothing asks after an
- * introduction: a check-in goes once a month (the owner's 2b) until they write, and a yes gets the ask for a time.
+ * owner is and what the business offers, and a question about them (decision 173). A networking chat follows: one
+ * nudge if they stay quiet, then a check-in once a month; a demo or a networking call offered once each, when it fits;
+ * and a yes to either gets the ask for a time.
  */
 export const PLAYBOOK_OPENS = {
   pitch: {
@@ -415,7 +487,7 @@ export const PLAYBOOK_OPENS = {
   },
   intro: {
     label: 'Introduction',
-    hint: 'Thanks them for connecting, says who you are and what you offer, and to reach out if they’re ever interested. No follow-ups, only a friendly check-in once a month.',
+    hint: 'Thanks them for connecting, says who you are and what you offer, and asks them something about themselves to get them talking. Then a friendly chat, one nudge if they’re quiet, and a check-in once a month.',
   },
 } as const;
 export type PlaybookOpens = keyof typeof PLAYBOOK_OPENS;
@@ -441,6 +513,63 @@ export function firstMessagesOf(d: {
   const says = scriptOf(d);
   return opensWithIntro(d) ? [says.intro] : says.first;
 }
+
+/**
+ * What the networking chat after an introduction may offer (decision 173, the owner: "these should be options in the
+ * playbook and turn it on for me"): each once in a chat, only while its switch is on. All on to start, and for a
+ * playbook saved before them. None of them does anything for a playbook that pitches.
+ */
+export const PLAYBOOK_NETWORKING = {
+  demo: {
+    label: 'Offer a demo when it fits',
+    hint: 'Once, when they mention a problem you fix. No pressure.',
+  },
+  call: {
+    label: 'Offer a networking call',
+    hint: 'Once, when a demo doesn’t fit or they pass on it. It books on your own calendar, not your demo’s.',
+  },
+  sendPeople: {
+    label: 'Offer to send people their way',
+    hint: 'Once, after they say what they do and where.',
+  },
+} as const;
+export type NetworkingSwitch = keyof typeof PLAYBOOK_NETWORKING;
+export const NETWORKING_KEYS = Object.keys(PLAYBOOK_NETWORKING) as [
+  NetworkingSwitch,
+  ...NetworkingSwitch[],
+];
+export const PlaybookNetworking = z.object({
+  demo: z.boolean().default(true),
+  call: z.boolean().default(true),
+  sendPeople: z.boolean().default(true),
+});
+export type PlaybookNetworking = z.output<typeof PlaybookNetworking>;
+/** Every switch on: a new playbook's, and one saved before them. */
+export const NETWORKING_ON: PlaybookNetworking = { demo: true, call: true, sendPeople: true };
+
+/** What a playbook's networking chat may offer: nothing for one that pitches. */
+export function networkingOf(
+  d: {
+    readonly opens?: PlaybookOpens | null | undefined;
+    readonly networking?: Partial<PlaybookNetworking> | null | undefined;
+  } | null,
+): PlaybookNetworking {
+  if (!opensWithIntro(d)) return { demo: false, call: false, sendPeople: false };
+  return { ...NETWORKING_ON, ...(d?.networking ?? {}) };
+}
+
+/** The parts only a playbook that starts with an introduction has: the editors show them only then. */
+export const INTRO_PARTS: readonly ScriptPart[] = [
+  'intro',
+  'nudge',
+  'demoOffer',
+  'callOffer',
+  'sendPeople',
+  'callYes',
+];
+/** Whether an editor shows a part, for a playbook that starts with an introduction (`intro`) or pitches. */
+export const partShown = (part: ScriptPart, intro: boolean): boolean =>
+  intro || !INTRO_PARTS.includes(part);
 
 // ---- The editors' state (the web's and the phone's) ----
 
@@ -547,6 +676,8 @@ export const FILL_BLANKS = [
   '[what your offer gets them] is what the offer really does for them, in a few plain words, never more than the offer says. [what your offer is] names the offer the way the offer does, in a few plain words (“my easy to use CRM software”, “my roof inspections”), never by its brand name.',
   '[open times] are the times under <times>, said the way a person texts them; with none given, leave out the words that offer them and keep the rest. [booking link] is the link you’re given, exactly as written; with none, leave its words out.',
   '[your first name] is the first word of the name under <owner_name>; with none given, leave it and the words that give it out (“I’m with …”). [your business name] is the business’s name under <business>, written the way people say it.',
+  '[a question about them] is one short, friendly question about them as a person, picked from something specific on their pages, in the facts or in the chat: a trip, a milestone, a hobby, a post, how long they’ve been at it, how they got started. People like talking about themselves, so make it about them and easy to answer, never a yes-or-no question, and never about what the offer does. Only when nothing specific stands out, ask how they got into their line of work.',
+  '[what they do] is what they do, the way they’d say it (“roofing”, “real estate”). [their area] is the town or area they work in, from their pages or the chat; when they work nationwide or online, say “anywhere” in place of “in [their area]”.',
   'Anything else in brackets: put in what the facts say, and leave it and the words around it out when they don’t say.',
 ].join(' ');
 
@@ -606,4 +737,8 @@ export const SCRIPT_WORDS = {
   pitchInIntro: 'Your pitch',
   pitchInIntroWhen:
     'Reconnect asks this after its catch-up. With an introduction, nobody new gets it as a first message.',
+  /** The networking chat's switches (decision 173), under the introduction. */
+  networkingTitle: 'In the chat after it',
+  networkingBlurb:
+    'The chat stays about them. Pick what it may offer, each once, when it fits. Turn one off and it never comes up.',
 } as const;

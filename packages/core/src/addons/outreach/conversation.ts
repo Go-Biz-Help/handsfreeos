@@ -30,7 +30,10 @@ import { BUSINESS_NAMES, noDashes, PLAIN_WRITING } from './voice';
 /** Where a conversation is: the last step sent. */
 export const CONVERSATION_STEPS = {
   first: 'First message sent',
-  /** An introduction in place of the first message (decision 168): check-ins follow it, never follow-ups. */
+  /**
+   * An introduction in place of the first message (decision 168), and the networking chat after it (decision 173): one
+   * nudge follows it, then check-ins, never the follow-ups.
+   */
   intro: 'Introduction sent',
   video: 'Video sent',
   link: 'Link sent',
@@ -102,10 +105,26 @@ export function stepAfterYes(step: ConversationStep): 'pitch' | null {
 }
 
 /**
- * Whether a conversation gets only check-ins when they go quiet (decision 168, the owner's 2b): one an introduction
- * started asks nothing of them, so no follow-up ever nudges them, before or after a reply that isn't a yes.
+ * Whether a conversation gets only check-ins when they go quiet after a reply (decisions 168 and 173): a networking
+ * chat an introduction started never chases them with the follow-ups. The introduction itself gets one nudge first
+ * (`introSent`).
  */
 export const checkInsOnly = (step: ConversationStep): boolean => step === 'intro';
+
+/**
+ * Where a conversation an introduction started stands as it goes (decision 173, the owner's 2a): one friendly nudge if
+ * they stay quiet, at the playbook's last follow-up gap, then a check-in once a month. Kept as the last follow-up left:
+ * `sent` one short of the playbook's follow-ups.
+ */
+export const introSent = (pace: Pace): number => Math.max(pace.followUps - 1, 0);
+
+/**
+ * What a yes in the networking chat after an introduction is to (decision 173): a demo, on the playbook's link, or a
+ * networking call, on the person's own calendar (the owner's 5). A yes to anything else there is no yes: the chat goes on.
+ */
+export const TOOK = { demo: 'A demo', call: 'A networking call' } as const;
+export type Took = keyof typeof TOOK;
+export const TOOK_KEYS = Object.keys(TOOK) as [Took, ...Took[]];
 
 // ---- Your messages (Get ready, decision 63) ----
 
@@ -429,6 +448,11 @@ export const AnswerNoteInput = z.object({
   answer: z.enum(ANSWER_KEYS),
   /** When they wrote it, when the chat says. */
   writtenAt: z.iso.datetime({ offset: true }).nullable().default(null),
+  /**
+   * For a yes in the networking chat after an introduction (decision 173): what it's to, a demo or a networking call.
+   * Left out, a demo.
+   */
+  took: z.enum(TOOK_KEYS).nullable().default(null),
 });
 export type AnswerNoteInput = z.input<typeof AnswerNoteInput>;
 export const AnswerNoteOutput = z.object({ noted: z.boolean() });

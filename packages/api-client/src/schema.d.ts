@@ -50634,6 +50634,14 @@ export interface operations {
                             groupWords: string[];
                             hashtags?: string[];
                             link: string | null;
+                            networking?: {
+                                /** @default true */
+                                call: boolean;
+                                /** @default true */
+                                demo: boolean;
+                                /** @default true */
+                                sendPeople: boolean;
+                            };
                             niche?: string | null;
                             offer: string | null;
                             /** @enum {boolean} */
@@ -50667,8 +50675,11 @@ export interface operations {
                             samples: string[];
                             script?: {
                                 birthday?: string;
+                                callOffer?: string;
+                                callYes?: string;
                                 checkIn?: string;
                                 comment?: string;
+                                demoOffer?: string;
                                 first?: string[];
                                 followUp?: string;
                                 groupReply?: string;
@@ -50677,10 +50688,12 @@ export interface operations {
                                 missed?: string;
                                 newJob?: string;
                                 no?: string;
+                                nudge?: string;
                                 postReply?: string;
                                 question?: string;
                                 reconnect?: string;
                                 reminder?: string;
+                                sendPeople?: string;
                                 warmUp?: string;
                                 yes?: string;
                             };
@@ -50713,8 +50726,11 @@ export interface operations {
                         name: string;
                         says?: {
                             birthday: string;
+                            callOffer: string;
+                            callYes: string;
                             checkIn: string;
                             comment: string;
+                            demoOffer: string;
                             first: string[];
                             followUp: string;
                             groupReply: string;
@@ -50723,10 +50739,12 @@ export interface operations {
                             missed: string;
                             newJob: string;
                             no: string;
+                            nudge: string;
                             postReply: string;
                             question: string;
                             reconnect: string;
                             reminder: string;
+                            sendPeople: string;
                             warmUp: string;
                             yes: string;
                         };
@@ -50760,6 +50778,14 @@ export interface operations {
                         groupWords?: string[];
                         hashtags?: string[];
                         link?: string | null;
+                        networking?: {
+                            /** @default true */
+                            call?: boolean;
+                            /** @default true */
+                            demo?: boolean;
+                            /** @default true */
+                            sendPeople?: boolean;
+                        };
                         niche?: string | null;
                         offer?: string | null;
                         /** @enum {boolean} */
@@ -50791,8 +50817,11 @@ export interface operations {
                         samples?: string[];
                         script?: {
                             birthday?: string;
+                            callOffer?: string;
+                            callYes?: string;
                             checkIn?: string;
                             comment?: string;
+                            demoOffer?: string;
                             first?: string[];
                             followUp?: string;
                             groupReply?: string;
@@ -50801,10 +50830,12 @@ export interface operations {
                             missed?: string;
                             newJob?: string;
                             no?: string;
+                            nudge?: string;
                             postReply?: string;
                             question?: string;
                             reconnect?: string;
                             reminder?: string;
+                            sendPeople?: string;
                             warmUp?: string;
                             yes?: string;
                         };
@@ -50844,6 +50875,14 @@ export interface operations {
                         groupWords: string[];
                         hashtags?: string[];
                         link: string | null;
+                        networking?: {
+                            /** @default true */
+                            call?: boolean;
+                            /** @default true */
+                            demo?: boolean;
+                            /** @default true */
+                            sendPeople?: boolean;
+                        };
                         niche?: string | null;
                         offer: string | null;
                         /** @enum {boolean} */
@@ -50877,8 +50916,11 @@ export interface operations {
                         samples: string[];
                         script?: {
                             birthday?: string;
+                            callOffer?: string;
+                            callYes?: string;
                             checkIn?: string;
                             comment?: string;
+                            demoOffer?: string;
                             first?: string[];
                             followUp?: string;
                             groupReply?: string;
@@ -50887,10 +50929,12 @@ export interface operations {
                             missed?: string;
                             newJob?: string;
                             no?: string;
+                            nudge?: string;
                             postReply?: string;
                             question?: string;
                             reconnect?: string;
                             reminder?: string;
+                            sendPeople?: string;
                             warmUp?: string;
                             yes?: string;
                         };
@@ -50950,6 +50994,14 @@ export interface operations {
                             groupWords: string[];
                             hashtags?: string[];
                             link: string | null;
+                            networking?: {
+                                /** @default true */
+                                call: boolean;
+                                /** @default true */
+                                demo: boolean;
+                                /** @default true */
+                                sendPeople: boolean;
+                            };
                             niche?: string | null;
                             offer: string | null;
                             /** @enum {boolean} */
@@ -50983,8 +51035,11 @@ export interface operations {
                             samples: string[];
                             script?: {
                                 birthday?: string;
+                                callOffer?: string;
+                                callYes?: string;
                                 checkIn?: string;
                                 comment?: string;
+                                demoOffer?: string;
                                 first?: string[];
                                 followUp?: string;
                                 groupReply?: string;
@@ -50993,10 +51048,12 @@ export interface operations {
                                 missed?: string;
                                 newJob?: string;
                                 no?: string;
+                                nudge?: string;
                                 postReply?: string;
                                 question?: string;
                                 reconnect?: string;
                                 reminder?: string;
+                                sendPeople?: string;
                                 warmUp?: string;
                                 yes?: string;
                             };
@@ -51029,8 +51086,11 @@ export interface operations {
                         name: string;
                         says?: {
                             birthday: string;
+                            callOffer: string;
+                            callYes: string;
                             checkIn: string;
                             comment: string;
+                            demoOffer: string;
                             first: string[];
                             followUp: string;
                             groupReply: string;
@@ -51039,10 +51099,12 @@ export interface operations {
                             missed: string;
                             newJob: string;
                             no: string;
+                            nudge: string;
                             postReply: string;
                             question: string;
                             reconnect: string;
                             reminder: string;
+                            sendPeople: string;
                             warmUp: string;
                             yes: string;
                         };
@@ -90496,6 +90558,14 @@ export interface operations {
                                 groupWords: string[];
                                 hashtags?: string[];
                                 link: string | null;
+                                networking?: {
+                                    /** @default true */
+                                    call: boolean;
+                                    /** @default true */
+                                    demo: boolean;
+                                    /** @default true */
+                                    sendPeople: boolean;
+                                };
                                 niche?: string | null;
                                 offer: string | null;
                                 /** @enum {boolean} */
@@ -90529,8 +90599,11 @@ export interface operations {
                                 samples: string[];
                                 script?: {
                                     birthday?: string;
+                                    callOffer?: string;
+                                    callYes?: string;
                                     checkIn?: string;
                                     comment?: string;
+                                    demoOffer?: string;
                                     first?: string[];
                                     followUp?: string;
                                     groupReply?: string;
@@ -90539,10 +90612,12 @@ export interface operations {
                                     missed?: string;
                                     newJob?: string;
                                     no?: string;
+                                    nudge?: string;
                                     postReply?: string;
                                     question?: string;
                                     reconnect?: string;
                                     reminder?: string;
+                                    sendPeople?: string;
                                     warmUp?: string;
                                     yes?: string;
                                 };
@@ -90575,8 +90650,11 @@ export interface operations {
                             name: string;
                             says?: {
                                 birthday: string;
+                                callOffer: string;
+                                callYes: string;
                                 checkIn: string;
                                 comment: string;
+                                demoOffer: string;
                                 first: string[];
                                 followUp: string;
                                 groupReply: string;
@@ -90585,10 +90663,12 @@ export interface operations {
                                 missed: string;
                                 newJob: string;
                                 no: string;
+                                nudge: string;
                                 postReply: string;
                                 question: string;
                                 reconnect: string;
                                 reminder: string;
+                                sendPeople: string;
                                 warmUp: string;
                                 yes: string;
                             };

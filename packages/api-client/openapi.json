@@ -90902,6 +90902,31 @@
                             "minLength": 1,
                             "maxLength": 800
                           },
+                          "nudge": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "demoOffer": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "callOffer": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "sendPeople": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "callYes": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
                           "reconnect": {
                             "type": "string",
                             "minLength": 1,
@@ -90985,6 +91010,23 @@
                           "pitch",
                           "intro"
                         ]
+                      },
+                      "networking": {
+                        "type": "object",
+                        "properties": {
+                          "demo": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "call": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "sendPeople": {
+                            "default": true,
+                            "type": "boolean"
+                          }
+                        }
                       },
                       "tone": {
                         "anyOf": [
@@ -91550,6 +91592,31 @@
                             "minLength": 1,
                             "maxLength": 800
                           },
+                          "nudge": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "demoOffer": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "callOffer": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "sendPeople": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "callYes": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
                           "reconnect": {
                             "type": "string",
                             "minLength": 1,
@@ -91633,6 +91700,23 @@
                           "pitch",
                           "intro"
                         ]
+                      },
+                      "networking": {
+                        "type": "object",
+                        "properties": {
+                          "demo": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "call": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "sendPeople": {
+                            "default": true,
+                            "type": "boolean"
+                          }
+                        }
                       },
                       "tone": {
                         "anyOf": [
@@ -92211,6 +92295,31 @@
                               "minLength": 1,
                               "maxLength": 800
                             },
+                            "nudge": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "demoOffer": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "callOffer": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "sendPeople": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "callYes": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
                             "reconnect": {
                               "type": "string",
                               "minLength": 1,
@@ -92295,6 +92404,29 @@
                             "pitch",
                             "intro"
                           ]
+                        },
+                        "networking": {
+                          "type": "object",
+                          "properties": {
+                            "demo": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "call": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "sendPeople": {
+                              "default": true,
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "demo",
+                            "call",
+                            "sendPeople"
+                          ],
+                          "additionalProperties": false
                         },
                         "tone": {
                           "anyOf": [
@@ -92476,6 +92608,21 @@
                         "intro": {
                           "type": "string"
                         },
+                        "nudge": {
+                          "type": "string"
+                        },
+                        "demoOffer": {
+                          "type": "string"
+                        },
+                        "callOffer": {
+                          "type": "string"
+                        },
+                        "sendPeople": {
+                          "type": "string"
+                        },
+                        "callYes": {
+                          "type": "string"
+                        },
                         "reconnect": {
                           "type": "string"
                         },
@@ -92525,6 +92672,11 @@
                       "required": [
                         "first",
                         "intro",
+                        "nudge",
+                        "demoOffer",
+                        "callOffer",
+                        "sendPeople",
+                        "callYes",
                         "reconnect",
                         "yes",
                         "question",
@@ -93047,6 +93199,31 @@
                               "minLength": 1,
                               "maxLength": 800
                             },
+                            "nudge": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "demoOffer": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "callOffer": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "sendPeople": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "callYes": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
                             "reconnect": {
                               "type": "string",
                               "minLength": 1,
@@ -93131,6 +93308,29 @@
                             "pitch",
                             "intro"
                           ]
+                        },
+                        "networking": {
+                          "type": "object",
+                          "properties": {
+                            "demo": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "call": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "sendPeople": {
+                              "default": true,
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "demo",
+                            "call",
+                            "sendPeople"
+                          ],
+                          "additionalProperties": false
                         },
                         "tone": {
                           "anyOf": [
@@ -93312,6 +93512,21 @@
                         "intro": {
                           "type": "string"
                         },
+                        "nudge": {
+                          "type": "string"
+                        },
+                        "demoOffer": {
+                          "type": "string"
+                        },
+                        "callOffer": {
+                          "type": "string"
+                        },
+                        "sendPeople": {
+                          "type": "string"
+                        },
+                        "callYes": {
+                          "type": "string"
+                        },
                         "reconnect": {
                           "type": "string"
                         },
@@ -93361,6 +93576,11 @@
                       "required": [
                         "first",
                         "intro",
+                        "nudge",
+                        "demoOffer",
+                        "callOffer",
+                        "sendPeople",
+                        "callYes",
                         "reconnect",
                         "yes",
                         "question",
@@ -232548,6 +232768,31 @@
                                     "minLength": 1,
                                     "maxLength": 800
                                   },
+                                  "nudge": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "demoOffer": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "callOffer": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "sendPeople": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "callYes": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
                                   "reconnect": {
                                     "type": "string",
                                     "minLength": 1,
@@ -232632,6 +232877,29 @@
                                   "pitch",
                                   "intro"
                                 ]
+                              },
+                              "networking": {
+                                "type": "object",
+                                "properties": {
+                                  "demo": {
+                                    "default": true,
+                                    "type": "boolean"
+                                  },
+                                  "call": {
+                                    "default": true,
+                                    "type": "boolean"
+                                  },
+                                  "sendPeople": {
+                                    "default": true,
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "demo",
+                                  "call",
+                                  "sendPeople"
+                                ],
+                                "additionalProperties": false
                               },
                               "tone": {
                                 "anyOf": [
@@ -232813,6 +233081,21 @@
                               "intro": {
                                 "type": "string"
                               },
+                              "nudge": {
+                                "type": "string"
+                              },
+                              "demoOffer": {
+                                "type": "string"
+                              },
+                              "callOffer": {
+                                "type": "string"
+                              },
+                              "sendPeople": {
+                                "type": "string"
+                              },
+                              "callYes": {
+                                "type": "string"
+                              },
                               "reconnect": {
                                 "type": "string"
                               },
@@ -232862,6 +233145,11 @@
                             "required": [
                               "first",
                               "intro",
+                              "nudge",
+                              "demoOffer",
+                              "callOffer",
+                              "sendPeople",
+                              "callYes",
                               "reconnect",
                               "yes",
                               "question",

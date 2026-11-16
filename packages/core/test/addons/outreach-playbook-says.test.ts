@@ -386,7 +386,7 @@ describe('the Test console', () => {
     const yes = testAnswered({ ...first, sent: 2 }, 'yes', pace);
     expect(yes).toEqual({
       kind: 'pitch',
-      state: { step: 'link', sent: 0, answer: null, stopped: false },
+      state: { step: 'link', sent: 0, answer: null, stopped: false, call: false },
     });
     expect(testLabel('pitch')).toBe('They said yes: your ask for a time');
     // A yes after the ask is just a reply: the ask went already.
@@ -497,7 +497,7 @@ describe('the Test console', () => {
       note: null,
       next: 'If they stay quiet, follow-up 1 of 6 goes 1 day later.',
       unanswered: 'whether it works with QuickBooks',
-      state: { step: 'first', sent: 0, answer: 'question', stopped: false },
+      state: { step: 'first', sent: 0, answer: 'question', stopped: false, call: false },
       about: null,
       aboutYou: false,
     };

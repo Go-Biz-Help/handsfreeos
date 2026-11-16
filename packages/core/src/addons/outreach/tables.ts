@@ -1400,6 +1400,11 @@ export const followUps = addonOutreach.table(
     answeredAt: ts('answered_at'),
     offerVersion: integer('offer_version'),
     stoppedAt: ts('stopped_at'),
+    /**
+     * A yes in the networking chat after an introduction was to a networking call (decision 173): the ask for a time
+     * and what follows it go on the person's own calendar, not the playbook's demo link.
+     */
+    call: boolean('call').notNull().default(false),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },

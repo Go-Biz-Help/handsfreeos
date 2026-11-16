@@ -1,10 +1,16 @@
 /**
  * Social Outreach: a playbook that starts with an introduction in place of the pitch (docs/outreach.md, decision 168),
- * without the database. The first message is the playbook's introduction; nothing follows it but the monthly
- * check-in; a yes still gets the ask for a time; and the AI is told who the owner is so it can say so.
+ * without the database. The first message is the playbook's introduction, which ends with a question about them
+ * (decision 173); one nudge follows it, then the monthly check-in; a yes still gets the ask for a time; and the AI is
+ * told who the owner is so it can say so.
  */
 import { describe, expect, it } from 'vitest';
-import { CHECK_IN_DAYS, checkInsOnly, stepAfterYes } from '../../src/addons/outreach/conversation';
+import {
+  CHECK_IN_DAYS,
+  checkInsOnly,
+  introSent,
+  stepAfterYes,
+} from '../../src/addons/outreach/conversation';
 import { OPENER_KINDS, openersOf } from '../../src/addons/outreach/openers';
 import {
   TEST_START,
@@ -44,7 +50,7 @@ const pace = paceOf(blankPlaybook().pace);
 describe('a playbook that starts with an introduction', () => {
   it('has the owner’s starting words, and a choice that keeps when a save leaves it out', () => {
     expect(STARTING_INTRO).toBe(
-      'Hey [first name], thanks for connecting! I’m [your first name] with [your business name]. We help [their kind of business] businesses get [what your offer gets them] with [what your offer is]. If you’re ever interested, just reach out!',
+      'Hey [first name], thanks for connecting! I’m [your first name] with [your business name]. We help [their kind of business] businesses get [what your offer gets them] with [what your offer is]. [a question about them]',
     );
     for (const goal of PLAYBOOK_GOAL_KEYS) expect(startingScript(goal).intro).toBe(STARTING_INTRO);
     expect(SCRIPT_INFO.intro.label).toBe('Introduction');
@@ -80,9 +86,10 @@ describe('a playbook that starts with an introduction', () => {
     expect(OPENER_KINDS.intro).toBe('Introduction');
   });
 
-  it('asks nothing, so only check-ins follow it, and a yes still gets the ask for a time', () => {
+  it('gets one nudge, then only check-ins, and a yes still gets the ask for a time', () => {
     expect(checkInsOnly('intro')).toBe(true);
     expect(checkInsOnly('first')).toBe(false);
+    expect(introSent(pace)).toBe(pace.followUps - 1);
     expect(stepAfterYes('intro')).toBe('pitch');
   });
 });
@@ -90,17 +97,21 @@ describe('a playbook that starts with an introduction', () => {
 describe('the Test console with an introduction', () => {
   const person = { platform: 'facebook', known: 'new' } as const;
 
-  it('starts with the introduction, then a check-in a month later, never a follow-up', () => {
+  it('starts with the introduction, then one nudge, then a check-in a month later', () => {
     const start = testMove('start', TEST_START, person, pace, true);
     expect(start).toMatchObject({
       kind: 'opener',
-      state: { step: 'intro', sent: pace.followUps, answer: null, stopped: false },
+      state: { step: 'intro', sent: pace.followUps - 1, answer: null, stopped: false },
     });
     expect(testLabel('opener', { version: 0, versions: 1, intro: true })).toBe('Introduction');
+    const gap = pace.followUpGaps.at(-1)!;
     expect(testNext(start.state, pace)).toBe(
-      `If they stay quiet, a check-in goes in ${CHECK_IN_DAYS} days, then once a month.`,
+      `If they stay quiet, one friendly nudge goes ${gap} day${gap === 1 ? '' : 's'} later, then a check-in once a month.`,
     );
-    expect(testMove('quiet', start.state, person, pace, true)).toMatchObject({
+    const nudge = testMove('quiet', start.state, person, pace, true);
+    expect(nudge).toMatchObject({ kind: 'follow_up', gapDays: gap });
+    expect(testLabel('follow_up', { step: 'intro', followUp: 6, followUps: 6 })).toBe('Nudge');
+    expect(testMove('quiet', nudge.state, person, pace, true)).toMatchObject({
       kind: 'check_in',
       gapDays: CHECK_IN_DAYS,
     });
@@ -117,8 +128,12 @@ describe('the Test console with an introduction', () => {
     expect(testMove('quiet', asked.state, person, pace, true).kind).toBe('check_in');
     expect(testAnswered(start, 'yes', pace)).toEqual({
       kind: 'pitch',
-      state: { step: 'link', sent: 0, answer: null, stopped: false },
+      state: { step: 'link', sent: 0, answer: null, stopped: false, call: false },
     });
+    // A yes to a networking call (decision 173) asks for a time for the call.
+    const call = testAnswered(start, 'yes', pace, 'call');
+    expect(call.state.call).toBe(true);
+    expect(testLabel('pitch', { call: true })).toBe('They said yes to a call: your ask for a time');
   });
 });
 
@@ -140,6 +155,8 @@ describe('what the AI is told for an introduction', () => {
     expect(prompt).toContain(playbookSays(STARTING_INTRO));
     expect(prompt).not.toContain(playbookSays(STARTING_FIRST_MESSAGE));
     expect(prompt).toContain('an introduction, not a pitch');
+    // It ends with a question about them, from their page (decision 173).
+    expect(prompt).toContain('[a question about them] is one short, friendly question about them');
     expect(prompt).toContain('They just connected with the owner');
     expect(prompt).toContain('<owner_name>Chris Lee</owner_name>');
     // The turn's opener is the introduction itself.
