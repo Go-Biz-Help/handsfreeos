@@ -10,8 +10,9 @@
  *
  * **The models** (owner's picks, 11 Nov 2026): OPENAI_IMAGE_MODEL makes every picture, `gpt-image-2.6-sunburst`
  * (made for detail) unless set. When it's busy, down or gone, OPENAI_IMAGE_BACKUP_MODEL (`gpt-image-2.6-flare`, made
- * for speed) tries once before the picture fails. OPENAI_IMAGE_COMPLEXITY (`medium`) is how much the 2.6 models plan
- * a picture before making it: more takes longer, never costs more. `gpt-image-2` is removed from the API on
+ * for speed) tries once before the picture fails. OPENAI_IMAGE_COMPLEXITY (`high`: the owner, 16 Nov, "we don't need
+ * speed we need quality"; `medium` before) is how much the 2.6 models plan a picture before making it: more takes
+ * longer, never costs more. `gpt-image-2` is removed from the API on
  * 10 Feb 2027 and takes no complexity, so it's never sent one.
  *
  * **Null without OPENAI_API_KEY** (local runs, tests): photo-style pictures are then designed instead, and the post
@@ -23,7 +24,7 @@ export const PICTURE_COMPLEXITIES: readonly PictureComplexity[] = ['low', 'mediu
 
 export const DEFAULT_PICTURE_MODEL = 'gpt-image-2.6-sunburst';
 export const DEFAULT_PICTURE_BACKUP_MODEL = 'gpt-image-2.6-flare';
-export const DEFAULT_PICTURE_COMPLEXITY: PictureComplexity = 'medium';
+export const DEFAULT_PICTURE_COMPLEXITY: PictureComplexity = 'high';
 
 /** What OpenAI counted for one picture, and what that costs at its listed prices. */
 export interface PictureUsage {

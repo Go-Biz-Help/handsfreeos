@@ -259,8 +259,8 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   - **Photo with words, by the AI**: OpenAI's image model (`OPENAI_IMAGE_MODEL`, GPT-Image-2.6 Sunburst) makes a
     lifelike photo with no words from the AI's description, cropped to its shape, and Claude designs the words over
     it in the photo or framed layout, like a picture made in Canva (decision 39); on a carousel it goes under the first
-    slide. When it's busy, GPT-Image-2.6 Flare tries once (`OPENAI_IMAGE_BACKUP_MODEL`); it plans at `medium`
-    (`OPENAI_IMAGE_COMPLEXITY`). Charged 9¢ each on the balance (`ai.image`), and only when the balance has room; the
+    slide. When it's busy, GPT-Image-2.6 Flare tries once (`OPENAI_IMAGE_BACKUP_MODEL`); it plans at `high`
+    (`OPENAI_IMAGE_COMPLEXITY`; the owner, 16 Nov: "we don't need speed we need quality"). Charged 9¢ each on the balance (`ai.image`), and only when the balance has room; the
     charge keeps OpenAI's real cost beside it. A photo that still can't be made on the last try leaves the picture
     designed without it. Without `OPENAI_API_KEY` posts get designed pictures only. See "Photo-style pictures: the
     image models" in docs/operations.md.
