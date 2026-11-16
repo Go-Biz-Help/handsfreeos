@@ -329,8 +329,8 @@ function headerOf(doc: Document): Element | null {
 }
 
 /**
- * Presses as a person's pointer does: over it, down and up, then the click. The owner's Check Threads (15 Nov 2026,
- * 0.141.1) found their box of followers never showed after a click alone on their count.
+ * Presses as a person's pointer does: over it, down and up, then the click. In the owner's Chrome (16 Nov 2026) this on
+ * the button around their count opened their followers, as a click alone does too.
  */
 function pressAsAPerson(button: HTMLElement): void {
   const view = button.ownerDocument.defaultView;
@@ -357,16 +357,21 @@ function headerWords(header: Element): string {
   return clean(words);
 }
 
-/** A profile's count of its followers, as it says: "1,234 followers". */
+/**
+ * A profile's count of its followers, as it says: "1,234 followers". The innermost part that says it: Threads wraps
+ * its button in parts that say just the same, and those come first on the page (the owner's Chrome, 16 Nov 2026).
+ */
 function followersIn(header: Element): HTMLElement | null {
   const parts = [...header.querySelectorAll<HTMLElement>('span, div, a, [role="button"]')].filter(
     (part) => inHeader(part) && FOLLOWERS.test(clean(part.textContent)),
   );
-  // The smallest that says it: the count itself, or the button around it.
   return (
-    parts.sort((a, b) => (a.textContent ?? '').length - (b.textContent ?? '').length)[0] ?? null
+    parts.find((part) => !parts.some((inside) => inside !== part && part.contains(inside))) ?? null
   );
 }
+
+/** What a person presses. */
+const PRESSABLE = '[role="button"], a[href], button';
 
 /**
  * Every piece of writing in a part, each apart from the next: its pages put a name, a time and "replied" side by side
@@ -536,8 +541,10 @@ export const THREADS_SPEC: FollowSpec = {
     if (THREADS_SPEC.listIn(doc)) return true;
     const header = headerOf(doc);
     if (!header || !headerControls(header, EDIT).length) return false;
+    // The button around the count: till 0.141.4 the part around that was pressed, which opens nothing.
     const count = followersIn(header);
-    const button = count?.closest<HTMLElement>('[role="button"], a[href], button') ?? count;
+    const button =
+      count?.closest<HTMLElement>(PRESSABLE) ?? count?.querySelector<HTMLElement>(PRESSABLE);
     if (!button) return false;
     pressAsAPerson(button);
     return true;
