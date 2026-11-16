@@ -7,7 +7,7 @@
 --        The comment research is on Instagram; it should be on all the
 --        platforms we have built.
 --
--- His picks: one Start reads all six networks together, about 2,000 comments
+-- The picks: one Start reads all six networks together, about 2,000 comments
 -- on each over 3 days, and each network gets its own guide that staff put in
 -- use on its own. A research and a guide already name their network
 -- (`platform`), and one research reads at a time a network
