@@ -90992,6 +90992,16 @@
                             "minLength": 1,
                             "maxLength": 800
                           },
+                          "referComment": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "referNote": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
                           "birthday": {
                             "type": "string",
                             "minLength": 1,
@@ -91027,6 +91037,9 @@
                             "type": "boolean"
                           }
                         }
+                      },
+                      "refer": {
+                        "type": "boolean"
                       },
                       "tone": {
                         "anyOf": [
@@ -91682,6 +91695,16 @@
                             "minLength": 1,
                             "maxLength": 800
                           },
+                          "referComment": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "referNote": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
                           "birthday": {
                             "type": "string",
                             "minLength": 1,
@@ -91717,6 +91740,9 @@
                             "type": "boolean"
                           }
                         }
+                      },
+                      "refer": {
+                        "type": "boolean"
                       },
                       "tone": {
                         "anyOf": [
@@ -92385,6 +92411,16 @@
                               "minLength": 1,
                               "maxLength": 800
                             },
+                            "referComment": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "referNote": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
                             "birthday": {
                               "type": "string",
                               "minLength": 1,
@@ -92427,6 +92463,9 @@
                             "sendPeople"
                           ],
                           "additionalProperties": false
+                        },
+                        "refer": {
+                          "type": "boolean"
                         },
                         "tone": {
                           "anyOf": [
@@ -92662,6 +92701,12 @@
                         "groupReply": {
                           "type": "string"
                         },
+                        "referComment": {
+                          "type": "string"
+                        },
+                        "referNote": {
+                          "type": "string"
+                        },
                         "birthday": {
                           "type": "string"
                         },
@@ -92690,6 +92735,8 @@
                         "warmUp",
                         "postReply",
                         "groupReply",
+                        "referComment",
+                        "referNote",
                         "birthday",
                         "newJob"
                       ],
@@ -93289,6 +93336,16 @@
                               "minLength": 1,
                               "maxLength": 800
                             },
+                            "referComment": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "referNote": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
                             "birthday": {
                               "type": "string",
                               "minLength": 1,
@@ -93331,6 +93388,9 @@
                             "sendPeople"
                           ],
                           "additionalProperties": false
+                        },
+                        "refer": {
+                          "type": "boolean"
                         },
                         "tone": {
                           "anyOf": [
@@ -93566,6 +93626,12 @@
                         "groupReply": {
                           "type": "string"
                         },
+                        "referComment": {
+                          "type": "string"
+                        },
+                        "referNote": {
+                          "type": "string"
+                        },
                         "birthday": {
                           "type": "string"
                         },
@@ -93594,6 +93660,8 @@
                         "warmUp",
                         "postReply",
                         "groupReply",
+                        "referComment",
+                        "referNote",
                         "birthday",
                         "newJob"
                       ],
@@ -115493,6 +115561,152 @@
                   },
                   "required": [
                     "added"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.referral.done": {
+      "post": {
+        "operationId": "command_outreach_referral_done",
+        "summary": "The person commented on the post naming someone they talked with, and sent that person the heads-up: the referral is noted as done, with the words they sent when they changed them.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.referral.done.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "referralId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "comment": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  },
+                  "note": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "referralId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "referralId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "waiting",
+                        "done",
+                        "skipped"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "referralId",
+                    "state"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.referral.skip": {
+      "post": {
+        "operationId": "command_outreach_referral_skip",
+        "summary": "Put a referral aside: nothing is commented or sent, and it doesn’t come back.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires outreach.use. Emits outreach.referral.skipped.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "referralId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "referralId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "referralId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "waiting",
+                        "done",
+                        "skipped"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "referralId",
+                    "state"
                   ],
                   "additionalProperties": false
                 }
@@ -232858,6 +233072,16 @@
                                     "minLength": 1,
                                     "maxLength": 800
                                   },
+                                  "referComment": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "referNote": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
                                   "birthday": {
                                     "type": "string",
                                     "minLength": 1,
@@ -232900,6 +233124,9 @@
                                   "sendPeople"
                                 ],
                                 "additionalProperties": false
+                              },
+                              "refer": {
+                                "type": "boolean"
                               },
                               "tone": {
                                 "anyOf": [
@@ -233135,6 +233362,12 @@
                               "groupReply": {
                                 "type": "string"
                               },
+                              "referComment": {
+                                "type": "string"
+                              },
+                              "referNote": {
+                                "type": "string"
+                              },
                               "birthday": {
                                 "type": "string"
                               },
@@ -233163,6 +233396,8 @@
                               "warmUp",
                               "postReply",
                               "groupReply",
+                              "referComment",
+                              "referNote",
                               "birthday",
                               "newJob"
                             ],
@@ -253021,6 +253256,170 @@
                   "required": [
                     "post",
                     "read"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/outreach.referrals": {
+      "post": {
+        "operationId": "query_outreach_referrals",
+        "summary": "The person’s referrals waiting for them (Refer someone on Today): posts from the last week asking for a recommendation of what someone they talked with does, each with who, why, the comment naming them and the heads-up to them. Nothing is posted or sent: the person does both, then outreach_referral_done notes it.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires outreach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin",
+                      "instagram",
+                      "alignable",
+                      "threads",
+                      "x"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "referrals": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "referralId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "platform": {
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "linkedin",
+                              "instagram",
+                              "alignable",
+                              "threads",
+                              "x"
+                            ]
+                          },
+                          "postId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "postUrl": {
+                            "type": "string"
+                          },
+                          "post": {
+                            "type": "string"
+                          },
+                          "postWhole": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "asks": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "writer": {
+                            "type": "string"
+                          },
+                          "profileId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "profileUrl": {
+                            "type": "string"
+                          },
+                          "why": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "comment": {
+                            "type": "string"
+                          },
+                          "note": {
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "waiting",
+                              "done",
+                              "skipped"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          }
+                        },
+                        "required": [
+                          "referralId",
+                          "platform",
+                          "postId",
+                          "postUrl",
+                          "post",
+                          "postWhole",
+                          "asks",
+                          "writer",
+                          "profileId",
+                          "name",
+                          "profileUrl",
+                          "why",
+                          "comment",
+                          "note",
+                          "state",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "referrals"
                   ],
                   "additionalProperties": false
                 }

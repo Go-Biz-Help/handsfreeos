@@ -59,6 +59,8 @@ import {
   PLAYBOOK_NETWORKING,
   PLAYBOOK_OPENS,
   PLAYBOOK_OPENS_KEYS,
+  PLAYBOOK_REFER,
+  refersOf,
   SCRIPT_BLANKS,
   SCRIPT_GROUPS,
   SCRIPT_INFO,
@@ -174,6 +176,8 @@ interface Draft {
   opens: PlaybookOpens;
   /** What the networking chat after an introduction may offer (decision 173). */
   networking: PlaybookNetworking;
+  /** Whether its people may be referred on posts asking for a recommendation (decision 174). */
+  refer: boolean;
   questions: PlaybookQuestion[];
   avoid: string[];
   disclaimer: string;
@@ -212,6 +216,7 @@ const fromDetails = (name: string, d: PlaybookDetails): Draft => ({
   script: scriptDraftOf(d.script),
   opens: d.opens ?? 'pitch',
   networking: { ...NETWORKING_ON, ...(d.networking ?? {}) },
+  refer: refersOf(d),
   questions: d.questions,
   avoid: d.avoid,
   disclaimer: d.disclaimer ?? '',
@@ -322,6 +327,7 @@ const toDetails = (d: Draft, sent: readonly FindPart[] = FIND_PARTS): PlaybookDe
   script: scriptToSave(d.goal, d.script),
   opens: d.opens,
   networking: d.networking,
+  refer: d.refer,
   // The styles and openers from before decision 164 are its first message's versions now.
   openerStyles: [],
   ownOpeners: [],
@@ -1420,6 +1426,8 @@ export function PlaybookBuilder({
           onOpens={(opens) => set('opens', opens)}
           networking={draft.networking}
           onNetworking={(networking) => set('networking', networking)}
+          refer={draft.refer}
+          onRefer={(refer) => set('refer', refer)}
           issueAt={(path) => issueIn(`script.${path}`)}
           firstsHelp={
             <AiHelp
@@ -1614,6 +1622,8 @@ function ScriptStep({
   onOpens,
   networking,
   onNetworking,
+  refer,
+  onRefer,
   issueAt,
   firstsHelp,
   onTest,
@@ -1627,6 +1637,9 @@ function ScriptStep({
   /** What the networking chat after an introduction may offer (decision 173). */
   networking: PlaybookNetworking;
   onNetworking: (networking: PlaybookNetworking) => void;
+  /** Whether its people may be referred on posts (decision 174). */
+  refer: boolean;
+  onRefer: (refer: boolean) => void;
   /** The problem with a part, by its path in the script: "first.1", "yes". */
   issueAt: (path: string) => string | undefined;
   firstsHelp: ReactNode;
@@ -1673,6 +1686,21 @@ function ScriptStep({
                   </div>
                 ))}
               </div>
+            </div>
+          ) : null}
+          {g.key === 'refer' ? (
+            // Refer them on posts asking for a recommendation (decision 174): both wait for an OK on Today.
+            <div className="flex items-start justify-between gap-3 rounded-card border border-border bg-card p-3.5">
+              <div>
+                <div className="text-[14px] font-medium">{PLAYBOOK_REFER.label}</div>
+                <div className="text-[13px] text-text-2">{PLAYBOOK_REFER.hint}</div>
+              </div>
+              <Switch
+                checked={refer}
+                onChange={onRefer}
+                label={PLAYBOOK_REFER.label}
+                testId="playbook-refer"
+              />
             </div>
           ) : null}
           {g.key === 'start' ? (

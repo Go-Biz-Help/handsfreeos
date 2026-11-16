@@ -148,6 +148,9 @@ export const outreachAddon = defineAddon({
       'outreach.helpful.posted',
       'outreach.helpful.engaged',
       'outreach.engaged.saved',
+      'outreach.referral.found',
+      'outreach.referral.done',
+      'outreach.referral.skipped',
       'outreach.country.unskipped',
       'outreach.country.decided',
       'outreach.partner.looked',
@@ -201,6 +204,7 @@ export const outreachAddon = defineAddon({
     // (decision 149, ./times.ts).
     // A comment research started or read has the worker sum it up when its days end or it's full (decision 166,
     // ./comment-research.ts).
+    // A referral found pushes to the person who read its post (decision 174, ./referrals.ts).
     consumes: [
       'outreach.download.saved',
       'outreach.chats.collected',
@@ -235,6 +239,7 @@ export const outreachAddon = defineAddon({
       'outreach.like_yours.found',
       'outreach.times.check',
       'outreach.comment_research.changed',
+      'outreach.referral.found',
     ],
   },
   jobs: [
@@ -258,6 +263,7 @@ export const outreachAddon = defineAddon({
     'outreach.autopilot_list',
     'outreach.autopilot_reminder',
     'outreach.sum_comment_research',
+    'outreach.find_referral',
   ],
   // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
   // morning push, the weekly report, and which countries it reaches: Social Outreach → Settings → General, For your
@@ -304,6 +310,7 @@ export const outreachAddon = defineAddon({
     'playbooks',
     'posts',
     'profiles',
+    'referrals',
     'replies',
     'request_pauses',
     'reviews',

@@ -429,6 +429,11 @@ became.
   offered once when they name a problem the business fixes, a networking call once when a demo doesn't fit (booked on
   the person's own calendar, the worker's `callLinkFor`), and "I'll send people your way" once, each a switch in the
   playbook, all on to start.
+- **Refer someone you've talked with** (decision 174, `referrals.ts`, `ops/referrals.ts`, the worker's `referrals.ts`):
+  when a post the extension read asks for a recommendation, the AI looks among the people who wrote back at least twice
+  for one who plainly does that, and writes a comment naming them and a heads-up to them from their playbook. Both wait
+  on Today for the person, who comments, sends it and says **I did both**, or **Not this one**. A switch in the
+  playbook, on to start.
 - **The demo link** (decision 24, `demos.ts`, `ops/demos.ts`, the worker's `demos.ts`): each person's own link to the
   playbook's booking page for someone they reached (**Copy demo link** on Today), with a
   `ref` naming who sent it to whom and nothing else. A booking page keeps the `ref` on the booking
@@ -4559,6 +4564,50 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **Next** (the owner's 6a to 9a, its own part): referring the people the owner has really talked with on posts asking
         for a recommendation.
 
+172.  **Refer the people you've really talked with on posts asking for a recommendation** (Chris, 16 Nov 2026: "we
+      need to build the skill of referring these people on relevant posts, only the ones that we've had a decent
+      conversation with"). The answers: 6a, 7a, 8a, 9a. It goes with decision 173's "I'll send people your way":
+      - **The posts are those already read** (6a; `posts.asks`, `POST_CHECK_SYSTEM`, `checkedPostAsks`): the post check
+        of the posts from the person's groups, Find posts and the post searches (decisions 18 to 20, 49, 141) now also
+        says what a post asks people to recommend someone for ("a roofer in Boise"), whatever else it makes of the
+        post, so a post that's no lead and no comment can still be one to refer on. Up to 120 characters, null for a
+        post that asks for nothing.
+      - **Only someone you've had a real chat with** (7a; `REFER_REPLIES`, the worker's `findReferralJob`): someone the
+        post's reader talked with who wrote back at least twice (two `replies` rows), not marked not a fit by the
+        person themselves (`stages.mark` lost, `marked_by` person), not on Don't pitch or Never contact, not the post's
+        writer, and not referred in the last 30 days unless that one was put aside (`REFER_EVERY_DAYS`). A no to the
+        demo doesn't count against them. The most recent 40 talks are the AI's to pick from.
+      - **The AI picks one, or nobody** (`REFER_PICK_SYSTEM`, `referPickPrompt`): only someone who plainly does what the
+        post asks for, where it's asked (or anywhere, for someone nationwide or online); a close trade isn't the same
+        trade, and when it's unsure it picks nobody. It gives why in a short line.
+      - **A comment naming them and a heads-up to them** (8a; `REFER_WRITE_SYSTEM`, `referWritePrompt`, the parts
+        **Referring them on a post** and **The heads-up to them**): written from the referred person's playbook (the one
+        their first message came from), honest that the owner has talked with them, never that they've hired or worked
+        with them, saying nothing of the owner's own business and never naming the group (decision 157). The heads-up
+        gets the post's link in place of [post link]. A draft that names a group, leaves a blank or runs past 1,000
+        characters is thrown out. Starting words: "You should reach out to [their name]! They do [what they do] in
+        [their area], and I’ve really enjoyed getting to know them." and "Hey [first name], someone was just asking for
+        [what they need], so I mentioned you. Here’s the post if you want to jump in: [post link]". Tagging is the
+        person's: Today says to type @ and their name, where the network lets them.
+      - **Both wait for your OK on Today, even under Autopilot** (9a; `outreach.referrals`, `outreach.referral.done`,
+        `outreach.referral.skip`): **Refer someone you’ve talked with** on Today, the web's and the phone's, shows the
+        post and what it asks for, who and why, the comment and the heads-up (to change and copy on the web, to hold
+        and copy on the phone), **Open the post** and **Open their chat**, then **I did both**, which notes it with the
+        words as they were sent, or **Not this one**, which puts it aside for good. It's the person's own: nobody else
+        on the team sees it. The phone hears of each once ("You could refer …"). At most 3 new a day, from posts seen in
+        the last week; one a post.
+      - **A switch in the playbook** (`details.refer`, `PLAYBOOK_REFER`, kept in `PLAYBOOK_KEPT_KEYS`; `refersOf`):
+        What it says → **Referring people you’ve talked with** → **Refer them on posts**, on the web and the phone, with
+        the two parts under it. On to start and for a playbook saved before it, so the owner's has it on with nothing
+        changed. Someone whose playbook has it off is never referred. `LOCKED_RULES` says who may be referred.
+      - **How it's built** (migration 028300 adds `posts.asks` and the table `addon_outreach.referrals`, each person's
+        own; no extension change): `referrals.ts` and `ops/referrals.ts`, `posts.ts`, `script.ts` and `playbooks.ts` in
+        core; the worker's `referrals.ts` (job `outreach.find_referral`, queued once a post by `outreach.post.checked`
+        with `asks`) and the stand-in model; the web's `referral-card.tsx` and the phone's `referrals.tsx`. The
+        Assistant lists them, notes one done and puts one aside (`outreach_referrals`, `outreach_referral_done`,
+        `outreach_skip_referral`).
+      - **Next**: the extension posting the comment and sending the heads-up itself, after the person's OK.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -4604,6 +4653,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   `answerOf`, `tookOf`): a friendly answer to the owner's question about them is no yes, so no ask for a time
   follows it. A call's yes (`follow_ups.call`) puts the ask and what follows it on the person's own calendar, with no
   demo ref, and a time booked from it never counts as a demo.
+- **A referral never goes on its own** (decision 174, 9a): the comment and the heads-up wait on Today for the person,
+  under Autopilot too, and only someone who wrote back at least twice and wasn't marked not a fit, Don't pitch or Never
+  contact is ever referred (`REFER_REPLIES`, `findReferralJob`). A referral is honest that the owner has talked with
+  them, never that they've worked with them, and never names the group.
 - **Nothing the AI writes makes up the owner's life** (decision 165, `about-owner.ts`): a prompt that writes as the
   person carries `ABOUT_OWNER_RULE` with their `<about_owner>` (`aboutOwnerFor`, `aboutOwnerBlock`), or
   `OWNER_LIFE_UNKNOWN` when it isn't given About you. About you is the person's alone: read it only to write as

@@ -47,6 +47,7 @@ import { stageCommands, stageQueries } from './ops/stages';
 import { tidyCommands, tidyQueries } from './ops/tidy';
 import { townQueries } from './ops/towns';
 import { postCommands, postQueries } from './ops/posts';
+import { referralCommands, referralQueries } from './ops/referrals';
 import { commentReplyCommands } from './ops/comment-replies';
 import { todayQueries } from './ops/today';
 import { trackingCommands, trackingQueries } from './ops/tracking';
@@ -91,6 +92,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...stageCommands,
     ...groupCheckCommands,
     ...helpfulCommands,
+    ...referralCommands,
     ...countryCommands,
     ...trackingCommands,
     ...partnerCommands,
@@ -131,6 +133,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...stageQueries,
     ...groupCheckQueries,
     ...helpfulQueries,
+    ...referralQueries,
     ...countryQueries,
     ...trackingQueries,
     ...partnerQueries,

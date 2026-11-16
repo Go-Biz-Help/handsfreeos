@@ -208,6 +208,30 @@ describe('What it says, on the phone', () => {
     expect(saved(onSave).networking).toEqual({ demo: false, call: true, sendPeople: true });
   });
 
+  it('refers its people on posts unless turned off (decision 174)', async () => {
+    const start = startingScript('demo');
+    expect(sectionWords(PLAYBOOK.details, 'script')).toContain(
+      `Referring them on a post\n${start.referComment}`,
+    );
+    expect(sectionWords({ ...PLAYBOOK.details, refer: false }, 'script')).toContain(
+      'Refer them on posts\nOff',
+    );
+    expect(sectionWords({ ...PLAYBOOK.details, refer: false }, 'script')).not.toContain(
+      start.referNote,
+    );
+    const { onSave, el } = body();
+    await render(el);
+    await fireEvent.press(screen.getByTestId('playbook-edit-script'));
+    expect(screen.getByTestId('playbook-script-words-referNote').props.value).toBe(start.referNote);
+    expect(screen.getByTestId('playbook-refer').props.accessibilityState).toMatchObject({
+      checked: true,
+    });
+    await fireEvent(screen.getByTestId('playbook-refer'), 'checkedChange', false);
+    await fireEvent.press(screen.getByTestId('playbook-save'));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(saved(onSave).refer).toBe(false);
+  });
+
   it('shows the rules no playbook changes, locked', async () => {
     await render(body().el);
     await fireEvent.press(screen.getByTestId('playbook-edit-script'));
