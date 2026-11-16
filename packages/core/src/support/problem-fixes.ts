@@ -285,7 +285,7 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     job: 'draft',
     note: 'the AI had nothing to say on it',
     fixedIn: '0.141.3',
-    pr: 645,
+    pr: 646,
     said: 'Each came right after the AI wrote, with its drafts all taken out by the checks: no comment is the right answer when there’s nothing real to say (decision 165), so it’s passed over now with nothing reported. A reel in the reels player is now looked at before its comment is drafted, as a post is: till now the AI had only its words.',
   },
   {
@@ -293,7 +293,7 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     job: 'comment',
     note: 'the AI had nothing to say on it',
     fixedIn: '0.141.3',
-    pr: 645,
+    pr: 646,
     said: 'Each came right after the AI wrote, with its drafts all taken out by the checks: no comment is the right answer when there’s nothing real to say (decision 165), so it’s passed over now with nothing reported.',
   },
 ];
