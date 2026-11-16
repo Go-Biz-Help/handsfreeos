@@ -334,20 +334,24 @@ export function websiteFixFiles(
   );
 }
 
-/** The email the files go with: short, because the files say the rest. */
+/**
+ * The email the files go with: short, because the files say the rest. It goes from HandsFreeOS's support desk as a
+ * ticket (the owner, 2026-11-16), so a reply lands on that ticket, and with whoever pressed Send.
+ */
 export function webPersonEmail(input: {
   readonly business: string;
   /** Their first name, when the sender typed one. */
   readonly recipientName?: string | null;
-  /** Whoever pressed Send: the email says replies go to them. */
-  readonly sender: { readonly name: string; readonly email: string };
+  /** Whoever pressed Send: they sign it, and replies go to them too. Null when the worker can't tell who. */
+  readonly sender: { readonly name: string; readonly email: string } | null;
   readonly files: readonly Pick<WebsiteFixFile, 'filename' | 'label'>[];
   readonly note?: string | null;
 }): { subject: string; text: string } {
   const first = input.recipientName?.trim().split(/\s+/)[0];
   const many = input.files.length > 1;
   const note = input.note?.trim();
-  const senderName = input.sender.name.trim() || input.sender.email;
+  const senderName = input.sender ? input.sender.name.trim() || input.sender.email : null;
+  const team = `the HandsFreeOS team helping ${input.business} with this`;
   return {
     subject: `Website ${many ? 'changes' : 'change'} for ${input.business}’s texting approval`,
     text: [
@@ -356,12 +360,14 @@ export function webPersonEmail(input: {
       `${input.business} is getting its texting approved by the phone carriers. Before they say yes, the website needs ${many ? `${input.files.length} changes. Each one is in its own file, attached` : 'one change. It’s in the file attached'}:`,
       '',
       ...input.files.map((file, i) => `${many ? `${i + 1}. ` : ''}${file.label}: ${file.filename}`),
-      ...(note ? ['', `A note from ${senderName}:`, note] : []),
+      ...(note ? ['', `A note from ${senderName ?? input.business}:`, note] : []),
       '',
-      `Please reply to this email when it’s done, or with any questions. Your reply goes to ${senderName} (${input.sender.email}).`,
+      `Please reply to this email when it’s done, or with any questions. Your reply goes to ${
+        input.sender ? `${senderName} (${input.sender.email}) and to ${team}` : team
+      }.`,
       '',
       'Thanks,',
-      senderName,
+      ...(senderName ? [senderName] : []),
       input.business,
     ].join('\n'),
   };

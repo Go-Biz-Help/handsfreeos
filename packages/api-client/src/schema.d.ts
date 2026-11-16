@@ -14927,7 +14927,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Email whoever looks after the business’s website the changes it needs before the carriers approve its texting, each in its own text file: add the sign-up form (one of the business’s published forms, or the box and its words for a form of their own), the privacy policy and terms’ part about texts, and the website chat’s code. Sent from HandsFreeOS in the business’s name; replies go to the person sending it, who gets a copy.
+         * Email whoever looks after the business’s website the changes it needs before the carriers approve its texting, each in its own text file: add the sign-up form (one of the business’s published forms, or the box and its words for a form of their own), the privacy policy and terms’ part about texts, and the website chat’s code. Sent from HandsFreeOS’s support desk in the business’s name, as a ticket: replies land on the ticket and go to the person sending it, who gets a copy.
          * @description Risk level 2. Requires channels.manage. Emits registration.web_person_emailed.
          */
         post: operations["command_registration_email_web_person"];

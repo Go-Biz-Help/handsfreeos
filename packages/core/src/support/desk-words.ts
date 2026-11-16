@@ -84,6 +84,8 @@ export const TICKET_EVENT_WORDS: Readonly<Record<string, string>> = {
   linked_business: 'Linked to a business',
   merged_in: 'Another ticket folded in',
   merged_into: 'Folded into another ticket',
+  web_person_emailed: 'Emailed their web person',
+  not_emailed: 'Not emailed',
 };
 
 /** The queue's tabs, "Needs an answer" first: it is the one that matters. */
