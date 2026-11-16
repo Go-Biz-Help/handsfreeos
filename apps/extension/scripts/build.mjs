@@ -88,6 +88,12 @@ const NETWORKS = [
  */
 const INSTAGRAM_VIDEOS = ['https://*.cdninstagram.com/*', 'https://*.fbcdn.net/*'];
 /**
+ * The other networks' picture servers, for a look at a post's picture before its comment is drafted (decision 172,
+ * from 0.144.0; src/auto/post-look.ts `PICTURE_HOSTS`): the background fetches a post's photo from them with no
+ * cookies, and nothing else there. Facebook's and Threads' are Meta's, above.
+ */
+const PICTURES = ['https://*.licdn.com/*', 'https://*.twimg.com/*', 'https://*.alignable.com/*'];
+/**
  * Meta Business Suite, where AI Social Media Content Creator puts the business's OK'd posts up on its Facebook Page
  * (src/research/posting.ts, from 0.132.0), so the person's own profile is never switched to the Page. No script of the
  * extension's runs there but the reading tab's own, loaded into that one tab.
@@ -158,6 +164,7 @@ const manifest = {
     ...ACCOUNTS_CENTER,
     ...NETWORKS,
     ...INSTAGRAM_VIDEOS,
+    ...PICTURES,
     ...BUSINESS_SUITE,
     ...HFOS,
     ...FILES,

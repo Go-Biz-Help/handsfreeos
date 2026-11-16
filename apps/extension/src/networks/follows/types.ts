@@ -175,6 +175,8 @@ export interface FollowSpec {
     readonly home: string;
     /** Its post search for the words, the newest first. */
     readonly search: (words: string) => string;
+    /** Its post search for the words as it ranks them, the busiest first: the comment research's (decision 172). */
+    readonly topSearch: (words: string) => string;
     /** The person's notifications where replies to them show. */
     readonly notifications: string;
     /** Their followers: a page of its own (X's), or null where a count on their profile opens them (Threads'). */

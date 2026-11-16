@@ -6,7 +6,7 @@
  * never the post writer's comments nor the person's own; the next batch later today; a warning stopping the day; and
  * the end once it's read all it set out to.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { HfosAsk } from '../src/hfos/messages';
 import type { Hfos, Job, JobTab } from '../src/jobs/job';
 
@@ -21,6 +21,8 @@ vi.mock('../src/jobs/job', async (original) => ({
 }));
 
 const { readCommentsForResearch } = await import('../src/jobs/instagram/comment-research');
+const { forgetSeenPosts } = await import('../src/jobs/comment-research');
+beforeEach(forgetSeenPosts);
 
 const IG = 'https://www.instagram.com';
 const BUSINESS = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';

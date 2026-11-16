@@ -90,6 +90,8 @@ import { findPostsInTown } from '../jobs/alignable/posts';
 import { ALIGNABLE, readAlignableIn, type AlignablePage } from '../jobs/alignable/read';
 import { withdrawOnItsOwn } from '../jobs/alignable/withdraw';
 import { answerOne } from '../jobs/alignable/answer';
+import { readAlignableComments } from '../jobs/alignable/comment-research';
+import { NO_RESEARCH, researchRuns } from '../jobs/comment-research';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { chatMemory } from '../jobs/chats';
 import { checkFound } from '../jobs/found-checks';
@@ -109,7 +111,7 @@ import {
   draftComment,
   isCommentWork,
   sendComment,
-  type CommentRunner,
+  type LookingRunner,
 } from './comments';
 import { DAILY_CHATS } from './daily';
 import { AWAY_AGAIN_MS, awayEnd, isNotAway, PutOff, waitingFor, waitingWords } from './on-screen';
@@ -181,6 +183,8 @@ export const ALIGNABLE_AUTO: readonly TodayKind[] = ['confirm', 'warm_up', 'frie
  * 0.101.0 the week's helpful post is asked for after who engaged (`weekly_post`, decision 109), and from 0.104.0 the
  * events near them are read once a week before the businesses found are checked (`events`, decision 112). From
  * 0.108.0 who liked and answered the good posts found is read after the groups' posts (`post_people`, decision 116).
+ * From 0.144.0 HandsFreeOS's own comment research before the profile (`comment_research`, decision 172), only for
+ * whoever of its staff started one.
  */
 export const ALIGNABLE_DAILY = [
   'my_groups',
@@ -200,6 +204,7 @@ export const ALIGNABLE_DAILY = [
   'weekly_post',
   'events',
   'found_checks',
+  'comment_research',
   'profile',
 ] as const satisfies readonly (DailyJob | OwnDailyJob)[];
 type AlignableDaily = (typeof ALIGNABLE_DAILY)[number];
@@ -222,6 +227,7 @@ const DAILY_DOING: Readonly<Record<AlignableDaily, string>> = {
   weekly_post: 'Asking for this week’s helpful post for Alignable…',
   events: 'Reading the events near you on Alignable, as it does once a week…',
   found_checks: 'Checking the businesses found on Alignable for good fits…',
+  comment_research: 'Reading answers under posts on Alignable for HandsFreeOS’s comment research…',
   profile: 'Reading your Alignable profile, as it does on the 1st of each month…',
 };
 const DAILY_NAMES: Readonly<Record<AlignableDaily, string>> = {
@@ -242,6 +248,7 @@ const DAILY_NAMES: Readonly<Record<AlignableDaily, string>> = {
   weekly_post: 'This week’s helpful post',
   events: 'Events near you',
   found_checks: 'Check the businesses found',
+  comment_research: 'Comment research',
   profile: 'Read my profile',
 };
 
@@ -365,7 +372,7 @@ function wantOf(item: Pick<TodayListItem, 'profileUrl' | 'platformId'>): Profile
  * What a comment's send (./comments.ts, decision 92) borrows: this window's tab, and a look at the page it opened for
  * Alignable's warning or its sign-in.
  */
-const commenting: CommentRunner = {
+const commenting: LookingRunner = {
   platform: PLATFORM,
   tab,
   async onPage(businessId) {
@@ -1037,7 +1044,9 @@ async function openChat(
  * in (0.84.0). A comment on a good post is drafted from the post (decision 92).
  */
 async function draftMessage(item: TodayListItem, businessId: string): Promise<Outcome> {
-  if (item.kind === 'comment') return draftComment(item, businessId);
+  // The post's picture goes with its draft (decision 172, from 0.144.0).
+  if (item.kind === 'comment')
+    return draftComment(item, businessId, { runner: commenting, them: wantOf(item) });
   const looked = await lookUpOnAlignable(jobFor(businessId), item.name, item.profileUrl);
   if ('end' in looked)
     return looked.end.warned ? { stop: looked.end.line } : { done: false, line: looked.end.line };
@@ -1313,6 +1322,8 @@ export async function runAlignableDaily(kind: AlignableDaily, job: Job): Promise
       return readEventsNear(reporting(job, kind));
     case 'found_checks':
       return checkFound(job, { platform: PLATFORM, read: readThemOnAlignable });
+    case 'comment_research':
+      return readAlignableComments(job);
     case 'profile':
       return readProfileOnItsOwn(job, PLATFORM, (j) => alignableProfileRead(j));
   }
@@ -1437,6 +1448,15 @@ async function go(): Promise<void> {
   const away = await awayNow();
   const passOver = putOff.passOver(away);
   let daily = choices.collect ? nextAlignableDaily(state, passOver, at) : null;
+  // HandsFreeOS's own comment research (decision 172) is only for whoever of its staff started one: asked without a
+  // word once its turn comes, and for anyone else it's done for the day before a line of it is ever shown.
+  if (
+    daily === 'comment_research' &&
+    !(await researchRuns(answer as Hfos, to.businessId, PLATFORM))
+  ) {
+    state = await setState({ daily: { ...state.daily, comment_research: NO_RESEARCH } });
+    daily = nextAlignableDaily(state, passOver, at);
+  }
   // Short of good fits once the day's reading is done (decision 126, answer 6a): it finds people again, with the next
   // search words, and checks them.
   if (

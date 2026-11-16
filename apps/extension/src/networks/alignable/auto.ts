@@ -428,6 +428,26 @@ export async function commentOn(
   return (await waitFor(() => (writingIn(box) ? null : true), SENT_MS)) ? 'done' : 'not_sent';
 }
 
+/**
+ * Their post's own part of its discussion's page, for a look at its picture before its comment is drafted (decisions
+ * 166 and 172, ../post-look.ts): only on a discussion's own page whose post (its first) is the one asked for, by its
+ * discussion's id, and isn't plainly another business's, as a comment goes (`commentOn`). Nothing in an answer under
+ * it is the post's. Null on any other page.
+ */
+export function theirPostPart(
+  doc: Document,
+  href: string,
+  on: CommentOn,
+): { readonly root: Element; readonly skip: (el: Element) => boolean } | null {
+  const id = discussionIdOf(on.postUrl);
+  if (!id || !isDiscussionPage(href)) return null;
+  const post = postParts(doc, href)[0];
+  if (!post || discussionIdOf(post.thread.url) !== id) return null;
+  const author = post.thread.author?.profile;
+  if (author && differ(author, on.profile)) return null;
+  return { root: post.root, skip: (el) => el.closest(PART('discussion-comment')) !== null };
+}
+
 // ------------------------------------------------------------------------------------------------ groups
 
 /** A box over the page that asks something before a join: anything in it to write in or pick from. */
