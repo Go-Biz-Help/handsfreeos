@@ -1,7 +1,8 @@
 /**
- * Social Outreach: a playbook that starts with an introduction, on Today (docs/outreach.md, decision 168). Everyone who
- * connects gets it, a request the person confirmed too, but only while every playbook in use starts with one; once
- * sent, only the monthly check-in follows, after a reply too; and a first message drafted the other way waits no more.
+ * Social Outreach: a playbook that starts with an introduction, on Today (docs/outreach.md, decisions 168 and 173).
+ * Everyone who connects gets it, a request the person confirmed too, but only while every playbook in use starts with
+ * one; once sent, one nudge follows, then only the monthly check-in, after a reply too; a yes to a networking call is
+ * kept as one; and a first message drafted the other way waits no more.
  */
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
@@ -64,9 +65,15 @@ describe('an introduction in place of the pitch, on Today', () => {
       .filter((i) => i.name === name)
       .map((i) => i.kind);
   const conversation = async (profileId: string) => {
-    const [f] = await rows<{ step: string; sent: number; next: string | null; due_days: number }>(
+    const [f] = await rows<{
+      step: string;
+      sent: number;
+      next: string | null;
+      due_days: number;
+      call: boolean;
+    }>(
       admin(),
-      sql`select step, sent, next,
+      sql`select step, sent, next, call,
             round(extract(epoch from (due_at - now())) / 86400)::int as due_days
           from addon_outreach.follow_ups where workspace_id = ${ws} and profile_id = ${profileId}`,
     );
@@ -125,7 +132,7 @@ describe('an introduction in place of the pitch, on Today', () => {
     expect(await listed('Hal Moss')).toEqual([]);
   });
 
-  it('follows the introduction with the monthly check-in alone, after a reply too', async () => {
+  it('follows the introduction with one nudge, then the monthly check-in alone, after a reply too', async () => {
     const gina = await profileOf('gina.lake.5');
     const queued = await queue(gina, 'intro', STARTING_INTRO);
     await runAs(owner, ws, 'outreach.send.approve', { sends: [{ sendId: queued.sendId }] });
@@ -136,14 +143,25 @@ describe('an introduction in place of the pitch, on Today', () => {
       at: new Date().toISOString(),
     });
     await runAs(owner, ws, 'outreach.send.done', { sendId: queued.sendId, sent: true });
-    const followUps = paceOf(crm.details.pace).followUps;
+    const pace = paceOf(crm.details.pace);
+    const followUps = pace.followUps;
+    // One nudge to come, at the last follow-up's gap (decision 173).
+    expect(await conversation(gina)).toMatchObject({
+      step: 'intro',
+      sent: followUps - 1,
+      next: 'follow_up',
+      due_days: pace.followUpGaps.at(-1),
+      call: false,
+    });
+    expect(await listed('Gina Lake')).toEqual([]);
+    // The nudge goes: then only the check-in.
+    await runAs(owner, ws, 'outreach.conversation.note', { profileId: gina, kind: 'follow_up' });
     expect(await conversation(gina)).toMatchObject({
       step: 'intro',
       sent: followUps,
       next: 'check_in',
       due_days: CHECK_IN_DAYS,
     });
-    expect(await listed('Gina Lake')).toEqual([]);
     // Their question gets a reply, then the check-in again: no follow-ups start.
     expect(
       await runAsSystem(ws, 'outreach.answer.note', {
@@ -154,6 +172,24 @@ describe('an introduction in place of the pitch, on Today', () => {
       }),
     ).toEqual({ noted: true });
     expect(await conversation(gina)).toMatchObject({ step: 'intro', sent: followUps });
+    await runAs(owner, ws, 'outreach.conversation.note', { profileId: gina, kind: 'reply' });
+    expect(await conversation(gina)).toMatchObject({
+      step: 'intro',
+      sent: followUps,
+      next: 'check_in',
+      due_days: CHECK_IN_DAYS,
+    });
+    // A yes to a networking call is kept as one (decision 173): its ask goes on the person's own calendar.
+    expect(
+      await runAsSystem(ws, 'outreach.answer.note', {
+        userId: owner.id,
+        profileId: gina,
+        answer: 'yes',
+        took: 'call',
+        writtenAt: new Date(Date.now() + 60_000).toISOString(),
+      }),
+    ).toEqual({ noted: true });
+    expect(await conversation(gina)).toMatchObject({ step: 'intro', call: true });
     // Results counts it as an introduction.
     const results = await runAs(owner, ws, 'outreach.openers', { period: 'all', everyone: false });
     const mine = results.playbooks.find((p: { playbookId: string }) => p.playbookId === playbookId);

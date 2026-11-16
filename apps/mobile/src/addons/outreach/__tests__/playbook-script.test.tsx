@@ -173,6 +173,41 @@ describe('What it says, on the phone', () => {
     expect(saved(onSave).script).toEqual({});
   });
 
+  it('has the networking chat’s switches and words only with an introduction (decision 173)', async () => {
+    expect(sectionWords(PLAYBOOK.details, 'script')).not.toContain('In the chat after it');
+    expect(sectionWords({ ...PLAYBOOK.details, opens: 'intro' }, 'script')).toContain(
+      'In the chat after it\nOffer a demo when it fits',
+    );
+    expect(
+      sectionWords(
+        {
+          ...PLAYBOOK.details,
+          opens: 'intro',
+          networking: { demo: false, call: false, sendPeople: false },
+        },
+        'script',
+      ),
+    ).toContain('In the chat after it\nNothing');
+    const { onSave, el } = body();
+    await render(el);
+    await fireEvent.press(screen.getByTestId('playbook-edit-script'));
+    expect(screen.queryByTestId('playbook-networking')).toBeNull();
+    expect(screen.queryByTestId('playbook-script-nudge')).toBeNull();
+    await fireEvent.press(screen.getByTestId('playbook-opens-intro'));
+    expect(screen.getByTestId('playbook-script-words-nudge')).toBeTruthy();
+    expect(screen.getByTestId('playbook-script-words-callOffer').props.value).toBe(
+      startingScript('demo').callOffer,
+    );
+    // On to start; one turned off is saved off, the others stay on.
+    expect(screen.getByTestId('playbook-networking-demo').props.accessibilityState).toMatchObject({
+      checked: true,
+    });
+    await fireEvent(screen.getByTestId('playbook-networking-demo'), 'checkedChange', false);
+    await fireEvent.press(screen.getByTestId('playbook-save'));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(saved(onSave).networking).toEqual({ demo: false, call: true, sendPeople: true });
+  });
+
   it('shows the rules no playbook changes, locked', async () => {
     await render(body().el);
     await fireEvent.press(screen.getByTestId('playbook-edit-script'));
