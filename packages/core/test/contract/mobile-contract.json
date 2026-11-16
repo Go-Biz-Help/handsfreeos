@@ -8772,6 +8772,9 @@
                         "default": "fits",
                         "type": "string",
                         "enum": ["fits", "fits_delete", "all", "delete"]
+                      },
+                      "autopilot": {
+                        "type": "boolean"
                       }
                     }
                   },
@@ -8849,6 +8852,9 @@
                         "default": "fits",
                         "type": "string",
                         "enum": ["fits", "fits_delete", "all", "delete"]
+                      },
+                      "autopilot": {
+                        "type": "boolean"
                       }
                     }
                   },
@@ -8926,6 +8932,9 @@
                         "default": "fits",
                         "type": "string",
                         "enum": ["fits", "fits_delete", "all", "delete"]
+                      },
+                      "autopilot": {
+                        "type": "boolean"
                       }
                     }
                   },
@@ -8988,6 +8997,9 @@
                         "default": "fits",
                         "type": "string",
                         "enum": ["fits", "fits_delete", "all", "delete"]
+                      },
+                      "autopilot": {
+                        "type": "boolean"
                       }
                     }
                   },
@@ -9050,6 +9062,9 @@
                         "default": "fits",
                         "type": "string",
                         "enum": ["fits", "fits_delete", "all", "delete"]
+                      },
+                      "autopilot": {
+                        "type": "boolean"
                       }
                     }
                   }
@@ -9227,6 +9242,9 @@
                       "requests": {
                         "type": "string",
                         "enum": ["fits", "fits_delete", "all", "delete"]
+                      },
+                      "autopilot": {
+                        "type": "boolean"
                       }
                     }
                   },
@@ -9276,6 +9294,9 @@
                       "requests": {
                         "type": "string",
                         "enum": ["fits", "fits_delete", "all", "delete"]
+                      },
+                      "autopilot": {
+                        "type": "boolean"
                       }
                     }
                   },
@@ -9325,6 +9346,9 @@
                       "requests": {
                         "type": "string",
                         "enum": ["fits", "fits_delete", "all", "delete"]
+                      },
+                      "autopilot": {
+                        "type": "boolean"
                       }
                     }
                   },
@@ -9374,6 +9398,9 @@
                       "requests": {
                         "type": "string",
                         "enum": ["fits", "fits_delete", "all", "delete"]
+                      },
+                      "autopilot": {
+                        "type": "boolean"
                       }
                     }
                   },
@@ -9423,11 +9450,22 @@
                       "requests": {
                         "type": "string",
                         "enum": ["fits", "fits_delete", "all", "delete"]
+                      },
+                      "autopilot": {
+                        "type": "boolean"
                       }
                     }
                   }
                 }
               }
+            }
+          },
+          "picked": {
+            "maxItems": 6,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
             }
           }
         },
