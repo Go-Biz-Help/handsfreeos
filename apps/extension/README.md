@@ -1272,6 +1272,16 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Alignable group members read from the top once the list ran out (0.142.1)
+
+The problem check of 16 Nov 2026 (19:24 UTC) found "Alignable showed no members of a group." on a members page that
+showed 79. Each read of a group's members carries on from where the last got to (decision 148), scrolling past those
+screens first and keeping nothing from them. The last read had stopped 4 screens down just as the list ended, so this
+one scrolled past the end with nothing kept, said there were no members, and saved no depth, so every read after would
+have done the same. From 0.142.1, when the list runs out before where the last read got to, nothing is reported and the
+group's depth goes back to the top for the next read (`readMembers` in `src/jobs/alignable/groups.ts`). A members page
+that really shows no one still says so.
+
 ### LinkedIn posts keep their blank lines (0.141.5)
 
 The owner's Content Creator post on LinkedIn of 15 Nov 2026 went up with every paragraph straight under the one before,

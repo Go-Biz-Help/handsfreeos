@@ -539,15 +539,25 @@ export async function readMembers(job: Job): Promise<JobEnd> {
     const theirs = got.items.filter((m) => someoneElse(m.profile));
     const leaders = theirs.filter((m) => m.leader);
     const others = theirs.filter((m) => !m.leader);
-    if (!got.items.length) {
-      await job.report?.({ note: 'Alignable showed no members of a group.', outline: true });
-      continue;
-    }
     const facts = {
       ...card,
       name: card.name ?? shown?.name ?? null,
       members: shown?.members ?? card.members,
     };
+    if (!got.items.length) {
+      // The list ran out while it scrolled past what the last read got to: that read got to its end, so there's no one
+      // past it, and the next read starts at the top (decision 148). No failure, and the depth goes back to the top,
+      // or every read after would scroll past the end again (the owner's problem report of 16 Nov 2026, from 0.142.1).
+      if (from > 0 && got.whole && got.screens < from) {
+        const back = alignableGroupSave(facts, [], job.businessId, false, 0);
+        if (back.ok)
+          for (const input of back.input)
+            valueOf(await job.hfos({ type: 'hfos-save-group', input }));
+        continue;
+      }
+      await job.report?.({ note: 'Alignable showed no members of a group.', outline: true });
+      continue;
+    }
     const built = alignableGroupSave(
       facts,
       [...leaders, ...others].map((m) => ({
