@@ -1266,8 +1266,9 @@ export function todayDraftPrompt(input: {
      */
     readonly shown?: { readonly kind: PostLookKind; readonly count: number } | null;
     /**
-     * How real people's comments sound, for a warm-up's comment: the guide in use from HandsFreeOS's comment research
-     * (decision 166, ./comment-research.ts `commentGuide`). Left out, none.
+     * How real people's comments sound on the post's network, for a comment on it (a warm-up's, decision 166, and one
+     * on a post found by its topic, decision 171): the guide in use there from HandsFreeOS's comment research
+     * (./comment-research.ts `commentGuide`). Left out, none.
      */
     readonly guide?: string | null;
   } | null;
@@ -1492,9 +1493,10 @@ export function todayDraftPrompt(input: {
     input.kind === 'comment' && input.post
       ? `${input.post.shown ? postSeen(input.post.shown.kind, input.post.shown.count) : POST_WORDS_ONLY} ${COMMENT_PLAIN_WORDS}`
       : null,
-    // A warm-up's comment sounds like real ones, once a research's guide is in use (decision 166).
-    input.kind === 'comment' && input.post?.warm && input.post.guide?.trim()
-      ? commentGuideBlock(input.post.guide.trim())
+    // A comment on a post sounds like real ones there, once a research's guide is in use on its network: a warm-up's
+    // (decision 166), and one on a post found by its topic (decision 171's 3b).
+    input.kind === 'comment' && input.post?.guide?.trim()
+      ? commentGuideBlock(input.post.guide.trim(), input.post.warm === true)
       : null,
     task,
     // The words in brackets, filled in for them (./script.ts).

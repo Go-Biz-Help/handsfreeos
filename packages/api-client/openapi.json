@@ -117039,7 +117039,7 @@
     "/v1/commands/outreach.comment_research.start": {
       "post": {
         "operationId": "command_outreach_comment_research_start",
-        "summary": "HandsFreeOS staff only: start a comment research. Over 3 days the browser of the person who starts it reads about 2,000 real comments under public Instagram posts of many kinds, a little at a time, keeping each comment’s words only (never who wrote it or the post) and leaving out ones that read like a bot’s. One at a time a business.",
+        "summary": "HandsFreeOS staff only: start a comment research, on every network with none running (or on the one named). Over 3 days the browser of the person who starts it reads about 2,000 real comments a network under posts of many kinds, a little at a time, keeping each comment’s words only (never who wrote it or the post) and leaving out ones that read like a bot’s. One at a time a network.",
         "tags": [
           "commands"
         ],
@@ -117055,6 +117055,17 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "instagram",
+                      "facebook",
+                      "linkedin",
+                      "alignable",
+                      "threads",
+                      "x"
+                    ]
                   }
                 },
                 "required": [
@@ -117072,346 +117083,376 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "research": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "id": {
-                              "type": "string",
-                              "format": "uuid",
-                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                            },
-                            "platform": {
-                              "type": "string",
-                              "enum": [
-                                "instagram"
-                              ]
-                            },
-                            "state": {
-                              "type": "string",
-                              "enum": [
-                                "reading",
-                                "summing",
-                                "done",
-                                "stopped"
-                              ]
-                            },
-                            "mine": {
-                              "type": "boolean"
-                            },
-                            "startedAt": {
-                              "type": "string"
-                            },
-                            "endsAt": {
-                              "type": "string"
-                            },
-                            "target": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "days": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "kept": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "dropped": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "posts": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "findings": {
-                              "anyOf": [
-                                {
-                                  "type": "object",
-                                  "properties": {
-                                    "comments": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 9007199254740991
-                                    },
-                                    "copied": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 9007199254740991
-                                    },
-                                    "medianWords": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 9007199254740991
-                                    },
-                                    "short": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "emoji": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "onlyEmoji": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "exclaim": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "question": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "fullStop": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "lowerStart": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "said": {
-                                      "maxItems": 15,
-                                      "type": "array",
-                                      "items": {
+                    "networks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "platform": {
+                            "type": "string",
+                            "enum": [
+                              "instagram",
+                              "facebook",
+                              "linkedin",
+                              "alignable",
+                              "threads",
+                              "x"
+                            ]
+                          },
+                          "research": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "platform": {
+                                    "type": "string",
+                                    "enum": [
+                                      "instagram",
+                                      "facebook",
+                                      "linkedin",
+                                      "alignable",
+                                      "threads",
+                                      "x"
+                                    ]
+                                  },
+                                  "state": {
+                                    "type": "string",
+                                    "enum": [
+                                      "reading",
+                                      "summing",
+                                      "done",
+                                      "stopped"
+                                    ]
+                                  },
+                                  "mine": {
+                                    "type": "boolean"
+                                  },
+                                  "startedAt": {
+                                    "type": "string"
+                                  },
+                                  "endsAt": {
+                                    "type": "string"
+                                  },
+                                  "target": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "days": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "kept": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "dropped": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "posts": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "findings": {
+                                    "anyOf": [
+                                      {
                                         "type": "object",
                                         "properties": {
+                                          "comments": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "copied": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "medianWords": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "short": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "emoji": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "onlyEmoji": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "exclaim": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "question": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "fullStop": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "lowerStart": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "said": {
+                                            "maxItems": 15,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "object",
+                                              "properties": {
+                                                "words": {
+                                                  "type": "string",
+                                                  "maxLength": 80
+                                                },
+                                                "seen": {
+                                                  "type": "integer",
+                                                  "minimum": 1,
+                                                  "maximum": 9007199254740991
+                                                }
+                                              },
+                                              "required": [
+                                                "words",
+                                                "seen"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          },
                                           "words": {
-                                            "type": "string",
-                                            "maxLength": 80
+                                            "maxItems": 30,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "object",
+                                              "properties": {
+                                                "word": {
+                                                  "type": "string",
+                                                  "maxLength": 40
+                                                },
+                                                "in": {
+                                                  "type": "integer",
+                                                  "minimum": 0,
+                                                  "maximum": 9007199254740991
+                                                }
+                                              },
+                                              "required": [
+                                                "word",
+                                                "in"
+                                              ],
+                                              "additionalProperties": false
+                                            }
                                           },
-                                          "seen": {
-                                            "type": "integer",
-                                            "minimum": 1,
-                                            "maximum": 9007199254740991
-                                          }
-                                        },
-                                        "required": [
-                                          "words",
-                                          "seen"
-                                        ],
-                                        "additionalProperties": false
-                                      }
-                                    },
-                                    "words": {
-                                      "maxItems": 30,
-                                      "type": "array",
-                                      "items": {
-                                        "type": "object",
-                                        "properties": {
-                                          "word": {
-                                            "type": "string",
-                                            "maxLength": 40
+                                          "brochure": {
+                                            "maxItems": 30,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "object",
+                                              "properties": {
+                                                "word": {
+                                                  "type": "string",
+                                                  "maxLength": 40
+                                                },
+                                                "in": {
+                                                  "type": "integer",
+                                                  "minimum": 0,
+                                                  "maximum": 9007199254740991
+                                                }
+                                              },
+                                              "required": [
+                                                "word",
+                                                "in"
+                                              ],
+                                              "additionalProperties": false
+                                            }
                                           },
-                                          "in": {
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 9007199254740991
-                                          }
-                                        },
-                                        "required": [
-                                          "word",
-                                          "in"
-                                        ],
-                                        "additionalProperties": false
-                                      }
-                                    },
-                                    "brochure": {
-                                      "maxItems": 30,
-                                      "type": "array",
-                                      "items": {
-                                        "type": "object",
-                                        "properties": {
-                                          "word": {
-                                            "type": "string",
-                                            "maxLength": 40
-                                          },
-                                          "in": {
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 9007199254740991
-                                          }
-                                        },
-                                        "required": [
-                                          "word",
-                                          "in"
-                                        ],
-                                        "additionalProperties": false
-                                      }
-                                    },
-                                    "patterns": {
-                                      "maxItems": 8,
-                                      "type": "array",
-                                      "items": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "maxLength": 200
-                                      }
-                                    },
-                                    "kinds": {
-                                      "maxItems": 17,
-                                      "type": "array",
-                                      "items": {
-                                        "type": "object",
-                                        "properties": {
-                                          "topic": {
-                                            "type": "string",
-                                            "enum": [
-                                              "food",
-                                              "fitness",
-                                              "travel",
-                                              "pets",
-                                              "family",
-                                              "cars",
-                                              "sports",
-                                              "home",
-                                              "business",
-                                              "homes",
-                                              "style",
-                                              "outdoors",
-                                              "music",
-                                              "funny",
-                                              "big_days",
-                                              "community",
-                                              "trades"
-                                            ]
-                                          },
-                                          "how": {
-                                            "type": "string",
-                                            "maxLength": 200
-                                          },
-                                          "examples": {
-                                            "maxItems": 4,
+                                          "patterns": {
+                                            "maxItems": 8,
                                             "type": "array",
                                             "items": {
                                               "type": "string",
                                               "minLength": 1,
-                                              "maxLength": 80
+                                              "maxLength": 200
+                                            }
+                                          },
+                                          "kinds": {
+                                            "maxItems": 25,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "object",
+                                              "properties": {
+                                                "topic": {
+                                                  "type": "string",
+                                                  "enum": [
+                                                    "food",
+                                                    "fitness",
+                                                    "travel",
+                                                    "pets",
+                                                    "family",
+                                                    "cars",
+                                                    "sports",
+                                                    "home",
+                                                    "business",
+                                                    "homes",
+                                                    "style",
+                                                    "outdoors",
+                                                    "music",
+                                                    "funny",
+                                                    "big_days",
+                                                    "community",
+                                                    "trades",
+                                                    "new_jobs",
+                                                    "wins",
+                                                    "advice",
+                                                    "hiring",
+                                                    "events",
+                                                    "asking",
+                                                    "town",
+                                                    "groups"
+                                                  ]
+                                                },
+                                                "how": {
+                                                  "type": "string",
+                                                  "maxLength": 200
+                                                },
+                                                "examples": {
+                                                  "maxItems": 4,
+                                                  "type": "array",
+                                                  "items": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 80
+                                                  }
+                                                }
+                                              },
+                                              "required": [
+                                                "topic",
+                                                "how",
+                                                "examples"
+                                              ],
+                                              "additionalProperties": false
                                             }
                                           }
                                         },
                                         "required": [
-                                          "topic",
-                                          "how",
-                                          "examples"
+                                          "comments",
+                                          "copied",
+                                          "medianWords",
+                                          "short",
+                                          "emoji",
+                                          "onlyEmoji",
+                                          "exclaim",
+                                          "question",
+                                          "fullStop",
+                                          "lowerStart",
+                                          "said",
+                                          "words",
+                                          "brochure",
+                                          "patterns",
+                                          "kinds"
                                         ],
                                         "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "null"
                                       }
-                                    }
+                                    ]
                                   },
-                                  "required": [
-                                    "comments",
-                                    "copied",
-                                    "medianWords",
-                                    "short",
-                                    "emoji",
-                                    "onlyEmoji",
-                                    "exclaim",
-                                    "question",
-                                    "fullStop",
-                                    "lowerStart",
-                                    "said",
-                                    "words",
-                                    "brochure",
-                                    "patterns",
-                                    "kinds"
-                                  ],
-                                  "additionalProperties": false
+                                  "guide": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
                                 },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "guide": {
-                              "type": [
-                                "string",
-                                "null"
-                              ]
-                            }
+                                "required": [
+                                  "id",
+                                  "platform",
+                                  "state",
+                                  "mine",
+                                  "startedAt",
+                                  "endsAt",
+                                  "target",
+                                  "days",
+                                  "kept",
+                                  "dropped",
+                                  "posts",
+                                  "findings",
+                                  "guide"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           },
-                          "required": [
-                            "id",
-                            "platform",
-                            "state",
-                            "mine",
-                            "startedAt",
-                            "endsAt",
-                            "target",
-                            "days",
-                            "kept",
-                            "dropped",
-                            "posts",
-                            "findings",
-                            "guide"
-                          ],
-                          "additionalProperties": false
+                          "inUse": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "guide": {
+                                    "type": "string"
+                                  },
+                                  "comments": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "usedAt": {
+                                    "type": "string"
+                                  },
+                                  "thisOne": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "guide",
+                                  "comments",
+                                  "usedAt",
+                                  "thisOne"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
                         },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "inUse": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "platform": {
-                              "type": "string",
-                              "enum": [
-                                "instagram"
-                              ]
-                            },
-                            "guide": {
-                              "type": "string"
-                            },
-                            "comments": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "usedAt": {
-                              "type": "string"
-                            },
-                            "thisOne": {
-                              "type": "boolean"
-                            }
-                          },
-                          "required": [
-                            "platform",
-                            "guide",
-                            "comments",
-                            "usedAt",
-                            "thisOne"
-                          ],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                        "required": [
+                          "platform",
+                          "research",
+                          "inUse"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
-                    "research",
-                    "inUse"
+                    "networks"
                   ],
                   "additionalProperties": false
                 }
@@ -117463,346 +117504,376 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "research": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "id": {
-                              "type": "string",
-                              "format": "uuid",
-                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                            },
-                            "platform": {
-                              "type": "string",
-                              "enum": [
-                                "instagram"
-                              ]
-                            },
-                            "state": {
-                              "type": "string",
-                              "enum": [
-                                "reading",
-                                "summing",
-                                "done",
-                                "stopped"
-                              ]
-                            },
-                            "mine": {
-                              "type": "boolean"
-                            },
-                            "startedAt": {
-                              "type": "string"
-                            },
-                            "endsAt": {
-                              "type": "string"
-                            },
-                            "target": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "days": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "kept": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "dropped": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "posts": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "findings": {
-                              "anyOf": [
-                                {
-                                  "type": "object",
-                                  "properties": {
-                                    "comments": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 9007199254740991
-                                    },
-                                    "copied": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 9007199254740991
-                                    },
-                                    "medianWords": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 9007199254740991
-                                    },
-                                    "short": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "emoji": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "onlyEmoji": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "exclaim": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "question": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "fullStop": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "lowerStart": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "said": {
-                                      "maxItems": 15,
-                                      "type": "array",
-                                      "items": {
+                    "networks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "platform": {
+                            "type": "string",
+                            "enum": [
+                              "instagram",
+                              "facebook",
+                              "linkedin",
+                              "alignable",
+                              "threads",
+                              "x"
+                            ]
+                          },
+                          "research": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "platform": {
+                                    "type": "string",
+                                    "enum": [
+                                      "instagram",
+                                      "facebook",
+                                      "linkedin",
+                                      "alignable",
+                                      "threads",
+                                      "x"
+                                    ]
+                                  },
+                                  "state": {
+                                    "type": "string",
+                                    "enum": [
+                                      "reading",
+                                      "summing",
+                                      "done",
+                                      "stopped"
+                                    ]
+                                  },
+                                  "mine": {
+                                    "type": "boolean"
+                                  },
+                                  "startedAt": {
+                                    "type": "string"
+                                  },
+                                  "endsAt": {
+                                    "type": "string"
+                                  },
+                                  "target": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "days": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "kept": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "dropped": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "posts": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "findings": {
+                                    "anyOf": [
+                                      {
                                         "type": "object",
                                         "properties": {
+                                          "comments": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "copied": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "medianWords": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "short": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "emoji": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "onlyEmoji": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "exclaim": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "question": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "fullStop": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "lowerStart": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "said": {
+                                            "maxItems": 15,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "object",
+                                              "properties": {
+                                                "words": {
+                                                  "type": "string",
+                                                  "maxLength": 80
+                                                },
+                                                "seen": {
+                                                  "type": "integer",
+                                                  "minimum": 1,
+                                                  "maximum": 9007199254740991
+                                                }
+                                              },
+                                              "required": [
+                                                "words",
+                                                "seen"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          },
                                           "words": {
-                                            "type": "string",
-                                            "maxLength": 80
+                                            "maxItems": 30,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "object",
+                                              "properties": {
+                                                "word": {
+                                                  "type": "string",
+                                                  "maxLength": 40
+                                                },
+                                                "in": {
+                                                  "type": "integer",
+                                                  "minimum": 0,
+                                                  "maximum": 9007199254740991
+                                                }
+                                              },
+                                              "required": [
+                                                "word",
+                                                "in"
+                                              ],
+                                              "additionalProperties": false
+                                            }
                                           },
-                                          "seen": {
-                                            "type": "integer",
-                                            "minimum": 1,
-                                            "maximum": 9007199254740991
-                                          }
-                                        },
-                                        "required": [
-                                          "words",
-                                          "seen"
-                                        ],
-                                        "additionalProperties": false
-                                      }
-                                    },
-                                    "words": {
-                                      "maxItems": 30,
-                                      "type": "array",
-                                      "items": {
-                                        "type": "object",
-                                        "properties": {
-                                          "word": {
-                                            "type": "string",
-                                            "maxLength": 40
+                                          "brochure": {
+                                            "maxItems": 30,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "object",
+                                              "properties": {
+                                                "word": {
+                                                  "type": "string",
+                                                  "maxLength": 40
+                                                },
+                                                "in": {
+                                                  "type": "integer",
+                                                  "minimum": 0,
+                                                  "maximum": 9007199254740991
+                                                }
+                                              },
+                                              "required": [
+                                                "word",
+                                                "in"
+                                              ],
+                                              "additionalProperties": false
+                                            }
                                           },
-                                          "in": {
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 9007199254740991
-                                          }
-                                        },
-                                        "required": [
-                                          "word",
-                                          "in"
-                                        ],
-                                        "additionalProperties": false
-                                      }
-                                    },
-                                    "brochure": {
-                                      "maxItems": 30,
-                                      "type": "array",
-                                      "items": {
-                                        "type": "object",
-                                        "properties": {
-                                          "word": {
-                                            "type": "string",
-                                            "maxLength": 40
-                                          },
-                                          "in": {
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 9007199254740991
-                                          }
-                                        },
-                                        "required": [
-                                          "word",
-                                          "in"
-                                        ],
-                                        "additionalProperties": false
-                                      }
-                                    },
-                                    "patterns": {
-                                      "maxItems": 8,
-                                      "type": "array",
-                                      "items": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "maxLength": 200
-                                      }
-                                    },
-                                    "kinds": {
-                                      "maxItems": 17,
-                                      "type": "array",
-                                      "items": {
-                                        "type": "object",
-                                        "properties": {
-                                          "topic": {
-                                            "type": "string",
-                                            "enum": [
-                                              "food",
-                                              "fitness",
-                                              "travel",
-                                              "pets",
-                                              "family",
-                                              "cars",
-                                              "sports",
-                                              "home",
-                                              "business",
-                                              "homes",
-                                              "style",
-                                              "outdoors",
-                                              "music",
-                                              "funny",
-                                              "big_days",
-                                              "community",
-                                              "trades"
-                                            ]
-                                          },
-                                          "how": {
-                                            "type": "string",
-                                            "maxLength": 200
-                                          },
-                                          "examples": {
-                                            "maxItems": 4,
+                                          "patterns": {
+                                            "maxItems": 8,
                                             "type": "array",
                                             "items": {
                                               "type": "string",
                                               "minLength": 1,
-                                              "maxLength": 80
+                                              "maxLength": 200
+                                            }
+                                          },
+                                          "kinds": {
+                                            "maxItems": 25,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "object",
+                                              "properties": {
+                                                "topic": {
+                                                  "type": "string",
+                                                  "enum": [
+                                                    "food",
+                                                    "fitness",
+                                                    "travel",
+                                                    "pets",
+                                                    "family",
+                                                    "cars",
+                                                    "sports",
+                                                    "home",
+                                                    "business",
+                                                    "homes",
+                                                    "style",
+                                                    "outdoors",
+                                                    "music",
+                                                    "funny",
+                                                    "big_days",
+                                                    "community",
+                                                    "trades",
+                                                    "new_jobs",
+                                                    "wins",
+                                                    "advice",
+                                                    "hiring",
+                                                    "events",
+                                                    "asking",
+                                                    "town",
+                                                    "groups"
+                                                  ]
+                                                },
+                                                "how": {
+                                                  "type": "string",
+                                                  "maxLength": 200
+                                                },
+                                                "examples": {
+                                                  "maxItems": 4,
+                                                  "type": "array",
+                                                  "items": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 80
+                                                  }
+                                                }
+                                              },
+                                              "required": [
+                                                "topic",
+                                                "how",
+                                                "examples"
+                                              ],
+                                              "additionalProperties": false
                                             }
                                           }
                                         },
                                         "required": [
-                                          "topic",
-                                          "how",
-                                          "examples"
+                                          "comments",
+                                          "copied",
+                                          "medianWords",
+                                          "short",
+                                          "emoji",
+                                          "onlyEmoji",
+                                          "exclaim",
+                                          "question",
+                                          "fullStop",
+                                          "lowerStart",
+                                          "said",
+                                          "words",
+                                          "brochure",
+                                          "patterns",
+                                          "kinds"
                                         ],
                                         "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "null"
                                       }
-                                    }
+                                    ]
                                   },
-                                  "required": [
-                                    "comments",
-                                    "copied",
-                                    "medianWords",
-                                    "short",
-                                    "emoji",
-                                    "onlyEmoji",
-                                    "exclaim",
-                                    "question",
-                                    "fullStop",
-                                    "lowerStart",
-                                    "said",
-                                    "words",
-                                    "brochure",
-                                    "patterns",
-                                    "kinds"
-                                  ],
-                                  "additionalProperties": false
+                                  "guide": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
                                 },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "guide": {
-                              "type": [
-                                "string",
-                                "null"
-                              ]
-                            }
+                                "required": [
+                                  "id",
+                                  "platform",
+                                  "state",
+                                  "mine",
+                                  "startedAt",
+                                  "endsAt",
+                                  "target",
+                                  "days",
+                                  "kept",
+                                  "dropped",
+                                  "posts",
+                                  "findings",
+                                  "guide"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           },
-                          "required": [
-                            "id",
-                            "platform",
-                            "state",
-                            "mine",
-                            "startedAt",
-                            "endsAt",
-                            "target",
-                            "days",
-                            "kept",
-                            "dropped",
-                            "posts",
-                            "findings",
-                            "guide"
-                          ],
-                          "additionalProperties": false
+                          "inUse": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "guide": {
+                                    "type": "string"
+                                  },
+                                  "comments": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "usedAt": {
+                                    "type": "string"
+                                  },
+                                  "thisOne": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "guide",
+                                  "comments",
+                                  "usedAt",
+                                  "thisOne"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
                         },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "inUse": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "platform": {
-                              "type": "string",
-                              "enum": [
-                                "instagram"
-                              ]
-                            },
-                            "guide": {
-                              "type": "string"
-                            },
-                            "comments": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "usedAt": {
-                              "type": "string"
-                            },
-                            "thisOne": {
-                              "type": "boolean"
-                            }
-                          },
-                          "required": [
-                            "platform",
-                            "guide",
-                            "comments",
-                            "usedAt",
-                            "thisOne"
-                          ],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                        "required": [
+                          "platform",
+                          "research",
+                          "inUse"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
-                    "research",
-                    "inUse"
+                    "networks"
                   ],
                   "additionalProperties": false
                 }
@@ -117815,7 +117886,7 @@
     "/v1/commands/outreach.comment_research.use": {
       "post": {
         "operationId": "command_outreach_comment_research_use",
-        "summary": "HandsFreeOS staff only: put a finished comment research’s guide in every business’s Instagram comments (how real comments sound: their length, words and punctuation), in place of the guide in use; or take the guide in use out again.",
+        "summary": "HandsFreeOS staff only: put a finished comment research’s guide in every business’s comments on its network (how real comments sound there: their length, words and punctuation), in place of the guide in use on that network; or take the guide in use there out again.",
         "tags": [
           "commands"
         ],
@@ -117858,346 +117929,376 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "research": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "id": {
-                              "type": "string",
-                              "format": "uuid",
-                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                            },
-                            "platform": {
-                              "type": "string",
-                              "enum": [
-                                "instagram"
-                              ]
-                            },
-                            "state": {
-                              "type": "string",
-                              "enum": [
-                                "reading",
-                                "summing",
-                                "done",
-                                "stopped"
-                              ]
-                            },
-                            "mine": {
-                              "type": "boolean"
-                            },
-                            "startedAt": {
-                              "type": "string"
-                            },
-                            "endsAt": {
-                              "type": "string"
-                            },
-                            "target": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "days": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "kept": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "dropped": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "posts": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "findings": {
-                              "anyOf": [
-                                {
-                                  "type": "object",
-                                  "properties": {
-                                    "comments": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 9007199254740991
-                                    },
-                                    "copied": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 9007199254740991
-                                    },
-                                    "medianWords": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 9007199254740991
-                                    },
-                                    "short": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "emoji": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "onlyEmoji": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "exclaim": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "question": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "fullStop": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "lowerStart": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "said": {
-                                      "maxItems": 15,
-                                      "type": "array",
-                                      "items": {
+                    "networks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "platform": {
+                            "type": "string",
+                            "enum": [
+                              "instagram",
+                              "facebook",
+                              "linkedin",
+                              "alignable",
+                              "threads",
+                              "x"
+                            ]
+                          },
+                          "research": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "platform": {
+                                    "type": "string",
+                                    "enum": [
+                                      "instagram",
+                                      "facebook",
+                                      "linkedin",
+                                      "alignable",
+                                      "threads",
+                                      "x"
+                                    ]
+                                  },
+                                  "state": {
+                                    "type": "string",
+                                    "enum": [
+                                      "reading",
+                                      "summing",
+                                      "done",
+                                      "stopped"
+                                    ]
+                                  },
+                                  "mine": {
+                                    "type": "boolean"
+                                  },
+                                  "startedAt": {
+                                    "type": "string"
+                                  },
+                                  "endsAt": {
+                                    "type": "string"
+                                  },
+                                  "target": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "days": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "kept": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "dropped": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "posts": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "findings": {
+                                    "anyOf": [
+                                      {
                                         "type": "object",
                                         "properties": {
+                                          "comments": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "copied": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "medianWords": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "short": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "emoji": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "onlyEmoji": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "exclaim": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "question": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "fullStop": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "lowerStart": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "said": {
+                                            "maxItems": 15,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "object",
+                                              "properties": {
+                                                "words": {
+                                                  "type": "string",
+                                                  "maxLength": 80
+                                                },
+                                                "seen": {
+                                                  "type": "integer",
+                                                  "minimum": 1,
+                                                  "maximum": 9007199254740991
+                                                }
+                                              },
+                                              "required": [
+                                                "words",
+                                                "seen"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          },
                                           "words": {
-                                            "type": "string",
-                                            "maxLength": 80
+                                            "maxItems": 30,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "object",
+                                              "properties": {
+                                                "word": {
+                                                  "type": "string",
+                                                  "maxLength": 40
+                                                },
+                                                "in": {
+                                                  "type": "integer",
+                                                  "minimum": 0,
+                                                  "maximum": 9007199254740991
+                                                }
+                                              },
+                                              "required": [
+                                                "word",
+                                                "in"
+                                              ],
+                                              "additionalProperties": false
+                                            }
                                           },
-                                          "seen": {
-                                            "type": "integer",
-                                            "minimum": 1,
-                                            "maximum": 9007199254740991
-                                          }
-                                        },
-                                        "required": [
-                                          "words",
-                                          "seen"
-                                        ],
-                                        "additionalProperties": false
-                                      }
-                                    },
-                                    "words": {
-                                      "maxItems": 30,
-                                      "type": "array",
-                                      "items": {
-                                        "type": "object",
-                                        "properties": {
-                                          "word": {
-                                            "type": "string",
-                                            "maxLength": 40
+                                          "brochure": {
+                                            "maxItems": 30,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "object",
+                                              "properties": {
+                                                "word": {
+                                                  "type": "string",
+                                                  "maxLength": 40
+                                                },
+                                                "in": {
+                                                  "type": "integer",
+                                                  "minimum": 0,
+                                                  "maximum": 9007199254740991
+                                                }
+                                              },
+                                              "required": [
+                                                "word",
+                                                "in"
+                                              ],
+                                              "additionalProperties": false
+                                            }
                                           },
-                                          "in": {
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 9007199254740991
-                                          }
-                                        },
-                                        "required": [
-                                          "word",
-                                          "in"
-                                        ],
-                                        "additionalProperties": false
-                                      }
-                                    },
-                                    "brochure": {
-                                      "maxItems": 30,
-                                      "type": "array",
-                                      "items": {
-                                        "type": "object",
-                                        "properties": {
-                                          "word": {
-                                            "type": "string",
-                                            "maxLength": 40
-                                          },
-                                          "in": {
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 9007199254740991
-                                          }
-                                        },
-                                        "required": [
-                                          "word",
-                                          "in"
-                                        ],
-                                        "additionalProperties": false
-                                      }
-                                    },
-                                    "patterns": {
-                                      "maxItems": 8,
-                                      "type": "array",
-                                      "items": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "maxLength": 200
-                                      }
-                                    },
-                                    "kinds": {
-                                      "maxItems": 17,
-                                      "type": "array",
-                                      "items": {
-                                        "type": "object",
-                                        "properties": {
-                                          "topic": {
-                                            "type": "string",
-                                            "enum": [
-                                              "food",
-                                              "fitness",
-                                              "travel",
-                                              "pets",
-                                              "family",
-                                              "cars",
-                                              "sports",
-                                              "home",
-                                              "business",
-                                              "homes",
-                                              "style",
-                                              "outdoors",
-                                              "music",
-                                              "funny",
-                                              "big_days",
-                                              "community",
-                                              "trades"
-                                            ]
-                                          },
-                                          "how": {
-                                            "type": "string",
-                                            "maxLength": 200
-                                          },
-                                          "examples": {
-                                            "maxItems": 4,
+                                          "patterns": {
+                                            "maxItems": 8,
                                             "type": "array",
                                             "items": {
                                               "type": "string",
                                               "minLength": 1,
-                                              "maxLength": 80
+                                              "maxLength": 200
+                                            }
+                                          },
+                                          "kinds": {
+                                            "maxItems": 25,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "object",
+                                              "properties": {
+                                                "topic": {
+                                                  "type": "string",
+                                                  "enum": [
+                                                    "food",
+                                                    "fitness",
+                                                    "travel",
+                                                    "pets",
+                                                    "family",
+                                                    "cars",
+                                                    "sports",
+                                                    "home",
+                                                    "business",
+                                                    "homes",
+                                                    "style",
+                                                    "outdoors",
+                                                    "music",
+                                                    "funny",
+                                                    "big_days",
+                                                    "community",
+                                                    "trades",
+                                                    "new_jobs",
+                                                    "wins",
+                                                    "advice",
+                                                    "hiring",
+                                                    "events",
+                                                    "asking",
+                                                    "town",
+                                                    "groups"
+                                                  ]
+                                                },
+                                                "how": {
+                                                  "type": "string",
+                                                  "maxLength": 200
+                                                },
+                                                "examples": {
+                                                  "maxItems": 4,
+                                                  "type": "array",
+                                                  "items": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 80
+                                                  }
+                                                }
+                                              },
+                                              "required": [
+                                                "topic",
+                                                "how",
+                                                "examples"
+                                              ],
+                                              "additionalProperties": false
                                             }
                                           }
                                         },
                                         "required": [
-                                          "topic",
-                                          "how",
-                                          "examples"
+                                          "comments",
+                                          "copied",
+                                          "medianWords",
+                                          "short",
+                                          "emoji",
+                                          "onlyEmoji",
+                                          "exclaim",
+                                          "question",
+                                          "fullStop",
+                                          "lowerStart",
+                                          "said",
+                                          "words",
+                                          "brochure",
+                                          "patterns",
+                                          "kinds"
                                         ],
                                         "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "null"
                                       }
-                                    }
+                                    ]
                                   },
-                                  "required": [
-                                    "comments",
-                                    "copied",
-                                    "medianWords",
-                                    "short",
-                                    "emoji",
-                                    "onlyEmoji",
-                                    "exclaim",
-                                    "question",
-                                    "fullStop",
-                                    "lowerStart",
-                                    "said",
-                                    "words",
-                                    "brochure",
-                                    "patterns",
-                                    "kinds"
-                                  ],
-                                  "additionalProperties": false
+                                  "guide": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
                                 },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "guide": {
-                              "type": [
-                                "string",
-                                "null"
-                              ]
-                            }
+                                "required": [
+                                  "id",
+                                  "platform",
+                                  "state",
+                                  "mine",
+                                  "startedAt",
+                                  "endsAt",
+                                  "target",
+                                  "days",
+                                  "kept",
+                                  "dropped",
+                                  "posts",
+                                  "findings",
+                                  "guide"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           },
-                          "required": [
-                            "id",
-                            "platform",
-                            "state",
-                            "mine",
-                            "startedAt",
-                            "endsAt",
-                            "target",
-                            "days",
-                            "kept",
-                            "dropped",
-                            "posts",
-                            "findings",
-                            "guide"
-                          ],
-                          "additionalProperties": false
+                          "inUse": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "guide": {
+                                    "type": "string"
+                                  },
+                                  "comments": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "usedAt": {
+                                    "type": "string"
+                                  },
+                                  "thisOne": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "guide",
+                                  "comments",
+                                  "usedAt",
+                                  "thisOne"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
                         },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "inUse": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "platform": {
-                              "type": "string",
-                              "enum": [
-                                "instagram"
-                              ]
-                            },
-                            "guide": {
-                              "type": "string"
-                            },
-                            "comments": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "usedAt": {
-                              "type": "string"
-                            },
-                            "thisOne": {
-                              "type": "boolean"
-                            }
-                          },
-                          "required": [
-                            "platform",
-                            "guide",
-                            "comments",
-                            "usedAt",
-                            "thisOne"
-                          ],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                        "required": [
+                          "platform",
+                          "research",
+                          "inUse"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
-                    "research",
-                    "inUse"
+                    "networks"
                   ],
                   "additionalProperties": false
                 }
@@ -118210,7 +118311,7 @@
     "/v1/commands/outreach.comment_research.save": {
       "post": {
         "operationId": "command_outreach_comment_research_save",
-        "summary": "A hashtag’s posts the person’s computer read for the comment research they started, each with the comments it showed. Only a comment’s words are kept, with the kind of post: nobody’s name, no link, and nothing that reads like a bot’s or an advert’s. Once enough are kept, the AI sums up how they’re written.",
+        "summary": "A search’s posts (a hashtag, search words or an Alignable place) the person’s computer read for the comment research they started, each with the comments it showed. Only a comment’s words are kept, with the kind of post: nobody’s name, no link, and nothing that reads like a bot’s or an advert’s. Once enough are kept, the AI sums up how they’re written.",
         "tags": [
           "commands"
         ],
@@ -118233,8 +118334,7 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "tag": {
-                    "type": "string",
-                    "pattern": "^[a-z0-9_]{2,40}$"
+                    "type": "string"
                   },
                   "posts": {
                     "maxItems": 10,
@@ -255717,7 +255817,7 @@
     "/v1/queries/outreach.comment_research.get": {
       "post": {
         "operationId": "query_outreach_comment_research_get",
-        "summary": "HandsFreeOS staff only: the newest comment research run from this business (where it stands, how many real comments it kept and left out, and what it found), and the comment guide every business’s Instagram comments are written with now, if one is in use.",
+        "summary": "HandsFreeOS staff only: on each network (Instagram, Facebook, LinkedIn, Alignable, Threads and X), the newest comment research run from this business (where it stands, how many real comments it kept and left out, and what it found), and the comment guide every business’s comments there are written with now, if one is in use.",
         "tags": [
           "queries"
         ],
@@ -255750,346 +255850,376 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "research": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "id": {
-                              "type": "string",
-                              "format": "uuid",
-                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                            },
-                            "platform": {
-                              "type": "string",
-                              "enum": [
-                                "instagram"
-                              ]
-                            },
-                            "state": {
-                              "type": "string",
-                              "enum": [
-                                "reading",
-                                "summing",
-                                "done",
-                                "stopped"
-                              ]
-                            },
-                            "mine": {
-                              "type": "boolean"
-                            },
-                            "startedAt": {
-                              "type": "string"
-                            },
-                            "endsAt": {
-                              "type": "string"
-                            },
-                            "target": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "days": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "kept": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "dropped": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "posts": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "findings": {
-                              "anyOf": [
-                                {
-                                  "type": "object",
-                                  "properties": {
-                                    "comments": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 9007199254740991
-                                    },
-                                    "copied": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 9007199254740991
-                                    },
-                                    "medianWords": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 9007199254740991
-                                    },
-                                    "short": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "emoji": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "onlyEmoji": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "exclaim": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "question": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "fullStop": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "lowerStart": {
-                                      "type": "integer",
-                                      "minimum": 0,
-                                      "maximum": 100
-                                    },
-                                    "said": {
-                                      "maxItems": 15,
-                                      "type": "array",
-                                      "items": {
+                    "networks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "platform": {
+                            "type": "string",
+                            "enum": [
+                              "instagram",
+                              "facebook",
+                              "linkedin",
+                              "alignable",
+                              "threads",
+                              "x"
+                            ]
+                          },
+                          "research": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "platform": {
+                                    "type": "string",
+                                    "enum": [
+                                      "instagram",
+                                      "facebook",
+                                      "linkedin",
+                                      "alignable",
+                                      "threads",
+                                      "x"
+                                    ]
+                                  },
+                                  "state": {
+                                    "type": "string",
+                                    "enum": [
+                                      "reading",
+                                      "summing",
+                                      "done",
+                                      "stopped"
+                                    ]
+                                  },
+                                  "mine": {
+                                    "type": "boolean"
+                                  },
+                                  "startedAt": {
+                                    "type": "string"
+                                  },
+                                  "endsAt": {
+                                    "type": "string"
+                                  },
+                                  "target": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "days": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "kept": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "dropped": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "posts": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "findings": {
+                                    "anyOf": [
+                                      {
                                         "type": "object",
                                         "properties": {
+                                          "comments": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "copied": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "medianWords": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "short": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "emoji": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "onlyEmoji": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "exclaim": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "question": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "fullStop": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "lowerStart": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100
+                                          },
+                                          "said": {
+                                            "maxItems": 15,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "object",
+                                              "properties": {
+                                                "words": {
+                                                  "type": "string",
+                                                  "maxLength": 80
+                                                },
+                                                "seen": {
+                                                  "type": "integer",
+                                                  "minimum": 1,
+                                                  "maximum": 9007199254740991
+                                                }
+                                              },
+                                              "required": [
+                                                "words",
+                                                "seen"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          },
                                           "words": {
-                                            "type": "string",
-                                            "maxLength": 80
+                                            "maxItems": 30,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "object",
+                                              "properties": {
+                                                "word": {
+                                                  "type": "string",
+                                                  "maxLength": 40
+                                                },
+                                                "in": {
+                                                  "type": "integer",
+                                                  "minimum": 0,
+                                                  "maximum": 9007199254740991
+                                                }
+                                              },
+                                              "required": [
+                                                "word",
+                                                "in"
+                                              ],
+                                              "additionalProperties": false
+                                            }
                                           },
-                                          "seen": {
-                                            "type": "integer",
-                                            "minimum": 1,
-                                            "maximum": 9007199254740991
-                                          }
-                                        },
-                                        "required": [
-                                          "words",
-                                          "seen"
-                                        ],
-                                        "additionalProperties": false
-                                      }
-                                    },
-                                    "words": {
-                                      "maxItems": 30,
-                                      "type": "array",
-                                      "items": {
-                                        "type": "object",
-                                        "properties": {
-                                          "word": {
-                                            "type": "string",
-                                            "maxLength": 40
+                                          "brochure": {
+                                            "maxItems": 30,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "object",
+                                              "properties": {
+                                                "word": {
+                                                  "type": "string",
+                                                  "maxLength": 40
+                                                },
+                                                "in": {
+                                                  "type": "integer",
+                                                  "minimum": 0,
+                                                  "maximum": 9007199254740991
+                                                }
+                                              },
+                                              "required": [
+                                                "word",
+                                                "in"
+                                              ],
+                                              "additionalProperties": false
+                                            }
                                           },
-                                          "in": {
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 9007199254740991
-                                          }
-                                        },
-                                        "required": [
-                                          "word",
-                                          "in"
-                                        ],
-                                        "additionalProperties": false
-                                      }
-                                    },
-                                    "brochure": {
-                                      "maxItems": 30,
-                                      "type": "array",
-                                      "items": {
-                                        "type": "object",
-                                        "properties": {
-                                          "word": {
-                                            "type": "string",
-                                            "maxLength": 40
-                                          },
-                                          "in": {
-                                            "type": "integer",
-                                            "minimum": 0,
-                                            "maximum": 9007199254740991
-                                          }
-                                        },
-                                        "required": [
-                                          "word",
-                                          "in"
-                                        ],
-                                        "additionalProperties": false
-                                      }
-                                    },
-                                    "patterns": {
-                                      "maxItems": 8,
-                                      "type": "array",
-                                      "items": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "maxLength": 200
-                                      }
-                                    },
-                                    "kinds": {
-                                      "maxItems": 17,
-                                      "type": "array",
-                                      "items": {
-                                        "type": "object",
-                                        "properties": {
-                                          "topic": {
-                                            "type": "string",
-                                            "enum": [
-                                              "food",
-                                              "fitness",
-                                              "travel",
-                                              "pets",
-                                              "family",
-                                              "cars",
-                                              "sports",
-                                              "home",
-                                              "business",
-                                              "homes",
-                                              "style",
-                                              "outdoors",
-                                              "music",
-                                              "funny",
-                                              "big_days",
-                                              "community",
-                                              "trades"
-                                            ]
-                                          },
-                                          "how": {
-                                            "type": "string",
-                                            "maxLength": 200
-                                          },
-                                          "examples": {
-                                            "maxItems": 4,
+                                          "patterns": {
+                                            "maxItems": 8,
                                             "type": "array",
                                             "items": {
                                               "type": "string",
                                               "minLength": 1,
-                                              "maxLength": 80
+                                              "maxLength": 200
+                                            }
+                                          },
+                                          "kinds": {
+                                            "maxItems": 25,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "object",
+                                              "properties": {
+                                                "topic": {
+                                                  "type": "string",
+                                                  "enum": [
+                                                    "food",
+                                                    "fitness",
+                                                    "travel",
+                                                    "pets",
+                                                    "family",
+                                                    "cars",
+                                                    "sports",
+                                                    "home",
+                                                    "business",
+                                                    "homes",
+                                                    "style",
+                                                    "outdoors",
+                                                    "music",
+                                                    "funny",
+                                                    "big_days",
+                                                    "community",
+                                                    "trades",
+                                                    "new_jobs",
+                                                    "wins",
+                                                    "advice",
+                                                    "hiring",
+                                                    "events",
+                                                    "asking",
+                                                    "town",
+                                                    "groups"
+                                                  ]
+                                                },
+                                                "how": {
+                                                  "type": "string",
+                                                  "maxLength": 200
+                                                },
+                                                "examples": {
+                                                  "maxItems": 4,
+                                                  "type": "array",
+                                                  "items": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 80
+                                                  }
+                                                }
+                                              },
+                                              "required": [
+                                                "topic",
+                                                "how",
+                                                "examples"
+                                              ],
+                                              "additionalProperties": false
                                             }
                                           }
                                         },
                                         "required": [
-                                          "topic",
-                                          "how",
-                                          "examples"
+                                          "comments",
+                                          "copied",
+                                          "medianWords",
+                                          "short",
+                                          "emoji",
+                                          "onlyEmoji",
+                                          "exclaim",
+                                          "question",
+                                          "fullStop",
+                                          "lowerStart",
+                                          "said",
+                                          "words",
+                                          "brochure",
+                                          "patterns",
+                                          "kinds"
                                         ],
                                         "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "null"
                                       }
-                                    }
+                                    ]
                                   },
-                                  "required": [
-                                    "comments",
-                                    "copied",
-                                    "medianWords",
-                                    "short",
-                                    "emoji",
-                                    "onlyEmoji",
-                                    "exclaim",
-                                    "question",
-                                    "fullStop",
-                                    "lowerStart",
-                                    "said",
-                                    "words",
-                                    "brochure",
-                                    "patterns",
-                                    "kinds"
-                                  ],
-                                  "additionalProperties": false
+                                  "guide": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
                                 },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "guide": {
-                              "type": [
-                                "string",
-                                "null"
-                              ]
-                            }
+                                "required": [
+                                  "id",
+                                  "platform",
+                                  "state",
+                                  "mine",
+                                  "startedAt",
+                                  "endsAt",
+                                  "target",
+                                  "days",
+                                  "kept",
+                                  "dropped",
+                                  "posts",
+                                  "findings",
+                                  "guide"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           },
-                          "required": [
-                            "id",
-                            "platform",
-                            "state",
-                            "mine",
-                            "startedAt",
-                            "endsAt",
-                            "target",
-                            "days",
-                            "kept",
-                            "dropped",
-                            "posts",
-                            "findings",
-                            "guide"
-                          ],
-                          "additionalProperties": false
+                          "inUse": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "guide": {
+                                    "type": "string"
+                                  },
+                                  "comments": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "usedAt": {
+                                    "type": "string"
+                                  },
+                                  "thisOne": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "guide",
+                                  "comments",
+                                  "usedAt",
+                                  "thisOne"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
                         },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "inUse": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "platform": {
-                              "type": "string",
-                              "enum": [
-                                "instagram"
-                              ]
-                            },
-                            "guide": {
-                              "type": "string"
-                            },
-                            "comments": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "usedAt": {
-                              "type": "string"
-                            },
-                            "thisOne": {
-                              "type": "boolean"
-                            }
-                          },
-                          "required": [
-                            "platform",
-                            "guide",
-                            "comments",
-                            "usedAt",
-                            "thisOne"
-                          ],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                        "required": [
+                          "platform",
+                          "research",
+                          "inUse"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
-                    "research",
-                    "inUse"
+                    "networks"
                   ],
                   "additionalProperties": false
                 }
@@ -256102,7 +256232,7 @@
     "/v1/queries/outreach.comment_research.next": {
       "post": {
         "operationId": "query_outreach_comment_research_next",
-        "summary": "What the person’s computer reads next for the comment research they started, if they started one: the next hashtags (none once today’s share of the comments is read, so it spreads over its days). Nothing for anyone who didn’t start one.",
+        "summary": "What the person’s computer reads next on a network for the comment research they started there, if they started one: the next hashtags or search words (none once today’s share of the comments is read, so it spreads over its days). Nothing for anyone who didn’t start one.",
         "tags": [
           "queries"
         ],
@@ -256123,7 +256253,12 @@
                     "default": "instagram",
                     "type": "string",
                     "enum": [
-                      "instagram"
+                      "instagram",
+                      "facebook",
+                      "linkedin",
+                      "alignable",
+                      "threads",
+                      "x"
                     ]
                   }
                 },
