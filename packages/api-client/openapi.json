@@ -240586,6 +240586,21 @@
                           },
                           "wheels": {
                             "type": "boolean"
+                          },
+                          "networks": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "facebook",
+                                "linkedin",
+                                "instagram",
+                                "alignable",
+                                "threads",
+                                "x"
+                              ]
+                            }
                           }
                         },
                         "required": [
@@ -240594,7 +240609,8 @@
                           "saved",
                           "sending",
                           "replies",
-                          "wheels"
+                          "wheels",
+                          "networks"
                         ],
                         "additionalProperties": false
                       }

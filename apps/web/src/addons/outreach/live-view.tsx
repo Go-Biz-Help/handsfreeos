@@ -13,6 +13,7 @@ import { ASK_WORDS } from '@hfos/core/addons/outreach/asks';
 import { DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
 import {
   COMPUTER_NAME_MOST,
+  isOffline,
   LIVE_REFETCH_SECONDS,
   seenWords,
   SHOWN_STATES,
@@ -21,7 +22,13 @@ import {
   type ShownState,
 } from '@hfos/core/addons/outreach/live';
 import { teamWordsOn } from '@hfos/core/addons/outreach/network-words';
+import {
+  foldAsks,
+  sameSince,
+  SETTINGS_PAGE_WORDS as SP,
+} from '@hfos/core/addons/outreach/settings-pages';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
+import { ChevronDown, Monitor } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
@@ -78,7 +85,8 @@ export function useRefetchWhileShown(everyMs = LIVE_REFETCH_SECONDS * 1000): voi
 
 /**
  * What the person asked their computer to do from the other pages, today's and the open ones, each as it goes: on
- * Settings → Your computer (decision 127).
+ * Settings → Your computer (decision 127). The ones that ended the same way fold under the newest, with how many more
+ * and since when (decision 170, part 2).
  */
 export function AskedCard({
   workspaceId,
@@ -89,16 +97,53 @@ export function AskedCard({
   asks: Asks;
   className?: string;
 }) {
+  const [shown, setShown] = useState<ReadonlySet<string>>(new Set());
+  const now = Date.parse(asks.now);
+  const folded = foldAsks(asks.asks);
   return (
-    <Card className={cn('p-4', className)} data-testid="live-asks">
-      <h3 className="text-[15px] font-semibold">{ASK_WORDS.askedTitle}</h3>
-      {asks.asks.length ? (
+    <Card
+      className={cn('px-[22px] py-5 max-md:px-4 max-md:py-4', className)}
+      data-testid="live-asks"
+    >
+      <h3 className="text-[16px] font-semibold tracking-tight">{SP.asked}</h3>
+      {folded.length ? (
         <ul className="mt-3 grid gap-2">
-          {asks.asks.map((a) => (
-            <li key={a.askId} data-testid="live-ask">
-              <AskLine workspaceId={workspaceId} asks={asks} ask={a} named />
-            </li>
-          ))}
+          {folded.map(({ ask, same }) => {
+            const open = shown.has(ask.askId);
+            return (
+              <li key={ask.askId} className="grid gap-2" data-testid="live-ask">
+                <AskLine workspaceId={workspaceId} asks={asks} ask={ask} named />
+                {same.length ? (
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    onClick={() =>
+                      setShown((s) => {
+                        const next = new Set(s);
+                        if (open) next.delete(ask.askId);
+                        else next.add(ask.askId);
+                        return next;
+                      })
+                    }
+                    className="flex min-h-[40px] items-center justify-between gap-3 rounded-menu bg-card-2 px-3.5 text-left text-[13px] text-text-2 hover:bg-card-3 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+                    data-testid="live-ask-same"
+                  >
+                    {SP.same(same.length, sameSince(same, asks.timezone, now))}
+                    <ChevronDown
+                      className={cn('h-4 w-4 flex-none transition-transform', open && 'rotate-180')}
+                      strokeWidth={1.75}
+                      aria-hidden
+                    />
+                  </button>
+                ) : null}
+                {open
+                  ? same.map((a) => (
+                      <AskLine key={a.askId} workspaceId={workspaceId} asks={asks} ask={a} named />
+                    ))
+                  : null}
+              </li>
+            );
+          })}
         </ul>
       ) : (
         <p className="mt-2 text-[13px] text-text-2" data-testid="live-asks-empty">
@@ -341,6 +386,163 @@ export function TeamCard({ team, className }: { team: LiveTeam; className?: stri
       ) : (
         <EmptyState title={words.noneTitle} dashed className="mt-3" />
       )}
+    </Card>
+  );
+}
+
+/**
+ * Settings → Your computer's first card (decision 170, part 2): the computer that works for the person, whether it's
+ * online, its build and when it was last seen, with Rename and the extension's download; the others standing by fold
+ * under it, to remove.
+ */
+export function ComputerMain({
+  workspaceId,
+  live,
+  download,
+}: {
+  workspaceId: string;
+  live: Live;
+  /** The extension's download and how to install it. */
+  download: React.ReactNode;
+}) {
+  const now = useServerNow(live.now);
+  const { busy, act } = useAct();
+  const [renaming, setRenaming] = useState(false);
+  const [name, setName] = useState('');
+  const [getting, setGetting] = useState(false);
+  const [others, setOthers] = useState(false);
+  const main = live.computers.find((c) => c.working) ?? live.computers[0];
+  if (!main)
+    return (
+      <Card className="space-y-3 p-5 max-md:p-4" data-testid="outreach-computer-main">
+        <div className="flex items-start gap-3">
+          <span className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-[10px] bg-card-2 text-text-2">
+            <Monitor className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <div className="text-[17px] font-semibold">{SP.noComputer}</div>
+            <p className="text-[13.5px] text-text-2">{W.noComputer}</p>
+          </div>
+        </div>
+        {download}
+      </Card>
+    );
+  const signedOut = main.state === 'signed_out';
+  const offline = !signedOut && isOffline(main.lastSeenAt, now);
+  const tone = signedOut || offline ? 'warn' : 'good';
+  const rest = live.computers.filter((c) => c.id !== main.id);
+  return (
+    <Card className="space-y-3.5 p-5 max-md:p-4" data-testid="outreach-computer-main">
+      <div className="flex items-start gap-3">
+        <span
+          className={cn(
+            'inline-flex h-9 w-9 flex-none items-center justify-center rounded-[10px]',
+            tone === 'good'
+              ? 'bg-success-soft text-success-text'
+              : 'bg-warning-soft text-warning-text',
+          )}
+        >
+          <Monitor className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <span className="text-[17px] font-semibold" data-testid="outreach-computer-main-title">
+              {signedOut
+                ? SP.signedOut(main.name)
+                : offline
+                  ? SP.offline(main.name)
+                  : SP.working(main.name)}
+            </span>
+            <Badge
+              variant={tone === 'good' ? 'ok' : 'pending'}
+              data-testid="outreach-computer-main-chip"
+            >
+              {signedOut ? SP.chips.signedOut : offline ? SP.chips.offline : SP.chips.online}
+            </Badge>
+          </div>
+          <p className="text-[13.5px] text-text-2" data-testid="outreach-computer-main-line">
+            {SP.computerLine(main.version, seenWords(main.lastSeenAt, live.timezone, now))}
+          </p>
+        </div>
+      </div>
+      {renaming ? (
+        <form
+          className="flex flex-wrap gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void act(
+              `rename:${main.id}`,
+              async () =>
+                unwrap(
+                  await apiBrowser().POST('/v1/commands/outreach.computer.rename', {
+                    body: { workspaceId, computerId: main.id, name },
+                  }),
+                ),
+              'Renamed.',
+            ).then((ok) => ok && setRenaming(false));
+          }}
+        >
+          <Input
+            className="min-w-0 flex-1"
+            aria-label="Computer name"
+            value={name}
+            maxLength={COMPUTER_NAME_MOST}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+          />
+          <Button type="submit" size="sm" loading={busy === `rename:${main.id}`}>
+            Save
+          </Button>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setRenaming(false)}>
+            Cancel
+          </Button>
+        </form>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              setName(main.name);
+              setRenaming(true);
+            }}
+            data-testid="outreach-computer-main-rename"
+          >
+            {SP.rename}
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            aria-expanded={getting}
+            onClick={() => setGetting((g) => !g)}
+            data-testid="outreach-computer-main-download"
+          >
+            {getting ? SP.hide : SP.download}
+          </Button>
+        </div>
+      )}
+      {getting ? download : null}
+      {rest.length ? (
+        <div className="border-t border-border pt-3">
+          <div className="flex items-center justify-between gap-3 text-[13px] text-text-2">
+            <span>{SP.standingBy(rest.length)}</span>
+            <button
+              type="button"
+              aria-expanded={others}
+              onClick={() => setOthers((o) => !o)}
+              className="font-medium text-accent-text hover:underline"
+              data-testid="outreach-computer-main-others"
+            >
+              {others ? SP.hide : SP.show}
+            </button>
+          </div>
+          {others ? (
+            <div className="mt-3">
+              <ComputersCard workspaceId={workspaceId} live={live} now={now} bare />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </Card>
   );
 }

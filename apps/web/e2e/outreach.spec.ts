@@ -1154,11 +1154,11 @@ test('Settings opens You, LinkedIn’s page, Facebook’s and Team from its menu
 
   // An emoji now and then: saved by itself, and still ticked after a reload.
   const emojiSaved = saved('outreach.automation.save');
-  await page.getByTestId('outreach-my-voice-emoji').check();
+  await page.getByTestId('outreach-my-voice-emoji').click();
   expect((await emojiSaved).ok()).toBe(true);
   await expect(status).toHaveText('Saved. The extension follows it in a few seconds.');
   await page.reload();
-  await expect(page.getByTestId('outreach-my-voice-emoji')).toBeChecked();
+  await expect(page.getByTestId('outreach-my-voice-emoji')).toHaveAttribute('aria-checked', 'true');
 
   // Team, from the menu (decision 129): the owner among their people, what people may pick, the extension's link box
   // with its own Save, and each network's say for everyone.
@@ -1167,9 +1167,14 @@ test('Settings opens You, LinkedIn’s page, Facebook’s and Team from its menu
   await expect(view).toHaveAttribute('data-part', 'team');
   await expect(title).toHaveText('Team');
   await expect(page.getByTestId('outreach-team-person')).toContainText('(you)');
-  await expect(page.getByTestId('outreach-team')).toContainText('For your team');
+  await expect(page.getByTestId('outreach-team')).toContainText('For the whole business');
+  // The extension's link is a row that says where it comes from, opened with Change (decision 170).
+  await expect(page.getByTestId('outreach-team-extension-about')).toHaveText(
+    'HandsFreeOS’s own download.',
+  );
+  await page.getByTestId('outreach-team-extension-toggle').click();
   await expect(page.getByTestId('outreach-extension-link-save')).toBeVisible();
-  await expect(page.getByTestId('outreach-team-facebook')).toContainText('Always allowed');
+  await expect(page.getByTestId('outreach-team-facebook')).toContainText('Always on');
   await expect(page.getByTestId('outreach-rules-network-linkedin')).toHaveAttribute(
     'aria-checked',
     'true',
@@ -1245,6 +1250,8 @@ test('Settings opens You, LinkedIn’s page, Facebook’s and Team from its menu
   await page.getByTestId('outreach-my-networks-linkedin-more-toggle').click();
   await page.getByTestId('outreach-team-moved-linkedin-open').click();
   await expect(page).toHaveURL(new RegExp(`/a/outreach/settings/team$`));
+  // Each network's limits open from its row in the Networks list (decision 170).
+  await page.getByTestId('outreach-team-linkedin-limits').click();
   const invites = page.getByTestId('outreach-rules-linkedin-limit-friend_request');
   await expect(invites).toHaveValue('15');
   const limitSaved = saved('addon.save_settings');
@@ -1252,6 +1259,10 @@ test('Settings opens You, LinkedIn’s page, Facebook’s and Team from its menu
   await invites.blur();
   expect((await limitSaved).ok()).toBe(true);
   await page.reload();
+  await expect(page.getByTestId('outreach-team-linkedin-line')).toContainText(
+    '10 invitations to connect',
+  );
+  await page.getByTestId('outreach-team-linkedin-limits').click();
   await expect(invites).toHaveValue('10');
   await page.getByTestId('outreach-settings-part-linkedin').click();
   await expect(page.getByTestId('outreach-my-networks-linkedin-limits-line')).toContainText(

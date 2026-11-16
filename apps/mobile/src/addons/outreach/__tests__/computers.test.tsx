@@ -44,16 +44,39 @@ describe('Your computers on the phone', () => {
     await render(part([], actions()));
     expect(screen.queryByTestId('live-computers')).toBeNull();
     await render(part([computer(1, { working: true, state: 'working' }), computer(2)], actions()));
-    const rows = screen.getAllByTestId('live-computer-row');
-    expect(rows).toHaveLength(2);
-    expect(within(rows[0]!).getByText('Office laptop 1')).toBeTruthy();
-    expect(within(rows[0]!).getByText(/^Working for you · seen /)).toBeTruthy();
-    expect(within(rows[1]!).getByText(/^Standing by · seen /)).toBeTruthy();
+    // The one that works first, whether it's online, its build and when it was seen (decision 170, part 2).
+    const main = screen.getByTestId('live-computer-main');
+    expect(screen.getByTestId('live-computer-main-title')).toHaveTextContent(
+      'Office laptop 1 is working',
+    );
+    expect(screen.getByTestId('live-computer-main-chip')).toHaveTextContent('Online');
+    expect(screen.getByTestId('live-computer-main-line')).toHaveTextContent(
+      /^Extension 1\.4\.0\. Seen /,
+    );
     // The one that works can't be removed: HandsFreeOS refuses it too.
-    expect(within(rows[0]!).queryByTestId('live-computer-remove')).toBeNull();
-    expect(within(rows[1]!).getByTestId('live-computer-remove')).toBeTruthy();
+    expect(within(main).queryAllByTestId('live-computer-remove')).toHaveLength(0);
+    // The others fold under it.
+    expect(screen.getByText('1 more computer, standing by')).toBeTruthy();
+    expect(screen.queryByTestId('live-computer-row')).toBeNull();
+    await fireEvent.press(screen.getByTestId('live-computers-others'));
+    const rows = screen.getAllByTestId('live-computer-row');
+    expect(rows).toHaveLength(1);
+    expect(within(rows[0]!).getByText(/^Standing by · seen /)).toBeTruthy();
+    expect(within(rows[0]!).getByTestId('live-computer-remove')).toBeTruthy();
     // Only one standing by: no Remove them all.
     expect(screen.queryByTestId('live-computers-clear')).toBeNull();
+  });
+
+  it('says when the one that works is offline or signed out', async () => {
+    const { rerender } = await render(
+      part([computer(1, { working: true, lastSeenAt: '2026-10-20T12:00:00.000Z' })], actions()),
+    );
+    expect(screen.getByTestId('live-computer-main-title')).toHaveTextContent(
+      'Office laptop 1 is offline',
+    );
+    expect(screen.getByTestId('live-computer-main-chip')).toHaveTextContent('Offline');
+    await rerender(part([computer(1, { working: true, state: 'signed_out' })], actions()));
+    expect(screen.getByTestId('live-computer-main-chip')).toHaveTextContent('Signed out');
   });
 
   it('checks a new name as the rename does, and says the rename’s own refusal', async () => {
@@ -87,7 +110,8 @@ describe('Your computers on the phone', () => {
     await render(
       part([computer(1, { working: true }), computer(2), computer(3, { state: 'signed_out' })], a),
     );
-    expect(screen.getAllByTestId('live-computer-row')[2]).toHaveTextContent(/Signed out/);
+    await fireEvent.press(screen.getByTestId('live-computers-others'));
+    expect(screen.getAllByTestId('live-computer-row')[1]).toHaveTextContent(/Signed out/);
     await fireEvent.press(screen.getAllByTestId('live-computer-remove')[0]!);
     await waitFor(() => expect(a.remove).toHaveBeenCalledWith([id(2)], 'Removed Office laptop 2.'));
     await fireEvent.press(screen.getByTestId('live-computers-clear'));
@@ -107,6 +131,7 @@ describe('Your computers on the phone', () => {
     await render(
       part([computer(1, { working: true }), computer(2), computer(3)], actions(), false),
     );
+    await fireEvent.press(screen.getByTestId('live-computers-others'));
     for (const b of screen.getAllByTestId('live-computer-rename')) expect(b).toBeDisabled();
     expect(screen.getAllByTestId('live-computer-remove')[0]).toBeDisabled();
     expect(screen.getByTestId('live-computers-clear')).toBeDisabled();

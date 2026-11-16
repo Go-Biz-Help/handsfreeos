@@ -3,6 +3,7 @@ import { hourWords, MORNING_PUSH_HOURS } from '@hfos/core/addons/outreach/alerts
 import {
   CONTACTS_FROM_CHATS,
   CONTACTS_FROM_CHATS_WORDS,
+  type ContactsFromChats,
   type OutreachSettings,
 } from '@hfos/core/addons/outreach/chat-read';
 import {
@@ -11,13 +12,16 @@ import {
   COUNTRY_UNSURE,
   COUNTRY_UNSURE_WORDS,
   COUNTRY_WORDS,
+  countryRuleWords,
   type CountryRule,
 } from '@hfos/core/addons/outreach/countries';
 import { FOUND_CHECKS } from '@hfos/core/addons/outreach/finds';
+import { SETTINGS_PAGE_WORDS as SP } from '@hfos/core/addons/outreach/settings-pages';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { RadioCard } from '@/components/ui/radio-card';
 import { Switch } from '@/components/ui/switch';
 import { CountryPicker } from './country-picker';
+import { ChangeRow, PickRow } from './network-settings';
 
 /** The weeks a sent friend request can wait before it's suggested for cancelling. */
 const WEEKS = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -35,19 +39,18 @@ export const countriesProblem = (countries: CountryRule): string | null =>
   countries.mode === 'only' && !countries.codes.length ? COUNTRY_WORDS.noneOnly : null;
 
 const select =
-  'mt-1.5 h-8 rounded-control border border-border-strong bg-card px-2 text-[13px] max-md:h-11';
+  'h-8 max-w-full rounded-control border border-border-strong bg-card px-2 text-[13px] max-md:h-11';
 
 /**
- * In Social Outreach → Settings → General, under For your team, for owners and admins (the Add-ons page links there,
- * settings-link.tsx): who from the chats brought in from Facebook goes in Contacts once the AI has read them
- * (docs/outreach.md, decision 3), how long a sent friend request waits before it's suggested for cancelling (decision
- * 12), how many people found by topic the AI checks a day for each person (decision 116), the hour of the morning
- * push to each person's phone, in the business's time zone (decision 22), whether each
- * person gets the weekly report by email (decision 34), which countries it reaches (decision 61), and what happens when
- * a look can't tell where someone lives (decision 86). Anyone already
- * in Contacts gets the tags whatever it says. Each change goes to `onChange`, which saves it (./use-autosave.ts).
+ * Team's For the whole business (Social Outreach → Settings → Team, for owners and admins; the Add-ons page links
+ * there, settings-link.tsx), as rows that say how each stands (decision 170): which countries it reaches (decision
+ * 61) and what happens when a look can't tell where someone lives (decision 86), behind Change; who from the chats
+ * the AI reads goes in Contacts (decision 3), how long a request or follow is warmed up before it's withdrawn
+ * (decision 12), the hour of the morning push to each person's phone, in the business's time zone (decision 22), and
+ * whether each person gets the weekly report by email (decision 34), each a short pick. Anyone already in Contacts
+ * gets the tags whatever it says. Each change goes to `onChange`, which saves it (./use-autosave.ts).
  */
-export function TeamSettingsFields({
+export function BusinessRows({
   value,
   onChange,
 }: {
@@ -57,32 +60,84 @@ export function TeamSettingsFields({
   const { countries } = value;
   const problem = countriesProblem(countries);
   return (
-    <div className="space-y-4" data-testid="outreach-settings">
-      <div className="space-y-2">
-        <div>
-          <h3 className="text-[14px] font-semibold">{W.sections.contacts}</h3>
-          <p className="text-[13px] text-text-2">{W.abouts.contacts}</p>
-        </div>
-        <div role="radiogroup" aria-label="Who goes in Contacts" className="flex flex-col gap-2">
-          {CONTACTS_FROM_CHATS.map((k) => (
-            <RadioCard
-              key={k}
-              selected={value.contactsFromChats === k}
-              onSelect={() => onChange({ contactsFromChats: k })}
-              title={CONTACTS_FROM_CHATS_WORDS[k]}
-              description={k === 'tagged' ? W.usual : undefined}
-              testId={`outreach-contacts-${k}`}
+    <>
+      <ChangeRow
+        title={SP.countries}
+        about={countryRuleWords(countries)}
+        open={problem !== null}
+        testId="outreach-countries-row"
+      >
+        <div data-testid="outreach-countries">
+          <p className="text-[13px] text-text-2">{W.abouts.countries}</p>
+          <div role="radiogroup" aria-label="Which countries" className="mt-2 flex flex-col gap-2">
+            {COUNTRY_MODES.map((m) => (
+              <RadioCard
+                key={m}
+                selected={countries.mode === m}
+                onSelect={() => onChange({ countries: { ...countries, mode: m } })}
+                title={COUNTRY_MODE_WORDS[m]}
+                description={m === 'anywhere' ? W.usual : undefined}
+                testId={`outreach-countries-${m}`}
+              />
+            ))}
+          </div>
+          {countries.mode !== 'anywhere' ? (
+            <CountryPicker
+              codes={countries.codes}
+              onChange={(codes) => onChange({ countries: { ...countries, codes } })}
             />
-          ))}
+          ) : null}
+          {problem ? (
+            <p className="mt-1.5 text-[12.5px] text-danger-text" role="alert">
+              {problem}
+            </p>
+          ) : null}
+          {countries.mode !== 'anywhere' ? (
+            <div className="mt-4" data-testid="outreach-countries-unsure">
+              <h4 className="text-[13.5px] font-semibold">{COUNTRY_UNSURE_WORDS.title}</h4>
+              <p className="text-[13px] text-text-2">{COUNTRY_UNSURE_WORDS.note}</p>
+              <div
+                role="radiogroup"
+                aria-label={COUNTRY_UNSURE_WORDS.title}
+                className="mt-2 flex flex-col gap-2"
+              >
+                {COUNTRY_UNSURE.map((u) => (
+                  <RadioCard
+                    key={u}
+                    selected={countries.unsure === u}
+                    onSelect={() => onChange({ countries: { ...countries, unsure: u } })}
+                    title={COUNTRY_UNSURE_WORDS[u]}
+                    description={u === 'ask' ? W.usual : undefined}
+                    testId={`outreach-countries-unsure-${u}`}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
-      </div>
-      <label className="block border-t border-border pt-4">
-        <span className="text-[14px] font-semibold">{W.sections.cancelAfter}</span>
-        <span className="block text-[13px] text-text-2">{W.abouts.cancelAfter}</span>
+      </ChangeRow>
+      <PickRow title={SP.contacts} about={SP.contactsAbout} testId="outreach-contacts-row">
+        <select
+          className={select}
+          value={value.contactsFromChats}
+          onChange={(e) => onChange({ contactsFromChats: e.target.value as ContactsFromChats })}
+          aria-label={SP.contacts}
+          title={CONTACTS_FROM_CHATS_WORDS[value.contactsFromChats]}
+          data-testid="outreach-contacts"
+        >
+          {CONTACTS_FROM_CHATS.map((k) => (
+            <option key={k} value={k}>
+              {SP.contactsShort[k]}
+            </option>
+          ))}
+        </select>
+      </PickRow>
+      <PickRow title={SP.warmUp} about={SP.warmUpAbout} testId="outreach-cancel-weeks-row">
         <select
           className={select}
           value={value.cancelRequestsAfterWeeks}
           onChange={(e) => onChange({ cancelRequestsAfterWeeks: Number(e.target.value) })}
+          aria-label={SP.warmUp}
           data-testid="outreach-cancel-weeks"
         >
           {WEEKS.map((w) => (
@@ -91,29 +146,8 @@ export function TeamSettingsFields({
             </option>
           ))}
         </select>
-      </label>
-      <label className="block border-t border-border pt-4">
-        <span className="text-[14px] font-semibold">{W.sections.foundChecks}</span>
-        <span className="block text-[13px] text-text-2">{W.abouts.foundChecks}</span>
-        <select
-          className={select}
-          value={value.foundChecksPerDay}
-          onChange={(e) => onChange({ foundChecksPerDay: Number(e.target.value) })}
-          data-testid="outreach-found-checks"
-        >
-          {/* A number set some other way still shows. */}
-          {[...new Set([...FOUND_CHECK_STEPS, value.foundChecksPerDay])]
-            .sort((a, b) => a - b)
-            .map((n) => (
-              <option key={n} value={n}>
-                {W.aDay(n)}
-              </option>
-            ))}
-        </select>
-      </label>
-      <label className="block border-t border-border pt-4">
-        <span className="text-[14px] font-semibold">{W.sections.morning}</span>
-        <span className="block text-[13px] text-text-2">{W.abouts.morning}</span>
+      </PickRow>
+      <PickRow title={SP.morning} about={SP.morningAbout} testId="outreach-morning-row">
         <select
           className={select}
           value={value.morningPushHour === null ? 'off' : String(value.morningPushHour)}
@@ -122,6 +156,7 @@ export function TeamSettingsFields({
               morningPushHour: e.target.value === 'off' ? null : Number(e.target.value),
             })
           }
+          aria-label={SP.morning}
           data-testid="outreach-morning-hour"
         >
           {/* An hour set some other way still shows. */}
@@ -139,68 +174,49 @@ export function TeamSettingsFields({
             ))}
           <option value="off">{W.off}</option>
         </select>
-      </label>
-      <div className="flex items-start justify-between gap-4 border-t border-border pt-4">
-        <div className="min-w-0">
-          <h3 className="text-[14px] font-semibold">{W.sections.weekly}</h3>
-          <p className="text-[13px] text-text-2">{W.abouts.weekly}</p>
-        </div>
+      </PickRow>
+      <PickRow title={SP.weekly} about={SP.weeklyAbout} testId="outreach-weekly-row">
         <Switch
           checked={value.weeklyReport}
           onChange={(weeklyReport) => onChange({ weeklyReport })}
-          label={W.sections.weekly}
+          label={SP.weekly}
           testId="outreach-weekly-report"
         />
-      </div>
-      <div className="border-t border-border pt-4" data-testid="outreach-countries">
-        <h3 className="text-[14px] font-semibold">{W.sections.countries}</h3>
-        <p className="text-[13px] text-text-2">{W.abouts.countries}</p>
-        <div role="radiogroup" aria-label="Which countries" className="mt-2 flex flex-col gap-2">
-          {COUNTRY_MODES.map((m) => (
-            <RadioCard
-              key={m}
-              selected={countries.mode === m}
-              onSelect={() => onChange({ countries: { ...countries, mode: m } })}
-              title={COUNTRY_MODE_WORDS[m]}
-              description={m === 'anywhere' ? W.usual : undefined}
-              testId={`outreach-countries-${m}`}
-            />
+      </PickRow>
+    </>
+  );
+}
+
+/** How many people found by topic the AI checks a day for each person (decision 116): under Team's More settings. */
+export function FoundChecksPick({
+  value,
+  onChange,
+}: {
+  value: TeamSettings;
+  onChange: (change: Partial<TeamSettings>) => void;
+}) {
+  return (
+    <PickRow
+      title={W.sections.foundChecks}
+      about={W.abouts.foundChecks}
+      testId="outreach-found-checks-row"
+    >
+      <select
+        className={select}
+        value={value.foundChecksPerDay}
+        onChange={(e) => onChange({ foundChecksPerDay: Number(e.target.value) })}
+        aria-label={W.sections.foundChecks}
+        data-testid="outreach-found-checks"
+      >
+        {/* A number set some other way still shows. */}
+        {[...new Set([...FOUND_CHECK_STEPS, value.foundChecksPerDay])]
+          .sort((a, b) => a - b)
+          .map((n) => (
+            <option key={n} value={n}>
+              {W.aDay(n)}
+            </option>
           ))}
-        </div>
-        {countries.mode !== 'anywhere' ? (
-          <CountryPicker
-            codes={countries.codes}
-            onChange={(codes) => onChange({ countries: { ...countries, codes } })}
-          />
-        ) : null}
-        {problem ? (
-          <p className="mt-1.5 text-[12.5px] text-danger-text" role="alert">
-            {problem}
-          </p>
-        ) : null}
-        {countries.mode !== 'anywhere' ? (
-          <div className="mt-4" data-testid="outreach-countries-unsure">
-            <h4 className="text-[13.5px] font-semibold">{COUNTRY_UNSURE_WORDS.title}</h4>
-            <p className="text-[13px] text-text-2">{COUNTRY_UNSURE_WORDS.note}</p>
-            <div
-              role="radiogroup"
-              aria-label={COUNTRY_UNSURE_WORDS.title}
-              className="mt-2 flex flex-col gap-2"
-            >
-              {COUNTRY_UNSURE.map((u) => (
-                <RadioCard
-                  key={u}
-                  selected={countries.unsure === u}
-                  onSelect={() => onChange({ countries: { ...countries, unsure: u } })}
-                  title={COUNTRY_UNSURE_WORDS[u]}
-                  description={u === 'ask' ? W.usual : undefined}
-                  testId={`outreach-countries-unsure-${u}`}
-                />
-              ))}
-            </div>
-          </div>
-        ) : null}
-      </div>
-    </div>
+      </select>
+    </PickRow>
   );
 }

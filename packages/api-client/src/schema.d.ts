@@ -88213,6 +88213,8 @@ export interface operations {
                     "application/json": {
                         people: {
                             name: string;
+                            /** @default [] */
+                            networks: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[];
                             /** @enum {string} */
                             replies: "draft" | "simple" | "everything";
                             saved: boolean;
