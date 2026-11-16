@@ -1526,6 +1526,20 @@ minute after posting and before any reading:
   link"). A warning keeps the network's words for the day, for both social add-ons, and says nothing: the read is
   asked for again later, since one handed out is put off half an hour.
 
+### The person's followers on Threads open now (0.141.4)
+
+The owner's Check Threads on 16 Nov 2026 (0.141.3) found Follow and pressed their count of followers, and still no box
+showed. Tried in the owner's own Chrome that night, with their OK: a click on the button around the count opens the
+box of their followers (with Followers and Following tabs, a search box, and a row for each person with Following or
+Follow back), and scrolling it draws more. But Threads wraps that button in two parts whose words are just the same
+("441 followers"), and those come first on the page, so `followersIn` took the outer one and the press landed around the
+button, which opens nothing. From 0.141.4 it takes the innermost part that says it, and presses the button around that.
+
+This mattered more than Check showed: Threads' first day waits on its first save of the person's followers
+(`holdsTheDay`), so since Threads was turned on it had searched, followed and liked nothing, and only tried that save
+again every 15 minutes. Its line no longer tells a signed-in person to check they're signed in: it says the box didn't
+open from their count. And a profile with 0 followers has nobody to save, so its day starts.
+
 ### Following, and the person's followers, on Threads (0.141.2)
 
 The owner's Check Threads on 15 Nov 2026 (0.141.1) said each profile it looked at was followed already, so Follow
