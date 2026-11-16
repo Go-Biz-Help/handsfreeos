@@ -225,8 +225,6 @@ const DAILY_NAMES: Readonly<Record<InstagramDaily, string>> = {
 export const INSTAGRAM_GAP_MS = { least: 3 * 60_000, most: 8 * 60_000 } as const;
 /** While Instagram draws what a press opened. */
 const SETTLE_MS = 2_000;
-/** A gap longer than this closes its window until the next step. */
-const KEEP_WINDOW_MS = 5 * 60_000;
 /** After something went wrong, or Instagram asked them to sign in, it tries again this much later. */
 const AGAIN_MS = 15 * 60_000;
 /** While noting is off, it looks again this often. */
@@ -1695,7 +1693,6 @@ async function workNext(
       random: at.random,
     }),
   );
-  if (gap > KEEP_WINDOW_MS) await closeWindow();
   await goAt(Date.now() + gap);
 }
 
@@ -1780,6 +1777,8 @@ export async function instagramTick(): Promise<void> {
     );
     await goAt(Date.now() + AGAIN_MS).catch(() => undefined);
   } finally {
+    // Its tab closes the moment the go's work is done; the next step opens a fresh one (decision 171).
+    if (tab.tabId !== null) await closeWindow().catch(() => undefined);
     busy = false;
     if (again) {
       again = false;

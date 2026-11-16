@@ -177,8 +177,6 @@ const CHAT_LOOKS = 8;
 /** How long a button is looked for; the box asking to be sure, less. */
 const WAIT_MS = 8_000;
 const WAIT_OPTIONAL_MS = 3_000;
-/** A gap longer than this closes its window until the next step. */
-const KEEP_WINDOW_MS = 5 * 60_000;
 /** After something went wrong, it tries again this much later. */
 const AGAIN_MS = 15 * 60_000;
 /** While noting is off, or nobody has picked a business, it looks again this often. */
@@ -1621,7 +1619,6 @@ async function workNext(
     started: state.started || at.reading,
     random: Math.random(),
   });
-  if (gap > KEEP_WINDOW_MS) await closeWindow();
   await goAt(Date.now() + gap);
 }
 
@@ -1645,6 +1642,8 @@ export async function tick(): Promise<void> {
     );
     await goAt(Date.now() + AGAIN_MS).catch(() => undefined);
   } finally {
+    // Its tab closes the moment the go's work is done; the next step opens a fresh one (decision 171).
+    if (tab.tabId !== null) await closeWindow().catch(() => undefined);
     busy = false;
     // The day stopped, or another computer took over, while that go went: it looks again now, and stops or stands
     // by, rather than at the next step's time.

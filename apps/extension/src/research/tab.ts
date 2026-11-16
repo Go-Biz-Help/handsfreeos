@@ -1,8 +1,9 @@
 /**
- * AI Social Media Content Creator's reading tab (docs/socialcontent.md; ./run.ts): a window of its own beside the
- * person's, on one network's pages (src/tab.ts's `WorkTab`, which refuses any other address), and its hands there
- * (./page.ts, research.js), loaded into it by Chrome's `executeScript` and called the same way, in that script's own
- * world. Social Outreach's script in the tab never hears these.
+ * AI Social Media Content Creator's reading tab (docs/socialcontent.md; ./run.ts): a tab of the work window beside the
+ * person's (src/opened.ts, docs/outreach.md decision 171), on one network's pages (src/tab.ts's `WorkTab`, which
+ * refuses any other address), and its hands there (./page.ts, research.js), loaded into it by Chrome's
+ * `executeScript` and called the same way, in that script's own world. Social Outreach's script in the tab never hears
+ * these.
  */
 import type { Kit } from '../networks';
 import { WorkTab } from '../tab';

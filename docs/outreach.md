@@ -453,10 +453,10 @@ became.
   likes and comments by itself (messages always wait for them), whether it likes a post first, whether it confirms
   requests from people who fit, and their working hours (9 to 5, Monday to Friday, to start, on the business's
   clock). It then goes down their list for today on its own, at random times spread over the hours, or straight away at
-  a person's pace once they press **Start my day**; in a window of its own beside theirs, one step per alarm: it opens
-  the profile or post, checks it's the right person and where things stand, presses **Confirm**, **Like**, **Add
-  friend**, or writes the AI's first comment draft and sends it, checks it worked, and notes it as its own
-  (`touches.auto`). The list only ever holds what today's limits have room for, so it keeps them. It stops for the
+  a person's pace once they press **Start my day**; in a tab of the work window beside theirs (decision 171), one step
+  per alarm: it opens the profile or post, checks it's the right person and where things stand, presses **Confirm**,
+  **Like**, **Add friend**, or writes the AI's first comment draft and sends it, checks it worked, and notes it as its
+  own (`touches.auto`). The list only ever holds what today's limits have room for, so it keeps them. It stops for the
   day on any Facebook warning and on **Stop for today**, and works only while Chrome is open, someone is signed in
   and noting is on. Today marks what it does as **Done on its own**, and the morning push
   leaves those out. Once a day, first, it does the jobs that fill that list
@@ -4506,7 +4506,37 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         the same way (the network, the kind, what about, how it ended and its line) fold under the newest as "The same,
         3 more times since 9:12 AM" (`foldAsks`). One still going never folds, so its Stop and Carry on stay to hand.
 
-171.  **The comment research, and the look at a post, on every network** (Chris, 16 Nov 2026: "i just noticed the
+171.  **One work window, a tab for each network, closed the moment its work is done** (Chris, 16 Nov 2026: "the
+      extension keeps a lot of tabs and windows open, we should have it try to limit it to only what it needs", then
+      "your picks": 1a, 2a and 3; extension **0.147.0**, no migration). With every network and Content Creator on, it
+      could have about 19 windows open: a runner window for each network, kept between steps when the next was under 5
+      minutes away (most networks' steps are 2 to 8 minutes apart, so open all day), another for each ask beside it,
+      one per network for Content Creator, and windows nothing remembered after Chrome restarted the background or a
+      new build loaded.
+      - **One work window** (1a, `src/opened.ts`): every `WorkTab` placed `window` (each runner's, each ask's that
+        isn't in the person's own window, and Content Creator's reads and posts) opens a tab of the one work window,
+        beside the person's as before, opening it when it isn't open (one at a time, so two networks starting at once
+        never open two). Its tab is the one shown while no other network's page is read in front; a read that needs
+        the screen still brings the window in front with its tab (decision 120). The messages window stays as it was
+        (decision 125). So two windows at most.
+      - **Closed the moment its work is done** (2a): a runner's tab closes at the end of each go (`tick`), not after a
+        gap over 5 minutes (`KEEP_WINDOW_MS` is gone); Content Creator's after each thing it does (`researchTick`), not
+        once nothing waits; an ask's at its end, as before. Every step opens its own page anyway. The window closes with
+        its last tab. A runner and an ask on one network still take turns (decision 43), so they share the network's
+        moment rather than one tab: the runner's tab is closed by the time its go ends.
+      - **Nothing left open** (3): closing a work tab closes the tabs and pop-ups its pages opened, and theirs
+        (`closeWorkTab`, by Chrome's opener); a work window left holding only network pages its own opened closes too.
+        A tab of the person's in it keeps it open, and the next work opens a window of its own. Each window and tab is
+        kept in Chrome's storage with a mark for this run of Chrome and the extension (`hfos.run`, in session storage),
+        so a background Chrome stopped while idle finds its work window again. A new run (Chrome started, a new build
+        loaded) first closes what an earlier one left (`ready`, `leftovers`): a window it kept that still holds a tab
+        it opened, or one at the size it opens its own at (1100 wide, up to 900 tall: what builds before 0.147.0 left,
+        the messages window too), only when every tab in it is a network's page and the person isn't in it. A runner
+        takes over a tab only when this run opened it (`isOurs`), never one of the person's that came to have its
+        number after Chrome started again. Tabs in the person's own window (getting their file, cancelling old
+        requests) stay as they were: they may need to finish those.
+
+172.  **The comment research, and the look at a post, on every network** (Chris, 16 Nov 2026: "i just noticed the
       comment research on is on instagram, it should be on all the platforms we have built", then "1a 2a 3b 4a").
       Decision 166 was Instagram's alone; now it's every network built: Instagram, Facebook, LinkedIn, Alignable,
       Threads and X. Extension 0.144.0, migration `20261027028200_comment_research_every_network.sql` (it only widens
@@ -4539,7 +4569,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         which the manifest lists. Facebook's comment on a good post opens the post before the AI writes. Warm-up
         comments are still written by the like picker. Kept nowhere, as before.
 
-172.  **The introduction starts a networking chat** (Chris, 16 Nov 2026: "i want to adjust the introduction method
+173.  **The introduction starts a networking chat** (Chris, 16 Nov 2026: "i want to adjust the introduction method
       where after it introduces, it asks them a question about their business, not trying to pitch just to get them
       to talk, but if there is a clear opportunity to say we can fix an issue they mentioned … then mention, and also
       if it makes sense to ask would they like to schedule demo no pressure i just like people to see whats out there
@@ -4598,7 +4628,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **Next** (the owner's 6a to 9a, its own part): referring the people the owner has really talked with on posts asking
         for a recommendation.
 
-173.  **Refer the people you've really talked with on posts asking for a recommendation** (Chris, 16 Nov 2026: "we
+174.  **Refer the people you've really talked with on posts asking for a recommendation** (Chris, 16 Nov 2026: "we
       need to build the skill of referring these people on relevant posts, only the ones that we've had a decent
       conversation with"). The answers: 6a, 7a, 8a, 9a. It goes with decision 173's "I'll send people your way":
       - **The posts are those already read** (6a; `posts.asks`, `POST_CHECK_SYSTEM`, `checkedPostAsks`): the post check
