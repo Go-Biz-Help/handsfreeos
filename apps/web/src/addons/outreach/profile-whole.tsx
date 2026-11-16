@@ -1212,21 +1212,32 @@ export function ProfilePictures({
 export function ProfilesSideBySide({
   workspaceId,
   networks,
+  bare = false,
 }: {
   workspaceId: string;
   /** The networks the person has on: each shows, read or not yet. */
   networks: readonly Platform[];
+  /** Opened from its row on Settings → You (decision 170): no card or title of its own. */
+  bare?: boolean;
 }) {
   const known = useProfiles(workspaceId, null);
   if (!known) return null;
   const cols = profileMatch(known, networks);
   const off = cols.reduce((n, c) => n + c.off.length, 0);
+  const Box = bare ? 'div' : Card;
   return (
-    <Card className="space-y-4 p-5" data-testid="outreach-profiles-side-by-side">
-      <div>
-        <h2 className="text-[17px] font-semibold tracking-tight">{MATCH_WORDS.title}</h2>
+    <Box
+      className={bare ? 'space-y-4' : 'space-y-4 p-5'}
+      data-testid="outreach-profiles-side-by-side"
+    >
+      {bare ? (
         <p className="text-[13px] text-text-2">{MATCH_WORDS.hint}</p>
-      </div>
+      ) : (
+        <div>
+          <h2 className="text-[17px] font-semibold tracking-tight">{MATCH_WORDS.title}</h2>
+          <p className="text-[13px] text-text-2">{MATCH_WORDS.hint}</p>
+        </div>
+      )}
       {!cols.some((c) => c.checked) ? (
         <p className="text-[13.5px] text-text-2">{MATCH_WORDS.none}</p>
       ) : (
@@ -1311,7 +1322,7 @@ export function ProfilesSideBySide({
           </div>
         </>
       )}
-    </Card>
+    </Box>
   );
 }
 

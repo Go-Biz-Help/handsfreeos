@@ -21,11 +21,14 @@ export function ExtensionLinkForm({
   workspaceId,
   settings,
   onSaved,
+  bare = false,
 }: {
   workspaceId: string;
   /** The business's Social Outreach settings as saved: the others are kept as they are. */
   settings: Readonly<Record<string, unknown>>;
   onSaved?: () => void;
+  /** Opened from its row on Team (decision 170): the row has the title. */
+  bare?: boolean;
 }) {
   // The link as it's read: one stored that stopped passing shows as none.
   const saved = settingsToSave(settings, {}).extensionLink ?? '';
@@ -36,7 +39,7 @@ export function ExtensionLinkForm({
   return (
     <div className="space-y-2" data-testid="outreach-extension-link">
       <div>
-        <h3 className="text-[14px] font-semibold">{L.title}</h3>
+        {bare ? null : <h3 className="text-[14px] font-semibold">{L.title}</h3>}
         <p className="text-[13px] text-text-2">{L.about}</p>
       </div>
       <div>

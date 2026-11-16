@@ -18,6 +18,7 @@ import {
   type AskKind,
 } from '@hfos/core/addons/outreach/asks';
 import { PLATFORMS, WORKING_PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
+import { SETTINGS_PAGE_WORDS as SP } from '@hfos/core/addons/outreach/settings-pages';
 import {
   RUN_NOW_ALL,
   RUN_NOW_ON,
@@ -27,7 +28,7 @@ import {
 } from '@hfos/core/addons/outreach/run-now';
 import { ChevronDown, Play } from 'lucide-react';
 import Link from 'next/link';
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -40,6 +41,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { apiBrowser, unwrap } from '@/lib/api/client';
+import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
 import { AskButton } from './asks';
 import type { Asks } from './types';
@@ -141,35 +143,61 @@ export function RunNowAll({
   const nets = networks
     .map((platform) => ({ platform, kinds: RUN_NOW_ALL.filter((k) => askableOn(platform, k)) }))
     .filter((n) => n.kinds.length);
+  // One network open at a time (decision 170, part 2): the first to start.
+  const [open, setOpen] = useState<Platform | null>(nets[0]?.platform ?? null);
   if (!nets.length) return null;
   return (
-    <Card className="space-y-4 p-5" data-testid="run-now-all">
-      <div>
-        <h3 className="text-[15px] font-semibold">{R.allTitle}</h3>
-        <p className="mt-0.5 text-[13px] text-text-2">{R.allAbout}</p>
+    <Card className="px-[22px] py-5 max-md:px-4 max-md:py-4" data-testid="run-now-all">
+      <div className="mb-2">
+        <h3 className="text-[16px] font-semibold tracking-tight">{SP.runTitle}</h3>
+        <p className="mt-0.5 text-[13px] text-text-2">{SP.runAbout}</p>
       </div>
-      {nets.map(({ platform, kinds }) => (
-        <section
-          key={platform}
-          className="space-y-2 border-t border-border pt-3"
-          data-testid={`run-now-all-${platform}`}
-        >
-          <h4 className="text-[13px] font-semibold">{PLATFORMS[platform]}</h4>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {kinds.map((kind) => (
-              <AskButton
-                key={kind}
-                workspaceId={workspaceId}
-                asks={asks}
-                ask={plain(kind)}
-                platform={platform}
-                label={askNameOn(kind, platform)}
-                testId={`run-now-all-${platform}-${kind}`}
-              />
-            ))}
-          </div>
-        </section>
-      ))}
+      <div className="divide-y divide-border">
+        {nets.map(({ platform, kinds }) => {
+          const shown = open === platform;
+          return (
+            <section key={platform} data-testid={`run-now-all-${platform}`}>
+              <button
+                type="button"
+                aria-expanded={shown}
+                onClick={() => setOpen(shown ? null : platform)}
+                className="flex min-h-[48px] w-full items-center justify-between gap-3 text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+                data-testid={`run-now-all-${platform}-toggle`}
+              >
+                <span className="text-[14px] font-semibold">
+                  {PLATFORMS[platform]}
+                  {shown ? null : (
+                    <span className="font-normal text-text-3"> · {SP.jobs(kinds.length)}</span>
+                  )}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    'h-4 w-4 flex-none text-text-2 transition-transform',
+                    shown && 'rotate-180',
+                  )}
+                  strokeWidth={1.75}
+                  aria-hidden
+                />
+              </button>
+              {shown ? (
+                <div className="grid gap-3 pb-4 sm:grid-cols-2">
+                  {kinds.map((kind) => (
+                    <AskButton
+                      key={kind}
+                      workspaceId={workspaceId}
+                      asks={asks}
+                      ask={plain(kind)}
+                      platform={platform}
+                      label={askNameOn(kind, platform)}
+                      testId={`run-now-all-${platform}-${kind}`}
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </section>
+          );
+        })}
+      </div>
     </Card>
   );
 }

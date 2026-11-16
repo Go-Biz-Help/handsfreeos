@@ -1,9 +1,10 @@
 import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
-import type {
-  AutomationOutput,
-  AutomationPeopleOutput,
-  AutomationSettings,
-  WheelsListOutput,
+import {
+  WHEELS,
+  type AutomationOutput,
+  type AutomationPeopleOutput,
+  type AutomationSettings,
+  type WheelsListOutput,
 } from '@hfos/core/addons/outreach/automation';
 import {
   outreachSettings,
@@ -25,6 +26,7 @@ import {
   SETTINGS_WORDS,
   settingsPartOf,
 } from '@hfos/core/addons/outreach/settings-parts';
+import { SETTINGS_PAGE_WORDS as SP } from '@hfos/core/addons/outreach/settings-pages';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { VIDEO_LIBRARY_WORDS, type PlaybookVideo } from '@hfos/core/addons/outreach/video-library';
 import { useFocusEffect } from 'expo-router';
@@ -53,6 +55,7 @@ import {
   useOutreachContext,
 } from './kit';
 import { SaveLine } from './settings-bits';
+import { RowsCard } from './settings-hands-off';
 import { VideoLibraryPart } from './video-library';
 import { GeneralMine, GeneralTeam } from './settings-general';
 import { NetworkMine, NetworkTeam, type NetworkHere } from './settings-network';
@@ -659,6 +662,23 @@ function PartPage({
                   onEnd={onEndWheels}
                 />
               ) : null}
+              {/* One Networks list (decision 170, part 2): each network's limits open from its row. */}
+              <RowsCard
+                title={SP.networks}
+                about={SP.networksAbout}
+                testID="settings-team-networks"
+              >
+                {PLATFORM_KEYS.map((p) => (
+                  <NetworkTeam
+                    key={p}
+                    platform={p}
+                    business={business}
+                    online={online}
+                    onSave={onSaveBusiness}
+                    onState={report(`settings-team-${p}`)}
+                  />
+                ))}
+              </RowsCard>
               <GeneralTeam
                 business={business}
                 timezone={automation.timezone}
@@ -669,24 +689,6 @@ function PartPage({
                   onCountries ? <CountryListRows got={countries} onOpen={onCountries} /> : null
                 }
               />
-              <Part
-                title={SETTINGS_WORDS.networksTitle}
-                about={SETTINGS_WORDS.networksAbout}
-                testID="settings-team-networks"
-              >
-                <View className="gap-3">
-                  {PLATFORM_KEYS.map((p) => (
-                    <NetworkTeam
-                      key={p}
-                      platform={p}
-                      business={business}
-                      online={online}
-                      onSave={onSaveBusiness}
-                      onState={report(`settings-team-${p}`)}
-                    />
-                  ))}
-                </View>
-              </Part>
             </>
           ) : null
         ) : part === 'general' ? (
@@ -803,7 +805,7 @@ export function YourPeople({
             <View key={p.userId} testID="settings-person">
               <ListRow
                 label={p.userId === myId ? `${p.name} ${SETTINGS_WORDS.you}` : p.name}
-                detail={p.saved ? SETTINGS_WORDS.theirSettings : SETTINGS_WORDS.notSaved}
+                detail={p.saved ? SP.peopleNetworks(p.networks ?? []) : SETTINGS_WORDS.notSaved}
                 onPress={onTheirs ? () => onTheirs(p.userId) : undefined}
                 testID="settings-person-open"
               />
@@ -813,8 +815,16 @@ export function YourPeople({
                   className="flex-row flex-wrap items-center gap-2 px-4 pb-3"
                   testID="settings-person-wheels"
                 >
+                  <Text className="rounded-full bg-warning-soft px-2 py-0.5 text-[12px] font-semibold text-warning-text">
+                    {SP.wheelsChip}
+                  </Text>
                   <Text className="min-w-0 flex-1 text-[13px] text-text-2">
-                    {`${SETTINGS_WORDS.wheelsOn(PLATFORMS[w.platform])} · ${SETTINGS_WORDS.wheelsLine(w.wheels.ok, w.wheels.daysLeft)}`}
+                    {SP.wheelsLine(
+                      PLATFORMS[w.platform],
+                      w.wheels.ok,
+                      WHEELS.ok,
+                      w.wheels.daysLeft,
+                    )}
                   </Text>
                   {onEnd ? (
                     <Button
