@@ -4,8 +4,9 @@
  *
  * Getting texting approved often means asking whoever looks after a business's website to add the form, update the
  * privacy policy and terms, or add the chat. The button emails them, each change in its own text file (core's
- * website-fixes.ts), from HandsFreeOS in the business's name, with replies to whoever sent it. The worker writes the
- * files the dialog shows, from the same code that writes the ones it sends.
+ * website-fixes.ts), from HandsFreeOS's support desk in the business's name, as a ticket (the owner, 2026-11-16): replies
+ * land on that ticket and go to whoever sent it, who gets a copy. The worker writes the files the dialog shows, from the
+ * same code that writes the ones it sends.
  *
  * The switch is for a business whose customers agree on a form: its chat is paused while the carriers look (its code
  * stays on the site and shows nothing) and comes back on by itself once texting is approved.
@@ -266,7 +267,7 @@ function WebPersonDialog({
         }),
       );
       toast.success(
-        `Sent to ${got.sentTo}, with ${got.files.length === 1 ? 'one file' : `${got.files.length} files`}. Replies come to you, and you get a copy.`,
+        `Sent to ${got.sentTo}, with ${got.files.length === 1 ? 'one file' : `${got.files.length} files`}. You get a copy, and replies come to you and to HandsFreeOS support.`,
       );
       onClose();
     } catch (e) {
@@ -286,7 +287,7 @@ function WebPersonDialog({
     <Dialog open onOpenChange={(next) => (next ? null : onClose())}>
       <DialogContent
         title="Email your web person"
-        description="Each change goes in its own text file, so the email stays short. It comes from HandsFreeOS in your business’s name, and replies come to you."
+        description="Each change goes in its own text file, so the email stays short. It comes from HandsFreeOS in your business’s name, and replies come to you and to HandsFreeOS support."
         className="max-h-[calc(100vh-32px)] w-[min(600px,calc(100vw-32px))] overflow-y-auto"
       >
         <div className="mt-4 space-y-4" data-testid="web-person-dialog">

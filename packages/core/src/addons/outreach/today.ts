@@ -67,9 +67,11 @@ import type { MainOfferParts } from '../../main-offer/parts';
 import {
   ANSWER_KEYS,
   CONVERSATION_STEPS,
+  TOOK_KEYS,
   type Answer,
   type ConversationStep,
   type OwnWords,
+  type Took,
 } from './conversation';
 import {
   asHow,
@@ -77,8 +79,10 @@ import {
   FILL_BLANKS,
   FOLLOW_SCRIPT,
   hasBlanks,
+  NETWORKING_ON,
   opensWithIntro,
   playbookSays,
+  type PlaybookNetworking,
   scriptOf,
   startingScript,
   type FullScript,
@@ -822,8 +826,17 @@ export type DraftPlaybook = Pick<
     Pick<
       PlaybookDetails,
       // What it says for each message (decision 164, ./script.ts): left out, the starting words for its goal.
-      // How it starts a chat (decision 168): left out, with the first message's question.
-      'niche' | 'proof' | 'usefulWhat' | 'usefulLink' | 'videoLink' | 'goal' | 'script' | 'opens'
+      // How it starts a chat (decision 168): left out, with the first message's question. What its networking chat
+      // may offer (decision 173): left out, everything, for a playbook that starts with an introduction.
+      | 'niche'
+      | 'proof'
+      | 'usefulWhat'
+      | 'usefulLink'
+      | 'videoLink'
+      | 'goal'
+      | 'script'
+      | 'opens'
+      | 'networking'
     >
   > & {
     readonly name: string;
@@ -873,12 +886,18 @@ export interface DraftConversation {
   /** Follow-ups sent since the step, and how many the playbook sends. */
   readonly sent: number;
   readonly followUps: number;
+  /**
+   * A yes in the networking chat after an introduction was to a networking call (decision 173): the ask for a time and
+   * what follows it are about the call, on the person's own calendar. Left out, not.
+   */
+  readonly call?: boolean;
 }
 
 /**
  * The playbook's introduction in place of the first message (decision 168, the owner, 15 Nov 2026: "thanks for
- * connecting and who we are and what we offer and if they are ever interested to reach out"). `fresh` when they just
- * connected; a friend of a while who was never talked to gets a hello in place of the thanks for connecting.
+ * connecting and who we are and what we offer"), which ends with a question about them to get them talking (decision
+ * 173). `fresh` when they just connected; a friend of a while who was never talked to gets a hello in place of the
+ * thanks for connecting.
  */
 export function introTask(intro: string, fresh: boolean): string {
   return [
@@ -886,7 +905,35 @@ export function introTask(intro: string, fresh: boolean): string {
     fresh
       ? 'They just connected with the owner: they accepted the owner’s request, the owner accepted theirs, or they followed the owner.'
       : 'They’ve been connected with the owner a while without ever talking: in place of thanking them for connecting, say a friendly hello, and keep the rest.',
-    'It says who the owner is and what the business offers, and leaves the door open. Ask nothing unless the playbook’s words do: no question, no ask for a call, no follow-up promised. It’s one message. Never say how the offer works or the price in it, and no link or web address unless the playbook’s words have one.',
+    'It says who the owner is and what the business offers. Ask only what the playbook’s words ask, as one question at most: a question about them, never about the offer, and no ask for a call or a demo. It’s one message. Never say how the offer works or the price in it, and no link or web address unless the playbook’s words have one.',
+  ].join(' ');
+}
+
+/**
+ * A reply in the networking chat after an introduction (decision 173, the owner, 16 Nov 2026: "it should try to have a
+ * networking conversation", "i'm making it about them so they don't feel like they are being pitched"): about them,
+ * with a demo offered once when they name a problem the business fixes, a networking call once when a demo doesn't fit
+ * or they pass, and sending people their way once they say what they do and where, each only while its switch is on.
+ * Opens as every reply does, which the worker's stand-in model reads.
+ */
+export function networkingReplyTask(says: FullScript, on: PlaybookNetworking): string {
+  const offers = [
+    on.demo
+      ? `A demo: only when they name a problem the business really fixes, say in a line that the owner can help with that, then offer it. ${asMessage('the demo offer', says.demoOffer)}`
+      : 'Never offer a demo.',
+    on.call
+      ? `A networking call: when a demo doesn’t fit, or they passed on it, and you’ve gone back and forth a bit, offer to get to know each other on a call. ${asMessage('the networking call offer', says.callOffer)}`
+      : 'Never offer a call.',
+    on.sendPeople
+      ? `Sending people their way: once the chat shows what they do and where they work, say it. ${asMessage('it', says.sendPeople)}`
+      : null,
+  ].filter(Boolean);
+  return [
+    'They wrote last. Read the whole chat first, not only their last message, and write the owner’s reply to where it is now.',
+    'They wrote back after the owner’s introduction, so this is a networking chat: two business owners getting to know each other, not a sales chat. Answer what they said warmly and keep it about them: show real interest in what they shared, and ask one easy question back about them or their work, from what they said or their pages. Never pitch, never push, and never give them a reason to feel sold to.',
+    `What the reply may offer, each once in the whole chat and never more than one in a message: ${offers.join(' ')} Never offer one the chat shows the owner already offered or they already answered. When none fits yet, just keep the chat going.`,
+    `When they ask about the offer (the price, how it works, proof): ${playbookSays(says.question)} Then go back to them. When they said not now: ${playbookSays(says.later)} When they said no: ${playbookSays(says.no)}`,
+    'When the chat has already come to a close (their last message only signs off: thanks, you too, a thumbs up), write one short, warm sign-off, with no question, no offer and no link.',
   ].join(' ');
 }
 
@@ -911,7 +958,18 @@ function taskFor(
   says: FullScript,
   first: string,
   step: ConversationStep | null = null,
+  /** A networking call's yes (decision 173): the ask for a time is for the call. */
+  call = false,
+  /** What the networking chat after an introduction may offer (decision 173). */
+  networking: PlaybookNetworking | null = null,
 ): string {
+  // The networking chat after an introduction (decision 173): a reply about them, and its one nudge.
+  if (kind === 'reply' && step === 'intro' && networking)
+    return networkingReplyTask(says, networking);
+  if (kind === 'follow_up' && step === 'intro')
+    return `The owner introduced themselves and they haven’t written back. Write the owner’s one nudge. ${asHow('the nudge', says.nudge)} It’s the only one: never say you’ll check back, and never repeat the introduction.`;
+  if (kind === 'pitch' && call)
+    return `They said yes to a networking call with the owner: a chance to get to know each other, not a demo. Write the message that asks to set up a time to talk. Answer where the chat left off first, in a line, when it needs it. ${asMessage('the ask', says.callYes)} Never a pitch, a plan, numbers or results.`;
   switch (kind) {
     // Someone the owner hasn't talked with yet (decision 155): just friends, or friends a while without a chat.
     case 'opener':
@@ -1385,7 +1443,17 @@ export function todayDraftPrompt(input: {
           ? taskOn(input.kind, introTask(introWords, input.fresh ?? true), platform, false)
           : taskOn(
               input.kind,
-              taskFor(input.kind, says, first, input.conversation?.step ?? null),
+              taskFor(
+                input.kind,
+                says,
+                first,
+                input.conversation?.step ?? null,
+                input.conversation?.call === true,
+                // The networking chat's switches (decision 173), for a conversation an introduction started.
+                input.conversation?.step === 'intro'
+                  ? { ...NETWORKING_ON, ...(p?.networking ?? {}) }
+                  : null,
+              ),
               platform,
               !!input.post?.group,
             );
@@ -1448,8 +1516,12 @@ export function todayDraftPrompt(input: {
     c && (input.kind === 'follow_up' || input.kind === 'check_in' || input.kind === 'reply')
       ? [
           `Where the conversation is: ${CONVERSATION_STEPS[c.step].toLowerCase()}.`,
-          input.kind === 'follow_up'
+          input.kind === 'follow_up' && c.step !== 'intro'
             ? `This is follow-up ${Math.min(c.sent + 1, c.followUps)} of ${c.followUps}.`
+            : null,
+          // After a networking call's yes (decision 173): what follows it is about the call, never a demo.
+          c.call && c.step === 'link'
+            ? 'The owner asked them for a networking call to get to know each other, not a demo: call it a quick call.'
             : null,
         ]
           .filter(Boolean)
@@ -1561,7 +1633,8 @@ export function todayDraftPrompt(input: {
     `Give ${DRAFTS_FOR[input.kind]} different drafts to pick from.`,
     input.kind === 'reply' ? REPLY_SIMPLE_ASK : null,
     input.kind === 'reply' ? UNANSWERED_ASK : null,
-    ANSWER_ASK,
+    // After an introduction (decision 173), only a yes to a demo or a call is a yes, and it says which.
+    input.kind === 'reply' && c?.step === 'intro' ? ANSWER_AFTER_INTRO_ASK : ANSWER_ASK,
     input.kind === 'comment' && input.post ? COMMENT_ABOUT_ASK : null,
     input.kind === 'comment' && input.post?.shown ? COMMENT_SAW_ASK : null,
     TODAY_DRAFT_ASK,
@@ -1605,12 +1678,23 @@ export const REPLY_SIMPLE_ASK =
 export const ANSWER_ASK =
   'Also say what their last message in the chat answers to the owner’s last message: yes (they’d like more info or the call, sounds good), question (they asked about it: the price, how it works, proof), later (not now, maybe later, busy), no (not interested, no thanks), or none (it isn’t an answer to it, they haven’t written, or there’s no chat).';
 
+/**
+ * What the AI reads in their last message in the networking chat after an introduction (decision 173): a yes only to a
+ * demo or a networking call, offered or asked for, and which it is (`took`). A friendly answer to the owner's question
+ * about them is no yes: the chat goes on.
+ */
+export const ANSWER_AFTER_INTRO_ASK =
+  'Also say what their last message in the chat answers to the owner’s last message: yes only when they said yes to a demo or a call the owner offered, or asked for one themselves; question (they asked about the offer: the price, how it works, proof); later (not now, maybe later, busy) or no (not interested, no thanks), only about a demo or a call; or none (anything else: an answer to the owner’s question about them, small talk, thanks). For a yes, say what it took: demo (a demo of what the business offers) or call (a call to get to know each other); otherwise none.';
+
 const DRAFT_ANSWERS = [...ANSWER_KEYS, 'none'] as const;
+const DRAFT_TOOK = [...TOOK_KEYS, 'none'] as const;
 
 export const TodayDraftAnswer = z.object({
   drafts: z.array(z.string()).max(10),
   simple: z.boolean().default(false),
   answer: z.enum(DRAFT_ANSWERS).catch('none').default('none'),
+  /** For a yes after an introduction (`ANSWER_AFTER_INTRO_ASK`, decision 173): a demo or a networking call. */
+  took: z.enum(DRAFT_TOOK).catch('none').default('none'),
   /** For a reply: what nothing given answers (`UNANSWERED_ASK`), empty when nothing. */
   unanswered: z.string().catch('').default(''),
   /** For a reply: the open time they picked, as the open times list it (./meeting-times.ts `TIME_ASK`), else empty. */
@@ -1630,11 +1714,12 @@ export type TodayDraftAnswer = z.output<typeof TodayDraftAnswer>;
 export const TODAY_DRAFT_SCHEMA: Record<string, unknown> = {
   type: 'object',
   additionalProperties: false,
-  required: ['drafts', 'simple', 'answer', 'unanswered', 'time', 'about', 'saw'],
+  required: ['drafts', 'simple', 'answer', 'took', 'unanswered', 'time', 'about', 'saw'],
   properties: {
     drafts: { type: 'array', items: { type: 'string' } },
     simple: { type: 'boolean' },
     answer: { type: 'string', enum: [...DRAFT_ANSWERS] },
+    took: { type: 'string', enum: [...DRAFT_TOOK] },
     unanswered: { type: 'string' },
     time: { type: 'string' },
     about: { type: 'string' },
@@ -1642,16 +1727,31 @@ export const TODAY_DRAFT_SCHEMA: Record<string, unknown> = {
   },
 };
 
-/** Their answer as the AI read it, for a reply with a chat to read: null when it couldn't tell. */
+/**
+ * Their answer as the AI read it, for a reply with a chat to read: null when it couldn't tell. In the networking chat
+ * after an introduction (decision 173, `step` intro), a yes that took neither a demo nor a call is no answer: the chat
+ * goes on.
+ */
 export function answerOf(
   kind: DraftKind,
-  answer: TodayDraftAnswer,
+  answer: Pick<TodayDraftAnswer, 'answer'> & Partial<Pick<TodayDraftAnswer, 'took'>>,
   recent: readonly DownloadMessage[],
+  step: ConversationStep | null = null,
 ): Answer | null {
   if (kind !== 'reply' || answer.answer === 'none') return null;
   // Only an answer they wrote: with no chat, or the owner's last, there's nothing of theirs to read.
   if (recent.at(-1)?.fromMe !== false) return null;
+  if (answer.answer === 'yes' && step === 'intro' && tookOf(answer, step) === null) return null;
   return answer.answer;
+}
+
+/** What a yes after an introduction took (decision 173): a demo or a networking call; null for any other answer. */
+export function tookOf(
+  answer: Pick<TodayDraftAnswer, 'answer'> & Partial<Pick<TodayDraftAnswer, 'took'>>,
+  step: ConversationStep | null,
+): Took | null {
+  if (step !== 'intro' || answer.answer !== 'yes') return null;
+  return answer.took === 'demo' || answer.took === 'call' ? answer.took : null;
 }
 
 /**

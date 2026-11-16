@@ -159,7 +159,23 @@ describe('the email the files go with', () => {
       '2. Update the privacy policy and terms: privacy-policy-and-terms.txt',
     );
     expect(mail.text).toContain('A note from Chris Lee:\nBy Friday, please.');
-    expect(mail.text).toContain('Your reply goes to Chris Lee (chris@example.com).');
+    expect(mail.text).toContain(
+      'Your reply goes to Chris Lee (chris@example.com) and to the HandsFreeOS team helping Shop Your Solar with this.',
+    );
+  });
+
+  it('with nobody to name, it signs as the business and replies go to HandsFreeOS', () => {
+    const mail = webPersonEmail({
+      business: 'Shop Your Solar',
+      sender: null,
+      files: websiteFixFiles(facts(), ['policy']),
+      note: 'By Friday, please.',
+    });
+    expect(mail.text).toContain('A note from Shop Your Solar:\nBy Friday, please.');
+    expect(mail.text).toContain(
+      'Your reply goes to the HandsFreeOS team helping Shop Your Solar with this.',
+    );
+    expect(mail.text).toMatch(/Thanks,\nShop Your Solar$/);
   });
 
   it('one file reads as one change', () => {

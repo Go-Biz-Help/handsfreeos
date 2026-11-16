@@ -11,7 +11,9 @@ import { loosened } from './loose';
 import {
   FullScriptOut,
   openerAsFirst,
+  NETWORKING_ON,
   PLAYBOOK_OPENS_KEYS,
+  PlaybookNetworking,
   PlaybookScript,
   SCRIPT_LIMITS,
 } from './script';
@@ -422,6 +424,12 @@ export const PlaybookDetails = z
      * a playbook saved before it pitches.
      */
     opens: z.enum(PLAYBOOK_OPENS_KEYS).optional(),
+    /**
+     * What the networking chat after an introduction may offer (decision 173, ./script.ts `PLAYBOOK_NETWORKING`): a
+     * demo, a networking call, sending people their way. Left out of a save, it keeps what's saved; a playbook saved
+     * before it has every one on. Nothing for a playbook that pitches.
+     */
+    networking: PlaybookNetworking.optional(),
     /** How it sounds: "Friendly, one owner to another. No hard sell." */
     tone: words(PLAYBOOK_LIMITS.tone),
     /** A few of the business's own messages, for the AI to sound like. */
@@ -531,6 +539,7 @@ export const blankPlaybook = (): PlaybookDetails => ({
   },
   script: {},
   opens: 'pitch',
+  networking: { ...NETWORKING_ON },
   tone: null,
   samples: [],
   openerStyles: [],
@@ -1015,6 +1024,11 @@ export const PLAYBOOK_SCRIPT_KEYS = ['script'] as const;
  * How it starts a chat (decision 168). No new data version: a playbook saved before has none, and pitches.
  */
 export const PLAYBOOK_OPENS_PART_KEYS = ['opens'] as const;
+/**
+ * What the networking chat after an introduction may offer (decision 173). No new data version: a playbook saved
+ * before has none, and has every switch on.
+ */
+export const PLAYBOOK_NETWORKING_KEYS = ['networking'] as const;
 /** What a save that leaves a part out keeps. */
 export const PLAYBOOK_KEPT_KEYS = [
   ...PLAYBOOK_V3_KEYS,
@@ -1027,6 +1041,7 @@ export const PLAYBOOK_KEPT_KEYS = [
   ...PLAYBOOK_THREADS_X_KEYS,
   ...PLAYBOOK_SCRIPT_KEYS,
   ...PLAYBOOK_OPENS_PART_KEYS,
+  ...PLAYBOOK_NETWORKING_KEYS,
 ] as const;
 
 /**

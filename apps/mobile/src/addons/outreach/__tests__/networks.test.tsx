@@ -1238,7 +1238,10 @@ describe('Each network’s say for everyone, on Team, for owners and admins (dec
     await render(
       <SettingsPartBody part="team" automation={AUTOMATION} {...p} manages business={kept} />,
     );
-    expect(screen.getByText('For your team on LinkedIn')).toBeTruthy();
+    // A row in Team's one Networks list: its most a day for each person, and the team's switch (decision 170, part 2).
+    expect(screen.getByTestId('settings-team-linkedin-line')).toHaveTextContent(
+      /^15 invitations to connect, /,
+    );
     expect(screen.getByTestId('settings-rules-network-linkedin')).toBeChecked();
     await fireEvent.press(screen.getByTestId('settings-rules-network-linkedin'));
     expect(p.onSaveBusiness).toHaveBeenCalledTimes(1);
@@ -1250,6 +1253,10 @@ describe('Each network’s say for everyone, on Team, for owners and admins (dec
     expect(savedOn(p, kept).weeklyReport).toBeUndefined();
     expect(screen.getByTestId('settings-team-linkedin-saved')).toBeTruthy();
     // Not allowed: no limits to set.
+    expect(screen.getByTestId('settings-team-linkedin-line')).toHaveTextContent(
+      'Off for your team',
+    );
+    expect(screen.queryByTestId('settings-team-linkedin-limits')).toBeNull();
     expect(screen.queryByTestId('settings-rules-linkedin-limit-friend_request')).toBeNull();
   });
 
@@ -1259,7 +1266,9 @@ describe('Each network’s say for everyone, on Team, for owners and admins (dec
     await render(
       <SettingsPartBody part="team" automation={AUTOMATION} {...p} manages business={{}} />,
     );
-    // At LinkedIn's starting limit: never past it.
+    // Behind Limits, at LinkedIn's starting limit: never past it.
+    expect(screen.queryByTestId('settings-rules-linkedin-limit-friend_request-up')).toBeNull();
+    await fireEvent.press(screen.getByTestId('settings-team-linkedin-limits'));
     expect(screen.getByTestId('settings-rules-linkedin-limit-friend_request-up')).toBeDisabled();
     expect(
       screen.getByTestId('settings-rules-linkedin-limit-friend_request-value'),
@@ -1279,9 +1288,11 @@ describe('Each network’s say for everyone, on Team, for owners and admins (dec
     await render(
       <SettingsPartBody part="team" automation={AUTOMATION} {...p} manages business={kept} />,
     );
-    expect(screen.getByTestId('settings-rules-network-facebook')).toBeDisabled();
-    expect(screen.getByTestId('settings-rules-network-facebook')).toBeChecked();
-    expect(screen.getByText('Always allowed')).toBeTruthy();
+    expect(screen.queryByTestId('settings-rules-network-facebook')).toBeNull();
+    expect(
+      within(screen.getByTestId('settings-team-facebook')).getByText('Always on'),
+    ).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('settings-team-facebook-limits'));
     await fireEvent.press(screen.getByTestId('settings-rules-facebook-limit-like-down'));
     await act(async () => jest.advanceTimersByTime(SAVE_PAUSE_MS));
     const rules = savedOn(p, kept).rules;

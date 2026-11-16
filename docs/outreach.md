@@ -424,8 +424,12 @@ became.
   both are on every network: one Start reads all six, each with its own guide for its warm-up and topic comments.
 - **An introduction in place of the pitch** (decision 168, `script.ts`, `ops/checks.ts`): a playbook can start with
   an introduction (What it says → How the first message goes): thanks for connecting, who the person is and what the
-  business offers, and to reach out if ever interested. It goes to everyone who connects, and only a monthly check-in
-  follows it.
+  business offers, and a question about them from their page (decision 173). It goes to everyone who connects.
+- **The networking chat after it** (decision 173, `script.ts` `PLAYBOOK_NETWORKING`, `today.ts`
+  `networkingReplyTask`): replies stay about them; one nudge if they stay quiet, then a check-in once a month; a demo
+  offered once when they name a problem the business fixes, a networking call once when a demo doesn't fit (booked on
+  the person's own calendar, the worker's `callLinkFor`), and "I'll send people your way" once, each a switch in the
+  playbook, all on to start.
 - **The demo link** (decision 24, `demos.ts`, `ops/demos.ts`, the worker's `demos.ts`): each person's own link to the
   playbook's booking page for someone they reached (**Copy demo link** on Today), with a
   `ref` naming who sent it to whom and nothing else. A booking page keeps the `ref` on the booking
@@ -4445,8 +4449,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 170.  **Each network's page says what it's really doing, and How hands-off? picks its choices** (Chris, 16 Nov 2026:
       "let’s do this redesign for all of the platforms and the different settings pages", after the mockups of
       Settings → Threads, then "1a 2a 3a"). The owner couldn't find Sending: it was "What it does on its own", greyed
-      under Autopilot, beside long lists. Part 1 (the network pages) built; part 2 brings You, Team, Your computer and
-      the problem lines, repeats folded:
+      under Autopilot, beside long lists. Part 1 (the network pages) and part 2 (You, Team, Your computer and the
+      problem lines, repeats folded) both built; part 2 is app pages only, with no new extension:
       - **A status card at the top** (`network-status.ts`, `networkStatus`), on the web and the phone, the same words
         from one place: **Running** ("Today so far: 3 friend requests and 12 likes."), **Waiting on you** (no
         computer, signed out, Chrome hasn't let it on the network, offline in the working hours, Autopilot's people or
@@ -4480,6 +4484,81 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **"Check you're signed in" only on a sign-in page** (3a, extension 0.142.0): a page that didn't show a menu, a
         profile or a list says what it didn't show and to ask again in a few minutes, or that it tries again on its own;
         only a page that really asked the person to sign in, or sent the window somewhere else, still says to check.
+      - **Settings → You, Team and Your computer** (part 2, `settings-pages.ts`, the web's and the phone's words and
+        rules from one place): each setting a row that says how it stands, with **Change** for the ones that need more
+        room, so the page reads at a glance. **You**: How hands-off, on every network, with each level and the networks
+        at it under it (`handsOffGroups`); How the AI writes as switches; **Working hours** in a few words ("Mon–Fri,
+        9 AM–5 PM", `hoursLine`), opened by Change or by an hours problem; **Alerts** (what waits for you as one pick,
+        the day's numbers and someone accepting as switches); Your profiles (Open) and Set up. **Team**: Your people
+        with the networks each works (`outreach.automation.people` says them, `networks`) and a Training wheels chip;
+        one **Networks** list in place of a card for each network, each row its most a day for each person
+        (`teamLimitsLine`), the team's switch or Always on, and Limits; **What people may pick** (How hands-off they may
+        go, `levelsAllowed`, and Where a new person starts, each behind Change); **For the whole business** as short
+        picks (countries and the extension's link behind Change); and More settings, folded, for people found by topic
+        checked a day. **Your computer**: one card for the computer that works (working, offline or signed out, a chip,
+        the extension's version and when it was seen, Rename, Download the extension), the others standing by folded
+        under it; **Run a job now** folded by network, one open at a time; and **Asked lately**, where asks that ended
+        the same way (the network, the kind, what about, how it ended and its line) fold under the newest as "The same,
+        3 more times since 9:12 AM" (`foldAsks`). One still going never folds, so its Stop and Carry on stay to hand.
+
+171.  **The introduction starts a networking chat** (Chris, 16 Nov 2026: "i want to adjust the introduction method
+      where after it introduces, it asks them a question about their business, not trying to pitch just to get them
+      to talk, but if there is a clear opportunity to say we can fix an issue they mentioned … then mention, and also
+      if it makes sense to ask would they like to schedule demo no pressure i just like people to see whats out there
+      for them", "Basically it should try to have a networking conversation … if I know of anyone in their area (or
+      if they are nationwide) that needs what they do i'll make sure to mention them, and maybe if the time never
+      makes sense to jump on a demo call maybe offer a networking call where i can learn a bit more about them (i'm
+      making it about them so they don't feel like they are being pitched)", "these should be options in the
+      playbook and turn it on for me"). The answers: 1 in Chris's own words, 2a, 3a, 4a, 5 in Chris's own words. Changes decision 168's 2b:
+      - **The introduction ends with a question about them** (Chris's 1: "people like talking about themselves so if
+        there is anything from their profile we can pick up specifically then we should try to do that so it doesn't
+        look like a generic message"; `STARTING_INTRO`, the blank [a question about them]): "… We help [their kind of
+        business] businesses get [what your offer gets them] with [what your offer is]. [a question about them]".
+        `FILL_BLANKS` says it's one easy question about them as a person, from something specific on their pages, in
+        the facts or the chat (a trip, a milestone, a post, how they got started), never about the offer and never a
+        yes-or-no one, and their line of work only when nothing stands out. A playbook with its own introduction keeps
+        it.
+      - **One nudge, then the monthly check-in** (2a; `introSent`, the part **Nudge after the introduction**): a sent
+        introduction starts its conversation one follow-up short of the playbook's, so one nudge goes at the last
+        follow-up's gap (2 days to start), then a check-in once a month. Today lists it as "Introduction sent, no
+        answer yet · one nudge". After a reply it's check-ins only, as before.
+      - **Replies stay about them** (`networkingReplyTask`, for a reply on step `intro`): warm, interested, one easy
+        question back, never a pitch. It may offer, each once in the whole chat and one at most in a message, only
+        while its switch is on: a **demo** (3a: only when they name a problem the business fixes, with a line that the
+        owner can help; part **Offering a demo**, "Would you be open to a quick demo sometime? No pressure, I just like
+        people to see what’s out there for them."), a **networking call** (3a: when a demo doesn't fit or they passed
+        on it, once they've gone back and forth a bit; part **Offering a networking call**, "Would you be up for a
+        quick networking call sometime? I’d love to learn a bit more about you and what you do."), and **sending
+        people their way** (4a: once they've said what they do and where; part **Sending people their way**, "If I
+        come across anyone in [their area] who needs [what they do], I’ll send them your way.", "anywhere" for
+        someone nationwide). A question about the offer is answered from the playbook's words, then back to them.
+      - **Only a yes to a demo or a call is a yes** (`ANSWER_AFTER_INTRO_ASK`, the draft's `took`, `answerOf`,
+        `tookOf`, `outreach.answer.note`'s `took`): a friendly answer to the question about them is no yes. A yes to a
+        demo gets the ask for a time on the playbook's link, as before; a yes to a call gets the part **When they say
+        yes to a call** ("Great! I have [open times], do any of those work? Or grab any time that works for you here:
+        [booking link]") with its own open times.
+      - **The call books on the person's own calendar** (Chris's 5: "use the chris's calendar for the networking call and
+        the demo calendar if it's a demo"; the worker's `callLinkFor`, `follow_ups.call`): the oldest calendar the
+        person owns that's on, public and isn't the playbook's demo page, on the business's booking site. For the
+        owner that's Chris’s calendar, so nothing needed setting up; each teammate's calls go on their own. The link
+        has no demo ref, the follow-up after it and a reply that books a time use that calendar, and a time booked
+        from it never counts as a demo (`times-check.ts` leaves out `linkRef`). With no calendar of their own, the
+        call's ask goes with no link.
+      - **Switches in the playbook** (`details.networking`, `PLAYBOOK_NETWORKING`, kept in `PLAYBOOK_KEPT_KEYS`):
+        What it says → **The networking chat** → In the chat after it: **Offer a demo when it fits**, **Offer a
+        networking call**, **Offer to send people their way**, on the web and the phone, with the chat's five parts
+        under them. All on to start and for a playbook saved before them, so the owner's CRM demos has them on with
+        nothing changed. They show, and do anything, only for a playbook that starts with an introduction
+        (`partShown`, `networkingOf`).
+      - **Test it** shows the nudge (labelled Nudge) and then the check-in, offers no times in the chat's replies, and a
+        yes to a call gets the call's ask with that calendar's times. The Assistant reads and changes it all
+        (`outreach_playbooks`, `outreach_save_playbook`'s `networking` and the new parts).
+      - **How it's built** (migration 028100 adds `follow_ups.call`; no extension change): `script.ts`,
+        `playbooks.ts`, `conversation.ts` and `ops/conversation.ts`, `today.ts` and `ops/today.ts`,
+        `playbook-test.ts` in core and the worker, the worker's `today.ts`, `times.ts`, `times-check.ts` and the
+        stand-in model, the web's builder and the phone's playbook screens.
+      - **Next** (the owner's 6a to 9a, its own part): referring the people the owner has really talked with on posts asking
+        for a recommendation.
 
 171.  **The comment research, and the look at a post, on every network** (Chris, 16 Nov 2026: "i just noticed the
       comment research on is on instagram, it should be on all the platforms we have built", then "1a 2a 3b 4a").
@@ -4552,10 +4631,13 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   (`asMessage` or `asHow`), so the business can see and change it under What it says. Only what no playbook may
   change is a rule in code, and each of those is in `LOCKED_RULES` for the editors to show. Never put how a message
   reads only in a prompt.
-- **An introduction asks nothing, and nothing chases it** (decision 168, `checkInsOnly`): a conversation on step
-  `intro` gets check-ins only, after a reply too. A new kind of first message that asks nothing takes the same path,
-  and Say hi widens to everyone who connected only while every playbook in use on the network starts with one
-  (`introsOnly`).
+- **An introduction never gets the follow-ups** (decisions 168 and 173, `introSent`, `checkInsOnly`): a conversation
+  on step `intro` gets one nudge after the introduction, then check-ins only, after a reply too. Say hi widens to
+  everyone who connected only while every playbook in use on the network starts with one (`introsOnly`).
+- **In the networking chat, only a yes to a demo or a call is a yes** (decision 173, `ANSWER_AFTER_INTRO_ASK`,
+  `answerOf`, `tookOf`): a friendly answer to the owner's question about them is no yes, so no ask for a time
+  follows it. A call's yes (`follow_ups.call`) puts the ask and what follows it on the person's own calendar, with no
+  demo ref, and a time booked from it never counts as a demo.
 - **Nothing the AI writes makes up the owner's life** (decision 165, `about-owner.ts`): a prompt that writes as the
   person carries `ABOUT_OWNER_RULE` with their `<about_owner>` (`aboutOwnerFor`, `aboutOwnerBlock`), or
   `OWNER_LIFE_UNKNOWN` when it isn't given About you. About you is the person's alone: read it only to write as

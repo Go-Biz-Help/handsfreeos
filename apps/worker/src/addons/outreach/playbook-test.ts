@@ -51,6 +51,7 @@ import {
 import { firstMessagesOf, opensWithIntro } from '@hfos/core/addons/outreach/script';
 import {
   answerOf,
+  tookOf,
   draftOfferOf,
   unansweredOf,
   type DraftOffer,
@@ -61,7 +62,7 @@ import { asWorker, rows, sql } from '@hfos/db/client';
 import { askStructured } from '../../ai/ask';
 import type { AddonWorkerAction } from '../types';
 import { businessKnows } from './knows';
-import { meetingFor, offeredWords } from './times';
+import { callLinkFor, meetingFor, offeredWords } from './times';
 import { draftRefusal, writeDrafts, type DraftBase } from './today';
 
 export const PLAYBOOK_TEST_ACTION = 'outreach.playbook.test';
@@ -235,10 +236,13 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
               ),
             }
           : null;
+        // After a yes to a networking call (decision 173): the person's own calendar, not the demo page.
+        const call = o.state.call && o.state.step === 'link';
+        const onLink = call ? await callLinkFor(ctx, ctx.userId, details.link) : details.link;
         const meeting =
           o.times && !declined
             ? await meetingFor(ctx, {
-                link: details.link,
+                link: onLink,
                 userId: ctx.userId,
                 lines: [...lines.facts, ...lines.lookup],
                 country: null,
@@ -256,11 +260,11 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
             facts: lines.facts,
             lookup: lines.lookup,
             recent,
-            playbook: { name: playbookName, ...details },
+            playbook: { name: playbookName, ...details, link: onLink },
             offer,
             lists: listsOf(found.offer?.lists),
             conversation: o.state.step
-              ? { step: o.state.step, sent: o.state.sent, followUps: pace.followUps }
+              ? { step: o.state.step, sent: o.state.sent, followUps: pace.followUps, call }
               : null,
             post: null,
             opener: { kind: intro ? 'intro' : 'own', text: firsts[version]! },
@@ -279,7 +283,7 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
           groupNames: [],
           meeting,
           contact: contactIn(theirWords),
-          link: details.link,
+          link: onLink,
           videoLink: details.videoLink ?? null,
           // Their notes on this part of their messages (decision 87) are followed here too. What they wrote of it
           // themselves is theirs for a saved playbook only, and never changes what the playbook words.
@@ -369,24 +373,39 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
             intro,
             followUp: step.state.sent,
             followUps: pace.followUps,
+            step: input.state.step,
           }),
         });
       }
 
-      // They wrote: the reply reads their answer, and a yes to the first message gets the ask for a time instead.
-      const base = await baseFor({ state: input.state, gapDays: 0, times: true });
+      // They wrote: the reply reads their answer, and a yes to the first message gets the ask for a time instead. In the
+      // networking chat after an introduction (decision 173) a reply offers no times, and only a yes to a demo or a
+      // networking call is one.
+      const base = await baseFor({
+        state: input.state,
+        gapDays: 0,
+        times: input.state.step !== 'intro',
+      });
       let made = await writeDrafts(ctx, base, 'reply');
-      const answer = answerOf('reply', made.value, base.told.recent);
+      const answer = answerOf('reply', made.value, base.told.recent, input.state.step);
+      const took = tookOf(made.value, input.state.step);
       // A time of theirs that's open is booked by a real reply, so no ask follows it (decision 149).
       const picked = base.meeting
         ? openTimeOf(made.value.time, base.meeting.open, base.meeting.zone)
         : null;
       const after = picked
         ? { kind: 'reply' as const, state: testAnswered(input.state, null, pace).state }
-        : testAnswered(input.state, answer, pace);
-      if (after.kind === 'pitch') made = await writeDrafts(ctx, base, 'pitch');
+        : testAnswered(input.state, answer, pace, took);
+      // The ask for a time with its own times: on the person's own calendar for a networking call (decision 173).
+      const asks =
+        after.kind === 'pitch'
+          ? input.state.step === 'intro'
+            ? await baseFor({ state: after.state, gapDays: 0, times: true })
+            : base
+          : null;
+      if (asks) made = await writeDrafts(ctx, asks, 'pitch');
       const offered =
-        base.meeting && after.kind === 'pitch' ? offeredWords(base.meeting).join(', ') : '';
+        asks?.meeting && after.kind === 'pitch' ? offeredWords(asks.meeting).join(', ') : '';
       return out({
         answer,
         kind: after.kind,
@@ -398,7 +417,7 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
             : null,
         unanswered: unansweredOf(after.kind, made.value, base.told.recent),
         state: made.drafts.length ? after.state : input.state,
-        label: testLabel(after.kind),
+        label: testLabel(after.kind, { call: after.state.call }),
       });
     } catch (e) {
       throw draftRefusal(e);

@@ -25,14 +25,21 @@ import {
 } from '@hfos/core/addons/outreach/asks';
 import { clockWords } from '@hfos/core/addons/outreach/live';
 import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
-import { RUN_NOW_ALL, RUN_NOW_WORDS } from '@hfos/core/addons/outreach/run-now';
+import { RUN_NOW_ALL } from '@hfos/core/addons/outreach/run-now';
+import {
+  foldAsks,
+  sameSince,
+  SETTINGS_PAGE_WORDS as SP,
+} from '@hfos/core/addons/outreach/settings-pages';
 import * as React from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { change, ChangeError } from '@/changes';
+import { ChevronDown, ChevronUp } from '@/components/icons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
@@ -400,8 +407,9 @@ export function ComputerNote({ asks }: { asks: AsksOutput }) {
 
 /** The Live screen's list: what the person asked their computer, today's and the open ones, each as it goes. */
 /**
- * Run now (decision 129), on Your computer as on the web: every job the person's computer can do for them, a part for
- * each network they work, each with its latest ask. Most run on their own each day.
+ * Run now (decision 129), on Your computer as on the web: every job the person's computer can do for them, a fold for
+ * each network they work, one open at a time (decision 170, part 2), each job with its latest ask. Most run on their
+ * own each day.
  */
 export function RunNowPart({
   asks,
@@ -416,37 +424,103 @@ export function RunNowPart({
   const nets = networks
     .map((platform) => ({ platform, kinds: RUN_NOW_ALL.filter((k) => askableOn(platform, k)) }))
     .filter((n) => n.kinds.length);
+  const [open, setOpen] = React.useState<Platform | null>(nets[0]?.platform ?? null);
   if (!nets.length) return null;
   return (
-    <Part title={RUN_NOW_WORDS.allTitle} about={RUN_NOW_WORDS.allAbout} testID="run-now-all">
-      {nets.map(({ platform, kinds }) => (
-        <Card key={platform} className="gap-3 px-4 py-3.5" testID={`run-now-all-${platform}`}>
-          <Text className="text-[14px] font-semibold">{PLATFORMS[platform]}</Text>
-          {kinds.map((kind) => (
-            <AskButton
-              key={kind}
-              asks={asks}
-              ask={{ kind } as AskInput}
-              platform={platform}
-              label={askNameOn(kind, platform)}
-              actions={actions}
-              testID={`run-now-all-${platform}-${kind}`}
-            />
-          ))}
-        </Card>
-      ))}
+    <Part title={SP.runTitle} about={SP.runAbout} testID="run-now-all">
+      <Card className="px-4 py-1">
+        {nets.map(({ platform, kinds }, i) => {
+          const shown = open === platform;
+          return (
+            <View
+              key={platform}
+              className={i ? 'border-t border-border' : undefined}
+              testID={`run-now-all-${platform}`}
+            >
+              <Pressable
+                role="button"
+                aria-expanded={shown}
+                onPress={() => setOpen(shown ? null : platform)}
+                className="min-h-[52px] flex-row items-center justify-between gap-3"
+                testID={`run-now-all-${platform}-toggle`}
+              >
+                <Text className="flex-1 text-[14.5px] font-semibold">
+                  {PLATFORMS[platform]}
+                  {shown ? null : (
+                    <Text className="font-normal text-text-3"> · {SP.jobs(kinds.length)}</Text>
+                  )}
+                </Text>
+                <Icon as={shown ? ChevronUp : ChevronDown} className="size-5 text-text-2" />
+              </Pressable>
+              {shown ? (
+                <View className="gap-3 pb-4">
+                  {kinds.map((kind) => (
+                    <AskButton
+                      key={kind}
+                      asks={asks}
+                      ask={{ kind } as AskInput}
+                      platform={platform}
+                      label={askNameOn(kind, platform)}
+                      actions={actions}
+                      testID={`run-now-all-${platform}-${kind}`}
+                    />
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          );
+        })}
+      </Card>
     </Part>
   );
 }
 
+/**
+ * Asked lately, on Your computer: what the person asked their computer, today's and the open ones, each as it goes. The
+ * ones that ended the same way fold under the newest, with how many more and since when (decision 170, part 2).
+ */
 export function AskedPart({ asks, actions }: { asks: AsksOutput; actions: AskActions }) {
+  const [shown, setShown] = React.useState<ReadonlySet<string>>(new Set());
+  const now = Date.parse(asks.now);
+  const folded = foldAsks(asks.asks);
   return (
-    <Part title={ASK_WORDS.askedTitle} testID="live-asks">
-      {asks.asks.length ? (
+    <Part title={SP.asked} testID="live-asks">
+      {folded.length ? (
         <View className="gap-2">
-          {asks.asks.map((a) => (
-            <AskLine key={a.askId} asks={asks} ask={a} actions={actions} named />
-          ))}
+          {folded.map(({ ask, same }) => {
+            const open = shown.has(ask.askId);
+            return (
+              <View key={ask.askId} className="gap-2" testID="live-ask">
+                <AskLine asks={asks} ask={ask} actions={actions} named />
+                {same.length ? (
+                  <Pressable
+                    role="button"
+                    aria-expanded={open}
+                    onPress={() =>
+                      setShown((s) => {
+                        const next = new Set(s);
+                        if (open) next.delete(ask.askId);
+                        else next.add(ask.askId);
+                        return next;
+                      })
+                    }
+                    className="min-h-[44px] flex-row items-center justify-between gap-3 rounded-menu bg-card-2 px-3.5"
+                    testID="live-ask-same"
+                  >
+                    <Text className="flex-1 text-[13.5px] text-text-2">
+                      {SP.same(same.length, sameSince(same, asks.timezone, now))}
+                    </Text>
+                    <Icon as={open ? ChevronUp : ChevronDown} className="size-4 text-text-2" />
+                  </Pressable>
+                ) : null}
+                {open
+                  ? same.map((a) => (
+                      <AskLine key={a.askId} asks={asks} ask={a} actions={actions} named />
+                    ))
+                  : null}
+              </View>
+            );
+          })}
         </View>
       ) : (
         <Card className="px-4 py-3.5">

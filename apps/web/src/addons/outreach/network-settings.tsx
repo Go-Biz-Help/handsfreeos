@@ -19,10 +19,11 @@ import {
   type NetworkStatus,
 } from '@hfos/core/addons/outreach/network-status';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { SETTINGS_PAGE_WORDS as S } from '@hfos/core/addons/outreach/settings-pages';
 import { AlertTriangle, CheckCircle2, ChevronDown, Clock, Hand, PauseCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useId, useState } from 'react';
-import { ButtonLink } from '@/components/ui/button';
+import { Button, ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
@@ -154,6 +155,7 @@ export function HandsOffPart({
   about,
   note,
   testId,
+  children,
 }: {
   /** The network it's for, for the line's words; null on Settings → You. */
   platform: Platform | null;
@@ -166,6 +168,8 @@ export function HandsOffPart({
   /** A line under it: training wheels, or Autopilot on for every network. */
   note?: string | null;
   testId: string;
+  /** Under the buttons on Settings → You: each level and the networks at it. */
+  children?: React.ReactNode;
 }) {
   const label = useId();
   // Not allowed, but picked now: it shows, so it can be left.
@@ -212,6 +216,7 @@ export function HandsOffPart({
           );
         })}
       </div>
+      {children}
       <p className="text-[13px] text-text-2" data-testid={`${testId}-about`}>
         {level === null
           ? platform
@@ -245,13 +250,16 @@ export function HandsOffPart({
 
 /** More settings (decision 170): folded to start, the rest of a network's choices inside. */
 export function MoreSettings({
-  name,
-  helpful,
+  name = '',
+  helpful = false,
+  about,
   testId,
   children,
 }: {
-  name: string;
-  helpful: boolean;
+  name?: string;
+  helpful?: boolean;
+  /** Its line while folded, when not a network page's. */
+  about?: string;
   testId: string;
   children: React.ReactNode;
 }) {
@@ -270,7 +278,9 @@ export function MoreSettings({
         <span className="min-w-0">
           <span className="block text-[16px] font-semibold tracking-tight">{P.more}</span>
           {open ? null : (
-            <span className="block text-[13px] text-text-2">{P.moreAbout(name, helpful)}</span>
+            <span className="block text-[13px] text-text-2">
+              {about ?? P.moreAbout(name, helpful)}
+            </span>
           )}
         </span>
         <ChevronDown
@@ -308,5 +318,120 @@ export function Row({
       </div>
       {children}
     </div>
+  );
+}
+
+/**
+ * A setting on Settings → You, Team or Your computer as a row (decision 170, part 2): its title, how it stands, and
+ * what to pick beside it: a switch, a short pick or a button.
+ */
+export function PickRow({
+  title,
+  about,
+  testId,
+  children,
+}: {
+  title: string;
+  about?: React.ReactNode;
+  testId?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div
+      className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0"
+      data-testid={testId}
+    >
+      <div className="min-w-0 flex-[1_1_240px]">
+        <div className="text-[14px] font-medium">{title}</div>
+        {about ? <div className="text-[13px] text-text-2">{about}</div> : null}
+      </div>
+      {children ? (
+        <div className="flex flex-none flex-wrap items-center gap-2">{children}</div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * A row that says how a setting stands, with Change to open what sets it under the row, and Done to fold it again.
+ * The form inside saves as it's changed, as everything on these pages does.
+ */
+export function ChangeRow({
+  title,
+  about,
+  testId,
+  open: start = false,
+  label = S.change,
+  children,
+}: {
+  title: string;
+  about?: React.ReactNode;
+  testId: string;
+  /** Open to start: a problem in it to see. */
+  open?: boolean;
+  /** The button's word while folded: Change, Limits, Open. */
+  label?: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(start);
+  const body = useId();
+  return (
+    <div className="py-3 first:pt-0 last:pb-0" data-testid={testId}>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0 flex-[1_1_240px]">
+          <div className="text-[14px] font-medium">{title}</div>
+          {about ? (
+            <div className="text-[13px] text-text-2" data-testid={`${testId}-about`}>
+              {about}
+            </div>
+          ) : null}
+        </div>
+        <Button
+          size="sm"
+          variant="secondary"
+          aria-expanded={open}
+          aria-controls={body}
+          onClick={() => setOpen((o) => !o)}
+          data-testid={`${testId}-toggle`}
+        >
+          {open ? S.done : label}
+        </Button>
+      </div>
+      {open ? (
+        <div id={body} className="mt-3 space-y-4 rounded-[10px] bg-card-2 p-3.5 max-md:p-3">
+          {children}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** A card of rows on Settings → You, Team or Your computer: a title, a line about it, and its rows divided. */
+export function RowsCard({
+  title,
+  about,
+  badge,
+  testId,
+  children,
+}: {
+  title?: string;
+  about?: string;
+  badge?: React.ReactNode;
+  testId?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className="px-[22px] py-5 max-md:px-4 max-md:py-4" data-testid={testId}>
+      {title ? (
+        <div className="mb-2">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h3 className="text-[16px] font-semibold tracking-tight">{title}</h3>
+            {badge}
+          </div>
+          {about ? <p className="mt-0.5 text-[13px] text-text-2">{about}</p> : null}
+        </div>
+      ) : null}
+      <div className="divide-y divide-border">{children}</div>
+    </Card>
   );
 }

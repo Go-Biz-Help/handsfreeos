@@ -1128,6 +1128,8 @@ export const AutomationPeopleOutput = z.object({
       sending: z.enum(SENDING_MODE_KEYS),
       replies: z.enum(REPLY_MODE_KEYS),
       wheels: z.boolean(),
+      /** The networks on for them, in the menu's order (Team's people, decision 170). None from a server before it. */
+      networks: z.array(z.enum(PLATFORM_KEYS)).default([]),
     }),
   ),
 });
