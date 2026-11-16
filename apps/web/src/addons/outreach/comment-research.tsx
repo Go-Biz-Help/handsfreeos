@@ -1,6 +1,6 @@
 'use client';
 /**
- * Social Outreach → Settings' **Comment research** (docs/outreach.md, decisions 166 and 171), for HandsFreeOS staff
+ * Social Outreach → Settings' **Comment research** (docs/outreach.md, decisions 166 and 172), for HandsFreeOS staff
  * only (`platform.ai.manage`): no business sees it. One Start begins a research on every network (the browser of
  * whoever starts it reads about 2,000 real comments a network over 3 days); each network's row shows it reading, Stop
  * has what it has summed up, and its findings and guide are read there, then put in every business's comments on that

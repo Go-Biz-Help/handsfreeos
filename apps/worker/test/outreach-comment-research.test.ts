@@ -3,7 +3,7 @@
  * full, is summed up at once: how its comments are written is counted, the AI (the stand-in model here) gives the
  * patterns and examples, and only examples that are comments really kept stay. One whose days end with too few to
  * learn from is only stopped. The guide goes in nobody's comments until staff say so. Each network's research is
- * summed up on its own, with the AI told which network's comments they are (decision 171).
+ * summed up on its own, with the AI told which network's comments they are (decision 172).
  */
 import { randomUUID } from 'node:crypto';
 import type { AiProvider } from '@hfos/ai';

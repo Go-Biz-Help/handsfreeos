@@ -3,7 +3,7 @@
  * research on comments on all different types of posts … and recognize the patterns, be aware some comments may be
  * bots as well so try to avoid adding those to the context to learn from"): what's kept of a comment, what's left out,
  * how the kept ones are counted, what may come of the AI's read, and how the guide goes in a comment's prompt. On
- * every network from decision 171 (16 Nov 2026: "it should be on all the platforms we have built").
+ * every network from decision 172 (16 Nov 2026: "it should be on all the platforms we have built").
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -210,7 +210,7 @@ describe('what’s kept of a comment', () => {
       CommentResearchSaveInput.safeParse({ ...input, posts: Array(11).fill({ comments: [] }) })
         .success,
     ).toBe(false);
-    // Search words have spaces (decision 171), kept one apart; anything else isn't a search.
+    // Search words have spaces (decision 172), kept one apart; anything else isn't a search.
     expect(CommentResearchSaveInput.parse({ ...input, tag: ' My   Dog ' }).tag).toBe('my dog');
     expect(CommentResearchSaveInput.safeParse({ ...input, tag: '#not-a-tag' }).success).toBe(false);
   });
@@ -407,7 +407,7 @@ describe('the guide a comment’s writer is given', () => {
     expect(warm).toMatch(/still names one real thing in this post, and never copies an example/);
     expect(told('comment', true, null)).not.toContain('<how_people_comment>');
     expect(told('comment', true, '  ')).not.toContain('<how_people_comment>');
-    // A comment on a post found by its topic carries it too (decision 171's 3b), saying what its task asks.
+    // A comment on a post found by its topic carries it too (decision 172's 3b), saying what its task asks.
     const found = told('comment', false, guide);
     expect(found).toContain('<how_people_comment>');
     expect(found).toMatch(/What your comment says is still what your task asks/);

@@ -4,7 +4,7 @@
  * database holds the same (the tables' staff policies, and the guide's definers).
  *
  * - **Staff, on Social Outreach → Settings:** each network's newest research and the guide in use there (`get`),
- *   Start (every network at once, decision 171, or one), Stop and sum up, and Use it in every business's comments on
+ *   Start (every network at once, decision 172, or one), Stop and sum up, and Use it in every business's comments on
  *   that network or take it out again.
  * - **The browser of whoever started it:** what to read next on a network (`next`: nothing for anyone else, and
  *   nothing once today's share is read), and a search's posts read (`save`: each comment's words sorted and scrubbed

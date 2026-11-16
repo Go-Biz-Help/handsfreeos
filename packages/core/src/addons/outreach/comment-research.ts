@@ -2,7 +2,7 @@
  * Comment research (docs/outreach.md, decision 166; the owner's ask of 14 Nov 2026: "have the extension do some
  * extensive research on comments on all different types of posts … and recognize the patterns, be aware some comments
  * may be bots as well so try to avoid adding those to the context to learn from", and their pick: about 2,000 comments
- * over 3 days, mixed into its normal day). On every network from decision 171 (16 Nov 2026: "it should be on all the
+ * over 3 days, mixed into its normal day). On every network from decision 172 (16 Nov 2026: "it should be on all the
  * platforms we have built"): one Start reads all six, each its own research and its own guide.
  *
  * HandsFreeOS's own, not a business's: only HandsFreeOS staff start it (`platform.ai.manage`), and only the browser of
@@ -806,7 +806,7 @@ export function commentGuide(
 
 /**
  * How the guide goes in a comment's prompt: as data on how comments sound, never as words to copy or orders. A warm-up's
- * comment matches their length too; a comment on a post found by its topic (decision 171's 3b) says what its task asks,
+ * comment matches their length too; a comment on a post found by its topic (decision 172's 3b) says what its task asks,
  * as plainly and briefly as that allows.
  */
 export const commentGuideBlock = (guide: string, warm = true): string =>
@@ -957,14 +957,14 @@ export const CommentResearchSumOutput = z.object({ id: z.uuid(), state: z.enum(R
 
 // ------------------------------------------------------------------------------------------- the card's words
 
-/** The extension version that reads on each network: Instagram's from decision 166, the rest from decision 171. */
+/** The extension version that reads on each network: Instagram's from decision 166, the rest from decision 172. */
 export const RESEARCH_SINCE: Readonly<Record<ResearchPlatform, string>> = {
   instagram: '0.140.0',
-  facebook: '0.143.0',
-  linkedin: '0.143.0',
-  alignable: '0.143.0',
-  threads: '0.143.0',
-  x: '0.143.0',
+  facebook: '0.144.0',
+  linkedin: '0.144.0',
+  alignable: '0.144.0',
+  threads: '0.144.0',
+  x: '0.144.0',
 };
 
 const NETWORK_LIST = 'Instagram, Facebook, LinkedIn, Alignable, Threads and X';

@@ -1267,7 +1267,7 @@ export function todayDraftPrompt(input: {
     readonly shown?: { readonly kind: PostLookKind; readonly count: number } | null;
     /**
      * How real people's comments sound on the post's network, for a comment on it (a warm-up's, decision 166, and one
-     * on a post found by its topic, decision 171): the guide in use there from HandsFreeOS's comment research
+     * on a post found by its topic, decision 172): the guide in use there from HandsFreeOS's comment research
      * (./comment-research.ts `commentGuide`). Left out, none.
      */
     readonly guide?: string | null;
@@ -1494,7 +1494,7 @@ export function todayDraftPrompt(input: {
       ? `${input.post.shown ? postSeen(input.post.shown.kind, input.post.shown.count) : POST_WORDS_ONLY} ${COMMENT_PLAIN_WORDS}`
       : null,
     // A comment on a post sounds like real ones there, once a research's guide is in use on its network: a warm-up's
-    // (decision 166), and one on a post found by its topic (decision 171's 3b).
+    // (decision 166), and one on a post found by its topic (decision 172's 3b).
     input.kind === 'comment' && input.post?.guide?.trim()
       ? commentGuideBlock(input.post.guide.trim(), input.post.warm === true)
       : null,

@@ -234,7 +234,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
           )
         : [];
       // How real comments sound on the post's network, from HandsFreeOS's comment research, once staff put a guide
-      // in use there: for a warm-up's comment (decision 166) and one on a post found by its topic (decision 171's 3b).
+      // in use there: for a warm-up's comment (decision 166) and one on a post found by its topic (decision 172's 3b).
       const commentGuide =
         post && input.kind === 'comment' && profile
           ? (
@@ -613,7 +613,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
                 group: found.post.group,
                 warm: found.post.warm_up,
                 said: found.commentedLately,
-                // How real comments sound there, when a research's guide is in use on its network (decisions 166, 171).
+                // How real comments sound there, when a research's guide is in use on its network (decisions 166, 172).
                 guide: found.commentGuide,
                 // The post check's word on whether they ask for what the business offers (decision 163).
                 asking: found.post.strong,

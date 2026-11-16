@@ -2,7 +2,7 @@
  * The comment research on the database (docs/outreach.md, decision 166): HandsFreeOS's own, so only its staff who may
  * change what the AI is told start one, read one or use what it found, and the database holds the same; only the
  * browser of whoever started it reads for it; what's kept of a comment is its words alone; and its guide goes in every
- * business's comments only once staff press Use it. On every network from decision 171: one Start begins all six, each
+ * business's comments only once staff press Use it. On every network from decision 172: one Start begins all six, each
  * network its own research, its own searches and its own guide.
  */
 import { asUser, rows, sql } from '@hfos/db/client';

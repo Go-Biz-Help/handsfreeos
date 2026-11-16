@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Social Outreach: comment research on every network (docs/outreach.md,
--- decision 171).
+-- decision 172).
 --
 -- The owner's ask (settled, 16 Nov 2026):
 --
