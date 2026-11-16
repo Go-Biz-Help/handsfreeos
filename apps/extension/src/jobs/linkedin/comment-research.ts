@@ -24,7 +24,7 @@ const SEARCH_SCROLLS = 2;
 export const topPostSearchUrl = (words: string) =>
   `${LINKEDIN}/search/results/content/?keywords=${encodeURIComponent(words)}`;
 
-export const LINKEDIN_RESEARCH: ResearchReader = {
+export const LINKEDIN_RESEARCH = {
   platform: 'linkedin',
   where: (words) => `posts about “${words}”`,
   async links(job, words, most, _progress, fresh) {
@@ -60,7 +60,7 @@ export const LINKEDIN_RESEARCH: ResearchReader = {
       .filter((c) => !writer || !sameMember(c.profile, writer))
       .flatMap((c) => (c.comment ? [c.comment] : []));
   },
-};
+} satisfies ResearchReader;
 
 /** Reads the next batch of comments for the research this person started on LinkedIn, if they started one. */
 export const readLinkedInComments = (job: Job): Promise<JobEnd> =>

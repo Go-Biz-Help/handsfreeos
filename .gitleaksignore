@@ -33,3 +33,7 @@ eb3e8ee72b2f7da7c1bdb60ea142b385a58b5adf:apps/extension/src/messages.ts:linkedin
 # Not a secret: an import of LinkedIn's runner helpers in a test (nextLinkedInDaily, runLinkedInDaily) that LinkedIn's
 # client-secret rule reads as a key. The next commit lists runLinkedInDaily first, so the line no longer matches.
 001745f057822d61263e99e95e21ecf5708e14e9:apps/extension/test/linkedin-runner.test.ts:linkedin-client-secret:194
+# Not keys: gitleaks's LinkedIn rules took a LinkedIn reader's type name and a destructured function name for a client
+# id and secret. The next commit words both lines so nothing reads that way.
+8885c4300e48cbe33e9e8398848ba8a9d8ac1c1a:apps/extension/src/jobs/linkedin/comment-research.ts:linkedin-client-id:27
+8885c4300e48cbe33e9e8398848ba8a9d8ac1c1a:apps/extension/test/comment-research-networks.test.ts:linkedin-client-secret:20

@@ -17,7 +17,7 @@ vi.mock('../src/jobs/job', async (original) => ({
 }));
 
 const { readFacebookComments } = await import('../src/jobs/facebook-research');
-const { readLinkedInComments, topPostSearchUrl } =
+const { topPostSearchUrl, readLinkedInComments } =
   await import('../src/jobs/linkedin/comment-research');
 const { readAlignableComments } = await import('../src/jobs/alignable/comment-research');
 const { readFollowComments } = await import('../src/jobs/follows/comment-research');

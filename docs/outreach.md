@@ -4484,7 +4484,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 171.  **The comment research, and the look at a post, on every network** (Chris, 16 Nov 2026: "i just noticed the
       comment research on is on instagram, it should be on all the platforms we have built", then "1a 2a 3b 4a").
       Decision 166 was Instagram's alone; now it's every network built: Instagram, Facebook, LinkedIn, Alignable,
-      Threads and X. Extension 0.144.0, migration `20261027028000_comment_research_every_network.sql` (it only widens
+      Threads and X. Extension 0.144.0, migration `20261027028200_comment_research_every_network.sql` (it only widens
       the two checks that said Instagram).
       - **One Start, six researches, six guides** (1a): **Start the research** starts one on every network not reading
         (`outreach.comment_research.start` with no network; one network's, with `platform`, for Run it again), each
