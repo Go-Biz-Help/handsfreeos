@@ -25,9 +25,9 @@ it do.
 On LinkedIn, once you turn it on in HandsFreeOS, it notes the invitations to
 connect, likes, comments and messages you send yourself, and your answers to invitations; it tells HandsFreeOS who
 wrote back, and stops on LinkedIn for the day on any LinkedIn warning. Since 0.40.0 it also does what you ask of it
-there from HandsFreeOS, at a person's pace in a window of its own: saving your connections and invitations, checking
-your connections for good fits, reading your chats, looking someone up before drafting, reading your profile and
-putting your headline in, withdrawing the old invitations you tick, and finding posts with LinkedIn's post search.
+there from HandsFreeOS, at a person's pace in a tab of its work window: saving your connections and invitations,
+checking your connections for good fits, reading your chats, looking someone up before drafting, reading your profile
+and putting your headline in, withdrawing the old invitations you tick, and finding posts with LinkedIn's post search.
 Since 0.41.0, once you let it and start your day on LinkedIn, it works your LinkedIn list on its own too, beside
 Facebook's and never waiting on it (below, "On its own on LinkedIn"). Since 0.42.0 it gets LinkedIn's copy of your
 data (your connections, invitations and messages) and brings it in, as it does Facebook's file. Since 0.43.0 it
@@ -1541,6 +1541,30 @@ minute after posting and before any reading:
   link"). A warning keeps the network's words for the day, for both social add-ons, and says nothing: the read is
   asked for again later, since one handed out is put off half an hour.
 
+### One work window, a tab for each network (0.143.0)
+
+Decision 171 (the owner: "limit it to only what it needs"). With every network and Content Creator on, a build before
+this one could have about 19 windows open: a runner window per network, kept between steps when the next was under 5
+minutes away, another for each ask beside it, one per network for Content Creator, and windows nothing remembered
+after Chrome restarted the background or a new build loaded. Now two at most (`src/opened.ts`):
+
+- **The work window.** Each runner's tab, each ask's (but those in your own window: getting your file, cancelling old
+  requests) and Content Creator's are tabs of one window beside yours, opened when it isn't open (one at a time, so two
+  networks starting at once never open two). The working tab is the one shown while no other network's page is read
+  in front; a read that needs the screen brings the window in front with its tab, as before (decision 120).
+- **The messages window,** minimized, as before (decision 125).
+- **Each tab closes the moment its work is done:** a runner's at the end of each go (no more `KEEP_WINDOW_MS`),
+  Content Creator's after each thing it does, an ask's at its end. The window closes with its last tab.
+- **Nothing left open.** Closing a work tab closes the tabs and pop-ups its pages opened (`closeWorkTab`, by Chrome's
+  opener). A tab of yours in the work window keeps it open, and the next work opens a window of its own. Each window
+  and tab is kept in Chrome's storage with a mark for this run (`hfos.run`, in session storage, which Chrome forgets
+  when it starts again and when a new build loads), so a background Chrome stopped while idle finds its window again;
+  and a new run first closes what an earlier one left (`ready`, `leftovers`): a window it kept that still holds a tab
+  it opened, or one at the size it opens its own at (1100 wide, up to 900 tall), only when every tab in it is a
+  network's page and you're not in it. That also closes what builds before this one left, once this one loads.
+- A runner takes over a tab after its background restarted only when this run opened it (`isOurs`), never one of
+  yours that came to have its number after Chrome started again.
+
 ### Steps that couldn't go, and sign-in lines only on a sign-in page (0.142.0)
 
 Decision 170's status card says when a network is stuck on one step, so the feed now tells a step that couldn't go
@@ -2636,8 +2660,12 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   answers `hfos-comment` and `hfos-join` only for a site whose kit declares them (`auto.comment`, `auto.join`):
   Instagram's comment, and Alignable's comment and Join. Anywhere else it says the extension doesn't do that there.
 - **Each network on its own.** A warning or a stop on one network never affects another: each network's warnings are
-  kept apart (`hfos.warned`), each network's asks and runner have their own line, window and turn, and each runner
+  kept apart (`hfos.warned`), each network's asks and runner have their own line, tab and turn, and each runner
   looks only at its own network's.
+- **Two windows at most** (decision 171, `src/opened.ts`). Work goes in a tab of the one work window, never a window of
+  its own (`WorkTab` placed `window`), and the tab closes the moment that work is done. The messages window is the only
+  other. Every window and tab it opens is noted (`noteWindow`, `noteTab`) so a new run can close what it left, and
+  nothing closes a window the person is in or one holding a page that isn't a network's.
 - **Addresses first.** Each kit's `urls.ts` (`src/networks/facebook/urls.ts`, `src/networks/linkedin/urls.ts`)
   decides what kind of page it is and what each link points to. The networks change their page code every week and
   their addresses hardly ever, so anything a link can tell, a link tells.

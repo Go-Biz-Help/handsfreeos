@@ -30,6 +30,7 @@ import type { RepliesNowAnswer } from '../messages';
 import { KITS } from '../networks';
 import { FOLLOW_SPECS } from '../networks/follows/specs';
 import { isWorking, statesNow, type NetworkStates } from '../networks/on';
+import { forgetTabs, forgetWindow, HEIGHT, noteTab, noteWindow, ready, WIDTH } from '../opened';
 
 export const WATCH_ALARM = 'hfos-watch';
 /** Where the watch keeps its window and tabs, while the browser is open. */
@@ -74,9 +75,6 @@ export const CLOSED_FOR_MS = 60 * 60_000;
 export const AGAIN_MS = 5 * 60_000;
 /** How long a page has to answer before it's loaded afresh. */
 const ANSWER_MS = 10_000;
-/** The window's size: the layout every network's readers were tuned on (../tab.ts). */
-const WIDTH = 1100;
-const HEIGHT = 900;
 /** The most of Alignable's conversations compared, from the top. */
 const ROWS_COMPARED = 12;
 
@@ -246,6 +244,8 @@ async function windowFor(watch: Watch, first: Watched): Promise<Watch> {
   const open =
     watch.windowId === null ? null : await chrome.windows.get(watch.windowId).catch(() => null);
   if (open) return watch;
+  // What an earlier run left open is closed first (../opened.ts, decision 171).
+  await ready();
   const theirs = await chrome.windows.getLastFocused().catch(() => null);
   const beside =
     theirs?.left !== undefined && theirs.top !== undefined && theirs.width !== undefined
@@ -261,6 +261,7 @@ async function windowFor(watch: Watch, first: Watched): Promise<Watch> {
   const windowId = made?.id ?? null;
   const tabId = made?.tabs?.[0]?.id;
   if (windowId === null) throw new Error('Chrome didn’t open the window.');
+  await noteWindow(windowId, tabId, false);
   // Minimized at the size it opened at, so each page lays out as its readers expect.
   await chrome.windows.update(windowId, { state: 'minimized' }).catch(() => undefined);
   if (tabId !== undefined)
@@ -280,6 +281,7 @@ async function closeTab(watch: Watch, platform: Platform): Promise<void> {
   if (id === undefined) return;
   closing.add(id);
   await chrome.tabs.remove(id).catch(() => undefined);
+  await forgetTabs([id]);
   await setWatch((now) => {
     const tabs = { ...now.tabs };
     delete tabs[platform];
@@ -292,6 +294,7 @@ async function closeWindow(watch: Watch): Promise<void> {
   if (watch.windowId !== null) {
     closing.add(watch.windowId);
     await chrome.windows.remove(watch.windowId).catch(() => undefined);
+    await forgetWindow(watch.windowId);
   }
   await setWatch(() => ({ windowId: null, tabs: {}, loaded: {}, rows: null }));
 }
@@ -333,6 +336,7 @@ async function lookAt(watch: Watch, platform: Watched): Promise<void> {
       active: false,
     });
     if (made.id === undefined) return;
+    await noteTab(watch.windowId, made.id);
     await chrome.tabs.update(made.id, { autoDiscardable: false }).catch(() => undefined);
     const madeId = made.id;
     await setWatch((now) => ({

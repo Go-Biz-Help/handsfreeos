@@ -175,8 +175,6 @@ export const FOLLOW_FINDING: readonly FollowDaily[] = ['post_people', 'found_che
 export const FOLLOW_GAP_MS = { least: 3 * 60_000, most: 8 * 60_000 } as const;
 /** While the network draws what a press opened. */
 const SETTLE_MS = 2_000;
-/** A gap longer than this closes its window until the next step. */
-const KEEP_WINDOW_MS = 5 * 60_000;
 /** After something went wrong, or the network asked them to sign in, it tries again this much later. */
 const AGAIN_MS = 15 * 60_000;
 /** While noting is off, it looks again this often. */
@@ -1394,7 +1392,6 @@ function followRunner(platform: FollowPlatform): FollowRunner {
         random: at.random,
       }),
     );
-    if (gap > KEEP_WINDOW_MS) await closeWindow();
     // Never past its next search: the hour's search goes on time.
     const searchAt = (await stateNow()).watchAt ?? null;
     await goAt(
@@ -1472,6 +1469,8 @@ function followRunner(platform: FollowPlatform): FollowRunner {
       }).catch(() => undefined);
       await goAt(Date.now() + AGAIN_MS).catch(() => undefined);
     } finally {
+      // Its tab closes the moment the go's work is done; the next step opens a fresh one (decision 171).
+      if (tab.tabId !== null) await closeWindow().catch(() => undefined);
       busy = false;
       if (again) {
         again = false;

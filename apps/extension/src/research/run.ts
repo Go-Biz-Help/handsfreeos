@@ -1,7 +1,8 @@
 /**
  * AI Social Media Content Creator's reading computer (docs/socialcontent.md, "The reading computer"; decisions 1 and
  * 12): the extension on the computer an owner or admin picked in its Settings does the add-on's work queue, one thing
- * at a time, oldest first, in a window of its own beside the person's (./tab.ts).
+ * at a time, oldest first, in a tab of the work window beside the person's (./tab.ts, src/opened.ts), closed the moment
+ * that thing is done (docs/outreach.md, decision 171).
  *
  * Its alarm wakes it each minute. It asks HandsFreeOS, for each business where the add-on is on and the person may use
  * it, for the next thing to read on the networks this build reads (`RESEARCH_NETWORKS`) that still have room today
@@ -112,17 +113,17 @@ export async function researchTick(): Promise<void> {
   running = true;
   try {
     if (!canSignIn() || !(await token().catch(() => null))) return;
-    const did = await next();
-    // Nothing waits: the reading window closes till there's something.
-    if (!did) for (const tab of tabs.values()) await tab.close();
+    await next();
   } catch (error) {
     console.warn('HandsFreeOS Social couldn’t read for AI Social Media Content Creator', error);
   } finally {
+    // Each read's tab closes the moment it's done, and the next opens a fresh one (docs/outreach.md, decision 171).
+    for (const tab of tabs.values()) await tab.close().catch(() => undefined);
     running = false;
   }
 }
 
-/** The window for a network's work, opened once and kept: posting goes to Threads and X too (decision 41). */
+/** The tab for a network's work, while it works: posting goes to Threads and X too (decision 41). */
 function tabFor(network: ResearchNetwork | PostingNetwork): ResearchTab {
   let tab = tabs.get(network);
   if (!tab) {
