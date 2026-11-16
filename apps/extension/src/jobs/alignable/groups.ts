@@ -86,7 +86,9 @@ const stopped = (job: Job): JobEnd | null =>
   job.stopped() ? { line: 'Stopped.', warned: false } : null;
 
 /** A group HandsFreeOS keeps, as the saves take it: its name in its address, its page, and its name. */
-function cardOf(group: Pick<WorkGroup, 'url' | 'name' | 'members'>): AlignableGroupCard | null {
+export function cardOf(
+  group: Pick<WorkGroup, 'url' | 'name' | 'members'>,
+): AlignableGroupCard | null {
   let url: URL;
   try {
     url = new URL(group.url);
@@ -455,7 +457,7 @@ export async function joinGroupsOn(job: Job): Promise<JobEnd> {
 // ------------------------------------------------------------------------------------------------ members and posts
 
 /** The Alignable groups the person is in, marked Work these, else Maybe, as HandsFreeOS picks them. */
-async function groupsToWorkOn(job: Job, most: number): Promise<WorkGroup[]> {
+export async function groupsToWorkOn(job: Job, most: number): Promise<WorkGroup[]> {
   const [work, maybe] = await Promise.all(
     (['work', 'maybe'] as const).map(
       async (view) =>
@@ -547,7 +549,7 @@ export async function readMembers(job: Job): Promise<JobEnd> {
     if (!got.items.length) {
       // The list ran out while it scrolled past what the last read got to: that read got to its end, so there's no one
       // past it, and the next read starts at the top (decision 148). No failure, and the depth goes back to the top,
-      // or every read after would scroll past the end again (the owner's problem report of 16 Nov 2026, from 0.142.1).
+      // or every read after would scroll past the end again (the owner's problem report of 16 Nov 2026, from 0.147.1).
       if (from > 0 && got.whole && got.screens < from) {
         const back = alignableGroupSave(facts, [], job.businessId, false, 0);
         if (back.ok)

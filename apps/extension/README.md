@@ -1272,15 +1272,77 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
-### Alignable group members read from the top once the list ran out (0.142.1)
+### Alignable group members read from the top once the list ran out (0.147.1)
 
 The problem check of 16 Nov 2026 (19:24 UTC) found "Alignable showed no members of a group." on a members page that
 showed 79. Each read of a group's members carries on from where the last got to (decision 148), scrolling past those
 screens first and keeping nothing from them. The last read had stopped 4 screens down just as the list ended, so this
 one scrolled past the end with nothing kept, said there were no members, and saved no depth, so every read after would
-have done the same. From 0.142.1, when the list runs out before where the last read got to, nothing is reported and the
+have done the same. From 0.147.1, when the list runs out before where the last read got to, nothing is reported and the
 group's depth goes back to the top for the next read (`readMembers` in `src/jobs/alignable/groups.ts`). A members page
 that really shows no one still says so.
+
+### Posts on time with the posting window behind yours (0.146.0)
+
+The owner's 12 PM posts of 16 Nov 2026 went up nearly two hours late: LinkedIn at 1:52 PM and Instagram at 1:53 PM.
+They waited behind the 12 PM Facebook post, which took 1 hour 50 minutes, as Facebook posts had taken 44, 43 and 198
+minutes on 14 and 15 Nov while the computer was on and Social Outreach worked all along. The posting window sits beside
+the person's, mostly behind it while they work, and Chrome slows the timers of a page it hides: to once a second, and
+once it has been hidden five minutes, to once a minute. The posting hands counted their waits in looks, so Business
+Suite's 90 seconds after Publish were 225 looks of 400 ms, and at one look a minute nearly four hours. Posts go up one
+at a time, so every post due after it waited too.
+
+From 0.146.0 (`src/steady.ts`):
+
+- **Waits go by the clock** (`waitFor`, `within`) in the posting hands (`src/research/post-here.ts`,
+  `src/research/post-short.ts`) and in `putPostIn` (`src/networks/post-text.ts`): a wait is never longer than it says by
+  more than one slowed look, however Chrome paces the page.
+- **The background wakes a hidden posting window** (`pause`): while the page is hidden it asks the background as well
+  (`hfos-wake`), whose timers Chrome doesn't slow, and goes on at whichever wakes it first. The background answers only
+  for the posting and reading window's own tabs; anywhere else, or in view, the page's own timer wakes it as before.
+- **Facebook goes last of the posts due at the same time** (`socialcontent.post.next` in core): it goes to two places
+  and waits on Business Suite, so the rest never wait behind it. Soonest first is unchanged.
+
+### The look at a post, and the comment research, on every network (0.144.0)
+
+Decision 172 in docs/outreach.md, the owner's picks of 16 Nov 2026 ("1a 2a 3b 4a"): what decision 166 started on
+Instagram goes on every network built: Facebook, LinkedIn, Alignable, Threads and X.
+
+**The AI sees the post on every network.** A comment's draft opens the post's own page first and its picture, or its
+video's frames, go with the draft, as on Instagram (above, 0.140.0):
+
+- **The post's own part of its page**, as a comment there goes: Facebook's and LinkedIn's first post box on the post's
+  own page, theirs by its writer's link (`lookStep` in each one's `work.ts`), never a comment under it; Alignable's
+  discussion's post, by its id, never an answer; and on Threads and X the post the page is, by its address, never one
+  it quotes (`theirPostPart` in `src/networks/alignable/auto.ts` and `src/networks/follows/auto.ts`).
+- **Each network's own picture servers**, the only places a photo is fetched from (`PICTURE_HOSTS`): Meta's for
+  Facebook and Threads, `licdn.com` for LinkedIn, `twimg.com` for X, and Alignable's own addresses. The manifest lists
+  the new ones (`PICTURES` in `scripts/build.mjs`). A picture Alignable keeps anywhere else isn't looked at.
+- **Facebook's comment** on a good post now opens the post before the AI writes, not after (`comment` in
+  `src/auto/run.ts`). Warm-up comments are written by the like picker, from what it reads of their posts, as before.
+- **Nothing else changes:** it's kept nowhere, nothing is pressed, and anything that doesn't work gives none, so the
+  comment is written from the post's words as before.
+
+**The comment research on every network** (`comment_research`, one of each network's once-a-day jobs, before the
+profile read). One **Start the research** in Social Outreach → Settings → General → **Comment research** starts all six,
+each with its own row, its own about 2,000 comments over 3 days, and its own guide that staff use on its own.
+
+- **One driver for all** (`readCommentsFor` in `src/jobs/comment-research.ts`): asks HandsFreeOS for the batch, reads
+  each search's posts, sorts each post's comments (core's `sortComments`) and sends the words alone, then the next batch
+  35 to 60 minutes later (`again`). For anyone who didn't start one it does nothing and says nothing (`researchRuns`,
+  asked by each runner before the job's turn).
+- **What each network reads** (each one's `comment-research.ts`):
+  - Instagram: everyday hashtags, as before.
+  - Facebook, Threads and X: everyday search words (dinner, my dog, road trip and so on), each searched as the network
+    ranks it, the busiest posts first, and the posts with comments opened.
+  - LinkedIn: work search words (new jobs, wins, tips, hiring, events, asking for a recommendation), each post's own
+    link from its menu's Copy link to post, caught on the page (`withLinks`).
+  - Alignable: the posts in your town's group and in the groups you're in, a few screens of each.
+- **A post read once isn't read again** for that research, in a later batch or day: which posts were read is kept in
+  the extension's storage as short numbers made from their addresses (`postKey`), never the addresses, up to 1,000.
+- **Only the comments are read.** Facebook's and LinkedIn's box of who reacted is never opened (`hfos-engaged` with
+  `reactions: false`); Instagram's View more comments is pressed once, as before; nothing else is pressed, and nothing
+  is written. Never the post writer's own comments, nor yours.
 
 ### LinkedIn posts keep their blank lines (0.141.5)
 
@@ -1358,7 +1420,8 @@ The problem check of 14 Nov 2026 found warm-up likes that never went, two on eac
 
 ### A look at the post before its comment, and the comment research (0.140.0)
 
-Decision 166 in docs/outreach.md, the owner's picks of 14 Nov 2026. Two things, both Instagram's for now.
+Decision 166 in docs/outreach.md, the owner's picks of 14 Nov 2026. Two things, both Instagram's till 0.144.0 took them
+to every network (above).
 
 **The AI sees the post.** A comment used to be written from a post's words alone, so a post whose words lean on its
 picture or video ("It be like that 😂") got a comment about nothing in it, or none. From 0.140.0, with the post's own

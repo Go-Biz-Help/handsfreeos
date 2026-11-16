@@ -17,7 +17,14 @@ import { outlineNow } from '../looking/read';
 import { emptyIn, mainOf, namesIn, pause, waitFor, writeIn, writingIn } from '../looking/looks';
 import type { LookingPlatform, LookingSite } from '../looking/site';
 import { missingOf, TRY_WORD, untried, went } from '../tries';
-import { followThem, likeTheirPost, theirPosts, unfollowThem, writeTheirComment } from './auto';
+import {
+  followThem,
+  likeTheirPost,
+  theirPostPart,
+  theirPosts,
+  unfollowThem,
+  writeTheirComment,
+} from './auto';
 import {
   chatOn,
   followReplies,
@@ -89,6 +96,8 @@ export function followSite(spec: FollowSpec): LookingSite {
       ...(spec.messages ? { openMessage: openTheirChat(spec) } : {}),
       message: spec.messages ? writeMessage(spec) : async () => 'none',
       comment: writeTheirComment(spec),
+      // Their post's picture or video, looked at before its comment is drafted (decision 172, from 0.144.0).
+      postPart: theirPostPart(spec),
     },
     // Their own profile, read for the AI's check: its name, username, bio, links and latest posts.
     ownProfile: {

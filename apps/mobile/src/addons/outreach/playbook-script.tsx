@@ -10,6 +10,8 @@ import {
   PLAYBOOK_NETWORKING,
   PLAYBOOK_OPENS,
   PLAYBOOK_OPENS_KEYS,
+  PLAYBOOK_REFER,
+  refersOf,
   SCRIPT_BLANKS,
   SCRIPT_GROUPS,
   SCRIPT_INFO,
@@ -51,13 +53,15 @@ import { Note } from './kit';
 /**
  * What it says, read: how the first message goes, then every part with its words, the first message's versions numbered
  * when there are more. The introduction and its chat show only for a playbook that starts with one (decisions 168 and
- * 173), with what the chat may offer.
+ * 173), with what the chat may offer; whether its people are referred on posts (decision 174) before the referral's
+ * parts.
  */
 export function scriptWords(details: {
   readonly goal: PlaybookGoal;
   readonly script?: PlaybookScript | undefined;
   readonly opens?: PlaybookOpens | undefined;
   readonly networking?: Partial<PlaybookNetworking> | undefined;
+  readonly refer?: boolean | undefined;
 }): string {
   const says = scriptOf(details);
   const intro = opensWithIntro(details);
@@ -69,6 +73,8 @@ export function scriptWords(details: {
     ...SCRIPT_GROUPS.flatMap((group) =>
       group.parts.flatMap((part) => {
         if (!partShown(part, intro)) return [];
+        if (part === 'referComment' && !refersOf(details)) return [`${PLAYBOOK_REFER.label}\nOff`];
+        if (part === 'referNote' && !refersOf(details)) return [];
         const words =
           part === 'first'
             ? says.first.length > 1
@@ -91,6 +97,8 @@ export function ScriptEditor({
   onOpens,
   networking,
   onNetworking,
+  refer,
+  onRefer,
   firstsHelp,
 }: {
   goal: PlaybookGoal;
@@ -103,6 +111,9 @@ export function ScriptEditor({
   /** What the networking chat after an introduction may offer (decision 173); left out, everything. */
   networking?: Partial<PlaybookNetworking> | undefined;
   onNetworking: (networking: PlaybookNetworking) => void;
+  /** Whether its people are referred on posts asking for a recommendation (decision 174); left out, they are. */
+  refer?: boolean | undefined;
+  onRefer: (refer: boolean) => void;
   /** AI help on the first message (./ai-help.tsx). */
   firstsHelp?: React.ReactNode;
 }) {
@@ -137,6 +148,21 @@ export function ScriptEditor({
                     />
                   </View>
                 ))}
+              </View>
+            ) : null}
+            {group.key === 'refer' ? (
+              // Refer them on posts asking for a recommendation (decision 174): both wait for an OK on Today.
+              <View className="flex-row items-center gap-3 px-1">
+                <View className="flex-1">
+                  <Text className="text-[14.5px] font-medium">{PLAYBOOK_REFER.label}</Text>
+                  <Note>{PLAYBOOK_REFER.hint}</Note>
+                </View>
+                <Switch
+                  label={PLAYBOOK_REFER.label}
+                  checked={refer !== false}
+                  onCheckedChange={onRefer}
+                  testID="playbook-refer"
+                />
               </View>
             ) : null}
             {group.key === 'start' ? (

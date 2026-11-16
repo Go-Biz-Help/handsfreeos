@@ -10640,6 +10640,16 @@
                     "minLength": 1,
                     "maxLength": 800
                   },
+                  "referComment": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "referNote": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
                   "birthday": {
                     "type": "string",
                     "minLength": 1,
@@ -10672,6 +10682,9 @@
                     "type": "boolean"
                   }
                 }
+              },
+              "refer": {
+                "type": "boolean"
               },
               "tone": {
                 "anyOf": [
@@ -11266,6 +11279,16 @@
                     "minLength": 1,
                     "maxLength": 800
                   },
+                  "referComment": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "referNote": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
                   "birthday": {
                     "type": "string",
                     "minLength": 1,
@@ -11298,6 +11321,9 @@
                     "type": "boolean"
                   }
                 }
+              },
+              "refer": {
+                "type": "boolean"
               },
               "tone": {
                 "anyOf": [
@@ -11552,6 +11578,50 @@
           }
         },
         "required": ["workspaceId", "item", "done"]
+      }
+    },
+    "outreach.referral.done": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "referralId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "comment": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": ["workspaceId", "referralId"]
+      }
+    },
+    "outreach.referral.skip": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "referralId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "referralId"]
       }
     },
     "outreach.request.answer": {

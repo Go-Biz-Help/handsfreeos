@@ -317,6 +317,7 @@ export const X_SPEC: FollowSpec = {
   pages: {
     home: `${ORIGIN}/home`,
     search: (words) => `${ORIGIN}/search?q=${encodeURIComponent(words)}&src=typed_query&f=live`,
+    topSearch: (words) => `${ORIGIN}/search?q=${encodeURIComponent(words)}&src=typed_query`,
     notifications: `${ORIGIN}/notifications/mentions`,
     followers: (own) => `${ORIGIN}/${own.username}/followers`,
   },

@@ -481,9 +481,12 @@ describe('what it does on Alignable’s list', () => {
     );
     const all = { ...daily, helpful: 'v', weekly_post: 'q', events: 'e' };
     expect(nextAlignableDaily({ daily: all })).toBe('found_checks');
-    // And on the 1st of each month, their own profile read (decision 99).
-    expect(nextAlignableDaily({ daily: { ...all, found_checks: 'u' } })).toBe('profile');
-    expect(nextAlignableDaily({ daily: { ...all, found_checks: 'u', profile: 'p' } })).toBeNull();
+    // Then HandsFreeOS's own comment research (decision 172), marked done before its turn for anyone who didn't
+    // start one, and on the 1st of each month, their own profile read (decision 99).
+    expect(nextAlignableDaily({ daily: { ...all, found_checks: 'u' } })).toBe('comment_research');
+    const researched = { ...all, found_checks: 'u', comment_research: 'r' };
+    expect(nextAlignableDaily({ daily: researched })).toBe('profile');
+    expect(nextAlignableDaily({ daily: { ...researched, profile: 'p' } })).toBeNull();
   });
 
   it('sends a message only once it’s OK’d: one waiting for the person isn’t sent', () => {
@@ -2242,10 +2245,16 @@ describe('a comment on a good post on Alignable', () => {
       sendId: SEND_ID,
       state: 'waiting',
     });
+    // The post opens first, for the AI to see its picture (decision 172): nothing's written there till it's OK'd.
+    world.pages = (url) => (url === DISCUSSION ? discussionAt(discussionHtml()) : null);
+    const drafting: string[] = [];
+    world.behave = sending(drafting);
     expect(await doWork({ do: 'draft', item: comment(null) }, ME.businessId, false)).toEqual({
       done: true,
       line: 'Wrote a comment on Dana Reyes’s post: it waits for your OK',
     });
+    expect(world.opened).toEqual([DISCUSSION]);
+    expect(drafting).toEqual([]);
     // Waiting for their OK: nothing to do.
     expect(alignableWorkLeft(list('waiting'), [])).toEqual([]);
     // Once OK'd, it goes.

@@ -10,6 +10,8 @@
  * - A post the AI calls strong, its writer asking now for what the business offers (`outreach.post.checked`, decision
  *   49), pushes to the person who found it at once when it's fresh: "Dana Reyes is asking for what you offer". Once a
  *   post, on their add-ons switch, opening Today, where it's first.
+ * - A post that asks people to recommend someone (`asks`, decision 174) has the worker look for someone the person
+ *   talked with to refer on it (./referrals.ts), once a post, while it's fresh.
  */
 import {
   PlaybookDetails,
@@ -20,6 +22,7 @@ import { FOR_CUSTOMERS } from '@hfos/core/addons/outreach/ops/common';
 import { postCheck } from '@hfos/core/addons/outreach/ops/posts';
 import { demoYesPushWords } from '@hfos/core/addons/outreach/comment-replies';
 import {
+  checkedPostAsks,
   checkedPostWhy,
   FIELD_CHECK_SINCE,
   freshPost,
@@ -46,6 +49,7 @@ import type {
   AddonScopeContext,
 } from '../types';
 import { businessKnows } from './knows';
+import { queueReferral } from './referrals';
 
 export const CHECK_POSTS_JOB = 'outreach.check_posts';
 const TODAY_HREF = '/a/outreach?view=today';
@@ -161,7 +165,13 @@ export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {
       }));
 
   for (const post of found.posts.slice(0, CHECK_POSTS_BATCH)) {
-    let check: { good: boolean; strong: boolean; fits: boolean; why: string | null } | null;
+    let check: {
+      good: boolean;
+      strong: boolean;
+      fits: boolean;
+      asks: string | null;
+      why: string | null;
+    } | null;
     try {
       const { value } = await askStructured(ctx, ctx.scope, {
         system: postCheckSystem(post.platform, post.group !== null),
@@ -186,6 +196,7 @@ export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {
         good: value.good,
         strong: value.strong,
         fits: value.fits,
+        asks: checkedPostAsks(value.asks),
         why: checkedPostWhy(value.why),
       };
     } catch (e) {
@@ -212,9 +223,21 @@ export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {
   if (found.posts.length > CHECK_POSTS_BATCH) return { rescheduleAt: new Date(ctx.now) };
 }
 
-/** `outreach.post.checked`: a strong post that's fresh pushes to the person who found it, once. */
+/**
+ * `outreach.post.checked`: a strong post that's fresh pushes to the person who found it, once; one that asks people to
+ * recommend someone has the worker look for someone to refer on it (decision 174).
+ */
 export async function postChecked(ctx: AddonEventContext): Promise<void> {
-  const p = (ctx.event.payload ?? {}) as { postId?: string; check?: string; strong?: boolean };
+  const p = (ctx.event.payload ?? {}) as {
+    postId?: string;
+    check?: string;
+    strong?: boolean;
+    asks?: boolean;
+  };
+  if (p.asks && p.postId) {
+    const postId = p.postId;
+    await asWorker(ctx.db, ctx.scope, (tx) => queueReferral(tx, ctx, postId));
+  }
   if (p.check !== 'good' || !p.strong || !p.postId) return;
   const postId = p.postId;
   await asWorker(ctx.db, ctx.scope, async (tx) => {

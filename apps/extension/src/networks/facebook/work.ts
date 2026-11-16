@@ -44,6 +44,8 @@ import type {
   OwnEditorsAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
+  PostLookAnswer,
+  PostLookAsk,
   PostsAnswer,
   TryAnswer,
   TryAsk,
@@ -52,6 +54,7 @@ import type {
   WritePartAnswer,
   WritePartAsk,
 } from '../../messages';
+import type { ProfileRef } from './types';
 import { usernamePageOf } from '../accounts-center/username';
 import { CENTER_ASKS, centerWork, type CenterAsk } from '../accounts-center/work';
 import {
@@ -76,6 +79,8 @@ import { linksPage, writeLink } from './links';
 import { ownEditorsOf, readOwnProfile, writeBioSteps } from './own-profile';
 import { writeFacebookPart } from './parts';
 import { mainOf } from './dom';
+import { seePost } from '../post-look';
+import { commentAround, postBoxes, readPost } from './posts';
 import { readProfile } from './profile';
 import { cancelSent } from './sent';
 import { tidyPage } from './tidy';
@@ -225,7 +230,31 @@ async function groupPostStep(ask: GroupPostAsk): Promise<GroupPostAnswer> {
   return {
     ok: true,
     comments: readComments(document, location.href),
-    reactions: await readReactions(document, location.href),
+    // The comment research reads the comments alone, pressing nothing (decision 172).
+    reactions: ask.reactions === false ? [] : await readReactions(document, location.href),
+  };
+}
+
+/** The same person, by the number or the username both links have. */
+const samePerson = (a: ProfileRef, b: ProfileRef): boolean =>
+  (a.id !== null && a.id === b.id) ||
+  (a.username !== null &&
+    b.username !== null &&
+    a.username.toLowerCase() === b.username.toLowerCase());
+
+/**
+ * A look at their post before its comment is drafted (decisions 166 and 172, ../post-look.ts): only on a post's own
+ * page whose post is theirs, by its writer's link, from that post's own box; nothing in a comment under it is the
+ * post's. Nothing seen on any other page.
+ */
+async function lookStep(ask: PostLookAsk): Promise<PostLookAnswer> {
+  if (classifyUrl(location.href).kind !== 'post') return { ok: true, seen: null };
+  const box = postBoxes(mainOf(document))[0];
+  const writer = box ? readPost(box, location.href)?.author?.profile : null;
+  if (!box || !writer || !samePerson(writer, ask.profile)) return { ok: true, seen: null };
+  return {
+    ok: true,
+    seen: await seePost(box, ask.want, { skip: (el) => commentAround(el, box) !== null }),
   };
 }
 
@@ -391,6 +420,7 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-join-answer',
   'hfos-group-post',
   'hfos-engaged',
+  'hfos-post-look',
   'hfos-own-profile',
   'hfos-write-bio',
   'hfos-own-editors',
@@ -410,6 +440,7 @@ type WorkAsk =
   | OpenMessageAsk
   | JoinAsk
   | GroupPostAsk
+  | PostLookAsk
   | OwnProfileAsk
   | OwnEditorsAsk
   | WriteLinkAsk
@@ -444,6 +475,8 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-group-post':
     case 'hfos-engaged':
       return groupPostStep(known);
+    case 'hfos-post-look':
+      return lookStep(known);
     case 'hfos-their-posts':
     case 'hfos-like-post':
     case 'hfos-comment':

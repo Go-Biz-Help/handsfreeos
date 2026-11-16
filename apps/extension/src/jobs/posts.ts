@@ -92,7 +92,7 @@ export async function findPosts(
 }
 
 /** The feed on screen, its posts' times pointed at first so each read has its address (decision 138). */
-async function readPointed(job: Job): Promise<ReadResult> {
+export async function readPointed(job: Job): Promise<ReadResult> {
   if ((await job.tab.ask({ type: 'hfos-point-times' })).ok) await pause(POINT_MS);
   return readIn(job.tab);
 }

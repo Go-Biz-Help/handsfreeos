@@ -33,6 +33,7 @@ import {
   type HelpfulListOutput,
 } from '@hfos/core/addons/outreach/helpful';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
+import { REFER_WORDS as RW, type Referral } from '@hfos/core/addons/outreach/referrals';
 import { goalTryPlace, type GoalTry } from '@hfos/core/addons/outreach/goal';
 import { PROFILE_PART_WORDS } from '@hfos/core/addons/outreach/profile-parts';
 import { recentBubbles, RECENT_WORDS } from '@hfos/core/addons/outreach/sends';
@@ -65,6 +66,7 @@ import {
 } from './kit';
 import { PersonName } from './person-menu';
 import { PostQuote } from './post-quote';
+import { ReferralsPart, type ReferralActions } from './referrals';
 
 /**
  * Today on the phone (decision 44): the person's list for today, kind by kind, what the extension does on its own,
@@ -108,6 +110,24 @@ export function useTodayProps(
     `helpful:${ws}:${platform}`,
     H.title,
   );
+  // Referrals waiting for the person on this network (decision 174): none while they load or can't be had.
+  const referrals = useOutreachAnswer(
+    async () =>
+      unwrap(
+        await api.POST('/v1/queries/outreach.referrals', { body: { workspaceId: ws, platform } }),
+      ),
+    `referrals:${ws}:${platform}`,
+    RW.title,
+  );
+  const referralChange = async (run: () => Promise<unknown>, said: string) => {
+    try {
+      await run();
+      toast.show(said);
+      referrals.reload();
+    } catch (e) {
+      failed(e);
+    }
+  };
   const helpfulChange = async (run: () => Promise<unknown>, said: string) => {
     try {
       await run();
@@ -139,6 +159,19 @@ export function useTodayProps(
     platform,
     today: today.data,
     helpful: helpful.data,
+    referrals: referrals.data?.referrals ?? null,
+    onReferral: {
+      done: (referralId, name) =>
+        referralChange(
+          () => change('outreach.referral.done', { workspaceId: ws, referralId }),
+          RW.doneSaid(name),
+        ),
+      skip: (referralId) =>
+        referralChange(
+          () => change('outreach.referral.skip', { workspaceId: ws, referralId }),
+          RW.skipSaid,
+        ),
+    },
     onHelpful: {
       write: () =>
         helpfulChange(
@@ -272,6 +305,8 @@ export function TodayBody({
   today,
   helpful = null,
   onHelpful,
+  referrals = null,
+  onReferral,
   error,
   wheels,
   onRetry,
@@ -293,6 +328,9 @@ export function TodayBody({
   /** Today's helpful post, and those up lately: none while it loads. */
   helpful?: HelpfulListOutput | null;
   onHelpful?: HelpfulActions;
+  /** Referrals waiting for the person on this network (decision 174): none while they load. */
+  referrals?: readonly Referral[] | null;
+  onReferral?: ReferralActions;
   error: string | null;
   wheels: WheelsListOutput | null;
   onRetry: () => void;
@@ -406,6 +444,7 @@ export function TodayBody({
       {helpful && onHelpful && helpfulOn(platform) ? (
         <HelpfulPart platform={platform} helpful={helpful} on={onHelpful} />
       ) : null}
+      {referrals && onReferral ? <ReferralsPart referrals={referrals} on={onReferral} /> : null}
       {asking.length ? (
         <Part
           title={`${W.asking} · ${asking.length.toLocaleString('en-US')}`}

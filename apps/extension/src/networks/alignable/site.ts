@@ -26,6 +26,7 @@ import { writeAlignablePart } from './parts';
 import { alignableNoticer } from './actions';
 import {
   commentOn,
+  theirPostPart,
   connectOnPage,
   joinOnPage,
   likeTheirAnswer,
@@ -808,6 +809,8 @@ export const ALIGNABLE: LookingSite = {
     connect: connectOnPage,
     message: writeMessage,
     comment: commentOn,
+    // Their post's picture, looked at before its comment is drafted (decision 172, from 0.144.0).
+    postPart: theirPostPart,
     join: joinOnPage,
     answerJoin: () => Promise.resolve('none'),
     // The week's helpful post, once OK'd (0.101.0, decision 109), on their signed-in home page.

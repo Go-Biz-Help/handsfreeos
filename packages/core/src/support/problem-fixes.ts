@@ -316,7 +316,7 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     area: 'alignable',
     job: 'members',
     note: 'Alignable showed no members of a group.',
-    fixedIn: '0.142.1',
+    fixedIn: '0.147.1',
     pr: 656,
     said: 'The last read of the group stopped just as its member list ended, so this read scrolled past the end keeping nothing (decision 148) and saved no depth, so it would every time. When the list ends before where the last read got to, nothing is reported now and the next read starts at the top.',
   },

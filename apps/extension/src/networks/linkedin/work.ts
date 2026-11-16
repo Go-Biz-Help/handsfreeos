@@ -42,6 +42,8 @@ import type {
   OwnProfileAsk,
   PostLinksAnswer,
   PostLinksAsk,
+  PostLookAnswer,
+  PostLookAsk,
   PostPeopleAnswer,
   PostPeopleAsk,
   WriteNameAsk,
@@ -60,6 +62,7 @@ import {
   connectSent,
   likeTheirPost,
   openMessage,
+  postOnPage,
   theirPosts,
   writeComment,
   writeMessage,
@@ -67,6 +70,7 @@ import {
 import { stepOnPage } from '../facebook/fetch';
 import { openChat, scrollChats, scrollList } from './browse';
 import {
+  commentPartsOf,
   likeTheirComment,
   postPeopleOn,
   theirComment,
@@ -83,7 +87,9 @@ import {
   writeHeadline,
   writeName,
 } from './own-profile';
-import { classifyUrl } from './urls';
+import { seePost } from '../post-look';
+import { readPost } from './posts';
+import { classifyUrl, postOf, sameMember } from './urls';
 import {
   tryComment,
   tryConnect,
@@ -125,6 +131,7 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-engaged',
   'hfos-post-people',
   'hfos-post-links',
+  'hfos-post-look',
   'hfos-try',
 ]);
 
@@ -144,6 +151,7 @@ type WorkAsk =
   | Extract<GroupPostAsk, { type: 'hfos-engaged' }>
   | PostPeopleAsk
   | PostLinksAsk
+  | PostLookAsk
   | TheirCommentAsk
   | CommentLikeAsk;
 
@@ -271,7 +279,28 @@ async function postStep(
   return {
     ok: true,
     comments: readComments(document, location.href),
-    reactions: await readReactions(document, location.href),
+    // The comment research reads the comments alone, pressing nothing (decision 172).
+    reactions: ask.reactions === false ? [] : await readReactions(document, location.href),
+  };
+}
+
+/**
+ * A look at their post before its comment is drafted (decisions 166 and 172, ../post-look.ts): only on the post's own
+ * page, the one asked for by its activity, whose post is theirs by its writer's link, from that post's own box;
+ * nothing in a comment under it is the post's. Nothing seen on any other page.
+ */
+async function lookStep(ask: PostLookAsk): Promise<PostLookAnswer> {
+  const href = location.href;
+  const asked = postOf(ask.postUrl);
+  if (classifyUrl(href).kind !== 'post' || (asked !== null && postOf(href) !== asked))
+    return { ok: true, seen: null };
+  const post = postOnPage(document);
+  const writer = post ? readPost(post, href)?.author?.profile : null;
+  if (!post || !writer || !sameMember(writer, ask.profile)) return { ok: true, seen: null };
+  const comments = commentPartsOf(post, href);
+  return {
+    ok: true,
+    seen: await seePost(post, ask.want, { skip: (el) => comments.some((c) => c.contains(el)) }),
   };
 }
 
@@ -393,6 +422,8 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
       return postStep(known);
     case 'hfos-post-links':
       return linksStep(known);
+    case 'hfos-post-look':
+      return lookStep(known);
     case 'hfos-try':
       return tryStep(known);
   }

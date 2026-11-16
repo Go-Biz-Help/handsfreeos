@@ -164,6 +164,31 @@ function boxNow(doc: Document, spec: FollowSpec): HTMLElement | null {
 }
 
 /**
+ * Their post's own part of its page, for a look at its picture or video before its comment is drafted (decisions 166
+ * and 172, ../post-look.ts): only on the post's own page, the one asked for and theirs by its address, as a comment
+ * goes (`writeTheirComment`). Anything inside a link to another post (one it quotes) isn't theirs. Null on any other
+ * page.
+ */
+export const theirPostPart =
+  (spec: FollowSpec) =>
+  (
+    doc: Document,
+    href: string,
+    on: CommentOn,
+  ): { readonly root: Element; readonly skip: (el: Element) => boolean } | null => {
+    const here = postHere(doc, href, spec);
+    if (!here || !samePost(spec, on.postUrl, here.url)) return null;
+    if (!sameName(here.author.username, on.profile.username)) return null;
+    const skip = (el: Element): boolean => {
+      const link = el.closest('a[href]');
+      const to = link ? spec.url(link.getAttribute('href') ?? '', href) : null;
+      const other = to && spec.kindOf(to) === 'post' ? spec.postOf(to) : null;
+      return other !== null && other !== here.url;
+    };
+    return { root: here.root, skip };
+  };
+
+/**
  * Replies under their post (decision 92), once the person OK'd it or the comment hold is past: only on the post asked
  * for, on its own page, when its own address names them (`on`); only in the box to reply to it (under it, or the box
  * its own Reply opens where none shows), only while that box is empty; typed as a person types (`writeIn`), then sent

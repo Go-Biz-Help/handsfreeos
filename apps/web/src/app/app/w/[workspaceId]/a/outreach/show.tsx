@@ -589,7 +589,7 @@ export async function showOutreach(
       .POST('/v1/queries/outreach.readiness', { body: { workspaceId, platform } })
       .then((r) => r.data ?? null)
       .catch(() => null);
-  const [today, lives, helpful, readies] = await Promise.all([
+  const [today, lives, helpful, readies, refer] = await Promise.all([
     api
       .POST('/v1/queries/outreach.today', { body: { workspaceId, platform: net } })
       .then(unwrapPage),
@@ -599,6 +599,11 @@ export async function showOutreach(
       .POST('/v1/queries/outreach.helpful', { body: { workspaceId, platform: net } })
       .then(unwrapPage),
     Promise.all(nets.map((p) => readinessOf(p))),
+    // Referrals waiting for the person on the network shown (decision 174): none when they can't be had.
+    api
+      .POST('/v1/queries/outreach.referrals', { body: { workspaceId, platform: net } })
+      .then((r) => r.data?.referrals ?? [])
+      .catch(() => []),
   ]);
   const networks = nets.flatMap((platform, i) => {
     const live = lives[i];
@@ -639,6 +644,7 @@ export async function showOutreach(
         networks,
         today,
         helpful,
+        referrals: refer,
         team,
         asks,
         waiting,

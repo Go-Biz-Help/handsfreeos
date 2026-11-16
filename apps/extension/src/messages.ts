@@ -215,10 +215,12 @@ export type JoinAnswer =
 
 /**
  * Helpful posts (src/networks/facebook/compose.ts, decision 50): on a group's page, put one up; on the person's own post, read
- * who commented and reacted.
+ * who commented and reacted. With `reactions` false only the comments are read and nothing is pressed: the comment
+ * research's, on anyone's post (decision 172, src/jobs/facebook-research.ts, src/jobs/linkedin/comment-research.ts).
  */
 export type GroupPostAsk =
-  { readonly type: 'hfos-group-post'; readonly text: string } | { readonly type: 'hfos-engaged' };
+  | { readonly type: 'hfos-group-post'; readonly text: string }
+  | { readonly type: 'hfos-engaged'; readonly reactions?: boolean };
 
 export type GroupPostAnswer =
   | { readonly ok: true; readonly result: PostResult }

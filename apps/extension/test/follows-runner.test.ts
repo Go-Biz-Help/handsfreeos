@@ -305,13 +305,13 @@ describe('what it does on X’s list', () => {
     // No chats on X: nothing is written in anyone's messages there.
     expect(nextFollowDaily('x', { daily: read })).toBe('post_people');
     expect(nextFollowDaily('x', { daily: { ...read, post_people: 'd' } })).toBe('found_checks');
-    expect(nextFollowDaily('x', { daily: { ...read, post_people: 'd', found_checks: 'e' } })).toBe(
-      'profile',
-    );
+    // Then HandsFreeOS's own comment research (decision 172), marked done before its turn for anyone who didn't
+    // start one, and the profile.
+    const found = { ...read, post_people: 'd', found_checks: 'e' };
+    expect(nextFollowDaily('x', { daily: found })).toBe('comment_research');
+    expect(nextFollowDaily('x', { daily: { ...found, comment_research: 'r' } })).toBe('profile');
     expect(
-      nextFollowDaily('x', {
-        daily: { ...read, post_people: 'd', found_checks: 'e', profile: 'f' },
-      }),
+      nextFollowDaily('x', { daily: { ...found, comment_research: 'r', profile: 'f' } }),
     ).toBeNull();
     // Threads' chats are read after the tidy-up (decision 167).
     expect(nextFollowDaily('threads', { daily: read })).toBe('chats');

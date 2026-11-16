@@ -269,6 +269,10 @@ function commentWords({ box, newer }: CommentBox): string | null {
   return (words ? shownLines(words, { max: 40, exclude: CONTROLS }).join('\n') : '') || null;
 }
 
+/** A post's comments and replies, each its own part of the page: whatever's in one isn't the post's. */
+export const commentPartsOf = (post: Element, href: string): Element[] =>
+  commentBoxesOn(post, href).map((comment) => comment.box);
+
 /**
  * The comments and replies on the post the page shows, each writer once, in page order: never the person themselves,
  * nor anyone `skip` names.

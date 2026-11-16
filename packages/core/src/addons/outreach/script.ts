@@ -13,6 +13,10 @@
  * it, the offers of a demo and a networking call, the line about sending people their way, and the ask for a time on a
  * networking call. Each offer goes only while its switch is on (`PLAYBOOK_NETWORKING`).
  *
+ * Every playbook has a referral's parts too (decision 174): the comment that names someone the owner has talked with
+ * under a post asking for a recommendation, and the heads-up to them with its link, while Refer them on posts is on
+ * (`PLAYBOOK_REFER`).
+ *
  * Words in [square brackets] are filled in for each person (`SCRIPT_BLANKS`, `FILL_BLANKS`). Browser-safe: the web's
  * and the phone's editors, the Test console and the server read it.
  */
@@ -41,6 +45,8 @@ export const SCRIPT_PARTS = [
   'warmUp',
   'postReply',
   'groupReply',
+  'referComment',
+  'referNote',
   'birthday',
   'newJob',
 ] as const;
@@ -171,6 +177,16 @@ export const SCRIPT_INFO: Readonly<
     when: 'Under the day’s question in one of your Facebook groups.',
     says: 'how',
   },
+  referComment: {
+    label: 'Referring them on a post',
+    when: 'Under a post asking for a recommendation of what someone you’ve talked with does. Only while Refer them on posts is on, and only after your OK on Today.',
+    says: 'message',
+  },
+  referNote: {
+    label: 'The heads-up to them',
+    when: 'To the person you referred, with the post’s link, right after your comment.',
+    says: 'message',
+  },
   birthday: { label: 'Birthdays', when: 'On their birthday.', says: 'how' },
   newJob: {
     label: 'New jobs',
@@ -199,6 +215,11 @@ export const SCRIPT_GROUPS: readonly {
     title: 'In public',
     parts: ['comment', 'warmUp', 'postReply', 'groupReply'],
   },
+  {
+    key: 'refer',
+    title: 'Referring people you’ve talked with',
+    parts: ['referComment', 'referNote'],
+  },
   { key: 'occasions', title: 'Birthdays and new jobs', parts: ['birthday', 'newJob'] },
 ];
 
@@ -224,6 +245,9 @@ export const SCRIPT_BLANKS = [
   },
   { blank: '[what they do]', fills: 'What they do, in their own words' },
   { blank: '[their area]', fills: 'Where they work, or “anywhere” when they work nationwide' },
+  { blank: '[their name]', fills: 'Their name as it shows on their page, so you can tag them' },
+  { blank: '[what they need]', fills: 'What the post asks for, in a few words' },
+  { blank: '[post link]', fills: 'The link to the post' },
 ] as const;
 
 const text = (max: number) =>
@@ -266,6 +290,8 @@ export const PlaybookScript = z.object({
   warmUp: part,
   postReply: part,
   groupReply: part,
+  referComment: part,
+  referNote: part,
   birthday: part,
   newJob: part,
 } satisfies Record<ScriptPart, z.ZodType>);
@@ -349,6 +375,16 @@ export const STARTING_SEND_PEOPLE =
   'If I come across anyone in [their area] who needs [what they do], I’ll send them your way.';
 
 /**
+ * A referral (decision 174, the owner, 16 Nov 2026: "we need to build the skill of referring these people on relevant
+ * posts, only the ones that we've had a decent conversation with"): a comment naming them under a post asking for what
+ * they do, honest about how the owner knows them, and a heads-up to them with the post's link.
+ */
+export const STARTING_REFER_COMMENT =
+  'You should reach out to [their name]! They do [what they do] in [their area], and I’ve really enjoyed getting to know them.';
+export const STARTING_REFER_NOTE =
+  'Hey [first name], someone was just asking for [what they need], so I mentioned you. Here’s the post if you want to jump in: [post link]';
+
+/**
  * The words a playbook starts with, by its goal: the owner's latest way. The first message asks one straight question
  * that says how the business can help (decision 152); Reconnect catches up, then asks it (decisions 152 and 155); a
  * yes gets the ask for a time, with open times and the link (decisions 149 and 153); follow-ups ask again and never
@@ -387,6 +423,8 @@ export function startingScript(goal: PlaybookGoal): FullScript {
       'Thank them by name, answer or add to what they said, and ask one light question back.',
     groupReply:
       'Answer what they asked the way a friendly neighbour would, or add something useful from what you know.',
+    referComment: STARTING_REFER_COMMENT,
+    referNote: STARTING_REFER_NOTE,
     birthday:
       'A short, warm happy birthday, one or two lines, picking up something real from your chat or their page when there is one.',
     newJob:
@@ -558,6 +596,20 @@ export function networkingOf(
   return { ...NETWORKING_ON, ...(d?.networking ?? {}) };
 }
 
+/**
+ * Referring people the owner has talked with on posts asking for a recommendation (decision 174, the owner's 6a to 9a):
+ * Today offers the comment and the heads-up, both waiting for an OK, while this is on. On to start, and for a playbook
+ * saved before it; the person's playbook is the one their first message was written from.
+ */
+export const PLAYBOOK_REFER = {
+  label: 'Refer them on posts',
+  hint: 'When someone asks for a recommendation of what a person you’ve talked with does, Today offers a comment naming them and a heads-up to them. Both wait for your OK.',
+} as const;
+
+/** Whether a playbook's people may be referred on posts: yes unless it's turned off. */
+export const refersOf = (d: { readonly refer?: boolean | null | undefined } | null): boolean =>
+  d?.refer !== false;
+
 /** The parts only a playbook that starts with an introduction has: the editors show them only then. */
 export const INTRO_PARTS: readonly ScriptPart[] = [
   'intro',
@@ -678,6 +730,7 @@ export const FILL_BLANKS = [
   '[your first name] is the first word of the name under <owner_name>; with none given, leave it and the words that give it out (“I’m with …”). [your business name] is the business’s name under <business>, written the way people say it.',
   '[a question about them] is one short, friendly question about them as a person, picked from something specific on their pages, in the facts or in the chat: a trip, a milestone, a hobby, a post, how long they’ve been at it, how they got started. People like talking about themselves, so make it about them and easy to answer, never a yes-or-no question, and never about what the offer does. Only when nothing specific stands out, ask how they got into their line of work.',
   '[what they do] is what they do, the way they’d say it (“roofing”, “real estate”). [their area] is the town or area they work in, from their pages or the chat; when they work nationwide or online, say “anywhere” in place of “in [their area]”.',
+  '[their name] is their name exactly as it shows under <person>, so the owner can tag them. [what they need] is what the post asks for, in a few plain words (“a good roofer”), never where it was posted. [post link] stays exactly as it is, brackets and all: the link goes in after.',
   'Anything else in brackets: put in what the facts say, and leave it and the words around it out when they don’t say.',
 ].join(' ');
 
@@ -710,6 +763,7 @@ export const LOCKED_RULES: readonly string[] = [
   'Birthday and new-job notes, warm-up comments and answers in your groups say nothing about your business.',
   'Never uses your words to avoid, and always says what every message must say.',
   'Never pitches a client in your Contacts.',
+  'Refers only someone who wrote back to you at least twice, never someone you marked not a fit or put on Don’t pitch, and never without your OK.',
 ];
 
 /** The editor's own words (decision 164), shared by the web and the phone. */

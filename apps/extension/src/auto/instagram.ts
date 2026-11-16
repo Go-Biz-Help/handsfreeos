@@ -74,6 +74,7 @@ import { searchInstagram } from '../jobs/instagram/partner-search';
 import { lookForFollowBacks } from '../jobs/instagram/follow-backs';
 import { saveFollowers } from '../jobs/instagram/people';
 import { readLikeYours } from '../jobs/instagram/like-yours';
+import { NO_RESEARCH, researchRuns } from '../jobs/comment-research';
 import { readCommentsForResearch } from '../jobs/instagram/comment-research';
 import { readPostPeople } from '../jobs/instagram/post-people';
 import { lookAtTagsAndPlaces } from '../jobs/instagram/posts';
@@ -1266,25 +1267,6 @@ const reporting = (job: Job, kind: InstagramDaily): Job => ({
     }),
 });
 
-/** What the day keeps for the comment research when none is this person's to read for: never shown. */
-const NO_RESEARCH = 'No comment research is running.';
-
-/**
- * Whether a comment research this person started is reading (decision 166). Anything else, a HandsFreeOS that doesn't
- * answer included, is no.
- */
-async function researchRuns(businessId: string): Promise<boolean> {
-  try {
-    const next = await (answer as Hfos)({
-      type: 'hfos-comment-research-next',
-      input: { workspaceId: businessId, platform: 'instagram' },
-    });
-    return next.ok && Boolean(next.value?.research);
-  } catch {
-    return false;
-  }
-}
-
 /** Does one of Instagram's once-a-day jobs. */
 export async function runInstagramDaily(kind: InstagramDaily, job: Job): Promise<JobEnd> {
   switch (kind) {
@@ -1469,7 +1451,10 @@ async function go(): Promise<void> {
   let daily = choices.collect ? nextInstagramDaily(state, passOver, at) : null;
   // HandsFreeOS's own comment research (decision 166) is only for whoever of its staff started one: asked without a
   // word once its turn comes, and for anyone else it's done for the day before a line of it is ever shown.
-  if (daily === 'comment_research' && !(await researchRuns(to.businessId))) {
+  if (
+    daily === 'comment_research' &&
+    !(await researchRuns(answer as Hfos, to.businessId, PLATFORM))
+  ) {
     state = await setState({ daily: { ...state.daily, comment_research: NO_RESEARCH } });
     daily = nextInstagramDaily(state, passOver, at);
   }

@@ -8527,7 +8527,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * A hashtag’s posts the person’s computer read for the comment research they started, each with the comments it showed. Only a comment’s words are kept, with the kind of post: nobody’s name, no link, and nothing that reads like a bot’s or an advert’s. Once enough are kept, the AI sums up how they’re written.
+         * A search’s posts (a hashtag, search words or an Alignable place) the person’s computer read for the comment research they started, each with the comments it showed. Only a comment’s words are kept, with the kind of post: nobody’s name, no link, and nothing that reads like a bot’s or an advert’s. Once enough are kept, the AI sums up how they’re written.
          * @description Risk level 0. Requires outreach.use. Emits outreach.comment_research.changed.
          */
         post: operations["command_outreach_comment_research_save"];
@@ -8547,7 +8547,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * HandsFreeOS staff only: start a comment research. Over 3 days the browser of the person who starts it reads about 2,000 real comments under public Instagram posts of many kinds, a little at a time, keeping each comment’s words only (never who wrote it or the post) and leaving out ones that read like a bot’s. One at a time a business.
+         * HandsFreeOS staff only: start a comment research, on every network with none running (or on the one named). Over 3 days the browser of the person who starts it reads about 2,000 real comments a network under posts of many kinds, a little at a time, keeping each comment’s words only (never who wrote it or the post) and leaving out ones that read like a bot’s. One at a time a network.
          * @description Risk level 1. Requires outreach.use. Emits outreach.comment_research.changed.
          */
         post: operations["command_outreach_comment_research_start"];
@@ -8587,7 +8587,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * HandsFreeOS staff only: put a finished comment research’s guide in every business’s Instagram comments (how real comments sound: their length, words and punctuation), in place of the guide in use; or take the guide in use out again.
+         * HandsFreeOS staff only: put a finished comment research’s guide in every business’s comments on its network (how real comments sound there: their length, words and punctuation), in place of the guide in use on that network; or take the guide in use there out again.
          * @description Risk level 2. Requires outreach.use. Emits outreach.comment_research.changed.
          */
         post: operations["command_outreach_comment_research_use"];
@@ -9751,6 +9751,46 @@ export interface paths {
          * @description Risk level 0. Requires outreach.use. Emits outreach.readiness.saved.
          */
         post: operations["command_outreach_readiness_profile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.referral.done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person commented on the post naming someone they talked with, and sent that person the heads-up: the referral is noted as done, with the words they sent when they changed them.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.referral.done.
+         */
+        post: operations["command_outreach_referral_done"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.referral.skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a referral aside: nothing is commented or sent, and it doesn’t come back.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.referral.skipped.
+         */
+        post: operations["command_outreach_referral_skip"];
         delete?: never;
         options?: never;
         head?: never;
@@ -16267,7 +16307,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Extension: the next of the business’s own posts to put up now, on the networks the extension posts on: OK’d, its time come, within a day of it, soonest first. It’s taken, so it goes up once. What a computer took and never said how it went is marked as didn’t post (it may have gone up), and what waited more than a day past its time too. Null when nothing is due.
+         * Extension: the next of the business’s own posts to put up now, on the networks the extension posts on: OK’d, its time come, within a day of it, soonest first, Facebook last of those due at the same time. It’s taken, so it goes up once. What a computer took and never said how it went is marked as didn’t post (it may have gone up), and what waited more than a day past its time too. Null when nothing is due.
          * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.content.posting, socialcontent.content.failed.
          */
         post: operations["command_socialcontent_post_next"];
@@ -22387,7 +22427,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * HandsFreeOS staff only: the newest comment research run from this business (where it stands, how many real comments it kept and left out, and what it found), and the comment guide every business’s Instagram comments are written with now, if one is in use.
+         * HandsFreeOS staff only: on each network (Instagram, Facebook, LinkedIn, Alignable, Threads and X), the newest comment research run from this business (where it stands, how many real comments it kept and left out, and what it found), and the comment guide every business’s comments there are written with now, if one is in use.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_comment_research_get"];
@@ -22407,7 +22447,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What the person’s computer reads next for the comment research they started, if they started one: the next hashtags (none once today’s share of the comments is read, so it spreads over its days). Nothing for anyone who didn’t start one.
+         * What the person’s computer reads next on a network for the comment research they started there, if they started one: the next hashtags or search words (none once today’s share of the comments is read, so it spreads over its days). Nothing for anyone who didn’t start one.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_comment_research_next"];
@@ -23111,6 +23151,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_readiness"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.referrals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s referrals waiting for them (Refer someone on Today): posts from the last week asking for a recommendation of what someone they talked with does, each with who, why, the comment naming them and the heads-up to them. Nothing is posted or sent: the person does both, then outreach_referral_done notes it.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_referrals"];
         delete?: never;
         options?: never;
         head?: never;
@@ -47824,6 +47884,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @enum {string} */
+                    platform?: "instagram" | "facebook" | "linkedin" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -47837,62 +47899,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        inUse: {
-                            comments: number;
-                            guide: string;
-                            /** @enum {string} */
-                            platform: "instagram";
-                            thisOne: boolean;
-                            usedAt: string;
-                        } | null;
-                        research: {
-                            days: number;
-                            dropped: number;
-                            endsAt: string;
-                            findings: {
-                                brochure: {
-                                    in: number;
-                                    word: string;
-                                }[];
+                        networks: {
+                            inUse: {
                                 comments: number;
-                                copied: number;
-                                emoji: number;
-                                exclaim: number;
-                                fullStop: number;
-                                kinds: {
-                                    examples: string[];
-                                    how: string;
-                                    /** @enum {string} */
-                                    topic: "food" | "fitness" | "travel" | "pets" | "family" | "cars" | "sports" | "home" | "business" | "homes" | "style" | "outdoors" | "music" | "funny" | "big_days" | "community" | "trades";
-                                }[];
-                                lowerStart: number;
-                                medianWords: number;
-                                onlyEmoji: number;
-                                patterns: string[];
-                                question: number;
-                                said: {
-                                    seen: number;
-                                    words: string;
-                                }[];
-                                short: number;
-                                words: {
-                                    in: number;
-                                    word: string;
-                                }[];
+                                guide: string;
+                                thisOne: boolean;
+                                usedAt: string;
                             } | null;
-                            guide: string | null;
-                            /** Format: uuid */
-                            id: string;
-                            kept: number;
-                            mine: boolean;
                             /** @enum {string} */
-                            platform: "instagram";
-                            posts: number;
-                            startedAt: string;
-                            /** @enum {string} */
-                            state: "reading" | "summing" | "done" | "stopped";
-                            target: number;
-                        } | null;
+                            platform: "instagram" | "facebook" | "linkedin" | "alignable" | "threads" | "x";
+                            research: {
+                                days: number;
+                                dropped: number;
+                                endsAt: string;
+                                findings: {
+                                    brochure: {
+                                        in: number;
+                                        word: string;
+                                    }[];
+                                    comments: number;
+                                    copied: number;
+                                    emoji: number;
+                                    exclaim: number;
+                                    fullStop: number;
+                                    kinds: {
+                                        examples: string[];
+                                        how: string;
+                                        /** @enum {string} */
+                                        topic: "food" | "fitness" | "travel" | "pets" | "family" | "cars" | "sports" | "home" | "business" | "homes" | "style" | "outdoors" | "music" | "funny" | "big_days" | "community" | "trades" | "new_jobs" | "wins" | "advice" | "hiring" | "events" | "asking" | "town" | "groups";
+                                    }[];
+                                    lowerStart: number;
+                                    medianWords: number;
+                                    onlyEmoji: number;
+                                    patterns: string[];
+                                    question: number;
+                                    said: {
+                                        seen: number;
+                                        words: string;
+                                    }[];
+                                    short: number;
+                                    words: {
+                                        in: number;
+                                        word: string;
+                                    }[];
+                                } | null;
+                                guide: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                kept: number;
+                                mine: boolean;
+                                /** @enum {string} */
+                                platform: "instagram" | "facebook" | "linkedin" | "alignable" | "threads" | "x";
+                                posts: number;
+                                startedAt: string;
+                                /** @enum {string} */
+                                state: "reading" | "summing" | "done" | "stopped";
+                                target: number;
+                            } | null;
+                        }[];
                     };
                 };
             };
@@ -47923,62 +47987,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        inUse: {
-                            comments: number;
-                            guide: string;
-                            /** @enum {string} */
-                            platform: "instagram";
-                            thisOne: boolean;
-                            usedAt: string;
-                        } | null;
-                        research: {
-                            days: number;
-                            dropped: number;
-                            endsAt: string;
-                            findings: {
-                                brochure: {
-                                    in: number;
-                                    word: string;
-                                }[];
+                        networks: {
+                            inUse: {
                                 comments: number;
-                                copied: number;
-                                emoji: number;
-                                exclaim: number;
-                                fullStop: number;
-                                kinds: {
-                                    examples: string[];
-                                    how: string;
-                                    /** @enum {string} */
-                                    topic: "food" | "fitness" | "travel" | "pets" | "family" | "cars" | "sports" | "home" | "business" | "homes" | "style" | "outdoors" | "music" | "funny" | "big_days" | "community" | "trades";
-                                }[];
-                                lowerStart: number;
-                                medianWords: number;
-                                onlyEmoji: number;
-                                patterns: string[];
-                                question: number;
-                                said: {
-                                    seen: number;
-                                    words: string;
-                                }[];
-                                short: number;
-                                words: {
-                                    in: number;
-                                    word: string;
-                                }[];
+                                guide: string;
+                                thisOne: boolean;
+                                usedAt: string;
                             } | null;
-                            guide: string | null;
-                            /** Format: uuid */
-                            id: string;
-                            kept: number;
-                            mine: boolean;
                             /** @enum {string} */
-                            platform: "instagram";
-                            posts: number;
-                            startedAt: string;
-                            /** @enum {string} */
-                            state: "reading" | "summing" | "done" | "stopped";
-                            target: number;
-                        } | null;
+                            platform: "instagram" | "facebook" | "linkedin" | "alignable" | "threads" | "x";
+                            research: {
+                                days: number;
+                                dropped: number;
+                                endsAt: string;
+                                findings: {
+                                    brochure: {
+                                        in: number;
+                                        word: string;
+                                    }[];
+                                    comments: number;
+                                    copied: number;
+                                    emoji: number;
+                                    exclaim: number;
+                                    fullStop: number;
+                                    kinds: {
+                                        examples: string[];
+                                        how: string;
+                                        /** @enum {string} */
+                                        topic: "food" | "fitness" | "travel" | "pets" | "family" | "cars" | "sports" | "home" | "business" | "homes" | "style" | "outdoors" | "music" | "funny" | "big_days" | "community" | "trades" | "new_jobs" | "wins" | "advice" | "hiring" | "events" | "asking" | "town" | "groups";
+                                    }[];
+                                    lowerStart: number;
+                                    medianWords: number;
+                                    onlyEmoji: number;
+                                    patterns: string[];
+                                    question: number;
+                                    said: {
+                                        seen: number;
+                                        words: string;
+                                    }[];
+                                    short: number;
+                                    words: {
+                                        in: number;
+                                        word: string;
+                                    }[];
+                                } | null;
+                                guide: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                kept: number;
+                                mine: boolean;
+                                /** @enum {string} */
+                                platform: "instagram" | "facebook" | "linkedin" | "alignable" | "threads" | "x";
+                                posts: number;
+                                startedAt: string;
+                                /** @enum {string} */
+                                state: "reading" | "summing" | "done" | "stopped";
+                                target: number;
+                            } | null;
+                        }[];
                     };
                 };
             };
@@ -48010,62 +48076,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        inUse: {
-                            comments: number;
-                            guide: string;
-                            /** @enum {string} */
-                            platform: "instagram";
-                            thisOne: boolean;
-                            usedAt: string;
-                        } | null;
-                        research: {
-                            days: number;
-                            dropped: number;
-                            endsAt: string;
-                            findings: {
-                                brochure: {
-                                    in: number;
-                                    word: string;
-                                }[];
+                        networks: {
+                            inUse: {
                                 comments: number;
-                                copied: number;
-                                emoji: number;
-                                exclaim: number;
-                                fullStop: number;
-                                kinds: {
-                                    examples: string[];
-                                    how: string;
-                                    /** @enum {string} */
-                                    topic: "food" | "fitness" | "travel" | "pets" | "family" | "cars" | "sports" | "home" | "business" | "homes" | "style" | "outdoors" | "music" | "funny" | "big_days" | "community" | "trades";
-                                }[];
-                                lowerStart: number;
-                                medianWords: number;
-                                onlyEmoji: number;
-                                patterns: string[];
-                                question: number;
-                                said: {
-                                    seen: number;
-                                    words: string;
-                                }[];
-                                short: number;
-                                words: {
-                                    in: number;
-                                    word: string;
-                                }[];
+                                guide: string;
+                                thisOne: boolean;
+                                usedAt: string;
                             } | null;
-                            guide: string | null;
-                            /** Format: uuid */
-                            id: string;
-                            kept: number;
-                            mine: boolean;
                             /** @enum {string} */
-                            platform: "instagram";
-                            posts: number;
-                            startedAt: string;
-                            /** @enum {string} */
-                            state: "reading" | "summing" | "done" | "stopped";
-                            target: number;
-                        } | null;
+                            platform: "instagram" | "facebook" | "linkedin" | "alignable" | "threads" | "x";
+                            research: {
+                                days: number;
+                                dropped: number;
+                                endsAt: string;
+                                findings: {
+                                    brochure: {
+                                        in: number;
+                                        word: string;
+                                    }[];
+                                    comments: number;
+                                    copied: number;
+                                    emoji: number;
+                                    exclaim: number;
+                                    fullStop: number;
+                                    kinds: {
+                                        examples: string[];
+                                        how: string;
+                                        /** @enum {string} */
+                                        topic: "food" | "fitness" | "travel" | "pets" | "family" | "cars" | "sports" | "home" | "business" | "homes" | "style" | "outdoors" | "music" | "funny" | "big_days" | "community" | "trades" | "new_jobs" | "wins" | "advice" | "hiring" | "events" | "asking" | "town" | "groups";
+                                    }[];
+                                    lowerStart: number;
+                                    medianWords: number;
+                                    onlyEmoji: number;
+                                    patterns: string[];
+                                    question: number;
+                                    said: {
+                                        seen: number;
+                                        words: string;
+                                    }[];
+                                    short: number;
+                                    words: {
+                                        in: number;
+                                        word: string;
+                                    }[];
+                                } | null;
+                                guide: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                kept: number;
+                                mine: boolean;
+                                /** @enum {string} */
+                                platform: "instagram" | "facebook" | "linkedin" | "alignable" | "threads" | "x";
+                                posts: number;
+                                startedAt: string;
+                                /** @enum {string} */
+                                state: "reading" | "summing" | "done" | "stopped";
+                                target: number;
+                            } | null;
+                        }[];
                     };
                 };
             };
@@ -50672,6 +50740,7 @@ export interface operations {
                                 id: string;
                                 text: string;
                             }[];
+                            refer?: boolean;
                             samples: string[];
                             script?: {
                                 birthday?: string;
@@ -50692,6 +50761,8 @@ export interface operations {
                                 postReply?: string;
                                 question?: string;
                                 reconnect?: string;
+                                referComment?: string;
+                                referNote?: string;
                                 reminder?: string;
                                 sendPeople?: string;
                                 warmUp?: string;
@@ -50743,6 +50814,8 @@ export interface operations {
                             postReply: string;
                             question: string;
                             reconnect: string;
+                            referComment: string;
+                            referNote: string;
                             reminder: string;
                             sendPeople: string;
                             warmUp: string;
@@ -50814,6 +50887,7 @@ export interface operations {
                             id: string;
                             text: string;
                         }[];
+                        refer?: boolean;
                         samples?: string[];
                         script?: {
                             birthday?: string;
@@ -50834,6 +50908,8 @@ export interface operations {
                             postReply?: string;
                             question?: string;
                             reconnect?: string;
+                            referComment?: string;
+                            referNote?: string;
                             reminder?: string;
                             sendPeople?: string;
                             warmUp?: string;
@@ -50913,6 +50989,7 @@ export interface operations {
                             id: string;
                             text: string;
                         }[];
+                        refer?: boolean;
                         samples: string[];
                         script?: {
                             birthday?: string;
@@ -50933,6 +51010,8 @@ export interface operations {
                             postReply?: string;
                             question?: string;
                             reconnect?: string;
+                            referComment?: string;
+                            referNote?: string;
                             reminder?: string;
                             sendPeople?: string;
                             warmUp?: string;
@@ -51032,6 +51111,7 @@ export interface operations {
                                 id: string;
                                 text: string;
                             }[];
+                            refer?: boolean;
                             samples: string[];
                             script?: {
                                 birthday?: string;
@@ -51052,6 +51132,8 @@ export interface operations {
                                 postReply?: string;
                                 question?: string;
                                 reconnect?: string;
+                                referComment?: string;
+                                referNote?: string;
                                 reminder?: string;
                                 sendPeople?: string;
                                 warmUp?: string;
@@ -51103,6 +51185,8 @@ export interface operations {
                             postReply: string;
                             question: string;
                             reconnect: string;
+                            referComment: string;
+                            referNote: string;
                             reminder: string;
                             sendPeople: string;
                             warmUp: string;
@@ -52072,6 +52156,76 @@ export interface operations {
                             } | null;
                         } | null;
                         ready: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_referral_done: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    comment?: string;
+                    note?: string;
+                    /** Format: uuid */
+                    referralId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        referralId: string;
+                        /** @enum {string} */
+                        state: "waiting" | "done" | "skipped";
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_referral_skip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    referralId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        referralId: string;
+                        /** @enum {string} */
+                        state: "waiting" | "done" | "skipped";
                     };
                 };
             };
@@ -88498,62 +88652,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        inUse: {
-                            comments: number;
-                            guide: string;
-                            /** @enum {string} */
-                            platform: "instagram";
-                            thisOne: boolean;
-                            usedAt: string;
-                        } | null;
-                        research: {
-                            days: number;
-                            dropped: number;
-                            endsAt: string;
-                            findings: {
-                                brochure: {
-                                    in: number;
-                                    word: string;
-                                }[];
+                        networks: {
+                            inUse: {
                                 comments: number;
-                                copied: number;
-                                emoji: number;
-                                exclaim: number;
-                                fullStop: number;
-                                kinds: {
-                                    examples: string[];
-                                    how: string;
-                                    /** @enum {string} */
-                                    topic: "food" | "fitness" | "travel" | "pets" | "family" | "cars" | "sports" | "home" | "business" | "homes" | "style" | "outdoors" | "music" | "funny" | "big_days" | "community" | "trades";
-                                }[];
-                                lowerStart: number;
-                                medianWords: number;
-                                onlyEmoji: number;
-                                patterns: string[];
-                                question: number;
-                                said: {
-                                    seen: number;
-                                    words: string;
-                                }[];
-                                short: number;
-                                words: {
-                                    in: number;
-                                    word: string;
-                                }[];
+                                guide: string;
+                                thisOne: boolean;
+                                usedAt: string;
                             } | null;
-                            guide: string | null;
-                            /** Format: uuid */
-                            id: string;
-                            kept: number;
-                            mine: boolean;
                             /** @enum {string} */
-                            platform: "instagram";
-                            posts: number;
-                            startedAt: string;
-                            /** @enum {string} */
-                            state: "reading" | "summing" | "done" | "stopped";
-                            target: number;
-                        } | null;
+                            platform: "instagram" | "facebook" | "linkedin" | "alignable" | "threads" | "x";
+                            research: {
+                                days: number;
+                                dropped: number;
+                                endsAt: string;
+                                findings: {
+                                    brochure: {
+                                        in: number;
+                                        word: string;
+                                    }[];
+                                    comments: number;
+                                    copied: number;
+                                    emoji: number;
+                                    exclaim: number;
+                                    fullStop: number;
+                                    kinds: {
+                                        examples: string[];
+                                        how: string;
+                                        /** @enum {string} */
+                                        topic: "food" | "fitness" | "travel" | "pets" | "family" | "cars" | "sports" | "home" | "business" | "homes" | "style" | "outdoors" | "music" | "funny" | "big_days" | "community" | "trades" | "new_jobs" | "wins" | "advice" | "hiring" | "events" | "asking" | "town" | "groups";
+                                    }[];
+                                    lowerStart: number;
+                                    medianWords: number;
+                                    onlyEmoji: number;
+                                    patterns: string[];
+                                    question: number;
+                                    said: {
+                                        seen: number;
+                                        words: string;
+                                    }[];
+                                    short: number;
+                                    words: {
+                                        in: number;
+                                        word: string;
+                                    }[];
+                                } | null;
+                                guide: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                kept: number;
+                                mine: boolean;
+                                /** @enum {string} */
+                                platform: "instagram" | "facebook" | "linkedin" | "alignable" | "threads" | "x";
+                                posts: number;
+                                startedAt: string;
+                                /** @enum {string} */
+                                state: "reading" | "summing" | "done" | "stopped";
+                                target: number;
+                            } | null;
+                        }[];
                     };
                 };
             };
@@ -88573,7 +88729,7 @@ export interface operations {
                      * @default instagram
                      * @enum {string}
                      */
-                    platform?: "instagram";
+                    platform?: "instagram" | "facebook" | "linkedin" | "alignable" | "threads" | "x";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -90598,6 +90754,7 @@ export interface operations {
                                     id: string;
                                     text: string;
                                 }[];
+                                refer?: boolean;
                                 samples: string[];
                                 script?: {
                                     birthday?: string;
@@ -90618,6 +90775,8 @@ export interface operations {
                                     postReply?: string;
                                     question?: string;
                                     reconnect?: string;
+                                    referComment?: string;
+                                    referNote?: string;
                                     reminder?: string;
                                     sendPeople?: string;
                                     warmUp?: string;
@@ -90669,6 +90828,8 @@ export interface operations {
                                 postReply: string;
                                 question: string;
                                 reconnect: string;
+                                referComment: string;
+                                referNote: string;
                                 reminder: string;
                                 sendPeople: string;
                                 warmUp: string;
@@ -91851,6 +92012,60 @@ export interface operations {
                             } | null;
                         } | null;
                         ready: boolean;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_referrals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        referrals: {
+                            asks: string | null;
+                            comment: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            name: string;
+                            note: string;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
+                            post: string;
+                            /** Format: uuid */
+                            postId: string;
+                            postUrl: string;
+                            postWhole: string | null;
+                            /** Format: uuid */
+                            profileId: string;
+                            profileUrl: string;
+                            /** Format: uuid */
+                            referralId: string;
+                            /** @enum {string} */
+                            state: "waiting" | "done" | "skipped";
+                            why: string | null;
+                            writer: string;
+                        }[];
                     };
                 };
             };
