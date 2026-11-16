@@ -1318,10 +1318,11 @@ async function checkPictures(
 }
 
 /**
- * Draws a design and has it checked (decision 40); one that fails is tried once more, and the one with fewer problems
- * is kept. A problem in the words or the layout is designed again with the problems to fix; a mistake in the photo
- * itself, like a blank screen in someone's hand (the owner, 15 Nov), has the photo made again, at its 9¢, told what
- * to avoid. When the photo can't be made again, the first one stays.
+ * Draws a design and has it checked (decision 40); one that fails is tried up to twice more (`CHECKS.retries`), and
+ * the one with the fewest problems is kept. A problem in the words or the layout is designed again with the problems
+ * to fix; a mistake in the photo itself, like a blank screen in someone's hand or words showing through from it (the
+ * owner, 15 and 16 Nov), has the photo made again, at its 9¢, told what to avoid. When the photo can't be made again,
+ * the one before stays.
  */
 async function drawChecked(
   ctx: AddonScopeContext,
@@ -1346,56 +1347,65 @@ async function drawChecked(
     );
     return { design: d, pictures, check };
   };
-  const one = await drawn(first, photo);
-  if (!one.check || one.check.passes) return one;
-  const failed = one.check;
-  const photoWrong = photo !== null && !!failed.photo?.length;
-  ctx.log.info(
-    { postId, problems: failed.problems, photo: photoWrong },
-    photoWrong
-      ? 'a picture’s photo failed its check; making the photo again'
-      : 'a design failed its check; designing it again',
-  );
-  try {
-    let again = photo;
-    if (photoWrong && photo)
-      try {
-        again = {
-          ...photo,
-          bytes: await openAiPicture(
-            ctx,
-            postId,
-            p.title,
-            photoPromptFor(photo.scene, photoFixAsk(failed.photo ?? [], ask), shape),
-            'Photo-style picture, made again after its check',
-            shape,
-          ),
-        };
-      } catch (e) {
-        if (!(e instanceof PictureError)) throw e;
-        ctx.log.warn({ err: e, postId }, 'the photo couldn’t be made again; the first one stays');
-      }
-    // Only a photo's mistakes: the same design goes over the new photo.
-    const design =
-      photoWrong && !designProblems(failed).length
-        ? one.design
-        : await askDesign(
-            ctx,
-            here,
-            business,
-            postId,
-            p,
-            // Without a photo, every problem is the design's to fix.
-            fixAsk(photo ? failed : { passes: false, problems: failed.problems }, ask),
-            again?.shows ?? null,
+  let last = await drawn(first, photo);
+  let best = last;
+  let under = photo;
+  for (let tried = 0; tried < CHECKS.retries && last.check && !last.check.passes; tried++) {
+    const failed: PictureCheck = last.check;
+    const photoWrong = under !== null && !!failed.photo?.length;
+    ctx.log.info(
+      { postId, problems: failed.problems, photo: photoWrong, tried: tried + 1 },
+      photoWrong
+        ? 'a picture’s photo failed its check; making the photo again'
+        : 'a design failed its check; designing it again',
+    );
+    try {
+      let again = under;
+      if (photoWrong && under)
+        try {
+          again = {
+            ...under,
+            bytes: await openAiPicture(
+              ctx,
+              postId,
+              p.title,
+              photoPromptFor(under.scene, photoFixAsk(failed.photo ?? [], ask), shape),
+              'Photo-style picture, made again after its check',
+              shape,
+            ),
+          };
+        } catch (e) {
+          if (!(e instanceof PictureError)) throw e;
+          ctx.log.warn(
+            { err: e, postId },
+            'the photo couldn’t be made again; the one before stays',
           );
-    if (design === one.design && again === photo) return one;
-    const two = await drawn(design, again);
-    return !two.check || two.check.problems.length <= failed.problems.length ? two : one;
-  } catch (e) {
-    if (!(e instanceof AiAskError) && !(e instanceof PictureError)) throw e;
-    return one;
+        }
+      // Only a photo's mistakes: the same design goes over the new photo.
+      const design =
+        photoWrong && !designProblems(failed).length
+          ? last.design
+          : await askDesign(
+              ctx,
+              here,
+              business,
+              postId,
+              p,
+              // Without a photo, every problem is the design's to fix.
+              fixAsk(under ? failed : { passes: false, problems: failed.problems }, ask),
+              again?.shows ?? null,
+            );
+      if (design === last.design && again === under) break;
+      last = await drawn(design, again);
+      under = again;
+      if (!last.check || !best.check || last.check.problems.length <= best.check.problems.length)
+        best = last;
+    } catch (e) {
+      if (!(e instanceof AiAskError) && !(e instanceof PictureError)) throw e;
+      break;
+    }
   }
+  return best;
 }
 
 async function keepPictures(
@@ -1540,7 +1550,9 @@ function pictureFailure(e: unknown): string {
  *
  * - Instagram's not in its shape (the owner, 15 Nov: "fix that and then redo all instagram images");
  * - photo-style ones on any network made before the check looked for a photo's mistakes, like a blank screen in
- *   someone's hand (the owner, 15 Nov), so their photos are made again under it.
+ *   someone's hand (the owner, 15 Nov), so their photos are made again under it;
+ * - photo-style ones made under that first check that still failed it, made again under the stricter one (the
+ *   owner's pick, 16 Nov). Ones that passed it stay.
  *
  * A picture made since says its shape and its check in its design, so this finds nothing once they're done. It runs
  * after any post's pictures are made, with the weekly read, and when the add-on comes on. Hidden posts wait until
@@ -1560,7 +1572,9 @@ export async function remakeLeft(ctx: AddonScopeContext, exceptPostId: string | 
             and ((c.network = 'instagram'
                 and coalesce(c.design ->> 'shape', '4:5') <> ${INSTAGRAM_PICTURE_SHAPE})
               or (c.picture_way = 'photo'
-                and coalesce(c.design ->> 'checked', '1') <> ${String(PICTURE_CHECK_VERSION)}))
+                and coalesce((c.design ->> 'checked')::int, 1) < ${PICTURE_CHECK_VERSION}
+                and (coalesce((c.design ->> 'checked')::int, 1) < 2
+                  or c.design -> 'check' ->> 'passes' = 'false')))
             and c.record_id <> ${exceptPostId ?? '00000000-0000-0000-0000-000000000000'}::uuid
           order by c.post_at nulls last
           limit 50`,

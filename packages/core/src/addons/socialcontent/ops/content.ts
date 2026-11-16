@@ -46,6 +46,7 @@ import {
   type ContentPicture,
 } from '../content-shapes';
 import { socialcontentAddon } from '../manifest';
+import { pictureFlags } from '../check-ai';
 import { tidyHashtags } from '../posts-ai';
 import { isAngle } from '../variety';
 import { isOfferList } from '../../../main-offer/lists';
@@ -264,6 +265,7 @@ export async function contentOut(ctx: Ctx, list: readonly ContentRow[]): Promise
       pictureState: c.pictureState,
       pictureFailure: c.pictureFailure,
       pictures,
+      pictureFlags: c.pictureState === 'made' ? pictureFlags(c.design) : [],
       facebookWhere: c.facebookWhere,
       state: c.state,
       postAt: c.postAt?.toISOString() ?? null,
@@ -420,7 +422,7 @@ export const calendarGet = defineAddonQuery(socialcontentAddon, {
 export const contentGet = defineAddonQuery(socialcontentAddon, {
   name: 'socialcontent.content.get',
   description:
-    'One of the business’s own posts: its network, format, title, words, hook, hashtags, a carousel’s slides or a video’s script, what its picture shows and how it’s made (designed by the AI, a photo-style picture from the AI, or the person’s own), its pictures, where on Facebook it goes, when it goes, whether it’s waiting for an OK, OK’d, posted or skipped, what it still needs before it can be OK’d, and once it went up: where, its links, its numbers about 2 and 7 days after (views, likes, comments, shares) and whether it did well against the business’s own other posts.',
+    'One of the business’s own posts: its network, format, title, words, hook, hashtags, a carousel’s slides or a video’s script, what its picture shows and how it’s made (designed by the AI, a photo-style picture from the AI, or the person’s own), its pictures, where on Facebook it goes, when it goes, whether it’s waiting for an OK, OK’d, posted or skipped, what it still needs before it can be OK’d, what the picture check still found wrong with its pictures if anything, and once it went up: where, its links, its numbers about 2 and 7 days after (views, likes, comments, shares) and whether it did well against the business’s own other posts.',
   input: ContentGetInput,
   output: ContentShape,
   permission: 'socialcontent.use',

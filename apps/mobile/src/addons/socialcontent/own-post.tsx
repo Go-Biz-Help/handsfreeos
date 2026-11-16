@@ -1116,6 +1116,10 @@ export function PostBody({
             <Text className="text-[13px] leading-[18px] text-danger-text">
               {W.post.pictureStates.failed} {p.pictureFailure}
             </Text>
+          ) : p.pictureFlags.length ? (
+            <Text className="text-[13px] leading-[18px] text-warning-text">
+              {W.post.pictureFlagged(p.pictureFlags)}
+            </Text>
           ) : null}
           {p.picture ? (
             <Text className="text-[13px] leading-[18px] text-text-2">

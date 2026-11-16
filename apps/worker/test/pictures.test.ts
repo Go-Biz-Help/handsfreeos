@@ -156,8 +156,8 @@ describe('photo-style pictures on OpenAI’s 2.6 image models', () => {
 });
 
 describe('the image settings', () => {
-  it('defaults to Sunburst, Flare as the backup, and medium complexity', () => {
-    expect(pictureComplexityOf(undefined)).toBe('medium');
+  it('defaults to Sunburst, Flare as the backup, and high complexity', () => {
+    expect(pictureComplexityOf(undefined)).toBe('high');
     expect(pictureComplexityOf(' HIGH ')).toBe('high');
     expect(pictureComplexityOf('max')).toBeNull();
     expect(pictureBackupModelOf(undefined, 'gpt-image-2.6-sunburst')).toBe('gpt-image-2.6-flare');
@@ -174,7 +174,7 @@ describe('the image settings', () => {
     const env = readEnv(base);
     expect(env.openAiImageModel).toBe('gpt-image-2.6-sunburst');
     expect(env.openAiImageBackupModel).toBe('gpt-image-2.6-flare');
-    expect(env.openAiImageComplexity).toBe('medium');
+    expect(env.openAiImageComplexity).toBe('high');
     expect(readEnv({ ...base, OPENAI_IMAGE_MODEL: 'gpt-image-2' })).toMatchObject({
       openAiImageModel: 'gpt-image-2',
       openAiImageBackupModel: 'gpt-image-2.6-flare',

@@ -929,6 +929,10 @@ export function PostSheet({
                 <p className="text-[13px] text-danger-text">
                   {W.post.pictureStates.failed} {p.pictureFailure}
                 </p>
+              ) : p.pictureFlags.length ? (
+                <p className="text-[13px] text-warning-text">
+                  {W.post.pictureFlagged(p.pictureFlags)}
+                </p>
               ) : null}
               <Field label={W.post.pictureShows} htmlFor="post-picture">
                 <Textarea

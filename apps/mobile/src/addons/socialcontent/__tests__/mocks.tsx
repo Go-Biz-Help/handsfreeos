@@ -264,6 +264,7 @@ export function content(n: number, over: Partial<Content> = {}): Content {
     lookAt: null,
     lookedAt: null,
     lookFailure: null,
+    pictureFlags: [],
     createdAt: ago(60),
     updatedAt: ago(30),
     ...over,

@@ -997,6 +997,9 @@ export const SOCIALCONTENT_WORDS = {
     pictureShows: 'What it shows',
     makePicture: 'Make the picture',
     makeAgain: 'Make it again',
+    /** What the picture check still found wrong with the pictures kept (the owner's pick, 16 Nov). */
+    pictureFlagged: (problems: readonly string[]) =>
+      `The picture check still found: ${problems.map((x) => x.replace(/[.\s]+$/, '')).join('; ')}. Press Make it again for a new one, or look closely before you OK it.`,
     makeAsk: 'What to change (optional)',
     makeAsked: 'Making it. It shows here in a minute.',
     switchTo: (way: string) => `Switch to ${way.toLowerCase()}`,
