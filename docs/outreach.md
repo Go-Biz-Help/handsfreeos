@@ -3868,7 +3868,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **Training wheels stay** (6a): someone new still OKs each message until they've earned it, and the switch says
         so. The comments-only hold (decision 92's 13) stays too.
       - **Where** (7a): one switch at the top of Settings → General ("You"), for every network, on the web and the phone
-        (`AutopilotPart`); one list first on Needs you, grouped by network, each name opening the person menu for Don't
+        (`AutopilotPart`; since decision 170 each network's own, under How hands-off?); one list first on Needs you, grouped by network, each name opening the person menu for Don't
         pitch or Never contact, each row with **Not today** (or **Put back**), and **OK all** (or **OK everyone else**
         once anyone's taken off) at the top (`outreach.autopilot`, `outreach.autopilot.answer`; the Assistant's
         `outreach_autopilot_list` and `outreach_autopilot_answer`, on a Confirm card). Owners and admins allow it or
@@ -4435,6 +4435,45 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         live.", "Their profile says they live in United States, but the AI thinks it’s Nigeria.", or "It could be
         Australia or United States, and the AI isn’t sure which." A look the AI wasn't sure of is tagged **Best
         guess, not sure** in grey (`countryTag`), never as worked out. The list's note and the setting's say the same.
+
+170.  **Each network's page says what it's really doing, and How hands-off? picks its choices** (Chris, 16 Nov 2026:
+      "let’s do this redesign for all of the platforms and the different settings pages", after the mockups of
+      Settings → Threads, then "1a 2a 3a"). The owner couldn't find Sending: it was "What it does on its own", greyed
+      under Autopilot, beside long lists. Part 1 (the network pages) built; part 2 brings You, Team, Your computer and
+      the problem lines, repeats folded:
+      - **A status card at the top** (`network-status.ts`, `networkStatus`), on the web and the phone, the same words
+        from one place: **Running** ("Today so far: 3 friend requests and 12 likes."), **Waiting on you** (no
+        computer, signed out, Chrome hasn't let it on the network, offline in the working hours, Autopilot's people or
+        Needs you's items there, with "The rest keeps running."), **Stuck**, **Stopped for today** (a warning, or Stop
+        for today pressed), **Resting** (outside the working hours, or Start my day not pressed) and **Yours** (I do it
+        myself, or a network it doesn't work on its own). A button goes where there's something to do (Review, OK the
+        people, Your computer, Open Today), and See what happened opens Today on that network. Today's network cards
+        carry the same chip, and a stuck network's line.
+      - **Stuck** (`stuckOn`; the owner's default, `STUCK_FAILURES` 3 and `STUCK_QUIET_MINUTES` 60): the network's
+        newest feed lines are the same failure 3 times in a row, nothing else went there in the hour, and the first of
+        them is an hour old. The extension tells failed lines apart from 0.142.0 (`failed`, a new kind of step:
+        migration `20261027027900_outreach_failed_steps.sql`).
+      - **How hands-off?** (1a, `hands-off.ts`): four buttons, safest first, in place of the Sending, Replies and
+        helpful posts lists: **I do it myself** (sending Off, replies drafted), **I OK each message** (Steps, or
+        Messages first each morning, which stays a switch under it), **Autopilot**, and **All on its own** (Everything,
+        replies on their own, posts after an OK going up on their own where the network takes it). Each is a set of the
+        choices kept since the start (`withHandsOff`), so the extension, the Assistant and old screens read them as
+        before; choices that match none read as **Your own mix** (`handsOffOf` null), their picks under More settings.
+        A level the business doesn't allow can't be pressed and says who can allow it.
+      - **Autopilot is each network's own** (2a; changes decision 151's 7a): Facebook's is still the `autopilot`
+        column, every other network's `networks.<network>.autopilot`, a network that never said following Facebook's.
+        `withinRules` says each one (`autopilotSaid`); a save from an old screen that leaves a network's out keeps what
+        was saved (`ownAutopilotKept`); the day's list (`outreach.autopilot`, the worker's `autopilot.ts`) is made for
+        the networks it's on for (`autopilotNetworks`). Picking a level as Autopilot goes off sends `picked`, so the save
+        keeps those picks over the person's own from before Autopilot (`keepOwnPicks`). Settings → You has **How
+        hands-off, on every network**, which sets them all at once (`withHandsOffEverywhere`) and says when they differ.
+      - **The rest of the page**: What it does as short switches with one-line helpers (`firstSentence`), Facebook's
+        While you use Facebook switches, Daily limits in a line with Show every limit and Go full speed, the profile,
+        and **More settings**, folded, for the rest (replies, helpful posts, how it answers requests, unfriending, young
+        accounts, Check, set up again, and the team's say for an owner).
+      - **"Check you're signed in" only on a sign-in page** (3a, extension 0.142.0): a page that didn't show a menu, a
+        profile or a list says what it didn't show and to ask again in a few minutes, or that it tries again on its own;
+        only a page that really asked the person to sign in, or sent the window somewhere else, still says to check.
 
 ## Rules worth knowing before changing anything
 

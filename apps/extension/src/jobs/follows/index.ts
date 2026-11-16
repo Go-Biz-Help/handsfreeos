@@ -26,17 +26,10 @@ import {
 import { FOLLOW_SPECS } from '../../networks/follows/specs';
 import type { FollowAccount, FollowPlatform, FollowPost } from '../../networks/follows/types';
 import { Checkup, isEnd, SEARCH_WORDS, wholeProfile } from '../checkup';
-import { onScreen, valueOf, warnedOn, type Job, type JobEnd } from '../job';
+import { ASK_AGAIN, onScreen, valueOf, warnedOn, type Job, type JobEnd } from '../job';
 import { ownProfileNote } from '../report';
 import { saveMyFollowers } from './people';
-import {
-  accountIn,
-  readFollowIn,
-  sameAs,
-  signedInWords,
-  signedOutEnd,
-  type FollowPage,
-} from './read';
+import { accountIn, readFollowIn, sameAs, signedOutEnd, type FollowPage } from './read';
 import { readFollowChats } from './chats';
 import { findPostsOn, hourlySearch } from './search';
 import { unfollowTicked } from './unfollow';
@@ -187,7 +180,7 @@ async function profileRead(job: Job, platform: FollowPlatform): Promise<JobEnd> 
   const own = accountIn(platform, home.own);
   if (!own)
     return {
-      line: `${spec.name} didn’t show your own profile. ${signedInWords(platform)}`,
+      line: `${spec.name} didn’t show your own profile. ${ASK_AGAIN}`,
       warned: false,
       failed: true,
     };

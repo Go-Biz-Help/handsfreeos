@@ -1,4 +1,5 @@
 import {
+  autopilotOn,
   choicesFor,
   hourWords,
   OTHER_PLATFORMS,
@@ -23,7 +24,14 @@ import {
 import type { CountryRule } from '@hfos/core/addons/outreach/countries';
 import { AUTOPILOT_WORDS } from '@hfos/core/addons/outreach/autopilot';
 import { FOUND_CHECKS, stepFoundChecks } from '@hfos/core/addons/outreach/finds';
-import { withNetwork } from '@hfos/core/addons/outreach/network-words';
+import {
+  handsOffEverywhere,
+  HANDS_OFF_WORDS as H,
+  withHandsOffEverywhere,
+  type HandsOff,
+} from '@hfos/core/addons/outreach/hands-off';
+import { networksOn, withNetwork } from '@hfos/core/addons/outreach/network-words';
+import { isLooking, runsOnItsOwn } from '@hfos/core/addons/outreach/networks';
 import { SETTINGS_WORDS } from '@hfos/core/addons/outreach/settings-parts';
 import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
@@ -40,8 +48,8 @@ import { Text } from '@/components/ui/text';
 import { useAutosave, type Autosave, type Edit, type SaveState } from './autosave';
 import { countriesProblem, CountrySetting } from './country-setting';
 import { Note, Part } from './kit';
+import { HandsOffPart } from './settings-hands-off';
 import {
-  AutopilotPart,
   Choice,
   ExtensionTicks,
   NetworkModes,
@@ -71,27 +79,50 @@ export function GeneralMine({
   automation,
   form,
   online,
+  manages = false,
+  onHandsOff = null,
 }: {
   automation: AutomationOutput;
   form: Autosave<AutomationSettings>;
   online: boolean;
+  /** An owner or admin: a level the business doesn't allow says they can change that on Team. */
+  manages?: boolean;
+  /** A level picked for every network at once (decision 170); without it, the form changes as any pick does. */
+  onHandsOff?: ((level: HandsOff) => void) | null;
 }) {
   const disabled = !online;
+  const value = form.value;
+  const rules = automation.rules;
+  // The networks it works on its own for them, which the level sets.
+  const networks = networksOn(value, rules.networksAllowed).filter(
+    (p) => runsOnItsOwn(p) && !isLooking(p),
+  );
+  const wheels =
+    (automation.wheels.on && autopilotOn(value, 'facebook')) ||
+    OTHER_PLATFORMS.some(
+      (p) => automation.networkWheels[p].on && value.networks[p].on && autopilotOn(value, p),
+    );
+  const pick = (level: HandsOff) =>
+    onHandsOff
+      ? onHandsOff(level)
+      : form.change((v) => withHandsOffEverywhere(v, level, rules).settings);
   return (
     <>
-      {/* Autopilot first (decision 151, answer 7a): one switch for every network they work. */}
-      <AutopilotPart
-        value={form.value}
-        onChange={form.change}
-        allowed={automation.rules.autopilotAllowed}
-        wheels={
-          automation.wheels.on ||
-          OTHER_PLATFORMS.some((p) => automation.networkWheels[p].on && form.value.networks[p].on)
-        }
-        boxed
-        disabled={disabled}
-        testID="settings-my"
-      />
+      {/* How hands-off, on every network, first (decision 170): each network's page then picks its own. */}
+      {networks.length ? (
+        <HandsOffPart
+          platform={null}
+          level={handsOffEverywhere(value, networks)}
+          onPick={pick}
+          rules={rules}
+          manages={manages}
+          title={H.everywhereTitle}
+          about={H.everywhereAbout}
+          note={wheels ? H.wheels : null}
+          disabled={disabled}
+          testID="settings-my-hands-off"
+        />
+      ) : null}
       <VoicePart
         value={form.value}
         onChange={form.change}

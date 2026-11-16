@@ -104,6 +104,7 @@ const SERVER: WaitingFromServer = {
 /** Autopilot's day's list (decision 151): two on Facebook, one taken off, a spare on LinkedIn. */
 const AUTOPILOT: AutopilotOutput = {
   on: true,
+  networks: ['facebook', 'linkedin'],
   allowed: true,
   day: '2026-10-10',
   timezone: TZ,

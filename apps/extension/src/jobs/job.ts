@@ -149,6 +149,12 @@ export const onScreen = <T>(job: Job, work: () => Promise<T>): Promise<T> =>
 export type HandOverReply = 'carry_on' | 'skip' | 'stop';
 
 /**
+ * What to do after a page didn't show what it should, while it didn't look signed out (decision 170): never "check
+ * you're signed in", which goes only with a page that really asked the person to sign in.
+ */
+export const ASK_AGAIN = 'Ask again in a few minutes.';
+
+/**
  * How a job ended: what it did, in words for the person; whether a Facebook warning stopped it; and whether it
  * couldn't do what it was asked (nothing to save, HandsFreeOS refused it), so it doesn't show as done.
  */

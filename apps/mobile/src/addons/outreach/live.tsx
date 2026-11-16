@@ -46,6 +46,7 @@ import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
 import { startDay, stopDay } from './actions';
 import { AskedPart, RunNowPart, useAskActions, useAsks, type AskActions } from './asks';
@@ -623,7 +624,14 @@ export function StepsPart({
               <Text className="w-[64px] text-[13px] text-text-3">
                 {clockWords(step.at, live.timezone)}
               </Text>
-              <Text className="flex-1 text-[14px] leading-[20px]">{step.line}</Text>
+              <Text
+                className={cn(
+                  'flex-1 text-[14px] leading-[20px]',
+                  step.kind === 'failed' && 'text-warning-text',
+                )}
+              >
+                {step.line}
+              </Text>
             </View>
           ))
         ) : (

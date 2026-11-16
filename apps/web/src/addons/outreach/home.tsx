@@ -111,6 +111,7 @@ import type {
   HelpfulList,
   Live,
   LiveTeam,
+  NetworkHere,
   Openers,
   Partners,
   Pipeline,
@@ -266,6 +267,8 @@ export type OutreachShown =
       readonly readiness?: Readiness | null;
       /** On Team, who's on training wheels: null when it couldn't be had, or on another part. */
       readonly wheels?: WheelsList | null;
+      /** On a network's page, the person's own: its status card's live view and what waits there (decision 170). */
+      readonly here?: NetworkHere | null;
       /** On Videos, the playbooks' short videos, the library until it's first saved (decision 154). */
       readonly playbookVideos?: readonly PlaybookVideo[];
     };
@@ -773,6 +776,7 @@ export function OutreachHome({
               asks={shown.asks ?? null}
               readiness={shown.readiness ?? null}
               wheels={shown.wheels ?? null}
+              here={shown.here ?? null}
               playbookVideos={shown.playbookVideos ?? []}
             />
           </div>

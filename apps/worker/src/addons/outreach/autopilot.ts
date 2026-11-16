@@ -17,6 +17,7 @@ import {
   autopilotTimes,
   nextAutopilotList,
 } from '@hfos/core/addons/outreach/autopilot';
+import { autopilotNetworks, type AutomationSettings } from '@hfos/core/addons/outreach/automation';
 import { autopilotList, autopilotPlan } from '@hfos/core/addons/outreach/ops/autopilot';
 import { automationGet } from '@hfos/core/addons/outreach/ops/automation';
 import { executeCommand, executeQuery } from '@hfos/core/server';
@@ -102,6 +103,11 @@ async function push(
   );
 }
 
+/** Autopilot is on for the person on a network they work (decision 170: each network has its own). */
+const piloted = <T extends { settings: AutomationSettings }>(
+  mine: T | null | undefined,
+): mine is T => !!mine && autopilotNetworks(mine.settings).length > 0;
+
 /** Queues the person's next list while Autopilot is on for them, or moves it sooner. */
 export async function armAutopilot(
   ctx: AddonScopeContext,
@@ -109,7 +115,7 @@ export async function armAutopilot(
   now = Date.now(),
 ): Promise<void> {
   const mine = await settingsOf(ctx, userId);
-  if (!mine?.settings.autopilot) return;
+  if (!piloted(mine)) return;
   const { tz } = await businessOf(ctx);
   await schedule(
     ctx,
@@ -133,7 +139,7 @@ export async function autopilotSaved(ctx: AddonEventContext): Promise<void> {
   if (!p.userId || !p.autopilot) return;
   if (p.autopilotOn) {
     const mine = await settingsOf(ctx, p.userId);
-    if (!mine?.settings.autopilot) return;
+    if (!piloted(mine)) return;
     const { tz } = await businessOf(ctx);
     const day = autopilotDayDue(mine.settings.hours, tz, Date.now());
     if (day) {
@@ -150,7 +156,9 @@ export async function armAutopilots(ctx: AddonJobContext): Promise<void> {
     rows<{ user_id: string }>(
       tx,
       sql`select user_id from addon_outreach.automation
-          where workspace_id = ${ctx.scope.workspaceId} and autopilot`,
+          where workspace_id = ${ctx.scope.workspaceId}
+            and (autopilot or exists (select 1 from jsonb_each(networks) n
+              where jsonb_typeof(n.value) = 'object' and n.value->>'autopilot' = 'true'))`,
     ),
   );
   for (const p of people) await armAutopilot(ctx, p.user_id, ctx.now);
@@ -176,7 +184,7 @@ export async function autopilotListJob(ctx: AddonJobContext): Promise<JobResult>
   const userId = ctx.job.payload['userId'];
   if (typeof userId !== 'string') return;
   const mine = await settingsOf(ctx, userId);
-  if (!mine?.settings.autopilot) return;
+  if (!piloted(mine)) return;
   const { tz } = await businessOf(ctx);
   const hours = mine.settings.hours;
   const day = autopilotDayDue(hours, tz, ctx.now);
@@ -199,7 +207,7 @@ export async function autopilotReminderJob(ctx: AddonJobContext): Promise<JobRes
   const { userId, day } = ctx.job.payload as { userId?: unknown; day?: unknown };
   if (typeof userId !== 'string' || typeof day !== 'string') return;
   const mine = await settingsOf(ctx, userId);
-  if (!mine?.settings.autopilot) return;
+  if (!piloted(mine)) return;
   // Run past the day's hours (the worker was down): nothing to remind of now.
   const { tz } = await businessOf(ctx);
   if (ctx.now > autopilotTimes(day, mine.settings.hours, tz).end) return;

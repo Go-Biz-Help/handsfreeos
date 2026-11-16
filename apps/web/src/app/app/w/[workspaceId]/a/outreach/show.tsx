@@ -1,5 +1,9 @@
 import { ASK_KINDS_FOR } from '@hfos/core/addons/outreach/asks';
-import { networkShown, networksShown } from '@hfos/core/addons/outreach/network-words';
+import {
+  networkOfWaiting,
+  networkShown,
+  networksShown,
+} from '@hfos/core/addons/outreach/network-words';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { notReadyWords } from '@hfos/core/addons/outreach/readiness';
 import { isNetworkPart } from '@hfos/core/addons/outreach/settings-parts';
@@ -156,7 +160,7 @@ export async function showOutreach(
     const team = shown.part === 'team' && canManage;
     // Videos: the playbooks' short videos, which the library reads as until it's first saved (decision 154).
     const videos = shown.part === 'videos' && canManage;
-    const [me, people, business, live, setup, asks, readiness, wheels, playbookList] =
+    const [me, people, business, live, setup, asks, readiness, wheels, playbookList, here] =
       await Promise.all([
         api
           .POST('/v1/queries/outreach.automation', {
@@ -209,6 +213,31 @@ export async function showOutreach(
               .then((r) => r.data ?? null)
               .catch(() => null)
           : null,
+        // The status card at the top of a network's page (decision 170): its live view, and what waits on the person
+        // there. Left out (no card) when any of it can't be had.
+        network
+          ? Promise.all([
+              liveOf(network),
+              api
+                .POST('/v1/queries/outreach.waiting', { body: { workspaceId, items: true } })
+                .then((r) => r.data ?? null),
+              api
+                .POST('/v1/queries/outreach.autopilot', { body: { workspaceId } })
+                .then((r) => r.data ?? null),
+            ])
+              .then(([networkLive, waiting, autopilot]) =>
+                networkLive && waiting
+                  ? {
+                      live: networkLive,
+                      waiting: waiting.items.filter((i) => networkOfWaiting(i) === network).length,
+                      people: (autopilot?.people ?? []).filter(
+                        (p) => p.platform === network && p.state === 'waiting',
+                      ).length,
+                    }
+                  : null,
+              )
+              .catch(() => null)
+          : null,
       ]);
     const canStartFresh = got.workspace.permissions.includes('addons.purge');
     return (
@@ -230,6 +259,7 @@ export async function showOutreach(
           asks,
           readiness,
           wheels,
+          here,
           playbookVideos: (playbookList?.playbooks ?? [])
             .filter((p) => !p.archivedAt)
             .map((p) => ({ name: p.name, details: { videoLink: p.details.videoLink ?? null } })),

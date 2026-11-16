@@ -19,6 +19,7 @@ import {
   networkShown,
   noRunnerWords,
 } from '@hfos/core/addons/outreach/network-words';
+import { networkStatus, networkTone } from '@hfos/core/addons/outreach/network-status';
 import { PLATFORMS, runsOnItsOwn, type Platform } from '@hfos/core/addons/outreach/networks';
 import { notReadyWords, READY_WORDS } from '@hfos/core/addons/outreach/readiness';
 import { SET_UP_PAGE_WORDS, todayReadyWords } from '@hfos/core/addons/outreach/set-up-page';
@@ -301,6 +302,14 @@ const DOT = {
   plain: 'bg-text-3',
 } as const;
 
+/** A network's status chip on its card (decision 170): the status card's, at the top of its page in Settings. */
+const CHIP: Record<ReturnType<typeof networkTone>, string> = {
+  good: 'bg-success-soft text-success-text',
+  waiting: 'bg-accent-soft text-accent-text',
+  warn: 'bg-warning-soft text-warning-text',
+  plain: 'bg-card-2 text-text-2',
+};
+
 /**
  * The computer in a few lines: its state, what it's doing or when it was last seen, the next step, today's steps
  * against the limits, and Start my day or Stop for today. With more than one network (`many`), it's one network's
@@ -380,6 +389,15 @@ export function LiveStrip({
   // Going, started or on its own in the working hours (decision 95): its button is Stop for today.
   const going = dayGoing({ ...live, day, now, platform });
   const full = !many || shown;
+  // The status card's state (decision 170), without what waits there: Needs you has that.
+  const status = networkStatus({
+    platform,
+    live: { ...live, day },
+    level: live.sending === 'off' ? 'myself' : null,
+    waiting: 0,
+    people: 0,
+    now,
+  });
   return (
     <Card
       className={cn('gap-3 px-4 py-3.5', many && shown && 'border-accent')}
@@ -393,8 +411,20 @@ export function LiveStrip({
           className="flex-row items-center justify-between gap-2"
           testID={`today-network-${platform}-open`}
         >
-          <Text className="text-[15px] font-semibold">{name}</Text>
-          <Text className="text-[13px] text-text-2" numberOfLines={1}>
+          <View className="min-w-0 flex-row items-center gap-2">
+            <Text className="text-[15px] font-semibold">{name}</Text>
+            <Text
+              className={cn(
+                'rounded-md px-1.5 py-0.5 text-[11.5px] font-semibold',
+                CHIP[networkTone(status.state)],
+              )}
+              numberOfLines={1}
+              testID={`today-network-${platform}-status`}
+            >
+              {status.chip}
+            </Text>
+          </View>
+          <Text className="flex-shrink text-[13px] text-text-2" numberOfLines={1}>
             {said || NW.notStarted}
           </Text>
         </Pressable>
@@ -459,6 +489,14 @@ export function LiveStrip({
       {live.warning ? (
         <Text className="text-[13px] leading-[18px] text-danger" testID="live-warning">
           {warningNote(live.warning, now, platform)}
+        </Text>
+      ) : null}
+      {status.state === 'stuck' ? (
+        <Text
+          className="text-[13px] leading-[18px] text-warning-text"
+          testID={many ? `today-network-${platform}-stuck` : 'today-stuck'}
+        >
+          {status.title}. {status.line}
         </Text>
       ) : null}
       {live.sending === 'off' ? (

@@ -52,7 +52,7 @@ import type { ProblemHelper } from '@hfos/core/problem-report';
 import { haltAsk } from '../asks/run';
 import { awayNow } from '../away';
 import { follow, loadSettings } from '../hfos/follow';
-import { feed, keptFor, onBeat, type Kept } from '../hfos/live';
+import { feed, jobKind, keptFor, onBeat, outcomeKind, type Kept } from '../hfos/live';
 import type { Drafts, TodayList, TodayListItem } from '../hfos/messages';
 import { isNoting, noteNeed, takeNote } from '../hfos/noting';
 import { chatCollect, NOTHING_TO_ANSWER } from '../hfos/saves';
@@ -1223,7 +1223,7 @@ function followRunner(platform: FollowPlatform): FollowRunner {
         return goAt(tomorrow());
       }
       await say(end.line, { readLast: true, ...(end.failed ? { needs: true } : {}) });
-      void feed('job', `${NAME}: ${end.line}`);
+      void feed(jobKind(end), `${NAME}: ${end.line}`);
       return soon();
     }
 
@@ -1240,7 +1240,7 @@ function followRunner(platform: FollowPlatform): FollowRunner {
         return soon();
       }
       await setState({ readLast: true });
-      void feed('job', `${NAME}: ${line}`);
+      void feed(jobKind(end), `${NAME}: ${line}`);
       if (before.do === 'save' && before.first && end.failed) {
         await closeWindow();
         await say(
@@ -1263,7 +1263,7 @@ function followRunner(platform: FollowPlatform): FollowRunner {
       const line = `${DAILY_NAMES[daily]}: ${end.line}`;
       await say(line, { readLast: true });
       if (end.away) putOff.off(daily);
-      else void feed('job', `${NAME}: ${line}`);
+      else void feed(jobKind(end), `${NAME}: ${line}`);
       return soon();
     }
 
@@ -1379,7 +1379,7 @@ function followRunner(platform: FollowPlatform): FollowRunner {
         : null;
     if (need) void noteNeed(need);
     if (work.do === 'step') void clearRetried(item, outcome, businessId);
-    void feed(outcome.done ? 'done' : 'passed', `${NAME}: ${outcome.line}`);
+    void feed(outcomeKind(outcome), `${NAME}: ${outcome.line}`);
     if (stopAsked) {
       await closeWindow();
       return goAt(null);

@@ -11,6 +11,7 @@ import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/t
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   AUTOMATION_DEFAULTS,
+  autopilotSaid,
   autoKinds,
   BusinessRules,
   hoursWords,
@@ -162,7 +163,10 @@ describe('the extension on its own', () => {
     await runAs(owner, ws, 'outreach.automation.save', { settings: older });
     expect((await runAs(owner, ws, 'outreach.automation', {})).settings.collect).toBe(true);
     await runAs(owner, ws, 'outreach.automation.save', { settings: steps });
-    expect((await runAs(owner, ws, 'outreach.automation', {})).settings).toEqual(steps);
+    // Each network's Autopilot comes said (decision 170): off, as Facebook's is.
+    expect((await runAs(owner, ws, 'outreach.automation', {})).settings).toEqual(
+      autopilotSaid(steps),
+    );
     // Their voice, kept; a screen from before it saves without one, and theirs stays.
     const voice = { shorthand: true, acronyms: true, emoji: false, split: false };
     await runAs(owner, ws, 'outreach.automation.save', { settings: { ...steps, voice } });
@@ -431,7 +435,7 @@ describe('settings in HandsFreeOS', () => {
     const { noting: _n, readChats: _r, markPosts: _m, pushes: _p, ...older } = steps;
     expect(
       (await runAs(member, ws, 'outreach.automation.save', { settings: older })).settings,
-    ).toEqual(steps);
+    ).toEqual(autopilotSaid(steps));
   });
 
   it('lets an owner see and change someone’s, and says who changed them', async () => {

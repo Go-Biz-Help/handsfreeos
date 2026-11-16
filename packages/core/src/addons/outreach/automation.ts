@@ -292,6 +292,12 @@ export const NetworkChoices = z.object({
    * confirmed, to start. Only where the runner answers them (`NETWORKS[p].runs.auto` has `confirm`).
    */
   requests: z.enum(ANSWER_MODE_KEYS).default('fits'),
+  /**
+   * Autopilot on this network (decision 170; the owner, 16 Nov 2026, "2a": each network picks its own). Facebook's is
+   * `AutomationSettings.autopilot`. Left out (kept before then, when one switch was for every network), it follows
+   * Facebook's: `autopilotOn` reads it.
+   */
+  autopilot: z.boolean().optional(),
 });
 export type NetworkChoices = z.output<typeof NetworkChoices>;
 export const NETWORK_CHOICES_DEFAULTS: NetworkChoices = NetworkChoices.parse({});
@@ -324,10 +330,11 @@ export const NETWORKS_DEFAULTS: NetworksSettings = NetworksSettings.parse({});
 
 export const AutomationSettings = z.object({
   /**
-   * Autopilot (decision 151; Chris, 3 Nov 2026): everything goes on its own on every network they work
-   * (`AUTOPILOT_PICKS`), and each day they OK the people it plans to reach for the first time (./autopilot.ts). Their
-   * own picks stay kept under it, and come back when it's turned off. Off to start, and off where the business
-   * doesn't allow it (`BusinessRules.autopilotAllowed`).
+   * Autopilot (decision 151; Chris, 3 Nov 2026): everything goes on its own (`AUTOPILOT_PICKS`), and each day they OK
+   * the people it plans to reach for the first time (./autopilot.ts). Their own picks stay kept under it. Off to start,
+   * and off where the business doesn't allow it (`BusinessRules.autopilotAllowed`). Since decision 170 it's Facebook's,
+   * and each other network has its own (`NetworkChoices.autopilot`), which follows this one till it's said:
+   * `autopilotOn` reads a network's.
    */
   autopilot: z.boolean().default(false),
   sending: z.enum(SENDING_MODE_KEYS),
@@ -375,10 +382,12 @@ export type AutomationSettings = z.output<typeof AutomationSettings>;
 
 /** A person's choices on one network: Facebook's from the settings themselves, any other's from `networks`. */
 export function choicesFor(settings: AutomationSettings, platform: Platform): NetworkChoices {
-  if (platform !== 'facebook') return settings.networks[platform];
+  if (platform !== 'facebook')
+    return { ...settings.networks[platform], autopilot: autopilotOn(settings, platform) };
   const { sending, replies, warmUp, confirmRequests, collect, joinGroups, watchPosts, posting } =
     settings;
   return {
+    autopilot: settings.autopilot,
     on: settings.networks.facebook.on,
     young: settings.networks.facebook.young,
     fullSpeed: settings.networks.facebook.fullSpeed,
@@ -392,6 +401,47 @@ export function choicesFor(settings: AutomationSettings, platform: Platform): Ne
     joinGroups,
     watchPosts,
     posting,
+  };
+}
+
+/**
+ * Whether Autopilot is on for the person on a network (decision 170): Facebook's is `autopilot`; each other network's
+ * is its own, or Facebook's where it was never said (kept from when one switch was for every network). The business's
+ * rule isn't in it: settings read through `withinRules` have Autopilot off everywhere the business doesn't allow it.
+ */
+export function autopilotOn(
+  settings: Pick<AutomationSettings, 'autopilot' | 'networks'>,
+  platform: Platform,
+): boolean {
+  if (platform === 'facebook') return settings.autopilot;
+  return settings.networks[platform].autopilot ?? settings.autopilot;
+}
+
+/** The networks the person works with Autopilot on: the day's list is theirs (decision 170). */
+export const autopilotNetworks = (
+  settings: Pick<AutomationSettings, 'autopilot' | 'networks'>,
+): Platform[] => PLATFORM_KEYS.filter((p) => settings.networks[p].on && autopilotOn(settings, p));
+
+/**
+ * Settings with every network's Autopilot said, none left following Facebook's: a change to one network's then leaves
+ * the others as they stand (decision 170).
+ */
+export function autopilotSaid(settings: AutomationSettings): AutomationSettings {
+  const n = settings.networks;
+  const said = <P extends OtherPlatform>(p: P) => ({
+    ...n[p],
+    autopilot: autopilotOn(settings, p),
+  });
+  return {
+    ...settings,
+    networks: {
+      facebook: n.facebook,
+      linkedin: said('linkedin'),
+      instagram: said('instagram'),
+      alignable: said('alignable'),
+      threads: said('threads'),
+      x: said('x'),
+    },
   };
 }
 
@@ -534,21 +584,31 @@ export const AUTOPILOT_PICKS = {
 /** A network's choices under Autopilot. */
 const piloted = (c: NetworkChoices): NetworkChoices => ({ ...c, ...AUTOPILOT_PICKS });
 
-/** A person's choices with what Autopilot picks over their own, on every network (`AUTOPILOT_PICKS`). */
+/**
+ * A person's choices with what Autopilot picks over their own, on each network where it's on (`AUTOPILOT_PICKS`,
+ * `autopilotOn`): every network, until decision 170 let each have its own.
+ */
 export function autopilotOver(settings: AutomationSettings): AutomationSettings {
+  const n = settings.networks;
+  const over = <P extends OtherPlatform>(p: P) => (autopilotOn(settings, p) ? piloted(n[p]) : n[p]);
+  const facebook = settings.autopilot;
   return {
     ...settings,
-    sending: AUTOPILOT_PICKS.sending,
-    replies: AUTOPILOT_PICKS.replies,
-    confirmRequests: AUTOPILOT_PICKS.confirmRequests,
-    posting: AUTOPILOT_PICKS.posting,
+    ...(facebook
+      ? {
+          sending: AUTOPILOT_PICKS.sending,
+          replies: AUTOPILOT_PICKS.replies,
+          confirmRequests: AUTOPILOT_PICKS.confirmRequests,
+          posting: AUTOPILOT_PICKS.posting,
+        }
+      : {}),
     networks: {
-      facebook: { ...settings.networks.facebook, requests: AUTOPILOT_PICKS.requests },
-      linkedin: piloted(settings.networks.linkedin),
-      instagram: piloted(settings.networks.instagram),
-      alignable: piloted(settings.networks.alignable),
-      threads: piloted(settings.networks.threads),
-      x: piloted(settings.networks.x),
+      facebook: facebook ? { ...n.facebook, requests: AUTOPILOT_PICKS.requests } : n.facebook,
+      linkedin: over('linkedin'),
+      instagram: over('instagram'),
+      alignable: over('alignable'),
+      threads: over('threads'),
+      x: over('x'),
     },
   };
 }
@@ -564,26 +624,40 @@ const ownPicks = (c: NetworkChoices, own: NetworkChoices): NetworkChoices => ({
 });
 
 /**
- * Choices to keep, with the person's own (`own`) wherever Autopilot picks: what a save keeps while Autopilot is on, or
- * as it's turned off, so their own come back as they were (decision 151). Everything else is as `settings` says.
+ * Choices to keep, with the person's own (`own`) wherever Autopilot picks: what a save keeps on a network while
+ * Autopilot is on there, or as it's turned on or off there, so their own come back as they were (decision 151).
+ * Everything else is as `settings` says. A network in `picked` had its picks chosen just now as Autopilot went off
+ * there (How hands-off?, decision 170): those are kept as sent.
  */
 export function keepOwnPicks(
   settings: AutomationSettings,
   own: AutomationSettings,
+  picked: readonly Platform[] = [],
 ): AutomationSettings {
+  const keeps = (p: Platform) =>
+    (autopilotOn(own, p) || autopilotOn(settings, p)) &&
+    !(picked.includes(p) && !autopilotOn(settings, p));
+  const n = settings.networks;
+  const kept = <P extends OtherPlatform>(p: P) =>
+    keeps(p) ? ownPicks(n[p], own.networks[p]) : n[p];
+  const facebook = keeps('facebook');
   return {
     ...settings,
-    sending: own.sending,
-    replies: own.replies,
-    confirmRequests: own.confirmRequests,
-    posting: own.posting,
+    ...(facebook
+      ? {
+          sending: own.sending,
+          replies: own.replies,
+          confirmRequests: own.confirmRequests,
+          posting: own.posting,
+        }
+      : {}),
     networks: {
-      facebook: { ...settings.networks.facebook, requests: own.networks.facebook.requests },
-      linkedin: ownPicks(settings.networks.linkedin, own.networks.linkedin),
-      instagram: ownPicks(settings.networks.instagram, own.networks.instagram),
-      alignable: ownPicks(settings.networks.alignable, own.networks.alignable),
-      threads: ownPicks(settings.networks.threads, own.networks.threads),
-      x: ownPicks(settings.networks.x, own.networks.x),
+      facebook: facebook ? { ...n.facebook, requests: own.networks.facebook.requests } : n.facebook,
+      linkedin: kept('linkedin'),
+      instagram: kept('instagram'),
+      alignable: kept('alignable'),
+      threads: kept('threads'),
+      x: kept('x'),
     },
   };
 }
@@ -601,11 +675,14 @@ export function withinRules(
   settings: AutomationSettings,
   rules: BusinessRules,
 ): AutomationSettings {
-  const autopilot = settings.autopilot && rules.autopilotAllowed;
-  const s = autopilot ? autopilotOver(settings) : settings;
+  // Every network's said, so the screens read each one as it is (decision 170); off everywhere where not allowed.
+  const allowed = rules.autopilotAllowed
+    ? autopilotSaid(settings)
+    : autopilotOffEverywhere(settings);
+  const s = autopilotOver(allowed);
   return {
     ...s,
-    autopilot,
+    autopilot: allowed.autopilot,
     sending: allowedOf(SENDING_MODE_KEYS, rules.sendingAllowed, s.sending),
     replies: allowedOf(REPLY_MODE_KEYS, rules.repliesAllowed, s.replies),
     posting: allowedOf(POSTING_MODE_KEYS, rules.postingAllowed, s.posting),
@@ -616,6 +693,24 @@ export function withinRules(
       alignable: choicesWithin(s.networks.alignable, rules, 'alignable'),
       threads: choicesWithin(s.networks.threads, rules, 'threads'),
       x: choicesWithin(s.networks.x, rules, 'x'),
+    },
+  };
+}
+
+/** Settings with Autopilot off on every network. */
+function autopilotOffEverywhere(settings: AutomationSettings): AutomationSettings {
+  const n = settings.networks;
+  const off = <P extends OtherPlatform>(p: P) => ({ ...n[p], autopilot: false });
+  return {
+    ...settings,
+    autopilot: false,
+    networks: {
+      facebook: n.facebook,
+      linkedin: off('linkedin'),
+      instagram: off('instagram'),
+      alignable: off('alignable'),
+      threads: off('threads'),
+      x: off('x'),
     },
   };
 }
@@ -981,6 +1076,11 @@ export const AutomationSaveInput = z
     }).optional(),
     /** Or only what changes (`AutomationChanges`), put on what's kept. */
     changes: AutomationChanges.optional(),
+    /**
+     * The networks whose picks were chosen just now as Autopilot went off there (How hands-off?, decision 170): those
+     * picks are kept as sent, rather than the person's own from before Autopilot coming back.
+     */
+    picked: z.array(z.enum(PLATFORM_KEYS)).max(PLATFORM_KEYS.length).optional(),
   })
   .refine((i) => i.settings !== undefined || i.changes !== undefined, {
     error: 'Say what changes.',

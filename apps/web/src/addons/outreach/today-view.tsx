@@ -613,6 +613,7 @@ function DoneToday({ live }: { live: Live }) {
                 className={cn(
                   'min-w-0',
                   step.kind === 'stopped' && 'text-danger-text',
+                  step.kind === 'failed' && 'text-warning-text',
                   step.kind === 'passed' && 'text-text-2',
                 )}
               >

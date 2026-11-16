@@ -423,7 +423,7 @@ export async function todayFor(
   // Under Autopilot (decision 151), nobody new is reached till the person OKs them on the day's list, nor anyone
   // further along till they're OK'd once: `reach` is `lets` with that. A reply owed, an answer to their comment, a
   // request to confirm and Recommend them go as ever. The day's list itself is worked out without it (`plan`).
-  const gate = everything.autopilot && !plan;
+  const gate = settings.autopilot === true && !plan;
   const reach = gate
     ? sql`(${lets} and exists (select 1 from addon_outreach.autopilot_people ap
         where ap.workspace_id = ${ws} and ap.user_id = ${me} and ap.profile_id = p.id and ap.state = 'ok'))`

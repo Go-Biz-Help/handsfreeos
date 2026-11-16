@@ -63,7 +63,7 @@ import { buttonFor } from '@hfos/core/addons/outreach/helper';
 import type { ProblemHelper } from '@hfos/core/problem-report';
 import { haltAsk } from '../asks/run';
 import { follow, loadSettings } from '../hfos/follow';
-import { feed, keptFor, onBeat, type Kept } from '../hfos/live';
+import { feed, jobKind, keptFor, onBeat, outcomeKind, type Kept } from '../hfos/live';
 import type { Drafts, TodayList, TodayListItem } from '../hfos/messages';
 import { isNoting, noteNeed, takeNote } from '../hfos/noting';
 import { clearRetried, handsOver, retryAfterUpdate } from './retry';
@@ -1481,7 +1481,7 @@ async function go(): Promise<void> {
       return soon();
     }
     await setState({ readLast: true });
-    void feed('job', `${NAME}: ${line}`);
+    void feed(jobKind(end), `${NAME}: ${line}`);
     if (before.do === 'save' && before.first && end.failed) {
       await closeWindow();
       await say(
@@ -1504,7 +1504,7 @@ async function go(): Promise<void> {
     const line = `${DAILY_NAMES[daily]}: ${end.line}`;
     await say(line, { readLast: true });
     if (end.away) putOff.off(daily);
-    else void feed('job', `${NAME}: ${line}`);
+    else void feed(jobKind(end), `${NAME}: ${line}`);
     return soon();
   }
 
@@ -1657,7 +1657,7 @@ async function workNext(
   if (need) void noteNeed(need);
   // A step tried again that it found done already is cleared (decision 145).
   if (work.do === 'step') void clearRetried(item, outcome, businessId);
-  void feed(outcome.done ? 'done' : 'passed', `${NAME}: ${outcome.line}`);
+  void feed(outcomeKind(outcome), `${NAME}: ${outcome.line}`);
   if (stopAsked) {
     await closeWindow();
     return goAt(null);

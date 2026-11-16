@@ -80,9 +80,7 @@ async function openOwn(job: Job): Promise<JobEnd | ReadResult> {
   const warned = await warnedOn(job, page);
   if (warned) return warned;
   if (page.kind !== 'profile' || page.profile?.friendship !== 'self')
-    return failed(
-      'Facebook didn’t open your own profile. Check you’re signed in to Facebook in this browser, then ask again.',
-    );
+    return failed('Facebook didn’t open your own profile. Ask again in a few minutes.');
   return page;
 }
 
