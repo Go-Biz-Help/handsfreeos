@@ -25,6 +25,7 @@ import {
   OTHER_PLATFORMS,
   PUSH_MODE_KEYS,
   PUSH_MODES,
+  type PushMode,
   REPLY_MODE_KEYS,
   REPLY_MODES,
   POSTING_MODE_KEYS,
@@ -79,6 +80,7 @@ import { HELPFUL_MODES_ON, helpfulHowOn } from '@hfos/core/addons/outreach/helpf
 import { dayReportWords } from '@hfos/core/addons/outreach/tracking';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
+import { SETTINGS_PAGE_WORDS as SP } from '@hfos/core/addons/outreach/settings-pages';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -437,20 +439,39 @@ interface Own {
 }
 
 /** How the AI writes for them (decision 53), with a sample of how a message from them reads. */
-export function VoicePart({ value, onChange, card = false, testId }: Own) {
+export function VoicePart({
+  value,
+  onChange,
+  card = false,
+  switches = false,
+  testId,
+}: Own & { switches?: boolean }) {
   return (
-    <Part title={VOICE_WORDS.title} about={VOICE_WORDS.note} card={card}>
-      {VOICE_KEYS.map((key) => (
-        <Checkbox
-          key={key}
-          label={<span className="text-[14px]">{VOICE_WORDS[key]}</span>}
-          checked={value.voice[key]}
-          onChange={(e) =>
-            onChange({ ...value, voice: { ...value.voice, [key]: e.target.checked } })
-          }
-          data-testid={`${testId}-voice-${key}`}
-        />
-      ))}
+    <Part title={VOICE_WORDS.title} about={VOICE_WORDS.note} card={card} testId={`${testId}-voice`}>
+      {VOICE_KEYS.map((key) =>
+        switches ? (
+          // On Settings → You (decision 170): a switch for each, saved the moment it's flipped.
+          <div key={key} className="flex items-center justify-between gap-4">
+            <span className="min-w-0 text-[14px] font-medium">{VOICE_WORDS[key]}</span>
+            <Switch
+              checked={value.voice[key]}
+              onChange={(on) => onChange({ ...value, voice: { ...value.voice, [key]: on } })}
+              label={VOICE_WORDS[key]}
+              testId={`${testId}-voice-${key}`}
+            />
+          </div>
+        ) : (
+          <Checkbox
+            key={key}
+            label={<span className="text-[14px]">{VOICE_WORDS[key]}</span>}
+            checked={value.voice[key]}
+            onChange={(e) =>
+              onChange({ ...value, voice: { ...value.voice, [key]: e.target.checked } })
+            }
+            data-testid={`${testId}-voice-${key}`}
+          />
+        ),
+      )}
       <ChatBubbles
         bubbles={voiceSample(value.voice).map((text) => ({ fromMe: true, text }))}
         label="How a message from you might read"
@@ -493,8 +514,69 @@ export function PushesPart({
   onChange,
   card = false,
   switches = false,
+  compact = false,
   testId,
-}: Own & { switches?: boolean }) {
+}: Own & {
+  switches?: boolean;
+  /** Settings → You's Alerts (decision 170): what waits as a short pick, then the switches. */
+  compact?: boolean;
+}) {
+  if (compact)
+    return (
+      <Part title={SP.alerts} about={SP.alertsAbout} card={card} testId={`${testId}-alerts`}>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div className="min-w-0 flex-[1_1_220px]">
+            <div className="text-[14px] font-medium">{SP.waiting}</div>
+            <div className="text-[13px] text-text-2">{SP.waitingAbout}</div>
+          </div>
+          <select
+            className={select}
+            value={value.pushes}
+            onChange={(e) => onChange({ ...value, pushes: e.target.value as PushMode })}
+            aria-label={SP.waiting}
+            data-testid={`${testId}-pushes`}
+          >
+            {PUSH_MODE_KEYS.map((m) => (
+              <option key={m} value={m}>
+                {SP.pushModes[m]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="border-t border-border pt-3">
+          <Tick
+            switches
+            words={[W.ticks.dayReport[0], SP.dayReportAbout]}
+            checked={value.dayReport}
+            onChange={(dayReport) => onChange({ ...value, dayReport })}
+            testId={`${testId}-dayReport`}
+          />
+        </div>
+        {value.dayReport ? (
+          <PushSample
+            title={dayReportSample.title}
+            body={dayReportSample.body}
+            testId={`${testId}-day-report-sample`}
+          />
+        ) : null}
+        <div className="border-t border-border pt-3">
+          <Tick
+            switches
+            words={[W.ticks.acceptedPush[0], SP.acceptedAbout]}
+            checked={value.acceptedPush}
+            onChange={(acceptedPush) => onChange({ ...value, acceptedPush })}
+            testId={`${testId}-acceptedPush`}
+          />
+        </div>
+        {value.acceptedPush ? (
+          <PushSample
+            title={acceptedSample.title}
+            body={acceptedSample.body}
+            testId={`${testId}-accepted-sample`}
+          />
+        ) : null}
+      </Part>
+    );
   return (
     <Part title={W.sections.pushes} about={W.abouts.pushes} card={card}>
       <div role="radiogroup" aria-label="Pushes" className="flex flex-col gap-2">
@@ -1064,7 +1146,15 @@ const dayReportSample = dayReportWords({ messages: 14, positive: 2, booked: 1 },
 const acceptedSample = acceptedPushWords(['Dana Reyes'], 'facebook');
 
 /** A push as it shows on a phone: the add-on's name, its title and its words. */
-function PushSample({ title, body, testId }: { title: string; body: string; testId: string }) {
+export function PushSample({
+  title,
+  body,
+  testId,
+}: {
+  title: string;
+  body: string;
+  testId: string;
+}) {
   return (
     <div
       className="grid max-w-[420px] grid-cols-[36px_minmax(0,1fr)] gap-2.5 rounded-[14px] border border-border bg-card-2 px-3.5 py-3"

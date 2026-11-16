@@ -235,6 +235,9 @@ describe('The countries on Team, and their lists on You', () => {
     await render(
       <SettingsPartBody part="team" automation={AUTOMATION} {...p} manages business={BUSINESS} />,
     );
+    // A row that says what it reaches, opened with Change (decision 170, part 2).
+    expect(screen.queryByTestId('settings-countries')).toBeNull();
+    await fireEvent.press(screen.getByTestId('settings-countries-row-toggle'));
     const part = screen.getByTestId('settings-countries');
     expect(within(part).getByText('Which countries to reach')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('settings-countries-only'));
@@ -261,6 +264,10 @@ describe('The countries on Team, and their lists on You', () => {
         onCountries={onCountries}
       />,
     );
+    expect(screen.getByTestId('settings-countries-row-about')).toHaveTextContent(
+      /Only United States/,
+    );
+    await fireEvent.press(screen.getByTestId('settings-countries-row-toggle'));
     expect(screen.getByTestId('settings-country-list-unsure')).toHaveTextContent(/2/);
     await fireEvent.press(screen.getByTestId('settings-country-list-skipped'));
     expect(onCountries).toHaveBeenCalledWith('skipped');

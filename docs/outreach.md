@@ -4448,8 +4448,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 170.  **Each network's page says what it's really doing, and How hands-off? picks its choices** (Chris, 16 Nov 2026:
       "let’s do this redesign for all of the platforms and the different settings pages", after the mockups of
       Settings → Threads, then "1a 2a 3a"). The owner couldn't find Sending: it was "What it does on its own", greyed
-      under Autopilot, beside long lists. Part 1 (the network pages) built; part 2 brings You, Team, Your computer and
-      the problem lines, repeats folded:
+      under Autopilot, beside long lists. Part 1 (the network pages) and part 2 (You, Team, Your computer and the
+      problem lines, repeats folded) both built; part 2 is app pages only, with no new extension:
       - **A status card at the top** (`network-status.ts`, `networkStatus`), on the web and the phone, the same words
         from one place: **Running** ("Today so far: 3 friend requests and 12 likes."), **Waiting on you** (no
         computer, signed out, Chrome hasn't let it on the network, offline in the working hours, Autopilot's people or
@@ -4483,6 +4483,22 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **"Check you're signed in" only on a sign-in page** (3a, extension 0.142.0): a page that didn't show a menu, a
         profile or a list says what it didn't show and to ask again in a few minutes, or that it tries again on its own;
         only a page that really asked the person to sign in, or sent the window somewhere else, still says to check.
+      - **Settings → You, Team and Your computer** (part 2, `settings-pages.ts`, the web's and the phone's words and
+        rules from one place): each setting a row that says how it stands, with **Change** for the ones that need more
+        room, so the page reads at a glance. **You**: How hands-off, on every network, with each level and the networks
+        at it under it (`handsOffGroups`); How the AI writes as switches; **Working hours** in a few words ("Mon–Fri,
+        9 AM–5 PM", `hoursLine`), opened by Change or by an hours problem; **Alerts** (what waits for you as one pick,
+        the day's numbers and someone accepting as switches); Your profiles (Open) and Set up. **Team**: Your people
+        with the networks each works (`outreach.automation.people` says them, `networks`) and a Training wheels chip;
+        one **Networks** list in place of a card for each network, each row its most a day for each person
+        (`teamLimitsLine`), the team's switch or Always on, and Limits; **What people may pick** (How hands-off they may
+        go, `levelsAllowed`, and Where a new person starts, each behind Change); **For the whole business** as short
+        picks (countries and the extension's link behind Change); and More settings, folded, for people found by topic
+        checked a day. **Your computer**: one card for the computer that works (working, offline or signed out, a chip,
+        the extension's version and when it was seen, Rename, Download the extension), the others standing by folded
+        under it; **Run a job now** folded by network, one open at a time; and **Asked lately**, where asks that ended
+        the same way (the network, the kind, what about, how it ended and its line) fold under the newest as "The same,
+        3 more times since 9:12 AM" (`foldAsks`). One still going never folds, so its Stop and Carry on stay to hand.
 
 171.  **The introduction starts a networking chat** (Chris, 16 Nov 2026: "i want to adjust the introduction method
       where after it introduces, it asks them a question about their business, not trying to pitch just to get them

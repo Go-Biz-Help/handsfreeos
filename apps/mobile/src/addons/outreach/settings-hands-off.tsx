@@ -12,6 +12,7 @@ import {
   type NetworkStatus,
 } from '@hfos/core/addons/outreach/network-status';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { SETTINGS_PAGE_WORDS as SP } from '@hfos/core/addons/outreach/settings-pages';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -108,6 +109,7 @@ export function HandsOffPart({
   note,
   disabled = false,
   testID,
+  children,
 }: {
   /** The network it's for, for the line's words; null on Settings → You. */
   platform: Platform | null;
@@ -120,6 +122,8 @@ export function HandsOffPart({
   note?: string | null;
   disabled?: boolean;
   testID: string;
+  /** Under the buttons on Settings → You: each level and the networks at it. */
+  children?: React.ReactNode;
 }) {
   const shown = HANDS_OFF_KEYS.filter((l) => handsOffAllowed(l, rules) || l === level);
   const hidden = HANDS_OFF_KEYS.filter((l) => !shown.includes(l));
@@ -157,6 +161,7 @@ export function HandsOffPart({
           );
         })}
       </View>
+      {children}
       <Note testID={`${testID}-about`}>
         {level === null
           ? platform
@@ -181,13 +186,16 @@ export function HandsOffPart({
 
 /** More settings (decision 170): folded to start, the rest of a network's choices inside. */
 export function MoreSettings({
-  name,
-  helpful,
+  name = '',
+  helpful = false,
+  about,
   testID,
   children,
 }: {
-  name: string;
-  helpful: boolean;
+  name?: string;
+  helpful?: boolean;
+  /** Its line while folded, when not a network page's. */
+  about?: string;
   testID: string;
   children: React.ReactNode;
 }) {
@@ -203,11 +211,108 @@ export function MoreSettings({
       >
         <View className="flex-1 gap-0.5">
           <Text className="text-[16px] font-semibold">{P.more}</Text>
-          {open ? null : <Note>{P.moreAbout(name, helpful)}</Note>}
+          {open ? null : <Note>{about ?? P.moreAbout(name, helpful)}</Note>}
         </View>
         <Icon as={open ? ChevronUp : ChevronDown} className="size-5 text-text-2" />
       </Pressable>
       {open ? <View className="gap-4 border-t border-border pb-4 pt-3">{children}</View> : null}
     </Card>
+  );
+}
+
+/**
+ * A card of rows on Settings → You and Team on the phone (decision 170, part 2), as on the web: a title, a line about
+ * it, and its rows divided.
+ */
+export function RowsCard({
+  title,
+  about,
+  testID,
+  children,
+}: {
+  title?: string;
+  about?: string;
+  testID?: string;
+  children: React.ReactNode;
+}) {
+  const rows = React.Children.toArray(children).filter(Boolean);
+  return (
+    <Card className="px-4 py-2" testID={testID}>
+      {title ? (
+        <View className="gap-0.5 pb-1 pt-2">
+          <Text className="text-[16px] font-semibold">{title}</Text>
+          {about ? <Note>{about}</Note> : null}
+        </View>
+      ) : null}
+      {rows.map((row, i) => (
+        <View key={i} className={cn(i > 0 && 'border-t border-border')}>
+          {row}
+        </View>
+      ))}
+    </Card>
+  );
+}
+
+/** A setting as a row: its title, how it stands, and what to pick beside or under it. */
+export function PickRow({
+  title,
+  about,
+  testID,
+  children,
+}: {
+  title: string;
+  about?: string;
+  testID?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <View className="gap-2 py-3" testID={testID}>
+      <View className="gap-0.5">
+        <Text className="text-[14.5px] font-medium">{title}</Text>
+        {about ? <Note>{about}</Note> : null}
+      </View>
+      {children}
+    </View>
+  );
+}
+
+/** A row that says how a setting stands, with Change to open what sets it under the row, and Done to fold it again. */
+export function ChangeRow({
+  title,
+  about,
+  testID,
+  open: start = false,
+  label = SP.change,
+  children,
+}: {
+  title: string;
+  about?: string;
+  testID: string;
+  /** Open to start: a problem in it to see. */
+  open?: boolean;
+  /** The button's word while folded: Change, Limits, Open. */
+  label?: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = React.useState(start);
+  return (
+    <View className="gap-3 py-3" testID={testID}>
+      <View className="flex-row items-center gap-3">
+        <View className="min-w-0 flex-1 gap-0.5">
+          <Text className="text-[14.5px] font-medium">{title}</Text>
+          {about ? <Note testID={`${testID}-about`}>{about}</Note> : null}
+        </View>
+        <Button
+          variant="secondary"
+          size="sm"
+          aria-expanded={open}
+          onPress={() => setOpen((o) => !o)}
+          testID={`${testID}-toggle`}
+        >
+          {open ? SP.done : label}
+        </Button>
+      </View>
+      {open ? <View className="gap-4 rounded-menu bg-card-2 p-3">{children}</View> : null}
+    </View>
   );
 }

@@ -63,6 +63,7 @@ import { givenOnly } from '../loose';
 import type { Voice } from '../voice';
 import { outreachAddon } from '../manifest';
 import { networkLimitsNow, PLATFORM_KEYS, type Platform } from '../networks';
+import { networksOn } from '../network-words';
 import { automation, networkStarts, profiles, setup, type NetworkWheelKept } from '../tables';
 import { inWorkspace, type Ctx } from './common';
 
@@ -858,6 +859,7 @@ export const automationPeople = defineAddonQuery(outreachAddon, {
             sending: settings.sending,
             replies: settings.replies,
             wheels: stateOf(row, rules, now).on,
+            networks: networksOn(settings, rules.networksAllowed),
           };
         })
         .sort((a, b) => a.name.localeCompare(b.name)),

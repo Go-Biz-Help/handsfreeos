@@ -5,12 +5,12 @@
   "files": {
     "apps/mobile/src/addons/outreach/actions.ts": "9d1266692122",
     "apps/mobile/src/addons/outreach/ai-help.tsx": "715ac076ab3b",
-    "apps/mobile/src/addons/outreach/asks.tsx": "f278449bc52f",
+    "apps/mobile/src/addons/outreach/asks.tsx": "29d90a6de36e",
     "apps/mobile/src/addons/outreach/autopilot-list.tsx": "84fc811ef31b",
     "apps/mobile/src/addons/outreach/chat-bubbles.tsx": "171c915f2f4d",
     "apps/mobile/src/addons/outreach/chats.tsx": "542d7ea4f823",
     "apps/mobile/src/addons/outreach/code.tsx": "b93b1102bf09",
-    "apps/mobile/src/addons/outreach/computers.tsx": "50b12e6fb646",
+    "apps/mobile/src/addons/outreach/computers.tsx": "cfe5ec9ab832",
     "apps/mobile/src/addons/outreach/counters.tsx": "bffec9a1089f",
     "apps/mobile/src/addons/outreach/countries.tsx": "2f03fcedf70c",
     "apps/mobile/src/addons/outreach/country-setting.tsx": "7d3f0edcc4a3",
@@ -44,10 +44,10 @@
     "apps/mobile/src/addons/outreach/ready.tsx": "25850d1b5887",
     "apps/mobile/src/addons/outreach/results.tsx": "aa922c1891d0",
     "apps/mobile/src/addons/outreach/settings-bits.tsx": "e0f6d6ee5cdb",
-    "apps/mobile/src/addons/outreach/settings-general.tsx": "55d12a212e9e",
-    "apps/mobile/src/addons/outreach/settings-hands-off.tsx": "ef85541b7b94",
-    "apps/mobile/src/addons/outreach/settings-network.tsx": "79254085d0bc",
-    "apps/mobile/src/addons/outreach/settings.tsx": "88c5092078ce",
+    "apps/mobile/src/addons/outreach/settings-general.tsx": "298225c415ed",
+    "apps/mobile/src/addons/outreach/settings-hands-off.tsx": "2bb074a91d95",
+    "apps/mobile/src/addons/outreach/settings-network.tsx": "8d82859f22a0",
+    "apps/mobile/src/addons/outreach/settings.tsx": "408c4d0284f3",
     "apps/mobile/src/addons/outreach/setup.tsx": "88dc516bdf04",
     "apps/mobile/src/addons/outreach/social-card.tsx": "9dfd419415b9",
     "apps/mobile/src/addons/outreach/ticker.tsx": "3ac4c69f8f42",
@@ -61,7 +61,7 @@
     "apps/web/src/addons/outreach/ai-help.tsx": "b7bee94b6b3c",
     "apps/web/src/addons/outreach/asks.tsx": "ed41ab8092d6",
     "apps/web/src/addons/outreach/autopilot-list.tsx": "23d15bafe56e",
-    "apps/web/src/addons/outreach/business-settings.tsx": "ec214e9f6a3a",
+    "apps/web/src/addons/outreach/business-settings.tsx": "0ac3ea947004",
     "apps/web/src/addons/outreach/cancel-all.tsx": "65d8d42a1ace",
     "apps/web/src/addons/outreach/chat-bubbles.tsx": "2be480b27752",
     "apps/web/src/addons/outreach/chat-keep.tsx": "0987dcd6fb0a",
@@ -73,7 +73,7 @@
     "apps/web/src/addons/outreach/download-card.tsx": "825bdd9c2a92",
     "apps/web/src/addons/outreach/drafted.tsx": "52c849cb5740",
     "apps/web/src/addons/outreach/extension-download.tsx": "891862569d90",
-    "apps/web/src/addons/outreach/extension-link.tsx": "5ed66f2459c8",
+    "apps/web/src/addons/outreach/extension-link.tsx": "4c07a42dd2e2",
     "apps/web/src/addons/outreach/file-asks.tsx": "241d2d78e017",
     "apps/web/src/addons/outreach/find-view.tsx": "1e32de9ca2a8",
     "apps/web/src/addons/outreach/friends-view.tsx": "5ca046185f23",
@@ -85,9 +85,9 @@
     "apps/web/src/addons/outreach/home.tsx": "5e7307fe706a",
     "apps/web/src/addons/outreach/install-pictures.tsx": "d328a02984f0",
     "apps/web/src/addons/outreach/like-yours.tsx": "8168753d9e13",
-    "apps/web/src/addons/outreach/live-view.tsx": "94bdd04df2c6",
+    "apps/web/src/addons/outreach/live-view.tsx": "08145c749e82",
     "apps/web/src/addons/outreach/menu-count.tsx": "1c09b867d874",
-    "apps/web/src/addons/outreach/network-settings.tsx": "576348d35a06",
+    "apps/web/src/addons/outreach/network-settings.tsx": "8916cf865d22",
     "apps/web/src/addons/outreach/network-ui.tsx": "0f7af0719ac5",
     "apps/web/src/addons/outreach/offer-panel.tsx": "9a4c91de27e6",
     "apps/web/src/addons/outreach/opener-results.tsx": "d8c1b233c8ac",
@@ -100,13 +100,13 @@
     "apps/web/src/addons/outreach/playbooks-page.tsx": "c4ecc22101e2",
     "apps/web/src/addons/outreach/post-quote.tsx": "0d00a6705d36",
     "apps/web/src/addons/outreach/pre-day-list.tsx": "dd582568db6f",
-    "apps/web/src/addons/outreach/profile-whole.tsx": "6650bd63908f",
+    "apps/web/src/addons/outreach/profile-whole.tsx": "8949c6c61c1c",
     "apps/web/src/addons/outreach/research.tsx": "f73a68cdb5b2",
-    "apps/web/src/addons/outreach/run-now.tsx": "0e02f32db42a",
+    "apps/web/src/addons/outreach/run-now.tsx": "234d0572c78c",
     "apps/web/src/addons/outreach/same-name.tsx": "ec38731aaae5",
     "apps/web/src/addons/outreach/settings-link.tsx": "8a590c091aa8",
-    "apps/web/src/addons/outreach/settings-page.tsx": "95925ce03f75",
-    "apps/web/src/addons/outreach/settings-view.tsx": "7d337b5453dd",
+    "apps/web/src/addons/outreach/settings-page.tsx": "1db21e54193f",
+    "apps/web/src/addons/outreach/settings-view.tsx": "5c8aa8bea2fe",
     "apps/web/src/addons/outreach/setup-hub.tsx": "681abf5d4f2c",
     "apps/web/src/addons/outreach/setup-network.tsx": "227daa451460",
     "apps/web/src/addons/outreach/setup-row.tsx": "8af713fac69e",
@@ -220,6 +220,13 @@
       "file": "apps/web/src/addons/outreach/run-now.tsx:117",
       "covered": "yes",
       "by": "outreach_asks; outreach_ask_computer"
+    },
+    {
+      "path": "Settings → Your computer → Run a job now: a fold for each network (N jobs), one open at a time; each job's button with its latest ask",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/run-now.tsx:133",
+      "covered": "yes",
+      "by": "outreach_asks; outreach_ask_computer platform, ask.kind"
     },
     {
       "path": "Asks anywhere → an ask's line: state (Waiting, Working, Stuck, Needs a code, Done, Couldn't, Stopped), its name, what it's about, the time",
@@ -2469,37 +2476,37 @@
       "by": "outreach_country_skipped page, total"
     },
     {
-      "path": "Settings → Your computer → What you asked your computer: each ask, or none",
+      "path": "Settings → Your computer → Asked lately: each ask, or none; the ones that ended the same way folded under the newest: The same, N more times since a time (opens them)",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/live-view.tsx:83",
+      "file": "apps/web/src/addons/outreach/live-view.tsx:91",
       "covered": "yes",
       "by": "outreach_asks"
     },
     {
-      "path": "Settings → Your computer → computers: name, Signed out / Working / Standing by, last seen",
+      "path": "Settings → Your computer → the computer card: name is working / offline / signed out, Online / Offline / Signed out chip, extension version, last seen; N more computers standing by (Show): each one's name, state, last seen",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/live-view.tsx:112",
+      "file": "apps/web/src/addons/outreach/live-view.tsx:398",
       "covered": "yes",
       "by": "outreach_live computers"
     },
     {
-      "path": "Settings → Your computer → Rename (field, Save, Cancel)",
+      "path": "Settings → Your computer → Rename (field, Save, Cancel), on the computer card and on each one standing by",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/live-view.tsx:112",
+      "file": "apps/web/src/addons/outreach/live-view.tsx:509",
       "covered": "yes",
       "by": "outreach_rename_computer"
     },
     {
-      "path": "Settings → Your computer → Remove one, or Remove the N standing by (confirm)",
+      "path": "Settings → Your computer → N more standing by (Show) → Remove one, or Remove the N standing by (confirm)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/live-view.tsx:112",
+      "file": "apps/web/src/addons/outreach/live-view.tsx:534",
       "covered": "yes",
       "by": "outreach_remove_computers"
     },
     {
-      "path": "Settings → Team → Extension link field and Save",
+      "path": "Settings → Team → For the whole business → Where your team gets the extension: HandsFreeOS’s own or your link; Change → link field and Save",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/extension-link.tsx:20",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:721",
       "covered": "yes",
       "by": "do_addon_save_settings extensionLink"
     },
@@ -3288,9 +3295,9 @@
       "by": "outreach_automation userId; outreach_team_automation"
     },
     {
-      "path": "Settings → General → Set up again / Open Set up",
+      "path": "Settings → General → Set up row: Open / Set up again",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-page.tsx:516",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:590",
       "covered": "yes",
       "by": "outreach_setup; outreach_save_setup"
     },
@@ -3302,30 +3309,30 @@
       "by": "outreach_automation changedBy"
     },
     {
-      "path": "Settings → General → How hands-off, on every network: four levels at once, they differ, not allowed, training wheels note",
+      "path": "Settings → General → How hands-off, on every network: four levels at once, each level with the networks at it, they differ, not allowed, training wheels note",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-page.tsx:537",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:534",
       "covered": "yes",
       "by": "outreach_save_automation changes (each network’s sending, replies, autopilot) and picked"
     },
     {
-      "path": "Settings → General → How you write: voice ticks and a sample message",
+      "path": "Settings → General → How the AI writes: voice switches and a sample message",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-view.tsx:504",
+      "file": "apps/web/src/addons/outreach/settings-view.tsx:442",
       "covered": "yes",
       "by": "outreach_save_automation voice"
     },
     {
-      "path": "Settings → General → Working hours: from, to, days, every day; the time zone; hours problem",
+      "path": "Settings → General → Working hours row: days and hours in a few words; Change → from, to, days, every day; the time zone; hours problem (opens it)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-view.tsx:615",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:570",
       "covered": "yes",
       "by": "outreach_save_automation hours"
     },
     {
-      "path": "Settings → General → Phone: how pushes come (each, bundled, none), day report, accepted pushes, samples",
+      "path": "Settings → General → Alerts: what waits for you (a push for each, or one every 2 hours), day's numbers switch, accepted switch, samples",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-view.tsx:555",
+      "file": "apps/web/src/addons/outreach/settings-view.tsx:524",
       "covered": "yes",
       "by": "outreach_save_automation pushes, dayReport, acceptedPush"
     },
@@ -3337,9 +3344,9 @@
       "by": "navigation"
     },
     {
-      "path": "Settings → General → Your profiles side by side",
+      "path": "Settings → General → Your profiles row: Open → side by side",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/settings-page.tsx:317",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:582",
       "covered": "yes",
       "by": "outreach_my_profiles"
     },
@@ -3512,6 +3519,27 @@
       "by": "outreach_save_automation changes (each network’s sending, replies, autopilot) and picked"
     },
     {
+      "path": "Phone → Settings → Team → Networks: each network's most a day, the team may use it (switch), Always on; Limits (steppers)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/outreach/settings-network.tsx:638",
+      "covered": "yes",
+      "by": "do_addon_save_settings rules.networksAllowed"
+    },
+    {
+      "path": "Phone → Settings → Team → What people may pick and For the whole business: rows that say how each stands, with Change",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/outreach/settings-general.tsx:245",
+      "covered": "yes",
+      "by": "do_addon_save_settings rules"
+    },
+    {
+      "path": "Phone → Settings → Your computer → the computer card (chip, version, seen, Rename), N more standing by (Show); Run a job now folded by network; Asked lately with the same ones folded",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/outreach/computers.tsx:114",
+      "covered": "yes",
+      "by": "outreach_live computers; outreach_rename_computer; outreach_asks; outreach_ask_computer"
+    },
+    {
       "path": "Phone → Today → each network’s card: status chip, stuck line; Live: a failed step in amber",
       "kind": "see",
       "file": "apps/mobile/src/addons/outreach/hub.tsx:422",
@@ -3533,9 +3561,9 @@
       "by": "outreach_live computers"
     },
     {
-      "path": "Settings → Team → Your people: each person, you, training wheels on X, N OK'd, days left",
+      "path": "Settings → Team → Your people: each person, you, the networks they work, Training wheels chip with the network, N of 25 OK'd, days left",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/settings-page.tsx:577",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:742",
       "covered": "yes",
       "by": "outreach_team_automation; outreach_training_wheels"
     },
@@ -3554,58 +3582,58 @@
       "by": "outreach_automation userId; outreach_save_automation userId"
     },
     {
-      "path": "Settings → Team → What people may let it do: sending, Autopilot, replies, posting (ticks)",
+      "path": "Settings → Team → What people may pick → How hands-off they may go: Any of the four, or the levels; Change → sending, Autopilot, replies, posting (ticks)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-view.tsx:854",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:691",
       "covered": "yes",
       "by": "do_addon_save_settings rules"
     },
     {
-      "path": "Settings → Team → New people start with: summary, Change (the choices form)",
+      "path": "Settings → Team → What people may pick → Where a new person starts: level and hours; Change (the choices form)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-view.tsx:995",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:698",
       "covered": "yes",
       "by": "do_addon_save_settings rules.defaults"
     },
     {
-      "path": "Settings → Team → Who goes in Contacts from chats",
+      "path": "Settings → Team → For the whole business → Who from chats goes in Contacts (pick)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/business-settings.tsx:67",
+      "file": "apps/web/src/addons/outreach/business-settings.tsx:126",
       "covered": "yes",
       "by": "do_addon_save_settings contactsFromChats"
     },
     {
-      "path": "Settings → Team → Warm up for, then unfollow or withdraw (N weeks)",
+      "path": "Settings → Team → For the whole business → Warm up for, then unfollow or withdraw (N weeks)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/business-settings.tsx:82",
+      "file": "apps/web/src/addons/outreach/business-settings.tsx:135",
       "covered": "yes",
       "by": "do_addon_save_settings cancelRequestsAfterWeeks"
     },
     {
-      "path": "Settings → Team → Found people checked a day",
+      "path": "Settings → Team → More settings → People found by topic checked a day",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/business-settings.tsx:98",
+      "file": "apps/web/src/addons/outreach/business-settings.tsx:191",
       "covered": "yes",
       "by": "do_addon_save_settings foundChecksPerDay"
     },
     {
-      "path": "Settings → Team → Morning push hour, or off",
+      "path": "Settings → Team → For the whole business → Morning push hour, or off",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/business-settings.tsx:117",
+      "file": "apps/web/src/addons/outreach/business-settings.tsx:160",
       "covered": "yes",
       "by": "do_addon_save_settings morningPushHour"
     },
     {
-      "path": "Settings → Team → Weekly report switch",
+      "path": "Settings → Team → For the whole business → Weekly report by email switch",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/business-settings.tsx:148",
+      "file": "apps/web/src/addons/outreach/business-settings.tsx:183",
       "covered": "yes",
       "by": "do_addon_save_settings weeklyReport"
     },
     {
-      "path": "Settings → Team → Countries: anywhere, only these, all but these",
+      "path": "Settings → Team → For the whole business → Countries to reach: what it reaches; Change → anywhere, only these, all but these",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/business-settings.tsx:159",
+      "file": "apps/web/src/addons/outreach/business-settings.tsx:68",
       "covered": "yes",
       "by": "do_addon_save_settings countries.mode"
     },
@@ -3631,9 +3659,9 @@
       "by": "do_addon_save_settings countries.unsure"
     },
     {
-      "path": "Settings → Team → each network: the team may use it (switch), always allowed",
+      "path": "Settings → Team → Networks: each network's most a day for each person, Off for your team, or still being looked at; the team may use it (switch), Always on",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-page.tsx:1022",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:1335",
       "covered": "yes",
       "by": "do_addon_save_settings rules.networksAllowed"
     },
@@ -3666,9 +3694,9 @@
       "by": "HandsFreeOS staff's own study, not a business's: outreach.comment_research.* are in the add-on's notForTheAssistant"
     },
     {
-      "path": "Settings → Team → each network: daily limits (number fields, up to the most)",
+      "path": "Settings → Team → Networks → Limits: daily limits (number fields, up to the most)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/settings-view.tsx:933",
+      "file": "apps/web/src/addons/outreach/settings-page.tsx:1384",
       "covered": "yes",
       "by": "do_addon_save_settings rules.dailyLimits / networkLimits"
     },
@@ -3890,7 +3918,7 @@
       "by": "outreach_test_playbook move comment (post, comment), with message, others, about, aboutYou and note"
     },
     {
-      "path": "Phone → Settings → General → For your team: countries, and the Skipped / Not sure lists it makes",
+      "path": "Phone → Settings → Team → For the whole business → Countries to reach (Change): countries, and the Skipped / Not sure lists it makes",
       "kind": "do",
       "file": "apps/mobile/src/addons/outreach/country-setting.tsx:55",
       "covered": "yes",
