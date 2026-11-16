@@ -98,6 +98,11 @@ export const Content = z.object({
   pictureState: z.enum(PICTURE_STATES),
   pictureFailure: z.string().nullable(),
   pictures: z.array(ContentPicture),
+  /**
+   * What the picture check still found wrong with the pictures kept (the owner's pick, 16 Nov), to show beside them;
+   * empty when they passed or weren't checked. Default for an older API.
+   */
+  pictureFlags: z.array(z.string()).default([]),
   facebookWhere: z.array(FacebookWhere),
   state: z.enum(CONTENT_STATES),
   postAt: z.string().nullable(),

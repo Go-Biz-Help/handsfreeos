@@ -364,6 +364,13 @@ describe('checking what the AI designs', () => {
       /never a blank white, grey or black screen, even if the scene above says so/,
     );
     expect(prompt).toMatch(/five fingers/);
+    expect(prompt).toMatch(/no words, numbers, icons or notifications on it/);
+  });
+
+  it('says beside a picture what the check still found, and what to do', () => {
+    expect(W.post.pictureFlagged(['Faint text shows through. ', 'Six fingers'])).toBe(
+      'The picture check still found: Faint text shows through; Six fingers. Press Make it again for a new one, or look closely before you OK it.',
+    );
   });
 });
 

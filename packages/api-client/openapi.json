@@ -99402,12 +99402,12 @@
                                 "first_message": {
                                   "type": "integer",
                                   "minimum": 0,
-                                  "maximum": 0
+                                  "maximum": 10
                                 },
                                 "follow_up": {
                                   "type": "integer",
                                   "minimum": 0,
-                                  "maximum": 0
+                                  "maximum": 15
                                 },
                                 "comment": {
                                   "type": "integer",
@@ -122050,6 +122050,13 @@
                         "additionalProperties": false
                       }
                     },
+                    "pictureFlags": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
                     "facebookWhere": {
                       "type": "array",
                       "items": {
@@ -122433,6 +122440,7 @@
                     "pictureState",
                     "pictureFailure",
                     "pictures",
+                    "pictureFlags",
                     "facebookWhere",
                     "state",
                     "postAt",
@@ -122675,6 +122683,13 @@
                         "additionalProperties": false
                       }
                     },
+                    "pictureFlags": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
                     "facebookWhere": {
                       "type": "array",
                       "items": {
@@ -123058,6 +123073,7 @@
                     "pictureState",
                     "pictureFailure",
                     "pictures",
+                    "pictureFlags",
                     "facebookWhere",
                     "state",
                     "postAt",
@@ -123383,6 +123399,13 @@
                         "additionalProperties": false
                       }
                     },
+                    "pictureFlags": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
                     "facebookWhere": {
                       "type": "array",
                       "items": {
@@ -123766,6 +123789,7 @@
                     "pictureState",
                     "pictureFailure",
                     "pictures",
+                    "pictureFlags",
                     "facebookWhere",
                     "state",
                     "postAt",
@@ -124323,6 +124347,13 @@
                         "additionalProperties": false
                       }
                     },
+                    "pictureFlags": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
                     "facebookWhere": {
                       "type": "array",
                       "items": {
@@ -124706,6 +124737,7 @@
                     "pictureState",
                     "pictureFailure",
                     "pictures",
+                    "pictureFlags",
                     "facebookWhere",
                     "state",
                     "postAt",
@@ -124944,6 +124976,13 @@
                         "additionalProperties": false
                       }
                     },
+                    "pictureFlags": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
                     "facebookWhere": {
                       "type": "array",
                       "items": {
@@ -125327,6 +125366,7 @@
                     "pictureState",
                     "pictureFailure",
                     "pictures",
+                    "pictureFlags",
                     "facebookWhere",
                     "state",
                     "postAt",
@@ -126300,6 +126340,13 @@
                         "additionalProperties": false
                       }
                     },
+                    "pictureFlags": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
                     "facebookWhere": {
                       "type": "array",
                       "items": {
@@ -126683,6 +126730,7 @@
                     "pictureState",
                     "pictureFailure",
                     "pictures",
+                    "pictureFlags",
                     "facebookWhere",
                     "state",
                     "postAt",
@@ -127146,6 +127194,13 @@
                         "additionalProperties": false
                       }
                     },
+                    "pictureFlags": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
                     "facebookWhere": {
                       "type": "array",
                       "items": {
@@ -127529,6 +127584,7 @@
                     "pictureState",
                     "pictureFailure",
                     "pictures",
+                    "pictureFlags",
                     "facebookWhere",
                     "state",
                     "postAt",
@@ -240165,12 +240221,12 @@
                                 "first_message": {
                                   "type": "integer",
                                   "minimum": 0,
-                                  "maximum": 0
+                                  "maximum": 10
                                 },
                                 "follow_up": {
                                   "type": "integer",
                                   "minimum": 0,
-                                  "maximum": 0
+                                  "maximum": 15
                                 },
                                 "comment": {
                                   "type": "integer",
@@ -261895,6 +261951,13 @@
                               "additionalProperties": false
                             }
                           },
+                          "pictureFlags": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
                           "facebookWhere": {
                             "type": "array",
                             "items": {
@@ -262278,6 +262341,7 @@
                           "pictureState",
                           "pictureFailure",
                           "pictures",
+                          "pictureFlags",
                           "facebookWhere",
                           "state",
                           "postAt",
@@ -262474,6 +262538,13 @@
                               "additionalProperties": false
                             }
                           },
+                          "pictureFlags": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
                           "facebookWhere": {
                             "type": "array",
                             "items": {
@@ -262857,6 +262928,7 @@
                           "pictureState",
                           "pictureFailure",
                           "pictures",
+                          "pictureFlags",
                           "facebookWhere",
                           "state",
                           "postAt",
@@ -263053,6 +263125,13 @@
                               "additionalProperties": false
                             }
                           },
+                          "pictureFlags": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
                           "facebookWhere": {
                             "type": "array",
                             "items": {
@@ -263436,6 +263515,7 @@
                           "pictureState",
                           "pictureFailure",
                           "pictures",
+                          "pictureFlags",
                           "facebookWhere",
                           "state",
                           "postAt",
@@ -263587,7 +263667,7 @@
     "/v1/queries/socialcontent.content.get": {
       "post": {
         "operationId": "query_socialcontent_content_get",
-        "summary": "One of the business’s own posts: its network, format, title, words, hook, hashtags, a carousel’s slides or a video’s script, what its picture shows and how it’s made (designed by the AI, a photo-style picture from the AI, or the person’s own), its pictures, where on Facebook it goes, when it goes, whether it’s waiting for an OK, OK’d, posted or skipped, what it still needs before it can be OK’d, and once it went up: where, its links, its numbers about 2 and 7 days after (views, likes, comments, shares) and whether it did well against the business’s own other posts.",
+        "summary": "One of the business’s own posts: its network, format, title, words, hook, hashtags, a carousel’s slides or a video’s script, what its picture shows and how it’s made (designed by the AI, a photo-style picture from the AI, or the person’s own), its pictures, where on Facebook it goes, when it goes, whether it’s waiting for an OK, OK’d, posted or skipped, what it still needs before it can be OK’d, what the picture check still found wrong with its pictures if anything, and once it went up: where, its links, its numbers about 2 and 7 days after (views, likes, comments, shares) and whether it did well against the business’s own other posts.",
         "tags": [
           "queries"
         ],
@@ -263788,6 +263868,13 @@
                           "mimeType"
                         ],
                         "additionalProperties": false
+                      }
+                    },
+                    "pictureFlags": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "string"
                       }
                     },
                     "facebookWhere": {
@@ -264173,6 +264260,7 @@
                     "pictureState",
                     "pictureFailure",
                     "pictures",
+                    "pictureFlags",
                     "facebookWhere",
                     "state",
                     "postAt",
@@ -264437,6 +264525,13 @@
                                 "mimeType"
                               ],
                               "additionalProperties": false
+                            }
+                          },
+                          "pictureFlags": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "string"
                             }
                           },
                           "facebookWhere": {
@@ -264822,6 +264917,7 @@
                           "pictureState",
                           "pictureFailure",
                           "pictures",
+                          "pictureFlags",
                           "facebookWhere",
                           "state",
                           "postAt",

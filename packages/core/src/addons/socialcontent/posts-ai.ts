@@ -102,7 +102,7 @@ export const WRITE_SYSTEM = [
   'Give it a short title to know it by; its hook; its words (the caption, with the hook as the first line); its hashtags, without the # sign; and for a carousel, each slide’s heading and a line or two of body.',
   'In its words, put a blank line between paragraphs, so they never run together.',
   `For its picture, say what it shows in one or two sentences, and how it's made: "design" for a picture with words on it (tips, steps, a quote, a big claim, a carousel's slides); "photo" for a lifelike scene an image AI makes from your photoPrompt, with a few words laid over it like a Canva design (people, places, objects, never a real person or brand by name; on a carousel, the photo goes under the first slide); "own" when only a real photo of the business, its team or its work will do, so the person takes it.`,
-  'Describe a photo a camera could really take, since image AIs draw what they’re told, mistakes and all: never a blank, black or empty screen (say what’s on it, softly blurred, or show the person’s face with the screen turned away), and keep hands and small objects simple.',
+  'Describe a photo a camera could really take, since image AIs draw what they’re told, mistakes and all: never a blank, black or empty screen (say it glows softly with nothing readable on it, or show the person’s face with the screen turned away), never words or numbers in the scene, and keep hands and small objects simple.',
   'When you’re told how to show it (a carousel, one picture or words alone, and whether its picture has a photo), show it that way.',
   'Follow the Playbook’s advice where it fits, and never copy a creator’s post.',
   'When you’re given the kind of post and its topic (a line from one of its lists), write that kind of post about that topic. Say which kind you wrote: "tip" (teaches something useful), "problem" (a customer’s problem and a way out), "story" (a story or behind the scenes) or "offer" (the case for the offer, with an ask).',
@@ -859,7 +859,7 @@ export const shapeWords = (shape: PictureShape): string =>
  * her hand is just a blank white screen"): a screen in use shows something, and hands and things look real.
  */
 export const PHOTO_LOOKS_REAL =
-  'Any phone, laptop, TV or other screen in it is switched on and shows a soft, blurred app, chat or page with no words you can read, or faces away from the camera: never a blank white, grey or black screen, even if the scene above says so. Hands have five fingers and hold things the way real hands do; nothing melts, floats, bends or is doubled.';
+  'Any phone, laptop, TV or other screen in it is switched on and glows with soft, blurred colour and light, with no words, numbers, icons or notifications on it, or faces away from the camera: never a blank white, grey or black screen, even if the scene above says so. Hands have five fingers and hold things the way real hands do; nothing melts, floats, bends or is doubled.';
 
 export function photoPromptFor(
   description: string,

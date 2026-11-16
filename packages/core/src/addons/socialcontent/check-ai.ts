@@ -7,8 +7,8 @@
  * - **The check**: Claude looks at each picture made, beside the words it should say, and says what's wrong: a word
  *   misspelt, garbled, extra, cut off or too small, things overlapping, a mistake image AIs make in a photo (a blank
  *   screen in someone's hand, wrong fingers, melted or doubled things: the owner, 15 Nov), or a look no business
- *   owner would post. A drawn design that fails is designed once more with the problems to fix, and its photo made
- *   once more when the problem is in the photo.
+ *   owner would post. A drawn design that fails is tried twice more: designed again with the problems to fix, and
+ *   its photo made again when the problem is in the photo. What still fails shows beside the picture.
  * - **A whole graphic from OpenAI**, words and all, for a single picture with a photo, every other time while the
  *   last ones passed the check. One that fails is never kept: the photo is made again without words and the words
  *   are drawn over it. After two failures in the last four, it waits four photo posts before trying again.
@@ -39,26 +39,30 @@ export const CHECKS = {
   waitAfterPause: 4,
   problem: 200,
   problems: 6,
+  /** Tries after the first when a picture fails the check, each at most one new photo (9¢). */
+  retries: 2,
 } as const;
 
 /**
  * The check a picture was made under, kept on its design as `checked`: 2 looks for the mistakes image AIs make in a
- * photo and has the photo made again for one (the owner, 15 Nov). Pictures without it were made before.
+ * photo and has the photo made again for one (the owner, 15 Nov); 3 counts words that are part of the photo, faint
+ * ones too, as the photo's, and tries twice more (the owner's pick, 16 Nov, after 9 of 23 photos made under 2 still
+ * failed it). Pictures without it were made before.
  */
-export const PICTURE_CHECK_VERSION = 2;
+export const PICTURE_CHECK_VERSION = 3;
 
 /**
  * The mistakes image AIs make that a camera never would (the owner, 15 Nov: "quality control on the content creator
  * could have done better with this image, as you can see the phone in her hand is just a blank white screen").
  */
 export const PHOTO_MISTAKES =
-  'Look hard at any photo for the mistakes image AIs make, and fail the page for any of them: a phone, laptop, TV or other screen someone is using that is blank, plain white, grey or black, even when the post is about waiting or nothing happening; hands with too many, too few or joined fingers, or holding things in a way real hands can’t; warped faces, eyes or teeth; people or objects that melt into each other, float, bend or are doubled; made-up writing on signs, screens, boxes or clothes; or anything else a person would look at twice and think isn’t real.';
+  'Look hard at any photo for the mistakes image AIs make, and fail the page for any of them: a phone, laptop, TV or other screen someone is using that is blank, plain white, grey or black, even when the post is about waiting or nothing happening; hands with too many, too few or joined fingers, or holding things in a way real hands can’t; warped faces, eyes or teeth; people or objects that melt into each other, float, bend or are doubled; made-up writing on signs, screens, boxes or clothes; words, numbers, icons or app screens that are part of the photo, even faint or ghostly ones showing through behind the page’s own words; or anything else a person would look at twice and think isn’t real.';
 
 export const PICTURE_CHECK_SYSTEM = [
   'You check a small business’s social media pictures before they’re posted, one page at a time, as a careful designer would.',
   'Each page comes with the words it should say. Fail a page when a word is misspelt, garbled or has made-up letters; when there are words that shouldn’t be there; when words are cut off, overlap each other or the edge, or are too small or faint to read; or when it looks broken, cluttered or empty rather than like something a business owner made in Canva.',
   PHOTO_MISTAKES,
-  'Put each problem in the photo itself under photoProblems, since only a new photo fixes it, and each problem with the words or the layout under problems.',
+  'Put each problem in the photo itself under photoProblems, since only a new photo fixes it: that includes any words, numbers or icons that are part of the photo, on a screen, a sign or faint behind the page’s own words. Put each problem with the page’s own words or the layout under problems.',
   'Be strict about the words and fair about style: a plain, clean page passes. A page number like “2/6” in a corner is part of the design.',
   'A page may come with a note on what its layout draws on purpose, such as a heading crossed out as a myth or labels on cards; never fail a page for that.',
   'For each page say whether it passes and, if not, each problem in a few plain words a designer could fix.',
@@ -209,6 +213,21 @@ export function checkedPictureCheck(
     ),
     ...(kept.length ? { photo: kept } : {}),
   };
+}
+
+/**
+ * What the check still found wrong with the pictures kept, to show beside them (the owner's pick, 16 Nov): its
+ * problems when the last check didn't pass them, else none. Read from a post's design.
+ */
+export function pictureFlags(design: unknown): string[] {
+  if (typeof design !== 'object' || design === null) return [];
+  const check = (design as { check?: unknown }).check;
+  if (typeof check !== 'object' || check === null) return [];
+  const c = check as { passes?: unknown; problems?: unknown };
+  if (c.passes !== false || !Array.isArray(c.problems)) return [];
+  return c.problems
+    .filter((x): x is string => typeof x === 'string' && x.trim() !== '')
+    .slice(0, CHECKS.problems);
 }
 
 /** The problems a new design can fix: every one but the photo's. */

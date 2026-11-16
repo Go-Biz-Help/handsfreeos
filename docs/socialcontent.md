@@ -271,21 +271,28 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   - **Checked before it's kept** (decision 40, `check-ai.ts`): Claude looks at every picture made, made smaller
     (540 by 675), beside the words each page should say, and fails one with a word misspelt, garbled, extra, cut off
     or too small, words overlapping, a mistake image AIs make in a photo, or a look no business owner would post. A
-    drawn design that fails is tried once more, and the one with fewer problems is kept: a problem with the words or
-    layout is designed again, told each problem (`fixAsk`); a mistake in the photo itself has the photo made again,
-    told what to avoid (`photoFixAsk`), at another 9¢, under the same design when only the photo was wrong. When the
-    new photo can't be made, the first stays. The answer is kept on the design (`check`, with the photo's problems
-    under `photo`), and `checked: 2` marks a picture made under this check. When the check can't be asked, a drawn
-    design is kept and a graphic isn't.
+    drawn design that fails is tried up to twice more (`CHECKS.retries`), and the one with the fewest problems is
+    kept: a problem with the words or layout is designed again, told each problem (`fixAsk`); a mistake in the photo
+    itself has the photo made again, told what to avoid (`photoFixAsk`), at another 9¢ each time, under the same
+    design when only the photo was wrong. When a new photo can't be made, the one before stays. The answer is kept on
+    the design (`check`, with the photo's problems under `photo`), and `checked: 3` marks a picture made under this
+    check. When the check can't be asked, a drawn design is kept and a graphic isn't. What the check still found on a
+    kept picture shows beside it on the post, on the web and the phone, so the owner looks closely before an OK
+    (`pictureFlags`, the post's `pictureFlags`, words `post.pictureFlagged`).
   - **The photo mistakes it looks for** (the owner, 15 Nov: "the phone in her hand is just a blank white screen",
     `PHOTO_MISTAKES`): a phone, laptop, TV or other screen in use that's blank, white, grey or black, even when the
     post is about waiting; wrong, extra or joined fingers, or hands holding things in ways they can't; warped faces,
     eyes or teeth; people or things that melt together, float, bend or are doubled; made-up writing on signs,
-    screens, boxes or clothes. The post writer is told never to describe a blank screen (`WRITE_SYSTEM`), and every
-    photo and graphic OpenAI makes is told a screen in use shows a soft, blurred app or faces away, even when the
-    scene says otherwise (`PHOTO_LOOKS_REAL`). A graphic that fails for a photo mistake passes it on to the photo made
-    in its place. Photo-style pictures on any network made before this check (no `checked: 2`) on posts not up yet
-    are made again under it by the same catch-up as Instagram's shape (`remakeLeft`).
+    screens, boxes or clothes; words, numbers, icons or app screens that are part of the photo, even faint ones
+    showing through behind the page's own words. Any writing in the photo counts as a photo mistake, since only a new
+    photo fixes it (16 Nov: 9 of 23 remade photos still failed, mostly on faint writing the check had blamed on the
+    layout). The post writer is told never to describe a blank screen or words in the scene (`WRITE_SYSTEM`), and
+    every photo and graphic OpenAI makes is told a screen in use glows with soft, blurred colour and nothing readable,
+    or faces away, even when the scene says otherwise (`PHOTO_LOOKS_REAL`). A graphic that fails for a photo mistake
+    passes it on to the photo made in its place. Photo-style pictures on any network on posts not up yet are made
+    again under this check by the same catch-up as Instagram's shape (`remakeLeft`) when they were made before the
+    photo mistakes check (`checked` under 2), or made under it and still failed (`checked: 2` with a failing `check`:
+    the owner's pick, 16 Nov). Ones that passed stay.
     The check is told only the words a page's layout draws (items only on list and before and after pages, a mark
     only on number pages: `wordsOfPage`) and what the layout draws on purpose, such as a myth's crossed-out heading
     (`pageToCheck`). Words are shrunk to fit their room, past their usual smallest size if need be, before any are
@@ -635,9 +642,10 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
 - **Words on pictures are drawn by the worker, except OpenAI's whole graphics** (decisions 14 and 40): OpenAI's
   photos are asked for with no words in them and the words are laid over them (decision 39); a whole graphic, words
   and all, is kept only when the check passes it, and how often one is tried follows how the last ones did.
-- **Every picture is checked before it's kept** (decision 40): a design that fails is designed once more, or its
-  photo made once more when the mistake is in the photo (the owner, 15 Nov), a graphic that fails is never kept, and a
-  graphic the check couldn't look at isn't kept either.
+- **Every picture is checked before it's kept** (decision 40): a design that fails is designed again, or its photo
+  made again when the mistake is in the photo (the owner, 15 Nov), up to twice more (16 Nov), and what still fails
+  shows beside the picture; a graphic that fails is never kept, and a graphic the check couldn't look at isn't kept
+  either.
 - **A fact found online always keeps the page the search really found** (decision 38): the facts ask may only point
   at pages from the search's own results, and a post names its source in plain words, never adding a number or claim
   the fact doesn't give.

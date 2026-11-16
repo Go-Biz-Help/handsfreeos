@@ -14,6 +14,7 @@ import {
   graphicPromptFor,
   pageToCheck,
   photoFixAsk,
+  pictureFlags,
   PICTURE_CHECK_SCHEMA,
   PICTURE_CHECK_SYSTEM,
   pictureCheckPrompt,
@@ -175,6 +176,13 @@ describe('checking each picture before it’s kept', () => {
     );
     expect(PICTURE_CHECK_SYSTEM).toMatch(/too many, too few or joined fingers/);
     expect(PICTURE_CHECK_SYSTEM).toMatch(/under photoProblems/);
+    // Words that are part of the photo, faint ones too, are the photo's to fix (the owner's pick, 16 Nov).
+    expect(PICTURE_CHECK_SYSTEM).toMatch(
+      /faint or ghostly ones showing through behind the page’s own words/,
+    );
+    expect(PICTURE_CHECK_SYSTEM).toMatch(
+      /any words, numbers or icons that are part of the photo, on a screen, a sign or faint behind the page’s own words/,
+    );
     const item = (PICTURE_CHECK_SCHEMA as Any).properties.pages.items;
     expect(item.required).toContain('photoProblems');
   });
@@ -234,6 +242,17 @@ describe('checking each picture before it’s kept', () => {
     expect(many.problems.at(-1)).toBe('Blank screen');
     // Words that didn't fit keep the photo's problems.
     expect(withCutWords(one, [true])?.photo).toEqual(['The phone screen is blank']);
+  });
+
+  it('shows what the check still found beside pictures that didn’t pass it, and nothing otherwise', () => {
+    expect(
+      pictureFlags({ check: { passes: false, problems: ['Faint text shows through', ' '] } }),
+    ).toEqual(['Faint text shows through']);
+    expect(pictureFlags({ check: { passes: true, problems: [] } })).toEqual([]);
+    expect(pictureFlags({ pages: [] })).toEqual([]);
+    expect(pictureFlags(null)).toEqual([]);
+    expect(pictureFlags({ check: { passes: false, problems: 'no' } })).toEqual([]);
+    expect(CHECKS.retries).toBe(2);
   });
 });
 
