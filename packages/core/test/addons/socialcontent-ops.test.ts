@@ -14,6 +14,7 @@ import type { z } from 'zod';
 import { socialcontentAddon } from '../../src/addons/socialcontent/manifest';
 import { socialcontentAddonServer } from '../../src/addons/socialcontent/server';
 import { SOCIALCONTENT_TABLES } from '../../src/addons/socialcontent/tables';
+import { CALENDAR } from '../../src/addons/socialcontent/calendar';
 import { clockOf } from '../../src/addons/socialcontent/words';
 import {
   addonRef,
@@ -691,15 +692,18 @@ describe('the business’s own posts', () => {
       facebookPage: 'https://www.facebook.com/pipedreams',
       facebookWhere: ['profile', 'page'],
     });
+    const asked = Date.now();
     const cal = await as(member, 'socialcontent.calendar.get');
     expect(cal.plan.linkedin).toMatchObject({ mode: 'ai', perWeek: 5, from: '07:30' });
     // None of its own posts went up yet: what it knows comes from the creators' posts read above.
     expect(cal.learned.linkedin).toMatchObject({ own: 0 });
     expect(cal.filledAt).toBeNull();
-    // Five a week on LinkedIn is every weekday in the two weeks shown, none of them today, between its hours.
+    // Five a week on LinkedIn is every weekday in the two weeks shown, between its hours; today's only while they're
+    // 30 minutes or more off (the owner, 15 Nov), so the test passes at any hour it runs.
     const linkedin = cal.open.filter((o: Any) => o.network === 'linkedin');
     expect(linkedin.length).toBeGreaterThanOrEqual(9);
-    expect(linkedin.some((o: Any) => o.date === cal.today)).toBe(false);
+    for (const o of linkedin.filter((o: Any) => o.date === cal.today))
+      expect(Date.parse(o.at)).toBeGreaterThanOrEqual(asked + CALENDAR.todayLeadMs);
     for (const o of linkedin) {
       const hour = Number(clockOf(o.at, cal.timeZone).slice(0, 2));
       expect(hour).toBeGreaterThanOrEqual(8);
