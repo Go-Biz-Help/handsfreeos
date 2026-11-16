@@ -16307,7 +16307,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Extension: the next of the business’s own posts to put up now, on the networks the extension posts on: OK’d, its time come, within a day of it, soonest first. It’s taken, so it goes up once. What a computer took and never said how it went is marked as didn’t post (it may have gone up), and what waited more than a day past its time too. Null when nothing is due.
+         * Extension: the next of the business’s own posts to put up now, on the networks the extension posts on: OK’d, its time come, within a day of it, soonest first, Facebook last of those due at the same time. It’s taken, so it goes up once. What a computer took and never said how it went is marked as didn’t post (it may have gone up), and what waited more than a day past its time too. Null when nothing is due.
          * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.content.posting, socialcontent.content.failed.
          */
         post: operations["command_socialcontent_post_next"];

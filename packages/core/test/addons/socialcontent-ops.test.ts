@@ -1111,6 +1111,45 @@ describe('the business’s own posts', () => {
     expect(done.postedTo.map((p: Any) => p.place)).toEqual(['profile', 'page']);
   });
 
+  it('puts Facebook last of the posts due at the same time, so the rest never wait behind it (16 Nov)', async () => {
+    const make = async (network: 'linkedin' | 'facebook', title: string) =>
+      (
+        await worker('socialcontent.content.put', {
+          network,
+          post: written({ title, words: `${title}: a tip.` }),
+        })
+      ).postId as string;
+    // Facebook's was written first, which used to put it first.
+    const facebook = await make('facebook', 'Same time on Facebook');
+    const linkedin = await make('linkedin', 'Same time on LinkedIn');
+    const earlier = await make('facebook', 'Earlier on Facebook');
+    const ids = `{${facebook},${linkedin},${earlier}}`;
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content set state = 'ready',
+            post_at = case when record_id = ${earlier} then now() - interval '2 minutes'
+                           else now() - interval '1 minute' end,
+            approved_at = now(), approved_by = ${member.id}::uuid
+          where record_id = any(${ids}::uuid[])`,
+    );
+    const order: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const { post } = await as(owner, 'socialcontent.post.next', {
+        networks: ['facebook', 'linkedin'],
+      });
+      order.push(post.id);
+    }
+    // Soonest first still: only a tie puts Facebook after the rest.
+    expect(order).toEqual([earlier, linkedin, facebook]);
+    // Out of the way of the posting tests after this one.
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content set state = 'skipped', posting_at = null,
+            approved_at = null, approved_by = null
+          where record_id = any(${ids}::uuid[])`,
+    );
+  });
+
   it('redoes posts that went up wrong or didn’t go up, one at a time on each network (the owner, 15 Nov)', async () => {
     const make = async (network: 'linkedin' | 'facebook', title: string) =>
       (

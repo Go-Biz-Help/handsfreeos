@@ -459,7 +459,9 @@ in Chrome with the HandsFreeOS Social extension, while Chrome is open there: Fac
 Instagram from 0.133.0, Threads and X from 0.138.0. The post's sheet offers **Copy the words** on any network the extension doesn't post on.
 
 - **Each minute, before any reading,** the extension asks for the next post due (`socialcontent.post.next`) on the
-  networks it posts on with no warning today. HandsFreeOS hands it the OK'd post whose time has come, soonest first,
+  networks it posts on with no warning today. HandsFreeOS hands it the OK'd post whose time has come, soonest first
+  (Facebook last of those due at the same time, since it goes to two places and waits on Business Suite, so the rest
+  never wait behind it: the owner's 12 PM posts of 16 Nov 2026),
   with its words as they go up (`postText`: the words, a blank line, then the hashtags, within what the network
   takes: on Instagram no more than 5 hashtags, words included, since a caption with more goes up without its words;
   words written a line to a paragraph, with no blank line anywhere, get one between each, as decision 158 in
@@ -479,6 +481,11 @@ Instagram from 0.133.0, Threads and X from 0.138.0. The post's sheet offers **Co
   go up (extension 0.140.5, after two Page posts on 14 Nov were marked as failed while still publishing). A Page of Facebook's newer kind is opened there by its own number, not the one in its link (extension
   0.139.2). LinkedIn's newer box takes the pictures in a window of its own (Upload from computer, then Next). Its link comes from the network (LinkedIn's View post), else from the top of the profile, the Page or
   their own posts by its first words.
+- **Behind the person's windows** (extension 0.146.0): the posting window sits beside theirs, mostly hidden while they
+  work, where Chrome slows a page's timers to once a minute. The hands wait by the clock, never by how many looks they
+  took, and the background wakes a hidden posting window, as its own timers aren't slowed. Before, a Page post's
+  90 seconds after Publish, counted as 225 looks, could take nearly four hours, and every post due after it waited
+  (on 16 Nov 2026 the 12 PM LinkedIn and Instagram posts went up at 1:52 and 1:53 PM).
 - **Instagram** (part 10): **Create** on its home page (then **Post** when it asks which kind), the pictures or the
   person's video into Create new post, **OK** when it says a video goes up as a reel, **Original** under cropping's
   **Select crop** (else 4:5: Instagram starts on a square, which cut the bottom off a 4:5 picture's words; extension

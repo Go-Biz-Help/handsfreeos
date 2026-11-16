@@ -28,6 +28,7 @@
  * It never presses anything but the box's own controls, and never posts twice: once Post is pressed it says so.
  */
 import { clean, labelOf } from '../networks/facebook/dom';
+import { pause, waitFor as steadyWaitFor } from '../steady';
 import { shown, visible } from '../networks/facebook/fetch';
 import { putPostIn } from '../networks/post-text';
 import { postShort } from './post-short';
@@ -65,8 +66,6 @@ export interface PostDone {
   /** What it did, for a problem report: "box", "typed", "media:paste", "next", "post"… */
   readonly steps: readonly string[];
 }
-
-const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
 /** Where a person writes. */
 export const WRITING_BOX = '[role="textbox"], [contenteditable="true"], textarea';
@@ -122,14 +121,9 @@ const POSTING_MS = 30_000;
 const BUSINESS_POSTING_MS = 90_000;
 const LOOK_MS = 400;
 
-async function waitFor<T>(find: () => T | null, ms = WAIT_MS): Promise<T | null> {
-  for (let waited = 0; waited <= ms; waited += LOOK_MS) {
-    const found = find();
-    if (found) return found;
-    await pause(LOOK_MS);
-  }
-  return null;
-}
+/** Waits by the clock, so a window Chrome hides behind the person's never stretches it (../steady.ts). */
+const waitFor = <T>(find: () => T | null, ms = WAIT_MS): Promise<T | null> =>
+  steadyWaitFor(find, ms, LOOK_MS);
 
 /**
  * What a control says: its label, else the words a person sees in it. An icon's hidden title counts only when the
