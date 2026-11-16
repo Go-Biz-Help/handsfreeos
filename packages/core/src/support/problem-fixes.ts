@@ -281,6 +281,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     said: 'The post’s bar had Like and Share but no Comment, and no box: its author limited who can comment. The step now passes such a post over (“it doesn’t let you comment on it”) with nothing reported.',
   },
   {
+    area: 'threads',
+    job: 'checkup.follow',
+    note: 'Following: not tried, you follow them already',
+    fixedIn: '0.141.2',
+    pr: 644,
+    said: 'Threads’ side menu lists Following among its feeds, as a link, and the profile reader took it for the profile’s own Following, so every profile read as followed. The header now leaves out side menus and the posts under it, and starts from a button that isn’t a link.',
+  },
+  {
     area: 'instagram',
     job: 'draft',
     note: 'the AI had nothing to say on it',

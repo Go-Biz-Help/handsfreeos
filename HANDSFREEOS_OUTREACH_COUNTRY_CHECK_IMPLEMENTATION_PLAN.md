@@ -119,6 +119,11 @@ Strongest first. A stronger kind always replaces a weaker one; the same kind rep
 
    The choice is read whenever people are picked, never copied onto them, so changing it moves everyone at once.
 
+   Changed by decision 169 in docs/outreach.md (15 Nov 2026): an AI not sure but leaning one way decides by its best
+   guess, a sure AI decides whatever second country it named, and where someone's from never counts against their
+   "Lives in". When we can't tell now covers only nothing to go on, a "Lives in" the AI's look says is wrong, and an AI
+   not sure between two countries the setting treats differently.
+
 7. **The lists say why.** With Ask me, the Friends tab shows **Not sure where they live** above Skipped for
    country, while anyone is on it. Each row shows the name, what the profile says, what the friends say ("31 of the 40 mutual friends we
    know live in Nigeria"), the AI's line, and the two buttons. Skipped for country shows the same reason, by kind (Lives in,

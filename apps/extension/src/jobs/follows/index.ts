@@ -147,13 +147,28 @@ async function checkup(job: Job, platform: FollowPlatform): Promise<JobEnd> {
     if (isEnd(opened)) return opened;
     let page = await c.readTill(opened, (p) => p.found.people.length > 0, 2);
     if (isEnd(page)) return page;
-    if (!list && !page.found.people.length && (await job.tab.ask({ type: 'hfos-show-all' })).ok) {
-      const shown = await c.readHere();
-      if (isEnd(shown)) return shown;
-      page = await c.readTill(shown, (p) => p.found.people.length > 0, 3);
-      if (isEnd(page)) return page;
+    let pressed: boolean | null = null;
+    if (!list && !page.found.people.length) {
+      // Its box draws only in a window in front, as a list does.
+      await job.tab.keepInFront?.();
+      pressed = (await job.tab.ask({ type: 'hfos-show-all' })).ok;
+      if (pressed) {
+        const shown = await c.readHere();
+        if (isEnd(shown)) return shown;
+        page = await c.readTill(shown, (p) => p.found.people.length > 0, 5);
+        if (isEnd(page)) return page;
+      }
     }
     await c.note('your followers', page.found.people.length);
+    // Which way it went, for the next fix: no count found to press, or pressed and no box of them.
+    if (pressed !== null && !page.found.people.length)
+      await job.report?.({
+        job: 'checkup.followers',
+        found: { pressed },
+        note: pressed
+          ? 'Your followers: pressed your count of followers, and their box didn’t show.'
+          : 'Your followers: no count of followers to press on your profile.',
+      });
     if (!list) await job.tab.ask({ type: 'hfos-close-dialog' });
   } else c.nothingOn.push('your followers');
 

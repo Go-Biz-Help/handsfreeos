@@ -252708,6 +252708,15 @@
                               }
                             ]
                           },
+                          "unsure": {
+                            "type": "boolean"
+                          },
+                          "whyUnsure": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "reason": {
                             "type": "array",
                             "items": {
@@ -252743,6 +252752,8 @@
                           "country",
                           "countryName",
                           "how",
+                          "unsure",
+                          "whyUnsure",
                           "reason",
                           "why",
                           "skippedByYou",
