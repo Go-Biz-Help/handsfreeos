@@ -286,9 +286,15 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
     screens, boxes or clothes; words, numbers, icons or app screens that are part of the photo, even faint ones
     showing through behind the page's own words. Any writing in the photo counts as a photo mistake, since only a new
     photo fixes it (16 Nov: 9 of 23 remade photos still failed, mostly on faint writing the check had blamed on the
-    layout). The post writer is told never to describe a blank screen or words in the scene (`WRITE_SYSTEM`), and
-    every photo and graphic OpenAI makes is told a screen in use glows with soft, blurred colour and nothing readable,
-    or faces away, even when the scene says otherwise (`PHOTO_LOOKS_REAL`). A graphic that fails for a photo mistake
+    layout). The post writer is told never to describe a blank screen, words in the scene or the words laid over it
+    (`WRITE_SYSTEM`), and every photo and graphic OpenAI makes is told a screen in use glows with soft, blurred colour
+    and nothing readable, or faces away, even when the scene says otherwise (`PHOTO_LOOKS_REAL`). The faint writing
+    came from the scenes themselves: all 9 still failing said "Overlay text reads '…'" or "with the words '…'
+    overlaid", or filled a screen with apps, and the image model drew those words faintly while told to draw none. So
+    a photo is asked for from the scene without them (`sceneWithoutWords`): quoted words, parts about words over the
+    photo, and what a screen shows (unless the screen is the scene's subject) are left out, sentence by sentence, and
+    a sentence with too little left goes. Older posts' scenes are cleaned the same way when their photo is made
+    again. A graphic that fails for a photo mistake
     passes it on to the photo made in its place. Photo-style pictures on any network on posts not up yet are made
     again under this check by the same catch-up as Instagram's shape (`remakeLeft`) when they were made before the
     photo mistakes check (`checked` under 2), or made under it and still failed (`checked: 2` with a failing `check`:
@@ -296,7 +302,10 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
     The check is told only the words a page's layout draws (items only on list and before and after pages, a mark
     only on number pages: `wordsOfPage`) and what the layout draws on purpose, such as a myth's crossed-out heading
     (`pageToCheck`). Words are shrunk to fit their room, past their usual smallest size if need be, before any are
-    left out; a page that still can't fit them all fails as if the check had said so (`withCutWords`). After the
+    left out; a page that still can't fit them all fails as if the check had said so (`withCutWords`). A page's
+    words over their most (`POST_LIMITS`, which the designer is told, the footer's 60 characters included) are cut
+    at a sentence's end, else a word's, never mid-word (`clipWords`: footers cut at 60 letters read "Visit the li",
+    16 Nov). After the
     first 39 posts (13 Nov), 9 designs had failed only for a mark or items their layout never draws, or for the body
     that list and before and after pages left out; they now draw it.
   - **Your own**: **Add your photo** uploads to the post's files. A video post needs the person's own video: they

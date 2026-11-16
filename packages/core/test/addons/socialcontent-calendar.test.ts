@@ -42,6 +42,9 @@ import {
   checkedPost,
   designOf,
   photoPromptFor,
+  sceneWithoutWords,
+  DESIGN_SYSTEM,
+  clipWords,
   shortWords,
   tidyHashtags,
   WRITE_SCHEMA,
@@ -365,6 +368,65 @@ describe('checking what the AI designs', () => {
     );
     expect(prompt).toMatch(/five fingers/);
     expect(prompt).toMatch(/no words, numbers, icons or notifications on it/);
+  });
+
+  it('leaves the words meant to go over a photo, and busy screens, out of what the photo is asked for', () => {
+    // The owner's scenes of 16 Nov: the image AI drew these faint behind the page's own words.
+    expect(
+      sceneWithoutWords(
+        'A contractor\'s phone lights up with a missed call on a workbench surrounded by tools and gloves, mid job site, with the words "Missed Call, 10:04 AM" overlaid.',
+      ),
+    ).toBe(
+      "A contractor's phone lights up with a missed call on a workbench surrounded by tools and gloves, mid job site.",
+    );
+    expect(
+      sceneWithoutWords(
+        'A home service business owner stands in their workshop, looking at a laptop open on a workbench. The screen shows a CRM dashboard with automations already running. A few words are laid over the photo: "Ask this before you sign."',
+      ),
+    ).toBe(
+      'A home service business owner stands in their workshop, looking at a laptop open on a workbench.',
+    );
+    expect(
+      sceneWithoutWords(
+        "A contractor sits in his truck cab, phone in hand, texting instead of digging through a cluttered app on a laptop beside him. The words 'Just send a message. It's handled.' sit across the bottom of the photo.",
+      ),
+    ).toBe(
+      'A contractor sits in his truck cab, phone in hand, texting instead of digging through a cluttered app on a laptop beside him.',
+    );
+    expect(
+      sceneWithoutWords(
+        'A phone sitting on a dusty work truck dashboard, screen lit up showing a missed call, with the words ‘The silence after’ overlaid near the top.',
+      ),
+    ).toBe('A phone sitting on a dusty work truck dashboard.');
+    // The subject stays even when it's a screen; what it may show is the photo prompt's.
+    expect(
+      sceneWithoutWords(
+        "A contractor's phone lights up on a truck dashboard with a missed call notification, grease-stained work gloves resting nearby. Overlay text reads: 'Missed call ≠ lost lead.'",
+      ),
+    ).toBe(
+      "A contractor's phone lights up on a truck dashboard with a missed call notification, grease-stained work gloves resting nearby.",
+    );
+    // A scene with no words in it is asked for as it was.
+    const plain =
+      "A person sitting on their couch in the evening, looking at their phone, waiting for a reply that hasn't come. Soft lamp light, a bit of worry on their face.";
+    expect(sceneWithoutWords(plain)).toBe(plain);
+    expect(
+      photoPromptFor('A van outside a house. Overlay text reads "Book today."', null),
+    ).not.toMatch(/Book today|Overlay/);
+  });
+
+  it('cuts words to their room at a sentence or a word, never in the middle of a word', () => {
+    expect(
+      clipWords(
+        'Curious what this looks like for your business? Visit the link to set up a time.',
+        60,
+      ),
+    ).toBe('Curious what this looks like for your business?');
+    expect(
+      clipWords('HandsFreeOS: visit the link to book a free walkthrough today, no pressure', 60),
+    ).toBe('HandsFreeOS: visit the link to book a free walkthrough');
+    expect(clipWords('Short enough.', 60)).toBe('Short enough.');
+    expect(DESIGN_SYSTEM).toMatch(/a footer \(one short line, at most 60 characters\)/);
   });
 
   it('says beside a picture what the check still found, and what to do', () => {
