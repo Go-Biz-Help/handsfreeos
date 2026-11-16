@@ -18,6 +18,7 @@ import { clean, labelOf } from '../networks/facebook/dom';
 import { shown } from '../networks/facebook/fetch';
 import { putPostIn } from '../networks/post-text';
 import type { PostDone, PostFileIn } from './post-here';
+import { pause, waitFor as steadyWaitFor } from '../steady';
 
 /** A post for Threads or X: its words (hashtags at the end), the posts under it, and its files. */
 export interface ShortAsk {
@@ -39,7 +40,6 @@ export interface ShortTools {
   readonly steps: string[];
 }
 
-const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 const LOOK_MS = 400;
 const WAIT_MS = 8_000;
 /** How long Post may take to turn on once pictures are added (they upload first), and the post to go. */
@@ -60,14 +60,9 @@ const POST = /^(post|post all)$/i;
 const THREADS_POSTED = /^(posted|view)$/i;
 const X_SENT = /\byour posts? (was|were) sent\b/i;
 
-async function waitFor<T>(find: () => T | null, ms = WAIT_MS): Promise<T | null> {
-  for (let waited = 0; waited <= ms; waited += LOOK_MS) {
-    const found = find();
-    if (found) return found;
-    await pause(LOOK_MS);
-  }
-  return null;
-}
+/** Waits by the clock, so a window Chrome hides behind the person's never stretches it (../steady.ts). */
+const waitFor = <T>(find: () => T | null, ms = WAIT_MS): Promise<T | null> =>
+  steadyWaitFor(find, ms, LOOK_MS);
 
 const says = (e: Element, pattern: RegExp) => pattern.test(labelOf(e));
 const written = (box: Element) =>

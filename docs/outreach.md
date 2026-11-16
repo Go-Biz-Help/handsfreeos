@@ -4508,7 +4508,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 
 171.  **One work window, a tab for each network, closed the moment its work is done** (Chris, 16 Nov 2026: "the
       extension keeps a lot of tabs and windows open, we should have it try to limit it to only what it needs", then
-      "your picks": 1a, 2a and 3; extension **0.145.0**, no migration). With every network and Content Creator on, it
+      "your picks": 1a, 2a and 3; extension **0.147.0**, no migration). With every network and Content Creator on, it
       could have about 19 windows open: a runner window for each network, kept between steps when the next was under 5
       minutes away (most networks' steps are 2 to 8 minutes apart, so open all day), another for each ask beside it,
       one per network for Content Creator, and windows nothing remembered after Chrome restarted the background or a
@@ -4530,7 +4530,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         kept in Chrome's storage with a mark for this run of Chrome and the extension (`hfos.run`, in session storage),
         so a background Chrome stopped while idle finds its work window again. A new run (Chrome started, a new build
         loaded) first closes what an earlier one left (`ready`, `leftovers`): a window it kept that still holds a tab
-        it opened, or one at the size it opens its own at (1100 wide, up to 900 tall: what builds before 0.145.0 left,
+        it opened, or one at the size it opens its own at (1100 wide, up to 900 tall: what builds before 0.147.0 left,
         the messages window too), only when every tab in it is a network's page and the person isn't in it. A runner
         takes over a tab only when this run opened it (`isOurs`), never one of the person's that came to have its
         number after Chrome started again. Tabs in the person's own window (getting their file, cancelling old

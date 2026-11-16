@@ -72,6 +72,7 @@ import {
 } from './hfos/waiting';
 import { firstRun } from './hfos/setup';
 import { TAB_NOTES } from './messages';
+import { WAKE_NOTE, wakeAfter } from './steady';
 
 chrome.sidePanel
   .setPanelBehavior({ openPanelOnActionClick: true })
@@ -126,6 +127,14 @@ chrome.runtime.onMessage.addListener(
   (message: unknown, sender, respond: (answer: HfosAnswer<unknown>) => void) => {
     const type = (message as { type?: unknown } | null)?.type;
     if (sender.id !== chrome.runtime.id || typeof type !== 'string') return false;
+    if (type === WAKE_NOTE) {
+      // AI Social Media Content Creator's posting window, hidden behind the person's, where Chrome slows the page's own
+      // timers to once a minute: woken on the background's, which it doesn't slow (src/steady.ts). Only its own tabs.
+      const tabId = sender.tab?.id;
+      if (tabId === undefined || !researchTabIds().includes(tabId)) return false;
+      setTimeout(() => respond({ ok: true, value: null }), wakeAfter(message));
+      return true;
+    }
     if (TAB_NOTES.has(type)) {
       // A tab of a network it knows, by its address: never what the tab says it is.
       const kit = sender.tab !== undefined && sender.url ? kitOf(sender.url) : null;

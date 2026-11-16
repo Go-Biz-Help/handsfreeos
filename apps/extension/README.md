@@ -1272,6 +1272,27 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Posts on time with the posting window behind yours (0.146.0)
+
+The owner's 12 PM posts of 16 Nov 2026 went up nearly two hours late: LinkedIn at 1:52 PM and Instagram at 1:53 PM.
+They waited behind the 12 PM Facebook post, which took 1 hour 50 minutes, as Facebook posts had taken 44, 43 and 198
+minutes on 14 and 15 Nov while the computer was on and Social Outreach worked all along. The posting window sits beside
+the person's, mostly behind it while they work, and Chrome slows the timers of a page it hides: to once a second, and
+once it has been hidden five minutes, to once a minute. The posting hands counted their waits in looks, so Business
+Suite's 90 seconds after Publish were 225 looks of 400 ms, and at one look a minute nearly four hours. Posts go up one
+at a time, so every post due after it waited too.
+
+From 0.146.0 (`src/steady.ts`):
+
+- **Waits go by the clock** (`waitFor`, `within`) in the posting hands (`src/research/post-here.ts`,
+  `src/research/post-short.ts`) and in `putPostIn` (`src/networks/post-text.ts`): a wait is never longer than it says by
+  more than one slowed look, however Chrome paces the page.
+- **The background wakes a hidden posting window** (`pause`): while the page is hidden it asks the background as well
+  (`hfos-wake`), whose timers Chrome doesn't slow, and goes on at whichever wakes it first. The background answers only
+  for the posting and reading window's own tabs; anywhere else, or in view, the page's own timer wakes it as before.
+- **Facebook goes last of the posts due at the same time** (`socialcontent.post.next` in core): it goes to two places
+  and waits on Business Suite, so the rest never wait behind it. Soonest first is unchanged.
+
 ### The look at a post, and the comment research, on every network (0.144.0)
 
 Decision 172 in docs/outreach.md, the owner's picks of 16 Nov 2026 ("1a 2a 3b 4a"): what decision 166 started on
@@ -1583,7 +1604,7 @@ minute after posting and before any reading:
   link"). A warning keeps the network's words for the day, for both social add-ons, and says nothing: the read is
   asked for again later, since one handed out is put off half an hour.
 
-### One work window, a tab for each network (0.145.0)
+### One work window, a tab for each network (0.147.0)
 
 Decision 171 (the owner: "limit it to only what it needs"). With every network and Content Creator on, a build before
 this one could have about 19 windows open: a runner window per network, kept between steps when the next was under 5

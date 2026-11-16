@@ -16,7 +16,7 @@
  * Typing goes where the focus is: the caller focuses and presses the box first, and checks after that it took them.
  */
 
-const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
+import { pause, within as steadyWithin } from '../steady';
 
 /** How long a box is given to show what was pasted (a page may draw it a moment later), and how often it's looked at. */
 const PASTE_MS = 1_500;
@@ -106,14 +106,9 @@ function paste(view: Window & typeof globalThis, box: HTMLElement, words: string
   );
 }
 
-/** Waits up to `ms` for `ready`, looking each `LOOK_MS`. */
-async function within(ms: number, ready: () => boolean): Promise<boolean> {
-  for (let waited = 0; waited < ms; waited += LOOK_MS) {
-    if (ready()) return true;
-    await pause(LOOK_MS);
-  }
-  return ready();
-}
+/** Waits up to `ms` by the clock for `ready`, looking each `LOOK_MS` (../steady.ts). */
+const within = (ms: number, ready: () => boolean): Promise<boolean> =>
+  steadyWithin(ms, ready, LOOK_MS);
 
 /**
  * The box showed the words without their blank lines: it's emptied (all of it picked, then deleted, as a person
