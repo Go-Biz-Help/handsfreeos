@@ -4501,7 +4501,40 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         the same way (the network, the kind, what about, how it ended and its line) fold under the newest as "The same,
         3 more times since 9:12 AM" (`foldAsks`). One still going never folds, so its Stop and Carry on stay to hand.
 
-171.  **The introduction starts a networking chat** (Chris, 16 Nov 2026: "i want to adjust the introduction method
+171.  **The comment research, and the look at a post, on every network** (Chris, 16 Nov 2026: "i just noticed the
+      comment research on is on instagram, it should be on all the platforms we have built", then "1a 2a 3b 4a").
+      Decision 166 was Instagram's alone; now it's every network built: Instagram, Facebook, LinkedIn, Alignable,
+      Threads and X. Extension 0.144.0, migration `20261027028200_comment_research_every_network.sql` (it only widens
+      the two checks that said Instagram).
+      - **One Start, six researches, six guides** (1a): **Start the research** starts one on every network not reading
+        (`outreach.comment_research.start` with no network; one network's, with `platform`, for Run it again), each
+        about 2,000 comments over 3 days (`RESEARCH_TARGET`, `RESEARCH_DAYS`), one at a time a network. The card has a
+        row per network (`networks`), each summed up on its own, with its own **Use in everyone’s comments** and
+        **Stop using it**: a network's guide reaches only that network's comments (`comment_guide_in_use(platform)`).
+        A network a research reads for needs extension 0.144.0 (Instagram's 0.140.0, `RESEARCH_SINCE`).
+      - **What each reads** (2a, `researchSearches`): everyday kinds of post on Facebook, Threads and X through
+        search words (`RESEARCH_TOPICS`' `words`: dinner, my dog, road trip and so on), as each network ranks them;
+        Instagram keeps its hashtags; LinkedIn reads work kinds (`WORK_TOPICS`: new jobs, wins, tips, hiring, events,
+        asking for a recommendation, running a business, community); Alignable reads the posts in the person's
+        town's group and in the groups they're in (`ALIGNABLE_TOPICS`), as it has no search. None is about the
+        business. The AI that sums one up is told which network it read (`commentResearchSystem`).
+      - **The extension** (one driver, `jobs/comment-research.ts` `readCommentsFor`; each network's reader in its
+        own `comment-research.ts`): a once-a-day job (`comment_research`) on every runner, before the profile read,
+        asked for without a word once its turn comes (`researchRuns`), nothing for anyone who didn't start one. A
+        post read once for a research isn't read again (`seenPosts`, kept as short numbers made from the addresses,
+        never the addresses). Only comments are read: Facebook's and LinkedIn's box of who reacted is never opened
+        (`hfos-engaged` with `reactions: false`), LinkedIn's post links come from Copy link to post caught on the
+        page, and nothing is written. Every rule of decision 166 on what's kept stays.
+      - **A network's guide in its topic comments too** (3b): `commentGuideBlock` goes in warm-up comments and in
+        comments on posts found by topic (expert comments), where it shapes how the comment sounds and never what
+        it says, which is still what the comment's task asks.
+      - **The look on every network** (4a, `PICTURE_HOSTS`): the post's own part of its page as a comment there goes
+        (Facebook's and LinkedIn's `lookStep`, Alignable's and Threads' and X's `theirPostPart`), and each network's
+        own picture servers (Meta's for Facebook and Threads, `licdn.com`, `twimg.com`, Alignable's own addresses),
+        which the manifest lists. Facebook's comment on a good post opens the post before the AI writes. Warm-up
+        comments are still written by the like picker. Kept nowhere, as before.
+
+172.  **The introduction starts a networking chat** (Chris, 16 Nov 2026: "i want to adjust the introduction method
       where after it introduces, it asks them a question about their business, not trying to pitch just to get them
       to talk, but if there is a clear opportunity to say we can fix an issue they mentioned … then mention, and also
       if it makes sense to ask would they like to schedule demo no pressure i just like people to see whats out there
@@ -4559,39 +4592,6 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         stand-in model, the web's builder and the phone's playbook screens.
       - **Next** (the owner's 6a to 9a, its own part): referring the people the owner has really talked with on posts asking
         for a recommendation.
-
-171.  **The comment research, and the look at a post, on every network** (Chris, 16 Nov 2026: "i just noticed the
-      comment research on is on instagram, it should be on all the platforms we have built", then "1a 2a 3b 4a").
-      Decision 166 was Instagram's alone; now it's every network built: Instagram, Facebook, LinkedIn, Alignable,
-      Threads and X. Extension 0.144.0, migration `20261027028200_comment_research_every_network.sql` (it only widens
-      the two checks that said Instagram).
-      - **One Start, six researches, six guides** (1a): **Start the research** starts one on every network not reading
-        (`outreach.comment_research.start` with no network; one network's, with `platform`, for Run it again), each
-        about 2,000 comments over 3 days (`RESEARCH_TARGET`, `RESEARCH_DAYS`), one at a time a network. The card has a
-        row per network (`networks`), each summed up on its own, with its own **Use in everyone’s comments** and
-        **Stop using it**: a network's guide reaches only that network's comments (`comment_guide_in_use(platform)`).
-        A network a research reads for needs extension 0.144.0 (Instagram's 0.140.0, `RESEARCH_SINCE`).
-      - **What each reads** (2a, `researchSearches`): everyday kinds of post on Facebook, Threads and X through
-        search words (`RESEARCH_TOPICS`' `words`: dinner, my dog, road trip and so on), as each network ranks them;
-        Instagram keeps its hashtags; LinkedIn reads work kinds (`WORK_TOPICS`: new jobs, wins, tips, hiring, events,
-        asking for a recommendation, running a business, community); Alignable reads the posts in the person's
-        town's group and in the groups they're in (`ALIGNABLE_TOPICS`), as it has no search. None is about the
-        business. The AI that sums one up is told which network it read (`commentResearchSystem`).
-      - **The extension** (one driver, `jobs/comment-research.ts` `readCommentsFor`; each network's reader in its
-        own `comment-research.ts`): a once-a-day job (`comment_research`) on every runner, before the profile read,
-        asked for without a word once its turn comes (`researchRuns`), nothing for anyone who didn't start one. A
-        post read once for a research isn't read again (`seenPosts`, kept as short numbers made from the addresses,
-        never the addresses). Only comments are read: Facebook's and LinkedIn's box of who reacted is never opened
-        (`hfos-engaged` with `reactions: false`), LinkedIn's post links come from Copy link to post caught on the
-        page, and nothing is written. Every rule of decision 166 on what's kept stays.
-      - **A network's guide in its topic comments too** (3b): `commentGuideBlock` goes in warm-up comments and in
-        comments on posts found by topic (expert comments), where it shapes how the comment sounds and never what
-        it says, which is still what the comment's task asks.
-      - **The look on every network** (4a, `PICTURE_HOSTS`): the post's own part of its page as a comment there goes
-        (Facebook's and LinkedIn's `lookStep`, Alignable's and Threads' and X's `theirPostPart`), and each network's
-        own picture servers (Meta's for Facebook and Threads, `licdn.com`, `twimg.com`, Alignable's own addresses),
-        which the manifest lists. Facebook's comment on a good post opens the post before the AI writes. Warm-up
-        comments are still written by the like picker. Kept nowhere, as before.
 
 ## Rules worth knowing before changing anything
 

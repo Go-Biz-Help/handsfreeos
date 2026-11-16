@@ -561,11 +561,14 @@ describe('LiveKit’s word', () => {
     expect((await hook('participant_joined', b.room, listen)).statusCode).toBe(200);
     expect((await hook('participant_left', b.room, listen)).statusCode).toBe(200);
     await drain(w);
+    // By kind: the two can be told in the same instant, so the order they joined in isn't the point here.
     expect(
-      (await connectionsOf(b.callId)).map((c) => [c.kind, c.participant_sid, !!c.left_at]),
+      (await connectionsOf(b.callId))
+        .map((c) => [c.kind, c.participant_sid, !!c.left_at] as const)
+        .sort(([x], [y]) => x.localeCompare(y)),
     ).toEqual([
-      ['person', expect.stringMatching(/^PA_/), false],
       ['listener', 'PA_fay_ai', true],
+      ['person', expect.stringMatching(/^PA_/), false],
     ]);
   });
 
