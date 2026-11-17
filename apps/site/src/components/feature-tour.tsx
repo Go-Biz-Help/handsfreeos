@@ -12,7 +12,7 @@ export type TourFeature = {
 };
 
 /**
- * The home page's "What it does": the six parts of the product people ask about most, each beside a picture of it.
+ * The home page's "What it does": the parts of the product people ask about most, each beside a picture of it.
  *
  * On a wide screen it is a list beside one stage: pick a line and the stage shows that part of the product,
  * while a highlight glides to the line you picked. On a phone the lines become cards you swipe, and the stage

@@ -12,6 +12,7 @@ import {
   MoneyVisual,
   PipelineVisual,
   TrustLadderVisual,
+  WebinarVisual,
   WorkflowVisual,
 } from '@/components/visuals';
 import { automationGroups, comingSoon, featureSections, foundations } from '@/content/features';
@@ -22,7 +23,7 @@ const automationCount = automationGroups.reduce((sum, group) => sum + group.item
 
 export const metadata: Metadata = {
   title: 'What it does: AI answering, CRM and invoicing',
-  description: `AI that answers calls and texts, one inbox, online booking, quotes and invoices, video calls, campaigns, reviews, forms and ${automationCount} automations, on one plan.`,
+  description: `AI that answers and calls leads, one inbox, online booking, quotes and invoices, video calls, webinars, campaigns, forms and ${automationCount} automations, on one plan.`,
   alternates: { canonical: '/features' },
 };
 
@@ -33,6 +34,7 @@ const visuals: Record<string, ReactNode> = {
   calendar: <BookingVisual />,
   money: <MoneyVisual />,
   ai: <TrustLadderVisual />,
+  webinars: <WebinarVisual />,
   assistant: <AssistantVisual />,
   workflows: <WorkflowVisual />,
   'action-center': <ActionCenterVisual />,
@@ -214,6 +216,16 @@ export default function FeaturesPage() {
             </li>
           ))}
         </ul>
+        <p className="text-text-2 mt-12 text-lg">
+          Looking for Social Outreach, the AI Social Media Content Creator, the AI Sales Coach or
+          Real Estate Agent? They&rsquo;re add-ons, in early access for founding members.{' '}
+          <Link
+            href="/add-ons"
+            className="text-accent-text font-semibold underline underline-offset-2"
+          >
+            See the add-ons
+          </Link>
+        </p>
       </Section>
 
       <Section className="bg-card-2 border-border border-t">

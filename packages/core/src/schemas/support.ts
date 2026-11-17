@@ -562,7 +562,7 @@ export const PhoneListenerSetOutput = z.object({
   changed: z.boolean(),
 });
 
-/** Turning HandsFreeOS video calls on for one business (docs/video-calls.md), test businesses first. */
+/** Turning HandsFreeOS video calls on or off for one business (docs/video-calls.md); every business starts with them on. */
 export const VideoCallsSetInput = z.object({ workspaceId: uuid, on: z.boolean() });
 
 export const VideoCallsSetOutput = z.object({

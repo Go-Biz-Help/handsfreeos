@@ -584,6 +584,11 @@ describe('texting and emailing', () => {
 
 describe('a HandsFreeOS video call', () => {
   it('says why it can’t start while calls are off, then starts one on Confirm, sending their link', async () => {
+    // Every business starts with calls on (20261027028400); support can turn one off.
+    await rows(
+      admin(),
+      sql`update app.workspaces set video_calls = false where id = ${workspaceId}`,
+    );
     const off = await prepare('start_video_call', { personId: ann });
     expect(off.card.confirmLabel).toBe('');
     expect(off.card.warnings[0]?.kind).toBe('blocked');

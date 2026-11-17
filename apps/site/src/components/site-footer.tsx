@@ -10,6 +10,7 @@ const columns = [
     title: 'Product',
     links: [
       { href: '/features', label: 'What it does' },
+      { href: '/add-ons', label: 'Add-ons' },
       { href: '/#how', label: 'How it works' },
       { href: '/pricing', label: 'Pricing' },
       { href: '/app', label: 'Phone app' },

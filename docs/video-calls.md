@@ -15,7 +15,7 @@ else watching, with a link anyone can use ("Webinars" below), and any call can c
 up on customers' screens, asked by the team or by the AI when it hears them reach each one, with the answers landing
 on their contacts, and everyone who came rated Hot, Warm or Cold for following up ("Live polls" and "Who to follow up
 with" below;
-`HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md` is the plan they come from). Support turns calls on per business in /admin until every business gets them. Setting up LiveKit (the account, the worker's secrets and the
+`HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md` is the plan they come from). Every business has calls on since 17 November 2026 (`20261027028400`, the owner's decision 16), and support can turn one off in /admin. Setting up LiveKit (the account, the worker's secrets and the
 webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 
 ## Where things are
@@ -144,7 +144,7 @@ The owner answered the 16 questions with "all picks except 12b". These are settl
 | 13  | The team joins in the HandsFreeOS app too, with the coach's cards; that needs a new store build.              |
 | 14  | The business pays on its usage balance at 1.5×.                                                               |
 | 15  | Nothing else in the first version.                                                                            |
-| 16  | Test businesses first; every business once parts 1 to 3 are in.                                               |
+| 16  | Test businesses first; every business once parts 1 to 3 are in. Done 17 November 2026 (`20261027028400`).     |
 
 The build order: (1) the call on the web; (2) the AI hears it: the listener, captions, the transcript and today's
 After the call, the notice, AI notes on or off for one call; (3) the Sales Coach in the call; (4) the phone app;

@@ -107,8 +107,8 @@ export const workspaces = app.table('workspaces', {
   phoneListener: text('phone_listener'),
   /** HandsFreeOS's own business (M19): the one workspace that may send and receive on handsfreeos.com. */
   isPlatform: boolean('is_platform').notNull().default(false),
-  /** HandsFreeOS video calls are on for it (20261027013000): support turns them on in /admin. */
-  videoCalls: boolean('video_calls').notNull().default(false),
+  /** HandsFreeOS video calls are on for it (20261027013000), for every business since 20261027028400; support can turn one off in /admin. */
+  videoCalls: boolean('video_calls').notNull().default(true),
   ...timestamps(),
 });
 

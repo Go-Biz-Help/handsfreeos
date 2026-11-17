@@ -63,6 +63,8 @@ afterAll(closeTestDbs);
 
 describe('with no webinar calendar', () => {
   it('makes nothing while video calls are off', async () => {
+    // Every business starts with calls on (20261027028400); support can turn one off.
+    await rows(admin(), sql`update app.workspaces set video_calls = false where id = ${t.wsId}`);
     await expectHfos(
       () => schedule({ title: 'Live demo', startsAt: isoAt(nextWeekday(2, 5), '10:00') }),
       'video_calls_off',
