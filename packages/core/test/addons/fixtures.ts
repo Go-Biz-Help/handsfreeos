@@ -216,7 +216,12 @@ export const fxbeta = simple('fxbeta', 'Beta Loyalty', ['loyalty', 'points', 're
 
 /** Available, but paid: installable only by staff until billing exists. */
 export const fxpaid = simple('fxpaid', 'Premium Payroll', ['payroll', 'wages', 'paycheck'], {
-  billing: { model: 'paid', meters: [{ key: 'fxpaid.runs', unit: 'run', label: 'Payroll runs' }] },
+  billing: {
+    model: 'paid',
+    monthlyCents: 2900,
+    trialDays: 14,
+    meters: [{ key: 'fxpaid.runs', unit: 'run', label: 'Payroll runs' }],
+  },
 });
 
 /** Deprecated: still runs where installed, never offered again. */

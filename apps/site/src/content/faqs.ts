@@ -5,7 +5,7 @@
  * what a search engine or an assistant is told can never drift from what a reader sees.
  */
 
-import { freeTrial, moneyBack, typicalUsage } from './site';
+import { addonPrices, addonTrialDays, freeTrial, moneyBack, typicalUsage } from './site';
 
 export type Faq = { readonly q: string; readonly a: string };
 
@@ -98,7 +98,7 @@ export const pricingFaqs: readonly Faq[] = [
   },
   {
     q: 'Are the add-ons included?',
-    a: 'Not in the plan. Founding members can ask for early access to the add-ons on our Add-ons page, like Social Outreach and the AI Sales Coach, and they are free while they are in early access. They may cost extra later, and we will tell you before anything changes.',
+    a: `Not in the plan. Each add-on has its own monthly price for your whole business: Social Outreach is $${addonPrices.outreach} a month, and the AI Social Media Content Creator, the AI Sales Coach and Real Estate Agent are $${addonPrices.salescoach} a month each, with ${addonTrialDays} days free the first time you add one. Founding members can ask for early access on our Add-ons page, and an add-on is free while it is in early access. We will tell you before anything changes.`,
   },
   {
     q: 'What happens when the founding spots run out?',

@@ -51,20 +51,72 @@ export const ChatsCollectOutput = z.object({
 });
 export type ChatsCollectOutput = z.output<typeof ChatsCollectOutput>;
 
-const same = (a: DownloadMessage, b: DownloadMessage) =>
-  a.fromMe === b.fromMe && a.text === b.text && a.at === b.at;
+/** A message as two reads of a chat compare it: who wrote it and its words, whatever time each read gave it. */
+const keyOf = (m: Pick<DownloadMessage, 'fromMe' | 'text'>): string =>
+  `${m.fromMe ? 'me' : 'them'}:${m.text.replace(/\s+/g, ' ').trim()}`;
 
-/** What was kept and what's new, the latest few, oldest first, each once. */
+/**
+ * What was kept and what's new, the latest few, oldest first, each once. The same message read again is known by who
+ * wrote it and its words, never by its time: Instagram's messages show none, so each read gives them the time the
+ * chat's row in the list says, which moves on as the day does, and other networks' times shift as a page scrolls ("Mon"
+ * one week, a date the next). Kept by time, one message sent once showed up again with each read (the owner's
+ * screenshot, 17 Nov 2026). A read is the chat in order, so its messages are matched to those kept in order, the most
+ * that line up, and a message said twice in the chat stays twice. One kept keeps its time; a new one goes where the
+ * page put it, its time kept between those around it, and the ones kept and read between two matched fall in by time.
+ */
 export function mergeRecent(
   kept: readonly DownloadMessage[],
   read: readonly DownloadMessage[],
 ): DownloadMessage[] {
-  const all: DownloadMessage[] = [];
-  for (const m of [...kept, ...read]) if (!all.some((had) => same(had, m))) all.push(m);
+  const k = kept.map(keyOf);
+  const r = read.map(keyOf);
+  // The longest run of messages both have in the same order, worked out from the end.
+  const most = Array.from({ length: k.length + 1 }, () => new Array<number>(r.length + 1).fill(0));
+  for (let i = k.length - 1; i >= 0; i--)
+    for (let j = r.length - 1; j >= 0; j--)
+      most[i]![j] =
+        k[i] === r[j] ? most[i + 1]![j + 1]! + 1 : Math.max(most[i + 1]![j]!, most[i]![j + 1]!);
+  const all: { readonly m: DownloadMessage; readonly kept: boolean }[] = [];
+  let keptBetween: DownloadMessage[] = [];
+  let readBetween: DownloadMessage[] = [];
+  // Those kept and read between two matched ones, by time: a tie puts the kept one first.
+  const between = () => {
+    let a = 0;
+    let b = 0;
+    while (a < keptBetween.length || b < readBetween.length) {
+      const fromRead =
+        a >= keptBetween.length ||
+        (b < readBetween.length && Date.parse(readBetween[b]!.at) < Date.parse(keptBetween[a]!.at));
+      all.push(
+        fromRead ? { m: readBetween[b++]!, kept: false } : { m: keptBetween[a++]!, kept: true },
+      );
+    }
+    keptBetween = [];
+    readBetween = [];
+  };
+  let i = 0;
+  let j = 0;
+  while (i < k.length || j < r.length) {
+    if (i < k.length && j < r.length && k[i] === r[j]) {
+      between();
+      all.push({ m: kept[i]!, kept: true });
+      i++;
+      j++;
+    } else if (j >= r.length || (i < k.length && most[i + 1]![j]! >= most[i]![j + 1]!))
+      keptBetween.push(kept[i++]!);
+    else readBetween.push(read[j++]!);
+  }
+  between();
+  // A new message's time sits between those around it, so the latest is last.
+  const times = all.map(({ m }) => Date.parse(m.at));
+  for (let x = 1; x < all.length; x++)
+    if (!all[x]!.kept) times[x] = Math.max(times[x]!, times[x - 1]!);
+  for (let x = all.length - 2; x >= 0; x--)
+    if (!all[x]!.kept) times[x] = Math.min(times[x]!, times[x + 1]!);
   return all
-    .map((m, i) => ({ m, i }))
-    .sort((x, y) => x.m.at.localeCompare(y.m.at) || x.i - y.i)
-    .map(({ m }) => m)
+    .map(({ m, kept }, x) =>
+      kept || times[x] === Date.parse(m.at) ? m : { ...m, at: new Date(times[x]!).toISOString() },
+    )
     .slice(-RECENT_MESSAGES);
 }
 
@@ -87,10 +139,6 @@ export const DRAFTS_THE_CHAT_MOVES = [
   'partner_details',
   'partner_reply',
 ] as const satisfies readonly SendKind[];
-
-/** A message as two reads of a chat compare it: who wrote it and its words, whatever time each read gave it. */
-const keyOf = (m: Pick<DownloadMessage, 'fromMe' | 'text'>): string =>
-  `${m.fromMe ? 'me' : 'them'}:${m.text.replace(/\s+/g, ' ').trim()}`;
 
 /**
  * Whether a chat moved on since it was kept: the last message on the page just read is none of those kept, so someone

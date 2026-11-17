@@ -1,7 +1,7 @@
 {
   "area": "staff",
   "title": "HandsFreeOS staff only: the Admin area and the affiliate page (tools here must be offered to staff only)",
-  "checkedOn": "2026-11-14",
+  "checkedOn": "2026-11-17",
   "files": {
     "apps/mobile/src/app/app/admin/_layout.tsx": "970799f7fc45",
     "apps/mobile/src/app/app/admin/add-ons.tsx": "a6c29ff249f8",
@@ -37,7 +37,7 @@
     "apps/web/src/app/admin/affiliates/[affiliateId]/page.tsx": "c996910962e3",
     "apps/web/src/app/admin/affiliates/page.tsx": "d8d88fccd537",
     "apps/web/src/app/admin/assistant/page.tsx": "6c0985292497",
-    "apps/web/src/app/admin/businesses/[workspaceId]/page.tsx": "7d2db948c122",
+    "apps/web/src/app/admin/businesses/[workspaceId]/page.tsx": "9342fce15c4f",
     "apps/web/src/app/admin/businesses/page.tsx": "d1b8573cbbe2",
     "apps/web/src/app/admin/demo/page.tsx": "dc160e3f12f4",
     "apps/web/src/app/admin/founding/page.tsx": "ea28a617d8af",
@@ -66,8 +66,8 @@
     "apps/web/src/app/try/layout.tsx": "386b976f6af2",
     "apps/web/src/app/try/sign-up/page.tsx": "b12b8d25fc43",
     "apps/web/src/components/admin/accept-support-invite.tsx": "715e026544a0",
+    "apps/web/src/components/admin/addon-gifts-block.tsx": "87f16c314b98",
     "apps/web/src/components/admin/addon-picks-admin.tsx": "cfbc4b7b5b98",
-    "apps/web/src/components/admin/addon-testing-block.tsx": "a0075b2d3cb4",
     "apps/web/src/components/admin/admin-shell.tsx": "bf2624426810",
     "apps/web/src/components/admin/affiliate-business-block.tsx": "a2483cdb0c8b",
     "apps/web/src/components/admin/affiliate-detail.tsx": "bb7d47aaa4e5",
@@ -847,16 +847,16 @@
       "by": "do_video_calls_set"
     },
     {
-      "path": "Business page → Add-ons in testing → each add-on: they can add it / not handed out",
+      "path": "Business page → Give add-ons free → each add-on: price, Free from HandsFreeOS / Free through <day> · they can add it / Gift ended / Not given, the note, what they pay",
       "kind": "see",
-      "file": "apps/web/src/components/admin/addon-testing-block.tsx:66",
+      "file": "apps/web/src/components/admin/addon-gifts-block.tsx:107",
       "covered": "yes",
-      "by": "read_platform_business_get addonsInTesting: each add-on in testing, they can add it / not handed out"
+      "by": "read_platform_business_get addonsToGive: each add-on with price, given, note and paying (addonGiftRows, the words the page says)"
     },
     {
-      "path": "Business page → Add-ons in testing → Let them try it / Take back",
+      "path": "Business page → Give add-ons free → Give free / Take back",
       "kind": "do",
-      "file": "apps/web/src/components/admin/addon-testing-block.tsx:75",
+      "file": "apps/web/src/components/admin/addon-gifts-block.tsx:133",
       "covered": "yes",
       "by": "do_addon_grant_give / do_addon_grant_take_back"
     },
@@ -3400,6 +3400,13 @@
       "file": "apps/mobile/src/components/shell/business-list.tsx:89",
       "covered": "no",
       "by": "no tool"
+    },
+    {
+      "path": "Business page → Give add-ons free → Set an end date / Change end date: last free day and a note, Save",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/addon-gifts-block.tsx:185",
+      "covered": "yes",
+      "by": "do_addon_grant_give freeUntil and note"
     }
   ],
   "gaps": [

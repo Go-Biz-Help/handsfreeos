@@ -1,4 +1,6 @@
 import {
+  addonPriceOf,
+  addonStandingOf,
   capabilitySets,
   findAddon,
   type AddonManifest,
@@ -175,7 +177,7 @@ export const fxbeta: AddonManifest = {
   permissions: [],
 };
 
-/** Available, but paid: HandsFreeOS support turns it on until billing exists. */
+/** Available, but paid: added and turned on only on the web, where its price is shown (App Store rule 3.1.3(f)). */
 export const fxpaid: AddonManifest = {
   ...base,
   id: 'fxpaid',
@@ -186,7 +188,7 @@ export const fxpaid: AddonManifest = {
   catalog: { status: 'available', keywords: ['payroll'] },
   capabilities: [{ id: 'fxpaid.runs', label: 'Payroll runs', description: 'Pay the team.' }],
   permissions: [],
-  billing: { model: 'paid' },
+  billing: { model: 'paid', monthlyCents: 2900, trialDays: 14 },
 };
 
 /** Deprecated: still runs where installed, offered to nobody. */
@@ -262,6 +264,8 @@ export function listFor(
         retired: !m,
         status: m?.catalog.status ?? null,
         running: !!m && state === 'enabled',
+        price: addonPriceOf(m),
+        standing: addonStandingOf(addonPriceOf(m), null, null),
         ...rows[addonId],
       };
     }),
@@ -282,6 +286,8 @@ export function listFor(
             category: m.category,
             status: m.catalog.status,
             testing: false,
+            price: addonPriceOf(m),
+            standing: addonStandingOf(addonPriceOf(m), null, null),
           }))
       : [],
   };

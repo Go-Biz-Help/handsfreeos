@@ -1272,6 +1272,26 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### A Facebook post found by its words, with no link and cut short with "…" (0.147.6)
+
+On 0.147.5 the owner's Page post of 17 Nov 2026 (12 PM Chicago) was still marked "didn’t find the post on your Page
+after", though it was the first post on the Page. Its problem report's outline showed the Page's four newest posts
+drawn, the first with the post's five pictures and its first sentence (15 words), then "…" and See more. Two things
+kept it from counting:
+
+- **No link.** Facebook leaves a new post's own time link empty until it's pointed at, and a new post has no comments
+  whose time links give it away, so the post read had no link. `foundPost` passed any post without a link by. The
+  profile's posts never had links for the same reason (every one kept as `link: null`).
+- **The "…".** The first 60 letters of the post were compared with the start of the words Facebook showed, and those
+  ended "lead?…", so neither started the other.
+
+From 0.147.6 a post is found by its words alone (`postShown` in `src/jobs/helpful.ts`, used by `lookOn` in
+`src/research/posting.ts`), with its link when the page shows one. The "…" Facebook ends cut-short words with is left
+off before comparing (`startsLike`). `PostLook` says `found` apart from `link`, so a Page post found without a link
+counts as posted after Publish, and Check if it posted marks it found. Check if it posted looks further back than the
+look after posting (`POSTS_LOOKED_BACK`, 12, against 4), for a post that failed days ago. The tab's `drawPosts` hand
+scrolls on while fewer than asked for are drawn and the page hasn't ended.
+
 ### Every way Threads shows to open its box, tried in turn (0.147.5)
 
 On 0.147.4 two Threads posts of 17 Nov 2026 (05:38 and 05:44 UTC) still stopped at "Threads didn’t show the box to write

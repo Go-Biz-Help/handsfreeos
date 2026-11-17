@@ -1,9 +1,9 @@
 {
   "area": "ideas-addons",
   "title": "Ideas, roadmap, what's new, the Add-ons page and add-on connections",
-  "checkedOn": "2026-11-15",
+  "checkedOn": "2026-11-17",
   "files": {
-    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/add-ons/[addonId].tsx": "d44afafe8d41",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/add-ons/[addonId].tsx": "c65103257c6e",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/add-ons/index.tsx": "a777b575cb27",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/ideas/index.tsx": "80c38ddd49be",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/ideas/roadmap.tsx": "57202923bdea",
@@ -38,10 +38,10 @@
     "apps/web/src/components/ideas/vote-button.tsx": "018f8dc863de",
     "apps/web/src/components/ideas/whats-new-list.tsx": "4e91ea511c9b",
     "apps/web/src/components/ideas/whats-new-signal.tsx": "e3e99fd33ded",
-    "apps/web/src/components/settings/add-ons/add-ons-page.tsx": "1819441f0dd6",
-    "apps/web/src/components/settings/add-ons/addon-card.tsx": "bf28aca043a7",
+    "apps/web/src/components/settings/add-ons/add-ons-page.tsx": "f161a58cd0b6",
+    "apps/web/src/components/settings/add-ons/addon-card.tsx": "06aafac12d94",
     "apps/web/src/components/settings/add-ons/addon-settings-sheet.tsx": "7a99799c9faa",
-    "apps/web/src/components/settings/add-ons/move-dialogs.tsx": "ff44fd5150e3",
+    "apps/web/src/components/settings/add-ons/move-dialogs.tsx": "d67699742c69",
     "apps/web/src/components/settings/add-ons/planned-list.tsx": "e15cd3a24854",
     "apps/web/src/components/shell/nav-links.tsx": "d7e6a9250526"
   },
@@ -1298,6 +1298,55 @@
       "file": "apps/web/src/components/addons/boundary.tsx:10",
       "covered": "no",
       "by": "a screen redraw; nothing for a tool to do"
+    },
+    {
+      "path": "Add-ons → each paid add-on: its price, free trial, gift, next payment or when it turns off",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/add-ons/addon-card.tsx:193",
+      "covered": "yes",
+      "by": "get_settings add_ons: price on each add-on (addonStandingLine, the words the card says)"
+    },
+    {
+      "path": "Add-ons → each paid add-on: its payment didn’t go through, with Go to Billing & Usage",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/add-ons/addon-card.tsx:261",
+      "covered": "yes",
+      "by": "get_settings add_ons: price says the payment failed, the daily tries and when it turns off"
+    },
+    {
+      "path": "Add-ons → adding or turning on a paid add-on: Add …? with its price and trial, Start free trial / Add for $… a month",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/add-ons/move-dialogs.tsx:337",
+      "covered": "yes",
+      "by": "manage_add_on install / enable, after get_settings add_ons price; the Confirm card asks first"
+    },
+    {
+      "path": "Add-ons → adding a paid add-on with no card: Add a card in Settings → Billing & Usage first, Go to Billing & Usage",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/add-ons/move-dialogs.tsx:374",
+      "covered": "yes",
+      "by": "manage_add_on refused with addon_needs_card, in the same words"
+    },
+    {
+      "path": "Add-ons → turning off a paid add-on: Turn off on <date> (runs to the end of the trial or paid month) / Turn off now",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/add-ons/move-dialogs.tsx:180",
+      "covered": "yes",
+      "by": "do_addon_billing_stop; manage_add_on disable for Turn off now"
+    },
+    {
+      "path": "Add-ons → a paid add-on set to turn off, or a gift ending: Keep it / Keep it after that ($… a month)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/add-ons/addon-card.tsx:218",
+      "covered": "yes",
+      "by": "do_addon_billing_keep"
+    },
+    {
+      "path": "Add-ons (phone) → a paid add-on HandsFreeOS didn’t give free: Add it from HandsFreeOS on the web, in place of Install and Turn on, and no price",
+      "kind": "see",
+      "file": "apps/mobile/src/add-ons/rules.ts:215",
+      "covered": "yes",
+      "by": "get_settings add_ons: price, and manage_add_on install / enable on the web’s terms"
     }
   ],
   "gaps": [

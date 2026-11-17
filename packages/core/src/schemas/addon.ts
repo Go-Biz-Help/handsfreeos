@@ -57,6 +57,49 @@ export const AddonSettingsSaved = z.object({ addonId, saved: z.literal(true) });
 
 export const AddonListInput = z.object({ workspaceId: uuid });
 
+/** What a paid add-on costs (20261027028500); null for a free one. */
+export const AddonPriceSchema = z
+  .object({ monthlyCents: z.number().int(), trialDays: z.number().int() })
+  .nullable();
+
+/** Where the business stands paying for one add-on (`addonStandingOf` in core's addons/billing.ts). */
+export const AddonStandingSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('free') }),
+  z.object({
+    kind: z.literal('gift'),
+    until: isoDateTime.nullable(),
+    keepsAfter: z.boolean(),
+    priceCents: z.number().int().nullable(),
+  }),
+  z.object({
+    kind: z.literal('trial'),
+    priceCents: z.number().int(),
+    trialEndsAt: isoDateTime,
+    stopAt: isoDateTime.nullable(),
+  }),
+  z.object({
+    kind: z.literal('paid'),
+    priceCents: z.number().int(),
+    nextChargeAt: isoDateTime.nullable(),
+    paidThrough: isoDateTime.nullable(),
+    stopAt: isoDateTime.nullable(),
+  }),
+  z.object({
+    kind: z.literal('past_due'),
+    priceCents: z.number().int(),
+    failedAt: isoDateTime,
+    problem: z.string().nullable(),
+    nextRetryAt: isoDateTime.nullable(),
+    offAt: isoDateTime,
+  }),
+  z.object({
+    kind: z.literal('unpaid'),
+    priceCents: z.number().int(),
+    paidThrough: isoDateTime.nullable(),
+    trialLeft: z.boolean(),
+  }),
+]);
+
 const CapabilityRow = z.object({
   id: z.string(),
   label: z.string(),
@@ -91,6 +134,9 @@ export const AddonListOutput = z.object({
       status: z.enum(CATALOG_STATUSES).nullable(),
       /** Whether it runs here now: on, and not switched off everywhere by HandsFreeOS (`unavailable`). */
       running: z.boolean(),
+      /** What it costs, and where the business stands paying for it (20261027028500). */
+      price: AddonPriceSchema,
+      standing: AddonStandingSchema,
     }),
   ),
   /** What this person can do here now, and what's installed but not theirs, or turned off. */
@@ -116,6 +162,9 @@ export const AddonListOutput = z.object({
       status: z.enum(CATALOG_STATUSES),
       /** Handed to this business by HandsFreeOS staff to try; nobody else is offered it. */
       testing: z.boolean(),
+      /** What it costs, and where the business stands paying for it (20261027028500). */
+      price: AddonPriceSchema,
+      standing: AddonStandingSchema,
     }),
   ),
 });
@@ -305,12 +354,17 @@ export const AddonPickOverviewOutput = z.object({
 export const AddonPickChooseInput = z.object({ weekId: uuid, addonId });
 export const AddonPickChooseOutput = z.object({ weekId: uuid, addonId });
 
-/** Staff handing one business an add-on still being built, to try it (Real Estate, step 2). */
+/**
+ * Staff giving one business an add-on free (Real Estate, step 2; an end date since 20261027028500): it's installable
+ * there even while still being built, and nothing is charged for it until the gift ends.
+ */
 export const AddonGrantGiveInput = z.object({
   workspaceId: uuid,
   addonId,
   /** Why, for the next person who looks: "Testing Real Estate with Hill Country Realty". */
   note: z.string().trim().max(300).optional(),
+  /** The last day it's free, as a date ("2026-12-31"), free until the end of that day (UTC). Absent: until taken back. */
+  freeUntil: z.iso.date().optional(),
 });
 export const AddonGrantTakeBackInput = z.object({ workspaceId: uuid, addonId });
 export const AddonGrantOutput = z.object({
@@ -319,4 +373,84 @@ export const AddonGrantOutput = z.object({
   granted: z.boolean(),
   /** False when it already was as asked: a second press. */
   changed: z.boolean(),
+});
+
+// ---------- add-on prices (20261027028500) ----------
+
+export const AddonBillingStopInput = z.object({ workspaceId: uuid, addonId });
+export const AddonBillingStopOutput = z.object({
+  addonId,
+  /** When it turns off: the end of its trial or the month paid. */
+  stopAt: isoDateTime,
+});
+
+export const AddonBillingKeepInput = z.object({ workspaceId: uuid, addonId });
+export const AddonBillingKeepOutput = z.object({
+  addonId,
+  /** When it's charged next. */
+  nextChargeAt: isoDateTime.nullable(),
+});
+
+const cardTry = z.strictObject({
+  cardId: uuid,
+  ok: z.boolean(),
+  problem: z.string().trim().max(500).nullable().default(null),
+});
+
+export const AddonBillingRecordChargeInput = z.strictObject({
+  workspaceId: uuid,
+  addonId,
+  /** The month charged: its subscription's `next_charge_at` when the charge started. An answer about another changes nothing. */
+  dueAt: z.iso.datetime(),
+  /** 0 the first try of a month, then each daily retry's number. */
+  attempt: z.int().min(0).max(100),
+  outcome: z.enum(['paid', 'failed']),
+  paymentRef: z.string().trim().max(200).nullable().default(null),
+  paidCents: z.int().min(0).nullable().default(null),
+  /** The card that paid. */
+  cardId: uuid.nullable().default(null),
+  /** Why the cards refused it, in the card company's words. */
+  problem: z.string().trim().max(1000).nullable().default(null),
+  /** What each card said, default first. */
+  cards: z.array(cardTry).max(20).default([]),
+  /** 0 to 1, for when the next daily retry is. */
+  random: z.number().min(0).max(1).default(0.5),
+});
+export const AddonBillingRecordChargeOutput = z.object({
+  addonId,
+  outcome: z.enum(['recorded', 'already']),
+});
+
+export const addonOffReason = z.enum(['stopped', 'unpaid', 'gift']);
+export const AddonBillingTurnOffInput = z.strictObject({
+  workspaceId: uuid,
+  addonId,
+  /** Why: turned off from the page and its time ran out, never paid after its retries, or a gift that ended. */
+  reason: addonOffReason,
+});
+export const AddonBillingTurnOffOutput = z.object({ addonId, turnedOff: z.boolean() });
+
+export const AddonBillingListInput = z.object({ workspaceId: uuid });
+export const AddonBillingListOutput = z.object({
+  /** Each paid add-on the business has, or pays for, or was given, with where it stands. */
+  addons: z.array(
+    z.object({
+      addonId,
+      name: z.string(),
+      running: z.boolean(),
+      price: AddonPriceSchema,
+      standing: AddonStandingSchema,
+    }),
+  ),
+  /** The most recent months paid, newest first. */
+  charges: z.array(
+    z.object({
+      addonId,
+      name: z.string(),
+      amountCents: z.number().int(),
+      periodFrom: isoDateTime,
+      periodTo: isoDateTime,
+      chargedAt: isoDateTime,
+    }),
+  ),
 });

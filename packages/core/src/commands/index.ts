@@ -517,6 +517,17 @@ export const {
 } = addonRoadmapCommands(ADDON_CATALOG);
 export { addonRoadmapCommands } from './addon-roadmap';
 
+import { addonBillingCommands } from './addon-billing';
+
+/** Paying for a paid add-on: turning it off at the end of what's paid, keeping it, and the worker's half (20261027028500). */
+export const {
+  stop: addonBillingStop,
+  keep: addonBillingKeep,
+  recordCharge: addonBillingRecordCharge,
+  turnOff: addonBillingTurnOff,
+} = addonBillingCommands(ADDON_CATALOG);
+export { addonBillingCommands } from './addon-billing';
+
 import { addonGrantCommands } from './addon-grant';
 
 /** Staff handing one business an add-on still being built, to try it (Real Estate, step 2). */
@@ -1232,6 +1243,11 @@ export const commands: readonly CommandDef[] = [
   addonUnvote,
   addonMarkNewsSeen,
   addonPickChoose,
+  // Paying for a paid add-on (20261027028500).
+  addonBillingStop,
+  addonBillingKeep,
+  addonBillingRecordCharge,
+  addonBillingTurnOff,
   // Staff handing a business an add-on to try (Real Estate, step 2).
   addonGrantGive,
   addonGrantTakeBack,

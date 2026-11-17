@@ -20,7 +20,7 @@ vi.mock('../src/jobs/job', async (original) => ({
 // The page's own waits, the same.
 vi.useFakeTimers({ shouldAdvanceTime: true, advanceTimeDelta: 50 });
 
-const { foundPost, postHelpful, readEngaged } = await import('../src/jobs/helpful');
+const { foundPost, postHelpful, postShown, readEngaged } = await import('../src/jobs/helpful');
 
 const FB = 'https://www.facebook.com';
 const BUSINESS = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
@@ -155,6 +155,20 @@ describe('the jobs', () => {
     const page = readPage(load('group-feed.html', GROUP_URL), GROUP_URL);
     expect(foundPost(page, `${MEETUP} Bring a friend!`)).toMatch(/2233445566778899/);
     expect(foundPost(page, 'Something nobody posted at all, ever.')).toBeNull();
+  });
+
+  it('finds a post Facebook cut short with “…”, and one shown without its link (the owner’s Page, 17 Nov)', () => {
+    const kept =
+      'Ever get told you have to upgrade just to add one more tech or lead?\n\nA lot of CRMs cap your contacts.';
+    const cut = 'Ever get told you have to upgrade just to add one more tech or lead? …';
+    expect(foundPost({ posts: [{ text: cut, url: POST_URL }] }, kept)).toBe(POST_URL);
+    expect(foundPost({ posts: [{ text: cut.replace('…', '...'), url: POST_URL }] }, kept)).toBe(
+      POST_URL,
+    );
+    // Without a link it's still there; only foundPost, which gives links, passes it by.
+    expect(postShown({ posts: [{ text: cut, url: null }] }, kept)).toEqual({ link: null });
+    expect(foundPost({ posts: [{ text: cut, url: null }] }, kept)).toBeNull();
+    expect(postShown({ posts: [{ text: 'Ever get told…', url: null }] }, kept)).toBeNull();
   });
 
   it('finds a post whose paragraphs went up run together, or with lines between (decision 158)', () => {

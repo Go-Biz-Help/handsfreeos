@@ -1,5 +1,7 @@
 'use client';
 import {
+  ADDON_BILLING_WORDS,
+  addonStandingLine,
   BILLING_WORDS as W,
   FOUNDING_PLAN_WORDS as F,
   planCardExpiry,
@@ -7,6 +9,7 @@ import {
   type SettingKey,
 } from '@hfos/core';
 import { CreditCard } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition, type ReactNode } from 'react';
 import { toast } from 'sonner';
@@ -524,6 +527,76 @@ export function CardsSection({ workspaceId, billing }: { workspaceId: string; bi
           </DialogContent>
         ) : null}
       </Dialog>
+    </Section>
+  );
+}
+
+type AddonBilling = Ok<'/v1/queries/addon_billing.list'>;
+
+/**
+ * The paid add-ons this business has, pays for or was given (20261027028500), with where each stands, and the last
+ * few months paid. Turning one on or off is the Add-ons page's: this only says what it costs.
+ */
+export function AddonsBillingSection({
+  workspaceId,
+  list,
+}: {
+  workspaceId: string;
+  list: AddonBilling;
+}) {
+  const B = ADDON_BILLING_WORDS;
+  if (!list.addons.length && !list.charges.length) return null;
+  return (
+    <Section title={B.billingTitle} description={B.billingBlurb} testId="billing-addons">
+      {list.addons.length ? (
+        <ul className="mt-4 flex flex-col divide-y divide-border">
+          {list.addons.map((a) => {
+            const line = addonStandingLine(a.standing, a.price?.trialDays ?? 0);
+            return (
+              <li
+                key={a.addonId}
+                className="flex flex-col gap-0.5 py-2.5 first:pt-0 last:pb-0"
+                data-testid={`billing-addon-${a.addonId}`}
+              >
+                <span className="text-[13.5px] font-medium">{a.name}</span>
+                {line ? (
+                  <span
+                    className={cn(
+                      'text-[13px]',
+                      a.standing.kind === 'past_due' ? 'text-danger-text' : 'text-text-2',
+                    )}
+                  >
+                    {line}
+                  </span>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="mt-4 text-[13px] text-text-2">{B.billingNone}</p>
+      )}
+      {list.charges.length ? (
+        <div className="mt-4 border-t border-border pt-3" data-testid="billing-addon-charges">
+          <h3 className="text-xs font-medium text-text-3">{B.recentCharges}</h3>
+          <ul className="mt-1.5 flex flex-col gap-1 text-[13px]">
+            {list.charges.map((c) => (
+              <li key={`${c.addonId}:${c.periodFrom}`} className="flex justify-between gap-3">
+                <span>{c.name}</span>
+                <span className="text-text-2">{B.charged(c.amountCents, c.chargedAt)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      <p className="mt-4 text-[13px] text-text-3">
+        <Link
+          href={`/app/w/${workspaceId}/add-ons`}
+          className="font-medium text-accent-text underline-offset-2 hover:underline"
+        >
+          {B.billingManage}
+        </Link>
+      </p>
     </Section>
   );
 }

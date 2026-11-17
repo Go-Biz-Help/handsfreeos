@@ -213,6 +213,11 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'addon.save_my_settings': {},
   'addon.vote': {},
   'addon.unvote': {},
+  // Paid add-ons (20261027028500): turned off at the end of what's paid, or kept after all.
+  'addon_billing.stop': {},
+  'addon_billing.keep': {
+    warning: 'This charges the default card for it each month until it’s turned off.',
+  },
   // As its Disconnect and Switch back confirms say it: the key or sign-in can't be read back once it's wiped.
   'addon_connection.disconnect': {
     warning:

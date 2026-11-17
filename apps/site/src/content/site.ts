@@ -85,6 +85,20 @@ export const plan = {
 } as const;
 
 /**
+ * What each add-on costs a month, for the whole business, once it's out of early access (the owner's picks of
+ * 2026-11-17). The product charges the price in each add-on's manifest (`billing.monthlyCents` in
+ * packages/core/src/addons/<id>/manifest.ts), so change both. The first time a business adds one, it gets
+ * `addonTrialDays` days free.
+ */
+export const addonPrices = {
+  outreach: 97,
+  socialcontent: 47,
+  salescoach: 47,
+  realestate: 47,
+} as const;
+export const addonTrialDays = 14;
+
+/**
  * The founding spots: how a business buys HandsFreeOS (20261027012700). First come, first served — they sign up,
  * pick a spot and pay, straight after making their business. Nobody applies.
  *
