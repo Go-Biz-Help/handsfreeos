@@ -735,7 +735,7 @@ export function DidntPost({
             {W.picking.tryAgain}
           </Button>
         ) : null}
-        {canLook(p) && !looking && !p.lookedAt ? (
+        {canLook(p) && !looking ? (
           <Button
             size="sm"
             variant="secondary"
@@ -751,7 +751,7 @@ export function DidntPost({
             data-testid={`socialcontent-post-${p.id}-look`}
           >
             <Search className="h-3.5 w-3.5" aria-hidden />
-            {W.picking.lookOne}
+            {p.lookedAt ? W.picking.lookAgain : W.picking.lookOne}
           </Button>
         ) : null}
         {canLook(p) ? (
