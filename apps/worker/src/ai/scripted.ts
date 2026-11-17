@@ -3488,6 +3488,31 @@ export const DOCUMENT_RULES: readonly ScriptRule[] = [
 ];
 
 /**
+ * A business card scanned on the phone (contacts/read-card.ts): the stand-in can't see the picture, so every card
+ * reads as the same sample one, with no outline, so the picture is kept as it was taken.
+ */
+export const SCRIPTED_BUSINESS_CARD = {
+  isCard: true,
+  corners: [],
+  firstName: 'MARIA',
+  lastName: 'LOPEZ',
+  jobTitle: 'Owner',
+  company: 'Lopez Roofing',
+  phones: [
+    { number: '(713) 555-0100', label: 'O' },
+    { number: '(713) 555-0142', label: 'Cell' },
+  ],
+  emails: [{ email: 'Maria@LopezRoofing.com', label: '' }],
+  website: 'https://lopezroofing.com/',
+  address: { street: '1200 Main St, Suite 4', city: 'Houston', state: 'TX', postalCode: '77002', country: 'US' },
+  extra: 'TX roofing licence 12345',
+} as const;
+
+export const BUSINESS_CARD_RULES: readonly ScriptRule[] = [
+  { when: /Read this side of the business card\.$/, json: () => SCRIPTED_BUSINESS_CARD },
+];
+
+/**
  * AI Social Media Content Creator's niches (addons/socialcontent/niches.ts): the business's own niche from the first
  * line of its profile, three steady similar ones, and searches made of the niche's words, so the same profile always
  * gets the same answer.
@@ -3658,6 +3683,7 @@ export const SCRIPTED_RULES: readonly ScriptRule[] = [
   ...SALESCOACH_RULES,
   ...SOCIALCONTENT_RULES,
   ...DOCUMENT_RULES,
+  ...BUSINESS_CARD_RULES,
 ];
 
 /** The stand-in model; tests may put their own rules first (and their own teammate rules). */

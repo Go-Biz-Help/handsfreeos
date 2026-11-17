@@ -34,7 +34,9 @@ export type AiUsageSource =
   // The Assistant reading its instructions ahead of a question, while the person types (its runs keep the rest).
   | 'assistant'
   // Placing the fields on a document template's PDF.
-  | 'documents';
+  | 'documents'
+  // Reading a business card scanned on the phone.
+  | 'business_card';
 
 /** What an AI call was for, for app.ai_usage. */
 export interface AiUsageRef {
@@ -94,6 +96,7 @@ const AI_SUBJECTS: Readonly<Record<AiUsageSource, string>> = {
   // Reading ahead while the person types: on the balance like the questions themselves (20261027012500).
   assistant: 'Ask HandsFreeOS getting ready',
   documents: 'AI placing fields on a document',
+  business_card: 'AI reading a business card',
 };
 
 /**

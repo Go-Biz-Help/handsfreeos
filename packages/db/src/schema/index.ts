@@ -3126,6 +3126,8 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'assistant',
   // The AI placing the fields on a document template's PDF (20261027017000).
   'documents',
+  // The AI reading a business card scanned on the phone (20261027028600).
+  'business_card',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
   'faq',
