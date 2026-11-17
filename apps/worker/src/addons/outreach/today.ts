@@ -112,7 +112,8 @@ import {
   askStructured,
 } from '../../ai/ask';
 import type { AddonScopeContext, AddonWorkerAction } from '../types';
-import { VOICE_DEFAULTS } from '@hfos/core/addons/outreach/voice';
+import { opensWithIntro } from '@hfos/core/addons/outreach/script';
+import { introTexts, VOICE_DEFAULTS } from '@hfos/core/addons/outreach/voice';
 import { groupNamesIn, namesAGroup, withoutGroupLines } from '@hfos/core/addons/outreach/no-groups';
 import { businessKnows } from './knows';
 import { partnerDraft } from './partner-drafts';
@@ -855,13 +856,16 @@ export async function writeDrafts(
       backupWhenDeclined: last,
     }),
   );
-  // A first message is one text (decision 137), as a comment is.
+  // A first message is one text (decision 137), as a comment is, but an introduction's question about them goes as
+  // its own text right after it when the person sends a few (decision 175).
+  const intro = kind === 'opener' && opensWithIntro(told.playbook) && !toRequests;
+  const introTwo = intro && voice.split;
   const checked = checkedDrafts(
     value,
     base.avoid,
     DRAFTS_FOR[kind],
-    voice.split && !underAPost(kind) && kind !== 'warm_lead' && kind !== 'opener',
-  );
+    voice.split && !underAPost(kind) && kind !== 'warm_lead' && (kind !== 'opener' || introTwo),
+  ).map((d) => (introTwo ? introTexts(d) : d));
   // Never a group (decision 157): a draft that mentions one goes, and when every one did, the AI writes again once,
   // told which of their groups' names to leave out.
   const quiet = checked.filter((d) => !namesAGroup(d, base.groupNames));
@@ -901,8 +905,12 @@ export async function writeDrafts(
           ? quiet.filter(fitsGroupReply)
           : isOccasionKind(kind)
             ? quiet.filter(fitsOccasion)
-            : // At most one of the business's videos, and never one they've had (decision 154).
-              quiet.filter((d) => fitsVideos(d, videos));
+            : intro
+              ? // An introduction asks them something about themselves (decisions 173 and 175): one that came back
+                // asking nothing goes while another asks.
+                asksThem(quiet.filter((d) => fitsVideos(d, videos)))
+              : // At most one of the business's videos, and never one they've had (decision 154).
+                quiet.filter((d) => fitsVideos(d, videos));
   // The link always goes with the link and the video with the video (decisions 47 and 66), and the link with
   // another time after a no-show (decision 106): one the AI left out goes on the end.
   const must =
@@ -912,6 +920,12 @@ export async function writeDrafts(
     drafts: must ? drafts.map((d) => (d.includes(must) ? d : `${d}\n\n${must}`)) : drafts,
   };
 }
+
+/** The drafts that ask a question, or all of them when none does. */
+const asksThem = (drafts: string[]): string[] => {
+  const asking = drafts.filter((d) => d.includes('?'));
+  return asking.length ? asking : drafts;
+};
 
 /** What the person reads when the AI couldn't write a draft, and what to do. */
 export function draftRefusal(e: unknown): unknown {

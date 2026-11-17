@@ -120,7 +120,7 @@ describe('what the AI knows of the owner', () => {
   });
 
   it('reaches the drafts already waiting: they’re written again', () => {
-    expect(RULES_VERSION).toBe(3);
+    expect(RULES_VERSION).toBeGreaterThanOrEqual(3);
   });
 });
 

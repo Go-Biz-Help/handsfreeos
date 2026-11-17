@@ -131,6 +131,25 @@ export function messageParts(text: string, split: boolean): string[] {
   return [...parts.slice(0, PARTS_MOST - 1), parts.slice(PARTS_MOST - 1).join('\n\n')];
 }
 
+/**
+ * An introduction as it goes when the person sends a few texts (decision 175, the owner, 17 Nov 2026: "the question
+ * should be in a second message right after the introduction so it's not all in one"): the introduction, then its
+ * question about them as a text of its own. A draft that came back as one text has its last sentence moved to a second
+ * when that's a question of a few words; one of more than two texts keeps its last alone and joins the rest.
+ */
+export function introTexts(text: string): string {
+  const parts = text
+    .trim()
+    .split(/\n[ \t]*\n/)
+    .map((p) => p.trim().replace(/\s+/g, ' '))
+    .filter(Boolean);
+  if (parts.length >= 2) return [parts.slice(0, -1).join(' '), parts.at(-1)!].join('\n\n');
+  const one = parts[0] ?? '';
+  const ask = /^(.*[.!])\s+([^.!?]+\?)$/.exec(one);
+  if (!ask || ask[2]!.trim().split(/\s+/).length < 3) return one;
+  return `${ask[1]!.trim()}\n\n${ask[2]!.trim()}`;
+}
+
 /** A message as the AI's texts make it: blank lines between them, each tidied, no more than the most. */
 export function joinedParts(text: string, split: boolean): string {
   return split ? messageParts(text, true).join('\n\n') : text.trim().replace(/\n[ \t]*\n+/g, '\n');

@@ -427,7 +427,8 @@ became.
   both are on every network: one Start reads all six, each with its own guide for its warm-up and topic comments.
 - **An introduction in place of the pitch** (decision 168, `script.ts`, `ops/checks.ts`): a playbook can start with
   an introduction (What it says → How the first message goes): thanks for connecting, who the person is and what the
-  business offers, and a question about them from their page (decision 173). It goes to everyone who connects.
+  business offers, and a question about them from their page (decision 173), as a second text right after it when
+  the person sends a few (decision 175). It goes to everyone who connects.
 - **The networking chat after it** (decision 173, `script.ts` `PLAYBOOK_NETWORKING`, `today.ts`
   `networkingReplyTask`): replies stay about them; one nudge if they stay quiet, then a check-in once a month; a demo
   offered once when they name a problem the business fixes, a networking call once when a demo doesn't fit (booked on
@@ -4675,6 +4676,30 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         `outreach_skip_referral`).
       - **Next**: the extension posting the comment and sending the heads-up itself, after the person's OK.
 
+175.  **The introduction's question goes as its own message, right after it** (Chris, 17 Nov 2026: "the introduction
+      message from the outreach playbook says it should ask a question and I don’t see the question in the messages
+      it’s asking me to ok. also the question should be in a second message right after the introduction so it’s not
+      all in one"). Builds on decision 173's 1:
+      - **Why some had no question**: the 11 introductions waiting since the morning of 16 Nov were written before
+        decision 173 went live, with decision 168's words ("If you're ever interested, just reach out!"). Every one
+        written since asked a question, in the same text as the introduction.
+      - **Two texts** (`introTask`'s `two`, `voiceLines`; the worker's `writeDrafts`, core's `introTexts`): when the
+        person sends a message as a few texts (Settings, How the AI writes for you, on to start and on for the owner),
+        the AI writes the introduction with no question in it, a blank line, then the question alone, and the
+        extension sends them a few seconds apart, as every message of a few texts goes. A draft that comes back as one
+        text has its last sentence moved to a text of its own when it's a question of three words or more; one of
+        more than two texts keeps its last alone and joins the rest. Today shows the two texts to copy in turn. For
+        someone who sends each message as one text it stays one message, the question last, and to someone's
+        Requests on Instagram it's one text, as every first message there is.
+      - **It always asks** (`introTask`): the question the playbook's words ask, or, when a playbook's own
+        introduction asks none, one about them from their page. A draft that asks nothing goes while another asks
+        (the worker's `asksThem`).
+      - **Written again** (`RULES_VERSION` 4): every message still waiting for an OK, or OK'd and not sent, is written
+        again the next time the extension queues one, so the introductions already waiting ask the question, as two
+        texts.
+      - **How it's built** (no migration, no extension change): `today.ts`, `voice.ts`, `sends.ts` and the words of
+        `script.ts` in core; the worker's `today.ts` and the stand-in model.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -4716,6 +4741,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 - **An introduction never gets the follow-ups** (decisions 168 and 173, `introSent`, `checkInsOnly`): a conversation
   on step `intro` gets one nudge after the introduction, then check-ins only, after a reply too. Say hi widens to
   everyone who connected only while every playbook in use on the network starts with one (`introsOnly`).
+- **An introduction always asks a question about them, as its own text** (decisions 173 and 175, `introTask`,
+  `introTexts`): the question goes as a second text right after it when the person sends a few, and never in a
+  first message to someone's Requests. Don't let a playbook's own words drop it.
 - **In the networking chat, only a yes to a demo or a call is a yes** (decision 173, `ANSWER_AFTER_INTRO_ASK`,
   `answerOf`, `tookOf`): a friendly answer to the owner's question about them is no yes, so no ask for a time
   follows it. A call's yes (`follow_ups.call`) puts the ask and what follows it on the person's own calendar, with no

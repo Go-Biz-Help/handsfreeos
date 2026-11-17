@@ -1992,12 +1992,15 @@ function scriptedTodayDraft(message: string) {
     // An introduction (decision 168) names the owner and the business too.
     const owner = unquote(quotedBlock(message, 'owner_name') ?? '').split(/\s+/)[0] ?? '';
     const business = unquote(quotedBlock(message, 'business') ?? '');
+    // Its question about them (decision 173), as a text of its own when it's told so (decision 175).
+    const ask = message.includes('The question goes as its own text') ? '\n\n' : ' ';
     const says = scriptedFill(
       unquote(quotedBlock(message, 'playbook_says') ?? '')
         .replace(/\[your first name\]/g, owner)
-        .replace(/\[your business name\]/g, business),
+        .replace(/\[your business name\]/g, business)
+        .replace(/ ?\[a question about them\]/g, ' QUESTION'),
       first ?? '',
-    );
+    ).replace(/ ?QUESTION$/, `${ask}How did you get started?`);
     return {
       simple: false,
       answer: 'none',
