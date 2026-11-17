@@ -14,7 +14,9 @@
  *   of a post just put up among their own (part 10).
  * - `read`: the page as its network's readers see it (Facebook's and LinkedIn's: a profile, its posts, a search's
  *   people and posts), for the reads that go by the page itself (./page-read.ts). `scroll`: one screen further down,
- *   as a person scrolls, for the network to load more.
+ *   as a person scrolls, for the network to load more. `drawPosts`: on a page that draws its posts only once they're
+ *   scrolled near (Facebook's), the first still loading scrolled into view, for a post's link to be looked for among
+ *   the newest (./posting.ts).
  * - `warnings`: the network's warnings on the page now ("Try again later"), which stop the network for the day.
  * - `outline`: the page, read by its network's readers, with its outline (everything a person wrote as "[2 words]"),
  *   for the read's problem report.
@@ -59,11 +61,23 @@ export interface ResearchScrolled {
   readonly atEnd: boolean;
 }
 
+/**
+ * How far `drawPosts` found the page's posts drawn: how many, and whether it's still drawing the newest (one scrolled
+ * into view to load); whether Chrome shows the page, as it draws nothing in a window hidden behind another.
+ */
+export interface ResearchDrawing {
+  readonly drawn: number;
+  readonly loading: boolean;
+  readonly shown: boolean;
+}
+
 export interface ResearchHands {
   get(path: string): Promise<ResearchGot>;
   /** The page as its network's readers see it (a kit's `readPage`). */
   read(): unknown;
   scroll(): ResearchScrolled;
+  /** Until `most` posts are drawn: the first still loading scrolled into view (or one screen down while none shows). */
+  drawPosts(most: number): ResearchDrawing;
   outline(): ResearchOutline;
   /** The network's warnings on the page now. */
   warnings(): string[];
@@ -150,6 +164,17 @@ if (kit && !here.hfosResearch) {
         moved: scrollY !== before,
         atEnd: innerHeight + scrollY >= document.documentElement.scrollHeight - 40,
       };
+    },
+    drawPosts(most) {
+      const shown = document.visibilityState === 'visible';
+      const now = kit.postsDrawing?.(document);
+      if (!now) return { drawn: 0, loading: false, shown };
+      // None drawn and none loading yet: its posts are further down, below what the page says about itself.
+      const loading = now.drawn < most && (now.loading !== null || now.drawn === 0);
+      if (loading && now.loading)
+        (now.loading as HTMLElement).scrollIntoView?.({ block: 'center' });
+      else if (loading) scrollBy({ top: Math.round(innerHeight * 0.9) });
+      return { drawn: now.drawn, loading, shown };
     },
     warnings: () => kit.readWarnings(document, location.href),
     view: (fresh) => hands.look(document, location.href, fresh),

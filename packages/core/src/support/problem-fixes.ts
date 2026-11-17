@@ -320,6 +320,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 656,
     said: 'The last read of the group stopped just as its member list ended, so this read scrolled past the end keeping nothing (decision 148) and saved no depth, so it would every time. When the list ends before where the last read got to, nothing is reported now and the next read starts at the top.',
   },
+  {
+    area: 'facebook',
+    job: 'post.page',
+    note: 'It pressed Publish for your Page in Meta Business Suite, but didn’t find the post on your Page after',
+    fixedIn: '0.147.3',
+    pr: 660,
+    said: 'The Page was read the moment it opened, while every post on it still said “Loading...”: Facebook draws a Page’s posts only once they’re scrolled near, and nothing in a hidden window. The first still loading is scrolled into view and waited on now, up to 30 seconds, then looked at in front while the person is away; still unseen, it says it couldn’t check.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */
