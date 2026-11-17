@@ -25,12 +25,12 @@ async function photo(): Promise<string> {
   return (await sharp(Buffer.from(svg)).jpeg({ quality: 92 }).toBuffer()).toString('base64');
 }
 
-/** The card's corners as the AI gives them: thousandths across and down, a little off. */
+/** The card's corners as the AI gives them: pixels of the picture it was shown, a little off. */
 const AI_CORNERS = [
-  { x: 235, y: 191 },
-  { x: 754, y: 298 },
-  { x: 770, y: 684 },
-  { x: 177, y: 697 },
+  { x: 282, y: 172 },
+  { x: 905, y: 268 },
+  { x: 924, y: 615 },
+  { x: 212, y: 626 },
 ];
 
 const read = (body: unknown, auth: string | null = bearer) =>
@@ -56,7 +56,8 @@ beforeAll(async () => {
     ai: {
       provider: scriptedAi([
         {
-          when: /Read this side of the business card\.$/,
+          // The ask says how big the picture is, so the corners come back in its pixels.
+          when: /Read this side of the business card\. The picture is 1200 pixels wide and 900 pixels high\.$/,
           json: () => ({ ...SCRIPTED_BUSINESS_CARD, corners: AI_CORNERS }),
         },
       ]),
@@ -79,9 +80,11 @@ describe('reading a business card', () => {
     expect(out.cropped).toBe(true);
     expect(out.width / out.height).toBeGreaterThan(1.6);
     expect(out.width / out.height).toBeLessThan(1.9);
-    // The corners found, near the real ones (260,190 … in a 1,200 by 900 picture), not the AI's rough ones.
-    expect(out.corners![0]!.x * 1199).toBeCloseTo(260, -1);
-    expect(out.corners![0]!.y * 899).toBeCloseTo(190, -1);
+    // The card's own corners (260,190 … in a 1,200 by 900 picture), found by its edges, not the AI's rough ones.
+    expect(Math.abs(out.corners![0]!.x * 1199 - 260)).toBeLessThan(5);
+    expect(Math.abs(out.corners![0]!.y * 899 - 190)).toBeLessThan(5);
+    expect(Math.abs(out.corners![2]!.x * 1199 - 900)).toBeLessThan(5);
+    expect(Math.abs(out.corners![2]!.y * 899 - 640)).toBeLessThan(5);
     const meta = await sharp(Buffer.from(out.picture, 'base64')).metadata();
     expect([meta.format, meta.width, meta.height]).toEqual(['jpeg', out.width, out.height]);
     // Tidied: the name cased, the labels plain, the email lower-cased.

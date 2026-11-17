@@ -26,12 +26,20 @@ Under each side's picture: **Retake**, **Fix the edges** (drag the four corners 
   over-the-air update), shrinks it to a 2,048 px JPEG and sends it to the worker:
   `POST /v1/contacts/read-card` (`apps/worker/src/contacts/read-card.ts`). Providers live in the worker, so the API
   never sees the picture.
-- The AI (`BUSINESS_CARD_SYSTEM` in `packages/core/src/crm/business-card.ts`) copies the details and says roughly where
-  the card's four corners are, in the order the card reads, so a card photographed sideways comes out the right way up.
-- The worker then finds each edge exactly (`apps/worker/src/contacts/card-picture.ts`): across the AI's edge, the
-  strongest change from card to table at points along it, and the line most of them agree on. The corners are where
-  the lines meet. The card is pulled flat at its true shape (worked out from the photo's perspective) and cut a hair
-  inside its edges, so no table shows.
+- The AI (`BUSINESS_CARD_SYSTEM` in `packages/core/src/crm/business-card.ts`) copies the details. It also says roughly
+  where the card's four corners are, in the order the card reads, in pixels of the picture it was shown. The ask tells
+  it how wide and high that picture is (`businessCardAsk`), and `cornersFromAnswer` divides by the same size.
+- The worker finds the card by its own edges (`apps/worker/src/contacts/card-finder.ts`): the long straight lines in
+  the photo, the four-sided outlines they make, and whether each side really is a step from one colour to another along
+  its whole length. A rounded corner, or one corner under a thumb or a clip, is let off.
+- The AI's corners are only a hint (`straightenCard` in `apps/worker/src/contacts/card-picture.ts`). They say which
+  outline is the card, and which way up it reads, so a card photographed sideways comes out the right way up. In order:
+  1. the outline the hint points at;
+  2. the AI's own corners, when the photo's edges bear them out;
+  3. the clearest outline in the photo, when the hint points at nothing. It has to be clear on every side.
+  4. Otherwise the photo isn't cropped.
+- The card is pulled flat at its true shape (worked out from the photo's perspective) and cut a hair inside its edges,
+  so no table shows.
 - With corners placed by hand (Fix the edges), the picture is only straightened again: no AI, nothing counted.
 - The AI's tokens count as `business_card` usage (app.ai_usage, migration 20261027028700) for the person scanning,
   against the daily AI limit and the balance.
@@ -48,5 +56,15 @@ Under each side's picture: **Retake**, **Fix the edges** (drag the four corners 
 - **The back fills only empty boxes** (`fillCardForm`). Never let a later side overwrite what's there.
 - **The picture kept is the card alone.** When the edges can't be found, the picture is kept as taken and the person
   is told to fix the edges.
+- **No crop beats a wrong crop.** When the worker can't be sure which outline is the card, it leaves the photo as
+  taken. Don't loosen the finder's limits to crop more often without trying it on real photos.
+- **The crop never rests on the AI's corners alone.** On 17 November 2026 the AI gave its corners in pixels of the
+  picture it saw, the worker read them as thousandths, and both of the owner's first cards were cropped below the card.
+  The scripted AI in the tests had hidden it. So the card is found in the photo itself, and the tests give the finder
+  hints at the wrong scale, in the wrong place, and none at all.
+- **Known limits.** A card lying on something bigger and card-shaped (a sheet of paper) is cropped to that when the AI's
+  hint is no help. A white card on white paper, or a dark card on a dark keyboard, is left uncropped. Fix the edges
+  covers each of these.
+- **Never put a real card's photo in the repository.** It shows a stranger's details. The tests draw their cards.
 - **No new native modules on the phone** for this: the App Store has 1.0.0, and a native change means 1.0.1 and a
   review. A native document scanner (VisionKit, ML Kit) would be an upgrade for a later native release.

@@ -1,16 +1,22 @@
 /**
  * A business card's picture, straightened (Contacts → + → Scan a business card; core's `crm/business-card.ts`).
  *
- * The AI says roughly where the card's four corners are. Each edge is then found exactly: across the AI's edge, at
- * points along it, the strongest change from card to background is picked, and a line is fitted through those that
- * agree (so a word or a shadow near the edge doesn't pull it off). Where two edges meet is the corner. The card is
- * then pulled flat, as if seen from straight above, at its true shape (worked out from the way the photo's
- * perspective squeezes it), and only the card is kept.
+ * The card is found in the photo by its own four edges (card-finder.ts), with nothing said about where it is. The AI's
+ * corners are only a hint: they say which way up the card reads, and they are used in place of the finder only when
+ * it finds nothing and the picture's edges bear them out. Each edge is then found exactly: across it, at points along
+ * it, the strongest change from card to background is picked, and a line is fitted through those that agree (so a
+ * word or a shadow near the edge doesn't pull it off). Where two edges meet is the corner. The card is then pulled
+ * flat, as if seen from straight above, at its true shape (worked out from the way the photo's perspective squeezes
+ * it), and only the card is kept.
+ *
+ * A card whose edges can't be found is not cropped at all: the picture is kept as taken and the person fixes the
+ * edges by hand. A crop in the wrong place is worse than none.
  *
  * Plain arithmetic on the pixels sharp decodes: no image library beyond sharp, so nothing new to install anywhere.
  */
 import sharp from 'sharp';
 import type { CardCorners } from '@hfos/core';
+import { edgeMap, FIND_CARD_EDGE, findCard, inReadingOrder, liesOnEdges } from './card-finder';
 
 export interface Pt {
   readonly x: number;
@@ -25,8 +31,10 @@ export interface Gray {
   readonly height: number;
 }
 
-/** The longest side the edges are looked for at: plenty to find an edge, quick to search. */
+/** The longest side the edges are placed exactly at: plenty to find an edge, quick to search. */
 export const FIND_EDGE = 1000;
+/** How far from a corner's line its edge is looked for, as a share of the picture's longest side. */
+const REACH = 0.06;
 /** The longest side of the straightened card, at most: sharp enough to read, small enough to keep. */
 export const CARD_MAX_EDGE = 1600;
 /** …and at least, so a small card in a big picture is still readable. */
@@ -169,14 +177,13 @@ function blur(src: Float32Array, w: number, h: number): Float32Array {
 }
 
 /**
- * Each edge of the card found exactly near where the AI put it, and the corners where they meet. An edge that can't
- * be found keeps the AI's line; a corner that moves further than the search could reach, or a shape that stops being
- * a card, keeps the AI's corners.
+ * Each edge of the card found exactly near where the corners put it, and the corners where the edges meet. An edge that can't be found keeps its line; a corner that moves further
+ * than the search could reach, or a shape that stops being a card, keeps the corners given.
  */
 export function refineCorners(gray: Gray, rough: Quad): Quad {
   const { width: w, height: h } = gray;
   const { gx, gy } = gradients(gray);
-  const band = Math.max(10, Math.round(0.06 * Math.max(w, h)));
+  const band = Math.max(6, Math.round(REACH * Math.max(w, h)));
   const tolerance = Math.max(1.5, 0.004 * Math.max(w, h));
   const centre = {
     x: rough.reduce((s, p) => s + p.x, 0) / 4,
@@ -404,34 +411,104 @@ export interface Straightened {
   readonly picture: Buffer;
   readonly width: number;
   readonly height: number;
-  /** Where the card's corners ended up, as shares of the picture; null when it wasn't cropped. */
+  /**
+   * Where the card's corners are, as shares of the picture. When it wasn't cropped: the best guess to start fixing
+   * the edges from, or null with nothing to go by.
+   */
   readonly corners: CardCorners | null;
   readonly cropped: boolean;
 }
 
-/** The photo the right way up, as sharp reads it (an iPhone's turn flag applied). */
-export async function uprightJpeg(photo: Buffer, longest: number): Promise<Buffer> {
-  return sharp(photo, { failOn: 'error' })
+/** The photo the right way up, as sharp reads it (an iPhone's turn flag applied), and its size. */
+export async function uprightJpeg(
+  photo: Buffer,
+  longest: number,
+): Promise<{ jpeg: Buffer; width: number; height: number }> {
+  const { data, info } = await sharp(photo, { failOn: 'error' })
     .rotate()
     .resize({ width: longest, height: longest, fit: 'inside', withoutEnlargement: true })
     .jpeg({ quality: 90 })
-    .toBuffer();
+    .toBuffer({ resolveWithObject: true });
+  return { jpeg: data, width: info.width, height: info.height };
 }
 
 /**
- * The card alone, straightened, from the photo and roughly where its corners are (shares of the picture). `refine`
- * finds the edges exactly first: off for corners a person placed by hand, which are kept where they put them. With no
- * corners, the photo comes back as it is.
+ * The card alone, straightened.
+ *
+ * With `find`, the card is looked for in the photo by its edges; `rough` (the AI's corners, as shares of the picture)
+ * is then only a hint, and may be null. When its edges can't be found the photo comes back as it is, not cropped.
+ * Without `find`, `rough` is where a person put the corners by hand: they are kept exactly where they put them, and
+ * with none the photo comes back as it is.
  */
 export async function straightenCard(
   photo: Buffer,
   rough: CardCorners | null,
-  options: { readonly refine: boolean },
+  options: { readonly find: boolean },
 ): Promise<Straightened> {
   const upright = sharp(photo, { failOn: 'error' }).rotate().removeAlpha().toColourspace('srgb');
   const { data: rgb, info } = await upright.clone().raw().toBuffer({ resolveWithObject: true });
   const size = { width: info.width, height: info.height };
-  if (!rough) {
+  const share = (v: number, of: number) => Math.min(1, Math.max(0, v / (of - 1)));
+  const asShares = (q: Quad) =>
+    q.map((p) => ({
+      x: share(p.x, size.width),
+      y: share(p.y, size.height),
+    })) as unknown as CardCorners;
+  const given = rough
+    ? (rough.map((p) => ({
+        x: p.x * (size.width - 1),
+        y: p.y * (size.height - 1),
+      })) as unknown as Quad)
+    : null;
+
+  let corners: Quad | null = options.find ? null : given;
+  if (options.find) {
+    const resized = (longest: number) => {
+      const scale = Math.min(1, longest / Math.max(size.width, size.height));
+      return upright.clone().resize({
+        width: Math.max(1, Math.round(size.width * scale)),
+        height: Math.max(1, Math.round(size.height * scale)),
+        fit: 'fill',
+      });
+    };
+    const colour = await resized(FIND_CARD_EDGE).raw().toBuffer({ resolveWithObject: true });
+    const edges = edgeMap({
+      data: colour.data,
+      width: colour.info.width,
+      height: colour.info.height,
+    });
+    // Between the photo's own pixels and a smaller copy the edges are looked for in.
+    const to = (q: Quad, of: { width: number; height: number }): Quad =>
+      q.map((p) => ({
+        x: (p.x * (of.width - 1)) / (size.width - 1),
+        y: (p.y * (of.height - 1)) / (size.height - 1),
+      })) as unknown as Quad;
+    const from = (q: Quad, of: { width: number; height: number }): Quad =>
+      q.map((p) => ({
+        x: (p.x * (size.width - 1)) / (of.width - 1),
+        y: (p.y * (size.height - 1)) / (of.height - 1),
+      })) as unknown as Quad;
+
+    const hint = given ? to(given, edges) : null;
+    const found = findCard(edges, hint);
+    if (found?.agrees) corners = from(found.corners, edges);
+    // No outline where the AI pointed: its own corners, if the picture's edges bear them out.
+    if (!corners && given) {
+      const grey = await resized(FIND_EDGE).greyscale().raw().toBuffer({ resolveWithObject: true });
+      const gray: Gray = {
+        data: Float32Array.from(grey.data),
+        width: grey.info.width,
+        height: grey.info.height,
+      };
+      const exact = from(refineCorners(gray, to(given, gray)), gray);
+      if (liesOnEdges(edges, to(exact, edges))) corners = exact;
+    }
+    // Then the AI pointed at the wrong place, and the card is the clearest outline in the picture.
+    if (!corners && found) corners = from(found.corners, edges);
+    if (corners) corners = inReadingOrder(corners, given, size);
+  }
+
+  if (!corners) {
     const picture = await sharp(rgb, {
       raw: { width: size.width, height: size.height, channels: 3 },
     })
@@ -447,39 +524,9 @@ export async function straightenCard(
       picture: picture.data,
       width: picture.info.width,
       height: picture.info.height,
-      corners: null,
+      corners: given && isCardShaped(given, size.width, size.height) ? asShares(given) : null,
       cropped: false,
     };
-  }
-
-  let corners = rough.map((p) => ({
-    x: p.x * (size.width - 1),
-    y: p.y * (size.height - 1),
-  })) as unknown as Quad;
-  if (options.refine) {
-    const scale = Math.min(1, FIND_EDGE / Math.max(size.width, size.height));
-    const small = await upright
-      .clone()
-      .resize({
-        width: Math.round(size.width * scale),
-        height: Math.round(size.height * scale),
-        fit: 'fill',
-      })
-      .greyscale()
-      .raw()
-      .toBuffer({ resolveWithObject: true });
-    const gray: Gray = {
-      data: Float32Array.from(small.data),
-      width: small.info.width,
-      height: small.info.height,
-    };
-    const sx = (gray.width - 1) / (size.width - 1);
-    const sy = (gray.height - 1) / (size.height - 1);
-    const found = refineCorners(
-      gray,
-      corners.map((p) => ({ x: p.x * sx, y: p.y * sy })) as unknown as Quad,
-    );
-    corners = found.map((p) => ({ x: p.x / sx, y: p.y / sy })) as unknown as Quad;
   }
 
   const out = cardSize(corners, size.width, size.height);
@@ -487,15 +534,11 @@ export async function straightenCard(
   const picture = await sharp(flat, { raw: { width: out.width, height: out.height, channels: 3 } })
     .jpeg({ quality: CARD_QUALITY })
     .toBuffer();
-  const share = (v: number, of: number) => Math.min(1, Math.max(0, v / (of - 1)));
   return {
     picture,
     width: out.width,
     height: out.height,
-    corners: corners.map((p) => ({
-      x: share(p.x, size.width),
-      y: share(p.y, size.height),
-    })) as unknown as CardCorners,
+    corners: asShares(corners),
     cropped: true,
   };
 }

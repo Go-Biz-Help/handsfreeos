@@ -6,6 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  BUSINESS_CARD_ASK,
   BUSINESS_CARD_SOURCE,
   BUSINESS_CARD_WORDS,
   BusinessCardAnswer,
@@ -14,6 +15,7 @@ import {
   cardContactFromAnswer,
   checkCardForm,
   companyKey,
+  businessCardAsk,
   cornersFromAnswer,
   EMPTY_CARD_FORM,
   fillCardForm,
@@ -80,21 +82,45 @@ describe('what the AI read off a card', () => {
   });
 
   it('has corners only for a card with an outline the size of one', () => {
-    expect(cornersFromAnswer(answer())).toEqual([
+    // The AI gives pixels of the picture it was shown; the form takes shares of the picture.
+    const picture = { width: 1000, height: 1000 };
+    expect(cornersFromAnswer(answer(), picture)).toEqual([
       { x: 0.1, y: 0.15 },
       { x: 0.9, y: 0.16 },
       { x: 0.88, y: 0.7 },
       { x: 0.12, y: 0.69 },
     ]);
-    expect(cornersFromAnswer(answer({ corners: [] }))).toBeNull();
-    expect(cornersFromAnswer(answer({ isCard: false }))).toBeNull();
+    expect(cornersFromAnswer(answer({ corners: [] }), picture)).toBeNull();
+    expect(cornersFromAnswer(answer({ isCard: false }), picture)).toBeNull();
     const sliver = [
       { x: 100, y: 100 },
       { x: 110, y: 100 },
       { x: 110, y: 110 },
       { x: 100, y: 110 },
     ];
-    expect(cornersFromAnswer(answer({ corners: sliver }))).toBeNull();
+    expect(cornersFromAnswer(answer({ corners: sliver }), picture)).toBeNull();
+  });
+
+  it('reads the AI’s corners at the size of the picture it was shown', () => {
+    // A phone's upright photo as the AI sees it. Read as thousandths, these landed a card's height too low.
+    const picture = { width: 1176, height: 1568 };
+    const corners = [
+      { x: 212, y: 750 },
+      { x: 934, y: 752 },
+      { x: 947, y: 1170 },
+      { x: 198, y: 1178 },
+    ];
+    const shares = cornersFromAnswer(answer({ corners }), picture)!;
+    expect(shares[0]!.x).toBeCloseTo(0.18, 2);
+    expect(shares[0]!.y).toBeCloseTo(0.478, 2);
+    expect(shares[2]!.x).toBeCloseTo(0.805, 2);
+    expect(shares[2]!.y).toBeCloseTo(0.746, 2);
+    // A corner past the picture's edge is held at the edge.
+    const past = [corners[0]!, { x: 1300, y: 752 }, { x: 1300, y: 1700 }, corners[3]!];
+    expect(cornersFromAnswer(answer({ corners: past }), picture)![2]).toEqual({ x: 1, y: 1 });
+    expect(businessCardAsk(picture)).toBe(
+      `${BUSINESS_CARD_ASK} The picture is 1176 pixels wide and 1568 pixels high.`,
+    );
   });
 });
 
