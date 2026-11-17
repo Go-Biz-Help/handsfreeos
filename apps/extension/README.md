@@ -1272,6 +1272,15 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Threads' box opened from New thread, or the feed's box by its words (0.147.5)
+
+On 0.147.4 two Threads posts of 17 Nov 2026 (05:38 and 05:44 UTC) still stopped at "Threads didn’t show the box to write
+a post", this time with nothing pressed. Threads now showed **New thread** in its side menu where **Create** had been,
+and the box at the top of its feed is labelled "Empty text field. Type to compose a new post." while it shows "What's
+new?", so neither matched what opens the box. From 0.147.5 (`threadsStarts` in `src/research/post-short.ts`) the feed's
+box is found by the words it shows as well as by its label, then New thread, then Create. If the first one pressed
+opens nothing to write in, the next is pressed, two at most.
+
 ### Threads' New thread box found when it opens as a menu (0.147.4)
 
 The problem check of 17 Nov 2026 (01:23 UTC) found two Threads posts of 16 Nov (19:54 and 23:19 UTC, on 0.142.0) that

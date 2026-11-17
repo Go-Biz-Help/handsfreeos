@@ -7,7 +7,7 @@
  *   (`tweetTextarea_0`), the pictures in its file field, each post of a chain in a box of its own after its **Add
  *   post** (`addButton`; `tweetTextarea_1`, `_2`…), then its **Post** (**Post all** with a chain; `tweetButton`). Its
  *   note that the post was sent carries a link to it.
- * - **Threads:** its home page's "What's new?" (or **Create** in its side menu) opens its box over the page: the words
+ * - **Threads:** its home page's "What's new?" (or **New thread** or **Create**) opens its box over the page: the words
  *   go in its first box, the pictures in its file field (or by its picture button with the file picker held back),
  *   each post of a chain after its **Add to thread**, then its own **Post**. Its note that it posted carries a link.
  *
@@ -50,8 +50,11 @@ const OVER_THE_PAGE = '[role="dialog"], [role="alertdialog"], dialog';
 const CONTROLS = 'button, [role="button"], a[role="link"], [role="menuitem"]';
 const WRITING = '[contenteditable="true"], [role="textbox"], textarea';
 
-/** Threads' box at the top of its feed, and Create in its side menu, that open its box to write a post. */
-const THREADS_START = /^(what['’]s new\??|start a thread\b.*|create)$/i;
+/**
+ * What opens Threads' box to write a post, best first: the box at the top of its feed, then New thread in its side
+ * menu, then Create. Threads has shown Create at the page's foot, and on 17 Nov 2026 New thread in its place.
+ */
+const THREADS_STARTS = [/^(what['’]s new\??|start a thread\b.*)$/i, /^new thread$/i, /^create$/i];
 /** The control that adds a post under the one before. */
 const THREADS_ADD = /^add to thread$/i;
 const X_ADD = /^add (post|another post)$/i;
@@ -139,16 +142,20 @@ export function threadsBoxes(doc: Document): HTMLElement[] {
   );
 }
 
-/** What opens Threads' box: "What's new?" at the top of the feed, else Create in the side menu. */
-function threadsStart(doc: Document): HTMLElement | null {
+/**
+ * What may open Threads' box, best first (`THREADS_STARTS`), each by its label or by the words it shows: the feed's
+ * box is labelled "Empty text field. Type to compose a new post." while it shows "What's new?" (the owner's problem
+ * reports of 17 Nov 2026, from 0.147.5).
+ */
+function threadsStarts(doc: Document): HTMLElement[] {
   const controls = [...doc.querySelectorAll<HTMLElement>(`${CONTROLS}, a[href]`)].filter(
     (c) => shown(c) && !c.closest(OVER_THE_PAGE),
   );
-  return (
-    controls.find((c) => says(c, THREADS_START)) ??
-    controls.find((c) => !!c.querySelector('svg[aria-label="Create" i]')) ??
-    null
-  );
+  const named = (c: HTMLElement, pattern: RegExp) =>
+    says(c, pattern) || pattern.test(clean(c.textContent));
+  const found = THREADS_STARTS.flatMap((pattern) => controls.filter((c) => named(c, pattern)));
+  found.push(...controls.filter((c) => !!c.querySelector('svg[aria-label="Create" i]')));
+  return [...new Set(found)];
 }
 
 /** Threads' link to the post just put up, from its note ("Posted · View"). */
@@ -186,11 +193,14 @@ export async function postShort(
     if (onX) return waitFor(() => xBox(doc, 0));
     const open = threadsBoxes(doc)[0];
     if (open) return open;
-    const start = threadsStart(doc);
-    if (!start) return null;
-    start.click();
-    steps.push('start');
-    return waitFor(() => threadsBoxes(doc)[0] ?? null);
+    // The best two that may open it, the second only when the first opened nothing to write in.
+    for (const start of threadsStarts(doc).slice(0, 2)) {
+      start.click();
+      steps.push('start');
+      const box = await waitFor(() => threadsBoxes(doc)[0] ?? null);
+      if (box) return box;
+    }
+    return null;
   };
   const box = await first();
   if (!box) return end('none');

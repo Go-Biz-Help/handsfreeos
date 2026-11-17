@@ -332,9 +332,9 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     area: 'threads',
     job: 'post.feed',
     note: 'Threads didn’t show the box to write a post',
-    fixedIn: '0.147.4',
-    pr: 659,
-    said: 'Create opened Threads’ New thread box, but Threads now draws it as a menu, not a box over the page, so it was never found. A menu with a box to write in counts now; one without (More’s) never does.',
+    fixedIn: '0.147.5',
+    pr: 661,
+    said: 'Create opened Threads’ New thread box, but Threads now draws it as a menu, not a box over the page, so it was never found. A menu with a box to write in counts now; one without (More’s) never does (0.147.4, #659). Then Threads showed New thread where Create was, and its feed’s box is labelled “Empty text field…” while it shows “What’s new?”, so nothing opened the box: the feed’s box is found by the words it shows now, then New thread, then Create, and the next is pressed when one opens nothing to write in.',
   },
 ];
 
