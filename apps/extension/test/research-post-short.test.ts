@@ -91,7 +91,7 @@ function xPage(opts: { written?: string; postOff?: boolean } = {}): Made {
  * drew it on 16 Nov 2026: the feed's own box is named by a label that isn't its words, so Create at the page's foot
  * opens the New thread box, drawn as a menu, while a More menu with no box to write in is open beside it.
  */
-function threadsPage(opts: { menu?: boolean; newThread?: 'feed' | 'side' } = {}): Made {
+function threadsPage(opts: { menu?: boolean; newThread?: 'feed' | 'side' | 'create' } = {}): Made {
   const feedBox = (id: string) =>
     `<div role="button" ${id} aria-label="Empty text field. Type to compose a new post."><span>What’s new?</span></div>`;
   const { window } = new JSDOM(
@@ -100,11 +100,17 @@ function threadsPage(opts: { menu?: boolean; newThread?: 'feed' | 'side' } = {})
         <div role="button" id="start" aria-expanded="false"><svg role="img"><title>Create</title></svg></div></body>`
       : opts.newThread
         ? // As Threads drew it on 17 Nov 2026: New thread in its side menu, and no Create. With `side` the feed's box
-          // opens nothing, and New thread opens the box.
+          // opens nothing, and New thread opens the box; with `create`, as on 16 Nov, Create is there too and only it
+          // opens the box.
           `<body><div role="navigation">
             <div role="button" ${opts.newThread === 'side' ? 'id="start"' : ''}><svg></svg><div>New thread</div></div>
           </div>
-          <div role="main">${feedBox(opts.newThread === 'feed' ? 'id="start"' : '')}</div></body>`
+          <div role="main">${feedBox(opts.newThread === 'feed' ? 'id="start"' : '')}</div>
+          ${
+            opts.newThread === 'create'
+              ? '<div role="button" id="start" aria-expanded="false"><svg role="img"><title>Create</title></svg></div>'
+              : ''
+          }</body>`
         : `<body><div role="main"><div role="button" id="start">What’s new?</div></div></body>`,
     { url: 'https://www.threads.com/' },
   );
@@ -261,6 +267,19 @@ describe('putting one of the business’s posts up on Threads (decision 41)', ()
       { words: ['Missed calls are missed jobs. #smallbusiness', 'More on it here.'], pictures: 1 },
     ]);
     expect(done.steps.filter((step) => step === 'start')).toHaveLength(2);
+  });
+
+  it('tries each way Threads shows in turn, closing what opened nothing, till Create opens the box', async () => {
+    const made = threadsPage({ newThread: 'create' });
+    const escapes: string[] = [];
+    made.doc.addEventListener('keydown', (e) => escapes.push((e as KeyboardEvent).key));
+    const done = await postHere(made.doc, ask('threads'));
+    expect(done.result).toBe('done');
+    expect(made.posted).toEqual([
+      { words: ['Missed calls are missed jobs. #smallbusiness'], pictures: 1 },
+    ]);
+    expect(done.steps.filter((step) => step === 'start')).toHaveLength(3);
+    expect(escapes).toEqual(['Escape', 'Escape']);
   });
 
   it('says when there’s no box to write in', async () => {

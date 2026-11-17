@@ -51,8 +51,8 @@ const CONTROLS = 'button, [role="button"], a[role="link"], [role="menuitem"]';
 const WRITING = '[contenteditable="true"], [role="textbox"], textarea';
 
 /**
- * What opens Threads' box to write a post, best first: the box at the top of its feed, then New thread in its side
- * menu, then Create. Threads has shown Create at the page's foot, and on 17 Nov 2026 New thread in its place.
+ * The ways Threads shows to open its box to write a post, best first: the box at the top of its feed, New thread in its
+ * side menu, and Create. Which of them a page shows varies: on 16 Nov 2026 all three, on 17 Nov no Create.
  */
 const THREADS_STARTS = [/^(what['’]s new\??|start a thread\b.*)$/i, /^new thread$/i, /^create$/i];
 /** The control that adds a post under the one before. */
@@ -143,9 +143,9 @@ export function threadsBoxes(doc: Document): HTMLElement[] {
 }
 
 /**
- * What may open Threads' box, best first (`THREADS_STARTS`), each by its label or by the words it shows: the feed's
- * box is labelled "Empty text field. Type to compose a new post." while it shows "What's new?" (the owner's problem
- * reports of 17 Nov 2026, from 0.147.5).
+ * One control for each way the page shows to open Threads' box, best first (`THREADS_STARTS`), each found by its label
+ * or by the words it shows: the feed's box is labelled "Empty text field. Type to compose a new post." while it shows
+ * "What's new?" (the owner's problem reports of 17 Nov 2026, from 0.147.5).
  */
 function threadsStarts(doc: Document): HTMLElement[] {
   const controls = [...doc.querySelectorAll<HTMLElement>(`${CONTROLS}, a[href]`)].filter(
@@ -153,9 +153,20 @@ function threadsStarts(doc: Document): HTMLElement[] {
   );
   const named = (c: HTMLElement, pattern: RegExp) =>
     says(c, pattern) || pattern.test(clean(c.textContent));
-  const found = THREADS_STARTS.flatMap((pattern) => controls.filter((c) => named(c, pattern)));
-  found.push(...controls.filter((c) => !!c.querySelector('svg[aria-label="Create" i]')));
-  return [...new Set(found)];
+  const ways = [
+    ...THREADS_STARTS.map((pattern) => controls.find((c) => named(c, pattern))),
+    controls.find((c) => !!c.querySelector('svg[aria-label="Create" i]')),
+  ];
+  return [...new Set(ways.filter((c): c is HTMLElement => !!c))];
+}
+
+/** Closes what a press opened that holds no box to write in, as Escape does, before the next way is tried. */
+function closeWhatOpened(doc: Document): void {
+  const KeyboardEvent = doc.defaultView?.KeyboardEvent;
+  if (!KeyboardEvent) return;
+  (doc.activeElement ?? doc.body).dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }),
+  );
 }
 
 /** Threads' link to the post just put up, from its note ("Posted · View"). */
@@ -193,12 +204,14 @@ export async function postShort(
     if (onX) return waitFor(() => xBox(doc, 0));
     const open = threadsBoxes(doc)[0];
     if (open) return open;
-    // The best two that may open it, the second only when the first opened nothing to write in.
-    for (const start of threadsStarts(doc).slice(0, 2)) {
+    // Each way the page shows, best first: the next only when the one before opened nothing to write in.
+    for (const start of threadsStarts(doc)) {
+      if (!start.isConnected) continue;
       start.click();
       steps.push('start');
       const box = await waitFor(() => threadsBoxes(doc)[0] ?? null);
       if (box) return box;
+      closeWhatOpened(doc);
     }
     return null;
   };
