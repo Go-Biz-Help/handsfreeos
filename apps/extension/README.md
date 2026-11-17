@@ -1272,6 +1272,17 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Every way Threads shows to open its box, tried in turn (0.147.5)
+
+On 0.147.4 two Threads posts of 17 Nov 2026 (05:38 and 05:44 UTC) still stopped at "Threads didn’t show the box to write
+a post", this time with nothing pressed. Threads shows several ways to start a post, and which a page shows varies: on
+16 Nov the box at the top of the feed, **New thread** in the side menu, and **Create** at the page's foot; on 17 Nov no
+Create. The extension knew only two of them: the feed's box by a label it doesn't have (it's labelled "Empty text field.
+Type to compose a new post." while it shows "What's new?"), and Create. So on 16 Nov it pressed Create, and on 17 Nov
+nothing. From 0.147.5 (`threadsStarts` in `src/research/post-short.ts`) each way is found by its label or the words it
+shows, and they're tried in turn, best first (the feed's box, New thread, Create): the next only when the one before
+opened nothing to write in, closing what it did open, as Escape does.
+
 ### Threads' New thread box found when it opens as a menu (0.147.4)
 
 The problem check of 17 Nov 2026 (01:23 UTC) found two Threads posts of 16 Nov (19:54 and 23:19 UTC, on 0.142.0) that
