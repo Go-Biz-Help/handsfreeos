@@ -33,7 +33,7 @@ Under each side's picture: **Retake**, **Fix the edges** (drag the four corners 
   the lines meet. The card is pulled flat at its true shape (worked out from the photo's perspective) and cut a hair
   inside its edges, so no table shows.
 - With corners placed by hand (Fix the edges), the picture is only straightened again: no AI, nothing counted.
-- The AI's tokens count as `business_card` usage (app.ai_usage, migration 20261027028600) for the person scanning,
+- The AI's tokens count as `business_card` usage (app.ai_usage, migration 20261027028700) for the person scanning,
   against the daily AI limit and the balance.
 - Nothing is saved until **Add contact**. Then, in order on the phone's queue: the company (`company.create`, unless
   one of the business's companies has the same name), the contact (`person.create`, source "Business card"), and each
