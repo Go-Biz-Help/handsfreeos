@@ -325,7 +325,7 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     job: 'post.page',
     note: 'It pressed Publish for your Page in Meta Business Suite, but didn’t find the post on your Page after',
     fixedIn: '0.147.6',
-    pr: 666,
+    pr: 668,
     said: 'The post was on the Page, first, but Facebook leaves a new post’s own link empty until it’s pointed at, and cut its words short with “…” before See more, so it was never matched (0.147.5, 17 Nov). A post now counts as there by its words, with or without a link, and the “…” is left off. Before that, the Page was read while its posts still said “Loading...”, fixed in 0.147.3 (#660).',
   },
   {
