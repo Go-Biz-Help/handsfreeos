@@ -15,8 +15,8 @@
  * - `read`: the page as its network's readers see it (Facebook's and LinkedIn's: a profile, its posts, a search's
  *   people and posts), for the reads that go by the page itself (./page-read.ts). `scroll`: one screen further down,
  *   as a person scrolls, for the network to load more. `drawPosts`: on a page that draws its posts only once they're
- *   scrolled near (Facebook's), the first still loading scrolled into view, for a post's link to be looked for among
- *   the newest (./posting.ts).
+ *   scrolled near (Facebook's), the first still loading scrolled into view, or the page scrolled on while fewer than
+ *   asked for are drawn and it hasn't ended, for a post to be looked for among the newest (./posting.ts).
  * - `warnings`: the network's warnings on the page now ("Try again later"), which stop the network for the day.
  * - `outline`: the page, read by its network's readers, with its outline (everything a person wrote as "[2 words]"),
  *   for the read's problem report.
@@ -169,8 +169,11 @@ if (kit && !here.hfosResearch) {
       const shown = document.visibilityState === 'visible';
       const now = kit.postsDrawing?.(document);
       if (!now) return { drawn: 0, loading: false, shown };
+      // Fewer drawn than asked for and none loading: more come once it's scrolled down, until the page ends.
+      const ended =
+        innerHeight + scrollY >= (document.documentElement?.scrollHeight ?? 0) - 2 && now.drawn > 0;
       // None drawn and none loading yet: its posts are further down, below what the page says about itself.
-      const loading = now.drawn < most && (now.loading !== null || now.drawn === 0);
+      const loading = now.drawn < most && (now.loading !== null || now.drawn === 0 || !ended);
       if (loading && now.loading)
         (now.loading as HTMLElement).scrollIntoView?.({ block: 'center' });
       else if (loading) scrollBy({ top: Math.round(innerHeight * 0.9) });

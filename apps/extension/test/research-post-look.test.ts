@@ -10,7 +10,8 @@ import { JSDOM } from 'jsdom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LookPost } from '@hfos/core/addons/socialcontent/content-shapes';
 import { NotAway } from '../src/away';
-import { postsDrawing } from '../src/networks/facebook/posts';
+import { postsDrawing, readPosts } from '../src/networks/facebook/posts';
+import { postShown } from '../src/jobs/helpful';
 import type { ResearchTab } from '../src/research/tab';
 
 const looked: { found: unknown[]; failure: string | null }[] = [];
@@ -30,7 +31,8 @@ vi.mock('../src/research/read', async (actual) => ({
   },
 }));
 
-const { failureFor, lookOn, POSTS_DRAW_MS, POSTS_NEWEST } = await import('../src/research/posting');
+const { failureFor, lookOn, POSTS_DRAW_MS, POSTS_LOOKED_BACK, POSTS_NEWEST } =
+  await import('../src/research/posting');
 const { lookFor, unseenFailure } = await import('../src/research/look');
 
 const PAGE = 'https://www.facebook.com/profile.php?id=61550000000000';
@@ -56,6 +58,7 @@ function facebookTab(opts: {
   let scrolls = 0;
   let inFront = false;
   const fronted: number[] = [];
+  const asked: number[] = [];
   const posts = opts.posts ?? [{ text: TEXT, url: LINK }];
   const drawn = () => inFront || (opts.drawsAfter !== null && scrolls >= opts.drawsAfter);
   const tab = {
@@ -64,6 +67,7 @@ function facebookTab(opts: {
       if (name === 'warnings') return [];
       if (name === 'read') return { kind: 'profile', posts: drawn() ? posts : [] };
       if (name === 'drawPosts') {
+        asked.push(args[0] as number);
         // A network that draws its posts with the page (LinkedIn's) has nothing to wait on.
         if (opts.drawing === false) return { drawn: 0, loading: false, shown: true };
         const most = args[0] as number;
@@ -85,7 +89,7 @@ function facebookTab(opts: {
       }
     },
   };
-  return { tab: tab as unknown as ResearchTab, scrolls: () => scrolls, fronted };
+  return { tab: tab as unknown as ResearchTab, scrolls: () => scrolls, fronted, asked };
 }
 
 beforeEach(() => {
@@ -99,7 +103,7 @@ afterEach(() => {
 describe('looking for a post on a Facebook page that draws its posts as it’s scrolled', () => {
   it('scrolls to the posts still loading and waits for them, then finds it (the owner’s Page, 16 Nov)', async () => {
     const { tab, scrolls, fronted } = facebookTab({ drawsAfter: 3 });
-    expect(await lookOn(tab, PAGE, TEXT)).toEqual({ link: LINK, seen: true });
+    expect(await lookOn(tab, PAGE, TEXT)).toEqual({ found: true, link: LINK, seen: true });
     expect(scrolls()).toBe(3);
     expect(fronted).toEqual([]);
   });
@@ -107,14 +111,14 @@ describe('looking for a post on a Facebook page that draws its posts as it’s s
   it('says it’s not there once the newest few are drawn without it', async () => {
     const posts = Array.from({ length: POSTS_NEWEST }, (_, i) => OTHER(i));
     const { tab, fronted } = facebookTab({ drawsAfter: 1, posts });
-    expect(await lookOn(tab, PAGE, TEXT)).toEqual({ link: null, seen: true });
+    expect(await lookOn(tab, PAGE, TEXT)).toEqual({ found: false, link: null, seen: true });
     expect(fronted).toEqual([]);
   });
 
   it('waits by the clock, then looks once more in front while the person is away', async () => {
     const started = Date.now();
     const { tab, fronted } = facebookTab({ drawsAfter: null, front: 'draws' });
-    expect(await lookOn(tab, PAGE, TEXT)).toEqual({ link: LINK, seen: true });
+    expect(await lookOn(tab, PAGE, TEXT)).toEqual({ found: true, link: LINK, seen: true });
     expect(fronted).toHaveLength(1);
     expect(fronted[0]! - started).toBeGreaterThanOrEqual(POSTS_DRAW_MS);
     expect(fronted[0]! - started).toBeLessThan(POSTS_DRAW_MS + 10_000);
@@ -122,13 +126,13 @@ describe('looking for a post on a Facebook page that draws its posts as it’s s
 
   it('says it couldn’t see them when they never drew and the person isn’t away', async () => {
     const { tab, fronted } = facebookTab({ drawsAfter: null, front: 'not_away' });
-    expect(await lookOn(tab, PAGE, TEXT)).toEqual({ link: null, seen: false });
+    expect(await lookOn(tab, PAGE, TEXT)).toEqual({ found: false, link: null, seen: false });
     expect(fronted).toHaveLength(1);
   });
 
   it('reads a page that draws its posts with it (LinkedIn’s) once, as before', async () => {
     const { tab, scrolls, fronted } = facebookTab({ drawsAfter: null, drawing: false });
-    expect(await lookOn(tab, PAGE, TEXT)).toEqual({ link: null, seen: true });
+    expect(await lookOn(tab, PAGE, TEXT)).toEqual({ found: false, link: null, seen: true });
     expect(scrolls()).toBe(0);
     expect(fronted).toEqual([]);
   });
@@ -171,6 +175,68 @@ describe('what the person reads when the Page’s posts never drew', () => {
       postAt: null,
     });
     expect(looked).toEqual([{ found: [{ place: 'page', link: LINK }], failure: null }]);
+  });
+});
+
+describe('a Facebook post found by its words, with no link and cut short', () => {
+  // The owner's Page, 17 Nov 2026: the post was the first on the Page, its words cut to the first sentence and "…"
+  // before See more, and its own time link empty, as Facebook leaves a new post's. It was marked as not posted.
+  const FULL =
+    'Ever get told you have to upgrade just to add one more tech or lead?\n\nA lot of CRMs cap your contacts or charge per seat.';
+  const SHOWN = 'Ever get told you have to upgrade just to add one more tech or lead?…';
+
+  it('counts it as there, without a link, after Publish and on Check if it posted', async () => {
+    const { tab } = facebookTab({ drawsAfter: 0, posts: [{ text: SHOWN, url: null }] });
+    expect(await lookOn(tab, PAGE, FULL)).toEqual({ found: true, link: null, seen: true });
+    await lookFor('ws', tab, {
+      id: '7a1d0b6e-6a52-4a8e-9d0c-3e5f3c1b2a90',
+      network: 'facebook',
+      text: FULL,
+      places: ['page'],
+      facebookPage: PAGE,
+      postAt: null,
+    });
+    expect(looked).toEqual([{ found: [{ place: 'page', link: null }], failure: null }]);
+  });
+
+  it('reads the Page’s post as Facebook draws it: its words up to the “…”, and no link', () => {
+    const { window } = new JSDOM(
+      `<body><div role="main"><div role="feed"><div><div role="article">
+        <h3><a role="link" href="/profile.php?id=61550000000000"><b><span>Example Plumbing</span></b></a></h3>
+        <a role="link" href="/profile.php"><span>Ssotnoepdr</span></a>
+        <div data-ad-rendering-role="story_message"><div data-ad-comet-preview="message" data-ad-preview="message">
+          <span dir="auto"><div dir="auto">Ever get told you have to upgrade just to add one more tech or lead?<!-- -->…
+            <div role="button">See more</div></div></span></div></div>
+        <a role="link" href="/photo/?fbid=111&amp;set=pcb.222"><img alt=""></a>
+        <a role="link" href="/photo/?fbid=112&amp;set=pcb.222"><img alt=""></a>
+        <div role="button" aria-label="Like">Like</div>
+      </div></div></div></div></body>`,
+      { url: PAGE },
+    );
+    const posts = readPosts(window.document.body, PAGE);
+    expect(posts).toHaveLength(1);
+    expect(posts[0]!.url).toBeNull();
+    // Its words up to the "…", which the reader keeps apart.
+    expect(posts[0]!.text).toBe(SHOWN.replace('…', ' …'));
+    expect(postShown({ posts }, FULL)).toEqual({ link: null });
+    expect(
+      postShown({ posts }, 'Something else we posted the week before, about drains.'),
+    ).toBeNull();
+  });
+
+  it('looks further back on Check if it posted than right after posting', async () => {
+    const { tab, asked } = facebookTab({ drawsAfter: 0 });
+    await lookOn(tab, PAGE, 'Something nobody posted at all, not on this Page.');
+    await lookFor('ws', tab, {
+      id: '7a1d0b6e-6a52-4a8e-9d0c-3e5f3c1b2a90',
+      network: 'facebook',
+      text: 'Something nobody posted at all, not on this Page.',
+      places: ['page'],
+      facebookPage: PAGE,
+      postAt: null,
+    });
+    expect(asked).toEqual([POSTS_NEWEST, POSTS_LOOKED_BACK]);
+    expect(POSTS_LOOKED_BACK).toBeGreaterThan(POSTS_NEWEST);
   });
 });
 
