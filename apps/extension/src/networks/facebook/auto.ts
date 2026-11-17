@@ -17,7 +17,7 @@ import { conversationWith, isConversation, readChat } from './chat';
 import { clean, inTopBar, isAfter, labelOf, mainIn, mainOf, textWithEmoji } from './dom';
 import { findStep, shown, type FetchStep } from './fetch';
 import { isNameLike, nameForms, peopleLinked, sameName } from './people';
-import { COMMENT, LIKE, LIKE_HOOK, likeStateOf, postBoxes, readPost } from './posts';
+import { COMMENT, LIKE, LIKE_HOOK, likeStateOf, postBoxes, postLoading, readPost } from './posts';
 import type { TidyPlan } from './tidy';
 import type { Named, ProfilePage, ProfileRef } from './types';
 import { classifyUrl, FACEBOOK } from './urls';
@@ -279,18 +279,6 @@ export function saysNoPosts(doc: Document): boolean {
 
 /** Times it waits on a post Facebook is still loading, while it has drawn fewer posts than it reads. */
 const LOADING_WAITS = 5;
-
-/**
- * A post Facebook is still loading: a post's box with nothing in it but its "Loading..." mark, as Facebook shows below
- * the posts it has drawn, and in their place while it hasn't drawn any yet.
- */
-function postLoading(doc: Document): Element | null {
-  return (
-    [...mainOf(doc).querySelectorAll('[role="article"]')].find(
-      (box) => box.querySelector('[role="status"]') !== null && clean(box.textContent) === '',
-    ) ?? null
-  );
-}
 
 /**
  * Reads the latest few posts on someone's profile that are theirs (decision 33), scrolling a little while fewer are

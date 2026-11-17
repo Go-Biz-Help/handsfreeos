@@ -9,6 +9,7 @@ import { answerFromClick, seenFromClick, stepFromClick, stepFromEnter } from './
 import { lookFor } from './looking';
 import { FACEBOOK_OUTLINE, outlinePage } from './outline';
 import { readPage } from './page';
+import { postsDrawing } from './posts';
 import { readReplies } from './replies';
 import type { PageKind, ReadResult } from './types';
 import { classifyUrl, facebookUrl, profileKey, workUrl } from './urls';
@@ -38,6 +39,7 @@ export const facebook: Kit = {
   kindOf: (href) => classifyUrl(href).kind,
   profileKey,
   readPage: (doc, href) => readPage(doc, href),
+  postsDrawing,
   readWarnings,
   readReplies: (doc, href) => readReplies(doc, href),
   lookFor: (kind, on) => lookFor(kind as PageKind, on),

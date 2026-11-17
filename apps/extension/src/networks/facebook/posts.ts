@@ -4,7 +4,7 @@
  * and the 2026 News Feed, each is found by its "Actions for this post" button. Comments are articles inside a post,
  * labelled "Comment by …" or "Reply by …", and are left out of what the post says.
  */
-import { clean, inTopBar, isAfter, isBefore, outermost, textLines } from './dom';
+import { clean, inTopBar, isAfter, isBefore, mainOf, outermost, textLines } from './dom';
 import { bestName } from './people';
 import type { Named, Post } from './types';
 import { facebookUrl, postUrlFrom, profileFromUrl } from './urls';
@@ -43,6 +43,26 @@ export function likeStateOf(button: Element): 'like' | 'liked' | 'unknown' {
 }
 
 const hasWords = (element: Element) => clean(element.textContent) !== '';
+
+/**
+ * A post Facebook is still loading: a post's box with nothing in it but its "Loading..." mark, as Facebook shows below
+ * the posts it has drawn, and in their place while it hasn't drawn any yet. It draws one only once it's scrolled near.
+ */
+export function postLoading(doc: Document): Element | null {
+  return (
+    [...mainOf(doc).querySelectorAll('[role="article"]')].find(
+      (box) => box.querySelector('[role="status"]') !== null && clean(box.textContent) === '',
+    ) ?? null
+  );
+}
+
+/** How far the page has drawn its posts: how many it drew, and the first still loading (`postLoading`). */
+export function postsDrawing(doc: Document): {
+  readonly drawn: number;
+  readonly loading: Element | null;
+} {
+  return { drawn: postBoxes(mainOf(doc)).length, loading: postLoading(doc) };
+}
 
 /**
  * The boxes that are posts, in page order: a feed's children, or else the top-level articles that aren't comments
