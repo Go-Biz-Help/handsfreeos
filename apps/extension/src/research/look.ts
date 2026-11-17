@@ -4,7 +4,8 @@
  * computer looks for it where it hadn't gone up, by its first words, as a person would, from its reading window
  * (./tab.ts), the same way posting finds a post's link (./posting.ts):
  *
- * - **Facebook:** the top of the person's own profile, or of the business's Page.
+ * - **Facebook:** the top of the person's own profile, or of the business's Page, once Facebook has drawn its newest
+ *   posts there (./posting.ts `lookOn`). When it never did, it says it couldn't check, rather than that it isn't there.
  * - **LinkedIn:** their own posts.
  * - **Instagram:** their own newest posts, as Instagram's page loads them.
  * - **Threads and X:** the top of their own profile.
@@ -26,7 +27,7 @@ import {
   INSTAGRAM_HOME,
   instagramLink,
   LINKEDIN_OWN_POSTS,
-  linkFrom,
+  lookOn,
   openAt,
   postsNow,
   shortLink,
@@ -36,9 +37,17 @@ import type { ResearchTab } from './tab';
 
 const X_HOME = 'https://x.com/home';
 
-/** How looking in one place ended: its link when found, null when not, or the network's warning. */
+/**
+ * How looking in one place ended: its link when found, null when not (`unseen` when the page never showed its newest
+ * posts, so it couldn't tell), or the network's warning.
+ */
 type PlaceEnd =
-  | { readonly place: PostPlace; readonly link: string | null; readonly found: boolean }
+  | {
+      readonly place: PostPlace;
+      readonly link: string | null;
+      readonly found: boolean;
+      readonly unseen?: boolean;
+    }
   | { readonly halt: string };
 
 /** The words a person reads when it couldn't look at all. */
@@ -47,6 +56,12 @@ export function lookFailure(network: PostingNetwork, why: 'no_page' | 'warned', 
   return why === 'no_page'
     ? 'Add your Facebook Page’s link in Settings → Posting, so it can look on your Page.'
     : `${name} said “${said.slice(0, 120)}”, so it waits till tomorrow to look there, for both social add-ons.`;
+}
+
+/** The words a person reads when Facebook never showed the newest posts where it looked, so it couldn't check. */
+export function unseenFailure(place: PostPlace): string {
+  const where = place === 'page' ? 'your Page’s' : 'your profile’s';
+  return `Facebook didn’t load ${where} posts, so it couldn’t check. Look there yourself, or press Check if it posted again in a few minutes.`;
 }
 
 /** Looks for the post in one place: the page that lists it, by its first words. */
@@ -63,9 +78,17 @@ async function lookIn(tab: ResearchTab, post: LookPost, place: PostPlace): Promi
     await keepWarning(warnings, network as Platform).catch(() => []);
     return { halt: lookFailure(network, 'warned', warnings[0]!) };
   }
-  const link = listed
-    ? await linkFrom(tab, listed, post.text)
-    : network === 'instagram'
+  if (listed) {
+    const look = await lookOn(tab, listed, post.text);
+    return {
+      place,
+      link: look.link,
+      found: look.link !== null,
+      unseen: network === 'facebook' && !look.seen,
+    };
+  }
+  const link =
+    network === 'instagram'
       ? await instagramLink(tab, post.text)
       : await shortLink(tab, network as 'threads' | 'x', post.text);
   return { place, link, found: link !== null };
@@ -88,6 +111,7 @@ export async function lookFor(businessId: string, tab: ResearchTab, post: LookPo
       break;
     }
     if (end.found) found.push({ place: end.place, link: end.link });
+    else if (end.unseen) failure ??= unseenFailure(end.place);
   }
   try {
     await postLooked(businessId, post.id, found, found.length ? null : failure);

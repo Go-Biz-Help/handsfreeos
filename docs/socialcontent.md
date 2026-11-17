@@ -481,6 +481,13 @@ Instagram from 0.133.0, Threads and X from 0.138.0. The post's sheet offers **Co
   go up (extension 0.140.5, after two Page posts on 14 Nov were marked as failed while still publishing). A Page of Facebook's newer kind is opened there by its own number, not the one in its link (extension
   0.139.2). LinkedIn's newer box takes the pictures in a window of its own (Upload from computer, then Next). Its link comes from the network (LinkedIn's View post), else from the top of the profile, the Page or
   their own posts by its first words.
+- **Looking for it on the page that lists it** (extension 0.147.3; `lookOn` in `research/posting.ts`): Facebook draws
+  a profile's or a Page's posts only once they're scrolled near, and nothing in a window hidden behind another. The
+  owner's Page posts of 15 and 16 Nov 2026 were looked for while every post there still said "Loading...", so four that
+  may have gone up were marked as not. Now the first post still loading is scrolled into view and waited on, by the
+  clock, till the newest four are drawn, for up to 30 seconds; when they never draw it looks once more with the window
+  in front, only while the person is away (decision 120). If it still can't see them, it says Facebook didn't load the
+  Page's posts so it couldn't check, never that the post isn't there. Check if it posted looks the same way.
 - **Behind the person's windows** (extension 0.146.0): the posting window sits beside theirs, mostly hidden while they
   work, where Chrome slows a page's timers to once a minute. The hands wait by the clock, never by how many looks they
   took, and the background wakes a hidden posting window, as its own timers aren't slowed. Before, a Page post's
