@@ -287,7 +287,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Turn an add-on off: it stops, its screens and records are hidden, and its data and settings are kept.
+         * Turn an add-on off now: it stops, its screens and records are hidden, and its data and settings are kept. A paid one stops being charged, with no part refund; to let it run to the end of its trial or paid month instead, use addon_billing.stop.
          * @description Risk level 2. Requires addons.manage. Emits addon.disabled.
          */
         post: operations["command_addon_disable"];
@@ -327,7 +327,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Turn an installed add-on back on, with its data and settings as they were.
+         * Turn an installed add-on back on, with its data and settings as they were. A paid one HandsFreeOS didn’t give free starts paying again (nothing more until a month already paid runs out).
          * @description Risk level 2. Requires addons.manage. Emits addon.enabled, addon.install_started, addon_billing.started.
          */
         post: operations["command_addon_enable"];
@@ -347,7 +347,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Install an add-on in this business (and, with `include`, what it needs). It turns on once the worker has set it up.
+         * Install an add-on in this business (and, with `include`, what it needs). It turns on once the worker has set it up. A paid one HandsFreeOS didn’t give free starts its 14-day free trial the first time, or is charged to the default card each month from today; it needs a card on Billing & Usage.
          * @description Risk level 3. Requires addons.manage. Emits addon.install_started, addon.enabled, addon_billing.started.
          */
         post: operations["command_addon_install"];
