@@ -328,6 +328,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 660,
     said: 'The Page was read the moment it opened, while every post on it still said “Loading...”: Facebook draws a Page’s posts only once they’re scrolled near, and nothing in a hidden window. The first still loading is scrolled into view and waited on now, up to 30 seconds, then looked at in front while the person is away; still unseen, it says it couldn’t check.',
   },
+  {
+    area: 'threads',
+    job: 'post.feed',
+    note: 'Threads didn’t show the box to write a post',
+    fixedIn: '0.147.4',
+    pr: 659,
+    said: 'Create opened Threads’ New thread box, but Threads now draws it as a menu, not a box over the page, so it was never found. A menu with a box to write in counts now; one without (More’s) never does.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */

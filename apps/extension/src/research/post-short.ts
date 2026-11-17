@@ -70,9 +70,19 @@ const written = (box: Element) =>
 const off = (c: HTMLElement) =>
   c.getAttribute('aria-disabled') === 'true' || c.hasAttribute('disabled');
 
-/** The box over the page now, its newest. */
+/**
+ * The box over the page now, its newest. Threads now draws its New thread box as a menu from its Create button, not as
+ * a dialog, so a menu with a box to write in counts too; a menu without one (More's) never does (the owner's problem
+ * reports of 16 Nov 2026, from 0.147.4).
+ */
 function dialogOf(doc: Document): Element | null {
-  return [...doc.querySelectorAll(OVER_THE_PAGE)].filter(shown).at(-1) ?? null;
+  return (
+    [...doc.querySelectorAll(`${OVER_THE_PAGE}, [role="menu"]`)]
+      .filter(
+        (over) => shown(over) && (over.matches(OVER_THE_PAGE) || !!over.querySelector(WRITING)),
+      )
+      .at(-1) ?? null
+  );
 }
 
 // ------------------------------------------------------------------------------------------------ X

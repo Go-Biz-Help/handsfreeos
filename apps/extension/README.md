@@ -1272,6 +1272,14 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Threads' New thread box found when it opens as a menu (0.147.4)
+
+The problem check of 17 Nov 2026 (01:23 UTC) found two Threads posts of 16 Nov (19:54 and 23:19 UTC, on 0.142.0) that
+stopped at "Threads didn’t show the box to write a post". Each page showed the box open: Create, at the page's foot, had
+opened New thread with its box to write in, Add to thread and Post. Threads now draws that box as a menu, not as a box
+over the page (a dialog), so the posting hands never found it. From 0.147.4 a menu holding a box to write in counts as
+the box over the page; a menu without one, such as More's, never does (`dialogOf` in `src/research/post-short.ts`).
+
 ### A Facebook Page's posts waited on before a post counts as not there (0.147.3)
 
 Four of the owner's Facebook Page posts (15 Nov 2026, 11:03 AM and 4:17 PM; 16 Nov, noon and 5:15 PM CT) were marked

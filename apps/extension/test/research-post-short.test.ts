@@ -86,10 +86,19 @@ function xPage(opts: { written?: string; postOff?: boolean } = {}): Made {
   return { doc, posted };
 }
 
-/** Threads' home page: "What's new?" opens its box over the page, with Add to thread and Post. */
-function threadsPage(): Made {
+/**
+ * Threads' home page: "What's new?" opens its box over the page, with Add to thread and Post. With `menu`, as Threads
+ * drew it on 16 Nov 2026: the feed's own box is named by a label that isn't its words, so Create at the page's foot
+ * opens the New thread box, drawn as a menu, while a More menu with no box to write in is open beside it.
+ */
+function threadsPage(opts: { menu?: boolean } = {}): Made {
   const { window } = new JSDOM(
-    `<body><div role="main"><div role="button" id="start">What’s new?</div></div></body>`,
+    opts.menu
+      ? `<body><div role="main">
+          <div role="button" aria-label="Empty text field. Type to compose a new post."><span>What’s new?</span></div>
+        </div>
+        <div role="button" id="start" aria-expanded="false"><svg role="img"><title>Create</title></svg></div></body>`
+      : `<body><div role="main"><div role="button" id="start">What’s new?</div></div></body>`,
     { url: 'https://www.threads.com/' },
   );
   const doc = window.document;
@@ -98,14 +107,21 @@ function threadsPage(): Made {
   const posted: Made['posted'] = [];
   doc.getElementById('start')!.addEventListener('click', () => {
     const box = doc.createElement('div');
-    box.setAttribute('role', 'dialog');
+    box.setAttribute('role', opts.menu ? 'menu' : 'dialog');
+    if (opts.menu) {
+      const more = doc.createElement('div');
+      more.setAttribute('role', 'menu');
+      more.innerHTML = '<div role="menuitem">Mute</div><div role="menuitem">Report</div>';
+      doc.body.append(box, more);
+    }
     box.innerHTML = `
+      <h1>New thread</h1>
       <div id="boxes"><div role="textbox" contenteditable="true" tabindex="0"></div></div>
       <div id="media"></div>
       <input type="file" accept="image/*,video/*">
       <div role="button" id="add">Add to thread</div>
       <div role="button" id="post">Post</div>`;
-    doc.body.append(box);
+    if (!opts.menu) doc.body.append(box);
     box.querySelector('input[type="file"]')!.addEventListener('change', () => {
       const img = doc.createElement('img');
       img.setAttribute('src', 'blob:https://www.threads.com/1');
@@ -192,6 +208,21 @@ describe('putting one of the business’s posts up on X (decision 41)', () => {
 describe('putting one of the business’s posts up on Threads (decision 41)', () => {
   it('opens its box from What’s new?, adds the picture and the chain, and presses Post once', async () => {
     const made = threadsPage();
+    const done = await postHere(made.doc, ask('threads', ['More on it here.']));
+    expect(done.result).toBe('done');
+    expect(made.posted).toEqual([
+      { words: ['Missed calls are missed jobs. #smallbusiness', 'More on it here.'], pictures: 1 },
+    ]);
+    expect(done.url).toBe('https://www.threads.com/@samsplumbing/post/DAbc123xyz');
+    expect(done.steps).toEqual(
+      expect.arrayContaining(['start', 'box', 'typed', 'media', 'chain:1', 'post']),
+    );
+  });
+
+  it('finds the New thread box Threads draws as a menu from Create, not the More menu beside it', async () => {
+    // The owner's problem reports of 16 Nov 2026 (19:54 and 23:19 UTC, 0.142.0): Create opened the box, which Threads
+    // now draws as a menu, and the post stopped at "didn’t show the box to write a post".
+    const made = threadsPage({ menu: true });
     const done = await postHere(made.doc, ask('threads', ['More on it here.']));
     expect(done.result).toBe('done');
     expect(made.posted).toEqual([
