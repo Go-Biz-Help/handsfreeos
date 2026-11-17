@@ -565,8 +565,9 @@ cookie on the web, the phone's own store), and the address carries `?look=&day=`
   as posted** (`.mark_posted`, after asking, with its link if there is one, so its numbers are read). Checking asks the
   reading computer, which looks for it on the network by its first words (`socialcontent.post.look_next` and
   `.looked`, extension 0.140.6). It says Checking… while it looks, then that it isn't there and when it checked (and
-  Mark as posted reads "Mark as posted anyway"), or why it couldn't look. Found, it's marked as posted with its
-  link. It also looks once on its own, 10 minutes after a post that may have gone up is marked as didn't post
+  Mark as posted reads "Mark as posted anyway", and the check stays as **Check again**: the owner, 17 Nov 2026, as the
+  Page posts the check had missed before extension 0.147.3 showed no way to look again), or why it couldn't look.
+  Found, it's marked as posted with its link. It also looks once on its own, 10 minutes after a post that may have gone up is marked as didn't post
   (`LOOK.afterFailMs`).
 - **The Assistant** does all of these (`socialcontent_pick_own_posts`, `_approve_own_posts`, `_hide_own_posts`,
   `_remove_own_posts`, `_mark_own_posts_posted`, `_check_own_posts`, `_rewrite_own_posts`); OK, Delete and Mark posted wait on a Confirm

@@ -600,7 +600,7 @@ export function DidntPost({
             {W.picking.tryAgain}
           </Button>
         ) : null}
-        {canLook(p) && !looking && !p.lookedAt ? (
+        {canLook(p) && !looking ? (
           <Button
             size="sm"
             variant="secondary"
@@ -610,7 +610,7 @@ export function DidntPost({
             onPress={onLook}
             testID={`socialcontent-post-${p.id}-look`}
           >
-            {W.picking.lookOne}
+            {p.lookedAt ? W.picking.lookAgain : W.picking.lookOne}
           </Button>
         ) : null}
         {canLook(p) ? (

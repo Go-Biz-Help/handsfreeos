@@ -868,6 +868,8 @@ export const SOCIALCONTENT_WORDS = {
     /** A post that didn't post. */
     tryAgain: 'Try again',
     lookOne: 'Check if it posted',
+    /** After a check that didn't find it: look again (the owner, 17 Nov, on posts the old, blind check had missed). */
+    lookAgain: 'Check again',
     markOne: 'Mark as posted',
     markAnyway: 'Mark as posted anyway',
     lookSoon: (time: string) => `It looks for it on its own at ${time}.`,

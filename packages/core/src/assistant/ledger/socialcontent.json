@@ -1,10 +1,10 @@
 {
   "area": "socialcontent",
   "title": "The AI Social Media Content Creator add-on: Creators, Standouts, Playbook, Ideas, Calendar and Settings, on the web and the phone",
-  "checkedOn": "2026-11-16",
+  "checkedOn": "2026-11-17",
   "files": {
     "apps/mobile/src/addons/socialcontent/activity.tsx": "9744b485ef7b",
-    "apps/mobile/src/addons/socialcontent/calendar-picking.tsx": "1e1de5ddf440",
+    "apps/mobile/src/addons/socialcontent/calendar-picking.tsx": "ae5dd25fd599",
     "apps/mobile/src/addons/socialcontent/calendar.tsx": "2f685418c34d",
     "apps/mobile/src/addons/socialcontent/creators.tsx": "afbddca04aa6",
     "apps/mobile/src/addons/socialcontent/home.tsx": "6973e687d399",
@@ -29,7 +29,7 @@
     "apps/web/src/addons/socialcontent/activity-card.tsx": "ac129c506362",
     "apps/web/src/addons/socialcontent/calendar-grids.tsx": "da4fca23f6a0",
     "apps/web/src/addons/socialcontent/calendar-page.tsx": "04c21944ea10",
-    "apps/web/src/addons/socialcontent/calendar-picking.tsx": "8e2756e0f5d7",
+    "apps/web/src/addons/socialcontent/calendar-picking.tsx": "4da8f81635be",
     "apps/web/src/addons/socialcontent/creators-page.tsx": "7981cd799c44",
     "apps/web/src/addons/socialcontent/ideas-page.tsx": "38ccbdb2a0f8",
     "apps/web/src/addons/socialcontent/offer-notice.tsx": "bd18d03766c4",
@@ -953,7 +953,7 @@
       "by": "socialcontent_mark_own_posts_posted (postIds, link), on a Confirm card; socialcontent_check_own_posts"
     },
     {
-      "path": "Phone → Calendar → a post that didn’t post: Try again, Check if it posted, Mark as posted, and Checking… or what the check found",
+      "path": "Phone → Calendar → a post that didn’t post: Try again, Check if it posted (Check again after a check), Mark as posted, and Checking… or what the check found",
       "kind": "do",
       "file": "apps/mobile/src/addons/socialcontent/calendar-picking.tsx:537",
       "covered": "yes",
@@ -1359,7 +1359,7 @@
       "by": "socialcontent_mark_own_posts_posted (postIds, link), on a Confirm card; socialcontent_check_own_posts"
     },
     {
-      "path": "Calendar → a post that didn’t post: why, Try again, Check if it posted, Mark as posted (Mark as posted anyway after a check), and Checking… or what the check found",
+      "path": "Calendar → a post that didn’t post: why, Try again, Check if it posted (Check again after a check), Mark as posted (Mark as posted anyway after a check), and Checking… or what the check found",
       "kind": "do",
       "file": "apps/web/src/addons/socialcontent/calendar-picking.tsx:669",
       "covered": "yes",

@@ -1054,7 +1054,7 @@ describe('the Calendar', () => {
     );
     await fireEvent.press(screen.getByTestId('socialcontent-mark-go'));
     expect(onMarkOne).toHaveBeenCalledWith(missed.id, 'https://www.facebook.com/123');
-    // Looked for and not found: try again, or mark it anyway.
+    // Looked for and not found: try again, check again, or mark it anyway.
     await render(
       body({
         data: calendarView({
@@ -1065,7 +1065,10 @@ describe('the Calendar', () => {
     expect(screen.getByTestId(`socialcontent-post-${missed.id}-look-line`)).toHaveTextContent(
       /^It isn’t on Facebook\. Checked at /,
     );
-    expect(screen.queryByTestId(`socialcontent-post-${missed.id}-look`)).toBeNull();
+    // It can look again (the owner, 17 Nov: posts the old check had missed showed no way to).
+    expect(screen.getByTestId(`socialcontent-post-${missed.id}-look`)).toHaveTextContent(
+      'Check again',
+    );
     expect(screen.getByTestId(`socialcontent-post-${missed.id}-mark`)).toHaveTextContent(
       'Mark as posted anyway',
     );
