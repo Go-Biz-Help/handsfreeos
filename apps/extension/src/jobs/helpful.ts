@@ -28,28 +28,40 @@ const READ_MOST = 5;
  */
 const plain = (s: string) => s.replace(/\s+/g, '').toLowerCase();
 
+type PostsRead = {
+  readonly posts?: readonly Pick<NonNullable<ReadResult['posts']>[number], 'text' | 'url'>[];
+};
+
 /**
- * The post among those the page shows that starts the way this one does (Facebook may cut a long one short with See
- * more, and LinkedIn with …more): its link. Any network's read.
+ * Whether a post the page shows starts the way this one does. Facebook cuts a long one short with "…" before its See
+ * more (the owner's Page post of 17 Nov 2026 showed only its first sentence, then "…"), and LinkedIn with …more, so
+ * the "…" is left off before comparing.
  */
-export function foundPost(
-  page: {
-    readonly posts?: readonly Pick<NonNullable<ReadResult['posts']>[number], 'text' | 'url'>[];
-  },
-  text: string,
-): string | null {
+function startsLike(shown: string, text: string): boolean {
   const mine = plain(text).slice(0, 60);
-  if (!mine) return null;
+  const theirs = plain(shown)
+    .replace(/(?:…|\.{3})$/u, '')
+    .slice(0, 60);
   return (
-    page.posts?.find((p) => {
-      const theirs = plain(p.text).slice(0, 60);
-      return (
-        p.url !== null &&
-        theirs.length >= Math.min(20, mine.length) &&
-        (theirs.startsWith(mine) || mine.startsWith(theirs))
-      );
-    })?.url ?? null
+    mine.length > 0 &&
+    theirs.length >= Math.min(20, mine.length) &&
+    (theirs.startsWith(mine) || mine.startsWith(theirs))
   );
+}
+
+/**
+ * The post among those the page shows that starts the way this one does (`startsLike`), with its link when the page
+ * shows one. Facebook leaves a new post's own time link empty until it's pointed at, so a post found by its words
+ * alone often has none: it's there all the same (the owner's Page, 17 Nov 2026). Any network's read.
+ */
+export function postShown(page: PostsRead, text: string): { readonly link: string | null } | null {
+  const post = page.posts?.find((p) => startsLike(p.text, text));
+  return post ? { link: post.url } : null;
+}
+
+/** The link of the post among those the page shows that starts the way this one does, when one has a link. */
+export function foundPost(page: PostsRead, text: string): string | null {
+  return page.posts?.find((p) => p.url !== null && startsLike(p.text, text))?.url ?? null;
 }
 
 async function next(job: Job, helpfulId: string | null): Promise<HelpfulNext> {

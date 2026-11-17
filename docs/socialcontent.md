@@ -499,7 +499,11 @@ Instagram from 0.133.0, Threads and X from 0.138.0. The post's sheet offers **Co
   may have gone up were marked as not. Now the first post still loading is scrolled into view and waited on, by the
   clock, till the newest four are drawn, for up to 30 seconds; when they never draw it looks once more with the window
   in front, only while the person is away (decision 120). If it still can't see them, it says Facebook didn't load the
-  Page's posts so it couldn't check, never that the post isn't there. Check if it posted looks the same way.
+  Page's posts so it couldn't check, never that the post isn't there. Check if it posted looks the same way, further
+  back (the newest 12). From extension 0.147.6 a post counts as there when its words match, with or without a link
+  (`postShown`): Facebook leaves a new post's own link empty until it's pointed at, and cuts long words short with "…"
+  before See more, which is left off before comparing. On 17 Nov 2026 the owner's 12 PM Page post was the first on
+  the Page and still marked as not posted for both reasons.
 - **Behind the person's windows** (extension 0.146.0): the posting window sits beside theirs, mostly hidden while they
   work, where Chrome slows a page's timers to once a minute. The hands wait by the clock, never by how many looks they
   took, and the background wakes a hidden posting window, as its own timers aren't slowed. Before, a Page post's

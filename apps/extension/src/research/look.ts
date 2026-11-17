@@ -29,6 +29,7 @@ import {
   LINKEDIN_OWN_POSTS,
   lookOn,
   openAt,
+  POSTS_LOOKED_BACK,
   postsNow,
   shortLink,
   THREADS_HOME,
@@ -79,11 +80,11 @@ async function lookIn(tab: ResearchTab, post: LookPost, place: PostPlace): Promi
     return { halt: lookFailure(network, 'warned', warnings[0]!) };
   }
   if (listed) {
-    const look = await lookOn(tab, listed, post.text);
+    const look = await lookOn(tab, listed, post.text, POSTS_LOOKED_BACK);
     return {
       place,
       link: look.link,
-      found: look.link !== null,
+      found: look.found,
       unseen: network === 'facebook' && !look.seen,
     };
   }

@@ -32,7 +32,7 @@ import { NotAway } from '../away';
 import { config } from '../hfos/config';
 import { token } from '../hfos/session';
 import { keepWarning, warnedNow } from '../hfos/warned';
-import { foundPost } from '../jobs/helpful';
+import { foundPost, postShown } from '../jobs/helpful';
 import { postNext, postWent, reportProblem, ResearchRefused } from './hfos';
 import { postsByNamePath, postsFrom } from './instagram';
 import type { PostDone, PostFileIn, PostWhere } from './post-here';
@@ -62,6 +62,11 @@ const PAGE_LOOKS_MS = [0, 45_000] as const;
  * looks.
  */
 export const POSTS_NEWEST = 4;
+/**
+ * How far back Check if it posted looks among a page's newest posts: a post that failed days ago has others above it
+ * by then (the owner's Page posts of 15 and 16 Nov, looked for again on 17 Nov).
+ */
+export const POSTS_LOOKED_BACK = 12;
 export const POSTS_DRAW_MS = 30_000;
 const POSTS_LOOK_MS = 1_500;
 /**
@@ -168,11 +173,17 @@ export async function openAt(tab: ResearchTab, url: string): Promise<string[]> {
   return (await tab.hands('warnings')) ?? [];
 }
 
-/** What looking for a post on a page that lists it found: its link, and whether the page showed its newest posts. */
+/**
+ * What looking for a post on a page that lists it found: whether it's there, its link when the page showed one (a new
+ * Facebook post's often isn't), and whether the page showed its newest posts.
+ */
 export interface PostLook {
+  readonly found: boolean;
   readonly link: string | null;
   readonly seen: boolean;
 }
+
+const UNSEEN: PostLook = { found: false, link: null, seen: false };
 
 /**
  * Looks for the post at the top of a page that lists it (the person's profile, the Page, their own posts), by its first
@@ -183,20 +194,25 @@ export interface PostLook {
  * `POSTS_DRAW_MS`. When they never drew, it looks once more with its window in front, only while the person is away
  * (decision 120); `seen` is false when it still couldn't see them, so "not there" isn't said for sure.
  */
-export async function lookOn(tab: ResearchTab, url: string, text: string): Promise<PostLook> {
+export async function lookOn(
+  tab: ResearchTab,
+  url: string,
+  text: string,
+  most: number = POSTS_NEWEST,
+): Promise<PostLook> {
   await pause(SETTLE_MS);
   try {
     await tab.open(url);
-    const look = await lookDrawn(tab, text);
-    if (look.link || look.seen) return look;
+    const look = await lookDrawn(tab, text, most);
+    if (look.found || look.seen) return look;
     try {
-      return await tab.inFront(() => lookDrawn(tab, text));
+      return await tab.inFront(() => lookDrawn(tab, text, most));
     } catch (error) {
       if (error instanceof NotAway) return look;
       throw error;
     }
   } catch {
-    return { link: null, seen: false };
+    return UNSEEN;
   }
 }
 
@@ -210,19 +226,19 @@ export async function linkFrom(
 }
 
 /** Reads the open page for the post, waiting by the clock while it still draws its newest posts. */
-async function lookDrawn(tab: ResearchTab, text: string): Promise<PostLook> {
+async function lookDrawn(tab: ResearchTab, text: string, most: number): Promise<PostLook> {
   const until = Date.now() + POSTS_DRAW_MS;
   for (;;) {
     const read = (await tab.hands('read')) as {
       posts?: { text: string; url: string | null }[];
     } | null;
-    if (!read) return { link: null, seen: false };
-    const link = foundPost(read, text);
-    if (link) return { link, seen: true };
-    const drawing = await tab.hands('drawPosts', POSTS_NEWEST);
-    if (!drawing) return { link: null, seen: false };
-    if (!drawing.loading) return { link: null, seen: true };
-    if (Date.now() >= until) return { link: null, seen: false };
+    if (!read) return UNSEEN;
+    const shown = postShown(read, text);
+    if (shown) return { found: true, link: shown.link, seen: true };
+    const drawing = await tab.hands('drawPosts', most);
+    if (!drawing) return UNSEEN;
+    if (!drawing.loading) return { found: false, link: null, seen: true };
+    if (Date.now() >= until) return UNSEEN;
     await pause(POSTS_LOOK_MS);
   }
 }
@@ -377,7 +393,7 @@ async function putUpAt(
     for (const wait of PAGE_LOOKS_MS) {
       await pause(wait);
       const look = await lookOn(tab, listed, post.text);
-      if (look.link) return { place, posted: true, pressed: true, link: look.link, failure: null };
+      if (look.found) return { place, posted: true, pressed: true, link: look.link, failure: null };
       seen ||= look.seen;
     }
     unseen = !seen;
