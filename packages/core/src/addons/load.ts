@@ -7,6 +7,7 @@ import type { CapabilityContext } from './capabilities';
 import type { Catalog } from './graph';
 import type { InstallationState } from './lifecycle';
 import type { OverrideStatus } from './manifest';
+import type { AddonGiftFacts, AddonSubscriptionFacts } from './billing';
 import type { AddonKept } from './words';
 
 export interface InstallationRow {
@@ -74,13 +75,14 @@ export async function loadOverrides(tx: Tx): Promise<Record<string, OverrideStat
 export const EVERY_ADDON_GRANT = '*';
 
 /**
- * The add-ons HandsFreeOS handed this business to try while they're still being built (`platform.addon_grants`), or
- * `EVERY_ADDON_GRANT` too for a practice business.
+ * The add-ons HandsFreeOS gives this business (`platform.addon_grants`): free, and installable while still being
+ * built. A gift whose date has passed is left out (20261027028500). `EVERY_ADDON_GRANT` too for a practice business.
  */
 export async function loadGrants(tx: Tx, workspaceId: string): Promise<string[]> {
   const found = await rows<{ addon_id: string }>(
     tx,
     sql`select addon_id from platform.addon_grants where workspace_id = ${workspaceId}::uuid
+          and (free_until is null or free_until > now())
         union all
         select ${EVERY_ADDON_GRANT} where private.is_practice_workspace(${workspaceId}::uuid)
         order by addon_id`,
@@ -141,3 +143,72 @@ export async function loadKept(tx: Tx, workspaceId: string, addonId: string): Pr
     plural: h?.plural ?? null,
   };
 }
+
+/** What a business pays for its add-ons, and the gifts HandsFreeOS gave it that haven't ended (20261027028500). */
+export interface AddonBillingFacts {
+  readonly subscriptions: Readonly<Record<string, AddonSubscriptionFacts>>;
+  readonly gifts: Readonly<Record<string, AddonGiftFacts>>;
+  /** A practice business is given every add-on (Admin → Try onboarding). */
+  readonly everyGift: boolean;
+}
+
+const isoOrNull = (d: Date | string | null): string | null =>
+  d ? new Date(d).toISOString() : null;
+
+/** Reads `app.addon_subscriptions` and the gifts that haven't ended, as the person (row security applies). */
+export async function loadAddonBilling(tx: Tx, workspaceId: string): Promise<AddonBillingFacts> {
+  const [subs, gifts] = await Promise.all([
+    rows<{
+      addon_id: string;
+      status: AddonSubscriptionFacts['status'];
+      price_cents: number;
+      trial_started_at: Date | string | null;
+      trial_ends_at: Date | string | null;
+      paid_through: Date | string | null;
+      next_charge_at: Date | string | null;
+      stop_at: Date | string | null;
+      failed_at: Date | string | null;
+      problem: string | null;
+      next_retry_at: Date | string | null;
+    }>(
+      tx,
+      sql`select addon_id, status, price_cents, trial_started_at, trial_ends_at, paid_through, next_charge_at,
+            stop_at, failed_at, problem, next_retry_at
+          from app.addon_subscriptions where workspace_id = ${workspaceId}::uuid`,
+    ),
+    rows<{ addon_id: string; free_until: Date | string | null; practice: boolean }>(
+      tx,
+      sql`select addon_id, free_until, false as practice from platform.addon_grants
+          where workspace_id = ${workspaceId}::uuid and (free_until is null or free_until > now())
+          union all
+          select ${EVERY_ADDON_GRANT}, null, true where private.is_practice_workspace(${workspaceId}::uuid)`,
+    ),
+  ]);
+  return {
+    subscriptions: Object.fromEntries(
+      subs.map((r) => [
+        r.addon_id,
+        {
+          status: r.status,
+          priceCents: r.price_cents,
+          trialStartedAt: isoOrNull(r.trial_started_at),
+          trialEndsAt: isoOrNull(r.trial_ends_at),
+          paidThrough: isoOrNull(r.paid_through),
+          nextChargeAt: isoOrNull(r.next_charge_at),
+          stopAt: isoOrNull(r.stop_at),
+          failedAt: isoOrNull(r.failed_at),
+          problem: r.problem,
+          nextRetryAt: isoOrNull(r.next_retry_at),
+        },
+      ]),
+    ),
+    gifts: Object.fromEntries(
+      gifts.filter((g) => !g.practice).map((g) => [g.addon_id, { until: isoOrNull(g.free_until) }]),
+    ),
+    everyGift: gifts.some((g) => g.practice),
+  };
+}
+
+/** The gift an add-on has here, if any: its own, or a practice business's (free for good). */
+export const giftOf = (facts: AddonBillingFacts, addonId: string): AddonGiftFacts | null =>
+  facts.gifts[addonId] ?? (facts.everyGift ? { until: null } : null);

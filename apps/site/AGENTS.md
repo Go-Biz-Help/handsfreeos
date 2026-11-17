@@ -29,9 +29,10 @@ They are deployed as **two separate Vercel projects** so a copy change never reb
   with `AFFILIATE_TERMS_VERSION` in `packages/core/src/affiliates/terms.ts`, and every affiliate agrees again.
 - **`/add-ons` offers the add-ons as early access for founding members** (the owner, 2026-11-17), from
   `src/content/addons.ts`. In the product they're still handed out by staff (Admin → Businesses), so the page asks
-  people to request one in the chat (`components/ask-chat.tsx`) or by email, never says an add-on is included in the
-  plan, and shows no price until one is set. Add-ons may cost extra later. Each line is only what that add-on's doc
-  says is built; Contractor Operations stays off the page until the owner offers it.
+  people to request one in the chat (`components/ask-chat.tsx`) or by email, and never says an add-on is included in
+  the plan. Each card shows what it costs a month after early access (`addonPrices` in `src/content/site.ts`, the
+  owner's picks of 2026-11-17), which must match its manifest's price in `packages/core`. Each line is only what that
+  add-on's doc says is built; Contractor Operations stays off the page until the owner offers it.
 - **The design tokens are copied from `apps/web/src/app/globals.css`** so the site and the app look
   like one product. If the accent colour changes there, change it here.
 - **Three pages exist because somebody reviews them**, and their wording is not decoration:

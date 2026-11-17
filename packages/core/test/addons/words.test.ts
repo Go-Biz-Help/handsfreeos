@@ -242,7 +242,9 @@ describe('addonOffer', () => {
   });
 
   it('says how one the business can’t install itself could come, or that it can’t', () => {
-    expect(addonOffer(null, paid, 'available', false)).toBe('paid');
+    // A paid one is installed like any other since its price exists (20261027028500): blocked only by what it needs.
+    expect(addonOffer(null, paid, 'available', true)).toBe('install');
+    expect(addonOffer(null, paid, 'available', false)).toBe('blocked');
     expect(addonOffer('uninstalled', free, 'beta', false)).toBe('support');
     // A beta add-on is never offered to a business that never had one.
     expect(addonOffer(null, free, 'beta', false)).toBe('none');
@@ -255,7 +257,6 @@ describe('addonOffer', () => {
   });
 
   it('says so in the words both apps use', () => {
-    expect(addonOfferNote('paid')).toBe(ADDON_PAGE_WORDS.paid);
     expect(addonOfferNote('support')).toBe(ADDON_PAGE_WORDS.support);
     expect(
       addonOfferNote('blocked', 'It needs Property Management, which can’t be added here.'),

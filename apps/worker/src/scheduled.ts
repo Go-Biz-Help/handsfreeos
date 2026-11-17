@@ -151,6 +151,11 @@ import {
   FOUNDING_RENEWALS_KEY,
   foundingJobs,
 } from './founding/checkout';
+import {
+  ADDON_BILLING_JOBS,
+  ADDON_BILLING_SWEEP_KEY,
+  addonBillingJobs,
+} from './founding/addon-billing';
 import { RCS_BILLING_JOBS, RCS_RENEWALS_KEY, rcsBillingJobs } from './telephony/rcs-billing';
 import { TEXTING_FEE_JOBS, TEXTING_MONTHS_KEY, textingFeeJobs } from './telephony/texting-fees';
 import { PAYOUT_JOBS, PAYOUT_PLAN_KEY, partnerPayoutJobs } from './partners/payouts';
@@ -643,6 +648,9 @@ export const jobs: JobMap = {
   // Founding seats (0093): a Checkout page made at Stripe, and the hourly sweep that gives back reservations
   // nobody took up or paid for (founding/checkout.ts).
   ...foundingJobs,
+  // Paid add-ons (20261027028500): the hourly sweep, each monthly charge with its retries, and the emails a few days
+  // before a trial or a gift ends (founding/addon-billing.ts).
+  ...addonBillingJobs,
   // RCS (0104): a request's Stripe page, the hourly sweep for paid years that are up, and each renewal's charge
   // (telephony/rcs-billing.ts).
   ...rcsBillingJobs,
@@ -892,6 +900,16 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     await scheduleJob(tx, {
       kind: FOUNDING_JOBS.renewals,
       dedupeKey: FOUNDING_RENEWALS_KEY,
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Paid add-ons (20261027028500), hourly: a month that's due is charged, a stop or a trial that's up ends, and a
+    // paid add-on nobody pays for any more is turned off.
+    await scheduleJob(tx, {
+      kind: ADDON_BILLING_JOBS.sweep,
+      dedupeKey: ADDON_BILLING_SWEEP_KEY,
       runAt,
       payload: {},
       workspaceId: null,

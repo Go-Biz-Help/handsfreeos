@@ -10,6 +10,7 @@
  * is down. The words for states, moves and checks are the ones the phone uses (`@hfos/core`'s add-on words).
  */
 import {
+  ADDON_BILLING_WORDS as B,
   ADDON_CATALOG,
   ADDON_PAGE_WORDS,
   addonBlockedWords,
@@ -17,8 +18,12 @@ import {
   addonMovesFor,
   addonOffer,
   addonOfferNote,
+  addonStandingLine,
+  addonStartWords,
+  addonStopsAt,
   type AddonManifest,
   type AddonOffer,
+  type AddonStanding,
   findAddon,
   isBusyState,
   isInstalledState,
@@ -35,20 +40,30 @@ import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
 import { fieldErrors } from '@/lib/api/field-errors';
 import { Badge } from '@/components/ui/badge';
 import type { AddonList, AddonRoadmap, InstalledAddon } from '@/lib/api/types';
-import { AddonCard, type CardCapability } from './addon-card';
+import { AddonCard, type CardBilling, type CardCapability } from './addon-card';
 import { AddonSettingsSheet, hasSettings } from './addon-settings-sheet';
 import {
   AskMoveDialog,
   ConfirmMoveDialog,
+  StartPayingDialog,
   type MakeMove,
   type MoveTarget,
-  type TakingAction,
+  type TakingBilling,
+  type TakingTarget,
 } from './move-dialogs';
 import { PlannedList } from './planned-list';
 import { addonName } from './words';
 
 /** The rules a move comes back with when other add-ons have to move with it: asked about, then sent again. */
 const ASK_RULES: ReadonlySet<string> = new Set(['addon_needs', 'addon_required_by']);
+/** The rules adding a paid add-on comes back with, said in its dialog: no card yet, or not this person's to pay. */
+const START_RULES: ReadonlySet<string> = new Set(['addon_needs_card', 'addon_billing_not_yours']);
+
+/** A paid add-on's standing as the turn-off question needs it: whether it can run to the end of what's paid. */
+function takingBilling(standing: AddonStanding | undefined): TakingBilling | null {
+  if (!standing || (standing.kind !== 'trial' && standing.kind !== 'paid')) return null;
+  return { kind: standing.kind, stopsAt: addonStopsAt(standing) };
+}
 const W = ADDON_PAGE_WORDS;
 const sectionTitle = 'text-lg font-semibold leading-[1.3] tracking-[-0.005em]';
 
@@ -122,7 +137,20 @@ export function AddonsSettings({
   const router = useRouter();
   const { addons: running, permissions } = useWorkspaceShell();
   const [pending, setPending] = useState<{ addonId: string; action: LifecycleAction } | null>(null);
-  const [confirm, setConfirm] = useState<(MoveTarget & { action: TakingAction }) | null>(null);
+  const [confirm, setConfirm] = useState<TakingTarget | null>(null);
+  // Adding a paid add-on, or turning one back on, asks first what it costs (20261027028500).
+  const [starting, setStarting] = useState<
+    | (MoveTarget & {
+        action: 'install' | 'enable';
+        body: string;
+        button: string;
+        problem: { message: string; needsCard: boolean } | null;
+      })
+    | null
+  >(null);
+  const [keeping, setKeeping] = useState<string | null>(null);
+  const usageHref = `/app/w/${workspaceId}/settings/usage`;
+  const canPay = permissions.includes('money.manage');
   const [ask, setAsk] = useState<
     (MoveTarget & { action: LifecycleAction; include: string[]; message: string }) | null
   >(null);
@@ -131,6 +159,9 @@ export function AddonsSettings({
 
   const stateOf = (id: string): InstallationState | null =>
     list.installed.find((i) => i.addonId === id)?.state ?? null;
+  /** What an add-on costs and where this business stands paying for it, from whichever list has it. */
+  const billingRow = (id: string) =>
+    list.installed.find((i) => i.addonId === id) ?? list.catalog.find((c) => c.addonId === id);
   // What the server says this business could add now (available, free, and everything it needs can come too).
   const installable = new Set(list.capabilities.installable.map((c) => c.provider));
   const installedIds = new Set(list.installed.map((i) => i.addonId));
@@ -199,6 +230,7 @@ export function AddonsSettings({
             );
       setConfirm(null);
       setAsk(null);
+      setStarting(null);
       const said = addonMovedLine(target.addonId, target.name, action, out.moved, addonName);
       if (said) toast.success(said);
       router.refresh();
@@ -207,11 +239,20 @@ export function AddonsSettings({
       // "…needs Property Management. Turn it on too?": asked once, then sent again with the ones agreed to.
       if (e instanceof ApiError && e.rule && ASK_RULES.has(e.rule)) {
         setConfirm(null);
+        setStarting(null);
         setAsk({
           ...target,
           action,
           include: [...new Set([...include, ...askedAbout(e.details)])],
           message: e.message,
+        });
+        return null;
+      }
+      // No card yet, or not this person's to pay for: said in the dialog that asked, which stays open.
+      if (starting && e instanceof ApiError && e.rule && START_RULES.has(e.rule)) {
+        setStarting({
+          ...starting,
+          problem: { message: e.message, needsCard: e.rule === 'addon_needs_card' },
         });
         return null;
       }
@@ -221,6 +262,7 @@ export function AddonsSettings({
       toast.error(errorMessage(e));
       setConfirm(null);
       setAsk(null);
+      setStarting(null);
       // It may have moved since the page was drawn (busy, already installed, turned off): show where it is now.
       router.refresh();
       return null;
@@ -230,11 +272,91 @@ export function AddonsSettings({
   };
 
   function start(target: MoveTarget, action: LifecycleAction) {
-    // Taking something away is confirmed first, with what else it would change.
-    if (action === 'disable' || action === 'uninstall' || action === 'purge')
-      setConfirm({ ...target, action });
-    else void move(target, action, []);
+    const row = billingRow(target.addonId);
+    // Taking something away is confirmed first, with what else it would change, and for a paid add-on whether it
+    // can run to the end of what's paid.
+    if (action === 'disable' || action === 'uninstall' || action === 'purge') {
+      setConfirm({ ...target, action, billing: takingBilling(row?.standing) });
+      return;
+    }
+    // Adding a paid one that isn't given free, or turning it back on: what it costs is asked about first.
+    const words =
+      (action === 'install' || action === 'enable') && row?.standing
+        ? addonStartWords(target.name, row.standing, row.price?.trialDays ?? 0)
+        : null;
+    if (words && (action === 'install' || action === 'enable')) {
+      setStarting({ ...target, action, body: words.body, button: words.button, problem: null });
+      return;
+    }
+    void move(target, action, []);
   }
+
+  /** Turned off from the page while it's paid up or in its trial: it runs until then, then turns off on its own. */
+  async function stopLater(target: MoveTarget) {
+    try {
+      const out = unwrap(
+        await apiBrowser().POST('/v1/commands/addon_billing.stop', {
+          body: { workspaceId, addonId: target.addonId },
+        }),
+      );
+      toast.success(B.stopped(target.name, out.stopAt));
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setConfirm(null);
+      router.refresh();
+    }
+  }
+
+  /** Keep it: undo turning it off at the end of what's paid, or keep it paying after a gift ends. */
+  async function keep(target: MoveTarget, afterGift: string | null) {
+    setKeeping(target.addonId);
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/addon_billing.keep', {
+          body: { workspaceId, addonId: target.addonId },
+        }),
+      );
+      toast.success(afterGift ? B.keptAfterGift(target.name, afterGift) : B.kept(target.name));
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setKeeping(null);
+      router.refresh();
+    }
+  }
+
+  /** A paid add-on's line on its card, with Keep it where it applies (only for someone who manages money). */
+  const billingOf = (
+    target: MoveTarget,
+    row: { price: AddonList['catalog'][number]['price']; standing: AddonStanding },
+    on: boolean,
+  ): CardBilling | null => {
+    const { standing } = row;
+    const line = addonStandingLine(standing, row.price?.trialDays ?? 0);
+    const giftEnding =
+      standing.kind === 'gift' &&
+      !!standing.until &&
+      !standing.keepsAfter &&
+      standing.priceCents !== null &&
+      on
+        ? standing
+        : null;
+    const stopping = (standing.kind === 'trial' || standing.kind === 'paid') && !!standing.stopAt;
+    const keepIt =
+      canPay && (giftEnding || stopping)
+        ? {
+            label:
+              giftEnding && giftEnding.priceCents !== null
+                ? B.keepAfterGift(giftEnding.priceCents)
+                : B.keep,
+            busy: keeping === target.addonId,
+            onClick: () => void keep(target, giftEnding?.until ?? null),
+          }
+        : null;
+    if (!line && !keepIt) return null;
+    return { line, pastDue: standing.kind === 'past_due', usageHref, keep: keepIt };
+  };
 
   // An add-on's settings are open only while it's on: they close when it's turned off, and stay closed after.
   const settingsAddon =
@@ -282,6 +404,7 @@ export function AddonsSettings({
           }
           note={note}
           testing={testing.has(i.addonId)}
+          billing={billingOf(target, i, on && i.state === 'enabled')}
         />
       </li>
     );
@@ -310,6 +433,7 @@ export function AddonsSettings({
           onMove={(action) => start({ addonId: c.addonId, name: c.name }, action)}
           note={note}
           testing={c.testing}
+          billing={billingOf({ addonId: c.addonId, name: c.name }, c, false)}
         />
       </li>
     );
@@ -383,6 +507,14 @@ export function AddonsSettings({
         target={confirm}
         busy={pending !== null}
         onClose={() => setConfirm(null)}
+        onMove={move}
+        onStopLater={stopLater}
+      />
+      <StartPayingDialog
+        start={starting}
+        usageHref={usageHref}
+        busy={pending !== null}
+        onClose={() => setStarting(null)}
         onMove={move}
       />
       <AskMoveDialog ask={ask} busy={pending !== null} onClose={() => setAsk(null)} onMove={move} />

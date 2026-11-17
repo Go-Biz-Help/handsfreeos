@@ -1,4 +1,5 @@
 import {
+  ADDON_BILLING_WORDS,
   addonBlockedWords,
   addonCheckWords,
   addonMovesFor,
@@ -24,8 +25,10 @@ import { ADDON_PHONE_WORDS } from './words';
  * - owners and admins (`addons.manage`) install, turn on and off and uninstall; only owners (`addons.purge`) delete
  *   an add-on's data;
  * - a state that is still on its way somewhere (tone `busy`) shows progress and offers no move;
- * - what could be added is what HandsFreeOS says this business can install, plus paid add-ons, which say that
- *   HandsFreeOS support can turn them on (billing isn't built); a beta add-on is never offered;
+ * - what could be added is what HandsFreeOS says this business can install; a beta add-on is never offered;
+ * - a paid add-on that HandsFreeOS didn't give free is never added or turned on from the phone, which shows no price
+ *   and no way to pay (App Store rule 3.1.3(f)): it says to add it from HandsFreeOS on the web; turning one off and
+ *   uninstalling work as for any other (20261027028500);
  * - which moves each state offers is core's rule (`addonMovesFor`), the one the web's page follows too;
  * - what's coming soon, and the vote on what comes next, are `addon.roadmap`'s (the screen draws them itself);
  * - a move's trouble is said in the checks' words, never the worker's own message.
@@ -63,6 +66,11 @@ export interface AddonView {
   readonly note: string | null;
   /** The moves this person can make now, in the order their buttons go. */
   readonly moves: readonly LifecycleAction[];
+  /**
+   * It costs money here: paid, and not given free by HandsFreeOS. The phone never adds or turns one on (App Store rule
+   * 3.1.3(f)); its note says to do that on the web.
+   */
+  readonly paidHere: boolean;
   /** Why the last move hasn't finished, in words. Empty when nothing is wrong. */
   readonly trouble: readonly string[];
   /** What it lets a business do. */
@@ -88,7 +96,7 @@ export interface AddonLink {
 export interface AddonGroups {
   /** Every add-on this business has had, whatever state it's in. */
   readonly installed: readonly AddonView[];
-  /** What could be added: installable here, or paid (support turns it on). */
+  /** What could be added: installable here (a paid one is added on the web), or held back by what it needs. */
   readonly addable: readonly AddonView[];
 }
 
@@ -183,6 +191,12 @@ function viewOf(
           (id) => installableHere(list, id),
         )
       : null;
+  // A paid one HandsFreeOS didn't give free: added and turned on only on the web (App Store rule 3.1.3(f)).
+  const standing = installed?.standing ?? listed?.standing ?? null;
+  const paidHere = !!standing && standing.kind !== 'free' && standing.kind !== 'gift';
+  const all = movesFor(state, offer, grants, retired);
+  const startsPaying = (a: LifecycleAction) => a === 'install' || a === 'enable';
+  const webOnly = paidHere && all.some(startsPaying);
   const link = (kind: 'required' | 'optional') =>
     (m?.requires ?? [])
       .filter((d) => d.kind === kind)
@@ -198,8 +212,9 @@ function viewOf(
     retired,
     running: installed?.running ?? false,
     offer,
-    note: addonOfferNote(offer, blocked),
-    moves: movesFor(state, offer, grants, retired),
+    note: webOnly ? ADDON_BILLING_WORDS.onTheWeb : addonOfferNote(offer, blocked),
+    moves: webOnly ? all.filter((a) => !startsPaying(a)) : all,
+    paidHere,
     trouble: installed ? troubleOf(installed) : [],
     does: doesOf(list, m, addonId),
     needs: link('required'),
@@ -235,7 +250,7 @@ export function groupAddons(list: AddonList, catalog: Catalog, grants: AddonGran
   const addable = notHad
     .filter((c) => c.status === 'available' || c.testing)
     .map((c) => viewOf(list, catalog, grants, c.addonId, null, c))
-    .filter((v) => v.offer === 'install' || v.offer === 'paid' || v.offer === 'blocked');
+    .filter((v) => v.offer === 'install' || v.offer === 'blocked');
   return { installed, addable };
 }
 

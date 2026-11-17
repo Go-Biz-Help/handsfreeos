@@ -1,7 +1,7 @@
 {
   "area": "settings-business",
   "title": "Settings: the business, branded domain, pipelines, tags, fields, relationships, Deleted bin, usage, action center and automations",
-  "checkedOn": "2026-11-13",
+  "checkedOn": "2026-11-17",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/businesses.tsx": "7ec6af7d1307",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "de243d485f3e",
@@ -19,7 +19,7 @@
     "apps/web/src/app/app/w/[workspaceId]/settings/pipelines/page.tsx": "5dc2d6298fdc",
     "apps/web/src/app/app/w/[workspaceId]/settings/relationships/page.tsx": "39b0ec6d7b9c",
     "apps/web/src/app/app/w/[workspaceId]/settings/tags/page.tsx": "cb53a156c454",
-    "apps/web/src/app/app/w/[workspaceId]/settings/usage/page.tsx": "1d266080d375",
+    "apps/web/src/app/app/w/[workspaceId]/settings/usage/page.tsx": "fde009c0648a",
     "apps/web/src/app/app/w/[workspaceId]/settings/workspace/page.tsx": "d9d4ba2f5c51",
     "apps/web/src/app/payment/[workspaceId]/page.tsx": "69c8d793ff8b",
     "apps/web/src/components/account/delete-account.tsx": "cf83035f8e5d",
@@ -39,7 +39,7 @@
     "apps/web/src/components/settings/appearance-section.tsx": "383c3fcbfc5b",
     "apps/web/src/components/settings/automations/automations-page.tsx": "57d10fa29ef1",
     "apps/web/src/components/settings/automations/panels.tsx": "5bcff013300f",
-    "apps/web/src/components/settings/billing-page.tsx": "c8a3b96c0761",
+    "apps/web/src/components/settings/billing-page.tsx": "480282be3d3a",
     "apps/web/src/components/settings/branded-domain-card.tsx": "d6e2b0af323b",
     "apps/web/src/components/settings/delete-workspace.tsx": "fe6ed95a9d1f",
     "apps/web/src/components/settings/fields-settings.tsx": "60503c06ceb7",
@@ -2269,6 +2269,13 @@
       "file": "apps/mobile/src/components/billing/fix-on-web.tsx:99",
       "covered": "never",
       "by": "the phone’s own screen in front of the business; nothing to change from the Assistant"
+    },
+    {
+      "path": "Billing & Usage → Add-ons: each paid add-on with where it stands, recent add-on payments, Turn add-ons on and off in Add-ons",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/billing-page.tsx:550",
+      "covered": "yes",
+      "by": "get_settings usage addOnBilling: each paid add-on with its price line, recent payments (addon_billing.list)"
     }
   ],
   "gaps": [

@@ -5,6 +5,7 @@
  * page wouldn't.
  */
 import {
+  ADDON_BILLING_WORDS,
   ADDON_CATALOG,
   ADDON_CATEGORY_WORDS,
   ADDON_PAGE_WORDS as W,
@@ -14,6 +15,7 @@ import {
   addonCheckWords,
   addonOffer,
   addonOfferNote,
+  addonStandingLine,
   filterPlanned,
   findAddon,
   IDEA_STATUS_MEANING,
@@ -25,6 +27,8 @@ import {
   type AddonCategory,
   type AddonManifest,
   type AddonOffer,
+  type AddonPrice,
+  type AddonStanding,
   type InstallationState,
   type PlannedAddonView,
 } from '@hfos/core/server';
@@ -50,6 +54,8 @@ interface AddonList {
     retired: boolean;
     status: string | null;
     running: boolean;
+    price?: AddonPrice | null;
+    standing?: AddonStanding;
   }[];
   capabilities: { installable: { provider: string }[] };
   catalog: {
@@ -58,7 +64,18 @@ interface AddonList {
     summary: string;
     status: string;
     testing: boolean;
+    price?: AddonPrice | null;
+    standing?: AddonStanding;
   }[];
+}
+
+/**
+ * What a paid add-on costs or where the business stands paying for it, as its card says it (20261027028500): its price
+ * before it's added, a free trial or gift and when it ends, the next payment, or a payment that didn't go through.
+ */
+function priceOf(row: { price?: AddonPrice | null; standing?: AddonStanding }) {
+  const line = row.standing ? addonStandingLine(row.standing, row.price?.trialDays ?? 0) : null;
+  return line ? { price: line } : {};
 }
 
 /**
@@ -134,6 +151,7 @@ export function addOnsRead(v: unknown): unknown {
             }
           : {}),
         ...(comesBack ? { inPlaceOfInstall: comesBack } : {}),
+        ...priceOf(i),
         ...aboutAddon(m),
       };
     }),
@@ -152,9 +170,45 @@ export function addOnsRead(v: unknown): unknown {
           canInstall,
           ...(note ? { inPlaceOfInstall: note } : {}),
           ...(c.testing ? { testing: W.testingDetail } : {}),
+          ...priceOf(c),
           ...aboutAddon(m),
         };
       }),
+  };
+}
+
+/**
+ * Settings → Billing & Usage → Add-ons (20261027028500), as get_settings usage reads it: each paid add-on the business
+ * has, pays for or was given, with where it stands in the card's words, and the last few months paid.
+ */
+export function addOnBillingRead(v: unknown): unknown {
+  const got = v as {
+    addons?: {
+      addonId: string;
+      name: string;
+      running: boolean;
+      price: AddonPrice | null;
+      standing: AddonStanding;
+    }[];
+    charges?: { name: string; amountCents: number; chargedAt: string }[];
+  } | null;
+  if (!got || !Array.isArray(got.addons)) return v;
+  const B = ADDON_BILLING_WORDS;
+  return {
+    addOns: got.addons.length
+      ? got.addons.map((a) => ({
+          addonId: a.addonId,
+          name: a.name,
+          running: a.running,
+          ...priceOf(a),
+        }))
+      : B.billingNone,
+    recentPayments: (got.charges ?? []).map((c) => ({
+      name: c.name,
+      paid: B.charged(c.amountCents, c.chargedAt),
+    })),
+    howItWorks: B.billingBlurb,
+    note: B.billingManage,
   };
 }
 

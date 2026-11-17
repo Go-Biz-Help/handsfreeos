@@ -249,7 +249,7 @@ export function addonRuns(ctx: CapabilityContext, id: AddonId): boolean {
   );
 }
 
-/** Statuses a staff grant can hand out: still being built, or available (a paid one, before billing exists). */
+/** Statuses a staff grant can hand out: still being built, or available (a paid one given free, 20261027028500). */
 const GRANTABLE: ReadonlySet<CatalogStatus> = new Set([
   'development',
   'beta',
@@ -258,13 +258,13 @@ const GRANTABLE: ReadonlySet<CatalogStatus> = new Set([
 ]);
 
 /**
- * Whether HandsFreeOS offers this add-on to this business: available and free (paid ones need billing, which doesn't
- * exist yet), or handed to it by staff to try (a grant), whatever it costs.
+ * Whether HandsFreeOS offers this add-on to this business: available (a paid one starts its trial or its monthly
+ * charge as it's added, 20261027028500), or handed to it by staff free (a grant), whatever its status.
  */
 function offeredHere(ctx: CapabilityContext, m: AddonManifest): boolean {
   const status = effectiveStatus(m, ctx.overrides);
   if (ctx.grants?.includes(m.id) && GRANTABLE.has(status)) return true;
-  return status === 'available' && m.billing.model === 'free';
+  return status === 'available';
 }
 
 /** Whether staff handed this add-on to this business to try (and it isn't switched off or deprecated since). */
@@ -274,8 +274,8 @@ export function grantedHere(ctx: CapabilityContext, id: AddonId): boolean {
 }
 
 /**
- * Whether a business could install this add-on on its own now: offered here (available and free, or handed to it by
- * staff), not already installed, and every add-on it requires is on here or could be installed with it.
+ * Whether a business could install this add-on on its own now: offered here (available, or handed to it by staff),
+ * not already installed, and every add-on it requires is on here or could be installed with it.
  */
 export function installableHere(ctx: CapabilityContext, id: AddonId): boolean {
   const m = findAddon(ctx.catalog, id);

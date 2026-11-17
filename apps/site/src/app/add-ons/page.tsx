@@ -9,7 +9,7 @@ import {
   DealVisual,
   OutreachVisual,
 } from '@/components/visuals';
-import { addonCards, earlyAccess, type AddonCard } from '@/content/addons';
+import { addonCards, addonPriceLine, earlyAccess, type AddonCard } from '@/content/addons';
 import { company, urls } from '@/content/site';
 
 export const metadata: Metadata = {
@@ -29,8 +29,8 @@ const visuals: Record<AddonCard['id'], ReactNode> = {
 
 /*
  * The add-ons, offered as early access (content/addons.ts says why). The plan is sold everywhere else on the site;
- * this page sells what goes on top of it, so it never says an add-on is included, and it never shows a price until
- * one is set. Asking is the chat in the corner, which HandsFreeOS's own team answers, with the email beside it.
+ * this page sells what goes on top of it, so it never says an add-on is included; each card says what it costs once
+ * it's out of early access. Asking is the chat in the corner, which HandsFreeOS's own team answers, with the email beside it.
  */
 export default function AddonsPage() {
   return (
@@ -95,6 +95,12 @@ export default function AddonsPage() {
                     {addon.name}
                   </h2>
                   <p className="text-text-2 mt-4 text-lg">{addon.summary}</p>
+                  <p
+                    className="mt-3 text-base font-semibold"
+                    data-testid={`addon-price-${addon.id}`}
+                  >
+                    {addonPriceLine(addon.id)}
+                  </p>
                   <div className="mt-8">{visuals[addon.id]}</div>
                 </div>
 

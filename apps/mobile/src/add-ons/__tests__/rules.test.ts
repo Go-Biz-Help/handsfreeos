@@ -1,4 +1,9 @@
-import { addonCheckWords, type InstallationState, type LifecycleAction } from '@hfos/core';
+import {
+  ADDON_BILLING_WORDS,
+  addonCheckWords,
+  type InstallationState,
+  type LifecycleAction,
+} from '@hfos/core';
 
 import {
   agreedWith,
@@ -39,9 +44,19 @@ describe('the sections', () => {
     const list = listFor({ fxprop: 'enabled', fxacct: 'disabled' });
     const groups = groupAddons(list, FIXTURE_CATALOG, OWNER_GRANTS);
     expect(ids(groups.installed)).toEqual(['fxprop', 'fxacct']);
-    // Rent Collection can come now its property management is on; Premium Payroll is paid, so support turns it on.
+    // Rent Collection can come now its property management is on; Premium Payroll is paid, so it's added on the web.
     expect(ids(groups.addable)).toEqual(['fxrent', 'fxsocial', 'fxcontent', 'fxpaid']);
-    expect(groups.addable.map((v) => v.offer)).toEqual(['install', 'install', 'install', 'paid']);
+    expect(groups.addable.map((v) => v.offer)).toEqual([
+      'install',
+      'install',
+      'install',
+      'install',
+    ]);
+    expect(groups.addable.find((v) => v.addonId === 'fxpaid')).toMatchObject({
+      paidHere: true,
+      moves: [],
+      note: ADDON_BILLING_WORDS.onTheWeb,
+    });
     expect(ids(groups.addable)).not.toContain('fxinflu');
     expect(isEmptyGroups(groups)).toBe(false);
   });
@@ -145,15 +160,31 @@ describe('what each state offers', () => {
 });
 
 describe('how one could come to the business', () => {
-  it('says support turns on a paid one, and one only support hands out once it was uninstalled', () => {
+  it('says a paid one is added on the web, and one only support hands out once it was uninstalled', () => {
     const list = listFor({ fxbeta: 'uninstalled', fxpaid: 'purged' });
     expect(findAddonView(list, FIXTURE_CATALOG, OWNER_GRANTS, 'fxbeta')).toMatchObject({
       offer: 'support',
       moves: ['purge'],
     });
     expect(findAddonView(list, FIXTURE_CATALOG, OWNER_GRANTS, 'fxpaid')).toMatchObject({
-      offer: 'paid',
+      offer: 'install',
       moves: [],
+      note: ADDON_BILLING_WORDS.onTheWeb,
+    });
+  });
+
+  it('adds and turns on a paid one HandsFreeOS gave free, like any other', () => {
+    const list = listFor(
+      { fxpaid: 'disabled' },
+      {
+        rows: {
+          fxpaid: { standing: { kind: 'gift', until: null, keepsAfter: false, priceCents: 2900 } },
+        },
+      },
+    );
+    expect(findAddonView(list, FIXTURE_CATALOG, OWNER_GRANTS, 'fxpaid')).toMatchObject({
+      paidHere: false,
+      moves: ['enable', 'uninstall'],
     });
   });
 

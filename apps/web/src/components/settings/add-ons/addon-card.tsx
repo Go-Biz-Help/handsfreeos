@@ -1,5 +1,6 @@
 'use client';
 import {
+  ADDON_BILLING_WORDS as B,
   ADDON_MOVE_WORDS,
   ADDON_PAGE_WORDS as W,
   ADDON_STATE_WORDS,
@@ -21,6 +22,20 @@ import { needsOf } from './words';
 
 /** Which list an add-on is in: this business has it, it could add it, or it's coming. */
 export type AddonPlace = 'installed' | 'available' | 'planned';
+
+/** A paid add-on's price or standing on its card (20261027028500). */
+export interface CardBilling {
+  readonly line: string | null;
+  /** Its last payment didn't go through: the line is said as a warning, with a way to Billing & Usage. */
+  readonly pastDue: boolean;
+  readonly usageHref: string;
+  /** Keep it: undo turning it off at the end of what's paid, or keep it after a gift ends. */
+  readonly keep: {
+    readonly label: string;
+    readonly busy: boolean;
+    readonly onClick: () => void;
+  } | null;
+}
 
 /** Something an add-on lets a business do, as its card lists it. */
 export interface CardCapability {
@@ -83,6 +98,7 @@ export function AddonCard({
   onSettings,
   note,
   testing = false,
+  billing = null,
 }: {
   addonId: string;
   name: string;
@@ -108,6 +124,11 @@ export function AddonCard({
   note?: string | null;
   /** HandsFreeOS handed this business the add-on to try while it's still being built. */
   testing?: boolean;
+  /**
+   * What a paid add-on costs or where the business stands paying for it (20261027028500): the line under its name, a
+   * payment that didn't go through (with where to fix it), and Keep it when it's set to turn off or a gift ends.
+   */
+  billing?: CardBilling | null;
 }) {
   const Icon = ADDON_UI[addonId]?.icon ?? Blocks;
   const state = installed?.state ?? null;
@@ -168,6 +189,11 @@ export function AddonCard({
               ) : null}
             </div>
             {summary ? <p className="mt-0.5 text-[13px] text-text-2">{summary}</p> : null}
+            {billing?.line && !billing.pastDue ? (
+              <p className="mt-1 text-[13px] font-medium text-text" data-testid="addon-billing">
+                {billing.line}
+              </p>
+            ) : null}
             {words && !paused && !installed?.retired ? (
               <p className="mt-1 text-xs text-text-3" data-testid="addon-state-detail">
                 {words.detail}
@@ -180,8 +206,20 @@ export function AddonCard({
             ) : null}
           </div>
         </div>
-        {!busy && (moves.length || open || onSettings) ? (
+        {!busy && (moves.length || open || onSettings || billing?.keep) ? (
           <div className="flex flex-wrap items-center gap-2">
+            {billing?.keep ? (
+              <Button
+                variant="primary"
+                size="sm"
+                loading={billing.keep.busy}
+                disabled={pending !== null}
+                onClick={billing.keep.onClick}
+                data-testid={`addon-keep-${addonId}`}
+              >
+                {billing.keep.label}
+              </Button>
+            ) : null}
             {open ? (
               <ButtonLink href={open} size="sm" data-testid={`addon-open-${addonId}`}>
                 Open
@@ -217,6 +255,19 @@ export function AddonCard({
         ) : null}
       </div>
 
+      {billing?.pastDue && billing.line ? (
+        <Callout
+          className="mt-4"
+          data-testid={`addon-past-due-${addonId}`}
+          action={
+            <ButtonLink href={billing.usageHref} size="sm" variant="secondary">
+              {B.addCardLink}
+            </ButtonLink>
+          }
+        >
+          {billing.line}
+        </Callout>
+      ) : null}
       {paused ? (
         <Callout tone="neutral" className="mt-4" data-testid={`addon-paused-${addonId}`}>
           {W.paused(name)}

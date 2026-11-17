@@ -11,6 +11,7 @@
  * It's in `development`: offered nowhere, and installable only where HandsFreeOS staff hand it out to try.
  */
 import { defineAddon } from '../manifest';
+import { ADDON_TRIAL_DAYS } from '../billing';
 import { SOCIALCONTENT_LOOK_ALIKES, SOCIALCONTENT_PLACES } from './ai-places';
 import { SOCIALCONTENT_PAGES } from './words';
 
@@ -177,7 +178,8 @@ export const socialcontentAddon = defineAddon({
     'socialcontent.setup',
     'socialcontent.research',
   ],
-  billing: { model: 'free' },
+  // $47 a month for the whole business, after 14 days free (the owner's pick, 2026-11-17).
+  billing: { model: 'paid', monthlyCents: 4700, trialDays: ADDON_TRIAL_DAYS },
   // The business's main offer and its lists for content (docs/main-offer.md, "For your content"): every post and idea
   // is written from them, and none until the offer is live (the owner's picks, 11 Nov 2026).
   uses: ['main_offer'],

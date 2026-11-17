@@ -341,12 +341,26 @@ export const BusinessGetOutput = z.object({
   isPlatform: z.boolean(),
   /** HandsFreeOS video calls are on for it (docs/video-calls.md). */
   videoCalls: z.boolean(),
-  /** Add-ons still being built that staff handed this business to try (Real Estate, step 2). */
+  /** Add-ons staff gave this business free (Real Estate, step 2; with an end date since 20261027028500). */
   addonGrants: z.array(
     z.object({
       addonId: z.string(),
       note: z.string().nullable(),
       grantedAt: isoDateTime,
+      /** When the gift ends; null until taken back. A date in the past: it has ended. */
+      freeUntil: isoDateTime.nullable(),
+    }),
+  ),
+  /** What it pays for paid add-ons (20261027028500), one row each it ever started. */
+  addonSubscriptions: z.array(
+    z.object({
+      addonId: z.string(),
+      status: z.enum(['trial', 'active', 'past_due', 'ended']),
+      priceCents: z.number().int(),
+      trialEndsAt: isoDateTime.nullable(),
+      paidThrough: isoDateTime.nullable(),
+      nextChargeAt: isoDateTime.nullable(),
+      stopAt: isoDateTime.nullable(),
     }),
   ),
   people: z.array(

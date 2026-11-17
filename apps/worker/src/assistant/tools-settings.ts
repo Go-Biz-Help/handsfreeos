@@ -72,7 +72,7 @@ import {
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { WorkerServices } from '../services';
-import { addOnsRead, addOnsTidy, voteRead } from './addons-page';
+import { addOnBillingRead, addOnsRead, addOnsTidy, voteRead } from './addons-page';
 import { publicOriginFor } from './full-links';
 import { aboutYouRead, meRead, myCellRead, phonesRead } from './my-account';
 import type { ToolContext, ToolOutcome } from './runtime';
@@ -621,6 +621,8 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
     { name: 'founding.mine', as: 'founding' },
     // The plan's next payment and date, the cards (which pay the balance too) and anything owed (20261027023600).
     { name: 'billing.get', as: 'billing' },
+    // What each paid add-on costs and where the business stands paying for it (20261027028500).
+    { name: 'addon_billing.list', as: 'addOnBilling', shape: addOnBillingRead },
   ],
   action_center: [{ name: 'attention.settings', as: 'actionCenter', shape: actionCenterOf }],
   ai_teammate: [{ name: 'ai_teammate.get', as: 'aiTeammate', shape: teammateRead }],

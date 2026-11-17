@@ -4,12 +4,15 @@
  * In the product each of these is still offered to nobody on its own (`development`, or `beta` for Real Estate, in
  * packages/core/src/addons/<id>/manifest.ts): HandsFreeOS staff hand one to a business from Admin → Businesses
  * (docs/addon-architecture.md, "Handing one out to try"). So the page offers early access that a person asks for,
- * never a button that installs one, and never says an add-on is included in the plan: add-ons may cost extra later.
+ * never a button that installs one, and never says an add-on is included in the plan. Each card says what it costs a
+ * month once it's out of early access (`addonPrices` in ./site.ts, the owner's picks of 2026-11-17).
  *
  * Every line is something the add-on does today. Keep them to what its doc says is built (docs/outreach.md,
  * docs/socialcontent.md, docs/salescoach.md, docs/realestate.md), and when one becomes `available`, change how it's
  * offered here too.
  */
+
+import { addonPrices, addonTrialDays } from './site';
 
 export type AddonCard = {
   /** The add-on's id in the product, and the anchor on the page. */
@@ -87,11 +90,14 @@ export const addonCards: readonly AddonCard[] = [
   },
 ];
 
+/** What one add-on costs once it's out of early access, as its card says it. */
+export const addonPriceLine = (id: AddonCard['id']): string =>
+  `$${addonPrices[id]} a month after early access`;
+
 /** How early access works, said once for every card. */
 export const earlyAccess = {
   who: 'Founding members',
   price: 'Free while it’s in early access',
-  later:
-    'Add-ons may cost extra once they’re out of early access. We’ll tell you before anything changes.',
+  later: `Once one is out of early access, it’s the monthly price on its card, for your whole business, with ${addonTrialDays} days free the first time you add it. We’ll tell you before anything changes.`,
   usage: 'The AI and texts they use come out of your usage balance, like everything else.',
 } as const;

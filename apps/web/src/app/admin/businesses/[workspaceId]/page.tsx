@@ -11,7 +11,7 @@ import {
   deskSetupScore,
 } from '@hfos/core';
 import Link from 'next/link';
-import { AddonTestingBlock } from '@/components/admin/addon-testing-block';
+import { AddonGiftsBlock } from '@/components/admin/addon-gifts-block';
 import { AffiliateBusinessBlock } from '@/components/admin/affiliate-business-block';
 import {
   ActivitySection,
@@ -205,9 +205,10 @@ export default async function BusinessPage({
         <SupportAccessAsk workspaceId={workspaceId} />
       ) : null}
 
-      <AddonTestingBlock
+      <AddonGiftsBlock
         workspaceId={workspaceId}
         grants={detail.addonGrants}
+        subscriptions={detail.addonSubscriptions}
         canChange={me.staff?.permissions.includes('platform.addons.manage') ?? false}
       />
 

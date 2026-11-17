@@ -540,6 +540,12 @@ describe('the last settings by asking', () => {
         )
       )[0]?.state;
     expect(await state()).toBe('disabled');
+    // Turned on again, a paid add-on needs a card or a gift from staff, as every business with it on today has.
+    await rows(
+      admin(),
+      sql`insert into platform.addon_grants (workspace_id, addon_id, note)
+          values (${workspaceId}, 'outreach', 'Testing') on conflict do nothing`,
+    );
     const on = await prepare('manage_add_on', { action: 'turn_on', addonId: 'outreach' });
     await confirm('manage_add_on', on.parsed);
     expect(await state()).toBe('enabled');

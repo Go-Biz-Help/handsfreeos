@@ -6158,6 +6158,8 @@ export const addonGrants = platform.table(
     note: text('note'),
     grantedBy: userRef('granted_by'),
     grantedAt: ts('granted_at').notNull().defaultNow(),
+    /** When the gift ends (20261027028500): free until then; null until staff take it back. */
+    freeUntil: ts('free_until'),
   },
   (t) => [primaryKey({ columns: [t.workspaceId, t.addonId] })],
 );
@@ -7821,6 +7823,53 @@ export const planCards = app.table(
   (t) => [unique().on(t.workspaceId, t.cardRef)],
 );
 
+/** What a business pays for one paid add-on (20261027028500): its trial, the month paid through, the next charge. */
+export const addonSubscriptions = app.table(
+  'addon_subscriptions',
+  {
+    workspaceId: workspaceRef(),
+    organizationId: orgRef(),
+    addonId: text('addon_id').notNull(),
+    status: text('status').notNull(),
+    priceCents: integer('price_cents').notNull(),
+    trialStartedAt: ts('trial_started_at'),
+    trialEndsAt: ts('trial_ends_at'),
+    paidThrough: ts('paid_through'),
+    nextChargeAt: ts('next_charge_at'),
+    stopAt: ts('stop_at'),
+    failedAt: ts('failed_at'),
+    problem: text('problem'),
+    retryCount: integer('retry_count').notNull().default(0),
+    retryFrom: ts('retry_from'),
+    nextRetryAt: ts('next_retry_at'),
+    chargeCount: integer('charge_count').notNull().default(0),
+    startedBy: userRef('started_by'),
+    startedAt: ts('started_at').notNull().defaultNow(),
+    endedAt: ts('ended_at'),
+    endReason: text('end_reason'),
+    ...timestamps(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.addonId] })],
+);
+
+/** Each month a business paid for a paid add-on (20261027028500), once. */
+export const addonCharges = app.table(
+  'addon_charges',
+  {
+    id: id(),
+    workspaceId: workspaceRef(),
+    organizationId: orgRef(),
+    addonId: text('addon_id').notNull(),
+    amountCents: integer('amount_cents').notNull(),
+    periodFrom: ts('period_from').notNull(),
+    periodTo: ts('period_to').notNull(),
+    paymentRef: text('payment_ref'),
+    cardId: uuid('card_id').references(() => planCards.id, { onDelete: 'set null' }),
+    chargedAt: ts('charged_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.addonId, t.periodFrom)],
+);
+
 export const planTimeRequestStatus = app.enum('plan_time_request_status', [
   'pending',
   'granted',
@@ -8971,6 +9020,8 @@ export const tables = {
   addonAlerts,
   addonOverrides,
   addonGrants,
+  addonSubscriptions,
+  addonCharges,
   addonVotes,
   addonVoteCounts,
   addonVoteWeeks,
