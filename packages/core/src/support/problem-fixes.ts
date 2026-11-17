@@ -320,6 +320,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 656,
     said: 'The last read of the group stopped just as its member list ended, so this read scrolled past the end keeping nothing (decision 148) and saved no depth, so it would every time. When the list ends before where the last read got to, nothing is reported now and the next read starts at the top.',
   },
+  {
+    area: 'threads',
+    job: 'post.feed',
+    note: 'Threads didn’t show the box to write a post',
+    fixedIn: '0.147.2',
+    pr: 659,
+    said: 'Create opened Threads’ New thread box, but Threads now draws it as a menu, not a box over the page, so it was never found. A menu with a box to write in counts now; one without (More’s) never does.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */
