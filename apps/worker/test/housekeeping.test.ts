@@ -283,7 +283,9 @@ describe('problem reports clearing themselves (20261027023100)', () => {
 
   it('clears limits once they’re over and problems quiet for 3 days, and comes back every hour', async () => {
     const aiYesterday = await insert({ ago: '2 days', kind: 'limit', limitKind: 'ai_daily' });
-    const aiNow = await insert({ ago: '1 minute', kind: 'limit', limitKind: 'ai_daily' });
+    // Today's, by the business's own clock however close to its midnight this runs (it went red at 00:00 Chicago,
+    // 17 Nov 2026, when a minute ago was yesterday there).
+    const aiNow = await insert({ ago: '0 seconds', kind: 'limit', limitKind: 'ai_daily' });
     const networkOld = await insert({ ago: '25 hours', kind: 'limit', limitKind: 'network' });
     const networkNew = await insert({ ago: '1 hour', kind: 'limit', limitKind: 'network' });
     const quiet = await insert({ ago: '4 days', note: 'Gone quiet' });
