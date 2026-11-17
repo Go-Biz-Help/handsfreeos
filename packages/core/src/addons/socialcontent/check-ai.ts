@@ -6,8 +6,8 @@
  *
  * - **The check**: Claude looks at each picture made, beside the words it should say, and says what's wrong: a word
  *   misspelt, garbled, extra, cut off or too small, things overlapping, a mistake image AIs make in a photo (a blank
- *   screen in someone's hand, wrong fingers, melted or doubled things: the owner, 15 Nov), or a look no business
- *   owner would post. A drawn design that fails is tried twice more: designed again with the problems to fix, and
+ *   screen in someone's hand, wrong fingers, melted or doubled things: the owner, 15 Nov; a thing bent out of its real
+ *   shape, like a laptop with a warped lid and base: 17 Nov), or a look no business owner would post. A drawn design that fails is tried twice more: designed again with the problems to fix, and
  *   its photo made again when the problem is in the photo. What still fails shows beside the picture.
  * - **A whole graphic from OpenAI**, words and all, for a single picture with a photo, every other time while the
  *   last ones passed the check. One that fails is never kept: the photo is made again without words and the words
@@ -30,6 +30,12 @@ export const CHECKS = {
   /** The picture Claude looks at, made smaller: enough to read every word, far fewer tokens. */
   width: 540,
   height: 675,
+  /**
+   * A page with a photo, looked at whole: at half size a bent laptop or a wrong finger is a few dots (the owner, 17
+   * Nov: a laptop's warped lid and base passed the check). About 2,000 tokens a page, against 500.
+   */
+  photoWidth: 1080,
+  photoHeight: 1440,
   /** A graphic's words at most: OpenAI spells a few big words well. */
   graphicHeadingWords: 9,
   graphicKickerWords: 4,
@@ -47,22 +53,27 @@ export const CHECKS = {
  * The check a picture was made under, kept on its design as `checked`: 2 looks for the mistakes image AIs make in a
  * photo and has the photo made again for one (the owner, 15 Nov); 3 counts words that are part of the photo, faint
  * ones too, as the photo's, and tries twice more (the owner's pick, 16 Nov, after 9 of 23 photos made under 2 still
- * failed it). Pictures without it were made before.
+ * failed it); 4 looks at a photo whole and goes over each thing in it for its shape (the owner, 17 Nov: "look at the
+ * laptop on this image. the ai should have noticed how the shape of it is all wonky"). Pictures without it were made
+ * before.
  */
-export const PICTURE_CHECK_VERSION = 3;
+export const PICTURE_CHECK_VERSION = 4;
 
 /**
  * The mistakes image AIs make that a camera never would (the owner, 15 Nov: "quality control on the content creator
- * could have done better with this image, as you can see the phone in her hand is just a blank white screen").
+ * could have done better with this image, as you can see the phone in her hand is just a blank white screen"; 17 Nov:
+ * a laptop on a truck's dash with a bent lid and a base too long, which a check looking only for named mistakes passed).
  */
 export const PHOTO_MISTAKES =
-  'Look hard at any photo for the mistakes image AIs make, and fail the page for any of them: a phone, laptop, TV or other screen someone is using that is blank, plain white, grey or black, even when the post is about waiting or nothing happening; hands with too many, too few or joined fingers, or holding things in a way real hands can’t; warped faces, eyes or teeth; people or objects that melt into each other, float, bend or are doubled; made-up writing on signs, screens, boxes or clothes; words, numbers, icons or app screens that are part of the photo, even faint or ghostly ones showing through behind the page’s own words; or anything else a person would look at twice and think isn’t real.';
+  'Look hard at any photo for the mistakes image AIs make, and fail the page for any of them: a phone, laptop, TV or other screen someone is using that is blank, plain white, grey or black, even when the post is about waiting or nothing happening; hands with too many, too few or joined fingers, or holding things in a way real hands can’t; warped faces, eyes or teeth; people or objects that melt into each other, float, bend or are doubled; made-up writing on signs, screens, boxes or clothes; words, numbers, icons or app screens that are part of the photo, even faint or ghostly ones showing through behind the page’s own words; or anything else a person would look at twice and think isn’t real.\n' +
+  'Image AIs bend things out of shape most of all, so go over the photo one thing at a time before you judge it: each person, each hand, and each object, such as a laptop, phone, screen, cup, tool, chair, table, steering wheel, car door or dashboard, window or building. For each, ask whether a camera could have taken it so: edges that should be straight are straight, not wavy or bent; parts are the right size for each other, like a laptop’s keyboard and base for its lid; parts join where they should, like a laptop’s lid meeting its base along one straight hinge; it rests on something that could hold it, at an angle it could rest at, without sinking into it or running on into the thing behind. Fail the page for any thing with a shape no real one has, even a small one at the edge of the photo, and name it and what’s wrong in photoProblems.';
 
 export const PICTURE_CHECK_SYSTEM = [
   'You check a small business’s social media pictures before they’re posted, one page at a time, as a careful designer would.',
   'Each page comes with the words it should say. Fail a page when a word is misspelt, garbled or has made-up letters; when there are words that shouldn’t be there; when words are cut off, overlap each other or the edge, or are too small or faint to read; or when it looks broken, cluttered or empty rather than like something a business owner made in Canva.',
   PHOTO_MISTAKES,
   'Put each problem in the photo itself under photoProblems, since only a new photo fixes it: that includes any words, numbers or icons that are part of the photo, on a screen, a sign or faint behind the page’s own words. Put each problem with the page’s own words or the layout under problems.',
+  'On a page with a photo, list under photoLooked each person, hand and object you went over, in a few words with what you found, like “laptop: lid bent, base runs into the dash” or “left hand: five fingers, holds the phone”; on a page without one, leave it empty.',
   'Be strict about the words and fair about style: a plain, clean page passes. A page number like “2/6” in a corner is part of the design.',
   'A page may come with a note on what its layout draws on purpose, such as a heading crossed out as a myth or labels on cards; never fail a page for that.',
   'For each page say whether it passes and, if not, each problem in a few plain words a designer could fix.',
@@ -79,9 +90,11 @@ export const PICTURE_CHECK_SCHEMA: Record<string, unknown> = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['page', 'passes', 'problems', 'photoProblems'],
+        // photoLooked comes first, so each thing in a photo is gone over before the page is judged (17 Nov).
+        required: ['page', 'photoLooked', 'passes', 'problems', 'photoProblems'],
         properties: {
           page: { type: 'integer' },
+          photoLooked: { type: 'array', items: { type: 'string' } },
           passes: { type: 'boolean' },
           problems: { type: 'array', items: { type: 'string' } },
           photoProblems: { type: 'array', items: { type: 'string' } },
@@ -96,6 +109,8 @@ export const PictureCheckAnswer = z.object({
     .array(
       z.object({
         page: z.number().int().catch(0),
+        /** What it went over in the photo, asked for so it looks at each thing; not kept. */
+        photoLooked: z.array(z.string()).catch([]),
         passes: z.boolean().catch(false),
         problems: z.array(z.string()).catch([]),
         photoProblems: z.array(z.string()).catch([]),
@@ -151,6 +166,11 @@ export function pageToCheck(p: DesignPage): PageToCheck {
   return { words: wordsOfPage(p), drawn: DRAWN_ON_PURPOSE[p.layout] ?? null };
 }
 
+/** OpenAI's whole graphic as the check is told it: only the words it was asked to put on it. */
+export function graphicToCheck(p: DesignPage): PageToCheck {
+  return { words: [p.kicker, p.heading].filter((w): w is string => !!w) };
+}
+
 /** What the check is asked, after the pictures themselves (one image per page, in order). */
 export function pictureCheckPrompt(pages: readonly PageToCheck[]): string {
   return [
@@ -178,8 +198,12 @@ export interface PictureCheck {
 /** The check's answer: it passes only when every page was looked at and passed. */
 export function checkedPictureCheck(
   answer: {
-    readonly pages: readonly (Omit<PictureCheckAnswer['pages'][number], 'photoProblems'> & {
+    readonly pages: readonly (Omit<
+      PictureCheckAnswer['pages'][number],
+      'photoProblems' | 'photoLooked'
+    > & {
       readonly photoProblems?: readonly string[];
+      readonly photoLooked?: readonly string[];
     })[];
   },
   pages: number,

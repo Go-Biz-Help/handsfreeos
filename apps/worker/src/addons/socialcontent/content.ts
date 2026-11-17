@@ -82,6 +82,7 @@ import {
   PICTURE_CHECK_VERSION,
   PICTURE_CHECK_SYSTEM,
   PictureCheckAnswer,
+  graphicToCheck,
   pageToCheck,
   pictureCheckPrompt,
   withCutWords,
@@ -116,6 +117,7 @@ import { asWorker, rows, sql } from '@hfos/db/client';
 import sharp from 'sharp';
 import { z } from 'zod';
 import { AiAskError, askStructured } from '../../ai/ask';
+import { readFileBytes } from '../../files/read';
 import { assertInWorkspace } from '../../handlers/file-removed';
 import { chargeUsage } from '../../money/wallet';
 import { PictureError } from '../../pictures';
@@ -1276,26 +1278,37 @@ async function askDesign(
   return design;
 }
 
+/** A picture as the check is shown it: one with a photo in it (a JPEG, `Drawn`) is looked at whole. */
+interface ToCheck {
+  readonly bytes: Buffer;
+  readonly photo: boolean;
+}
+
 /**
  * Claude looks at the pictures beside the words they should say (decision 40). Null when it couldn't be asked: the
  * check never stops a drawn picture, but an OpenAI graphic is kept only when it passed.
  */
 async function checkPictures(
   ctx: AddonScopeContext,
-  pictures: readonly Buffer[],
+  pictures: readonly ToCheck[],
   pages: readonly PageToCheck[],
 ): Promise<PictureCheck | null> {
   try {
     const images: AiContent[] = [];
-    for (const bytes of pictures)
+    for (const { bytes, photo } of pictures)
       images.push({
         type: 'image',
         mediaType: 'image/jpeg',
         data: (
           await sharp(bytes)
-            // Smaller but whole, in its own shape: Instagram's isn't cut to 4:5 for the check.
-            .resize(CHECKS.width, CHECKS.height, { fit: 'inside' })
-            .jpeg({ quality: 82 })
+            // Whole, in its own shape: Instagram's isn't cut to 4:5 for the check. A page with a photo at full size,
+            // so a thing bent out of shape shows (the owner, 17 Nov); the others smaller, enough to read every word.
+            .resize(
+              photo ? CHECKS.photoWidth : CHECKS.width,
+              photo ? CHECKS.photoHeight : CHECKS.height,
+              { fit: 'inside', withoutEnlargement: true },
+            )
+            .jpeg({ quality: photo ? 90 : 82 })
             .toBuffer()
         ).toString('base64'),
       });
@@ -1306,7 +1319,8 @@ async function checkPictures(
       ],
       schema: PICTURE_CHECK_SCHEMA,
       zod: PictureCheckAnswer,
-      maxTokens: 1500,
+      // Room for what it went over in each photo too (photoLooked).
+      maxTokens: 2500,
       usage: { source: 'addon', addonId: ctx.manifest.id },
     });
     return checkedPictureCheck(value, pictures.length);
@@ -1340,7 +1354,7 @@ async function drawChecked(
     const check = withCutWords(
       await checkPictures(
         ctx,
-        pictures.map((x) => x.bytes),
+        pictures.map((x) => ({ bytes: x.bytes, photo: x.mimeType === 'image/jpeg' })),
         d.pages.map(pageToCheck),
       ),
       pictures.map((x) => !!x.cut),
@@ -1515,11 +1529,7 @@ async function tryGraphic(
     );
     return { picture: null, graphic: { tried: true, passed: false } };
   }
-  const check = await checkPictures(
-    ctx,
-    [bytes],
-    [{ words: [page.kicker, page.heading].filter((w): w is string => !!w) }],
-  );
+  const check = await checkPictures(ctx, [{ bytes, photo: true }], [graphicToCheck(page)]);
   if (check?.passes)
     return { picture: { bytes, mimeType: 'image/jpeg' }, graphic: { tried: true, passed: true } };
   ctx.log.info(
@@ -1552,7 +1562,9 @@ function pictureFailure(e: unknown): string {
  * - photo-style ones on any network made before the check looked for a photo's mistakes, like a blank screen in
  *   someone's hand (the owner, 15 Nov), so their photos are made again under it;
  * - photo-style ones made under that first check that still failed it, made again under the stricter one (the
- *   owner's pick, 16 Nov). Ones that passed it stay.
+ *   owner's pick, 16 Nov);
+ * - photo-style ones that passed an older check, checked again under this one first (`recheck`), and made again only
+ *   when they fail it (the owner, 17 Nov: a laptop bent out of shape passed check 3).
  *
  * A picture made since says its shape and its check in its design, so this finds nothing once they're done. It runs
  * after any post's pictures are made, with the weekly read, and when the add-on comes on. Hidden posts wait until
@@ -1560,9 +1572,14 @@ function pictureFailure(e: unknown): string {
  */
 export async function remakeLeft(ctx: AddonScopeContext, exceptPostId: string | null = null) {
   const left = await asWorker(ctx.db, ctx.scope, (tx) =>
-    rows<{ id: string; way: 'design' | 'photo' }>(
+    rows<{ id: string; way: 'design' | 'photo'; recheck: boolean }>(
       tx,
-      sql`select c.record_id as id, c.picture_way as way
+      sql`select c.record_id as id, c.picture_way as way,
+            (c.picture_way = 'photo'
+              and (c.network <> 'instagram'
+                or coalesce(c.design ->> 'shape', '4:5') = ${INSTAGRAM_PICTURE_SHAPE})
+              and coalesce((c.design ->> 'checked')::int, 1) >= 2
+              and coalesce(c.design -> 'check' ->> 'passes', 'true') <> 'false') as recheck
           from addon_socialcontent.content c
           join app.custom_records r on r.id = c.record_id and r.archived_at is null
           where c.workspace_id = ${ctx.scope.workspaceId}
@@ -1572,9 +1589,7 @@ export async function remakeLeft(ctx: AddonScopeContext, exceptPostId: string | 
             and ((c.network = 'instagram'
                 and coalesce(c.design ->> 'shape', '4:5') <> ${INSTAGRAM_PICTURE_SHAPE})
               or (c.picture_way = 'photo'
-                and coalesce((c.design ->> 'checked')::int, 1) < ${PICTURE_CHECK_VERSION}
-                and (coalesce((c.design ->> 'checked')::int, 1) < 2
-                  or c.design -> 'check' ->> 'passes' = 'false')))
+                and coalesce((c.design ->> 'checked')::int, 1) < ${PICTURE_CHECK_VERSION}))
             and c.record_id <> ${exceptPostId ?? '00000000-0000-0000-0000-000000000000'}::uuid
           order by c.post_at nulls last
           limit 50`,
@@ -1590,7 +1605,13 @@ export async function remakeLeft(ctx: AddonScopeContext, exceptPostId: string | 
           dedupeKey: `${PICTURES_JOB}:${l.id}`,
           // A little apart, so a month of posts doesn't ask the AI all at once.
           runAt: new Date(Date.now() + i * REWRITE_GAP_MS),
-          payload: { postId: l.id, way: l.way, prompt: null, ask: null },
+          payload: {
+            postId: l.id,
+            way: l.way,
+            prompt: null,
+            ask: null,
+            ...(l.recheck ? { recheck: true } : {}),
+          },
           workspaceId: ctx.scope.workspaceId,
           organizationId: ctx.scope.organizationId,
         },
@@ -1600,11 +1621,90 @@ export async function remakeLeft(ctx: AddonScopeContext, exceptPostId: string | 
     ctx.log.info({ posts: left.length }, 'pictures made before queued to be made again');
 }
 
+/** The most a kept picture may be to be checked again: a drawn page is well under 2 MB. */
+const KEPT_PICTURE_MOST = 20 * 1024 * 1024;
+
+type Pictured = (
+  input: Omit<z.input<typeof ContentPicturedInput>, 'workspaceId' | 'postId'>,
+) => Promise<unknown>;
+
+/** A kept photo post's pictures that failed the check again, to be made again. */
+interface Rechecked {
+  /** What the check found; null when a picture had gone, so there was nothing whole to check. */
+  readonly check: PictureCheck | null;
+  /** The design they were drawn from, kept when only the photo was wrong; null for OpenAI's whole graphic. */
+  readonly design: Design | null;
+}
+
+/**
+ * A photo post's pictures kept under an older check, checked again under this one (the owner, 17 Nov: a laptop bent
+ * out of shape passed check 3). Null when they pass, now marked checked under it, or when the check couldn't be asked
+ * (the next catch-up tries again). Otherwise what failed and the design they were drawn from, to make them again.
+ */
+async function recheckKept(
+  ctx: AddonScopeContext,
+  postId: string,
+  pictured: Pictured,
+): Promise<Rechecked | null> {
+  const [c] = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{ design: Record<string, unknown> | null; file_ids: string[] }>(
+      tx,
+      sql`select c.design, c.file_ids from addon_socialcontent.content c
+          where c.record_id = ${postId}::uuid and c.workspace_id = ${ctx.scope.workspaceId}
+            and c.picture_state = 'made'`,
+    ),
+  );
+  // Already being made again, or failed: nothing kept to check.
+  if (!c) return null;
+  const stored = c.design as (Partial<Design> & { graphic?: GraphicTry }) | null;
+  const pages = stored?.pages ?? [];
+  const graphic = stored?.graphic?.passed === true;
+  const gone: Rechecked = { check: null, design: null };
+  if (!stored || !pages.length || !c.file_ids.length) return gone;
+  const pictures: ToCheck[] = [];
+  for (const id of c.file_ids) {
+    const f = await readFileBytes(ctx, ctx.scope, id, KEPT_PICTURE_MOST);
+    if (!f.ok) return gone;
+    pictures.push({ bytes: f.bytes, photo: f.mimeType === 'image/jpeg' });
+  }
+  const toCheck = graphic ? [graphicToCheck(pages[0]!)] : pages.map(pageToCheck);
+  if (toCheck.length !== pictures.length) return gone;
+  const check = await checkPictures(ctx, pictures, toCheck);
+  if (!check) return null;
+  if (check.passes) {
+    await pictured({
+      state: 'made',
+      fileIds: c.file_ids,
+      design: { ...c.design, check, checked: PICTURE_CHECK_VERSION },
+    });
+    return null;
+  }
+  ctx.log.info(
+    { postId, problems: check.problems },
+    'a picture kept under an older check failed this one; making it again',
+  );
+  return {
+    check,
+    design: graphic
+      ? null
+      : {
+          style: stored.style!,
+          font: stored.font!,
+          background: stored.background!,
+          text: stored.text!,
+          accent: stored.accent!,
+          photo: stored.photo === true,
+          pages,
+        },
+  };
+}
+
 /**
  * `socialcontent.pictures`: one post's AI-made pictures. The design comes first (its words); a photo post's single
  * picture is then OpenAI's whole graphic when one is due and passes the check (decision 40), else a photo OpenAI
  * makes with the words drawn over it (decision 39); a designed one is drawn. Every drawn picture is checked, and
- * designed once more when it fails.
+ * designed once more when it fails. With `recheck`, a photo post's kept pictures are checked again first, and made
+ * again only when they fail (`recheckKept`).
  */
 export const runPictures: AddonJobHandler = async (ctx) => {
   const postId = String(ctx.job.payload['postId'] ?? '');
@@ -1625,7 +1725,7 @@ export const runPictures: AddonJobHandler = async (ctx) => {
   if (asked !== 'photo' && asked !== 'design') return;
   // Without OpenAI's image model here, a photo-style picture is designed instead.
   let way: 'design' | 'photo' = asked === 'photo' && !ctx.pictures ? 'design' : asked;
-  const pictured = (input: Omit<z.input<typeof ContentPicturedInput>, 'workspaceId' | 'postId'>) =>
+  const pictured: Pictured = (input) =>
     executeCommand(
       ctx.db,
       contentPictured,
@@ -1633,16 +1733,39 @@ export const runPictures: AddonJobHandler = async (ctx) => {
       ctx.actor,
       ctx.meta,
     );
+  let rechecked: Rechecked | null = null;
+  if (ctx.job.payload['recheck'] === true && way === 'photo') {
+    rechecked = await recheckKept(ctx, postId, pictured);
+    if (!rechecked) return;
+  }
+  // What a re-check found: the design's problems for the designer, the photo's for the image model. When only the
+  // photo was wrong, the same design goes over a new one.
+  const fixing = rechecked?.check ?? null;
+  const askNow = fixing && designProblems(fixing).length ? fixAsk(fixing, ask) : ask;
+  const avoid = fixing?.photo ?? [];
+  const keptDesign = fixing && !designProblems(fixing).length ? (rechecked?.design ?? null) : null;
   await pictured({ state: 'making', way });
   try {
     const here = await hereOf(ctx);
     const business = await businessText(ctx);
     const shows = way === 'photo' ? (p.picture ?? photoShows(p, prompt)) : null;
-    let design = await askDesign(ctx, here, business, postId, p, ask, shows);
+    let design = keptDesign ?? (await askDesign(ctx, here, business, postId, p, askNow, shows));
     let graphic: (GraphicTry & { problems?: string[]; photo?: string[] }) | null = null;
-    if (way === 'photo' && p.format !== 'carousel' && fitsGraphic(design.pages[0]!)) {
+    if (
+      !keptDesign &&
+      way === 'photo' &&
+      p.format !== 'carousel' &&
+      fitsGraphic(design.pages[0]!)
+    ) {
       if (graphicDue(await graphicsBefore(ctx, postId))) {
-        const tried = await tryGraphic(ctx, postId, p, design, prompt, ask);
+        const tried = await tryGraphic(
+          ctx,
+          postId,
+          p,
+          design,
+          prompt,
+          avoid.length ? photoFixAsk(avoid, askNow) : askNow,
+        );
         graphic = tried.graphic;
         if (tried.picture) {
           const fileIds = await keepPictures(ctx, postId, p, [tried.picture]);
@@ -1673,10 +1796,13 @@ export const runPictures: AddonJobHandler = async (ctx) => {
             ctx,
             postId,
             p.title,
-            // A graphic that failed for a mistake in its photo: the photo is told to avoid it.
+            // A graphic that failed for a mistake in its photo, or a kept photo that failed a re-check: the photo is
+            // told to avoid it.
             photoPromptFor(
               scene,
-              graphic?.photo?.length ? photoFixAsk(graphic.photo, ask) : ask,
+              [...avoid, ...(graphic?.photo ?? [])].length
+                ? photoFixAsk([...avoid, ...(graphic?.photo ?? [])], askNow)
+                : askNow,
               pictureShapeOf(p.network),
             ),
             'Photo-style picture',
@@ -1695,9 +1821,9 @@ export const runPictures: AddonJobHandler = async (ctx) => {
           'the photo couldn’t be made; the picture is designed instead',
         );
         way = 'design';
-        design = await askDesign(ctx, here, business, postId, p, ask, null);
+        design = await askDesign(ctx, here, business, postId, p, askNow, null);
       }
-    const done = await drawChecked(ctx, here, business, postId, p, ask, design, photo);
+    const done = await drawChecked(ctx, here, business, postId, p, askNow, design, photo);
     const fileIds = await keepPictures(ctx, postId, p, done.pictures);
     await pictured({
       state: 'made',
