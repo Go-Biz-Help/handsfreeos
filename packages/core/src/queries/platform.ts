@@ -225,11 +225,31 @@ export const platformBusinessGet = defineQuery({
       .where(and(eq(tickets.workspaceId, input.workspaceId), isNull(tickets.mergedInto)))
       .orderBy(desc(tickets.createdAt))
       .limit(20);
-    const grants = await rows<{ addon_id: string; note: string | null; granted_at: string }>(
+    const grants = await rows<{
+      addon_id: string;
+      note: string | null;
+      granted_at: string;
+      free_until: string | null;
+    }>(
       ctx.tx,
-      sql`select addon_id, note, granted_at::text from platform.addon_grants
+      sql`select addon_id, note, granted_at::text, free_until::text from platform.addon_grants
           where workspace_id = ${input.workspaceId}::uuid order by addon_id`,
     );
+    const paying = await rows<{
+      addon_id: string;
+      status: 'trial' | 'active' | 'past_due' | 'ended';
+      price_cents: number;
+      trial_ends_at: string | null;
+      paid_through: string | null;
+      next_charge_at: string | null;
+      stop_at: string | null;
+    }>(
+      ctx.tx,
+      sql`select addon_id, status, price_cents, trial_ends_at::text, paid_through::text, next_charge_at::text,
+            stop_at::text
+          from app.addon_subscriptions where workspace_id = ${input.workspaceId}::uuid order by addon_id`,
+    );
+    const at = (v: string | null) => (v ? new Date(v).toISOString() : null);
     return {
       phoneModel: PHONE_MODELS.find((m) => m === row.w.phoneModel) ?? null,
       phoneListener: PHONE_LISTENERS.find((l) => l === row.w.phoneListener) ?? null,
@@ -239,6 +259,16 @@ export const platformBusinessGet = defineQuery({
         addonId: g.addon_id,
         note: g.note,
         grantedAt: new Date(g.granted_at).toISOString(),
+        freeUntil: at(g.free_until),
+      })),
+      addonSubscriptions: paying.map((p) => ({
+        addonId: p.addon_id,
+        status: p.status,
+        priceCents: p.price_cents,
+        trialEndsAt: at(p.trial_ends_at),
+        paidThrough: at(p.paid_through),
+        nextChargeAt: at(p.next_charge_at),
+        stopAt: at(p.stop_at),
       })),
       business: {
         workspaceId: row.w.id,

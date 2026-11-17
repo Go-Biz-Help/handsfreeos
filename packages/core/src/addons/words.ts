@@ -148,8 +148,6 @@ export const ADDON_PAGE_WORDS = {
   willNeed: 'What it will need',
   needsNothing: 'Nothing else.',
   worksWith: 'Works with',
-  /** A paid add-on, in place of Install: billing isn't built, so HandsFreeOS support hands it out. */
-  paid: 'A paid add-on. HandsFreeOS support can turn it on for you.',
   /** One only HandsFreeOS support hands out (in beta), in place of Install. */
   support: 'HandsFreeOS support can turn it on for you.',
   askSupport: 'Ask HandsFreeOS support',
@@ -438,8 +436,8 @@ export function addonBlockedWords(
 }
 
 /**
- * What a page says in place of Install for an add-on the business doesn't have now: support hands out a paid one and
- * one in beta, one that needs something that can't come says what (`blocked`, from `addonBlockedWords`), a planned
+ * What a page says in place of Install for an add-on the business doesn't have now: support hands out one in beta,
+ * one that needs something that can't come says what (`blocked`, from `addonBlockedWords`), a planned
  * one isn't ready, and anything else can't be added now. Null when it can be installed, or the business has it.
  */
 export function addonOfferNote(
@@ -447,8 +445,6 @@ export function addonOfferNote(
   blocked: string | null = null,
 ): string | null {
   switch (offer) {
-    case 'paid':
-      return ADDON_PAGE_WORDS.paid;
     case 'support':
       return ADDON_PAGE_WORDS.support;
     case 'blocked':

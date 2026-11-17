@@ -92,9 +92,10 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   (`estimate.panels`, handed the add-on whose builder wrote it: Contractor Operations' builder and margin).
 - **Handing one out to try** (Real Estate step 2): HandsFreeOS staff with `platform.addons.manage` give one business
   an add-on in `development`, `beta` or `built` (or a paid `available` one) from **/admin/businesses/<id>**
-  (`addon_grant.give`, kept in `platform.addon_grants`). It's then installable there, listed under Available to add
-  with a Testing badge, and never suggested. Taking it back (`addon_grant.take_back`) stops new installs and
-  uninstalls nothing.
+  (`addon_grant.give`, kept in `platform.addon_grants`), free until taken back or through a last free day, with a
+  note. It's then installable there, listed under Available to add (with a Testing badge while it's being built), and
+  never suggested. Taking it back (`addon_grant.take_back`) stops new installs; a paid one the business doesn't pay
+  for turns off within the hour, and a free one keeps running. See "Paying for an add-on" below.
 - **Locked files** (Real Estate step 3): an add-on keeps a file for good with core's `file.lock` (a signed document).
   A locked file can't be deleted, renamed or unlocked by anyone (`file_locked`), stays locked if the add-on's data is
   deleted, and goes only with the whole business. The worker records every file's SHA-256 as it arrives.
@@ -402,7 +403,7 @@ or off again, and it goes by its id, which is also the name an owner types to de
 **Add-ons**, a place of its own at the foot of the web's side menu (beside Ideas and Get help) and under **More** in
 the phone app, is for owners and admins (`addons.manage`); nobody else sees it. It was a Settings tab until the owner
 moved it (2026-09-28); the old address, `/settings/add-ons`, still leads to it. It has four parts: what the business has (every installation, whatever its state), what it could add
-(what HandsFreeOS says is installable here, and paid add-ons, which say HandsFreeOS support can turn them on),
+(what HandsFreeOS says is installable here, a paid one with its price and free trial),
 Coming soon (what the vote picked, until it can be added), and Vote on what's next (every planned add-on still up
 for a vote; see below). A beta or built add-on is offered only to a business HandsFreeOS staff handed it to (a
 grant), marked Testing.
@@ -426,6 +427,42 @@ admins, only an available, free add-on that `recommendAddons` would name from th
 and the kinds of records it made for itself, and one card at most. "Not now" quiets every suggestion for that person
 for 30 days; "Not interested" never shows them that add-on again (`app.addon_suggestion_dismissals`, each person's
 own).
+
+## Paying for an add-on
+
+A paid add-on has a monthly price for the whole business (the owner's picks of 2026-11-17, migration
+20261027028500). Its manifest says it: `billing: { model: 'paid', monthlyCents, trialDays: ADDON_TRIAL_DAYS }`.
+Social Outreach is $97 a month; the AI Social Media Content Creator, the AI Sales Coach and Real Estate Agent are $47;
+Contractor Operations is $67 once it's offered. `packages/core/src/addons/billing.ts` holds the rules and every word
+the screens, Admin, the Assistant and the emails say about it (`addonStandingOf`, `addonStandingLine`,
+`ADDON_BILLING_WORDS`). The website's copy of the prices is `addonPrices` in `apps/site/src/content/site.ts`: change
+both.
+
+- **On sale only when the owner says.** Its catalogue status says so: `available` puts it on sale to every business.
+  Until then only a gift from staff reaches a business. Each add-on is flipped when the owner asks.
+- **14 days free the first time** a business adds a paid add-on, once per business and add-on. Adding one needs a
+  card on Settings → Billing & Usage (`addon_needs_card`), even for the trial, and someone who manages money
+  (`money.manage`, `addon_billing_not_yours`).
+- **Charged monthly from the day it's added**, to the plan's cards in turn (the default, then each backup), on yearly
+  plans too. These are not Stripe subscriptions: the worker's hourly sweep (`apps/worker/src/founding/addon-billing.ts`)
+  queues each charge that's due, as the plan's own billing does. `app.addon_subscriptions` keeps where each business
+  stands, `app.addon_charges` each month paid.
+- **A refused charge** marks it past due, emails the owners and admins, and is tried again once a day for 14 days (the
+  plan's `PLAN_RETRY_DAYS`); a new card tries again at once. After the last try only that add-on turns off, with
+  nothing deleted.
+- **Turned off from the Add-ons page,** it runs to the end of the trial or the month already paid, then turns off on
+  its own (`addon_billing.stop`); Keep it undoes that (`addon_billing.keep`). Turn off now (or the Assistant, or
+  uninstalling) stops charging at once, with no part refund; turning it back on before the paid month is up charges
+  nothing more until then.
+- **Given free by staff** (`addon_grant.give` with an optional `freeUntil`, the last free day), it costs nothing and
+  anything the business was paying stops. When the gift is taken back or its last day passes, a paid add-on the
+  business isn't paying for turns off within the hour (its data is kept), unless the business chose **Keep it after
+  that** before then, which starts charging on that day. The business is emailed a few days before a trial or a gift
+  ends. A practice business counts as given.
+- **The phone never shows a price or a way to pay** (App Store rule 3.1.3(f)): a paid add-on that wasn't given free
+  says "Add it from HandsFreeOS on the web." in place of Install and Turn on. Turning one off and uninstalling work as
+  for any other.
+- **Usage it causes** (texts, calls, AI) still comes out of the business's balance, as before.
 
 ## Voting on what's next
 
@@ -580,8 +617,9 @@ What's decided but not built, with the owner's decisions (2026-09-28) that shape
   holding a turned-off add-on's step is held and the owner told, and resumes when it's back (the owner's decision);
   uninstalling pauses those workflows. Today one whose saved steps can't be read is passed over without stopping
   the event (WF-3).
-- **Billing.** Usage is counted (`app.addon_usage_events`, refused while off) but nothing is priced; a `paid` add-on
-  can only be handed out by staff. Each paid add-on will have a monthly price, usage from the wallet, or both.
+- **Usage prices per add-on.** Usage is counted (`app.addon_usage_events`, refused while off), and an add-on's AI,
+  texts and calls come out of the wallet like anything else, but no add-on has a usage price of its own (the
+  manifest's `billing.meters`). Monthly prices are built: see "Paying for an add-on".
 - **The AI teammate on calls, and asks as the customer.** It uses add-on tools in written conversations (above), not
   yet on a phone call. An ask runs as the person who approves it; running a customer's own portal action as them
   needs a way to prove it's theirs without a device, which isn't built. A multi-step plan isn't confirmed as a whole

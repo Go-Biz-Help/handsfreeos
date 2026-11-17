@@ -466,6 +466,41 @@ const RULES: Record<string, { status: number; message: string }> = {
     message: 'Only HandsFreeOS staff who manage add-ons can do that.',
   },
   addon_meter_not_its_own: { status: 400, message: 'A meter belongs to its own add-on.' },
+  // Add-on prices (20261027028500).
+  addon_billing_not_yours: {
+    status: 403,
+    message:
+      'Only someone who manages money in this business can add or keep a paid add-on. Ask an owner to give you that in Settings → Permissions, or to do it for you.',
+  },
+  addon_needs_card: {
+    status: 409,
+    message:
+      'Add a card in Settings → Billing & Usage first. Your default card pays for add-ons, and nothing is charged during a free trial.',
+  },
+  addon_billing_not_paying: {
+    status: 409,
+    message:
+      'Nothing is being paid for that add-on now, so there’s no paid time to run out. Turn it off now instead.',
+  },
+  addon_billing_owing: {
+    status: 409,
+    message:
+      'Its last payment didn’t go through, so there’s no paid month left to run out. Turn it off now, or add a card in Settings → Billing & Usage to keep it.',
+  },
+  addon_billing_not_stopping: {
+    status: 409,
+    message:
+      'That add-on isn’t set to turn off, so there’s nothing to keep. Refresh Add-ons to see where it stands.',
+  },
+  addon_billing_is_ours: {
+    status: 403,
+    message: 'Only HandsFreeOS turns off an add-on that isn’t paid for.',
+  },
+  addon_grant_past: {
+    status: 400,
+    message:
+      'A free add-on’s end date has to be after today. Pick a later date, or leave it empty to give it until you take it back.',
+  },
   managed_by_addon: {
     status: 403,
     message: 'An add-on looks after this, so it can’t be changed by hand.',

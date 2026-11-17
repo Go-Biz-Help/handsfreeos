@@ -15,6 +15,7 @@
  * owners and admins add it from their Add-ons page.
  */
 import { defineAddon, type AddonRelationshipType } from '../manifest';
+import { ADDON_TRIAL_DAYS } from '../billing';
 import { REALESTATE_LOOK_ALIKES, REALESTATE_PLACES } from './ai-places';
 import { RealestateSettingsSchema } from './settings';
 
@@ -1492,7 +1493,8 @@ export const realestateAddon = defineAddon({
     },
   },
   // Free while it's tested (Chris, 2026-09-30); what it's used for is counted.
-  billing: { model: 'free' },
+  // $47 a month for the whole business, after 14 days free (the owner's pick, 2026-11-17).
+  billing: { model: 'paid', monthlyCents: 4700, trialDays: ADDON_TRIAL_DAYS },
   // Search everything (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md, Search 4b): listings by address or MLS number, deals
   // by name, client or address, buyers' homes, and properties no listing covers (ops/search.ts). Core leaves its own
   // group of deals and properties out when this answered, and keeps it for anyone this doesn't run for.

@@ -137,6 +137,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/addon_billing.keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep a paid add-on: undo turning it off at the end of what was paid, so it renews each month; or, when HandsFreeOS gave it free until a date, keep it after that, with its first charge on that date. Charged to the default card.
+         * @description Risk level 2. Requires money.manage. Emits addon_billing.kept.
+         */
+        post: operations["command_addon_billing_keep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/addon_billing.stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn a paid add-on off at the end of its free trial or the month already paid: it keeps working until then, then turns off on its own, and nothing more is charged. To turn it off straight away, use addon.disable.
+         * @description Risk level 2. Requires addons.manage. Emits addon_billing.stopping.
+         */
+        post: operations["command_addon_billing_stop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/addon_connection.disconnect": {
         parameters: {
             query?: never;
@@ -187,7 +227,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Staff: let one business install an add-on that is still being built, to try it. Its owners and admins add it from their Add-ons page.
+         * Staff: give one business an add-on free, until taken back or until `freeUntil` (the last free day). It can install it even while still being built; its owners and admins add it from their Add-ons page. Anything the business was paying for it stops.
          * @description Risk level 3. Requires platform.addons.manage. Emits addon_grant.given.
          */
         post: operations["command_addon_grant_give"];
@@ -207,7 +247,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Staff: stop offering a business an add-on it was handed to try. If it already added it, it keeps running.
+         * Staff: take back an add-on given to one business. A paid one it still runs is turned off within the hour unless it pays for it (its data is kept); a free one keeps running.
          * @description Risk level 3. Requires platform.addons.manage. Emits addon_grant.taken_back.
          */
         post: operations["command_addon_grant_take_back"];
@@ -288,7 +328,7 @@ export interface paths {
         put?: never;
         /**
          * Turn an installed add-on back on, with its data and settings as they were.
-         * @description Risk level 2. Requires addons.manage. Emits addon.enabled, addon.install_started.
+         * @description Risk level 2. Requires addons.manage. Emits addon.enabled, addon.install_started, addon_billing.started.
          */
         post: operations["command_addon_enable"];
         delete?: never;
@@ -308,7 +348,7 @@ export interface paths {
         put?: never;
         /**
          * Install an add-on in this business (and, with `include`, what it needs). It turns on once the worker has set it up.
-         * @description Risk level 3. Requires addons.manage. Emits addon.install_started, addon.enabled.
+         * @description Risk level 3. Requires addons.manage. Emits addon.install_started, addon.enabled, addon_billing.started.
          */
         post: operations["command_addon_install"];
         delete?: never;
@@ -19017,6 +19057,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/addon_billing.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What this business pays for add-ons: each paid add-on it has, pays for or was given free, with where it stands (trial, next payment, payment failed, turning off), and the most recent monthly payments.
+         * @description Requires money.manage.
+         */
+        post: operations["query_addon_billing_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/addon_connection.list": {
         parameters: {
             query?: never;
@@ -26824,6 +26884,69 @@ export interface operations {
             };
         };
     };
+    command_addon_billing_keep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        addonId: string;
+                        nextChargeAt: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_addon_billing_stop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        addonId: string;
+                        /** Format: date-time */
+                        stopAt: string;
+                    };
+                };
+            };
+        };
+    };
     command_addon_connection_disconnect: {
         parameters: {
             query?: never;
@@ -26902,6 +27025,8 @@ export interface operations {
             content: {
                 "application/json": {
                     addonId: string;
+                    /** Format: date */
+                    freeUntil?: string;
                     note?: string;
                     /** Format: uuid */
                     workspaceId: string;
@@ -72485,6 +72610,94 @@ export interface operations {
             };
         };
     };
+    query_addon_billing_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        addons: {
+                            addonId: string;
+                            name: string;
+                            price: {
+                                monthlyCents: number;
+                                trialDays: number;
+                            } | null;
+                            running: boolean;
+                            standing: {
+                                /** @enum {string} */
+                                kind: "free";
+                            } | {
+                                keepsAfter: boolean;
+                                /** @enum {string} */
+                                kind: "gift";
+                                priceCents: number | null;
+                                until: string | null;
+                            } | {
+                                /** @enum {string} */
+                                kind: "trial";
+                                priceCents: number;
+                                stopAt: string | null;
+                                /** Format: date-time */
+                                trialEndsAt: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "paid";
+                                nextChargeAt: string | null;
+                                paidThrough: string | null;
+                                priceCents: number;
+                                stopAt: string | null;
+                            } | {
+                                /** Format: date-time */
+                                failedAt: string;
+                                /** @enum {string} */
+                                kind: "past_due";
+                                nextRetryAt: string | null;
+                                /** Format: date-time */
+                                offAt: string;
+                                priceCents: number;
+                                problem: string | null;
+                            } | {
+                                /** @enum {string} */
+                                kind: "unpaid";
+                                paidThrough: string | null;
+                                priceCents: number;
+                                trialLeft: boolean;
+                            };
+                        }[];
+                        charges: {
+                            addonId: string;
+                            amountCents: number;
+                            /** Format: date-time */
+                            chargedAt: string;
+                            name: string;
+                            /** Format: date-time */
+                            periodFrom: string;
+                            /** Format: date-time */
+                            periodTo: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_addon_connection_list: {
         parameters: {
             query?: never;
@@ -72754,6 +72967,50 @@ export interface operations {
                             addonId: string;
                             category: string;
                             name: string;
+                            price: {
+                                monthlyCents: number;
+                                trialDays: number;
+                            } | null;
+                            standing: {
+                                /** @enum {string} */
+                                kind: "free";
+                            } | {
+                                keepsAfter: boolean;
+                                /** @enum {string} */
+                                kind: "gift";
+                                priceCents: number | null;
+                                until: string | null;
+                            } | {
+                                /** @enum {string} */
+                                kind: "trial";
+                                priceCents: number;
+                                stopAt: string | null;
+                                /** Format: date-time */
+                                trialEndsAt: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "paid";
+                                nextChargeAt: string | null;
+                                paidThrough: string | null;
+                                priceCents: number;
+                                stopAt: string | null;
+                            } | {
+                                /** Format: date-time */
+                                failedAt: string;
+                                /** @enum {string} */
+                                kind: "past_due";
+                                nextRetryAt: string | null;
+                                /** Format: date-time */
+                                offAt: string;
+                                priceCents: number;
+                                problem: string | null;
+                            } | {
+                                /** @enum {string} */
+                                kind: "unpaid";
+                                paidThrough: string | null;
+                                priceCents: number;
+                                trialLeft: boolean;
+                            };
                             /** @enum {string} */
                             status: "planned" | "development" | "beta" | "built" | "available" | "deprecated" | "unavailable";
                             summary: string;
@@ -72769,8 +73026,52 @@ export interface operations {
                             lastError: string | null;
                             latestVersion: string | null;
                             name: string;
+                            price: {
+                                monthlyCents: number;
+                                trialDays: number;
+                            } | null;
                             retired: boolean;
                             running: boolean;
+                            standing: {
+                                /** @enum {string} */
+                                kind: "free";
+                            } | {
+                                keepsAfter: boolean;
+                                /** @enum {string} */
+                                kind: "gift";
+                                priceCents: number | null;
+                                until: string | null;
+                            } | {
+                                /** @enum {string} */
+                                kind: "trial";
+                                priceCents: number;
+                                stopAt: string | null;
+                                /** Format: date-time */
+                                trialEndsAt: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "paid";
+                                nextChargeAt: string | null;
+                                paidThrough: string | null;
+                                priceCents: number;
+                                stopAt: string | null;
+                            } | {
+                                /** Format: date-time */
+                                failedAt: string;
+                                /** @enum {string} */
+                                kind: "past_due";
+                                nextRetryAt: string | null;
+                                /** Format: date-time */
+                                offAt: string;
+                                priceCents: number;
+                                problem: string | null;
+                            } | {
+                                /** @enum {string} */
+                                kind: "unpaid";
+                                paidThrough: string | null;
+                                priceCents: number;
+                                trialLeft: boolean;
+                            };
                             /** @enum {string} */
                             state: "installing" | "enabled" | "disabled" | "uninstalling" | "uninstalled" | "purging" | "purged";
                             status: ("planned" | "development" | "beta" | "built" | "available" | "deprecated" | "unavailable") | null;
@@ -94740,9 +95041,20 @@ export interface operations {
                     "application/json": {
                         addonGrants: {
                             addonId: string;
+                            freeUntil: string | null;
                             /** Format: date-time */
                             grantedAt: string;
                             note: string | null;
+                        }[];
+                        addonSubscriptions: {
+                            addonId: string;
+                            nextChargeAt: string | null;
+                            paidThrough: string | null;
+                            priceCents: number;
+                            /** @enum {string} */
+                            status: "trial" | "active" | "past_due" | "ended";
+                            stopAt: string | null;
+                            trialEndsAt: string | null;
                         }[];
                         business: {
                             attention: ("being_deleted" | "wallet_suspended" | "card_declined" | "balance_out" | "plan_trouble" | "texting_rejected" | "connection_broken" | "texting_waiting" | "thin_margin" | "gone_quiet" | "setup_stalled")[];

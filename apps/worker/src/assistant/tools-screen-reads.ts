@@ -5,6 +5,9 @@
  */
 import {
   ADDON_CATALOG,
+  addonGiftRows,
+  type AddonGiftRecord,
+  type AddonSubscriptionRecord,
   addonToolArguments,
   AUDIT_CATEGORY_LABEL,
   auditActor,
@@ -347,21 +350,29 @@ export async function scopeIds(
 }
 
 /**
- * A business's page in the Admin area, with its Add-ons in testing as the page lists them: each add-on still being
- * built that staff can hand it to try, and whether it has been (they can add it) or not (not handed out).
+ * A business's page in the Admin area, with its Give add-ons free list as the page lists it (20261027028500): each
+ * add-on staff can give it (one still being built, or a paid one on sale), its price, whether it's given (free until
+ * taken back or through a last free day, or not given), the note, and what the business pays for it now.
  */
-function withAddonsInTesting(got: unknown): unknown {
-  const grants = (got as { addonGrants?: { addonId: string }[] } | null)?.addonGrants;
-  if (!Array.isArray(grants)) return got;
-  const handed = new Set(grants.map((g) => g.addonId));
+function withAddonGifts(got: unknown): unknown {
+  const detail = got as {
+    addonGrants?: AddonGiftRecord[];
+    addonSubscriptions?: AddonSubscriptionRecord[];
+  } | null;
+  if (!Array.isArray(detail?.addonGrants)) return got;
   // First, so an answer cut short for length still has it.
   return {
-    addonsInTesting: ADDON_CATALOG.filter((m) =>
-      ['development', 'beta', 'built'].includes(m.catalog.status),
-    ).map((m) => ({
-      addonId: m.id,
-      name: m.name,
-      handedOut: handed.has(m.id) ? 'they can add it' : 'not handed out',
+    addonsToGive: addonGiftRows(
+      ADDON_CATALOG,
+      detail.addonGrants,
+      detail.addonSubscriptions ?? [],
+    ).map((r) => ({
+      addonId: r.addonId,
+      name: r.name,
+      price: r.price,
+      given: r.status,
+      ...(r.paying ? { paying: r.paying } : {}),
+      ...(r.note ? { note: r.note } : {}),
     })),
     ...(got as object),
   };
@@ -484,7 +495,7 @@ export async function runScreenRead(
                           : tool.query.name === migrationGet.name
                             ? migrationRead(got, webUrl)
                             : tool.query.name === platformBusinessGet.name
-                              ? withAddonsInTesting(got)
+                              ? withAddonGifts(got)
                               : tool.query.name === platformProblemReportGet.name
                                 ? forClaude(got)
                                 : tool.query.name === platformOnboardingCounts.name

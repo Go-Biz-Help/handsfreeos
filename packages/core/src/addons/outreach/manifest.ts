@@ -7,6 +7,7 @@
  * browser extension (apps/extension) connects only to businesses where it runs and the person holds `outreach.use`.
  */
 import { defineAddon } from '../manifest';
+import { ADDON_TRIAL_DAYS } from '../billing';
 import { OUTREACH_LOOK_ALIKES, OUTREACH_PLACES } from './ai-places';
 import { OutreachSettingsSchema } from './chat-read';
 import { OUTREACH_PAGES } from './pages';
@@ -77,7 +78,8 @@ export const outreachAddon = defineAddon({
       requires: ['outreach.use'],
     },
   ],
-  billing: { model: 'free' },
+  // $97 a month for the whole business, after 14 days free (the owner's pick, 2026-11-17).
+  billing: { model: 'paid', monthlyCents: 9700, trialDays: ADDON_TRIAL_DAYS },
   // The business's main offer, built in core so other add-ons share it (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md).
   uses: ['main_offer', 'partners'],
   events: {

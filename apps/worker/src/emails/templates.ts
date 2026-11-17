@@ -746,6 +746,96 @@ export function planMoreTimeEmail(input: {
   return { subject, text, html };
 }
 
+// ---------- add-on prices (20261027028500) ----------
+
+/** A paid add-on's monthly payment didn't go through: tried again once a day, then the add-on turns off. */
+export function addonChargeFailedEmail(input: {
+  business: string;
+  addon: string;
+  amount: string;
+  reason: string;
+  offOn: string;
+  link: string;
+}): EmailContent {
+  const subject = `Your ${input.addon} payment for ${input.business} didn’t go through`;
+  const lines = [
+    `We couldn’t take the monthly ${input.amount} for ${input.addon}: ${input.reason}`,
+    'We tried your default card and every backup card. We’ll try them again once a day on our own, and it keeps working meanwhile.',
+    `If none goes through by ${input.offOn}, ${input.addon} turns off. Nothing is deleted. Add or change a card in Settings → Billing & Usage.`,
+  ];
+  const text = `${lines.join('\n\n')}\n\nOpen Billing: ${input.link}`;
+  const html = shell(
+    lines.map((l) => para(escapeHtml(l))).join('') +
+      button(input.link, 'Open Billing') +
+      small(`Sent to the owners and admins of ${escapeHtml(input.business)}.`),
+  );
+  return { subject, text, html };
+}
+
+/** A paid add-on turned off on its own: its stop came, its payment never went through, or a gift ended. */
+export function addonTurnedOffEmail(input: {
+  business: string;
+  addon: string;
+  reason: 'stopped' | 'unpaid' | 'gift';
+  price: string | null;
+  link: string;
+}): EmailContent {
+  const subject = `${input.addon} is off for ${input.business}`;
+  const why =
+    input.reason === 'stopped'
+      ? `${input.addon} turned off today, as you asked. You won’t be charged for it again.`
+      : input.reason === 'unpaid'
+        ? `${input.addon} turned off today, because its payment didn’t go through after two weeks of trying your cards.`
+        : `${input.addon} turned off today, because the free time HandsFreeOS gave you ended.`;
+  const lines = [
+    why,
+    'Its data and settings are kept, hidden, for when it’s back on.',
+    input.price
+      ? `To turn it back on, open Add-ons, at the bottom of the side menu. It’s ${input.price} a month on your default card.`
+      : 'To turn it back on, ask HandsFreeOS support.',
+  ];
+  const text = `${lines.join('\n\n')}\n\nOpen Add-ons: ${input.link}`;
+  const html = shell(
+    lines.map((l) => para(escapeHtml(l))).join('') +
+      button(input.link, 'Open Add-ons') +
+      small(`Sent to the owners and admins of ${escapeHtml(input.business)}.`),
+  );
+  return { subject, text, html };
+}
+
+/** A paid add-on's free trial, or a gift from HandsFreeOS, ends in a few days. */
+export function addonEndingEmail(input: {
+  business: string;
+  addon: string;
+  kind: 'trial' | 'gift';
+  ends: string;
+  price: string;
+  /** After a gift: the business chose to keep it paying. */
+  keeps: boolean;
+  link: string;
+}): EmailContent {
+  const what = input.kind === 'trial' ? 'free trial' : 'free time from HandsFreeOS';
+  const subject = `Your ${what} of ${input.addon} ends ${input.ends}`;
+  const lines =
+    input.kind === 'trial' || input.keeps
+      ? [
+          `Your ${what} of ${input.addon} for ${input.business} ends on ${input.ends}.`,
+          `After that it’s ${input.price} a month, charged to your default card. You don’t need to do anything to keep it.`,
+          'If you don’t want it, turn it off in Add-ons, at the bottom of the side menu before then and you won’t be charged.',
+        ]
+      : [
+          `Your ${what} of ${input.addon} for ${input.business} ends on ${input.ends}.`,
+          `${input.addon} turns off then. To keep it, open Add-ons, at the bottom of the side menu and press Keep it after that. It’s ${input.price} a month on your default card.`,
+        ];
+  const text = `${lines.join('\n\n')}\n\nOpen Add-ons: ${input.link}`;
+  const html = shell(
+    lines.map((l) => para(escapeHtml(l))).join('') +
+      button(input.link, 'Open Add-ons') +
+      small(`Sent to the owners and admins of ${escapeHtml(input.business)}.`),
+  );
+  return { subject, text, html };
+}
+
 /** The business's RCS sender stopped (0103): texts go as SMS and MMS until it is back. */
 export function rcsStoppedEmail(input: {
   business: string;

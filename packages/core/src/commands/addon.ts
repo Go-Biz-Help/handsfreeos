@@ -25,6 +25,8 @@ import {
   loadOverrides,
 } from '../addons/load';
 import { addonDataHeldMessage } from '../addons/words';
+import { addonPriceOf } from '../addons/billing';
+import { grantedHere } from '../addons/capabilities';
 import type { AddonManifest } from '../addons/manifest';
 import { planTransition } from '../addons/plan';
 import { requireHuman } from '../kernel/actor';
@@ -72,28 +74,68 @@ async function makeMoves(
     loadOverrides(ctx.tx),
     loadGrants(ctx.tx, workspaceId),
   ]);
-  const plan = planTransition(
-    capabilityContextOf(
-      catalog,
-      installations,
-      overrides,
-      ctx.scope.workspacePermissions ?? [],
-      grants,
-    ),
-    addonId,
-    action,
-    include,
+  const cctx = capabilityContextOf(
+    catalog,
+    installations,
+    overrides,
+    ctx.scope.workspacePermissions ?? [],
+    grants,
   );
+  const plan = planTransition(cctx, addonId, action, include);
   if (plan.kind === 'already') return { moved: [] };
   if (plan.kind === 'refused')
     throw HfosError.rule(plan.rule, plan.rule === 'addon_unknown' ? 404 : 409, plan.message);
   if (plan.kind === 'needs')
     throw new HfosError('rule_violation', 409, plan.message, { addons: plan.addons }, plan.rule);
   await agreed?.();
+  // A paid add-on coming on starts its trial or its monthly charge, unless HandsFreeOS gives it free; one going off
+  // stops charging (20261027028500). Adding one spends money, so it's for whoever manages money here.
+  const priceOf = (mv: (typeof plan.moves)[number]) =>
+    (mv.action === 'install' || mv.action === 'enable') && !grantedHere(cctx, mv.addonId)
+      ? addonPriceOf(findAddon(catalog, mv.addonId))
+      : null;
+  if (
+    plan.moves.some((mv) => priceOf(mv)) &&
+    !(ctx.scope.workspacePermissions ?? []).includes('money.manage')
+  )
+    throw HfosError.forbidden(
+      'Only someone who manages money in this business can add a paid add-on. Ask an owner to give you that in Settings → Permissions, or to add it for you.',
+      'addon_billing_not_yours',
+    );
   const moved: Moved[] = [];
   for (const mv of plan.moves) {
     // Undefined only for a retired add-on on its way out, whose versions matter to nothing but installing.
     const m = findAddon(catalog, mv.addonId);
+    const price = priceOf(mv);
+    if (price) {
+      const [started] = await rows<{
+        status: string;
+        trial_ends_at: Date | string | null;
+        next_charge_at: Date | string | null;
+        charge_now: boolean;
+      }>(
+        ctx.tx,
+        sql`select * from private.addon_billing_start(${workspaceId}::uuid, ${mv.addonId},
+              ${price.monthlyCents}::integer, ${price.trialDays}::integer)`,
+      );
+      if (started)
+        await ctx.emit({
+          type: 'addon_billing.started',
+          entityType: 'addon',
+          payload: {
+            addonId: mv.addonId,
+            name: m?.name ?? mv.addonId,
+            status: started.status,
+            trialEndsAt: started.trial_ends_at
+              ? new Date(started.trial_ends_at).toISOString()
+              : null,
+            nextChargeAt: started.next_charge_at
+              ? new Date(started.next_charge_at).toISOString()
+              : null,
+            chargeNow: started.charge_now,
+          },
+        });
+    }
     const [row] = await rows<{
       state: Moved['to'];
       generation: number;
@@ -104,6 +146,10 @@ async function makeMoves(
             ${m?.version ?? null}::text, ${m?.dataVersion ?? null}::integer, ${m?.settings?.version ?? 1}::integer)`,
     );
     if (!row) throw HfosError.internal();
+    if (mv.action === 'disable' || mv.action === 'uninstall')
+      await ctx.tx.execute(
+        sql`select private.addon_billing_stop(${workspaceId}::uuid, ${mv.addonId})`,
+      );
     await ctx.emit({
       type: ADDON_MOVE_EVENTS[mv.action],
       entityType: 'addon',
@@ -225,32 +271,33 @@ export function addonLifecycleCommands(catalog: Catalog) {
   const install = defineCommand({
     name: 'addon.install',
     description:
-      'Install an add-on in this business (and, with `include`, what it needs). It turns on once the worker has set it up.',
+      'Install an add-on in this business (and, with `include`, what it needs). It turns on once the worker has set it up. A paid one HandsFreeOS didn’t give free starts its 14-day free trial the first time, or is charged to the default card each month from today; it needs a card on Billing & Usage.',
     risk: 3,
     input: AddonMoveInput,
     output: AddonMoveOutput,
     permission: 'addons.manage',
     scope,
-    emits: [ADDON_MOVE_EVENTS.install, ADDON_MOVE_EVENTS.enable],
+    emits: [ADDON_MOVE_EVENTS.install, ADDON_MOVE_EVENTS.enable, 'addon_billing.started'],
     handler: (ctx, input) => makeMoves(ctx, catalog, input.addonId, 'install', input.include),
   });
 
   const enable = defineCommand({
     name: 'addon.enable',
-    description: 'Turn an installed add-on back on, with its data and settings as they were.',
+    description:
+      'Turn an installed add-on back on, with its data and settings as they were. A paid one HandsFreeOS didn’t give free starts paying again (nothing more until a month already paid runs out).',
     risk: 2,
     input: AddonMoveInput,
     output: AddonMoveOutput,
     permission: 'addons.manage',
     scope,
-    emits: [ADDON_MOVE_EVENTS.enable, ADDON_MOVE_EVENTS.install],
+    emits: [ADDON_MOVE_EVENTS.enable, ADDON_MOVE_EVENTS.install, 'addon_billing.started'],
     handler: (ctx, input) => makeMoves(ctx, catalog, input.addonId, 'enable', input.include),
   });
 
   const disable = defineCommand({
     name: 'addon.disable',
     description:
-      'Turn an add-on off: it stops, its screens and records are hidden, and its data and settings are kept.',
+      'Turn an add-on off now: it stops, its screens and records are hidden, and its data and settings are kept. A paid one stops being charged, with no part refund; to let it run to the end of its trial or paid month instead, use addon_billing.stop.',
     risk: 2,
     input: AddonMoveInput,
     output: AddonMoveOutput,

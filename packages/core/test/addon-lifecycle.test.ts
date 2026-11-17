@@ -168,9 +168,9 @@ describe('a business with no add-ons (A)', () => {
     expect(mine.capabilities.current.map((c) => c.id)).toContain('crm.contacts');
     const installable = mine.capabilities.installable.map((c) => c.provider);
     expect(installable).toContain('fxprop');
-    // Never planned, beta, paid or deprecated ones.
-    for (const id of ['fxinflu', 'fxbeta', 'fxpaid', 'fxold'])
-      expect(installable).not.toContain(id);
+    // Never planned, beta or deprecated ones; a paid one on sale is, with its price (20261027028500).
+    for (const id of ['fxinflu', 'fxbeta', 'fxold']) expect(installable).not.toContain(id);
+    expect(installable).toContain('fxpaid');
     expect(mine.capabilities.planned.map((c) => c.provider)).toEqual(['fxinflu']);
     expect(mine.catalog.map((c) => c.status)).not.toContain('beta');
 
@@ -232,7 +232,8 @@ describe('installing (B)', () => {
     expect(await tryIt('fxinflu')).toMatchObject({ rule: 'addon_not_available', status: 409 });
     expect(await tryIt('fxbeta')).toMatchObject({ rule: 'addon_not_available' });
     expect(await tryIt('fxold')).toMatchObject({ rule: 'addon_not_available' });
-    expect(await tryIt('fxpaid')).toMatchObject({ rule: 'addon_needs_billing' });
+    // A paid one on sale needs a card first, even for its free trial.
+    expect(await tryIt('fxpaid')).toMatchObject({ rule: 'addon_needs_card', status: 409 });
     expect(await tryIt('fxnothing')).toMatchObject({ rule: 'addon_unknown', status: 404 });
   });
 

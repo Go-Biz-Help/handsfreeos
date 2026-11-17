@@ -254,6 +254,7 @@ export const {
   impact: addonImpact,
   settings: addonSettings,
   suggestion: addonSuggestion,
+  billingList: addonBillingList,
 } = addonQueryDefs;
 export { addonQueries } from './addon';
 
@@ -456,6 +457,8 @@ export const queries: readonly QueryDef[] = [
   addonList,
   addonImpact,
   addonSettings,
+  // What a business pays for add-ons (20261027028500).
+  addonBillingList,
   addonConnectionList,
   addonSuggestion,
   // Voting on what's next (0109).

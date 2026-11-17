@@ -282,7 +282,7 @@ const MOVE_VARIANT: Readonly<Record<LifecycleAction, NonNullable<ButtonProps['va
 
 /**
  * The moves this person can make now, in core's words, and in place of a move that isn't theirs or isn't possible,
- * the sentence that says why: support turns on a paid one, a planned one isn't here yet, only an owner deletes data.
+ * the sentence that says why: a paid one is added on the web, a planned one isn't here yet, only an owner deletes data.
  */
 function Moves({
   view,
@@ -297,8 +297,9 @@ function Moves({
   onMove: (action: LifecycleAction) => void;
   onSupport: () => void;
 }) {
-  // Support turns on a paid one and one in beta, with a button to ask; any other offer that isn't Install says why.
-  const viaSupport = view.offer === 'paid' || view.offer === 'support';
+  // Support turns on one in beta, with a button to ask; any other offer that isn't Install says why (a paid one: on the
+  // web).
+  const viaSupport = view.offer === 'support';
   const notes: string[] = [];
   if (view.retired) notes.push(ADDON_PHONE_WORDS.retired);
   else if (view.state === 'enabled' && !view.running)

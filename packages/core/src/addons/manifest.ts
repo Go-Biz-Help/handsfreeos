@@ -428,10 +428,18 @@ export interface AddonSearchDeclaration {
   readonly permission: string;
 }
 
-/** What an add-on costs is never here: only what it counts, so any pricing can be built on top later. */
+/**
+ * What an add-on costs (20261027028500, the owner's picks of 2026-11-17): `free` installs on its own; `paid` costs
+ * `monthlyCents` a month for the whole business, charged to the plan's cards, after `trialDays` free the first time a
+ * business adds it. Staff can give any add-on to a business free (`platform.addon_grants`). What it counts besides is
+ * `meters`; the AI it uses is charged from the usage balance like any other.
+ */
 export interface AddonBilling {
-  /** `free` installs on its own; `paid` needs billing, which does not exist yet, so only staff can grant it. */
   readonly model: 'free' | 'paid';
+  /** A paid add-on's price a month, in cents, for the whole business (no per-person charge). */
+  readonly monthlyCents?: number;
+  /** Days free before a paid add-on's first charge, once per business. */
+  readonly trialDays?: number;
   readonly meters?: readonly {
     readonly key: string;
     readonly unit: string;
@@ -589,6 +597,15 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
   if (!SEMVER.test(m.version)) say(`version "${m.version}" must be semver`);
   if (!Number.isInteger(m.dataVersion) || m.dataVersion < 1) say('dataVersion must be 1 or more');
   if (m.catalog.keywords.length === 0) say('catalog.keywords must name at least one word');
+  const { monthlyCents, trialDays } = m.billing;
+  if (m.billing.model === 'paid') {
+    // Stripe won't charge under 50¢, and a price over $1,000 a month is a typo.
+    if (!Number.isInteger(monthlyCents) || monthlyCents! < 50 || monthlyCents! > 100_000)
+      say('a paid add-on needs billing.monthlyCents, a whole number of cents from 50 to 100000');
+  } else if (monthlyCents !== undefined || trialDays !== undefined)
+    say('only a paid add-on has billing.monthlyCents or billing.trialDays');
+  if (trialDays !== undefined && (!Number.isInteger(trialDays) || trialDays < 0 || trialDays > 90))
+    say('billing.trialDays must be a whole number of days from 0 to 90');
 
   const dotted = DOTTED_UNDER(m.id);
   const under = KEY_UNDER(m.id);

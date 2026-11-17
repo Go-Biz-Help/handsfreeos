@@ -1,4 +1,4 @@
-import { ADDON_MOVE_WORDS, addonCheckWords } from '@hfos/core';
+import { ADDON_BILLING_WORDS, ADDON_MOVE_WORDS, addonCheckWords } from '@hfos/core';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import * as React from 'react';
@@ -166,10 +166,13 @@ describe('Add-ons', () => {
     expect(screen.getByTestId('add-ons-addable')).toHaveTextContent('Rent Collection', {
       exact: false,
     });
-    // Paid: support turns it on, since billing isn't built.
-    expect(screen.getByTestId('add-on-row-fxpaid')).toHaveTextContent(ADDON_PHONE_WORDS.paid, {
-      exact: false,
-    });
+    // Paid: added on the web, since the phone shows no price (App Store rule 3.1.3(f)).
+    expect(screen.getByTestId('add-on-row-fxpaid')).toHaveTextContent(
+      ADDON_BILLING_WORDS.onTheWeb,
+      {
+        exact: false,
+      },
+    );
     // A beta add-on is only ever handed out by HandsFreeOS support.
     expect(screen.queryByTestId('add-on-row-fxbeta')).toBeNull();
 
@@ -670,16 +673,34 @@ describe('one add-on', () => {
     );
   });
 
-  it('says support turns on a paid add-on, in place of Install', async () => {
+  it('says a paid add-on is added on the web, in place of Install, with no price', async () => {
     mockParams = { addonId: 'fxpaid' };
     answers['/v1/queries/addon.list'] = listFor({});
     await show(<AddonScreen />);
-    expect(await screen.findByTestId('add-on-support')).toHaveTextContent(ADDON_PHONE_WORDS.paid, {
-      exact: false,
-    });
+    expect(await screen.findByTestId('add-on-notes')).toHaveTextContent(
+      ADDON_BILLING_WORDS.onTheWeb,
+    );
     expect(screen.queryByTestId('add-on-install')).toBeNull();
-    await fireEvent.press(screen.getByTestId('add-on-ask-support'));
-    expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/get-help`);
+    expect(screen.queryByText(/\$\d/)).toBeNull();
+  });
+
+  it('lets a paid add-on that’s on be turned off from the phone', async () => {
+    mockParams = { addonId: 'fxpaid' };
+    answers['/v1/queries/addon.list'] = listFor({ fxpaid: 'enabled' });
+    await show(<AddonScreen />);
+    expect(await screen.findByTestId('add-on-disable')).toBeTruthy();
+    expect(screen.queryByText(/\$\d/)).toBeNull();
+  });
+
+  it('says a turned-off paid add-on is turned back on from the web', async () => {
+    mockParams = { addonId: 'fxpaid' };
+    answers['/v1/queries/addon.list'] = listFor({ fxpaid: 'disabled' });
+    await show(<AddonScreen />);
+    expect(await screen.findByTestId('add-on-notes')).toHaveTextContent(
+      ADDON_BILLING_WORDS.onTheWeb,
+    );
+    expect(screen.queryByTestId('add-on-enable')).toBeNull();
+    expect(screen.getByTestId('add-on-uninstall')).toBeTruthy();
   });
 
   it('says when one uninstalled can’t come back, and still lets an owner delete its data', async () => {

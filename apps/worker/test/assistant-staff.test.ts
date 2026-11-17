@@ -382,17 +382,21 @@ describe('the desk’s own reads', () => {
     expect((await mine(staff)).alerts.map((a) => a.title)).toContain('New support tickets');
   });
 
-  it('lists the add-ons in testing on a business’s page, and whether it was handed each', async () => {
+  it('lists the add-ons staff can give on a business’s page, with each price and whether it was given', async () => {
     const got = (await readScreen('platform.business.get', { workspaceId: wsId })) as {
       business: { name: string };
-      addonsInTesting: { addonId: string; name: string; handedOut: string }[];
+      addonsToGive: { addonId: string; name: string; price: string; given: string }[];
     };
     expect(got.business.name).toBe(BUSINESS);
-    expect(got.addonsInTesting).toContainEqual(
-      expect.objectContaining({ addonId: 'salescoach', handedOut: 'not handed out' }),
+    expect(got.addonsToGive).toContainEqual(
+      expect.objectContaining({
+        addonId: 'salescoach',
+        price: '$47 a month · not on sale yet',
+        given: 'Not given',
+      }),
     );
-    for (const a of got.addonsInTesting)
-      expect(['they can add it', 'not handed out']).toContain(a.handedOut);
+    for (const a of got.addonsToGive)
+      expect(a.given).toMatch(/they can add it$|^Not given$|^Gift ended /);
   });
 
   it('gives Getting started’s Matomo report over the same days', async () => {
