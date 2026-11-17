@@ -537,6 +537,26 @@ describe('what it does on LinkedIn’s list', () => {
     ]);
   });
 
+  it('passes over an invitation to someone you’re connected with, as nothing to report (decision 145)', async () => {
+    world.pages = () => ({ fixture: 'linkedin-profile.html' });
+    let pressed = false;
+    world.behave = (doc) => {
+      for (const degree of doc.querySelectorAll('main span[aria-hidden="true"]'))
+        if (degree.textContent === '· 2nd') degree.textContent = '· 1st';
+      const connect = doc.querySelector('[aria-label="Invite Dana Reyes to connect"]')!;
+      connect.addEventListener('click', () => (pressed = true));
+      connect.remove();
+    };
+    const outcome = await doWork({ do: 'step', item: item({}) }, ME.businessId, false);
+    expect(outcome).toEqual({
+      done: false,
+      line: 'Dana Reyes: you’re connected already',
+      skip: true,
+    });
+    expect(pressed).toBe(false);
+    expect(notedAs()).toEqual([]);
+  });
+
   it('opens their profile by member id when the name in their kept address shows someone else, as when they changed it (decision 131)', async () => {
     const BY_ID = `${LI}/in/ACoAAFakeDanaReyes123/`;
     const NEW_ADDRESS = `${LI}/in/dana-reyes-plumbing/`;

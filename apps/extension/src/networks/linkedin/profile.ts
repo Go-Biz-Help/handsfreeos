@@ -362,13 +362,15 @@ export function readProfile(
   const labels = controls.flatMap(wordsOf);
   // "· 2nd" beside the name, or "She/Her · 2nd": a part of a line that says only that. LinkedIn's newer top card can
   // say "· 1st" beside the real one (the owner's Check LinkedIn of 17 Oct 2026, on someone it offered Connect to):
-  // with Connect there, they aren't a connection.
+  // the other one is theirs, with Connect there or not, as when Follow comes first and Connect is under More (an
+  // invitation on 17 Nov 2026, read as "connected already"). With Connect there, they aren't a connection.
   const degrees = lines
     .flatMap((line) => line.split(/\s*[·•]\s*/))
     .map(degreeOnly)
     .filter((found): found is Degree => found !== null);
   const canConnect = labels.some((label) => CONNECT.test(label));
-  const degree = (canConnect ? degrees.find((found) => found !== '1st') : degrees[0]) ?? null;
+  const other = degrees.find((found) => found !== '1st');
+  const degree = (canConnect ? other : (other ?? degrees[0])) ?? null;
   // Their headline: the first line about them that isn't a link ("Add a verification badge" beside the name).
   const headline =
     shownLines(root, {
