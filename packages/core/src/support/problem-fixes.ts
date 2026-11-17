@@ -324,9 +324,9 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     area: 'facebook',
     job: 'post.page',
     note: 'It pressed Publish for your Page in Meta Business Suite, but didn’t find the post on your Page after',
-    fixedIn: '0.147.3',
-    pr: 660,
-    said: 'The Page was read the moment it opened, while every post on it still said “Loading...”: Facebook draws a Page’s posts only once they’re scrolled near, and nothing in a hidden window. The first still loading is scrolled into view and waited on now, up to 30 seconds, then looked at in front while the person is away; still unseen, it says it couldn’t check.',
+    fixedIn: '0.147.6',
+    pr: 666,
+    said: 'The post was on the Page, first, but Facebook leaves a new post’s own link empty until it’s pointed at, and cut its words short with “…” before See more, so it was never matched (0.147.5, 17 Nov). A post now counts as there by its words, with or without a link, and the “…” is left off. Before that, the Page was read while its posts still said “Loading...”, fixed in 0.147.3 (#660).',
   },
   {
     area: 'threads',
