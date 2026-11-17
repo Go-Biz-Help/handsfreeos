@@ -176,7 +176,10 @@ became.
 - **Chats read live** (decision 3, without waiting for the file): the extension sends each one-to-one chat the person
   opens in Messenger in the tab in front of them, panel open or not, or, with **Read my chats** on the Chats tab, opens
   their chats one at a time at a steady pace, up to 150, and stops on any Facebook warning. Each chat's latest 20 messages join the file's, one chat per person
-  (`chat-collect.ts`, `outreach.chats.collect`), and are read the same way. A chat read live keeps its Messenger
+  (`chat-collect.ts`, `outreach.chats.collect`), and are read the same way. A message read again is the same one by who
+  wrote it and its words, matched in order with those kept, never by its time (`mergeRecent`): Instagram's messages show
+  none, so a read gives them the time the chat's row says, which moves on, and other networks' shift as a page scrolls.
+  Kept by time, one message sent once came back with each read (17 Nov 2026; migration 028600 took out the copies). A chat read live keeps its Messenger
   thread, so the Chats tab can **Open in Messenger**.
 - **Groups** (`/a/outreach?view=groups`, step 4): the groups the extension saved, each scored against the playbooks
   in use as **Work these**, **Maybe** or **Skip**, with why: a playbook's words to search for groups, its area or a
