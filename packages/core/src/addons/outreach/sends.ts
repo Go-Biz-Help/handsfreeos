@@ -69,8 +69,10 @@ export const SEND_STATE_KEYS = Object.keys(SEND_STATES) as [SendState, ...SendSt
  * 2. Every message is written from the playbook's own words (decision 164, ./script.ts; the owner's 5a).
  * 3. Nothing says the owner shares someone's background or life unless the owner said so of themselves, and a comment
  *    says something real about its post in the words people type (decision 165, ./about-owner.ts, ./comment-says.ts).
+ * 4. An introduction asks a question about them, as a text of its own right after it when the person sends a few
+ *    (decision 175, ./today.ts `introTask`, ./voice.ts `introTexts`).
  */
-export const RULES_VERSION = 3;
+export const RULES_VERSION = 4;
 
 /** Why one drafted under older rules can't be OK'd (`RULES_VERSION`), and what happens to it. */
 export const SEND_REWRITTEN =

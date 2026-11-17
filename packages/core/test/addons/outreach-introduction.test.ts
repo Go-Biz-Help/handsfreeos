@@ -1,8 +1,9 @@
 /**
  * Social Outreach: a playbook that starts with an introduction in place of the pitch (docs/outreach.md, decision 168),
  * without the database. The first message is the playbook's introduction, which ends with a question about them
- * (decision 173); one nudge follows it, then the monthly check-in; a yes still gets the ask for a time; and the AI is
- * told who the owner is so it can say so.
+ * (decision 173), as a text of its own right after it when the person sends a few (decision 175); one nudge follows
+ * it, then the monthly check-in; a yes still gets the ask for a time; and the AI is told who the owner is so it can say
+ * so.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -41,7 +42,9 @@ import {
   scriptOf,
   startingScript,
 } from '../../src/addons/outreach/script';
+import { RULES_VERSION } from '../../src/addons/outreach/sends';
 import { connectedLately, introTask, todayDraftPrompt } from '../../src/addons/outreach/today';
+import { introTexts, VOICE_DEFAULTS } from '../../src/addons/outreach/voice';
 
 const crm = { name: 'CRM demos', ...PLAYBOOK_TEMPLATES.crm_demos.details };
 const intro = { ...crm, opens: 'intro' as const };
@@ -183,6 +186,59 @@ describe('what the AI is told for an introduction', () => {
     expect(connectedLately(null, now)).toBe(true);
     expect(connectedLately(new Date(now - day), now)).toBe(true);
     expect(connectedLately(new Date(now - 400 * day).toISOString(), now)).toBe(false);
+  });
+
+  it('asks its question about them as a second text right after it, or last in one message (decision 175)', () => {
+    const split = todayDraftPrompt({ kind: 'opener', ...base, recent: [] });
+    expect(split).toContain('The question goes as its own text, right after the introduction');
+    expect(split).toContain('Write it as two short texts, with a blank line between them.');
+    expect(split).not.toContain('Write it as one message');
+    // It always asks one, even when the playbook's own words don't.
+    expect(introTask('Hi [first name], thanks for the add!', true)).toContain(
+      'or, when they ask none, one about them from their page',
+    );
+    // Someone who sends each message as one text: one message, the question last.
+    const one = todayDraftPrompt({
+      kind: 'opener',
+      ...base,
+      recent: [],
+      voice: { ...VOICE_DEFAULTS, split: false },
+    });
+    expect(one).toContain('It’s one message, with the question last.');
+    expect(one).toContain('Write it as one message, with no blank lines.');
+    expect(one).not.toContain('The question goes as its own text');
+    // To their Requests on Instagram it's one text, and a pitch's first message is unchanged.
+    const requests = todayDraftPrompt({ kind: 'opener', ...base, recent: [], requests: true });
+    expect(requests).not.toContain('The question goes as its own text');
+    const pitch = todayDraftPrompt({ kind: 'opener', ...base, playbook: crm, recent: [] });
+    expect(pitch).not.toContain('The question goes as its own text');
+    expect(pitch).toContain('Write it as one message, with no blank lines.');
+  });
+
+  it('moves a question the AI left in the introduction to a text of its own', () => {
+    const intro =
+      'Hey Marcea, thanks for connecting! I’m Chris. We help piercing shops get more bookings with our CRM.';
+    expect(introTexts(`${intro} How did you get into piercing?`)).toBe(
+      `${intro}\n\nHow did you get into piercing?`,
+    );
+    expect(introTexts(`${intro} Saw your post about the new studio, how’s that going?`)).toBe(
+      `${intro}\n\nSaw your post about the new studio, how’s that going?`,
+    );
+    // Already two texts, kept; more than two keep the question alone.
+    expect(introTexts(`${intro}\n\nHow did you get into piercing?`)).toBe(
+      `${intro}\n\nHow did you get into piercing?`,
+    );
+    expect(introTexts('Hey Marcea!\n\nI’m Chris.\n\n  How did you   start?')).toBe(
+      'Hey Marcea! I’m Chris.\n\nHow did you start?',
+    );
+    // Nothing to move: no question, a question alone, or one too short to be a sentence of its own.
+    expect(introTexts(intro)).toBe(intro);
+    expect(introTexts('How did you get into piercing?')).toBe('How did you get into piercing?');
+    expect(introTexts('We’re in St. Louis?')).toBe('We’re in St. Louis?');
+  });
+
+  it('writes again the introductions already waiting, so they ask it too', () => {
+    expect(RULES_VERSION).toBeGreaterThanOrEqual(4);
   });
 
   it('tells a check-in after an introduction that nothing was asked', () => {
