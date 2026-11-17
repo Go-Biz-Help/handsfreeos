@@ -268,14 +268,16 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
     all, like a Canva graphic, with the exact words and the business's colours (`graphicPromptFor`). It's kept only
     when the check passes it; otherwise the photo is made again without words and the words are drawn over it. Each
     OpenAI picture is charged 9¢ when it's made, kept or not. Under "Variety" below.
-  - **Checked before it's kept** (decision 40, `check-ai.ts`): Claude looks at every picture made, made smaller
-    (540 by 675), beside the words each page should say, and fails one with a word misspelt, garbled, extra, cut off
+  - **Checked before it's kept** (decision 40, `check-ai.ts`): Claude looks at every picture made, beside the words
+    each page should say: a page with a photo whole, at full size (`CHECKS.photoWidth`, since at half a bent laptop
+    or a wrong finger is a few dots: the owner, 17 Nov), the others made smaller (540 by 675), enough to read every
+    word. It fails one with a word misspelt, garbled, extra, cut off
     or too small, words overlapping, a mistake image AIs make in a photo, or a look no business owner would post. A
     drawn design that fails is tried up to twice more (`CHECKS.retries`), and the one with the fewest problems is
     kept: a problem with the words or layout is designed again, told each problem (`fixAsk`); a mistake in the photo
     itself has the photo made again, told what to avoid (`photoFixAsk`), at another 9¢ each time, under the same
     design when only the photo was wrong. When a new photo can't be made, the one before stays. The answer is kept on
-    the design (`check`, with the photo's problems under `photo`), and `checked: 3` marks a picture made under this
+    the design (`check`, with the photo's problems under `photo`), and `checked: 4` marks a picture made under this
     check. When the check can't be asked, a drawn design is kept and a graphic isn't. What the check still found on a
     kept picture shows beside it on the post, on the web and the phone, so the owner looks closely before an OK
     (`pictureFlags`, the post's `pictureFlags`, words `post.pictureFlagged`).
@@ -284,11 +286,18 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
     post is about waiting; wrong, extra or joined fingers, or hands holding things in ways they can't; warped faces,
     eyes or teeth; people or things that melt together, float, bend or are doubled; made-up writing on signs,
     screens, boxes or clothes; words, numbers, icons or app screens that are part of the photo, even faint ones
-    showing through behind the page's own words. Any writing in the photo counts as a photo mistake, since only a new
+    showing through behind the page's own words; any thing bent out of its real shape (the owner, 17 Nov: "look at the
+    laptop on this image. the ai should have noticed how the shape of it is all wonky", a laptop on a truck's dash
+    with a bent lid and a base running into the dash, which check 3 passed). For that it goes over the photo one thing
+    at a time before judging it, each person, hand and object, asking whether a camera could have taken it so:
+    straight edges straight, parts the right size for each other, parts joined where they should be (a laptop's lid
+    meeting its base along one hinge), resting on something that could hold it; and it lists what it went over
+    (`photoLooked`, asked first so it looks, never kept). Any writing in the photo counts as a photo mistake, since only a new
     photo fixes it (16 Nov: 9 of 23 remade photos still failed, mostly on faint writing the check had blamed on the
     layout). The post writer is told never to describe a blank screen, words in the scene or the words laid over it
     (`WRITE_SYSTEM`), and every photo and graphic OpenAI makes is told a screen in use glows with soft, blurred colour
-    and nothing readable, or faces away, even when the scene says otherwise (`PHOTO_LOOKS_REAL`). The faint writing
+    and nothing readable, or faces away, even when the scene says otherwise, and that every object keeps its real
+    shape (`PHOTO_LOOKS_REAL`). The faint writing
     came from the scenes themselves: all 9 still failing said "Overlay text reads '…'" or "with the words '…'
     overlaid", or filled a screen with apps, and the image model drew those words faintly while told to draw none. So
     a photo is asked for from the scene without them (`sceneWithoutWords`): quoted words, parts about words over the
@@ -297,8 +306,11 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
     again. A graphic that fails for a photo mistake
     passes it on to the photo made in its place. Photo-style pictures on any network on posts not up yet are made
     again under this check by the same catch-up as Instagram's shape (`remakeLeft`) when they were made before the
-    photo mistakes check (`checked` under 2), or made under it and still failed (`checked: 2` with a failing `check`:
-    the owner's pick, 16 Nov). Ones that passed stay.
+    photo mistakes check (`checked` under 2), or made under an older check and still failed it (the owner's pick, 16
+    Nov). Ones that passed an older check are checked again under this one first, their kept pictures as they are
+    (`recheck`, `recheckKept`), and stay, marked `checked: 4`, when they pass; one that fails is made again, a new
+    photo told what was wrong under the same design when only the photo was, else designed again told the problems
+    (the owner, 17 Nov). A re-check costs one look, not a new photo.
     The check is told only the words a page's layout draws (items only on list and before and after pages, a mark
     only on number pages: `wordsOfPage`) and what the layout draws on purpose, such as a myth's crossed-out heading
     (`pageToCheck`). Words are shrunk to fit their room, past their usual smallest size if need be, before any are

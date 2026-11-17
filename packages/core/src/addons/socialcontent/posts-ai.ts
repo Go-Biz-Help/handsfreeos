@@ -867,10 +867,11 @@ export const shapeWords = (shape: PictureShape): string =>
 /** What OpenAI's image model is asked for: the AI's description, and how a picture for a post should look. */
 /**
  * What every photo OpenAI makes is told, so it avoids the mistakes the check fails (the owner, 15 Nov: "the phone in
- * her hand is just a blank white screen"): a screen in use shows something, and hands and things look real.
+ * her hand is just a blank white screen"): a screen in use shows something, and hands and things look real, each
+ * thing in its real shape (17 Nov: a laptop with a bent lid and a base too long).
  */
 export const PHOTO_LOOKS_REAL =
-  'Any phone, laptop, TV or other screen in it is switched on and glows with soft, blurred colour and light, with no words, numbers, icons or notifications on it, or faces away from the camera: never a blank white, grey or black screen, even if the scene above says so. Hands have five fingers and hold things the way real hands do; nothing melts, floats, bends or is doubled.';
+  'Any phone, laptop, TV or other screen in it is switched on and glows with soft, blurred colour and light, with no words, numbers, icons or notifications on it, or faces away from the camera: never a blank white, grey or black screen, even if the scene above says so. Hands have five fingers and hold things the way real hands do; nothing melts, floats, bends or is doubled. Every object keeps its real shape and size: straight edges stay straight, a laptop’s lid meets its base along one straight hinge, and things rest flat on something that could hold them.';
 
 /** Quoted words in a scene: "…", “…”, ‘…’ or '…', never an apostrophe ("contractor's", "It's"). */
 const QUOTED =

@@ -278,7 +278,8 @@ describe('making a post’s pictures, and checking them', () => {
     expect(prompts[0]).toContain('portrait (3:4)');
     expect(squares.at(-1)).toBe(false);
     expect(m.design.shape).toBe('3:4');
-    expect(await checkedSizes()).toEqual([[506, 675]]);
+    // A picture with a photo is looked at whole, at full size (the owner, 17 Nov: a bent laptop passed at half).
+    expect(await checkedSizes()).toEqual([[1080, 1440]]);
     // The check was shown the picture and told the words it should say.
     const check = script.requests.filter((r) => r.system === PICTURE_CHECK_SYSTEM).at(-1)!;
     const content = check.messages[0]!.content as Any[];
@@ -370,7 +371,7 @@ describe('Instagram’s own picture shape', () => {
     expect(m.design.shape).toBe('4:5');
     expect(squares).toEqual([false]);
     expect(prompts[0]).toContain('portrait (4:5)');
-    expect(await checkedSizes()).toEqual([[540, 675]]);
+    expect(await checkedSizes()).toEqual([[1080, 1350]]);
   });
 
   it('makes again the pictures of Instagram posts not up yet that were made before they were 3:4', async () => {
@@ -461,7 +462,7 @@ describe('a mistake in a photo itself', () => {
     // Only the photo was wrong, so it wasn't designed again.
     expect(designAsks()).toHaveLength(1);
     expect(m.design.check).toEqual({ passes: true, problems: [] });
-    expect(m.design.checked).toBe(3);
+    expect(m.design.checked).toBe(4);
   });
 
   it('designs it again for the words and makes the photo again for the photo', async () => {
@@ -512,7 +513,7 @@ describe('a mistake in a photo itself', () => {
     expect(prompts[2]).not.toContain('A sixth finger');
     const m = await made(id);
     expect(m.design.check.passes).toBe(true);
-    expect(m.design.checked).toBe(3);
+    expect(m.design.checked).toBe(4);
 
     // Never more than two more tries: the one with the fewest problems is kept, and what it still has is kept on it.
     script.checks = [
@@ -579,18 +580,18 @@ describe('a mistake in a photo itself', () => {
     };
     const old = await before('photo', null);
     const designed = await before('design', null);
-    const checked = await before('photo', 2);
     // Made under the first photo check and still failing it: made again under the stricter one (16 Nov).
     const flagged = await before('photo', 2, false);
+    const current = await before('photo', 4);
     script.designs = [design([page({ layout: 'clean' })])];
     script.checks = [{ passes: true, problems: [] }];
     const id = await post('photo', 'design', 'facebook');
     await makePictures(id);
-    // The photo made before and the one that failed the first check are queued; a designed picture has no photo, and
-    // the other passed the check it was made under.
+    // The photo made before and the one that failed the first check are queued to be made again; a designed picture
+    // has no photo, and the other was made under this check.
     expect((await pending()).map((q) => q.post_id).sort()).toEqual([old, flagged].sort());
     expect((await pending()).every((q) => q.way === 'photo')).toBe(true);
-    for (const left of [designed, checked, id])
+    for (const left of [designed, current, id])
       expect((await pending()).some((q) => q.post_id === left)).toBe(false);
     await rows(
       admin(),
@@ -598,8 +599,167 @@ describe('a mistake in a photo itself', () => {
           where workspace_id = ${ws} and kind = 'socialcontent.pictures' and status = 'pending'`,
     );
     await makePictures(old);
-    expect((await made(old)).design.checked).toBe(3);
-    expect((await made(flagged)).design.checked).toBe(3);
+    expect((await made(old)).design.checked).toBe(4);
+    expect((await made(flagged)).design.checked).toBe(4);
     expect(await pending()).toEqual([]);
+  });
+});
+
+describe('a photo that passed an older check', () => {
+  // The owner, 17 Nov: "look at the laptop on this image. the ai should have noticed how the shape of it is all
+  // wonky". Photos kept under check 3 are checked again under this one, and made again only when they fail it.
+  const designAsks = () => script.requests.filter((r) => r.system === DESIGN_SYSTEM);
+  const checks = () => script.requests.filter((r) => r.system === PICTURE_CHECK_SYSTEM);
+  const pending = () =>
+    rows<{ post_id: string; recheck: string | null }>(
+      admin(),
+      sql`select payload->>'postId' as post_id, payload->>'recheck' as recheck from app.scheduled_jobs
+          where workspace_id = ${ws} and kind = 'socialcontent.pictures' and status = 'pending'`,
+    );
+
+  /** A photo post whose picture was made and passed, marked as made under check 3. */
+  async function keptUnder3(): Promise<{ id: string; files: string[] }> {
+    script.designs = [
+      design([
+        page({ layout: 'framed', heading: 'Just send a message' }),
+        page({ layout: 'clean', heading: 'Drip the taps' }),
+      ]),
+    ];
+    script.checks = [{ passes: true, problems: [] }];
+    // A carousel never tries OpenAI's whole graphic, so its photo is drawn under the first page's words.
+    const id = await post('carousel', 'photo', 'facebook');
+    await makePictures(id);
+    const [r] = await rows<{ file_ids: string[] }>(
+      admin(),
+      sql`update addon_socialcontent.content set design = jsonb_set(design, '{checked}', '3')
+          where record_id = ${id} returning file_ids`,
+    );
+    return { id, files: r!.file_ids };
+  }
+
+  /**
+   * Any post's pictures being made queues the catch-up; its jobs are then brought due and run. What making the posts
+   * queued before is cleared first, so only this catch-up's jobs wait.
+   */
+  async function catchUp(): Promise<void> {
+    await rows(
+      admin(),
+      sql`update app.scheduled_jobs set status = 'cancelled'
+          where workspace_id = ${ws} and kind = 'socialcontent.pictures' and status = 'pending'`,
+    );
+    script.designs = [design([page({ layout: 'clean' })])];
+    script.checks = [{ passes: true, problems: [] }];
+    await makePictures(await post('photo', 'design', 'facebook'));
+  }
+  async function runQueued(postId: string): Promise<void> {
+    await rows(
+      admin(),
+      sql`update app.scheduled_jobs set run_at = now()
+          where workspace_id = ${ws} and kind = 'socialcontent.pictures' and status = 'pending'`,
+    );
+    await makePictures(postId);
+  }
+
+  it('keeps the pictures when they pass this check, marked as checked under it', async () => {
+    const { id, files } = await keptUnder3();
+    await catchUp();
+    expect(await pending()).toEqual([{ post_id: id, recheck: 'true' }]);
+    script.checks = [{ passes: true, problems: [] }];
+    script.requests.length = 0;
+    prompts.length = 0;
+    await runQueued(id);
+    const [r] = await rows<{ file_ids: string[] }>(
+      admin(),
+      sql`select file_ids from addon_socialcontent.content where record_id = ${id}`,
+    );
+    expect(r!.file_ids).toEqual(files);
+    const m = await made(id);
+    expect(m.design).toMatchObject({ checked: 4, check: { passes: true, problems: [] } });
+    // Only checked: no new photo, no new design. The page with the photo was looked at whole, the other at half.
+    expect(prompts).toHaveLength(0);
+    expect(designAsks()).toHaveLength(0);
+    expect(checks()).toHaveLength(1);
+    expect(await checkedSizes()).toEqual([
+      [1080, 1350],
+      [540, 675],
+    ]);
+    expect(await pending()).toEqual([]);
+  });
+
+  it('makes a new photo under the same design when the photo fails, told what was wrong', async () => {
+    const { id, files } = await keptUnder3();
+    await catchUp();
+    script.checks = [
+      {
+        passes: false,
+        problems: [],
+        photoProblems: ['The laptop’s lid is bent and its base runs into the dashboard'],
+      },
+      { passes: true, problems: [] },
+    ];
+    script.requests.length = 0;
+    prompts.length = 0;
+    await runQueued(id);
+    const m = await made(id);
+    expect(m).toMatchObject({ state: 'made', way: 'photo', files: 2 });
+    expect(m.design).toMatchObject({ checked: 4, check: { passes: true, problems: [] } });
+    expect(m.design.pages[0].heading).toBe('Just send a message');
+    const [r] = await rows<{ file_ids: string[] }>(
+      admin(),
+      sql`select file_ids from addon_socialcontent.content where record_id = ${id}`,
+    );
+    expect(r!.file_ids).not.toEqual(files);
+    // One new photo, told what was wrong; the same design over it.
+    expect(prompts).toHaveLength(1);
+    expect(prompts[0]).toContain(
+      'make sure the new one has none of them: The laptop’s lid is bent and its base runs into the dashboard',
+    );
+    expect(designAsks()).toHaveLength(0);
+    expect(checks()).toHaveLength(2);
+  });
+
+  it('designs it again when the words fail, and leaves a picture that failed its own check to be made again', async () => {
+    const { id } = await keptUnder3();
+    // One that failed check 3 is made again, never only checked.
+    const failed = await keptUnder3();
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content
+          set design = design || '{"check": {"passes": false, "problems": ["Faint text"]}}'::jsonb
+          where record_id = ${failed.id}`,
+    );
+    await catchUp();
+    expect((await pending()).sort((a, b) => a.post_id.localeCompare(b.post_id))).toEqual(
+      [
+        { post_id: id, recheck: 'true' },
+        { post_id: failed.id, recheck: null },
+      ].sort((a, b) => a.post_id.localeCompare(b.post_id)),
+    );
+    script.designs = [
+      design([
+        page({ layout: 'framed', heading: 'Just text it' }),
+        page({ layout: 'clean', heading: 'Drip the taps' }),
+      ]),
+    ];
+    script.checks = [
+      { passes: false, problems: ['The heading is cut off at the right'] },
+      { passes: true, problems: [] },
+    ];
+    script.requests.length = 0;
+    prompts.length = 0;
+    await rows(
+      admin(),
+      sql`update app.scheduled_jobs set status = 'cancelled'
+          where workspace_id = ${ws} and kind = 'socialcontent.pictures' and status = 'pending'
+            and payload->>'postId' = ${failed.id}`,
+    );
+    await runQueued(id);
+    const m = await made(id);
+    expect(m.design).toMatchObject({ checked: 4, check: { passes: true, problems: [] } });
+    expect(m.design.pages[0].heading).toBe('Just text it');
+    const asks = designAsks();
+    expect(asks).toHaveLength(1);
+    expect(JSON.stringify(asks[0]!.messages)).toContain('The heading is cut off at the right');
+    expect(prompts).toHaveLength(1);
   });
 });
