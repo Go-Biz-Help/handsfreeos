@@ -3504,7 +3504,13 @@ export const SCRIPTED_BUSINESS_CARD = {
   ],
   emails: [{ email: 'Maria@LopezRoofing.com', label: '' }],
   website: 'https://lopezroofing.com/',
-  address: { street: '1200 Main St, Suite 4', city: 'Houston', state: 'TX', postalCode: '77002', country: 'US' },
+  address: {
+    street: '1200 Main St, Suite 4',
+    city: 'Houston',
+    state: 'TX',
+    postalCode: '77002',
+    country: 'US',
+  },
   extra: 'TX roofing licence 12345',
 } as const;
 

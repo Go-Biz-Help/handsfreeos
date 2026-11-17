@@ -1,4 +1,5 @@
 import {
+  ADD_CONTACT_WORDS,
   PICKED_CONTACT_SOURCE,
   PICKED_CONTACT_WORDS as PC,
   type OnboardingSetupState,
@@ -22,7 +23,8 @@ import HfosPhone from '../../../modules/hfos-phone';
  * Customers picked from the phone's own contacts, one at a time (onboarding plan §8, call 8), with the phone's picker
  * and the queue played by stand-ins: a picked card added as a customer, with no signal needed; someone already a
  * customer found instead of added twice; a contact with no name, a cancelled picker and a phone with no contacts app;
- * and the two places it's offered, the setup's customers stop and the Customers screen's button.
+ * and the two places it's offered, the setup's customers stop and the Customers screen's + button (beside New
+ * contact, typed in or from a business card).
  */
 
 jest.mock('@/changes', () => {
@@ -284,10 +286,16 @@ describe('the Customers screen’s button', () => {
     </BusinessProvider>
   );
 
+  /** The + button, then Pick from your contacts on the sheet it opens. */
+  async function pickFromSheet() {
+    await fireEvent.press(screen.getByLabelText(ADD_CONTACT_WORDS.button));
+    await fireEvent.press(screen.getByTestId('add-contact-pick'));
+  }
+
   it('adds a customer picked from the contacts, and opens them from the note', async () => {
     await render(wrap(<Customers />));
     pickContact.mockResolvedValueOnce(ROSA);
-    await fireEvent.press(screen.getByLabelText(PC.addFromContacts));
+    await pickFromSheet();
     await waitFor(() => expect(toast.show).toHaveBeenCalled());
     const [message, options] = jest.mocked(toast.show).mock.calls[0]!;
     expect(message).toBe(PC.added('Rosa Delgado'));
@@ -299,7 +307,7 @@ describe('the Customers screen’s button', () => {
     await render(wrap(<Customers />));
     pickContact.mockResolvedValueOnce(ROSA);
     getAll.mockResolvedValueOnce([ROSA_ON_FILE]);
-    await fireEvent.press(screen.getByTestId('customers-pick'));
+    await pickFromSheet();
     await waitFor(() => expect(toast.show).toHaveBeenCalled());
     expect(jest.mocked(toast.show).mock.calls[0]![0]).toBe(PC.already('Rosa D.'));
     expect(change).not.toHaveBeenCalled();
@@ -309,6 +317,21 @@ describe('the Customers screen’s button', () => {
     await render(
       wrap(<Customers />, { ...me.businesses[0]!, role: 'member', permissions: ['records.read'] }),
     );
-    expect(screen.queryByTestId('customers-pick')).toBeNull();
+    expect(screen.queryByTestId('customers-add')).toBeNull();
+  });
+
+  it('opens New contact to type someone in, or to scan a business card', async () => {
+    await render(wrap(<Customers />));
+    await fireEvent.press(screen.getByTestId('customers-add'));
+    await fireEvent.press(screen.getByTestId('add-contact-type'));
+    await waitFor(() =>
+      expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/customers/new`),
+    );
+    await fireEvent.press(screen.getByTestId('customers-add'));
+    await fireEvent.press(screen.getByTestId('add-contact-scan'));
+    await waitFor(() =>
+      expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/customers/new?scan=1`),
+    );
+    expect(pickContact).not.toHaveBeenCalled();
   });
 });

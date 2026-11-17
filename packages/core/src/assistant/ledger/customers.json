@@ -1,15 +1,18 @@
 {
   "area": "customers",
   "title": "Contacts: people, companies, a business's own kinds of records, leads, imports and files",
-  "checkedOn": "2026-11-06",
+  "checkedOn": "2026-11-17",
   "files": {
-    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/customers.tsx": "eefa28e7afb6",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/customers.tsx": "725409ea5d15",
     "apps/mobile/src/app/app/w/[workspaceId]/customers/companies/[companyId].tsx": "cb2d19dfb095",
+    "apps/mobile/src/app/app/w/[workspaceId]/customers/new.tsx": "4a5e40850aa9",
     "apps/mobile/src/app/app/w/[workspaceId]/customers/people/[personId].tsx": "340fbd35a7c7",
     "apps/mobile/src/app/app/w/[workspaceId]/leads/[leadId].tsx": "43593e8ad1b3",
     "apps/mobile/src/components/bin/delete-sheet.tsx": "4d51e37958fe",
+    "apps/mobile/src/components/customers/add-contact-sheet.tsx": "8c1307e59326",
     "apps/mobile/src/components/customers/attribution.tsx": "f7bd1bf0943a",
     "apps/mobile/src/components/customers/bits.tsx": "4d10da9c3dc9",
+    "apps/mobile/src/components/customers/card-edges.tsx": "4ae75f0a8435",
     "apps/mobile/src/components/customers/files.tsx": "0531c95a1f8a",
     "apps/mobile/src/components/customers/funnel-card.tsx": "83638a313ac2",
     "apps/mobile/src/components/customers/partner-card.tsx": "1436d5ed4d05",
@@ -19,7 +22,9 @@
     "apps/mobile/src/components/customers/timeline.tsx": "e46a52d6940a",
     "apps/mobile/src/components/pipeline/bits.tsx": "a87c31659b1e",
     "apps/mobile/src/customers/actions.ts": "baaac56be7df",
-    "apps/mobile/src/customers/add-customer.ts": "170c4cb792c8",
+    "apps/mobile/src/customers/add-contact.ts": "3940f8a83caa",
+    "apps/mobile/src/customers/add-customer.ts": "acc85a4f0260",
+    "apps/mobile/src/customers/card-scan.ts": "d35b74cbea35",
     "apps/mobile/src/customers/contact-lines.ts": "83705fbb0234",
     "apps/mobile/src/customers/fixers.ts": "f6de8cd16c56",
     "apps/mobile/src/customers/names.ts": "49044c8b9de2",
@@ -59,7 +64,7 @@
     "apps/web/src/components/crm/record-picker.tsx": "415ed8b189ad",
     "apps/web/src/components/crm/tag-picker.tsx": "74b0055a510a",
     "apps/web/src/components/files/file-grid.tsx": "0b455a816429",
-    "apps/web/src/components/files/upload-zone.tsx": "22135ce708f3",
+    "apps/web/src/components/files/upload-zone.tsx": "7a46c36f47d1",
     "apps/web/src/components/funnels/person-funnel.tsx": "6d463f0e6e10",
     "apps/web/src/components/import/fields.ts": "c2639d2fba22",
     "apps/web/src/components/import/import-progress.tsx": "7e4630e2d20c",
@@ -2271,11 +2276,102 @@
       "by": "list_customers"
     },
     {
-      "path": "Phone Contacts → pick from phone contacts",
+      "path": "Phone Contacts → + → Pick from your contacts",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/customers.tsx:87",
+      "file": "apps/mobile/src/components/customers/add-contact-sheet.tsx:36",
       "covered": "person",
       "by": "reads the phone's own contacts"
+    },
+    {
+      "path": "Phone Contacts → + → Add a contact sheet (scan, type, pick)",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/customers.tsx:106",
+      "covered": "yes",
+      "by": "create_customer"
+    },
+    {
+      "path": "Phone Contacts → + → Type it in",
+      "kind": "do",
+      "file": "apps/mobile/src/components/customers/add-contact-sheet.tsx:36",
+      "covered": "yes",
+      "by": "create_customer"
+    },
+    {
+      "path": "Phone Contacts → + → Scan a business card",
+      "kind": "do",
+      "file": "apps/mobile/src/components/customers/add-contact-sheet.tsx:36",
+      "covered": "person",
+      "by": "camera on the device; create_customer adds what the card says"
+    },
+    {
+      "path": "Phone New contact → name, job title, company (linked or added)",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/customers/new.tsx:242",
+      "covered": "yes",
+      "by": "create_customer; manage_company"
+    },
+    {
+      "path": "Phone New contact → phone, other numbers with labels, Add another number",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/customers/new.tsx:274",
+      "covered": "yes",
+      "by": "create_customer phone, otherPhones"
+    },
+    {
+      "path": "Phone New contact → email, other emails, Add another email",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/customers/new.tsx:315",
+      "covered": "yes",
+      "by": "create_customer email, otherEmails"
+    },
+    {
+      "path": "Phone New contact → website, address, note",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/customers/new.tsx:355",
+      "covered": "yes",
+      "by": "create_customer address, notes"
+    },
+    {
+      "path": "Phone New contact → Add contact",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/customers/new.tsx:461",
+      "covered": "yes",
+      "by": "create_customer"
+    },
+    {
+      "path": "Phone New contact → already here: Open them, or Add anyway",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/customers/new.tsx:440",
+      "covered": "yes",
+      "by": "create_customer warns of a duplicate; get_customer"
+    },
+    {
+      "path": "Phone New contact → card front and back: scan, retake, remove, try again",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/customers/new.tsx:605",
+      "covered": "person",
+      "by": "camera on the device"
+    },
+    {
+      "path": "Phone New contact → what the card filled in, or why it could not",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/customers/new.tsx:224",
+      "covered": "person",
+      "by": "the scan on the device"
+    },
+    {
+      "path": "Phone New contact → Fix the edges: drag the corners, Crop",
+      "kind": "do",
+      "file": "apps/mobile/src/components/customers/card-edges.tsx:139",
+      "covered": "person",
+      "by": "drags on the picture on the device"
+    },
+    {
+      "path": "Phone New contact → the card's pictures on the contact's Files",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/customers/new.tsx:461",
+      "covered": "yes",
+      "by": "get_record_details files"
     },
     {
       "path": "Phone Contacts → search name, number or note",

@@ -97,7 +97,12 @@ function picker(seed: number): (below: number) => number {
  * The line most of the points agree on (RANSAC), refitted through just those, or null when too few agree. It may
  * lean at most `maxTurn` radians from `along`.
  */
-function agreedLine(points: readonly Pt[], along: Pt, tolerance: number, maxTurn: number): Line | null {
+function agreedLine(
+  points: readonly Pt[],
+  along: Pt,
+  tolerance: number,
+  maxTurn: number,
+): Line | null {
   if (points.length < 6) return null;
   const pick = picker(points.length * 7919);
   let best: Pt[] = [];
@@ -247,8 +252,7 @@ export function isCardShaped(q: Quad, width: number, height: number): boolean {
     if (sign && s !== sign) return false;
     sign = s;
   }
-  const area =
-    Math.abs(q.reduce((sum, p, i) => sum + cross(p, q[(i + 1) % 4]!), 0)) / 2;
+  const area = Math.abs(q.reduce((sum, p, i) => sum + cross(p, q[(i + 1) % 4]!), 0)) / 2;
   return area >= 0.02 * width * height;
 }
 
@@ -266,10 +270,12 @@ export function homography(from: Quad, to: Quad): number[] {
   }
   for (let col = 0; col < 8; col++) {
     let pivot = col;
-    for (let r = col + 1; r < 8; r++) if (Math.abs(m[r]![col]!) > Math.abs(m[pivot]![col]!)) pivot = r;
+    for (let r = col + 1; r < 8; r++)
+      if (Math.abs(m[r]![col]!) > Math.abs(m[pivot]![col]!)) pivot = r;
     [m[col], m[pivot]] = [m[pivot]!, m[col]!];
     const p = m[col]![col]!;
-    if (Math.abs(p) < 1e-12) throw new Error('The corners don’t make a shape that can be straightened.');
+    if (Math.abs(p) < 1e-12)
+      throw new Error('The corners don’t make a shape that can be straightened.');
     for (let r = 0; r < 8; r++) {
       if (r === col) continue;
       const f = m[r]![col]! / p;
@@ -281,7 +287,10 @@ export function homography(from: Quad, to: Quad): number[] {
 
 export function project(hm: readonly number[], p: Pt): Pt {
   const z = hm[6]! * p.x + hm[7]! * p.y + hm[8]!;
-  return { x: (hm[0]! * p.x + hm[1]! * p.y + hm[2]!) / z, y: (hm[3]! * p.x + hm[4]! * p.y + hm[5]!) / z };
+  return {
+    x: (hm[0]! * p.x + hm[1]! * p.y + hm[2]!) / z,
+    y: (hm[3]! * p.x + hm[4]! * p.y + hm[5]!) / z,
+  };
 }
 
 /**
@@ -317,12 +326,7 @@ export function trueShape(q: Quad, width: number, height: number): number | null
   if (Math.abs(a3 * b3) < 1e-9 * Math.max(1, Math.abs(a1 * b1))) {
     ratio = Math.sqrt((a1 * a1 + a2 * a2) / (b1 * b1 + b2 * b2));
   } else {
-    const f2 =
-      -(
-        (a1 - u0 * a3) * (b1 - u0 * b3) +
-        (a2 - v0 * a3) * (b2 - v0 * b3)
-      ) /
-      (a3 * b3);
+    const f2 = -((a1 - u0 * a3) * (b1 - u0 * b3) + (a2 - v0 * a3) * (b2 - v0 * b3)) / (a3 * b3);
     if (!(f2 > 0)) return null;
     const norm = (n: readonly number[]) =>
       ((n[0]! - u0 * n[2]!) ** 2 + (n[1]! - v0 * n[2]!) ** 2) / f2 + n[2]! ** 2;
@@ -332,7 +336,11 @@ export function trueShape(q: Quad, width: number, height: number): number | null
 }
 
 /** The straightened card's size in pixels: its true shape, about as big as it was in the photo. */
-export function cardSize(q: Quad, width: number, height: number): { width: number; height: number } {
+export function cardSize(
+  q: Quad,
+  width: number,
+  height: number,
+): { width: number; height: number } {
   const across = Math.max(dist(q[0], q[1]), dist(q[3], q[2]));
   const down = Math.max(dist(q[0], q[3]), dist(q[1], q[2]));
   const measured = across / down;
@@ -424,19 +432,39 @@ export async function straightenCard(
   const { data: rgb, info } = await upright.clone().raw().toBuffer({ resolveWithObject: true });
   const size = { width: info.width, height: info.height };
   if (!rough) {
-    const picture = await sharp(rgb, { raw: { width: size.width, height: size.height, channels: 3 } })
-      .resize({ width: CARD_MAX_EDGE, height: CARD_MAX_EDGE, fit: 'inside', withoutEnlargement: true })
+    const picture = await sharp(rgb, {
+      raw: { width: size.width, height: size.height, channels: 3 },
+    })
+      .resize({
+        width: CARD_MAX_EDGE,
+        height: CARD_MAX_EDGE,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
       .jpeg({ quality: CARD_QUALITY })
       .toBuffer({ resolveWithObject: true });
-    return { picture: picture.data, width: picture.info.width, height: picture.info.height, corners: null, cropped: false };
+    return {
+      picture: picture.data,
+      width: picture.info.width,
+      height: picture.info.height,
+      corners: null,
+      cropped: false,
+    };
   }
 
-  let corners = rough.map((p) => ({ x: p.x * (size.width - 1), y: p.y * (size.height - 1) })) as unknown as Quad;
+  let corners = rough.map((p) => ({
+    x: p.x * (size.width - 1),
+    y: p.y * (size.height - 1),
+  })) as unknown as Quad;
   if (options.refine) {
     const scale = Math.min(1, FIND_EDGE / Math.max(size.width, size.height));
     const small = await upright
       .clone()
-      .resize({ width: Math.round(size.width * scale), height: Math.round(size.height * scale), fit: 'fill' })
+      .resize({
+        width: Math.round(size.width * scale),
+        height: Math.round(size.height * scale),
+        fit: 'fill',
+      })
       .greyscale()
       .raw()
       .toBuffer({ resolveWithObject: true });
@@ -464,7 +492,10 @@ export async function straightenCard(
     picture,
     width: out.width,
     height: out.height,
-    corners: corners.map((p) => ({ x: share(p.x, size.width), y: share(p.y, size.height) })) as unknown as CardCorners,
+    corners: corners.map((p) => ({
+      x: share(p.x, size.width),
+      y: share(p.y, size.height),
+    })) as unknown as CardCorners,
     cropped: true,
   };
 }

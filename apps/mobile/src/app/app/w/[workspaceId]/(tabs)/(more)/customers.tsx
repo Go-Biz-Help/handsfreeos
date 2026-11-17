@@ -1,9 +1,16 @@
 import * as React from 'react';
-import { CONTACTS_WORDS, holds, MORE_WORDS, PICKED_CONTACT_WORDS as PC } from '@hfos/core';
+import {
+  ADD_CONTACT_WORDS,
+  CONTACTS_WORDS,
+  holds,
+  MORE_WORDS,
+  PICKED_CONTACT_WORDS as PC,
+} from '@hfos/core';
 import { router, type Href } from 'expo-router';
 import { FlatList, Pressable, View } from 'react-native';
 
 import { Building, Search, SquareKanban, StickyNote, User, UserPlus, X } from '@/components/icons';
+import { AddContactSheet, type AddContactWay } from '@/components/customers/add-contact-sheet';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { Screen } from '@/components/shell/screen';
 import { Avatar } from '@/components/ui/avatar';
@@ -26,13 +33,14 @@ import { SearchEverythingRow } from '@/search/rows';
 /**
  * Contacts, reached from More: people and companies from the phone's copy, and a search across customers, companies
  * and leads that works with no signal — by name, by number, and by a word someone wrote in a note, ending with Search
- * everything for what was typed. The button at the top adds a customer picked from the phone's own contacts, one at a
- * time.
+ * everything for what was typed. The + at the top adds someone: from a business card it scans, typed in (New contact),
+ * or picked from the phone's own contacts, one at a time.
  */
 export default function Customers() {
   const { business, viewing } = useBusiness();
   const { pick, picking } = usePickCustomer(business.id);
   const mayAdd = !viewing && holds(business, 'records.write');
+  const [adding, setAdding] = React.useState(false);
   const [tab, setTab] = React.useState<CustomerTab>('people');
   const [typed, setTyped] = React.useState('');
   const [q, setQ] = React.useState('');
@@ -72,6 +80,16 @@ export default function Customers() {
     });
   };
 
+  const addBy = async (way: AddContactWay) => {
+    setAdding(false);
+    // An iPhone won't show the contacts picker over a sheet that is closing.
+    await new Promise((r) => setTimeout(r, 450));
+    if (way === 'pick') return void pickFromContacts();
+    router.push(
+      businessHref(business.id, way === 'scan' ? 'customers/new?scan=1' : 'customers/new') as Href,
+    );
+  };
+
   return (
     <Screen
       title={MORE_WORDS.customers}
@@ -82,10 +100,10 @@ export default function Customers() {
         mayAdd ? (
           <Pressable
             role="button"
-            accessibilityLabel={PC.addFromContacts}
+            accessibilityLabel={ADD_CONTACT_WORDS.button}
             accessibilityState={{ busy: picking }}
-            onPress={() => void pickFromContacts()}
-            testID="customers-pick"
+            onPress={() => setAdding(true)}
+            testID="customers-add"
             className="size-11 items-center justify-center rounded-full active:bg-card-2"
           >
             <Icon as={UserPlus} className="size-[22px] text-accent" />
@@ -197,6 +215,11 @@ export default function Customers() {
           }
         />
       )}
+      <AddContactSheet
+        open={adding}
+        onClose={() => setAdding(false)}
+        onPick={(way) => void addBy(way)}
+      />
     </Screen>
   );
 }

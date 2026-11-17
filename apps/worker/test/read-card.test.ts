@@ -86,7 +86,12 @@ describe('reading a business card', () => {
     expect([meta.format, meta.width, meta.height]).toEqual(['jpeg', out.width, out.height]);
     // Tidied: the name cased, the labels plain, the email lower-cased.
     expect(out.contact).toEqual(
-      cardContactFromAnswer({ ...SCRIPTED_BUSINESS_CARD, corners: [], phones: [...SCRIPTED_BUSINESS_CARD.phones], emails: [...SCRIPTED_BUSINESS_CARD.emails] }),
+      cardContactFromAnswer({
+        ...SCRIPTED_BUSINESS_CARD,
+        corners: [],
+        phones: [...SCRIPTED_BUSINESS_CARD.phones],
+        emails: [...SCRIPTED_BUSINESS_CARD.emails],
+      }),
     );
     expect(out.contact).toMatchObject({
       firstName: 'Maria',
@@ -123,7 +128,10 @@ describe('reading a business card', () => {
   });
 
   it('refuses without a sign-in, and a picture that can’t be opened', async () => {
-    expect((await read({ workspaceId: w.workspaceId, side: 'front', image: await photo() }, null)).statusCode).toBe(401);
+    expect(
+      (await read({ workspaceId: w.workspaceId, side: 'front', image: await photo() }, null))
+        .statusCode,
+    ).toBe(401);
     const res = await read({
       workspaceId: w.workspaceId,
       side: 'front',

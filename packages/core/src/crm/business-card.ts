@@ -44,7 +44,8 @@ export const BUSINESS_CARD_WORDS = {
   scanTitle: 'Scan a business card',
   side: { front: 'Front', back: 'Back' } satisfies Record<CardSide, string>,
   /** Where the picture comes from. */
-  sheetTitle: (side: CardSide) => (side === 'front' ? 'The front of the card' : 'The back of the card'),
+  sheetTitle: (side: CardSide) =>
+    side === 'front' ? 'The front of the card' : 'The back of the card',
   camera: 'Take a picture',
   library: 'Choose a picture',
   tip: 'Lay the card on a plain surface that’s darker or lighter than the card, and fill most of the picture with it.',
@@ -64,11 +65,13 @@ export const BUSINESS_CARD_WORDS = {
     'That picture doesn’t look like a business card. Take it again with the card filling most of the picture, or type the details in.',
   noEdges:
     'We read the card but couldn’t find all four of its edges, so the picture is kept as it is. Tap Fix the edges to crop it yourself.',
-  noCamera: 'HandsFreeOS can’t use the camera. Turn it on in your phone’s Settings → HandsFreeOS, or choose a picture instead.',
+  noCamera:
+    'HandsFreeOS can’t use the camera. Turn it on in your phone’s Settings → HandsFreeOS, or choose a picture instead.',
   needsSignal:
     'Reading a card needs signal. Type the details in for now, or scan it again when you have signal.',
   /** The pictures, on the contact's Files. */
-  photoName: (side: CardSide) => (side === 'front' ? 'Business card front.jpg' : 'Business card back.jpg'),
+  photoName: (side: CardSide) =>
+    side === 'front' ? 'Business card front.jpg' : 'Business card back.jpg',
 
   /** The form. */
   name: NEW_CONTACT_WORDS.name,
@@ -86,6 +89,9 @@ export const BUSINESS_CARD_WORDS = {
   postalCode: 'ZIP code',
   note: 'Note',
   removeLine: (what: string) => `Remove ${what}`,
+  anotherPhone: 'Add another number',
+  anotherEmail: 'Add another email',
+  tryAgain: 'Try again',
   namePlaceholder: CONTACT_EDIT_WORDS.namePlaceholder,
   jobTitlePlaceholder: 'Owner, Office manager…',
   companyPlaceholder: 'Their business',
@@ -315,7 +321,9 @@ const clip = (value: string | null | undefined, max: number): string =>
 /** "MIKE" → "Mike", "MCDONALD" → "Mcdonald"; a name with any small letters is left as printed. */
 function nameCase(value: string): string {
   if (!value || value !== value.toUpperCase() || !/\p{Lu}/u.test(value)) return value;
-  return value.toLowerCase().replace(/(^|[\s'’-])(\p{L})/gu, (_, cut: string, c: string) => cut + c.toUpperCase());
+  return value
+    .toLowerCase()
+    .replace(/(^|[\s'’-])(\p{L})/gu, (_, cut: string, c: string) => cut + c.toUpperCase());
 }
 
 /** A label as the form shows it: "cell" → "Mobile", "o" → "Office", "f" → "Fax". */
@@ -323,14 +331,17 @@ function phoneLabel(raw: string): string {
   const label = clip(raw, 40).replace(/[.:]+$/, '');
   const key = label.toLowerCase();
   if (['m', 'mob', 'mobile', 'c', 'cell', 'cellular'].includes(key)) return 'Mobile';
-  if (['o', 'off', 'office', 'p', 'ph', 'phone', 't', 'tel', 'w', 'work'].includes(key)) return 'Office';
+  if (['o', 'off', 'office', 'p', 'ph', 'phone', 't', 'tel', 'w', 'work'].includes(key))
+    return 'Office';
   if (['d', 'dir', 'direct'].includes(key)) return 'Direct';
   if (['f', 'fax'].includes(key)) return 'Fax';
   return label ? label.charAt(0).toUpperCase() + label.slice(1) : '';
 }
 
 /** The corners as shares of the picture, in the card's order, or null when the AI gave no usable outline. */
-export function cornersFromAnswer(answer: Pick<BusinessCardAnswer, 'corners' | 'isCard'>): CardCorners | null {
+export function cornersFromAnswer(
+  answer: Pick<BusinessCardAnswer, 'corners' | 'isCard'>,
+): CardCorners | null {
   if (!answer.isCard || answer.corners.length !== 4) return null;
   const points = answer.corners.map((p) => ({
     x: Math.min(1, Math.max(0, p.x / 1000)),
@@ -354,12 +365,15 @@ export function cardContactFromAnswer(answer: BusinessCardAnswer): CardContact {
     const number = clip(p.number, 40);
     if (!number || !/\d{3}/.test(number.replace(/\D/g, ''))) continue;
     const key = normalizePhone(number) ?? number.replace(/\D/g, '');
-    if (phones.some((q) => (normalizePhone(q.number) ?? q.number.replace(/\D/g, '')) === key)) continue;
+    if (phones.some((q) => (normalizePhone(q.number) ?? q.number.replace(/\D/g, '')) === key))
+      continue;
     phones.push({ number, label: phoneLabel(p.label) });
   }
   const emails: CardEmail[] = [];
   for (const e of answer.emails) {
-    const email = clip(e.email, 254).replace(/^mailto:/i, '').toLowerCase();
+    const email = clip(e.email, 254)
+      .replace(/^mailto:/i, '')
+      .toLowerCase();
     if (!email.includes('@') || emails.some((q) => q.email === email)) continue;
     emails.push({ email, label: clip(e.label, 40) });
   }
@@ -371,7 +385,9 @@ export function cardContactFromAnswer(answer: BusinessCardAnswer): CardContact {
     company: clip(answer.company, 120),
     phones: phones.slice(0, MAX_OTHER_CONTACTS),
     emails: emails.slice(0, MAX_OTHER_CONTACTS),
-    website: clip(answer.website, 200).replace(/^https?:\/\//i, '').replace(/\/$/, ''),
+    website: clip(answer.website, 200)
+      .replace(/^https?:\/\//i, '')
+      .replace(/\/$/, ''),
     address: {
       street: clip(answer.address.street, 200),
       city: clip(answer.address.city, 100),
@@ -473,7 +489,9 @@ export function fillCardForm(
   }
 
   const emailsOnForm = new Set(
-    [next.email, ...next.otherEmails.map((e) => e.email)].map((e) => e.trim().toLowerCase()).filter(Boolean),
+    [next.email, ...next.otherEmails.map((e) => e.email)]
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean),
   );
   const newEmails = card.emails.filter((e) => !emailsOnForm.has(e.email));
   if (!next.email.trim() && newEmails[0]) {
@@ -537,14 +555,18 @@ export type CardFormCheck =
       readonly message: string;
     };
 
-const emailOk = (email: string): boolean => email.length <= 254 && z.email().safeParse(email).success;
+const emailOk = (email: string): boolean =>
+  email.length <= 254 && z.email().safeParse(email).success;
 
 /**
  * The form, checked the way `person.create` will check it, so what goes with no signal isn't refused later: a name
  * (a card with only a business name is added under that name), and numbers and emails that are real. Job title and
  * website have no box on a person, so they lead the note.
  */
-export function checkCardForm(form: CardForm, options: { readonly scanned: boolean }): CardFormCheck {
+export function checkCardForm(
+  form: CardForm,
+  options: { readonly scanned: boolean },
+): CardFormCheck {
   const company = clip(form.company, 120);
   const parts = splitName(clip(form.name, 160) || company);
   const firstName = parts.firstName.slice(0, 80);

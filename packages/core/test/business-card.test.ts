@@ -44,7 +44,13 @@ const answer = (over: Partial<BusinessCardAnswer> = {}): BusinessCardAnswer =>
     ],
     emails: [{ email: 'mailto:Maria@LopezRoofing.com', label: '' }],
     website: 'https://www.lopezroofing.com/',
-    address: { street: '1200 Main St, Suite 4', city: 'Houston', state: 'TX', postalCode: '77002', country: 'us' },
+    address: {
+      street: '1200 Main St, Suite 4',
+      city: 'Houston',
+      state: 'TX',
+      postalCode: '77002',
+      country: 'us',
+    },
     extra: 'TX roofing licence 12345',
     ...over,
   });
@@ -65,7 +71,9 @@ describe('what the AI read off a card', () => {
       address: { country: 'US', postalCode: '77002' },
     });
     // A name printed with small letters is kept as printed.
-    expect(cardContactFromAnswer(answer({ firstName: 'DeShawn', lastName: 'McAdams' }))).toMatchObject({
+    expect(
+      cardContactFromAnswer(answer({ firstName: 'DeShawn', lastName: 'McAdams' })),
+    ).toMatchObject({
       firstName: 'DeShawn',
       lastName: 'McAdams',
     });
@@ -113,7 +121,9 @@ describe('filling the form from a card', () => {
   it('lets the back fill only what is still empty, and add numbers not there yet', () => {
     const front = fillCardForm(
       EMPTY_CARD_FORM,
-      cardContactFromAnswer(answer({ phones: [{ number: '713 555 0142', label: 'Cell' }], extra: '' })),
+      cardContactFromAnswer(
+        answer({ phones: [{ number: '713 555 0142', label: 'Cell' }], extra: '' }),
+      ),
     ).form;
     // The person fixed the name after the front was read.
     const fixed: CardForm = { ...front, name: 'Maria Lopez' };
@@ -155,7 +165,13 @@ describe('checking the form', () => {
         { phone: '+17135550100', label: 'Office' },
         { phone: '+17135550199', label: 'Fax' },
       ],
-      address: { line1: '1200 Main St, Suite 4', city: 'Houston', state: 'TX', postalCode: '77002', country: 'US' },
+      address: {
+        line1: '1200 Main St, Suite 4',
+        city: 'Houston',
+        state: 'TX',
+        postalCode: '77002',
+        country: 'US',
+      },
       notes: [
         'Job title: Owner',
         'Website: www.lopezroofing.com',
@@ -165,10 +181,16 @@ describe('checking the form', () => {
     });
     expect(check.company).toEqual({ name: 'Lopez Roofing', website: 'www.lopezroofing.com' });
     expect(
-      PersonCreateInput.safeParse({ workspaceId: WORKSPACE, id: WORKSPACE, ...check.person, companyId: WORKSPACE })
-        .success,
+      PersonCreateInput.safeParse({
+        workspaceId: WORKSPACE,
+        id: WORKSPACE,
+        ...check.person,
+        companyId: WORKSPACE,
+      }).success,
     ).toBe(true);
-    expect(CompanyCreateInput.safeParse({ workspaceId: WORKSPACE, ...check.company }).success).toBe(true);
+    expect(CompanyCreateInput.safeParse({ workspaceId: WORKSPACE, ...check.company }).success).toBe(
+      true,
+    );
   });
 
   it('takes a contact typed in with only a name, and gives it no source', () => {
@@ -176,19 +198,33 @@ describe('checking the form', () => {
     expect(check).toMatchObject({
       ok: true,
       name: 'Mike',
-      person: { firstName: 'Mike', lastName: '', phone: null, email: null, notes: null, source: null },
+      person: {
+        firstName: 'Mike',
+        lastName: '',
+        phone: null,
+        email: null,
+        notes: null,
+        source: null,
+      },
       company: null,
     });
     if (check.ok) expect('address' in check.person).toBe(false);
   });
 
   it('adds a card with only a business name under that name, with no company to link as well', () => {
-    const check = checkCardForm({ ...EMPTY_CARD_FORM, company: 'Acme Plumbing' }, { scanned: true });
+    const check = checkCardForm(
+      { ...EMPTY_CARD_FORM, company: 'Acme Plumbing' },
+      { scanned: true },
+    );
     expect(check).toMatchObject({ ok: true, name: 'Acme Plumbing', company: null });
   });
 
   it('says which box is wrong and how to fix it', () => {
-    expect(checkCardForm(EMPTY_CARD_FORM, { scanned: false })).toMatchObject({ ok: false, rule: 'no_name', field: 'name' });
+    expect(checkCardForm(EMPTY_CARD_FORM, { scanned: false })).toMatchObject({
+      ok: false,
+      rule: 'no_name',
+      field: 'name',
+    });
     expect(checkCardForm({ ...scanned, phone: '12' }, { scanned: true })).toMatchObject({
       ok: false,
       rule: 'bad_phone',
@@ -206,7 +242,10 @@ describe('checking the form', () => {
       field: 'email',
     });
     // An empty extra box is just left out.
-    expect(checkCardForm({ ...scanned, otherPhones: [{ number: ' ', label: '' }] }, { scanned: true }).ok).toBe(true);
+    expect(
+      checkCardForm({ ...scanned, otherPhones: [{ number: ' ', label: '' }] }, { scanned: true })
+        .ok,
+    ).toBe(true);
   });
 });
 
@@ -222,10 +261,19 @@ describe('the business’s companies', () => {
 describe('what the phone sends', () => {
   it('is a side, a picture and, when placed by hand, four corners', () => {
     const image = 'A'.repeat(100);
-    expect(ReadCardInput.safeParse({ workspaceId: WORKSPACE, side: 'front', image }).success).toBe(true);
-    expect(ReadCardInput.safeParse({ workspaceId: WORKSPACE, side: 'middle', image }).success).toBe(false);
+    expect(ReadCardInput.safeParse({ workspaceId: WORKSPACE, side: 'front', image }).success).toBe(
+      true,
+    );
+    expect(ReadCardInput.safeParse({ workspaceId: WORKSPACE, side: 'middle', image }).success).toBe(
+      false,
+    );
     expect(
-      ReadCardInput.safeParse({ workspaceId: WORKSPACE, side: 'back', image, corners: [{ x: 0, y: 0 }] }).success,
+      ReadCardInput.safeParse({
+        workspaceId: WORKSPACE,
+        side: 'back',
+        image,
+        corners: [{ x: 0, y: 0 }],
+      }).success,
     ).toBe(false);
   });
 });

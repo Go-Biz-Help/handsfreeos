@@ -46,8 +46,7 @@ export const READ_CARD_PER_MINUTE = 20;
 const AI_EDGE = 1568;
 
 const FAILED = 'The AI couldn’t read the card just now. Try again, or type the details in.';
-const UNREADABLE =
-  'That picture couldn’t be opened. Take it again, or choose a different picture.';
+const UNREADABLE = 'That picture couldn’t be opened. Take it again, or choose a different picture.';
 
 function aiError(e: unknown): unknown {
   if (!(e instanceof AiAskError)) return e;

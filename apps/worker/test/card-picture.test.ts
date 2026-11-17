@@ -54,12 +54,8 @@ async function cardPhoto(q: Quad): Promise<Buffer> {
   return sharp(Buffer.from(svg)).jpeg({ quality: 92 }).toBuffer();
 }
 
-const share = (q: Quad) => q.map((p) => ({ x: p.x / (W - 1), y: p.y / (H - 1) })) as unknown as [
-  Pt,
-  Pt,
-  Pt,
-  Pt,
-];
+const share = (q: Quad) =>
+  q.map((p) => ({ x: p.x / (W - 1), y: p.y / (H - 1) })) as unknown as [Pt, Pt, Pt, Pt];
 
 const TRUE: Quad = [
   { x: 260, y: 190 },
