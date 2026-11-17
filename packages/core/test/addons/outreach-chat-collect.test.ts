@@ -55,6 +55,37 @@ describe('keeping the latest few', () => {
     expect(mergeRecent([a, b], [b, c])).toEqual([a, b, c]);
     expect(mergeRecent([c], [a])).toEqual([a, c]);
   });
+
+  // Instagram's messages show no time: each read gives them the time the chat's row says, which moves on. The owner's
+  // screenshot (17 Nov 2026) showed one first message, sent once, nine times over.
+  it('knows a message read again by its words, whatever time the read gave it', () => {
+    const sent = me('Hey, could I help you book more jobs?', '2026-11-09T16:26:00.000Z');
+    let kept = mergeRecent([], [sent]);
+    for (const at of [
+      '2026-11-09T17:04:00.000Z',
+      '2026-11-09T22:33:00.000Z',
+      '2026-11-15T17:29:00.000Z',
+    ])
+      kept = mergeRecent(kept, [{ ...sent, text: ` ${sent.text}\n`, at }]);
+    expect(kept).toEqual([sent]);
+    // Their answer comes in with the read's time: it's new, and the first message keeps its own.
+    const answer = them('Sure, tell me more', '2026-11-16T10:00:00.000Z');
+    expect(mergeRecent(kept, [{ ...sent, at: answer.at }, answer])).toEqual([sent, answer]);
+  });
+
+  it('keeps words said twice in a chat twice, and puts a new one after what it followed', () => {
+    const hi = me('Hi', '2026-11-01T10:00:00.000Z');
+    const ok = them('ok', '2026-11-01T11:00:00.000Z');
+    const thanks = me('Thanks', '2026-11-02T10:00:00.000Z');
+    const kept = [hi, ok, thanks];
+    // The same "ok" again, read with a time from before the last kept one: it's new, and goes last.
+    const again = them('ok', '2026-11-01T09:00:00.000Z');
+    const merged = mergeRecent(kept, [ok, thanks, again]);
+    expect(merged.map((m) => m.text)).toEqual(['Hi', 'ok', 'Thanks', 'ok']);
+    expect(merged[3]!.at).toBe(thanks.at);
+    // A read that missed one in the middle (its side didn't show) keeps it where it was.
+    expect(mergeRecent(kept, [hi, thanks])).toEqual(kept);
+  });
 });
 
 describe('chats read in Messenger', () => {
@@ -222,6 +253,22 @@ describe('chats read in Messenger', () => {
       expect(both).toHaveLength(2);
       expect(both.every((c) => c.profile_id !== null)).toBe(true);
     });
+  });
+
+  it('keeps a message once when each read gives it another time', async () => {
+    const riley = (at: string) => ({
+      name: 'Riley Stone',
+      thread: { id: '4000111', encrypted: false },
+      profile: null,
+      messages: [me('Hey, could I help you book more jobs?', at)],
+    });
+    expect((await collect([riley(daysAgo(3))])).saved).toBe(1);
+    // Read again later with the time moved on: nothing new, so nothing kept and nothing counted.
+    expect((await collect([riley(daysAgo(2))])).saved).toBe(0);
+    expect((await collect([riley(daysAgo(1))])).saved).toBe(0);
+    const r = await chatOf('Riley Stone');
+    expect(r!.recent.map((m) => m.text)).toEqual(['Hey, could I help you book more jobs?']);
+    expect(r!.messages).toBe(1);
   });
 
   it('refuses messages from after today', async () => {
