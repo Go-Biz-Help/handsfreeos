@@ -23,9 +23,11 @@ import {
   BookingVisual,
   BusyTimesVisual,
   InboxVisual,
+  LeadCallVisual,
   MoneyVisual,
   PaymentsVisual,
   TrustLadderVisual,
+  WebinarVisual,
 } from '@/components/visuals';
 import {
   MissedLeadForYou,
@@ -253,8 +255,8 @@ function TheProblem() {
 
 /**
  * The after, told as one ordinary day so the owner can see themselves in it. Every line is something the product
- * does today: the 7am email is the Morning summary, the 10:15 call is the AI teammate on the phone, the 3pm one is
- * the phone app offline. Keep it that way, and keep the note under it: early on, the 6:30pm answer waits for a tap.
+ * does today: the 7am email is the Morning summary, the 10:15 call is the AI teammate on the phone, the 11:40 one is
+ * Speed to lead by phone calling a lead who said it's OK to call, the 3pm one is the phone app offline. Keep it that way, and keep the note under it: early on, the 6:30pm answer waits for a tap.
  */
 function NextTuesday() {
   const day = [
@@ -265,6 +267,10 @@ function NextTuesday() {
     {
       time: '10:15am',
       body: 'A call comes in while you’re under a sink. The AI picks up, gets the address and books Thursday. You find out when you wash your hands.',
+    },
+    {
+      time: '11:40am',
+      body: 'Someone fills in the form on your website and ticks “OK to call.” The AI calls them within a minute and books Friday, before they’ve tried anyone else.',
     },
     {
       time: '1:30pm',
@@ -415,7 +421,7 @@ function Outcomes() {
     {
       icon: Icons.bolt,
       title: 'Win the jobs you’ve been losing',
-      body: 'Every call picked up, and every text and chat answered in seconds, at 7pm on a Sunday too. Missed calls get a text back before the phone is down. Quotes get a reminder, then a call when you OK it. Be the one who answers first.',
+      body: 'Every call picked up, and every text and chat answered in seconds, at 7pm on a Sunday too. New leads who say it’s OK get a call from the AI within a minute. Missed calls get a text back before the phone is down. Quotes get a reminder, then a call when you OK it. Be the one who answers first.',
     },
     {
       icon: Icons.card,
@@ -582,6 +588,13 @@ function HowItWorks() {
 function Features() {
   const tour: TourFeature[] = [
     {
+      id: 'calls',
+      icon: <Icons.call />,
+      title: 'New leads get a call in under a minute',
+      body: 'Someone fills in your form and says it’s OK to call. The AI calls them right away, in your open hours, asks what they need and books it. No answer? It tries again tomorrow.',
+      visual: <LeadCallVisual />,
+    },
+    {
       id: 'inbox',
       icon: <Icons.inbox />,
       title: 'Every text, call and email in one thread',
@@ -623,6 +636,13 @@ function Features() {
       body: '"Who hasn’t paid me?" "Book Dale for Thursday morning." "Text everyone whose service is due." It answers from your real data, and shows you what it is about to change first.',
       visual: <AssistantVisual />,
     },
+    {
+      id: 'webinars',
+      icon: <Icons.video />,
+      title: 'Video calls and webinars, no Zoom needed',
+      body: 'Meet customers face to face from a link, with the notes written for you. Run a webinar for up to 500 people with live polls, and see who’s ready to buy when it ends.',
+      visual: <WebinarVisual />,
+    },
   ];
 
   return (
@@ -647,6 +667,19 @@ function Features() {
       <div className="mt-14">
         <FeatureTour features={tour} />
       </div>
+
+      {/* The add-ons go on top of the plan, never in it (content/addons.ts), so they get a line of their own here. */}
+      <p className="text-text-2 border-border mt-14 border-t pt-8 text-lg">
+        <span className="text-text font-semibold">Want it to go find customers too?</span> Founding
+        members can ask for early access to add-ons that reach out on social media, write your posts
+        and coach your sales calls.{' '}
+        <Link
+          href="/add-ons"
+          className="text-accent-text font-semibold underline underline-offset-2"
+        >
+          See the add-ons
+        </Link>
+      </p>
     </Section>
   );
 }

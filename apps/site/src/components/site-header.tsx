@@ -9,6 +9,7 @@ import { Button, Container } from './ui';
 
 const links = [
   { href: '/features', label: 'What it does' },
+  { href: '/add-ons', label: 'Add-ons' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/app', label: 'Phone app' },
   { href: '/blog', label: 'Blog' },

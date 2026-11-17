@@ -97,6 +97,10 @@ export const pricingFaqs: readonly Faq[] = [
     a: `The software, including the features we add to it later: $497 a year on a yearly spot, or $97 a month on a monthly one, renewed until you stop it. It does not cover texts, calls, phone numbers or AI replies, because those are billed to us by other companies and passed through at what they cost plus a small margin. Most businesses spend $${typicalUsage.low}–$${typicalUsage.high} a month on that.`,
   },
   {
+    q: 'Are the add-ons included?',
+    a: 'Not in the plan. Founding members can ask for early access to the add-ons on our Add-ons page, like Social Outreach and the AI Sales Coach, and they are free while they are in early access. They may cost extra later, and we will tell you before anything changes.',
+  },
+  {
     q: 'What happens when the founding spots run out?',
     a: 'Each kind has its own count, so when the yearly spots are gone the monthly ones may still have room. When neither has any left, email us and we will tell you when more open.',
   },

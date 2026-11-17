@@ -1,6 +1,6 @@
 /**
- * Whether a business has HandsFreeOS video calls (docs/video-calls.md): support turns them on in /admin, test
- * businesses first (the owner's 16a), and everyone once the call, the AI's notes and the coach are all in.
+ * Whether a business has HandsFreeOS video calls (docs/video-calls.md). Support turned them on in /admin, test
+ * businesses first (the owner's 16a); since 20261027028400 every business has them, and support can turn one off.
  *
  * Platform-scoped, like everything staff do. The SQL behind it (`private.set_video_calls`) checks
  * `platform.addons.manage` for itself rather than trusting this caller, and a business can't set it.

@@ -3,7 +3,8 @@
  * come in and when, what LiveKit's reports do to it, and the database keeping each side to its own part.
  *
  * What's worth holding:
- *   - support turns calls on for one business, and nobody else can, by the command or the column;
+ *   - every business starts with calls on, support turns them on or off for one business, and nobody else can,
+ *     by the command or the column;
  *   - a customer on their own link waits until someone from the team is in, then goes straight in, and the team
  *     hears about it once per wait;
  *   - anyone else asks to be let in, and the team lets them in or turns them away; someone taken out has to ask
@@ -148,6 +149,8 @@ afterAll(closeTestDbs);
 
 describe('support’s switch', () => {
   it('turns video calls on for one business, and the business sees it', async () => {
+    // Every business starts with calls on (20261027028400), so take them off first to have something to turn on.
+    await setCalls(false);
     const on = await run(videoCallsSet, { workspaceId: t.wsId, on: true }, staff);
     expect(on).toEqual({ workspaceId: t.wsId, was: false, on: true, changed: true });
     expect((await run(videoCallsSet, { workspaceId: t.wsId, on: true }, staff)).changed).toBe(

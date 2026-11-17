@@ -565,3 +565,228 @@ export function MigrationVisual() {
     </Mock>
   );
 }
+
+/** A new lead who said it's OK to call, called by the AI within a minute, and booked. */
+export function LeadCallVisual() {
+  return (
+    <Mock label="A new lead from a website form, called by the AI teammate within a minute and booked for Friday">
+      <Row>
+        <Avatar initials="JT" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold">Jordan T.</span>
+            <Chip tone="accent">New lead</Chip>
+          </div>
+          <p className="text-text-3 mt-0.5 text-xs">Website form · OK to call ✓</p>
+        </div>
+        <span className="text-text-3 text-xs">2:14 PM</span>
+      </Row>
+      <Row tone="accent">
+        <span className="bg-accent flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[0.6875rem] font-bold text-white">
+          AI
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-accent-text text-xs font-semibold">Calling Jordan · 0:42</p>
+          <p className="text-text-2 mt-0.5 text-xs">
+            “Hi Jordan, this is Ava, the AI assistant for…”
+          </p>
+        </div>
+        <span className="text-text-3 text-xs">2:15 PM</span>
+      </Row>
+      <div className="grid grid-cols-3 gap-1.5">
+        {[
+          ['Needs', 'AC not cooling'],
+          ['Where', '78704'],
+          ['When', 'This week'],
+        ].map(([what, said]) => (
+          <div key={what} className="bg-card-2 border-border rounded-[8px] border p-2">
+            <p className="text-text-3 text-[0.6875rem]">{what}</p>
+            <p className="text-xs font-semibold">{said}</p>
+          </div>
+        ))}
+      </div>
+      <Row tone="success">
+        <Chip tone="success">Booked</Chip>
+        <span className="text-text-2 flex-1 text-xs">Friday, 9:00 AM · AC diagnostic</span>
+      </Row>
+    </Mock>
+  );
+}
+
+/** A webinar with a live poll up, and who to call first once it ends. */
+export function WebinarVisual() {
+  const answers = [
+    ['Missed calls', 58],
+    ['Late invoices', 27],
+    ['Too many apps', 15],
+  ] as const;
+  return (
+    <Mock label="A live webinar with 143 people watching, a poll with its answers, and the people who came rated Hot, Warm and Cold">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold">Grow your service business</span>
+        <Chip tone="danger">● Live</Chip>
+      </div>
+      <p className="text-text-3 text-xs">You’re presenting · 143 watching</p>
+      <div className="bg-card-2 border-border space-y-2 rounded-[10px] border p-2.5">
+        <p className="text-xs font-semibold">Poll: What costs you the most jobs?</p>
+        {answers.map(([answer, share]) => (
+          <div key={answer} className="space-y-1">
+            <div className="flex justify-between text-[0.6875rem]">
+              <span className="text-text-2">{answer}</span>
+              <span className="font-semibold tabular-nums">{share}%</span>
+            </div>
+            <span className="bg-card-3 block h-1.5 overflow-hidden rounded-full">
+              <span
+                className="bg-accent block h-full rounded-full"
+                style={{ width: `${share}%` }}
+              />
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-3 gap-1.5">
+        {[
+          ['Hot', '12', 'danger'],
+          ['Warm', '38', 'warning'],
+          ['Cold', '93', 'plain'],
+        ].map(([name, count, tone]) => (
+          <div
+            key={name}
+            className="bg-card-2 border-border flex items-center justify-between rounded-[8px] border px-2 py-1.5"
+          >
+            <Chip tone={tone as 'danger' | 'warning' | 'plain'}>{name}</Chip>
+            <span className="text-xs font-bold tabular-nums">{count}</span>
+          </div>
+        ))}
+      </div>
+    </Mock>
+  );
+}
+
+/** Social Outreach: today's people across six networks, and the messages waiting for an OK. */
+export function OutreachVisual() {
+  return (
+    <Mock label="Social Outreach's day: people found on six networks, an introduction waiting for an OK, and a reply that came in">
+      <div className="flex flex-wrap gap-1">
+        {['Facebook', 'Instagram', 'LinkedIn', 'Alignable', 'Threads', 'X'].map((network) => (
+          <Chip key={network}>{network}</Chip>
+        ))}
+      </div>
+      <div className="grid grid-cols-3 gap-1.5">
+        {[
+          ['24', 'found today'],
+          ['9', 'intros sent'],
+          ['3', 'replied'],
+        ].map(([count, what]) => (
+          <div key={what} className="bg-card-2 border-border rounded-[8px] border p-2 text-center">
+            <p className="text-sm font-bold">{count}</p>
+            <p className="text-text-3 text-[0.6875rem]">{what}</p>
+          </div>
+        ))}
+      </div>
+      <Row tone="warning">
+        <Chip tone="warning">Your OK</Chip>
+        <span className="text-text-2 flex-1 text-xs">Intro to Dana, a realtor in your area</span>
+      </Row>
+      <Row tone="success">
+        <Chip tone="success">Replied</Chip>
+        <span className="text-text-2 flex-1 text-xs">“Sure, happy to chat next week”</span>
+      </Row>
+    </Mock>
+  );
+}
+
+/** Content Creator: a week of posts, written with their pictures, each waiting for an OK. */
+export function ContentCalendarVisual() {
+  const week = [
+    ['Mon', 'Instagram', 'success'],
+    ['Tue', 'Facebook', 'success'],
+    ['Wed', 'LinkedIn', 'warning'],
+    ['Thu', 'Threads', 'warning'],
+  ] as const;
+  return (
+    <Mock label="A content calendar with a post a day, the first two OK'd and the rest waiting for an OK">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold">Next two weeks</span>
+        <span className="text-text-3 text-xs">8 posts</span>
+      </div>
+      <div className="grid grid-cols-4 gap-1.5">
+        {week.map(([day, network, tone]) => (
+          <div key={day} className="bg-card-2 border-border space-y-1.5 rounded-[8px] border p-1.5">
+            <p className="text-[0.6875rem] font-semibold">{day}</p>
+            <span className="bg-accent-soft-2 block aspect-[3/4] rounded-[6px]" />
+            <p className="text-text-3 truncate text-[0.625rem]">{network}</p>
+            <Chip tone={tone}>{tone === 'success' ? 'OK’d' : 'Waiting'}</Chip>
+          </div>
+        ))}
+      </div>
+      <Row tone="soft">
+        <Chip>Why it works</Chip>
+        <span className="text-text-2 flex-1 text-xs">
+          A question hook, like the posts that beat their normal
+        </span>
+      </Row>
+    </Mock>
+  );
+}
+
+/** Sales Coach: the next question to ask, live on a call, and the score after. */
+export function CoachVisual() {
+  const stages = ['Connect', 'Find out', 'Show', 'Book'];
+  return (
+    <Mock label="The Sales Coach on a live call: the stage of the call, the question to ask next, and an objection answered">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold">On a call with Ray K.</span>
+        <span className="text-text-3 text-xs tabular-nums">6:12</span>
+      </div>
+      <div className="grid grid-cols-4 gap-1">
+        {stages.map((stage, index) => (
+          <div key={stage} className="space-y-1">
+            <span
+              className={`block h-1.5 rounded-full ${index <= 1 ? 'bg-accent' : 'bg-card-3'}`}
+            />
+            <p
+              className={`text-[0.625rem] ${index === 1 ? 'text-accent-text font-semibold' : 'text-text-3'}`}
+            >
+              {stage}
+            </p>
+          </div>
+        ))}
+      </div>
+      <div className="border-accent/30 bg-accent-soft space-y-1 rounded-[10px] border p-2.5">
+        <p className="text-accent-text text-[0.6875rem] font-semibold tracking-[0.1em] uppercase">
+          Ask next
+        </p>
+        <p className="text-text text-xs">“What happens if the system goes out in July?”</p>
+      </div>
+      <Row tone="warning">
+        <Chip tone="warning">“Too expensive”</Chip>
+        <span className="text-text-2 flex-1 text-xs">Ask what they’re comparing it with</span>
+      </Row>
+    </Mock>
+  );
+}
+
+/** Real Estate Agent: a deal's deadlines worked out from the contract, with what's done and what's next. */
+export function DealVisual() {
+  const duties = [
+    ['Earnest money', 'Done', 'success'],
+    ['Inspection ends', 'In 2 days', 'warning'],
+    ['Appraisal', 'Mar 18', 'plain'],
+    ['Closing', 'Mar 29', 'plain'],
+  ] as const;
+  return (
+    <Mock label="A home sale's deadlines worked out from the contract's dates, with one done and one due in two days">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold">412 Pelican Ct · Buyer</span>
+        <Chip tone="accent">Under contract</Chip>
+      </div>
+      {duties.map(([duty, when, tone]) => (
+        <Row key={duty} tone={tone === 'warning' ? 'warning' : 'soft'}>
+          <span className="text-text-2 flex-1 text-xs">{duty}</span>
+          <Chip tone={tone}>{when}</Chip>
+        </Row>
+      ))}
+    </Mock>
+  );
+}

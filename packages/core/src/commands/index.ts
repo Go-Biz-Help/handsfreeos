@@ -1157,7 +1157,7 @@ export const commands: readonly CommandDef[] = [
   ...phoneListenerCommands,
   // HandsFreeOS's own business, the one that may use handsfreeos.com for its email (M19).
   ...ownBusinessCommands,
-  // HandsFreeOS video calls for one business, test businesses first (docs/video-calls.md).
+  // HandsFreeOS video calls on or off for one business; every business starts with them on (docs/video-calls.md).
   ...videoCallsSwitchCommands,
   // Which AI answers: Claude, or OpenAI while Claude is in trouble.
   ...aiProviderCommands,

@@ -354,7 +354,7 @@ export const DESK_PHONE_LISTENER_WORDS = {
 export const DESK_VIDEO_CALLS_WORDS = {
   title: 'HandsFreeOS video calls',
   explain:
-    'Their Online places can make HandsFreeOS video calls: nothing to connect, customers join from their own link. Turn it on for test businesses first. It counts from the next appointment booked.',
+    'Their Online places can make HandsFreeOS video calls: nothing to connect, customers join from their own link. Every business starts with them on; turn them off only for a business that shouldn’t have them. It counts from the next appointment booked.',
   on: 'On',
   off: 'Off',
 } as const;
