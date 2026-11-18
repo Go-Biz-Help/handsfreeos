@@ -3492,7 +3492,7 @@ export const DOCUMENT_RULES: readonly ScriptRule[] = [
 
 /**
  * A business card scanned on the phone (contacts/read-card.ts): the stand-in can't see the picture, so every card
- * reads as the same sample one, with no outline, so the picture is kept as it was taken.
+ * reads as the same sample one, with no corners. The worker still looks for the card in the picture by its edges.
  */
 export const SCRIPTED_BUSINESS_CARD = {
   isCard: true,
@@ -3518,7 +3518,10 @@ export const SCRIPTED_BUSINESS_CARD = {
 } as const;
 
 export const BUSINESS_CARD_RULES: readonly ScriptRule[] = [
-  { when: /Read this side of the business card\.$/, json: () => SCRIPTED_BUSINESS_CARD },
+  {
+    when: /Read this side of the business card\. The picture is \d+ pixels wide and \d+ pixels high\.$/,
+    json: () => SCRIPTED_BUSINESS_CARD,
+  },
 ];
 
 /**

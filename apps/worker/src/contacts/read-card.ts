@@ -1,8 +1,8 @@
 /**
  * Reading a business card scanned on the phone (Contacts → + → Scan a business card; core's `crm/business-card.ts`).
- * One side at a time: the AI reads the details and says roughly where the card's corners are, the edges are found
- * exactly and the card straightened (card-picture.ts), and both come back to the phone, which fills the New contact
- * form from them. Nothing is saved here: the phone adds the contact, and the card's pictures, once the person checks
+ * One side at a time: the AI reads the details, the card is found in the photo by its own edges and straightened
+ * (card-picture.ts; the AI's corners are only a hint for it), and both come back to the phone, which fills the New
+ * contact form from them. Nothing is saved here: the phone adds the contact, and the card's pictures, once the person checks
  * the form.
  *
  * With corners the person placed by hand, the picture is only straightened again: no AI, nothing counted.
@@ -15,10 +15,10 @@
 import { randomUUID } from 'node:crypto';
 import rateLimit from '@fastify/rate-limit';
 import {
-  BUSINESS_CARD_ASK,
   BUSINESS_CARD_SCHEMA,
   BUSINESS_CARD_SYSTEM,
   BusinessCardAnswer,
+  businessCardAsk,
   CARD_IMAGE_MAX_BASE64,
   cardContactFromAnswer,
   cornersFromAnswer,
@@ -76,7 +76,7 @@ export async function readCard(
 ): Promise<ReadCardOut> {
   await requirePermission(deps, actor.userId, input.workspaceId, 'records.write');
   const photo = Buffer.from(input.image, 'base64');
-  let forAi: Buffer;
+  let forAi: Awaited<ReturnType<typeof uprightJpeg>>;
   try {
     forAi = await uprightJpeg(photo, AI_EDGE);
   } catch {
@@ -85,7 +85,7 @@ export async function readCard(
 
   // Corners placed by hand: straightened where the person put them, and nothing read.
   if (input.corners) {
-    const flat = await straightenCard(photo, input.corners, { refine: false });
+    const flat = await straightenCard(photo, input.corners, { find: false });
     return {
       picture: flat.picture.toString('base64'),
       width: flat.width,
@@ -117,8 +117,8 @@ export async function readCard(
           {
             role: 'user',
             content: [
-              { type: 'image', mediaType: 'image/jpeg', data: forAi.toString('base64') },
-              { type: 'text', text: BUSINESS_CARD_ASK },
+              { type: 'image', mediaType: 'image/jpeg', data: forAi.jpeg.toString('base64') },
+              { type: 'text', text: businessCardAsk(forAi) },
             ],
           },
         ],
@@ -132,8 +132,11 @@ export async function readCard(
     throw aiError(e);
   }
 
-  // The AI's corners are shares of the picture it saw, which is the photo turned upright: the same shares here.
-  const flat = await straightenCard(photo, cornersFromAnswer(answer), { refine: true });
+  // The card is looked for in the photo itself. The AI's corners are pixels of the picture it saw, which is the photo
+  // turned upright, so the same shares here: they only say which outline is the card and which way up it reads.
+  const flat = await straightenCard(photo, cornersFromAnswer(answer, forAi), {
+    find: answer.isCard,
+  });
   return {
     picture: flat.picture.toString('base64'),
     width: flat.width,
