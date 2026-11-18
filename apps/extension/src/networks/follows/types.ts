@@ -112,6 +112,11 @@ export type FollowFound = {
   readonly replies: readonly FollowPost[];
   /** A list of accounts on the page: the person's followers, in their own page or a box over the profile. */
   readonly people: readonly FollowListed[];
+  /**
+   * The person's page of followers saying, in the network's own words, that nobody follows them yet (X's, from
+   * 0.147.10): an empty list, not one that didn't load.
+   */
+  readonly listEmpty: boolean;
   /** The person's own username, from the menu's link to their profile. */
   readonly me: string | null;
   /** On its messages (Threads', decision 167): the chats in the list beside them. */
@@ -126,6 +131,7 @@ export const NOTHING_FOLLOW_FOUND: FollowFound = {
   post: null,
   replies: [],
   people: [],
+  listEmpty: false,
   me: null,
   chats: [],
   chat: null,
@@ -217,6 +223,8 @@ export interface FollowSpec {
   readonly unfollowIn: (doc: Document) => HTMLElement | null;
   /** A list of accounts on the page: the person's followers, on its own page or in a box. */
   readonly listIn: (doc: Document) => Element | null;
+  /** Whether its page of followers says nobody follows them yet, in its own words (X's empty state). */
+  readonly listEmptyIn?: (doc: Document) => boolean;
   /** A list row's button, as it says whether the person follows them. */
   readonly rowStanding: (row: Element) => Standing | null;
   /** Opens the person's followers from the count on their own profile, where they have no page of their own. */
@@ -225,6 +233,11 @@ export interface FollowSpec {
   readonly replyBoxes: (doc: Document) => HTMLElement[];
   /** The button that sends what's written in a box to reply in. */
   readonly sendFor: (box: HTMLElement) => HTMLElement | null;
+  /**
+   * Its page parts' test ids that end in someone's username (X's `UserAvatar-Container-<name>`): the part before the
+   * name, kept in an outline, with the name hidden as a link to them is.
+   */
+  readonly testIdName?: RegExp;
   /** On the person's notifications, whether a post says it answers them. */
   readonly answersMe: (root: Element, me: string) => boolean;
   /** Its messages, where something is written in them (Threads', decision 167); none on X yet. */

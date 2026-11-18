@@ -78,6 +78,7 @@ export function followShownOf(read: unknown): FollowShown | null {
       post: null,
       replies: [],
       people: listOf(found.people),
+      listEmpty: found.listEmpty === true,
       me: typeof found.me === 'string' ? found.me : null,
       chats: [],
       chat: null,

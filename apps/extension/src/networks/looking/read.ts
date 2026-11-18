@@ -201,6 +201,7 @@ export function outlineSiteOf(site: LookingSite): OutlineSite {
         .join(' • '),
     queryKept: new Set(['tab', 'type', 'filter', 'sort', ...(site.queryKept ?? [])]),
     queryDropped: /^(utm_|igsh|igshid$|ref$|fbclid$|__)/,
+    ...(site.testIdName ? { testIdName: site.testIdName } : {}),
     // The menus are kept: they're what tells a network's places apart. Nothing of theirs names anyone but the person,
     // and a name is hidden like any other.
     isTopBar: () => false,

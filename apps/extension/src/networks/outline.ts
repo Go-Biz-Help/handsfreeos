@@ -34,6 +34,11 @@ export interface OutlineSite {
   readonly isTopBar: (element: Element) => boolean;
   /** Attributes worth seeing on its pages besides the ones every outline keeps. */
   readonly alsoKept?: readonly string[];
+  /**
+   * Its parts' test ids that end in someone's username (X's `UserAvatar-Container-<name>`), as two groups: the part
+   * kept, and the name, hidden as {1}, {2}… the same as a link to them.
+   */
+  readonly testIdName?: RegExp;
   /** The boxes it draws parts of its pages in out of reach of the page's look-ups, opened even when kept closed. */
   readonly shadowHosts?: string;
 }
@@ -149,6 +154,14 @@ export class SiteOutliner {
     return `${host}/${path}${url.pathname.endsWith('/') && path ? '/' : ''}${query.length ? `?${query.join('&')}` : ''}`;
   }
 
+  /** A test id with any username at its end hidden, as a link to them is, and any long number. */
+  private maskTestId(value: string): string {
+    const named = this.site.testIdName?.exec(value);
+    if (named?.[1] !== undefined && named[2])
+      return `${named[1]}${this.token(named[2].toLowerCase())}`;
+    return value.replace(/\d{5,}/g, (digits) => this.token(digits));
+  }
+
   /** An element's kept attributes, as `name=value`, with labels and links hidden. */
   private attributesOf(element: Element, base: string): string[] {
     const out: string[] = [];
@@ -160,7 +173,9 @@ export class SiteOutliner {
           ? this.maskLink(value, base)
           : LABELS.has(name)
             ? this.site.mask(value)
-            : value.replace(/\d{5,}/g, (digits) => this.token(digits));
+            : name === 'data-testid'
+              ? this.maskTestId(value)
+              : value.replace(/\d{5,}/g, (digits) => this.token(digits));
       out.push(`${name}=${JSON.stringify(shown)}`);
     }
     return out;

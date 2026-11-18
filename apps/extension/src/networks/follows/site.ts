@@ -68,6 +68,7 @@ export function followSite(spec: FollowSpec): LookingSite {
     words: spec.words,
     warnings: spec.warnings,
     ...(spec.warnedAt ? { warnedAt: spec.warnedAt } : {}),
+    ...(spec.testIdName ? { testIdName: spec.testIdName } : {}),
     ownLink: spec.ownLink,
     readFound: (doc, href) => readFollow(doc, href, spec),
     unfollow: unfollowThem(spec),

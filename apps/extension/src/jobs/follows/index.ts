@@ -138,7 +138,7 @@ async function checkup(job: Job, platform: FollowPlatform): Promise<JobEnd> {
     const list = spec.pages.followers(own);
     const opened = await c.open(list ?? own.url, 'your followers');
     if (isEnd(opened)) return opened;
-    let page = await c.readTill(opened, (p) => p.found.people.length > 0, 2);
+    let page = await c.readTill(opened, (p) => p.found.people.length > 0 || p.found.listEmpty, 2);
     if (isEnd(page)) return page;
     let pressed: boolean | null = null;
     if (!list && !page.found.people.length) {
@@ -152,7 +152,8 @@ async function checkup(job: Job, platform: FollowPlatform): Promise<JobEnd> {
         if (isEnd(page)) return page;
       }
     }
-    await c.note('your followers', page.found.people.length);
+    // A page saying nobody follows them yet (X's) is read, with nobody on it: nothing missing.
+    await c.note('your followers', page.found.listEmpty ? null : page.found.people.length);
     // Which way it went, for the next fix: no count found to press, or pressed and no box of them.
     if (pressed !== null && !page.found.people.length)
       await job.report?.({

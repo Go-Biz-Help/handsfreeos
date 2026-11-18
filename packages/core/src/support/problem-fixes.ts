@@ -344,6 +344,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 670,
     said: 'They weren’t connected: LinkedIn’s newer profile can say “· 1st” beside the real “· 2nd”, and with Follow first and Connect under More (not on the page until More is pressed) the “· 1st” was taken as theirs. The other degree is theirs now whenever both show, so More is opened and the invitation sent. Someone truly connected is passed over without a report, as nothing’s left to do.',
   },
+  {
+    area: 'x',
+    job: 'checkup.comment',
+    note: 'Commenting: no button to send by the reply box',
+    fixedIn: '0.147.10',
+    pr: 0,
+    said: 'X wraps its box to reply in more than 14 parts deep below its Reply, and the Reply was looked for only 14 parts up, so it was never found and no comment could go. It’s looked for as far up as it takes now, never past the post’s own cell or a box over the page.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */
