@@ -34,6 +34,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import type { FormCatalogsOut } from '@/lib/api/types';
 import { cueErrorMessage, writeCues } from '@/lib/forms/poll-cues';
+import { mapsKey } from '@/lib/maps/google';
 import { pollAiErrorMessage, suggestPoints } from '@/lib/forms/poll-leads';
 import { newChoice } from './editor-state';
 import { RequiredField, RequiredInput } from './required-text';
@@ -129,6 +130,10 @@ export function QuestionSettings({
 
       {question.type === 'yes_no' && !poll ? (
         <YesNoLook config={config} patchConfig={patchConfig} readOnly={readOnly} />
+      ) : null}
+
+      {question.type === 'address' && (config.detail ?? 'full') === 'full' ? (
+        <AddressSearchSetting config={config} patchConfig={patchConfig} readOnly={readOnly} />
       ) : null}
 
       {question.type === 'content' ? (
@@ -319,6 +324,39 @@ function YesNoLook({
           <option value="checkbox">One box to check</option>
         </Select>
       </Field>
+    </Card>
+  );
+}
+
+/** An address: whether Google suggests real addresses as they type the street. */
+function AddressSearchSetting({
+  config,
+  patchConfig,
+  readOnly,
+}: {
+  config: Record<string, unknown>;
+  patchConfig: (fields: Record<string, unknown>) => void;
+  readOnly: boolean;
+}) {
+  return (
+    <Card className="p-4">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <Label htmlFor="q-address-search">Google address search</Label>
+          <Hint>
+            {mapsKey()
+              ? 'Suggests real addresses as they type the street. Picking one fills in the town, state and ZIP too.'
+              : 'Suggests real addresses as they type the street. It needs a Google Maps key, which isn’t set up here, so they type it for now.'}
+          </Hint>
+        </div>
+        <Switch
+          label="Google address search"
+          checked={config.search === true}
+          disabled={readOnly}
+          onChange={(on) => patchConfig({ search: on })}
+          testId="question-address-search"
+        />
+      </div>
     </Card>
   );
 }

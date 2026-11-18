@@ -5,6 +5,7 @@
  *
  * Only the few pieces of the Maps API we use are typed here.
  */
+import type { PlaceAddressPart } from '@hfos/core';
 import { publicEnv } from '@/lib/env';
 
 export interface LatLngLiteral {
@@ -52,6 +53,7 @@ interface PlacePrediction {
     fetchFields(req: { fields: string[] }): Promise<unknown>;
     location?: LatLng | null;
     formattedAddress?: string | null;
+    addressComponents?: PlaceAddressPart[] | null;
   };
 }
 /** Places API (New): suggestions as someone types, one billing session from the first letter to the pick. */
@@ -256,6 +258,8 @@ export interface AddressSuggestion {
   readonly more: string;
   /** Where it is, and Google's name for it. Ends the typing session it came from. */
   readonly place: () => Promise<{ point: LatLngLiteral; formatted: string } | null>;
+  /** Its parts (number, road, town, state, ZIP), for a form's address boxes. Ends the typing session too. */
+  readonly parts: () => Promise<readonly PlaceAddressPart[] | null>;
 }
 
 /**
@@ -292,6 +296,16 @@ export function addressSearch(): (input: string) => Promise<AddressSuggestion[]>
                   point: { lat: place.location.lat(), lng: place.location.lng() },
                   formatted: place.formattedAddress ?? p.text.text,
                 };
+              },
+              parts: async () => {
+                if (session === sessionToken) session = null;
+                const place = p.toPlace();
+                try {
+                  await place.fetchFields({ fields: ['addressComponents'] });
+                } catch {
+                  return null;
+                }
+                return place.addressComponents ?? null;
               },
             },
           ]

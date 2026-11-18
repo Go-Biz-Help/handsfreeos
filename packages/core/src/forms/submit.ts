@@ -17,6 +17,7 @@ import type { AnswerSheet } from './logic';
 import {
   customTargetFieldId,
   isCustomTarget,
+  NAME_MAX_LENGTH,
   type AddressAnswer,
   type AnswerValue,
 } from './questions';
@@ -46,7 +47,7 @@ const text = (value: AnswerValue): string | null => {
  * fit rather than failing the whole submission over a few letters nobody will miss.
  */
 export const PERSON_LIMITS = {
-  name: 80,
+  name: NAME_MAX_LENGTH,
   notes: 10_000,
   source: 80,
   line1: 200,

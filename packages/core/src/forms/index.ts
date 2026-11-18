@@ -19,4 +19,5 @@ export * from './export';
 export * from './video';
 export * from './personal';
 export * from './booking';
+export * from './address';
 export * from './texting-box';
