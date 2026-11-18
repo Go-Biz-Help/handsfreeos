@@ -116,8 +116,14 @@ export const CRM_OUTBOX_SQL = `
     AND (state != 'sent' OR sent_at >= ?)
   ORDER BY seq`;
 
-/** The photos this phone is still uploading, so a record's files show them before they land. */
-export const PHOTOS_SQL = 'SELECT * FROM photo_uploads';
+/**
+ * The photos on this phone's upload track, each with where its change stands, so a record's files show them before
+ * they land. A photo's row stays after it's confirmed (as its change does, for a day): `stillUploading` says which
+ * ones are still on their way.
+ */
+export const PHOTOS_SQL = `
+  SELECT p.*, o.state AS change_state, o.sent_at AS change_sent_at
+  FROM photo_uploads p JOIN outbox o ON o.id = p.id`;
 
 /** A customer's conversations, newest first: Text and Email on their page open the right one. */
 export const PERSON_CONVERSATIONS_SQL = `

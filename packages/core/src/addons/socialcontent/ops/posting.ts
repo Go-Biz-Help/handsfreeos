@@ -116,7 +116,7 @@ export const postNext = defineAddonCommand(socialcontentAddon, {
     const stuck = await rows<{ record_id: string; network: string }>(
       ctx.tx,
       sql`update addon_socialcontent.content set state = 'failed', posting_at = null, updated_at = now(),
-            look_due_at = now() + make_interval(secs => ${LOOK.afterFailMs / 1000}),
+            look_due_at = now() + make_interval(secs => ${LOOK.afterFailMs / 1000}), look_asked = false,
             failure = case network
               when 'facebook' then ${W.posting.unsure(networkName('facebook'))}
               when 'linkedin' then ${W.posting.unsure(networkName('linkedin'))}
@@ -287,8 +287,9 @@ export const postWent = defineAddonCommand(socialcontentAddon, {
               lookDueAt: new Date(at.getTime() + LOOK.afterFailMs),
               lookedAt: null,
               lookFailure: null,
+              lookAsked: false,
             }
-          : { lookDueAt: null }),
+          : { lookDueAt: null, lookAsked: false }),
         // Its numbers are read 2 and 7 days after it first went up (part 11).
         checksDueAt: c.checksDueAt ?? nextCheckAt(postedTo, c.numbers),
         updatedAt: at,

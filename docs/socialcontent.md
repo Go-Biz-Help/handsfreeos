@@ -503,7 +503,13 @@ Instagram from 0.133.0, Threads and X from 0.138.0. The post's sheet offers **Co
   back (the newest 12). From extension 0.147.6 a post counts as there when its words match, with or without a link
   (`postShown`): Facebook leaves a new post's own link empty until it's pointed at, and cuts long words short with "…"
   before See more, which is left off before comparing. On 17 Nov 2026 the owner's 12 PM Page post was the first on
-  the Page and still marked as not posted for both reasons.
+  the Page and still marked as not posted for both reasons. From extension 0.147.10 (migration 028900) a look a person
+  asked for (Check if it posted, or Check again: `look_asked`, handed to the extension as `asked`) brings the window
+  in front right away when the Page's posts didn't draw behind theirs, as a Check does (decision 120), and puts their
+  window back after. On 18 Nov 2026 the owner's Check if it posted found the Page's newest post but said Facebook
+  didn't load the Page's posts for the one under it: behind their window Facebook draws its newest post and nothing
+  past it. A look on its own (10 minutes after a post that may have gone up) still comes in front only while they're
+  away. A window Chrome doesn't show is waited on 10 seconds (`POSTS_HIDDEN_MS`), not 30, before that.
 - **Behind the person's windows** (extension 0.146.0): the posting window sits beside theirs, mostly hidden while they
   work, where Chrome slows a page's timers to once a minute. The hands wait by the clock, never by how many looks they
   took, and the background wakes a hidden posting window, as its own timers aren't slowed. Before, a Page post's

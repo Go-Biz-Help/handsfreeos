@@ -126792,6 +126792,10 @@
                                 "string",
                                 "null"
                               ]
+                            },
+                            "asked": {
+                              "default": false,
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -126800,7 +126804,8 @@
                             "text",
                             "places",
                             "facebookPage",
-                            "postAt"
+                            "postAt",
+                            "asked"
                           ],
                           "additionalProperties": false
                         },

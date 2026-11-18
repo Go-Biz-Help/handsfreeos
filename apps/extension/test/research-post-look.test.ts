@@ -31,7 +31,7 @@ vi.mock('../src/research/read', async (actual) => ({
   },
 }));
 
-const { failureFor, lookOn, POSTS_DRAW_MS, POSTS_LOOKED_BACK, POSTS_NEWEST } =
+const { failureFor, lookOn, POSTS_DRAW_MS, POSTS_HIDDEN_MS, POSTS_LOOKED_BACK, POSTS_NEWEST } =
   await import('../src/research/posting');
 const { lookFor, unseenFailure } = await import('../src/research/look');
 
@@ -47,17 +47,20 @@ const OTHER = (i: number) => ({
 /**
  * A reading window on a Facebook page that draws its posts as it's scrolled: `drawsAfter` scrolls (never, when null)
  * before the post shows among `posts`. `front`: what showing it in front does (draws it at once, or the person isn't
- * away).
+ * away: then only a look the person asked for comes in front, as src/tab.ts's `inFront` does). `shown`: whether Chrome
+ * shows its window (not when it's behind the person's).
  */
 function facebookTab(opts: {
   drawsAfter: number | null;
   posts?: { text: string; url: string | null }[];
   front?: 'draws' | 'not_away';
   drawing?: boolean;
+  shown?: boolean;
 }) {
   let scrolls = 0;
   let inFront = false;
   const fronted: number[] = [];
+  const frontAsked: boolean[] = [];
   const asked: number[] = [];
   const posts = opts.posts ?? [{ text: TEXT, url: LINK }];
   const drawn = () => inFront || (opts.drawsAfter !== null && scrolls >= opts.drawsAfter);
@@ -74,13 +77,14 @@ function facebookTab(opts: {
         const count = drawn() ? posts.length : 0;
         const loading = count < most && (!drawn() || count === 0);
         if (loading) scrolls++;
-        return { drawn: count, loading, shown: false };
+        return { drawn: count, loading, shown: inFront || opts.shown !== false };
       }
       return null;
     },
-    inFront: async <T>(work: () => Promise<T>) => {
+    inFront: async <T>(work: () => Promise<T>, personAsked = false) => {
       fronted.push(Date.now());
-      if (opts.front !== 'draws') throw new NotAway();
+      frontAsked.push(personAsked);
+      if (opts.front !== 'draws' && !personAsked) throw new NotAway();
       inFront = true;
       try {
         return await work();
@@ -89,7 +93,7 @@ function facebookTab(opts: {
       }
     },
   };
-  return { tab: tab as unknown as ResearchTab, scrolls: () => scrolls, fronted, asked };
+  return { tab: tab as unknown as ResearchTab, scrolls: () => scrolls, fronted, frontAsked, asked };
 }
 
 beforeEach(() => {
@@ -130,6 +134,15 @@ describe('looking for a post on a Facebook page that draws its posts as it’s s
     expect(fronted).toHaveLength(1);
   });
 
+  it('waits less on a window Chrome doesn’t show, as Facebook draws nothing more there', async () => {
+    const started = Date.now();
+    const { tab, fronted } = facebookTab({ drawsAfter: null, front: 'draws', shown: false });
+    expect(await lookOn(tab, PAGE, TEXT)).toEqual({ found: true, link: LINK, seen: true });
+    expect(fronted).toHaveLength(1);
+    expect(fronted[0]! - started).toBeGreaterThanOrEqual(POSTS_HIDDEN_MS);
+    expect(fronted[0]! - started).toBeLessThan(POSTS_DRAW_MS);
+  });
+
   it('reads a page that draws its posts with it (LinkedIn’s) once, as before', async () => {
     const { tab, scrolls, fronted } = facebookTab({ drawsAfter: null, drawing: false });
     expect(await lookOn(tab, PAGE, TEXT)).toEqual({ found: false, link: null, seen: true });
@@ -158,6 +171,7 @@ describe('what the person reads when the Page’s posts never drew', () => {
       places: ['page'],
       facebookPage: PAGE,
       postAt: '2026-11-16T18:00:00.000Z',
+      asked: false,
     };
     await lookFor('ws', tab, post);
     expect(looked).toEqual([{ found: [], failure: unseenFailure('page') }]);
@@ -173,6 +187,7 @@ describe('what the person reads when the Page’s posts never drew', () => {
       places: ['page'],
       facebookPage: PAGE,
       postAt: null,
+      asked: false,
     });
     expect(looked).toEqual([{ found: [{ place: 'page', link: LINK }], failure: null }]);
   });
@@ -195,6 +210,7 @@ describe('a Facebook post found by its words, with no link and cut short', () =>
       places: ['page'],
       facebookPage: PAGE,
       postAt: null,
+      asked: false,
     });
     expect(looked).toEqual([{ found: [{ place: 'page', link: null }], failure: null }]);
   });
@@ -234,6 +250,7 @@ describe('a Facebook post found by its words, with no link and cut short', () =>
       places: ['page'],
       facebookPage: PAGE,
       postAt: null,
+      asked: false,
     });
     expect(asked).toEqual([POSTS_NEWEST, POSTS_LOOKED_BACK]);
     expect(POSTS_LOOKED_BACK).toBeGreaterThan(POSTS_NEWEST);
@@ -261,5 +278,47 @@ describe('how far a Facebook page has drawn its posts', () => {
       </div></div></body>`,
     );
     expect(postsDrawing(window.document)).toEqual({ drawn: 2, loading: null });
+  });
+});
+
+describe('Check if it posted, pressed by the person (the owner, 18 Nov)', () => {
+  // The owner's Page, 18 Nov 2026: Check if it posted found the newest post, but said Facebook didn't load the Page's
+  // posts for the one under it. The reading window was behind theirs, where Facebook draws its newest post and nothing
+  // past it, and a look comes in front on its own only while they're away (decision 120).
+  const SECOND = [OTHER(0), { text: TEXT, url: null }];
+  const post = (asked: boolean): LookPost => ({
+    id: '7a1d0b6e-6a52-4a8e-9d0c-3e5f3c1b2a90',
+    network: 'facebook',
+    text: TEXT,
+    places: ['page'],
+    facebookPage: PAGE,
+    postAt: '2026-11-17T18:00:00.000Z',
+    asked,
+  });
+
+  it('brings its window in front right away, while they’re at their computer, and finds the post', async () => {
+    const started = Date.now();
+    const { tab, fronted, frontAsked } = facebookTab({
+      drawsAfter: null,
+      posts: SECOND,
+      front: 'not_away',
+      shown: false,
+    });
+    await lookFor('ws', tab, post(true));
+    expect(looked).toEqual([{ found: [{ place: 'page', link: null }], failure: null }]);
+    expect(frontAsked).toEqual([true]);
+    expect(fronted[0]! - started).toBeLessThan(POSTS_DRAW_MS);
+  });
+
+  it('still waits for them to be away when nobody asked, and says it couldn’t check', async () => {
+    const { tab, frontAsked } = facebookTab({
+      drawsAfter: null,
+      posts: SECOND,
+      front: 'not_away',
+      shown: false,
+    });
+    await lookFor('ws', tab, post(false));
+    expect(looked).toEqual([{ found: [], failure: unseenFailure('page') }]);
+    expect(frontAsked).toEqual([false]);
   });
 });

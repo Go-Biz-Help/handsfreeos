@@ -1316,6 +1316,21 @@ only that line is the person's message with no words in it (a picture, a sticker
 theirs, as core's `WORDLESS`, so their chat still ends with them (`yoursLast`) and nothing of theirs is answered twice.
 Core's `withoutStatus` does the same for what an older extension sends, and migration 028800 cleaned what was kept.
 
+### Check if it posted, pressed by the person, comes in front right away (0.147.10)
+
+On 0.147.9, 18 Nov 2026, the owner pressed Check if it posted on two Facebook Page posts. The newer one, the Page's
+first post, was found; the one under it came back "Facebook didn’t load your Page’s posts, so it couldn’t check". Its
+Page post report of the evening before (0.147.5) showed why: the posting window was behind the owner's (`shown`
+false), and there Facebook draws its newest post and leaves the rest "Loading..." however long it's scrolled and
+waited on. Looking in front was kept to while the person is away (decision 120), and they were at their computer,
+having just pressed it.
+
+From 0.147.10 a look the person asked for (core's `asked` on the post `socialcontent.post.look_next` hands out, set by
+Check if it posted and Check again) comes in front right away, as a Check does: `lookOn` passes it to the research
+tab's `inFront`, and `WorkTab.inFront` takes `now` for that one read, then puts their window back. A look on its own,
+10 minutes after a post that may have gone up, still waits for them to be away. `lookDrawn` waits 10 seconds
+(`POSTS_HIDDEN_MS`) rather than 30 on a window Chrome doesn't show, as nothing more draws there.
+
 ### A Facebook post found by its words, with no link and cut short with "…" (0.147.6)
 
 On 0.147.5 the owner's Page post of 17 Nov 2026 (12 PM Chicago) was still marked "didn’t find the post on your Page

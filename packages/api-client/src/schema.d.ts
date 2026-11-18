@@ -66616,6 +66616,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         post: {
+                            /** @default false */
+                            asked: boolean;
                             facebookPage: string | null;
                             /** Format: uuid */
                             id: string;

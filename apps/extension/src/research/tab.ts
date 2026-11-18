@@ -34,10 +34,11 @@ export class ResearchTab {
 
   /**
    * Runs `work` with its window in front, for a page that draws only what's on screen: only once the person has been
-   * away for two minutes (decision 120), else it throws `NotAway` (src/away.ts) and the read goes on without it.
+   * away for two minutes (decision 120), else it throws `NotAway` (src/away.ts) and the read goes on without it. Right
+   * away when the person `asked` for it (Check if it posted), as a Check comes in front.
    */
-  inFront<T>(work: () => Promise<T>): Promise<T> {
-    return this.tab.inFront(work);
+  inFront<T>(work: () => Promise<T>, asked = false): Promise<T> {
+    return this.tab.inFront(work, undefined, asked);
   }
 
   /**

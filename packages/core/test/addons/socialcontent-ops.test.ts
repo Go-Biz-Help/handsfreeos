@@ -1096,6 +1096,12 @@ describe('the business’s own posts', () => {
     // It may have gone up all the same: it's looked for on its own, once, 10 minutes on (the owner, 15 Nov).
     expect(Date.parse(half.lookAt) - Date.now()).toBeGreaterThan(9 * 60_000);
     expect(Date.parse(half.lookAt) - Date.now()).toBeLessThanOrEqual(10 * 60_000);
+    // Nobody asked for that look: its window comes in front only while the person is away (decision 120).
+    const [onItsOwn] = await rows<{ look_asked: boolean }>(
+      admin(),
+      sql`select look_asked from addon_socialcontent.content where record_id = ${id}`,
+    );
+    expect(onItsOwn!.look_asked).toBe(false);
     await as(member, 'socialcontent.content.post_now', { postId: id });
     expect((await as(member, 'socialcontent.content.get', { postId: id })).lookAt).toBeNull();
     const again = await as(owner, 'socialcontent.post.next', { networks: ['facebook'] });
@@ -1461,6 +1467,8 @@ describe('the business’s own posts', () => {
       network: 'facebook',
       places: ['page'],
       facebookPage: 'https://www.facebook.com/pipedreams',
+      // A person asked: its window comes in front for the look right away (the owner, 18 Nov).
+      asked: true,
     });
     expect(look.post.text).toMatch(/^Half up: a tip\./);
     // Handed out, it's put off half an hour.
@@ -1473,6 +1481,11 @@ describe('the business’s own posts', () => {
     });
     expect(found).toMatchObject({ state: 'posted', failure: null, lookAt: null });
     expect(found.postedTo.map((p: Any) => p.place)).toEqual(['profile', 'page']);
+    const [answered] = await rows<{ look_asked: boolean }>(
+      admin(),
+      sql`select look_asked from addon_socialcontent.content where record_id = ${half}`,
+    );
+    expect(answered!.look_asked).toBe(false);
 
     // Not found: it stays as didn't post, saying when it looked; couldn't look: it says why.
     await as(member, 'socialcontent.content.look', { postIds: [two] });
@@ -1483,6 +1496,14 @@ describe('the business’s own posts', () => {
     expect(missing).toMatchObject({ state: 'failed', lookAt: null, lookFailure: null });
     expect(missing.lookedAt).not.toBeNull();
     await as(member, 'socialcontent.content.look', { postIds: [two] });
+    // A look left over from posting, not asked for, says so to the extension.
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content set look_asked = false where record_id = ${two}`,
+    );
+    expect(
+      (await as(owner, 'socialcontent.post.look_next', { networks: ['linkedin'] })).post,
+    ).toMatchObject({ id: two, asked: false });
     const couldnt = await as(owner, 'socialcontent.post.looked', {
       postId: two,
       found: [],

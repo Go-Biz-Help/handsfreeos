@@ -5,7 +5,9 @@
  * (./tab.ts), the same way posting finds a post's link (./posting.ts):
  *
  * - **Facebook:** the top of the person's own profile, or of the business's Page, once Facebook has drawn its newest
- *   posts there (./posting.ts `lookOn`). When it never did, it says it couldn't check, rather than that it isn't there.
+ *   posts there (./posting.ts `lookOn`). Facebook draws none past the newest while the window is behind the person's,
+ *   so one a person asked for (`asked`) brings its window in front right away, as a Check does; one on its own, only
+ *   while they're away (decision 120). When it never did, it says it couldn't check, rather than that it isn't there.
  * - **LinkedIn:** their own posts.
  * - **Instagram:** their own newest posts, as Instagram's page loads them.
  * - **Threads and X:** the top of their own profile.
@@ -80,7 +82,8 @@ async function lookIn(tab: ResearchTab, post: LookPost, place: PostPlace): Promi
     return { halt: lookFailure(network, 'warned', warnings[0]!) };
   }
   if (listed) {
-    const look = await lookOn(tab, listed, post.text, POSTS_LOOKED_BACK);
+    // Asked for by the person: its window comes in front right away when Facebook didn't draw the posts behind theirs.
+    const look = await lookOn(tab, listed, post.text, POSTS_LOOKED_BACK, post.asked === true);
     return {
       place,
       link: look.link,
