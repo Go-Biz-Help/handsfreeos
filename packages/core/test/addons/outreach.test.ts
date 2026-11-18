@@ -104,6 +104,8 @@ describe('Social Outreach', () => {
         'outreach.country.unskip',
         'outreach.day.start',
         'outreach.messages.edit',
+        // Your Networking calendar and Lead calendar (decision 178): a setting.
+        'outreach.my_calendars.set',
         'outreach.friend.set',
         'outreach.friends.cancel_all',
         'outreach.helpful.ok',

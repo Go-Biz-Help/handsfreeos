@@ -6,12 +6,15 @@
 import {
   LOCAL_WORDS as L,
   locationLine,
+  myCalendarsLine,
   RADIUS_CHOICES,
   REACH,
   REACH_KEYS,
   theirWorkLine,
   type LocationSetInput,
   type LocationShown,
+  type MyCalendarsSetInput,
+  type MyCalendarsShown,
   type Reach,
   type TheirWorkShown,
 } from '@hfos/core/addons/outreach/local';
@@ -27,7 +30,7 @@ import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
 
 import { Note, useOutreachContext } from './kit';
-import { Tick } from './settings-bits';
+import { Choice, Tick } from './settings-bits';
 import { ChangeRow, RowsCard } from './settings-hands-off';
 
 /** Settings → You: the person's own town, how far is local, and the local focus switch. Each person's own. */
@@ -135,6 +138,102 @@ export function LocationPart() {
           testID="settings-my-local-focus"
         />
       </View>
+    </RowsCard>
+  );
+}
+
+/** Settings → You: the Networking calendar a networking call books on, and the Lead calendar a demo books on. */
+export function MyCalendarsPart() {
+  const { workspaceId, online } = useOutreachContext();
+  const [shown, setShown] = React.useState<MyCalendarsShown | null>(null);
+  const [problem, setProblem] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!online) return;
+    let alive = true;
+    api
+      .POST('/v1/queries/outreach.my_calendars.get', { body: { workspaceId } })
+      .then((r) => {
+        if (alive) setShown(unwrap(r));
+      })
+      .catch((e: unknown) => {
+        if (alive) setProblem(errorMessage(e));
+      });
+    return () => {
+      alive = false;
+    };
+  }, [online, workspaceId]);
+
+  const save = async (body: Omit<MyCalendarsSetInput, 'workspaceId'>) => {
+    setBusy(true);
+    try {
+      setShown(
+        unwrap(
+          await api.POST('/v1/commands/outreach.my_calendars.set', {
+            body: { workspaceId, ...body },
+          }),
+        ),
+      );
+      toast.show(L.saved);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const picks = (
+    key: 'networking' | 'lead',
+    label: string,
+    otherwise: string,
+    field: keyof Omit<MyCalendarsSetInput, 'workspaceId'>,
+  ) => (
+    <View className="gap-1.5" testID={`settings-my-${key}-calendar`}>
+      <Label>{label}</Label>
+      <Choice
+        label={L.pickNone}
+        about={otherwise}
+        selected={!!shown && !shown[key]}
+        onPress={() => void save({ [field]: null })}
+        disabled={!online || !shown || busy}
+        testID={`settings-my-${key}-calendar-none`}
+      />
+      {shown?.choices.map((c) => (
+        <Choice
+          key={c.id}
+          label={c.name}
+          selected={shown[key]?.id === c.id}
+          onPress={() => void save({ [field]: c.id })}
+          disabled={!online || busy}
+          testID={`settings-my-${key}-calendar-${c.id}`}
+        />
+      ))}
+    </View>
+  );
+
+  return (
+    <RowsCard testID="settings-my-calendars">
+      <ChangeRow
+        title={L.calendars}
+        about={shown ? myCalendarsLine(shown) : (problem ?? '…')}
+        testID="settings-my-calendars-row"
+      >
+        <Note>{L.calendarsHint}</Note>
+        {shown && !shown.choices.length ? (
+          <Note testID="settings-my-calendars-none">{L.noCalendars}</Note>
+        ) : (
+          <>
+            {picks(
+              'networking',
+              L.networkingCalendar,
+              L.networkingOtherwise(shown?.networkingOtherwise ?? null),
+              'networkingCalendarId',
+            )}
+            {picks('lead', L.leadCalendar, L.leadOtherwise, 'leadCalendarId')}
+          </>
+        )}
+      </ChangeRow>
     </RowsCard>
   );
 }

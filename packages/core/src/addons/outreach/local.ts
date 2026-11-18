@@ -198,6 +198,36 @@ export const LocationSetInput = z.object({
 });
 export type LocationSetInput = z.input<typeof LocationSetInput>;
 
+/**
+ * A calendar a person can pick for their networking calls or their demos (decision 178): one of the business's that
+ * customers can book online now. `mine` when they own it.
+ */
+export const CalendarChoice = z.object({ id: z.uuid(), name: z.string(), mine: z.boolean() });
+export type CalendarChoice = z.output<typeof CalendarChoice>;
+
+/** The person's Networking calendar and Lead calendar, as Settings → You shows them. */
+export const MyCalendarsShown = z.object({
+  /** The picks, or null for none (a pick that stopped taking bookings shows as none). */
+  networking: CalendarChoice.nullable(),
+  lead: CalendarChoice.nullable(),
+  /** Where a networking call goes with none picked: their own calendar, when they have one that takes bookings. */
+  networkingOtherwise: z.string().nullable(),
+  /** The calendars they can pick from, theirs first. */
+  choices: z.array(CalendarChoice),
+});
+export type MyCalendarsShown = z.output<typeof MyCalendarsShown>;
+
+export const MyCalendarsGetInput = z.object({ workspaceId: z.uuid() });
+export type MyCalendarsGetInput = z.input<typeof MyCalendarsGetInput>;
+
+export const MyCalendarsSetInput = z.object({
+  workspaceId: z.uuid(),
+  /** A calendar's id, or null for none. Left out, it stays. */
+  networkingCalendarId: z.uuid().nullable().optional(),
+  leadCalendarId: z.uuid().nullable().optional(),
+});
+export type MyCalendarsSetInput = z.input<typeof MyCalendarsSetInput>;
+
 /** The words Settings → You and a person's card show, on the web and the phone. */
 export const LOCAL_WORDS = {
   where: 'Where you are',
@@ -236,7 +266,31 @@ export const LOCAL_WORDS = {
   unknownTown: (area: string) =>
     `We couldn’t find “${area}”. Write it as a US town and its state, like Dallas, TX.`,
   profileGone: 'That person isn’t in Social Outreach anymore. Refresh the page and try again.',
+  calendars: 'Your calendars',
+  calendarsHint:
+    'Where people book with you. A networking call goes on your Networking calendar, and a demo on your Lead calendar.',
+  networkingCalendar: 'Networking calendar',
+  leadCalendar: 'Lead calendar',
+  pickNone: 'None picked',
+  /** What the Networking calendar row says with none picked. */
+  networkingOtherwise: (name: string | null) =>
+    name ? `None picked, so calls go on ${name}` : 'None picked, so calls go without a link',
+  leadOtherwise: 'None picked, so demos use your playbook’s booking link',
+  noCalendars:
+    'No calendar takes bookings online yet. Turn on Public booking for one in Settings → Calendars.',
+  calendarNotBookable: (name: string) =>
+    `${name} isn’t taking bookings online. Turn on Public booking for it in Settings → Calendars, then pick it again.`,
+  calendarGone: 'That calendar isn’t there anymore. Refresh the page and pick another.',
 } as const;
+
+/** "Networking: Chris’s calendar · Leads: Demo", for the Your calendars row. */
+export function myCalendarsLine(c: Pick<MyCalendarsShown, 'networking' | 'lead'>): string {
+  if (!c.networking && !c.lead) return LOCAL_WORDS.pickNone;
+  return [
+    `Networking: ${c.networking?.name ?? LOCAL_WORDS.pickNone.toLowerCase()}`,
+    `Leads: ${c.lead?.name ?? LOCAL_WORDS.pickNone.toLowerCase()}`,
+  ].join(' · ');
+}
 
 /** "Within 25 miles of Dallas, TX", for the Where you are row. */
 export const locationLine = (l: Pick<LocationShown, 'area' | 'radiusMiles'>): string =>

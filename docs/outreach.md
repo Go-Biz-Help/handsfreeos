@@ -4794,6 +4794,31 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         Social Outreach; the worker's `today.ts`; the web's `location-part.tsx` and `their-work.tsx`, and the phone's
         `local.tsx`. No extension change.
 
+178.  **Your Networking calendar and Lead calendar, and coffee for locals** (Chris, 18 Nov 2026: "we should have a
+      networking calendar and a lead calendar that users of this add on will use. mine is the Chris’ calendar and the
+      Demo Calendar respectively"; their picks 5a and 4a). The second of the four parts begun in decision 177:
+      - **Your calendars** (Settings → You, web and phone, each person's own): **Networking calendar** and **Lead
+        calendar**, each one of the business's calendars that takes bookings online now (on, public, on the booking
+        site, which is on), or **None picked** (`outreach.my_calendars.get` and `outreach.my_calendars.set`, the
+        Assistant's `outreach_my_calendars` and `outreach_set_my_calendars`; columns `networking_calendar_id` and
+        `lead_calendar_id` on `addon_outreach.automation`, cleared when the calendar is deleted). A calendar that can't
+        be booked online is refused with how to fix it (`outreach_calendar_not_bookable`), and a pick that stops taking
+        bookings counts as none.
+      - **A demo books on the Lead calendar** (5a; the worker's `leadLinkFor`, core Today's `leadPathOf`): its link,
+        with the demo's ref, and its open times (decision 149) take the place of the playbook's link, which stays the
+        backup when none is picked. The link is on the playbook link's own address when that's the business's booking
+        site, else HandsFreeOS's.
+      - **A networking call books on the Networking calendar** (`callLinkFor`): the wrap-up's link (decision 176) and
+        a yes to a call (decision 173). With none picked, as before: the person's own oldest calendar that isn't the
+        demo page, which Your calendars names ("None picked, so calls go on Chris’s calendar").
+      - **A call or coffee for locals** (4a, `LOCAL_COFFEE`): in the wrap-up, someone who works inside the person's
+        radius (decision 177) is offered "a call or grab coffee", said within the playbook's words, never with a place
+        or a time; the calendar link is the same. Where coffee happens, and a calendar for meeting in person that
+        leaves time to drive, are next (see Not yet).
+      - **How it's built**: migration `20261027029300_outreach_calendars.sql`; `local.ts`, `ops/local.ts`,
+        `ops/today.ts` and `today.ts` in Social Outreach; the worker's `times.ts`, `today.ts` and `playbook-test.ts`;
+        the web's `my-calendars.tsx` and the phone's `local.tsx`. No extension change.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -5668,11 +5693,9 @@ commenter's comment, the AI's check of Facebook's group members, 3 screens of a 
 Alignable, the business's found checks a day, results by hashtag, phrase and kind of business, and tidying away finds
 never checked after two weeks came with decision 116, the comment Like and Alignable's likers from guessed markup too.
 
-Local networking (decision 177 is the first of four parts, from the owner's picks of 18 Nov 2026) still to come: a
-Networking calendar and a Lead calendar for each person, demos on the Lead calendar with the playbook's link as the
-backup, a calendar for meeting locals in person that works out the drive from the previous appointment's address
-that day (else the start address), as a core calendar feature, and "a call or grab coffee" for people inside the
-radius (part 2); a chat whose length follows their interest, and a page of settings for how the AI networks (part
+Local networking (decisions 177 and 178 are the first of four parts, from the owner's picks of 18 Nov 2026) still
+to come: a calendar for meeting locals in person that works out the drive from the previous appointment's address
+that day (else the start address), as a core calendar feature, and where a coffee happens (the rest of part 2); a chat whose length follows their interest, and a page of settings for how the AI networks (part
 3); and tagging the people the owner has talked with on recent posts in their area that fit, a short ask after two
 referrals once the chat has been quiet for a few days, the About you interview, a prep note before each networking
 call and a thank-you after, a weekly count of 1-on-1s, and local Facebook events (part 4). Today's ordering is

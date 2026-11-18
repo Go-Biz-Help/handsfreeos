@@ -157,6 +157,7 @@ export const outreachAddon = defineAddon({
       'outreach.country.decided',
       'outreach.their_work.set',
       'outreach.location.set',
+      'outreach.my_calendars.set',
       'outreach.partner.looked',
       'outreach.partner.saved',
       'outreach.partner.marked',

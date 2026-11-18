@@ -126,6 +126,7 @@ import {
   callLinkFor,
   draftTimes,
   keepTimes,
+  leadLinkFor,
   meetingFor,
   offeredWords,
   type Meeting,
@@ -467,15 +468,14 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         ),
       ),
     ];
+    // What they do and where, and how far from the person (decision 177).
+    const them = found.profile ? theirWorkShown(found.profile, found.home) : null;
     const facts = [
       ...found.lines,
       ...(found.profile?.intro ?? []),
       ...(found.check?.about ? [found.check.about] : []),
       ...(found.check?.why ?? []),
-      // What they do and where, and how far from the person (decision 177).
-      ...[found.profile ? theirWorkFact(theirWorkShown(found.profile, found.home)) : null].filter(
-        (f): f is string => f !== null,
-      ),
+      ...[theirWorkFact(them)].filter((f): f is string => f !== null),
       // Only for Reconnect's catch-up (decision 164): never a first message, a follow-up or a reply.
       ...[firstStepFact(input.kind, found.check?.next_step)].filter((f): f is string => f !== null),
     ];
@@ -526,14 +526,16 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     const client = found.profile?.client ?? false;
     // The playbook's link, as the person's demo link for them (decision 24).
     const profileId = input.profileId ?? found.chat?.profile_id ?? found.post?.profile_id ?? null;
+    // Their own Lead calendar first (decision 178, the owner's 5a), the playbook's link as the backup.
+    const bookLink = client ? null : await leadLinkFor(ctx, ctx.userId, playbook?.details.link);
     const demoLinkFor = client
       ? null
       : playbook && profileId
-        ? demoLink(playbook.details.link, demoRef(ctx.userId, profileId))
-        : (playbook?.details.link ?? null);
+        ? demoLink(bookLink, demoRef(ctx.userId, profileId))
+        : bookLink;
     // After a yes to a networking call (decision 173, the owner's 5): the ask for a time and what follows it go on the
-    // person's own calendar, with no demo ref, never the playbook's demo page.
-    const callLink = () => callLinkFor(ctx, ctx.userId, playbook?.details.link);
+    // person's Networking calendar (decision 178) or own calendar, with no demo ref, never the demo page.
+    const callLink = () => callLinkFor(ctx, ctx.userId, bookLink);
     const onCall =
       !client && found.conversation?.call === true && found.conversation.step === 'link';
     const link = onCall ? await callLink() : demoLinkFor;
@@ -618,7 +620,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       isTimeKind(input.kind) &&
       (input.kind !== 'follow_up' || found.conversation?.step === 'link') &&
       !(input.kind === 'reply' && found.conversation?.step === 'intro')
-        ? await meetingOn(onCall ? link : playbook?.details.link)
+        ? await meetingOn(onCall ? link : bookLink)
         : null;
     // What the business knows (decision 122): its profile and Knowledge, with what matches their latest words, their
     // post or their comment first. Read once, for the reply and the step after a yes alike.
@@ -655,6 +657,8 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         lists: found.lists,
         conversation,
         callLink: wrapLink,
+        // Someone who works inside the person's radius gets a call or coffee (decision 177, the owner's 4a).
+        local: them?.near ?? false,
         post: found.engaged
           ? {
               text: `Your post: ${found.engaged.body ?? ''}\n\nTheir comment: ${found.engaged.comment}`,
@@ -702,8 +706,8 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       let made = await draft(kind);
       // What they do and where (decision 177): what the draft read of their page or the chat, kept on their profile
       // unless a person set it.
-      const them = asksTheirWork(kind) ? theirWorkOf(made.value) : null;
-      if (profileId && them && (them.work || them.area || them.reach))
+      const read = asksTheirWork(kind) ? theirWorkOf(made.value) : null;
+      if (profileId && read && (read.work || read.area || read.reach))
         await executeCommand(
           ctx.db,
           theirWorkNote,
@@ -712,7 +716,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
             userId: ctx.userId,
             profileId,
             how: recent.some((m) => !m.fromMe) ? 'chat' : 'page',
-            them,
+            them: read,
           },
           ctx.actor,
           ctx.meta,
@@ -751,7 +755,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
           // After an introduction (decision 173): a call's ask goes on the person's own calendar, a demo's on the
           // playbook's link, each with its own open times, since the chat's reply offered none.
           const nextLink = took === 'call' ? await callLink() : demoLinkFor;
-          const nextMeeting = await meetingOn(took === 'call' ? nextLink : playbook?.details.link);
+          const nextMeeting = await meetingOn(took === 'call' ? nextLink : bookLink);
           base = {
             ...base,
             told: {

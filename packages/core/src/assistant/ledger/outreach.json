@@ -25,7 +25,7 @@
     "apps/mobile/src/addons/outreach/kit.tsx": "0674b20046bb",
     "apps/mobile/src/addons/outreach/like-yours.tsx": "90036aef3364",
     "apps/mobile/src/addons/outreach/live.tsx": "65dc89b2fc2f",
-    "apps/mobile/src/addons/outreach/local.tsx": "b0f9c76742f6",
+    "apps/mobile/src/addons/outreach/local.tsx": "71ffe1edacd5",
     "apps/mobile/src/addons/outreach/more.tsx": "292fe6e6f062",
     "apps/mobile/src/addons/outreach/networks.tsx": "40a6f31b8c0e",
     "apps/mobile/src/addons/outreach/never-contact.tsx": "6f976e49cde7",
@@ -90,6 +90,7 @@
     "apps/web/src/addons/outreach/live-view.tsx": "08145c749e82",
     "apps/web/src/addons/outreach/location-part.tsx": "a618ab4ff9cb",
     "apps/web/src/addons/outreach/menu-count.tsx": "1c09b867d874",
+    "apps/web/src/addons/outreach/my-calendars.tsx": "77d95c5f5dda",
     "apps/web/src/addons/outreach/network-settings.tsx": "8916cf865d22",
     "apps/web/src/addons/outreach/network-ui.tsx": "0f7af0719ac5",
     "apps/web/src/addons/outreach/offer-panel.tsx": "9a4c91de27e6",
@@ -3412,6 +3413,13 @@
       "by": "outreach_set_location localFocus"
     },
     {
+      "path": "Settings → General → Your calendars row: Networking and Leads in a few words; Change → Networking calendar and Lead calendar (None picked, or a calendar that takes bookings online), each saved as it changes; where a call or a demo goes with none picked",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/my-calendars.tsx:95",
+      "covered": "yes",
+      "by": "outreach_my_calendars (networking, lead, networkingOtherwise, choices); outreach_set_my_calendars networkingCalendarId, leadCalendarId"
+    },
+    {
       "path": "Settings → General → Alerts: what waits for you (a push for each, or one every 2 hours), day's numbers switch, accepted switch, samples",
       "kind": "do",
       "file": "apps/web/src/addons/outreach/settings-view.tsx:524",
@@ -3603,14 +3611,21 @@
     {
       "path": "Phone → Settings → General → Where you are (Change: Your town, How far is local, Save, the towns nearby) and Focus on local groups",
       "kind": "do",
-      "file": "apps/mobile/src/addons/outreach/local.tsx:86",
+      "file": "apps/mobile/src/addons/outreach/local.tsx:89",
       "covered": "yes",
       "by": "outreach_location; outreach_set_location area, radiusMiles, localFocus"
     },
     {
+      "path": "Phone → Settings → General → Your calendars (Change: Networking calendar and Lead calendar, None picked or a calendar)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/outreach/local.tsx:217",
+      "covered": "yes",
+      "by": "outreach_my_calendars; outreach_set_my_calendars"
+    },
+    {
       "path": "Phone → Person menu → What they do and where, with Change (What they do, Where they work, Whom they serve, Save)",
       "kind": "do",
-      "file": "apps/mobile/src/addons/outreach/local.tsx:191",
+      "file": "apps/mobile/src/addons/outreach/local.tsx:290",
       "covered": "yes",
       "by": "outreach_person_marks theirWork; outreach_set_their_work"
     },

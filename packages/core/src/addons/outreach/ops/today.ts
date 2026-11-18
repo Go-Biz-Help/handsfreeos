@@ -29,6 +29,7 @@ import {
 import { REPLY_STARTS } from '../alerts';
 import { GROUP_REPLY_WORDS, groupRepliesOn, REPLY_KEPT_DAYS } from '../active';
 import { demoLink, demoRef } from '../demos';
+import { bookingPageOf } from '../meeting-times';
 import { bestFit, type Fit, type FitPlaybook } from '../fit';
 import type { GroupCheckState } from '../group-checks';
 import { DAILY_STEPS, type DailyStep, type FriendAnswer } from '../limits';
@@ -109,7 +110,7 @@ import {
   requestAnswerColumns,
   type Ctx,
 } from './common';
-import { localOf } from './local';
+import { leadPathOf, localOf } from './local';
 import { milesBetweenTowns } from './towns';
 import {
   acceptedMine,
@@ -468,8 +469,15 @@ export async function todayFor(
   const linked = [...playbooks]
     .sort((a, b) => a.name.localeCompare(b.name))
     .find((p) => p.details.link);
+  // Their own Lead calendar comes first (decision 178), on the playbook link's address when that's one of the business's
+  // booking pages; the playbook's link is the backup.
+  const leadPath = linked && bookingPageOf(linked.details.link) ? await leadPathOf(ctx, me) : null;
+  const bookLink =
+    linked && leadPath
+      ? `${new URL(linked.details.link!).origin}${leadPath}`
+      : linked?.details.link;
   const demoFor = (profileId: string | null) =>
-    linked && profileId ? demoLink(linked.details.link, demoRef(me, profileId)) : null;
+    bookLink && profileId ? demoLink(bookLink, demoRef(me, profileId)) : null;
 
   // Requests the person got to confirm, as they picked and the AI says (decisions 30, 121 and 136). The rest lately
   // are theirs to decide, in Waiting for you.

@@ -9457,6 +9457,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.my_calendars.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pick the person’s own calendars in Social Outreach (Settings → You → Your calendars): the Networking calendar a networking call books on, and the Lead calendar a demo books on ahead of the playbook’s booking link. Each is one of the business’s calendars that takes bookings online (`outreach_my_calendars` lists them), or null for none. A part left out stays.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.my_calendars.set.
+         */
+        post: operations["command_outreach_my_calendars_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.need.clear": {
         parameters: {
             query?: never;
@@ -23051,6 +23071,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_lookup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.my_calendars.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s own calendars in Social Outreach (Settings → You → Your calendars): the Networking calendar a networking call books on, the Lead calendar a demo books on, where a call goes while none is picked, and the business’s calendars that take bookings online, to pick from.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_my_calendars_get"];
         delete?: never;
         options?: never;
         head?: never;
@@ -50529,6 +50569,55 @@ export interface operations {
                             } | null;
                         } | null;
                         ready: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_my_calendars_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    leadCalendarId?: string | null;
+                    networkingCalendarId?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        choices: {
+                            /** Format: uuid */
+                            id: string;
+                            mine: boolean;
+                            name: string;
+                        }[];
+                        lead: {
+                            /** Format: uuid */
+                            id: string;
+                            mine: boolean;
+                            name: string;
+                        } | null;
+                        networking: {
+                            /** Format: uuid */
+                            id: string;
+                            mine: boolean;
+                            name: string;
+                        } | null;
+                        networkingOtherwise: string | null;
                     };
                 };
             };
@@ -90841,6 +90930,53 @@ export interface operations {
                             /** Format: uuid */
                             threadId: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_my_calendars_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        choices: {
+                            /** Format: uuid */
+                            id: string;
+                            mine: boolean;
+                            name: string;
+                        }[];
+                        lead: {
+                            /** Format: uuid */
+                            id: string;
+                            mine: boolean;
+                            name: string;
+                        } | null;
+                        networking: {
+                            /** Format: uuid */
+                            id: string;
+                            mine: boolean;
+                            name: string;
+                        } | null;
+                        networkingOtherwise: string | null;
                     };
                 };
             };

@@ -963,12 +963,14 @@ export function networkingReplyTask(
   on: PlaybookNetworking,
   stand: NetworkingStand = { wroteBack: 1, ownerAsked: false },
   callLink: string | null = null,
+  /** They work inside the owner's radius (decision 177): the call offer is a call or coffee (the owner's 4a). */
+  local = false,
 ): string {
   const asked =
     'they ask about the business (what it does, what it offers, how it works, the price)';
   const wrap = [
     on.call
-      ? `the networking call offer, once in the whole chat, unless the chat shows the owner already offered it or they passed on it. ${asMessage('the networking call offer', says.callOffer)} ${callLink ? `The owner’s own calendar link for [calendar link], exactly as written: ${quoteData(callLink)}. Never the playbook’s link for it.` : 'There’s no calendar link to give, so leave [calendar link] and the words that give it out.'}`
+      ? `the networking call offer, once in the whole chat, unless the chat shows the owner already offered it or they passed on it. ${asMessage('the networking call offer', says.callOffer)}${local ? ` ${LOCAL_COFFEE}` : ''} ${callLink ? `The owner’s own calendar link for [calendar link], exactly as written: ${quoteData(callLink)}. Never the playbook’s link for it.` : 'There’s no calendar link to give, so leave [calendar link] and the words that give it out.'}`
       : null,
     on.sendPeople
       ? `${on.call ? 'Then, in the same message, ' : ''}the line about sending people their way, once in the whole chat, unless the chat shows the owner already said it. ${asMessage('it', says.sendPeople)}`
@@ -994,6 +996,13 @@ export function networkingReplyTask(
     .filter(Boolean)
     .join(' ');
 }
+
+/**
+ * The networking call offer to someone who works near the owner (decision 177, the owner's 4a: locals get "a call or grab
+ * coffee"), said within the playbook's words.
+ */
+export const LOCAL_COFFEE =
+  'They work near the owner, so offer a call or to grab coffee: where the words say a call, say a call or coffee, like “let’s jump on a call or grab coffee”. Never name a place or a time for the coffee.';
 
 /**
  * Whether someone connected with the owner lately enough for an introduction to thank them for it (decision 168):
@@ -1024,10 +1033,12 @@ function taskFor(
   stand: NetworkingStand | null = null,
   /** The person's own calendar, for the networking call when the chat wraps up (decision 176). */
   callLink: string | null = null,
+  /** They work inside the owner's radius (decision 177). */
+  local = false,
 ): string {
   // The networking chat after an introduction (decision 173): a reply about them, and its one nudge.
   if (kind === 'reply' && step === 'intro' && networking)
-    return networkingReplyTask(says, networking, stand ?? undefined, callLink);
+    return networkingReplyTask(says, networking, stand ?? undefined, callLink, local);
   if (kind === 'follow_up' && step === 'intro')
     return `The owner introduced themselves and they haven’t written back. Write the owner’s one nudge. ${asHow('the nudge', says.nudge)} It’s the only one: never say you’ll check back, and never repeat the introduction.`;
   if (kind === 'pitch' && call)
@@ -1368,6 +1379,8 @@ export function todayDraftPrompt(input: {
    * no link.
    */
   readonly callLink?: string | null;
+  /** They work inside the owner's radius (decision 177): the networking call offer is a call or coffee. */
+  readonly local?: boolean;
   /**
    * Their post, for a comment, and the group it's in: only whether it's in one is told (decision 157), never which.
    */
@@ -1531,6 +1544,7 @@ export function todayDraftPrompt(input: {
                   : null,
                 networkingStand(input.recent),
                 input.callLink ?? null,
+                input.local ?? false,
               ),
               platform,
               !!input.post?.group,

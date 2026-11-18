@@ -24,7 +24,7 @@ import {
   unique,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { leads, people, users, workspaces } from '@hfos/db/schema';
+import { calendars, leads, people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
 import type { AskKind, AskReply, AskResult, AskState, AskTask, AskVia } from './asks';
 import type {
@@ -840,6 +840,16 @@ export const automation = addonOutreach.table(
     homeTown: text('home_town'),
     radiusMiles: smallint('radius_miles').notNull().default(25),
     localFocus: boolean('local_focus').notNull().default(false),
+    /**
+     * Their own calendars (decision 178, ../local.ts): the networking call books on the first, a demo on the second,
+     * ahead of the playbook's link. Null for none picked.
+     */
+    networkingCalendarId: uuid('networking_calendar_id').references(() => calendars.id, {
+      onDelete: 'set null',
+    }),
+    leadCalendarId: uuid('lead_calendar_id').references(() => calendars.id, {
+      onDelete: 'set null',
+    }),
     /** How the AI writes for them (../voice.ts). */
     voiceShorthand: boolean('voice_shorthand').notNull().default(false),
     voiceAcronyms: boolean('voice_acronyms').notNull().default(false),

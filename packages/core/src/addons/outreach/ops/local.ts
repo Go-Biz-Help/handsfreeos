@@ -11,10 +11,14 @@ import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext, QueryContext } from '../../../kernel/types';
 import { businessAddressOf } from '../../../onboarding-setup/address';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
+import { bookingPageOf } from '../meeting-times';
 import {
   areaOfTown,
   LOCAL_WORDS,
   LocationGetInput,
+  MyCalendarsGetInput,
+  MyCalendarsSetInput,
+  MyCalendarsShown,
   LocationSetInput,
   LocationShown,
   NEAR_SHOWN,
@@ -26,6 +30,7 @@ import {
   townName,
   townOfArea,
   type AreaHow,
+  type CalendarChoice,
   type Reach,
   type TheirWork,
   type TheirWorkShown,
@@ -300,5 +305,183 @@ export const locationSet = defineAddonCommand(outreachAddon, {
   },
 });
 
-export const localCommands = [theirWorkSet, theirWorkNote, locationSet] as const;
-export const localQueries = [locationGet] as const;
+// ---- The person's own calendars (decision 178) ----
+
+interface BookableCalendar extends CalendarChoice {
+  /** Its booking page's path: `/book/<site>/<calendar>`. */
+  readonly path: string;
+  readonly ownedAt: string;
+}
+
+/** The business's calendars customers can book online now (on, public, on a booking site that's on), theirs first. */
+async function bookableCalendars(ctx: Ctx, me: string): Promise<BookableCalendar[]> {
+  const found = await rows<{
+    id: string;
+    name: string;
+    mine: boolean;
+    site: string;
+    slug: string;
+    created_at: string;
+  }>(
+    ctx.tx,
+    sql`select c.id, c.name, coalesce(c.owner_user_id = ${me}, false) as mine, bs.slug::text as site, c.slug,
+          c.created_at::text as created_at
+        from app.calendars c join app.booking_sites bs on bs.workspace_id = c.workspace_id
+        where c.workspace_id = ${ctx.scope.workspaceId!} and c.status = 'active' and c.public and bs.enabled
+        order by coalesce(c.owner_user_id = ${me}, false) desc, lower(c.name), c.id`,
+  );
+  return found.map((c) => ({
+    id: c.id,
+    name: c.name,
+    mine: c.mine,
+    path: `/book/${c.site}/${c.slug}`,
+    ownedAt: c.created_at,
+  }));
+}
+
+async function picksOf(ctx: Ctx, me: string) {
+  const [row] = await rows<{ networking: string | null; lead: string | null }>(
+    ctx.tx,
+    sql`select networking_calendar_id as networking, lead_calendar_id as lead from addon_outreach.automation
+        where workspace_id = ${ctx.scope.workspaceId!} and user_id = ${me}`,
+  );
+  return { networking: row?.networking ?? null, lead: row?.lead ?? null };
+}
+
+/** The booking pages the business's playbooks link to, as `/book/<site>/<calendar>` (or `/book/c/<id>`). */
+async function playbookPages(ctx: Ctx): Promise<Set<string>> {
+  const links = await rows<{ link: string | null }>(
+    ctx.tx,
+    sql`select details->>'link' as link from addon_outreach.playbooks
+        where workspace_id = ${ctx.scope.workspaceId!} and archived_at is null`,
+  );
+  return new Set(
+    links.flatMap((l) => {
+      const page = bookingPageOf(l.link);
+      return page ? [`/book/${page.site}/${page.calendar}`] : [];
+    }),
+  );
+}
+
+async function myCalendarsShown(ctx: Ctx, me: string): Promise<MyCalendarsShown> {
+  const [all, picks, pages] = await Promise.all([
+    bookableCalendars(ctx, me),
+    picksOf(ctx, me),
+    playbookPages(ctx),
+  ]);
+  const choice = (c: BookableCalendar | undefined): CalendarChoice | null =>
+    c ? { id: c.id, name: c.name, mine: c.mine } : null;
+  const lead = all.find((c) => c.id === picks.lead);
+  // With none picked, a call goes on their own oldest calendar that isn't a demo page (as the worker's `callLinkFor`).
+  const otherwise = all
+    .filter(
+      (c) =>
+        c.mine &&
+        c.id !== lead?.id &&
+        !pages.has(c.path.toLowerCase()) &&
+        !pages.has(`/book/c/${c.id}`),
+    )
+    .sort((a, b) => a.ownedAt.localeCompare(b.ownedAt) || a.id.localeCompare(b.id))[0];
+  return {
+    networking: choice(all.find((c) => c.id === picks.networking)),
+    lead: choice(lead),
+    networkingOtherwise: otherwise?.name ?? null,
+    choices: all.map((c) => ({ id: c.id, name: c.name, mine: c.mine })),
+  };
+}
+
+/**
+ * The path of the person's Lead calendar's booking page (decision 178), when they picked one that takes bookings
+ * online now; null otherwise, and a demo's link is then the playbook's.
+ */
+export async function leadPathOf(ctx: Ctx, me: string): Promise<string | null> {
+  const { lead } = await picksOf(ctx, me);
+  if (!lead) return null;
+  return (await bookableCalendars(ctx, me)).find((c) => c.id === lead)?.path ?? null;
+}
+
+export const myCalendarsGet = defineAddonQuery(outreachAddon, {
+  name: 'outreach.my_calendars.get',
+  description:
+    'The person’s own calendars in Social Outreach (Settings → You → Your calendars): the Networking calendar a networking call books on, the Lead calendar a demo books on, where a call goes while none is picked, and the business’s calendars that take bookings online, to pick from.',
+  input: MyCalendarsGetInput,
+  output: MyCalendarsShown,
+  permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_my_calendars',
+    keywords: ['networking calendar', 'lead calendar', 'demo calendar'],
+  },
+  scope: inWorkspace,
+  async handler(ctx) {
+    return myCalendarsShown(ctx, requireHuman(ctx).userId);
+  },
+});
+
+export const myCalendarsSet = defineAddonCommand(outreachAddon, {
+  name: 'outreach.my_calendars.set',
+  description:
+    'Pick the person’s own calendars in Social Outreach (Settings → You → Your calendars): the Networking calendar a networking call books on, and the Lead calendar a demo books on ahead of the playbook’s booking link. Each is one of the business’s calendars that takes bookings online (`outreach_my_calendars` lists them), or null for none. A part left out stays.',
+  risk: 1,
+  input: MyCalendarsSetInput,
+  output: MyCalendarsShown,
+  permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_set_my_calendars',
+    autonomy: 'confirm',
+    keywords: ['networking calendar', 'lead calendar', 'demo calendar'],
+  },
+  scope: inWorkspace,
+  emits: ['outreach.my_calendars.set'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const picked = [input.networkingCalendarId, input.leadCalendarId].filter(
+      (id): id is string => typeof id === 'string',
+    );
+    if (picked.length) {
+      const bookable = new Set((await bookableCalendars(ctx, me)).map((c) => c.id));
+      for (const id of picked) {
+        if (bookable.has(id)) continue;
+        const [cal] = await rows<{ name: string }>(
+          ctx.tx,
+          sql`select name from app.calendars where workspace_id = ${ws} and id = ${id}`,
+        );
+        throw cal
+          ? HfosError.rule(
+              'outreach_calendar_not_bookable',
+              400,
+              LOCAL_WORDS.calendarNotBookable(cal.name),
+            )
+          : HfosError.rule('outreach_calendar_gone', 404, LOCAL_WORDS.calendarGone);
+      }
+    }
+    const values = {
+      ...(input.networkingCalendarId !== undefined
+        ? { networkingCalendarId: input.networkingCalendarId }
+        : {}),
+      ...(input.leadCalendarId !== undefined ? { leadCalendarId: input.leadCalendarId } : {}),
+      changedBy: me,
+      updatedAt: changeMoment(ctx.meta),
+    };
+    const [row] = await ctx.tx
+      .insert(automation)
+      .values({ workspaceId: ws, userId: me, ...values })
+      .onConflictDoUpdate({ target: [automation.workspaceId, automation.userId], set: values })
+      .returning({ id: automation.id });
+    const shown = await myCalendarsShown(ctx, me);
+    await ctx.emit({
+      type: 'outreach.my_calendars.set',
+      entityType: 'outreach_automation',
+      entityId: row!.id,
+      payload: {
+        userId: me,
+        networkingCalendarId: shown.networking?.id ?? null,
+        leadCalendarId: shown.lead?.id ?? null,
+      },
+    });
+    return shown;
+  },
+});
+
+export const localCommands = [theirWorkSet, theirWorkNote, locationSet, myCalendarsSet] as const;
+export const localQueries = [locationGet, myCalendarsGet] as const;

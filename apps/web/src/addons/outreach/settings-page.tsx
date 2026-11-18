@@ -109,6 +109,7 @@ import { Button, ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { LocationPart } from './location-part';
+import { MyCalendarsPart } from './my-calendars';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
@@ -565,6 +566,7 @@ function GeneralPage({
       <VoicePart {...own} switches />
       {/* Their own town, radius and local focus (decision 177): each person's own, so only on their own page. */}
       {mine ? <LocationPart workspaceId={workspaceId} /> : null}
+      {mine ? <MyCalendarsPart workspaceId={workspaceId} /> : null}
       <RowsCard testId="outreach-my-rows">
         <ChangeRow
           title={SP.hours}
