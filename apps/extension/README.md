@@ -1283,6 +1283,22 @@ that's the likely cause rather than a sure one. From 0.147.13 an input with no t
 of boxes already did, on every network. Post shows beside the box once something's written, and is found there as
 before. If a reel's comment still stops there on 0.147.13, the box was found and its Post wasn't.
 
+### LinkedIn posts keep their blank lines, typed in again (0.147.12)
+
+The owner's Content Creator posts on LinkedIn still went up with no blank lines after 0.141.5 (18 Nov 2026: "linkedin
+is still not adding line breaks to the posts"). A test in LinkedIn's own Start a post box, closed without posting,
+showed why. The box is Tiptap, on ProseMirror, and drops the blank lines from pasted words, as 0.141.5 guessed. But
+LinkedIn's page lets no script but its own read pasted HTML (Trusted Types): the box threw the web page's copy away
+(ProseMirror's "ProseMirrorClipboard" policy is refused), so the plain words went back in, without their blank lines.
+Chrome's own typing (`insertText`) kept every one there, each an empty paragraph, as pressing Enter twice makes.
+
+From 0.147.12, when a box shows the pasted words but none of their blank lines (`lostBlankLines`), it's emptied and
+the words typed in (`typeAgain` in `src/networks/post-text.ts`); the web page's copy is gone (`postHtml`). A box that
+won't empty keeps the words as they went in. One that takes no typing, or shows fewer lines from it than the paste
+gave, gets the plain words pasted back, so a post never goes in twice, empty, or worse than the paste. Boxes that kept
+the blank lines get one paste, as before: Facebook's and Instagram's (Lexical), X's (Draft.js) and Quill's, tried
+again in Chromium.
+
 ### What the first Check X found (0.147.11)
 
 The owner's first Check X (18 Nov 2026, 0.147.9) read 7 pages and found Follow and Like, but "Not working: commenting":
@@ -1486,7 +1502,8 @@ From 0.141.5, when a box shows the pasted words but none of their blank lines (`
 again with a web page's paragraphs (`postHtml`). A box that won't empty keeps the words as they went in, and one that
 ignores the second paste gets the plain words back, so a post never goes in twice or empty. Boxes that kept the blank
 lines get one paste, as before. It's every post `putPostIn` puts up: the Content Creator's on LinkedIn, and helpful
-posts on LinkedIn, as well as anywhere else a box turns out to drop them.
+posts on LinkedIn, as well as anywhere else a box turns out to drop them. LinkedIn's real box ignored that second
+paste, so from 0.147.12 the words are typed in instead: "LinkedIn posts keep their blank lines, typed in again".
 
 ### A look at reels before their comment, and no report when there's nothing to say (0.141.3)
 
