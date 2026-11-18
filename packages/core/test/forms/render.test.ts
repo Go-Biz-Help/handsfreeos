@@ -5,6 +5,8 @@ import {
   formState,
   isSingleCheckbox,
   isUnansweredProblem,
+  NAME_QUESTIONS,
+  nameQuestionOf,
   QUESTION_CONFIGS,
   questionKindLabel,
   nextQuestion,
@@ -239,6 +241,22 @@ describe('whether an answer will do', () => {
     expect(before.display).toBe('buttons');
     expect(questionKindLabel({ type: 'yes_no', config: before })).toBe('Yes or no');
     expect(questionKindLabel({ type: 'checkboxes', config: {} })).toBe('Checkboxes');
+  });
+
+  it('calls a short answer saved as their first or last name a First name or a Last name', () => {
+    const config = QUESTION_CONFIGS.short_text.parse({});
+    expect(nameQuestionOf({ type: 'short_text', mapTo: 'person.first_name' })).toBe('first_name');
+    expect(nameQuestionOf({ type: 'short_text', mapTo: 'person.last_name' })).toBe('last_name');
+    expect(questionKindLabel({ type: 'short_text', config, mapTo: 'person.first_name' })).toBe(
+      'First name',
+    );
+    expect(questionKindLabel({ type: 'short_text', config, mapTo: 'person.last_name' })).toBe(
+      'Last name',
+    );
+    // Saved anywhere else, or not saved at all, it's still a short answer.
+    expect(nameQuestionOf({ type: 'short_text', mapTo: 'person.email' })).toBe(null);
+    expect(questionKindLabel({ type: 'short_text', config, mapTo: null })).toBe('Short answer');
+    expect(NAME_QUESTIONS.first_name.autoComplete).toBe('given-name');
   });
 
   it('holds numbers to their range and their decimals', () => {

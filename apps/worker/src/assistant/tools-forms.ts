@@ -269,7 +269,7 @@ function questionOut(q: Question, definition: FormDefinition, names: Names) {
   return {
     id: q.id,
     title: q.title,
-    kind: questionKindLabel({ type: q.type as QuestionType, config: q.config }),
+    kind: questionKindLabel({ type: q.type as QuestionType, config: q.config, mapTo: q.mapTo }),
     ...(q.help ? { help: q.help } : {}),
     ...(q.required ? { required: true } : {}),
     ...(choices.length ? { choices: choices.map((c) => ({ id: c.id, label: c.label })) } : {}),

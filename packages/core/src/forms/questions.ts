@@ -156,6 +156,11 @@ export const QUESTION_CONFIGS = {
   address: z.object({
     /** Ask for the street, or just the town and postcode (a service-area check). */
     detail: z.enum(['full', 'city_postal']).default('full'),
+    /**
+     * Suggest real addresses from Google as they type the street (the business's pick, off until it's turned on).
+     * Picking one fills the street, town, state and ZIP; they can still type it all themselves (address.ts).
+     */
+    search: z.boolean().default(false),
   }),
   file: z.object({
     maxFiles: z.int().min(1).max(10).default(3),
@@ -258,9 +263,41 @@ export function isSingleCheckbox(question: { type: string; config?: unknown }): 
   );
 }
 
-/** What kind of question it is, in the editor's words: a yes or no shown as one box is a "Single checkbox". */
-export function questionKindLabel(question: { type: QuestionType; config?: unknown }): string {
-  return isSingleCheckbox(question) ? SINGLE_CHECKBOX_LABEL : QUESTION_LABELS[question.type];
+/**
+ * The name boxes in the add menu: a short answer that saves to the customer's first or last name, so whoever sends
+ * the form is saved under their name the way an Email or a Phone question saves their email or number.
+ */
+export const NAME_QUESTIONS = {
+  first_name: { label: 'First name', mapTo: 'person.first_name', autoComplete: 'given-name' },
+  last_name: { label: 'Last name', mapTo: 'person.last_name', autoComplete: 'family-name' },
+} as const;
+/** The longest name a name box takes: what a customer's name holds (`PERSON_LIMITS.name` in submit.ts). */
+export const NAME_MAX_LENGTH = 80;
+export type NameQuestion = keyof typeof NAME_QUESTIONS;
+
+/** Which name a question asks for: a short answer saved as their first or last name, or null. */
+export function nameQuestionOf(question: {
+  type: string;
+  mapTo?: string | null;
+}): NameQuestion | null {
+  if (question.type !== 'short_text') return null;
+  if (question.mapTo === NAME_QUESTIONS.first_name.mapTo) return 'first_name';
+  if (question.mapTo === NAME_QUESTIONS.last_name.mapTo) return 'last_name';
+  return null;
+}
+
+/**
+ * What kind of question it is, in the editor's words: a yes or no shown as one box is a "Single checkbox", and a
+ * short answer saved as their first or last name is a "First name" or a "Last name".
+ */
+export function questionKindLabel(question: {
+  type: QuestionType;
+  config?: unknown;
+  mapTo?: string | null;
+}): string {
+  if (isSingleCheckbox(question)) return SINGLE_CHECKBOX_LABEL;
+  const name = nameQuestionOf(question);
+  return name ? NAME_QUESTIONS[name].label : QUESTION_LABELS[question.type];
 }
 
 // ---- Where an answer can be written ----

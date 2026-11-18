@@ -27,7 +27,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { newPage, newQuestion, newSingleCheckbox } from './editor-state';
+import { newNameQuestion, newPage, newQuestion, newSingleCheckbox } from './editor-state';
 import {
   menuItemIcon,
   menuItemLabel,
@@ -64,7 +64,12 @@ export function QuestionList({
 
   function add(item: QuestionMenuItem) {
     const page = definition.pages[definition.pages.length - 1]!;
-    const question = item === 'single_checkbox' ? newSingleCheckbox() : newQuestion(item);
+    const question =
+      item === 'single_checkbox'
+        ? newSingleCheckbox()
+        : item === 'first_name' || item === 'last_name'
+          ? newNameQuestion(item)
+          : newQuestion(item);
     apply([{ op: 'add_question', pageId: page.id, index: null, question }]);
     onSelect(question.id);
   }

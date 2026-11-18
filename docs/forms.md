@@ -134,6 +134,33 @@ Drafts stay valid, so nothing about publishing changes.
   question**, and the Assistant's `get_form` lists it under `asksForTextsTwice`. A warning, never a blocker: the words
   are only a guess at what the question means. A required one is called out too, since carriers turn those down.
 
+## Name boxes, and Google address search
+
+- **First name and Last name** (2026-11-18) are rows in the add menu's Details group. Like a single checkbox, they
+  aren't types of their own: each is a short answer pointed at the customer's first or last name (`NAME_QUESTIONS`,
+  `nameQuestionOf` in `forms/questions.ts`, `newNameQuestion` in the editor), so whoever sends the form is saved under
+  their name the way an Email question saves their email. The list calls them First name and Last name. Rewording one
+  keeps it saving there; pointing **Where the answer goes** somewhere else makes it a plain short answer again. The
+  public page tells the browser what they are (`given-name`, `family-name`), so it offers to fill them in, and they
+  take 80 characters, what a customer's name holds (`NAME_MAX_LENGTH`).
+- **Google address search** (`config.search` on an address question, off until the business turns it on in the
+  question's settings): as they type the street, Google suggests real US addresses, and picking one fills the street,
+  town, state and ZIP (`addressFromPlace` in `forms/address.ts`, `address-field.tsx`). They can still type it all.
+
+**What rules here:**
+
+- **It uses the web app's Google Maps browser key** (`NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY`, with Places API (New)),
+  the same key and the same one-session-per-address billing as the service areas' address box (`addressSearch` in
+  `lib/maps/google.ts`). Google's script loads only once someone starts typing in that street box, so a form with it
+  off loads nothing from Google.
+- **Without Google it's a plain box.** With no key, or where Google refuses (a form served on a business's own domain
+  the key's referrer list doesn't include), they type the address as before. The switch says so when there's no key.
+- **The suggestions sit in the form's flow,** not floating over it, so an embedded form grows to show them rather
+  than cutting them off at the frame's edge. "Google Maps" shows under them, as Google asks when its suggestions
+  appear without one of its maps.
+- **Only the street box searches,** so an address that asks for just the town and ZIP has no switch. The phone fills
+  an address in with its plain boxes.
+
 ## The public page
 
 `/f/<site>/<form>`, served by the worker as the booking page is, and never the draft. What protects it:
