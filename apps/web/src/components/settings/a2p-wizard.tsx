@@ -1537,6 +1537,7 @@ export function A2pWizard({
         legalName: form.legalName.trim() || undefined,
         policyBusiness: hostedFrom,
         otherWays: (sending.checked['otherWays'] as OtherWayAnswer[] | undefined) ?? [],
+        useCase: sending.checked['useCase'] as 'customer_care' | 'mixed' | 'marketing',
         submission: { kind: sending.kind, business: sending.checked },
       });
       setChecks(got.checks);
@@ -2698,8 +2699,9 @@ function ReviewStep({
         </div>
         {checking && !checks ? (
           <p className="text-[13px] text-text-2">
-            Opening your website, your privacy policy, your terms and the page where customers agree
-            — the same four a carrier opens.
+            Opening your website and every page on it, your privacy policy, your terms and the page
+            where customers agree, the way a carrier&rsquo;s reviewer does. A big site takes up to
+            half a minute.
           </p>
         ) : null}
         {checks?.map((check) => (

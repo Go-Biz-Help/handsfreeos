@@ -22,7 +22,11 @@ export type PreflightId =
   | 'opt_in_surface'
   | 'chat_on_site'
   /** Another way customers agree (`OtherOptIn`), numbered in the order the business listed them. */
-  | `other_way_${number}`;
+  | `other_way_${number}`
+  /** Every page of the site looked through for forms the registration doesn't name (`site-forms.ts`): all clear. */
+  | 'site_forms'
+  /** One form found on the site with something a reviewer turns down, numbered in the order found. */
+  | `site_form_${number}`;
 
 export interface PreflightCheck {
   readonly id: PreflightId;
@@ -48,6 +52,8 @@ export interface FetchedPage {
   readonly finalUrl?: string | null;
   /** The fetcher's own reason, when it refused or failed before a response. */
   readonly error?: string | null;
+  /** The response's headers, names in lower case, when the fetcher kept them (`robotCheck` reads a few). */
+  readonly headers?: Readonly<Record<string, string>>;
   /**
    * The form framed on the page, when the box was found there rather than on the page itself (`framedAddresses`):
    * `html` is then that form's, and `url` stays the page's, since that is the address the carrier is given.
@@ -65,6 +71,11 @@ export interface FetchedPage {
  * inside an image is a policy a reviewer cannot read either.
  */
 export function pageText(html: string): string {
+  return plainText(html).toLowerCase();
+}
+
+/** `pageText` with the page's own capitals kept, for quoting it back to the business. */
+export function plainText(html: string): string {
   return html
     .replace(/<(script|style|noscript)\b[^>]*>[\s\S]*?<\/\1>/gi, ' ')
     .replace(/<[^>]+>/g, ' ')
@@ -75,8 +86,7 @@ export function pageText(html: string): string {
     .replace(/[‘’]/g, "'")
     .replace(/[“”]/g, '"')
     .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
+    .trim();
 }
 
 /** Does this page talk about text messages at all? A policy that never mentions them fails the review. */
@@ -181,7 +191,7 @@ export interface ConsentBoxReading {
 }
 
 /** Blanks out script and style bodies, keeping every other character where it was. */
-const withoutScripts = (html: string): string =>
+export const withoutScripts = (html: string): string =>
   html.replace(/<(script|style|noscript)\b[^>]*>[\s\S]*?<\/\1>/gi, (m) => ' '.repeat(m.length));
 
 /**
@@ -248,10 +258,18 @@ export function readConsentBox(html: string, names: readonly string[] = []): Con
   return {
     found: true,
     preTicked: /\schecked(?=[\s=/>])/i.test(tag),
-    required: /\srequired(?=[\s=/>])/i.test(tag) || /\saria-required\s*=\s*["']?true/i.test(tag),
+    required: boxRequired(tag),
     missing,
     termsLink,
   };
+}
+
+/**
+ * Whether a tick box has to be ticked to send its form: `required`, or marked so for the page's own check
+ * (`aria-required`, or `data-required` as HighLevel's forms write it on a required "terms and conditions" box).
+ */
+export function boxRequired(tag: string): boolean {
+  return /\srequired(?=[\s=/>])/i.test(tag) || /\s(aria|data)-required\s*=\s*["']?true/i.test(tag);
 }
 
 /** Does this page carry a visible agreement box a reviewer could point at? */
@@ -269,7 +287,7 @@ const unescapeAttr = (value: string): string =>
     .replace(/&amp;/gi, '&');
 
 /** One attribute of a tag, quoted or not, entities undone; null when it isn't there. */
-function attrOf(tag: string, name: string): string | null {
+export function tagAttr(tag: string, name: string): string | null {
   const m = new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i').exec(tag);
   if (!m) return null;
   return unescapeAttr(m[1] ?? m[2] ?? m[3] ?? '');
@@ -304,9 +322,9 @@ export function framedAddresses(html: string, pageUrl: string, limit = 3): strin
   const read = (markup: string, depth: number) => {
     for (const m of withoutScripts(markup).matchAll(/<iframe\b[^>]*>/gi)) {
       const tag = m[0];
-      add(attrOf(tag, 'src'));
-      add(attrOf(tag, 'data-src'));
-      const doc = attrOf(tag, 'srcdoc');
+      add(tagAttr(tag, 'src'));
+      add(tagAttr(tag, 'data-src'));
+      const doc = tagAttr(tag, 'srcdoc');
       if (doc && depth < 2) read(doc, depth + 1);
     }
   };

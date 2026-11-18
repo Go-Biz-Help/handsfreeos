@@ -9,6 +9,7 @@ import {
   checkOptInSurface,
   checkOtherWay,
   checkPolicy,
+  checkSiteForms,
   checkTerms,
   checkWebsite,
   dispositionOf,
@@ -83,6 +84,7 @@ import { registerLegalRoutes } from './legal';
 import { registerPolicyUpdateRoutes } from './policy-update';
 import { registerFunnelRoutes } from '../funnels/draft';
 import { SafeFetchError } from './safe-fetch';
+import { scanSiteForms } from './site-forms';
 import { practiceAware } from '../practice/kit';
 import { inPractice, practiceRunFor, type PracticeRun } from '../practice/scope';
 import { registerSiteRoutes } from './sites';
@@ -244,6 +246,11 @@ const PreflightInput = z.strictObject({
     )
     .max(3)
     .default([]),
+  /**
+   * What the texts are about, as "What you will text about" has it: a marketing box anywhere on the site is held
+   * against a registration for customer care only (`checkSiteForms`).
+   */
+  useCase: z.enum(['customer_care', 'mixed', 'marketing']).optional(),
   /**
    * The registration exactly as Send would send it. When it reads as one, the pages checked are the ones it names, and
    * what was found is written down against its fingerprint (`registration.record_check`): `registration.submit` lets
@@ -634,6 +641,21 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
         : []),
       ...targets.otherWays.map((w, i) => checkOtherWay(others[i] ?? null, w, i, names)),
     ];
+
+    // Then every other page of the site, for forms the registration doesn't name (owner, 2026-11-18: Shop Your Solar
+    // was turned down over a form on /instant-quote it never mentioned). After the reads above, reusing what they got,
+    // so the site isn't asked for the same pages twice at once. Not when the site didn't open: its row says so.
+    if (website && website.status !== null && website.status < 400 && targets.website) {
+      const scan = await scanSiteForms(deps, targets.website, [website, optIn, ...others]);
+      const named = [
+        optInPath === 'in_person' ? null : targets.optInUrl,
+        optIn?.framedUrl,
+        ...targets.otherWays.flatMap((w, i) =>
+          w.path === 'in_person' ? [] : [w.url, others[i]?.framedUrl],
+        ),
+      ];
+      checks.push(...checkSiteForms(scan, { named, useCase: sent?.useCase ?? input.useCase }));
+    }
     if (!input.submission) return { checks, notGreen: null };
 
     // What stands between these details and all green: the form's own check of them (questions only the business

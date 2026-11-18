@@ -59,6 +59,7 @@ export * from './messaging/policies';
 // A business's own policy or terms, given back with the texting section in place.
 export * from './messaging/policy-update';
 export * from './messaging/preflight';
+export * from './messaging/site-forms';
 // The page a website's host shows a bot instead of the page asked for.
 export * from './websites/robot-check';
 export * from './messaging/website-fixes';
