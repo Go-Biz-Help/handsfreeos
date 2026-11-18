@@ -94,8 +94,34 @@ export function stateOf(changes: readonly RecordChange[], recordId: string): Rec
   };
 }
 
-/** The photos this phone is uploading, by the record they belong to. */
-export function usePhotoUploads(): readonly PhotoRow[] {
-  const { data } = useQuery<PhotoRow>(PHOTOS_SQL);
+/** A photo on the upload track, with where its change stands. */
+export interface PhotoUpload extends PhotoRow {
+  readonly change_state: string;
+  readonly change_sent_at: string | null;
+}
+
+/** How long a confirmed photo may stand in for its file, while the phone's copy catches up. */
+export const LANDING_MS = 2 * 60_000;
+
+/**
+ * Whether a photo still belongs above a record's files as "Uploading on its own". Its row outlives the upload, so a
+ * confirmed photo only stands in until its file reaches the phone's copy (`landed`: the ids of the record's files
+ * there). It never stands in for long either: a file removed somewhere else straight away mustn't come back as an
+ * upload.
+ */
+export function stillUploading(
+  photo: Pick<PhotoUpload, 'file_id' | 'change_state' | 'change_sent_at'>,
+  landed: ReadonlySet<string>,
+  now: number,
+): boolean {
+  if (photo.change_state !== 'sent') return true;
+  if (landed.has(photo.file_id)) return false;
+  const sentAt = photo.change_sent_at ? Date.parse(photo.change_sent_at) : NaN;
+  return Number.isFinite(sentAt) && now - sentAt <= LANDING_MS;
+}
+
+/** The photos on this phone's upload track, by the record they belong to. */
+export function usePhotoUploads(): readonly PhotoUpload[] {
+  const { data } = useQuery<PhotoUpload>(PHOTOS_SQL);
   return data;
 }

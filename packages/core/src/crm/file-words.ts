@@ -81,6 +81,9 @@ export const FILE_WORDS = {
   photos: 'Photos',
   /** Opening a file needs the network; the list itself does not. */
   needsSignal: 'Opening a file needs signal.',
+  /** Storage wouldn’t hand the file over, with signal: the link failed, or the file was removed somewhere else. */
+  wontOpen:
+    'That file wouldn’t open. Try again in a minute. If it still won’t, it may have been removed on another device.',
   uploading: 'Uploading on its own',
   /** A locked file (Real Estate, step 3): signed, and never deleted or renamed. */
   locked: 'Signed · kept',

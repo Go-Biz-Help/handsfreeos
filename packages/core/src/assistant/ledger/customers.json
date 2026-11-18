@@ -1,7 +1,7 @@
 {
   "area": "customers",
   "title": "Contacts: people, companies, a business's own kinds of records, leads, imports and files",
-  "checkedOn": "2026-11-17",
+  "checkedOn": "2026-11-18",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/customers.tsx": "725409ea5d15",
     "apps/mobile/src/app/app/w/[workspaceId]/customers/companies/[companyId].tsx": "cb2d19dfb095",
@@ -13,11 +13,11 @@
     "apps/mobile/src/components/customers/attribution.tsx": "f7bd1bf0943a",
     "apps/mobile/src/components/customers/bits.tsx": "4d10da9c3dc9",
     "apps/mobile/src/components/customers/card-edges.tsx": "4ae75f0a8435",
-    "apps/mobile/src/components/customers/files.tsx": "0531c95a1f8a",
+    "apps/mobile/src/components/customers/files.tsx": "4b329868904a",
     "apps/mobile/src/components/customers/funnel-card.tsx": "83638a313ac2",
     "apps/mobile/src/components/customers/partner-card.tsx": "1436d5ed4d05",
     "apps/mobile/src/components/customers/phone-call-notes.tsx": "70e95859a93c",
-    "apps/mobile/src/components/customers/record-screen.tsx": "fc0e242eff1e",
+    "apps/mobile/src/components/customers/record-screen.tsx": "239e5cb1af82",
     "apps/mobile/src/components/customers/sheets.tsx": "b1d62d48d9bb",
     "apps/mobile/src/components/customers/timeline.tsx": "e46a52d6940a",
     "apps/mobile/src/components/pipeline/bits.tsx": "a87c31659b1e",
@@ -28,11 +28,11 @@
     "apps/mobile/src/customers/contact-lines.ts": "83705fbb0234",
     "apps/mobile/src/customers/fixers.ts": "f6de8cd16c56",
     "apps/mobile/src/customers/names.ts": "49044c8b9de2",
-    "apps/mobile/src/customers/outbox.ts": "e02d9d8ab420",
+    "apps/mobile/src/customers/outbox.ts": "14d36c6e4161",
     "apps/mobile/src/customers/pick-contact.ts": "5263e1631d71",
-    "apps/mobile/src/customers/queries.ts": "3d51ec7ef271",
+    "apps/mobile/src/customers/queries.ts": "417ca3329b98",
     "apps/mobile/src/customers/use-customers.ts": "d763bc0b983a",
-    "apps/mobile/src/customers/use-record.ts": "c15e55dc868f",
+    "apps/mobile/src/customers/use-record.ts": "c72fbf32baa0",
     "apps/mobile/src/documents/card.tsx": "2ea0060711b9",
     "apps/web/src/app/app/w/[workspaceId]/customers/companies/[companyId]/page.tsx": "e18f47112dca",
     "apps/web/src/app/app/w/[workspaceId]/customers/page.tsx": "f9c068562164",
@@ -2430,9 +2430,16 @@
       "by": "camera or library on the device"
     },
     {
-      "path": "Phone customer or company → Files → uploading row",
+      "path": "Phone customer or company → Files → a file: a photo or video opens over the screen, anything else with the phone",
+      "kind": "do",
+      "file": "apps/mobile/src/components/customers/files.tsx:72",
+      "covered": "yes",
+      "by": "get_record_details Files card: each file opens on its record’s Files tab (?file=)"
+    },
+    {
+      "path": "Phone customer or company → Files → uploading row, until its file lands",
       "kind": "see",
-      "file": "apps/mobile/src/components/customers/files.tsx:61",
+      "file": "apps/mobile/src/components/customers/files.tsx:117",
       "covered": "person",
       "by": "the person's own upload"
     },
