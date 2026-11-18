@@ -11,6 +11,7 @@
 import {
   addDays,
   automationSettingsOf,
+  bookingEmbedSnippet,
   byLead,
   CALENDAR_COLORS,
   depositInvoiceOf,
@@ -190,6 +191,8 @@ interface CalendarFull {
     sections: { key: string; name: string; summary: string }[];
     bookingPath: string | null;
     permanentPath: string;
+    /** The sites allowed to show its booking page inside them (Booking link → Embed). */
+    embedOrigins: string[];
     config: CalendarConfig;
     issues: {
       code: string;
@@ -767,6 +770,22 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
           bookingLink: calendar.bookingPath ?? calendar.permanentPath,
           linkThatNeverChanges: calendar.permanentPath,
           customersCanBookOnline: c.public,
+          // Booking link → Embed: the code for their own website (written out whole, like the link) and where it shows.
+          ...(calendar.bookingPath
+            ? {
+                embedCode: bookingEmbedSnippet({
+                  bookingUrl: calendar.bookingPath,
+                  appOrigin: '',
+                  name: calendar.name,
+                }),
+                embedNote:
+                  'The embed code shows the calendar only on the sites in sitesAllowedToShowIt (do_calendar_set_embed_sites embedOrigins sets the whole list); anywhere else it is a blank box.',
+              }
+            : {
+                embedNote:
+                  'It gets embed code once the booking site is set up (update_booking_site), since the code is built from its booking link.',
+              }),
+          sitesAllowedToShowIt: calendar.embedOrigins,
           books: c.schedule.mode === 'sessions' ? 'fixed_sessions' : 'open_hours',
           timeZone: tz,
           timeZoneIs: calendar.ownTimezone ? 'its own' : 'the business’s',

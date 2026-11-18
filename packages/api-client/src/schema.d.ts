@@ -1937,6 +1937,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/calendar.set_embed_sites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set the websites allowed to show a calendar’s booking page inside them (the embed). An empty list means it is shown on no other site; the booking link works either way.
+         * @description Risk level 1. Requires calendars.manage. Emits calendar.embed_sites_changed.
+         */
+        post: operations["command_calendar_set_embed_sites"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/calendar.set_slug": {
         parameters: {
             query?: never;
@@ -31728,6 +31748,40 @@ export interface operations {
                             readonly tags: string[];
                         };
                         revision: number;
+                    };
+                };
+            };
+        };
+    };
+    command_calendar_set_embed_sites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    calendarId: string;
+                    embedOrigins: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        calendarId: string;
+                        embedOrigins: string[];
                     };
                 };
             };
@@ -77019,6 +77073,7 @@ export interface operations {
                                 };
                             };
                             description: string | null;
+                            embedOrigins: string[];
                             howItWorks: string[];
                             /** Format: uuid */
                             id: string;

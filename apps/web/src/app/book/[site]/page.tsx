@@ -1,8 +1,10 @@
+import { BUSINESS_PAGE_WORDS } from '@hfos/core';
 import { ChevronRight, Globe } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { BusinessPage } from '@/components/booking/business-page';
-import { BookingOff, PublicState } from '@/components/booking/public-shell';
+import { BookingOff, Byline, PublicFrame, PublicState } from '@/components/booking/public-shell';
 import { ViewerTimesIn } from '@/components/booking/viewer-zone';
 import { getSite, pageData } from '@/lib/api/public-booking';
 import { requestOrigin } from '@/lib/hosting/request-origin';
@@ -25,10 +27,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: { absolute: `Book online · ${data.business.name}` } };
 }
 
-/** The business's public calendars, or its simple page when it has one on. */
+/**
+ * The business's public calendars, or its simple page when it has one on: under its name and phone, with "Made with
+ * HandsFreeOS" under the simple page and "Booking by HandsFreeOS" under the list.
+ */
 export default async function BookingSitePage({ params }: Props) {
   const { site } = await params;
   const data = await siteData(site);
+  return (
+    <PublicFrame
+      business={data.business}
+      footer={<Byline words={data.page ? BUSINESS_PAGE_WORDS.byline : undefined} />}
+    >
+      {siteContent(data)}
+    </PublicFrame>
+  );
+}
+
+function siteContent(data: Awaited<ReturnType<typeof siteData>>): ReactNode {
   if (data.page)
     return (
       <main className="mx-auto flex w-full max-w-[640px] flex-1 flex-col px-4 py-6 md:py-10">

@@ -1,7 +1,8 @@
 /**
- * A stand-in business website for the website chat specs: `node e2e/fixtures/chat-site.mjs <port>`. Playwright
- * serves one on 127.0.0.1:4191 (a site the widget allows) and one on 127.0.0.1:4192 (a site it doesn't). They're on
- * 127.0.0.1, a different site from the app's localhost, so the chat window runs as a third party, as on a real site.
+ * A stand-in business website for the website chat specs, and for a calendar's embed (booking-embed.spec.ts):
+ * `node e2e/fixtures/chat-site.mjs <port>`. Playwright serves one on 127.0.0.1:4191 (a site the widget or calendar
+ * allows) and one on 127.0.0.1:4192 (a site it doesn't). They're on 127.0.0.1, a different site from the app's
+ * localhost, so the chat window and the calendar run as a third party, as on a real site.
  *
  * Every page pastes the snippet it's given (?snippet=) before </body>, exactly as a business would. Only our own
  * snippet's shape is accepted, so a link can't make the page run anything else. Any path works
@@ -15,6 +16,9 @@ if (!Number.isInteger(port) || port < 1 || port > 65535)
 
 const SNIPPET =
   /^<script async src="http:\/\/localhost:3000\/embed\/v1\/wk_[A-Za-z0-9]{20}\.js(\?[^"<>]*)?"><\/script>$/;
+/** A calendar's embed (its Booking link → Embed): the booking page in a frame, and the line that fits the frame to it. */
+const BOOKING_SNIPPET =
+  /^<iframe src="http:\/\/localhost:3000\/book\/[a-z0-9-]+\/[a-z0-9-]+\?embed=1" title="[^"<>]*" width="100%" height="\d+" style="border:0" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"><\/iframe>\n<script src="http:\/\/localhost:3000\/embed\/v1\/book\.js" async><\/script>$/;
 
 const section = (title, text) => `<section><h2>${title}</h2><p>${text}</p></section>`;
 
@@ -61,7 +65,7 @@ createServer((req, res) => {
   }
   const snippet = url.searchParams.get('snippet') ?? '';
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
-  res.end(page(SNIPPET.test(snippet) ? snippet : ''));
+  res.end(page(SNIPPET.test(snippet) || BOOKING_SNIPPET.test(snippet) ? snippet : ''));
 }).listen(port, '127.0.0.1', () => {
   console.log(`Chat test site at http://127.0.0.1:${port}`);
 });

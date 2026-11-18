@@ -146,6 +146,8 @@ Drafts stay valid, so nothing about publishing changes.
 
 Embedding is an iframe with `?embed=1` and one script line (`/embed/v1/form.js`, `lib/forms/embed-script.ts`): the
 page drops our frame and padding, says how tall it is whenever that changes, and the script fits the iframe to it. A
+calendar's embed (its Booking link → **Embed**, "A calendar on the business's own website" in `docs/operations.md`)
+loads the same script as `/embed/v1/book.js`, with its own sites list on the calendar. A
 snippet pasted before the script existed keeps its fixed height. The sites list takes sites typed any way and adds
 each one's `www` twin, as the website chat's does (`normalizeChatOrigins`).
 

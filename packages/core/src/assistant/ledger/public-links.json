@@ -1,7 +1,7 @@
 {
   "area": "public-links",
   "title": "Every link a business gives out, and the public pages behind them",
-  "checkedOn": "2026-11-13",
+  "checkedOn": "2026-11-18",
   "files": {
     "apps/web/src/addons/realestate/portal/bits.tsx": "d7b704452b09",
     "apps/web/src/addons/realestate/portal/home-panel.tsx": "94db9d871e1e",
@@ -9,10 +9,9 @@
     "apps/web/src/addons/realestate/portal/pages.tsx": "ee125e35ca09",
     "apps/web/src/addons/realestate/public/pages.tsx": "a1f276e85386",
     "apps/web/src/app/a/[site]/[addonId]/[...path]/page.tsx": "580e89c8734c",
-    "apps/web/src/app/book/[site]/[calendar]/page.tsx": "1292c380ada6",
-    "apps/web/src/app/book/[site]/layout.tsx": "9b0940e45cb3",
-    "apps/web/src/app/book/[site]/page.tsx": "0b2fcf68ec59",
-    "apps/web/src/app/book/c/[id]/page.tsx": "e3a3aab3991b",
+    "apps/web/src/app/book/[site]/[calendar]/page.tsx": "7edde9053196",
+    "apps/web/src/app/book/[site]/page.tsx": "2aa66e8e2004",
+    "apps/web/src/app/book/c/[id]/page.tsx": "ab0ff6351f2b",
     "apps/web/src/app/book/not-found.tsx": "e0c56c21c68b",
     "apps/web/src/app/c/[token]/a/[addonId]/[[...path]]/page.tsx": "600fc21dd8c3",
     "apps/web/src/app/c/[token]/documents/page.tsx": "eb7f06918b07",
@@ -42,11 +41,12 @@
     "apps/web/src/app/w/[token]/page.tsx": "7ac808f82975",
     "apps/web/src/components/admin/accept-support-invite.tsx": "715e026544a0",
     "apps/web/src/components/booking/add-to-calendar.tsx": "b1fe85e88a23",
-    "apps/web/src/components/booking/booked-panel.tsx": "ba7140c83423",
-    "apps/web/src/components/booking/booking-flow.tsx": "6dc887f5bc67",
+    "apps/web/src/components/booking/booked-panel.tsx": "ff76fb3f55d0",
+    "apps/web/src/components/booking/booking-flow.tsx": "b2f7a2b6f9a6",
     "apps/web/src/components/booking/business-page.tsx": "2638ffe26ea9",
     "apps/web/src/components/booking/chat-button.tsx": "2eb031ad5c0b",
-    "apps/web/src/components/booking/deposit-pay.tsx": "83a3d97bd2b1",
+    "apps/web/src/components/booking/deposit-pay.tsx": "2e65d379e63e",
+    "apps/web/src/components/booking/embedded.tsx": "e18f3b9c20ae",
     "apps/web/src/components/booking/hold-page.tsx": "03f38595271e",
     "apps/web/src/components/booking/join-session.tsx": "5106dc9cc988",
     "apps/web/src/components/booking/manage-booking.tsx": "8c2bab34c5e9",
@@ -154,7 +154,7 @@
     {
       "path": "Booking site → website chat script on the page",
       "kind": "see",
-      "file": "apps/web/src/app/book/[site]/layout.tsx:37",
+      "file": "apps/web/src/app/book/[site]/page.tsx:58",
       "covered": "yes",
       "by": "get_settings website_chat: each chat’s snippet, whole; a new key’s snippet in do_chat_widget_rotate_key’s outcome"
     },
@@ -255,6 +255,20 @@
       "file": "apps/web/src/app/book/[site]/[calendar]/page.tsx:1",
       "covered": "no",
       "by": "no tool builds a service-preselected link"
+    },
+    {
+      "path": "Calendar page → ?embed=1 on the business’s own website (no header, fits its box, light)",
+      "kind": "see",
+      "file": "apps/web/src/app/book/[site]/[calendar]/page.tsx:72",
+      "covered": "yes",
+      "by": "get_calendar_settings embedCode and sitesAllowedToShowIt"
+    },
+    {
+      "path": "Calendar page, embedded → paying a deposit opens the payment page in a new tab",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:303",
+      "covered": "person",
+      "by": "the customer pays on the provider’s page"
     },
     {
       "path": "Calendar page → ?ref partner credit",

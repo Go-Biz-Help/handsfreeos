@@ -222,6 +222,7 @@ export const calendarGet = defineQuery({
         ...summary(row!, zone, site, await upcomingCounts(ctx.tx, ws)),
         config: calendar.config,
         ownTimezone: calendar.ownTimezone,
+        embedOrigins: row!.embedOrigins,
         issues,
         howItWorks: describeCalendar(calendar.config, catalogs),
         sections: CALENDAR_SECTIONS.map((s) => ({

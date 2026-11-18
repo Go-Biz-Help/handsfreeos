@@ -90,6 +90,7 @@ import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { usePublicOrigin } from '@/lib/use-origin';
 import { cn } from '@/lib/utils';
 import { CalendarDot, CalendarStatusBadge, LabelChips } from './chips';
+import { CalendarEmbed } from './embed-dialog';
 import { HistorySheet } from './history-sheet';
 import { ImpactDialog } from './impact-dialog';
 import { ModuleForm, type BuilderPayments, type BuilderPerson } from './modules';
@@ -657,6 +658,14 @@ export function CalendarBuilder(props: BuilderProps) {
                 <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
                 Open
               </a>
+              <CalendarEmbed
+                workspaceId={workspaceId}
+                calendarId={calendar.id}
+                calendarName={calendar.name}
+                bookingUrl={calendar.bookingPath ? `${origin}${calendar.bookingPath}` : null}
+                embedOrigins={calendar.embedOrigins}
+                bookingSiteHref={`${base}/calendars/booking-site`}
+              />
             </div>
             <p className="mt-1.5 text-[12.5px] text-text-3">
               {calendar.bookingPath

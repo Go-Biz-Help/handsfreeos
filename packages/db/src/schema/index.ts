@@ -2347,6 +2347,11 @@ export const calendars = app.table('calendars', {
   /** null: the workspace's zone. */
   timezone: text('timezone'),
   createdBy: userRef('created_by'),
+  /** The sites allowed to frame its booking page (20261027029300). Empty: embedded nowhere. */
+  embedOrigins: text('embed_origins')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
   ...timestamps(),
 });
 
