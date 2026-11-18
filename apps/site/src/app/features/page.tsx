@@ -22,8 +22,8 @@ import { freeTrial, moneyBack, spotPrices, urls } from '@/content/site';
 const automationCount = automationGroups.reduce((sum, group) => sum + group.items.length, 0);
 
 export const metadata: Metadata = {
-  title: 'What it does: AI answering, CRM and invoicing',
-  description: `AI that answers and calls leads, one inbox, online booking, quotes and invoices, video calls, webinars, campaigns, forms and ${automationCount} automations, on one plan.`,
+  title: 'Features: AI employees, CRM and invoicing',
+  description: `AI employees that answer and call leads, a CRM that fills itself in, booking, quotes, invoices, video calls, webinars and ${automationCount} automations, on one plan.`,
   alternates: { canonical: '/features' },
 };
 
@@ -65,7 +65,7 @@ export default function FeaturesPage() {
     <>
       <Container className="py-16 sm:py-20">
         <SectionHeading
-          sub="Ten apps’ worth, in one system that notices what needs doing, does it, and brings you in when it matters. It answers, books, quotes, chases, meets and markets, and keeps every record current on its own."
+          sub={`Your AI Business Operating System: ten apps’ worth in one system, and an AI team that notices what needs doing, does it, and brings you in when it matters. An AI teammate answers and calls your customers, the Assistant does what you ask, and ${automationCount} automations follow up on their own.`}
           as="h1"
         >
           Everything HandsFreeOS does, so you don&rsquo;t have to.
@@ -74,7 +74,7 @@ export default function FeaturesPage() {
         <ul className="mt-8 flex flex-wrap gap-x-8 gap-y-3 text-base">
           {[
             { strong: String(automationCount), rest: 'automations, each with its own switch' },
-            { strong: 'One AI', rest: 'across every part, asking first' },
+            { strong: 'One AI team', rest: 'across every part, asking first' },
             { strong: 'One plan', rest: 'with every feature and unlimited people' },
           ].map((item) => (
             <li key={item.rest} className="text-text-2">

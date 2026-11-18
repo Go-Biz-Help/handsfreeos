@@ -44,10 +44,11 @@ export default function AppPage() {
               It stays in your pocket until something needs you.
             </h1>
             <p className="text-text-2 mt-6 text-lg">
-              HandsFreeOS answers, books and chases on its own, and taps you on the shoulder when it
-              is your turn. Then the whole business is right there — and not as a website in a
-              wrapper. Everything can be read and changed with no signal at all, in a basement, in a
-              crawlspace, an hour out of town, and catches up the moment you have bars again.
+              HandsFreeOS&rsquo;s AI employees answer, book and chase on their own, and tap you on
+              the shoulder when it is your turn. Then the whole business is right there — and not as
+              a website in a wrapper. Everything can be read and changed with no signal at all, in a
+              basement, in a crawlspace, an hour out of town, and catches up the moment you have
+              bars again.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button href={urls.signUp} size="lg">

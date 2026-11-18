@@ -43,6 +43,13 @@ They are deployed as **two separate Vercel projects** so a copy change never reb
     `chatScript` only for another widget of that workspace.
   - `/terms` and `/support` — Microsoft's publisher verification and Apple's support URL.
     `docs/operations.md` points reviewers at these; change one and check that guide still matches.
+- **HandsFreeOS is sold as an AI Business Operating System** (the owner, 2026-11-18): one system for the customer side
+  of a business, with AI employees that do the work rather than wait for someone to type it in. Lead with that;
+  keep "CRM" where it helps search and where it means the customer records. Every AI employee the copy names must be
+  something the product does today: the AI teammate (answers and calls), the Assistant, and the automations.
+- **The home page's headline rotates** (`components/rotating-headline.tsx`): "The AI Business OS" holds still and
+  the owner's six reasons are written in after it, in their order, by a thin glowing line, never a solid bar. The
+  first reason is the one in the HTML, the box is two lines tall at every width, and reduced motion fades instead.
 - **The home page's `<title>`, `<h1>` and share title all start with `HandsFreeOS`**, written
   exactly so, unlike every other page's title. Google's OAuth review checks them against the
   consent screen's app name, and flagged a mismatch while the name came last.
