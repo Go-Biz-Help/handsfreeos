@@ -1272,6 +1272,17 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### A reel's comments' box found when it's an input with no type (0.147.13)
+
+On 0.147.11 a comment on a reel of 18 Nov 2026 stopped at "couldn’t find the post’s own box to comment in". Its
+problem report's outline showed the reels player with the reel's Comment pressed (open) and its comments drawn in a
+box over the page, ending in "Add a comment…": an input beside Emoji, in no form, where the post's page has a textarea
+in its form. The boxes `boxesSaying` looks through (`src/networks/looking/looks.ts`) took an input only when it says
+it's a text box (`type="text"`), though an input with no type is one too. The outline doesn't show an input's type, so
+that's the likely cause rather than a sure one. From 0.147.13 an input with no type counts, as the reader's own count
+of boxes already did, on every network. Post shows beside the box once something's written, and is found there as
+before. If a reel's comment still stops there on 0.147.13, the box was found and its Post wasn't.
+
 ### LinkedIn posts keep their blank lines, typed in again (0.147.12)
 
 The owner's Content Creator posts on LinkedIn still went up with no blank lines after 0.141.5 (18 Nov 2026: "linkedin
