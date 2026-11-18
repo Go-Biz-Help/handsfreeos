@@ -510,15 +510,23 @@ export function textingRejectedEmail(input: {
   link: string;
   /** False when the business has no working number yet, so there are no calls to keep working. */
   calls?: boolean;
+  /** The carriers had approved it and took that back (a suspension), so texts that worked have stopped. */
+  stopped?: boolean;
 }): EmailContent {
   const calls = input.calls ?? true;
-  const subject = `The carriers need a change before ${input.business} can text`;
+  const subject = input.stopped
+    ? `Texting stopped for ${input.business}`
+    : `The carriers need a change before ${input.business} can text`;
   const reason = input.reason ? `Their reason: “${input.reason}”` : 'They did not give a reason.';
-  const text = `The carriers turned down the texting registration for ${input.business}. ${reason}\n\nFix it and send it again: ${input.link}${calls ? '\n\nCalls keep working in the meantime.' : ''}`;
+  const what = input.stopped
+    ? `The carriers took back their approval of the texting registration for ${input.business}, so its texts can’t go out.`
+    : `The carriers turned down the texting registration for ${input.business}.`;
+  const whatHtml = input.stopped
+    ? `The carriers took back their approval of the texting registration for <strong>${escapeHtml(input.business)}</strong>, so its texts can’t go out.`
+    : `The carriers turned down the texting registration for <strong>${escapeHtml(input.business)}</strong>.`;
+  const text = `${what} ${reason}\n\nFix it and send it again: ${input.link}${calls ? '\n\nCalls keep working in the meantime.' : ''}`;
   const html = shell(
-    para(
-      `The carriers turned down the texting registration for <strong>${escapeHtml(input.business)}</strong>.`,
-    ) +
+    para(whatHtml) +
       para(escapeHtml(reason)) +
       button(input.link, 'Fix and send again') +
       (calls ? small('Calls keep working in the meantime.') : ''),

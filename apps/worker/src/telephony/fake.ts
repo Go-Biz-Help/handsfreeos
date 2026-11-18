@@ -102,6 +102,10 @@ export interface FakeTelephony extends TelephonyProvider {
   }[];
   /** Registration steps in the order they were submitted. */
   readonly registrations: RegistrationRequest[];
+  /** Registration kinds the "carrier" keeps in review, however long they've waited, until a test lets them go. */
+  readonly holding: Set<RegistrationKind>;
+  /** Approved registrations the "carrier" took back (a suspension), by sid. */
+  readonly suspended: Set<string>;
   /** Ports asked for, in order, and the papers put on them. */
   readonly ports: PortRequest[];
   readonly portDocuments: { portSid: string; name: string }[];
@@ -233,6 +237,8 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
   const redirected: { callSid: string; twiml: string }[] = [];
   const streamed: { callSid: string; url: string; params: Readonly<Record<string, string>> }[] = [];
   const registrations: RegistrationRequest[] = [];
+  const holding = new Set<RegistrationKind>();
+  const suspended = new Set<string>();
   const deleted: string[] = [];
   const transcribed: string[] = [];
   const closedAccounts: string[] = [];
@@ -539,6 +545,8 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     redirected,
     streamed,
     registrations,
+    holding,
+    suspended,
     ports,
     portDocuments,
     portsCancelled,
@@ -919,10 +927,17 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
         rejectionReason: null,
       };
     },
-    async fetchRegistration(_account, { providerSid }) {
+    async fetchRegistration(_account, { kind, providerSid }) {
       const r = regs.get(providerSid);
+      if (suspended.has(providerSid))
+        return {
+          providerSid,
+          providerStatus: 'SUSPENDED',
+          status: 'rejected',
+          rejectionReason: 'The carriers suspended this registration.',
+        };
       // A restarted fake forgets its registrations; treat those as approved.
-      if (r && Date.now() - r.at < opts.approvalMs)
+      if (holding.has(kind) || (r && Date.now() - r.at < opts.approvalMs))
         return {
           providerSid,
           providerStatus: 'IN_REVIEW',

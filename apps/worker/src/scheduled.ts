@@ -106,6 +106,12 @@ import { portJobs } from './telephony/ports';
 import { importJobs } from './telephony/imports';
 import { phoneAccountJobs } from './telephony/account-switch';
 import { rcsJobs } from './telephony/rcs';
+import {
+  REGISTRATION_CHECK_JOBS,
+  REGISTRATION_FIRST_SWEEP_MS,
+  REGISTRATION_SWEEP_KEY,
+  registrationCheckJobs,
+} from './telephony/registration-check';
 import { META_JOBS, META_PLAN_KEY, metaJobs } from './social/jobs';
 import { META_LEAD_JOBS, META_LEADS_PLAN_KEY, metaLeadJobs } from './social/leads';
 import { ATTENDANCE_JOB, ATTENDANCE_KEY, attendanceClose } from './booking/attendance';
@@ -550,6 +556,9 @@ export const jobs: JobMap = {
   ...SUPPORT_JOBS,
   'conversation.unanswered_check': unansweredCheck,
   'registration.poll': registrationPoll,
+  // Every three hours, each business's texting registration looked at again: a stopped check started, and an
+  // approval the carriers took back noticed (telephony/registration-check.ts).
+  ...registrationCheckJobs,
   // Moving a number a business already owns to us: sending it, asking the carrier, calling it off (M17).
   ...portJobs,
   ...importJobs,
@@ -732,6 +741,16 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
       kind: 'webhook_deliveries.sweep',
       dedupeKey: 'sweep:webhook_deliveries',
       runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Every three hours, from five minutes after the start: each business's texting registration looked at again
+    // (telephony/registration-check.ts).
+    await scheduleJob(tx, {
+      kind: REGISTRATION_CHECK_JOBS.sweep,
+      dedupeKey: REGISTRATION_SWEEP_KEY,
+      runAt: new Date(Date.now() + REGISTRATION_FIRST_SWEEP_MS),
       payload: {},
       workspaceId: null,
       organizationId: null,
