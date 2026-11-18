@@ -408,6 +408,8 @@ const CAMPAIGN_STATUS: StatusMap = {
   IN_PROGRESS: 'in_review',
   VERIFIED: 'approved',
   FAILED: 'rejected',
+  // Rare, and can come after approval (on its own or with its brand): texts then fail with 30033.
+  SUSPENDED: 'rejected',
 };
 
 /** Twilio's policies for a secondary (client) customer profile and for the A2P messaging trust product. */

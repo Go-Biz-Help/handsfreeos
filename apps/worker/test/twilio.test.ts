@@ -675,6 +675,10 @@ describe('local numbers (10DLC)', () => {
         /^GET messaging\.twilio\.com\/v1\/Services\/MGservicetest\/Compliance\/Usa2p\/QEcampaigntest$/,
         () => ({ json: { sid: 'QEcampaigntest', campaign_status: 'VERIFIED' } }),
       ],
+      [
+        /^GET messaging\.twilio\.com\/v1\/Services\/MGservicetest\/Compliance\/Usa2p\/QEsuspendedtest$/,
+        () => ({ json: { sid: 'QEsuspendedtest', campaign_status: 'SUSPENDED' } }),
+      ],
     ]);
     const t = createTwilioTelephony({ ...MASTER, primaryProfileSid: 'BUprimarytest' });
 
@@ -752,6 +756,13 @@ describe('local numbers (10DLC)', () => {
     ).toMatchObject({
       providerStatus: 'VERIFIED',
       status: 'approved',
+    });
+    // A campaign the carriers suspended, even after approving it, reads as turned down: its texts fail (30033).
+    expect(
+      await t.fetchRegistration(account, { kind: 'a2p_campaign', providerSid: 'QEsuspendedtest' }),
+    ).toMatchObject({
+      providerStatus: 'SUSPENDED',
+      status: 'rejected',
     });
   });
 });

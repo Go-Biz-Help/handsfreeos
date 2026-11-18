@@ -4538,13 +4538,15 @@ Everything is sent from the client's own subaccount:
 While a registration is in review:
 
 - Calls already work. Texts are blocked in the app with "Texting turns on when the carriers approve your registration." An unverified toll-free number can't text US or Canadian phones at all (Twilio error 30032).
-- The worker asks Twilio for news every 15 minutes. The page says "We check every 15 minutes and email you when texting is on. Calls already work."
+- The worker asks Twilio for news every 15 minutes. The page says "We check every 15 minutes and email you when texting is on. Calls already work." Twilio sends no webhook for a brand or a campaign, so this check is how HandsFreeOS hears, and nothing waits on an email from Twilio. Twilio's own emails go to the notification email on the registration (the contact email the client gave), not to HandsFreeOS.
+- Every three hours a backup check (`registration.sweep`, then a `registration.check` for each business) looks again. If a 15-minute check stopped for good (five failed tries in a row, for example during a Twilio outage or while a token was refused), it starts it again, and it sends a step that is ready but never went. It also asks Twilio about every approved brand, campaign and toll-free verification (see "Approval taken back" below). The businesses it looks at come from `private.registrations_to_check()`.
 - The client can't change anything: "The carriers are still reviewing this registration, so it can’t change yet. Owners and admins get an email when they answer, and you can send changes then."
 
 When the carriers answer, the workspace's owners and admins get an email:
 
 - Approved: "Texting is on for {business}", linking to the inbox. The page then shows **Calls ready** and **Texting approved**.
 - Turned down: "The carriers need a change before {business} can text", linking to **Texting & calls**. The page shows "The carriers turned down the texting registration." with the carriers' reason under "Their reason". If the reason is about consent, it offers a line to copy onto the client's website form. The client corrects the details with **Fix and send again** (see below for what that does at Twilio).
+- Approval taken back: "Texting stopped for {business}". The backup check found an approved brand, campaign or toll-free verification that Twilio now reports as suspended or failed (a suspended campaign's texts fail with error 30033). The registration shows as turned down, with the carriers' reason, and the client fixes it the same way. A suspended brand needs Twilio Support. A status the worker doesn't recognize never moves an approved step back.
 
 Some messages come from HandsFreeOS itself, not the carriers. They show the same "turned down" screen, but only on the page. No email goes out for them:
 

@@ -369,7 +369,7 @@ export const onNumberArrived: EventHandler = async (ctx) => {
 /** Owners and admins hear when texting turns on, or when the carriers want a change; a hidden chat comes back on. */
 export const onRegistrationStatusChanged: EventHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
-  const p = ctx.event.payload as { kind?: string; to?: string };
+  const p = ctx.event.payload as { kind?: string; from?: string; to?: string };
   const final = p.kind === 'toll_free_verification' || p.kind === 'a2p_campaign';
   if (!(p.to === 'rejected' || (p.to === 'approved' && final))) return;
   // A chat hidden until texting is approved (2026-11-12) comes back on now.
@@ -409,6 +409,8 @@ export const onRegistrationStatusChanged: EventHandler = async (ctx) => {
       calls: !!number,
       reason: reg?.reason ?? null,
       link: `${ctx.webUrl}/app/w/${scope.workspaceId}/settings/texting`,
+      // Approved before, and taken back since (registration-check.ts found it suspended).
+      stopped: p.from === 'approved',
     });
   }
   for (const r of recipients) await ctx.mailer.send({ to: r.email, ...mail });
