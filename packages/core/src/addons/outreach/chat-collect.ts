@@ -51,9 +51,44 @@ export const ChatsCollectOutput = z.object({
 });
 export type ChatsCollectOutput = z.output<typeof ChatsCollectOutput>;
 
+/** The line Messenger puts under the person's last message: "Sent 33m ago", "Seen 2h ago", "Delivered". */
+export const STATUS_LINE = /^(?:sent|seen|delivered)(?: by .+| just now| \d+\s*[a-z]+ ago)?$/i;
+/** Facebook's own line at the top of an encrypted chat, which nobody in it wrote. */
+const ENCRYPTED = /^(?:new )?messages and calls are secured with end-to-end encryption\b/i;
+/**
+ * A message of the person's with no words in it, only Messenger's line under it: a picture, a sticker, a like or a
+ * file. It stays, as this, so their chat still ends with them and nothing of theirs is answered twice.
+ */
+export const WORDLESS = '(a picture, sticker or file)';
+
+/**
+ * What a message says, without what Messenger says about it. An extension before 0.147.8 read the line under the
+ * person's last message ("Sent 33m ago") as part of it, so the same message came in with new words at each read and
+ * was kept again (the owner's screenshots, 17 Nov 2026), and Facebook's line about an encrypted chat as theirs. A
+ * message of the person's that was only that line is `WORDLESS`; Facebook's line about encryption is nothing.
+ */
+export function withoutStatus(text: string, fromMe: boolean): string {
+  const lines = text.trim().split('\n');
+  let status = false;
+  while (lines.length && STATUS_LINE.test(lines.at(-1)!.trim())) {
+    lines.pop();
+    status = true;
+  }
+  const said = lines.join('\n').trim();
+  if (!said) return status && fromMe ? WORDLESS : '';
+  return ENCRYPTED.test(said) ? '' : said;
+}
+
 /** A message as two reads of a chat compare it: who wrote it and its words, whatever time each read gave it. */
 const keyOf = (m: Pick<DownloadMessage, 'fromMe' | 'text'>): string =>
-  `${m.fromMe ? 'me' : 'them'}:${m.text.replace(/\s+/g, ' ').trim()}`;
+  `${m.fromMe ? 'me' : 'them'}:${withoutStatus(m.text, m.fromMe).replace(/\s+/g, ' ').trim()}`;
+
+/** Messages with what Messenger says about them left off (`withoutStatus`), and Facebook's own left out. */
+const saidOnly = (messages: readonly DownloadMessage[]): DownloadMessage[] =>
+  messages.flatMap((m) => {
+    const text = withoutStatus(m.text, m.fromMe);
+    return !text ? [] : text === m.text ? [m] : [{ ...m, text }];
+  });
 
 /**
  * What was kept and what's new, the latest few, oldest first, each once. The same message read again is known by who
@@ -63,11 +98,14 @@ const keyOf = (m: Pick<DownloadMessage, 'fromMe' | 'text'>): string =>
  * screenshot, 17 Nov 2026). A read is the chat in order, so its messages are matched to those kept in order, the most
  * that line up, and a message said twice in the chat stays twice. One kept keeps its time; a new one goes where the
  * page put it, its time kept between those around it, and the ones kept and read between two matched fall in by time.
+ * What Messenger says about a message is left off it (`withoutStatus`).
  */
 export function mergeRecent(
-  kept: readonly DownloadMessage[],
-  read: readonly DownloadMessage[],
+  keptAsIs: readonly DownloadMessage[],
+  readAsIs: readonly DownloadMessage[],
 ): DownloadMessage[] {
+  const kept = saidOnly(keptAsIs);
+  const read = saidOnly(readAsIs);
   const k = kept.map(keyOf);
   const r = read.map(keyOf);
   // The longest run of messages both have in the same order, worked out from the end.

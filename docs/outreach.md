@@ -179,8 +179,11 @@ became.
   (`chat-collect.ts`, `outreach.chats.collect`), and are read the same way. A message read again is the same one by who
   wrote it and its words, matched in order with those kept, never by its time (`mergeRecent`): Instagram's messages show
   none, so a read gives them the time the chat's row says, which moves on, and other networks' shift as a page scrolls.
-  Kept by time, one message sent once came back with each read (17 Nov 2026; migration 028600 took out the copies). A chat read live keeps its Messenger
-  thread, so the Chats tab can **Open in Messenger**.
+  Kept by time, one message sent once came back with each read (17 Nov 2026; migration 028600 took out the copies).
+  What Messenger says under the person's last message ("Sent 33m ago") and its line about an encrypted chat are left
+  off (`withoutStatus`, extension 0.147.8): read as words, they made the same message new at each read (migration
+  028800 took those copies out). One of the person's with only that line is a picture, sticker or file, kept as such so
+  the chat still ends with them. A chat read live keeps its Messenger thread, so the Chats tab can **Open in Messenger**.
 - **Groups** (`/a/outreach?view=groups`, step 4): the groups the extension saved, each scored against the playbooks
   in use as **Work these**, **Maybe** or **Skip**, with why: a playbook's words to search for groups, its area or a
   quoted sign in the name, size, and whether the person is in it (`groups.ts`). The tab's buttons ask the person's
