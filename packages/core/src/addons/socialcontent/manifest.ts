@@ -180,8 +180,8 @@ export const socialcontentAddon = defineAddon({
   ],
   // $47 a month for the whole business, after 14 days free (the owner's pick, 2026-11-17).
   billing: { model: 'paid', monthlyCents: 4700, trialDays: ADDON_TRIAL_DAYS },
-  // The business's main offer and its lists for content (docs/main-offer.md, "For your content"): every post and idea
-  // is written from them, and none until the offer is live (the owner's picks, 11 Nov 2026).
+  // The business's main offer and its lists for content (docs/main-offer.md, "For your posts and messages"): every post
+  // and idea is written from them, and none until the offer is live (the owner's picks, 11 Nov 2026).
   uses: ['main_offer'],
   ui: {
     // Its pages in the side menu, which pop out from its one row (the owner's decision, 2026-10-09).

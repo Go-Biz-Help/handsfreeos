@@ -1,9 +1,9 @@
 /**
- * The main offer's lists for content (docs/main-offer.md, "For your content"; the owner, 11 Nov 2026): what makes the
- * business different, its features and benefits, its customers' problems and questions, and more, that the AI Social
- * Media Content Creator writes every post and idea from. Each list is a few lines the person writes with the AI's
- * help: Write it for me fills an empty one, Improve rewrites a line three ways, Examples shows lines to model for the
- * business's line of work, and What's missing says which lists are thin.
+ * The main offer's lists for content (docs/main-offer.md, "For your posts and messages"; the owner, 11 Nov 2026): what
+ * makes the business different, its features and benefits, its customers' problems and questions, and more, that the AI
+ * Social Media Content Creator writes every post and idea from. Each list is a few lines the person writes with the
+ * AI's help: Write it for me fills an empty one, Improve rewrites a line three ways, Examples shows lines to model for
+ * the business's line of work, and What's missing says which lists are thin.
  *
  * They aren't scored or versioned and never hold the offer back from going live: like the names, each saves as it
  * is (`main_offer.save_list`). The AI never writes the business's results: those stay the offer's proof.
@@ -410,8 +410,8 @@ export function leftAfterAdding(options: readonly string[], picked: readonly str
 // ------------------------------------------------------------------------------------------------ the page's words
 
 export const MAIN_OFFER_LISTS_WORDS = {
-  title: 'For your content',
-  hint: 'Short lists the AI writes your posts and ideas from. Fill them in with the AI’s help: they save as you go, and never hold your offer back from going live.',
+  title: 'For your posts and messages',
+  hint: 'Short lists the AI writes your posts, ideas and outreach messages from. Fill them in with the AI’s help: they save as you go, and never hold your offer back from going live.',
   filled: (n: number, of: number) => (n ? `${n} of ${of} lists filled in.` : 'None filled in yet.'),
   lines: (n: number) => (n === 1 ? '1 line' : `${n} lines`),
   empty: 'Nothing here yet.',

@@ -428,7 +428,7 @@ export function setupSteps(f: SetupFacts, now: number): SetupStep[] {
                 key: 'write',
                 state: 'waiting',
                 title: 'Writing your posts',
-                line: `Waits for For your content in Settings → Main offer: ${f.listsFilled} of ${f.listsAll} lists filled.`,
+                line: `Waits for For your posts and messages in Settings → Main offer: ${f.listsFilled} of ${f.listsAll} lists filled.`,
                 fix: 'main-offer-lists',
               }
             : waits === 'playbook'

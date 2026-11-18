@@ -31,11 +31,11 @@ import { cn } from '@/lib/utils';
 type Help = { kind: 'write' | 'examples'; options: string[]; picked: string[] };
 
 /**
- * The lists for content on Settings → Main offer (docs/main-offer.md, "For your content"): what makes the business
- * different, its features and benefits, and the rest the AI Social Media Content Creator writes its posts and ideas
- * from. Each list opens to its lines, with the AI's help: Write it for me, Improve a line, Examples, and What's missing
- * across them all. Every change saves at once; they aren't scored and never hold the offer back. Owners and admins
- * change them; everyone sees them.
+ * The lists for content on Settings → Main offer (docs/main-offer.md, "For your posts and messages"): what makes the
+ * business different, its features and benefits, and the rest the AI Social Media Content Creator writes its posts and
+ * ideas from. Each list opens to its lines, with the AI's help: Write it for me, Improve a line, Examples, and What's
+ * missing across them all. Every change saves at once; they aren't scored and never hold the offer back. Owners and
+ * admins change them; everyone sees them.
  */
 export function ContentLists({
   workspaceId,

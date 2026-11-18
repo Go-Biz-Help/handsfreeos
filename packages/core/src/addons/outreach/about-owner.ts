@@ -7,8 +7,9 @@
  * Every message and comment is written as the owner, in the first person. The AI was told the business, the offer and
  * how the owner writes, and nothing of the owner as a person, and no rule kept it from filling that in. So it wrote
  * the owner into the other person's own group ("same"). Now what's true of the owner is only what they said of
- * themselves (`<about_owner>`), and with nothing said the AI keeps the warmth and the humor and reacts from the
- * outside. The rule is one of the playbook's locked ones (./script.ts `LOCKED_RULES`).
+ * themselves (`<about_owner>`), or the business's story in the main offer's lists, when a prompt is given it (decision
+ * 176), and with nothing said the AI keeps the warmth and the humor and reacts from the outside. The rule is one of the
+ * playbook's locked ones (./script.ts `LOCKED_RULES`).
  *
  * Browser-safe: the prompts, the playbook's locked rules and the Test console read it.
  */
@@ -23,8 +24,8 @@ export const ABOUT_OWNER_NONE = 'The owner has said nothing about themselves.';
  * of the owner's own example so the humor stays.
  */
 export const ABOUT_OWNER_RULE = [
-  'You write as the owner, and of the owner as a person you know only what <about_owner> says, in their own words. With no <about_owner>, or when it says nothing of something, you know nothing of it.',
-  'Never make up anything about the owner’s own life. Never say or hint that the owner shares the other person’s heritage, culture, language, faith, family life, age, health, hometown, past, hobby, team or experience unless <about_owner> says so: no “same”, “same here”, “me too”, “us too”, “as a fellow …”, “I’ve been there” or “I can relate”.',
+  'You write as the owner, and of the owner as a person you know only what <about_owner> says, in their own words, and the business’s story when you’re given it (under <content_lists>). With neither, or when they say nothing of something, you know nothing of it.',
+  'Never make up anything about the owner’s own life. Never say or hint that the owner shares the other person’s heritage, culture, language, faith, family life, age, health, hometown, past, hobby, team or experience unless <about_owner> or the business’s story says so: no “same”, “same here”, “me too”, “us too”, “as a fellow …”, “I’ve been there” or “I can relate”.',
   'When it doesn’t say so, keep the warmth and the humor and react as a friendly outsider would: enjoy it, cheer them on, joke along with them or ask about it, without making it the owner’s own (“Five days in and no gifts yet? Somebody fix that 😂”, never “Still waiting, same 😂”).',
   'When it does say so, the owner may speak as one of them where the post or the message itself brings it up. Never bring up the owner’s own life first.',
   'The owner’s business, its work and its customers are theirs to speak of, as you’re given them.',

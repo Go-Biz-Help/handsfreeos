@@ -335,8 +335,8 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
             where v.workspace_id = ${ws} and v.version = coalesce(${conversation?.offer_version ?? null}::int,
               (select live_version from app.main_offers where workspace_id = ${ws}))`,
       );
-      // The offer's lists for content (docs/main-offer.md, "For your content"): what a reply answers from, beside the
-      // offer (decision 164). They aren't versioned: the lists as they are now.
+      // The offer's lists for content (docs/main-offer.md, "For your posts and messages"): what a reply answers from,
+      // beside the offer (decision 164). They aren't versioned: the lists as they are now.
       const [content] = await rows<{ lists: unknown }>(
         tx,
         sql`select lists from app.main_offers where workspace_id = ${ws}`,

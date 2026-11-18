@@ -85,11 +85,11 @@
       "by": "socialcontent_overview (setup: the marks, niches ticked, searches and profile reads left, studied and AI-picked on each network, standouts noted, the Playbook, when it filled, the main offer live and its lists filled)"
     },
     {
-      "path": "Creators → Setting up on its own → the button beside a step that waits (owners and admins): Settings, Main offer, For your content",
+      "path": "Creators → Setting up on its own → the button beside a step that waits (owners and admins): Settings, Main offer, For your posts and messages",
       "kind": "do",
       "file": "apps/web/src/addons/socialcontent/setup-card.tsx:65",
       "covered": "yes",
-      "by": "socialcontent_save_settings (readerUserId, autoPick, autoFill), on a Confirm card; edit_main_offer for the main offer and For your content"
+      "by": "socialcontent_save_settings (readerUserId, autoPick, autoFill), on a Confirm card; edit_main_offer for the main offer and For your posts and messages"
     },
     {
       "path": "Creators → What it’s doing: whether the reading computer is there (when it last checked in, its extension’s version), or quiet",
@@ -540,11 +540,11 @@
       "by": "socialcontent_overview (setup: the marks, niches ticked, searches and profile reads left, studied and AI-picked on each network, standouts noted, the Playbook, when it filled, the main offer live and its lists filled)"
     },
     {
-      "path": "Phone → Creators → Setting up on its own → Settings, Main offer or For your content beside a step that waits (owners and admins)",
+      "path": "Phone → Creators → Setting up on its own → Settings, Main offer or For your posts and messages beside a step that waits (owners and admins)",
       "kind": "do",
       "file": "apps/mobile/src/addons/socialcontent/setup.tsx:66",
       "covered": "yes",
-      "by": "socialcontent_save_settings (readerUserId, autoPick, autoFill), on a Confirm card; edit_main_offer for the main offer and For your content"
+      "by": "socialcontent_save_settings (readerUserId, autoPick, autoFill), on a Confirm card; edit_main_offer for the main offer and For your posts and messages"
     },
     {
       "path": "Phone → Creators → What it’s doing: the reading computer, Now with its progress, how many more wait, Lately",

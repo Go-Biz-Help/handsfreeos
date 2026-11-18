@@ -230,7 +230,7 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   answer that still says video is kept as a picture post. A video post is only ever the person's own, when they pick
   Video on a post. Video drafts the AI wrote before, with no video added, are written again as picture posts on the
   same day by the next fill.
-- **The main offer comes first** (the owner's picks of 11 Nov, 4a and 7b; docs/main-offer.md, "For your content"):
+- **The main offer comes first** (the owner's picks of 11 Nov, 4a and 7b; docs/main-offer.md, "For your posts and messages"):
   the add-on declares `uses: ['main_offer']`, so Settings → Main offer comes with it. No post or idea is written until
   the offer is live, as in Social Outreach: Write a post, Write it again, Fill the calendar and Suggest ideas are
   refused (`socialcontent_offer_not_live`), the weekly top-up and the nightly ideas write nothing, and the Calendar and
@@ -351,7 +351,7 @@ The plans are pure, in core (`variety.ts`, `research-ai.ts`, the designs in `pos
 - **A kind for each post** (decision 36): of every 10, about 4 **tips**, 2 **customer problems**, 2 **stories** and 2
   about **the offer**, each the kind furthest behind its share of the last 10, never the same kind twice in a row
   (`nextAngles`). The AI is told what each kind does (`ANGLE_FOR_AI`).
-- **A topic for each post** (decision 34): a line from the main offer's For your content lists, the kind's lists
+- **A topic for each post** (decision 34): a line from the main offer's For your posts and messages lists, the kind's lists
   taking turns (`ANGLE_LISTS`), a list with a line not used lately first, then its line used longest ago
   (`pickTopic`). The writer sees the business's last 20 posts (`<recent_posts>`) and never opens the way one did.
   Posts and ideas keep their kind and topic (`angle`, `topic_list`, `topic`), shown as a badge and an About line on
@@ -448,13 +448,13 @@ takes the next step each time something it waits on happens, and checks again ev
    studied (`pickCreators`, then `socialcontent.creators.pick`). Creator research stays Instagram only for now.
 5. **Notes and the Playbook** come as they always do, once the posts are read.
 6. **Writing** (decision 32) starts once the Playbook is written or 3 days have passed since setup started, and only
-   once the main offer is live and its For your content lists are all filled (`writeWaitsOn`). With no Playbook and
+   once the main offer is live and its For your posts and messages lists are all filled (`writeWaitsOn`). With no Playbook and
    no idea yet, the first fill writes from the main offer's lists. Each post still waits for an OK (decision 33).
 
 Each step taken is marked once, with its first time, in `settings.setup` (`socialcontent.setup.mark`), so it never runs
 twice; businesses that had niches or a fill before part 14 were marked as set up by the migration. The Creators page
 shows the steps on the web and the phone (`setupSteps`, worked out in core from `overview.setup`), each with where it
-stands and a button to fix what one waits on (Settings, Main offer, For your content), until every step is done or off.
+stands and a button to fix what one waits on (Settings, Main offer, For your posts and messages), until every step is done or off.
 
 - **Swapping out quiet creators** (decision 31): each month, before the search, the creators the AI picked whose
   posts were read and who haven't posted in 45 days, or have fewer than 1 standout in 30 posts once 30 are read, are

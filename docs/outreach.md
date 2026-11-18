@@ -432,11 +432,12 @@ became.
   an introduction (What it says → How the first message goes): thanks for connecting, who the person is and what the
   business offers, and a question about them from their page (decision 173), as a second text right after it when
   the person sends a few (decision 175). It goes to everyone who connects.
-- **The networking chat after it** (decision 173, `script.ts` `PLAYBOOK_NETWORKING`, `today.ts`
-  `networkingReplyTask`): replies stay about them; one nudge if they stay quiet, then a check-in once a month; a demo
-  offered once when they name a problem the business fixes, a networking call once when a demo doesn't fit (booked on
-  the person's own calendar, the worker's `callLinkFor`), and "I'll send people your way" once, each a switch in the
-  playbook, all on to start.
+- **The networking chat after it** (decisions 173 and 176, `script.ts` `PLAYBOOK_NETWORKING`, `today.ts`
+  `networkingReplyTask`): short replies that react to what they said and share the owner's story from the main offer;
+  a question only when the chat would stall; one nudge if they stay quiet, then a check-in once a month; a demo offered
+  once, only when they ask about the business, a networking call once to wrap up after they've written back twice
+  (booked on the person's own calendar, the worker's `callLinkFor`), and "I'll send people your way" once, each a
+  switch in the playbook, all on to start.
 - **Refer someone you've talked with** (decision 174, `referrals.ts`, `ops/referrals.ts`, the worker's `referrals.ts`):
   when a post the extension read asks for a recommendation, the AI looks among the people who wrote back at least twice
   for one who plainly does that, and writes a comment naming them and a heads-up to them from their playbook. Both wait
@@ -4620,7 +4621,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         from it never counts as a demo (`times-check.ts` leaves out `linkRef`). With no calendar of their own, the
         call's ask goes with no link.
       - **Switches in the playbook** (`details.networking`, `PLAYBOOK_NETWORKING`, kept in `PLAYBOOK_KEPT_KEYS`):
-        What it says → **The networking chat** → In the chat after it: **Offer a demo when it fits**, **Offer a
+        What it says → **The networking chat** → In the chat after it: **Offer a demo when it fits** (when they ask,
+        since decision 176), **Offer a
         networking call**, **Offer to send people their way**, on the web and the phone, with the chat's five parts
         under them. All on to start and for a playbook saved before them, so the owner's CRM demos has them on with
         nothing changed. They show, and do anything, only for a playbook that starts with an introduction
@@ -4703,6 +4705,40 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **How it's built** (no migration, no extension change): `today.ts`, `voice.ts`, `sends.ts` and the words of
         `script.ts` in core; the worker's `today.ts` and the stand-in model.
 
+176.  **The networking chat is short, and relates to what they say** (Chris, 18 Nov 2026, after testing it: "it's
+      asking to many questions and trying to make the conversation go on to long. Also doesnt relate to what they say
+      enough, like for example it asked what they like most about the hvac business and i wrote I just like to solve
+      people's problems, and it just wrote a generic respond and then another question. it should have said some like
+      like yeah I get what you mean that's why I started my business as well, felt like crm's were too complicated and
+      didn't do what businesses needed so I built one that did, and was easy to use"). The answers: 1a, 2 and 3 in
+      Chris's own words, 4a. Changes decision 173's replies:
+      - **Why it read that way**: every reply was told to ask a question back, nothing told it when to wrap up, and it
+        was never told to share the owner's story. The owner's About you is empty, and the rule about the owner's life
+        (decision 165) kept it from saying "I get that".
+      - **It reacts, then shares the owner's story** (`networkingReplyTask`; Chris's 3: "it should be using the info in
+        the main offer"): a line or two that shows the owner read what they said, never one that could go to anyone,
+        then, when something connects, a sentence from the business's story or what it believes in the main offer's
+        lists (**Your story**, given to every reply since decision 164). `ABOUT_OWNER_RULE` and `LOCKED_RULES` now count
+        the business's story as the owner's own, beside About you.
+      - **Fewer questions** (1a; `networkingStand`): a question only when the chat would stall, and never when the
+        owner's last message asked one (any of its texts), so the reply to the introduction's question asks nothing.
+      - **A demo only when they ask** (Chris's 2: "only offer the demo if they ask about the crm or more about what we
+        do or how it works etc, give a quick response to answer then say I’d love to show you a demo if you have a bit
+        of time in the next week or so"): when they ask what the business does, what it offers, how it works or the
+        price, a sentence or two from the offer and the lists, then the part **Offering a demo**, whose starting words
+        are now Chris's: "I’d love to show you a demo if you have a bit of time in the next week or so." Never when they
+        only name a problem. The switch reads **Offer a demo when they ask**.
+      - **It wraps up after two replies** (`NETWORKING_WRAP_AFTER`, a few texts in a row counting as one): unless
+        they've just asked about the business, the reply asks nothing more and offers the networking call once (while
+        its switch is on), or, once it was offered or they passed, signs off warmly. Before that, no call.
+      - **The lists are renamed** (Chris's 3: "the part in the main offer thats for social posts should just be for both
+        the content creator and outreach so maybe we should rename it?"): Settings → Main offer → **For your posts and
+        messages**, on the web and the phone (`MAIN_OFFER_LISTS_WORDS`), was For your content (docs/main-offer.md).
+      - **Written again** (4a; `RULES_VERSION` 5): every message still waiting for an OK, or OK'd and not sent, is
+        written again the next time the extension queues one.
+      - **How it's built** (no migration, no extension change): `today.ts`, `script.ts`, `about-owner.ts` and `sends.ts`
+        in Social Outreach; the lists' words in `main-offer/lists.ts`.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -4747,6 +4783,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 - **An introduction always asks a question about them, as its own text** (decisions 173 and 175, `introTask`,
   `introTexts`): the question goes as a second text right after it when the person sends a few, and never in a
   first message to someone's Requests. Don't let a playbook's own words drop it.
+- **A networking chat stays short and about what they said** (decision 176, `networkingReplyTask`,
+  `networkingStand`): no question right after the owner asked one, a demo only when they ask about the business, and
+  a wrap-up after they've written back twice. Don't go back to a question in every reply.
 - **In the networking chat, only a yes to a demo or a call is a yes** (decision 173, `ANSWER_AFTER_INTRO_ASK`,
   `answerOf`, `tookOf`): a friendly answer to the owner's question about them is no yes, so no ask for a time
   follows it. A call's yes (`follow_ups.call`) puts the ask and what follows it on the person's own calendar, with no

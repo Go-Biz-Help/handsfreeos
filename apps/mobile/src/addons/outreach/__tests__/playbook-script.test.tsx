@@ -176,7 +176,7 @@ describe('What it says, on the phone', () => {
   it('has the networking chat’s switches and words only with an introduction (decision 173)', async () => {
     expect(sectionWords(PLAYBOOK.details, 'script')).not.toContain('In the chat after it');
     expect(sectionWords({ ...PLAYBOOK.details, opens: 'intro' }, 'script')).toContain(
-      'In the chat after it\nOffer a demo when it fits',
+      'In the chat after it\nOffer a demo when they ask',
     );
     expect(
       sectionWords(
