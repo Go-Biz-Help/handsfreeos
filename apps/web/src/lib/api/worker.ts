@@ -256,6 +256,8 @@ export function registrationPreflight(input: {
   };
   /** Every other way customers agree, each opened and checked like the main one. */
   otherWays?: { path: 'hosted' | 'own_site' | 'in_person'; url: string }[];
+  /** What the texts are about: a marketing box anywhere on the site fails a customer care registration. */
+  useCase?: 'customer_care' | 'mixed' | 'marketing';
   /**
    * The registration exactly as Send would send it. The worker checks the pages it names and writes down what it
    * found against it: the send goes through only for details found all green.
