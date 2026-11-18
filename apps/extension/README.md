@@ -1272,6 +1272,19 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### A Facebook chat's messages without the "Sent 33m ago" under them (0.147.8)
+
+The owner's screenshots of 17 Nov 2026 showed Facebook chats on Needs you with one check-in six times over, each
+saying "Sent 18h ago", "Sent 23h ago" and on, though it went once. Messenger puts that line under the person's last
+message, and `messageIn` (`src/networks/facebook/chat.ts`) read it as part of the message, so each read brought the
+same message with new words and core kept it again. Facebook's line at the top of an encrypted chat now starts "New
+messages and calls are secured…", and it was kept as theirs.
+
+From 0.147.8 `NOTICE` leaves off "Sent …", "Seen …" and "Delivered …" lines and the new encryption line. A row with
+only that line is the person's message with no words in it (a picture, a sticker, a like or a file): it's read as
+theirs, as core's `WORDLESS`, so their chat still ends with them (`yoursLast`) and nothing of theirs is answered twice.
+Core's `withoutStatus` does the same for what an older extension sends, and migration 028800 cleaned what was kept.
+
 ### A Facebook post found by its words, with no link and cut short with "…" (0.147.6)
 
 On 0.147.5 the owner's Page post of 17 Nov 2026 (12 PM Chicago) was still marked "didn’t find the post on your Page

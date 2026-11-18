@@ -393,6 +393,8 @@ export const chatsCollect = defineAddonCommand(outreachAddon, {
           )
           .for('update');
         const read = mergeRecent([], c.messages);
+        // Only Messenger's own lines ("Sent 33m ago"): nothing anyone said.
+        if (!read.length) continue;
         const theirs = (r: (typeof kept)[number]) =>
           !profile || !r.profileId || r.profileId === profile.id;
         const had =
@@ -450,7 +452,7 @@ export const chatsCollect = defineAddonCommand(outreachAddon, {
           // where the chat was, so it goes, and the next look drafts again from the chat as it is now, or not at all
           // when the person answered them themselves.
           const whom = profile?.id ?? had.profileId;
-          if (movedOn(had.recent, c.messages))
+          if (movedOn(had.recent, read))
             await ctx.tx
               .delete(sends)
               .where(
