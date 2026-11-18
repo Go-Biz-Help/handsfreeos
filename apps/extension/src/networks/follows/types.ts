@@ -114,7 +114,7 @@ export type FollowFound = {
   readonly people: readonly FollowListed[];
   /**
    * The person's page of followers saying, in the network's own words, that nobody follows them yet (X's, from
-   * 0.147.10): an empty list, not one that didn't load.
+   * 0.147.11): an empty list, not one that didn't load.
    */
   readonly listEmpty: boolean;
   /** The person's own username, from the menu's link to their profile. */

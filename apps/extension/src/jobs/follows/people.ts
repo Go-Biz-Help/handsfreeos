@@ -69,7 +69,7 @@ async function followersSaved(job: Job, platform: FollowPlatform): Promise<JobEn
     const read = await readFollowIn(job.tab, platform);
     if (read.found.people.length || read.signedOut || read.warnings.length) break;
     shown = read.found.profile?.followers ?? shown;
-    // None as their profile counts them (Threads'), or as their page of followers says (X's, from 0.147.10: till then
+    // None as their profile counts them (Threads'), or as their page of followers says (X's, from 0.147.11: till then
     // its "Looking for followers?" read as a list that didn't show, which would have held X's whole day).
     if (shown === 0 || read.found.listEmpty)
       return {

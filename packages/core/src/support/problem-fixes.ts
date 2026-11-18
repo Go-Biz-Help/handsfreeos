@@ -348,7 +348,7 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     area: 'x',
     job: 'checkup.comment',
     note: 'Commenting: no button to send by the reply box',
-    fixedIn: '0.147.10',
+    fixedIn: '0.147.11',
     pr: 675,
     said: 'X wraps its box to reply in more than 14 parts deep below its Reply, and the Reply was looked for only 14 parts up, so it was never found and no comment could go. It’s looked for as far up as it takes now, never past the post’s own cell or a box over the page.',
   },

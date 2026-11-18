@@ -1272,22 +1272,22 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
-### What the first Check X found (0.147.10)
+### What the first Check X found (0.147.11)
 
 The owner's first Check X (18 Nov 2026, 0.147.9) read 7 pages and found Follow and Like, but "Not working: commenting":
 the box to reply in under a post took the word written in it, and no Reply was found beside it. X wraps that box more
 than 14 parts deep below its Reply, and `sendFor` (`src/networks/x/spec.ts`) looked only 14 parts up, so the runner
-would never have sent a comment on X either. From 0.147.10 it looks up from the box as far as it takes, never past the
+would never have sent a comment on X either. From 0.147.11 it looks up from the box as far as it takes, never past the
 box over the page, the post's own cell or the column, so it's never another box's Reply.
 
 The same Check found nobody on the person's page of followers: the account is new, and X shows "Looking for
 followers?" (its `emptyState`) where the list would be. That read as a list that didn't show, so the first save of
 their followers, which holds X's whole day (`holdsTheDay`), would have failed every 15 minutes, as Threads' did from 13
-to 16 Nov. From 0.147.10 the reader says so (`listEmpty`, `listEmptyIn` in the spec): the save says "No followers on X
+to 16 Nov. From 0.147.11 the reader says so (`listEmpty`, `listEmptyIn` in the spec): the save says "No followers on X
 yet, so nobody to save." and the day starts, and Check X no longer lists the page as one it read nothing on.
 
 X names each picture's part for whose it is (`UserAvatar-Container-<username>`), and the outline kept those test ids as
-they were. From 0.147.10 a network's spec can name such test ids (`testIdName`): the username is hidden as {1}, {2}…,
+they were. From 0.147.11 a network's spec can name such test ids (`testIdName`): the username is hidden as {1}, {2}…,
 the same number as a link to them.
 
 ### A LinkedIn profile that says "1st" beside the real degree, read as not connected (0.147.9)
