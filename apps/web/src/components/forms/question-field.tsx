@@ -1,10 +1,17 @@
 'use client';
-import { isSingleCheckbox, type AnswerValue, type Question } from '@hfos/core';
+import {
+  isSingleCheckbox,
+  NAME_QUESTIONS,
+  nameQuestionOf,
+  type AnswerValue,
+  type Question,
+} from '@hfos/core';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { AddressField } from './address-field';
 import { BookingPicker } from './booking-picker';
 import { useFormLook } from './form-look';
 import { VideoPlayer } from './video-player';
@@ -274,27 +281,8 @@ function Answer({
           onChange={(e) => onChange(e.target.value)}
         />
       );
-    case 'address': {
-      const address = (value ?? {}) as Record<string, string>;
-      const part = (key: string, label: string, className?: string) => (
-        <Input
-          key={key}
-          aria-label={label}
-          placeholder={label}
-          className={className}
-          value={address[key] ?? ''}
-          onChange={(e) => onChange({ ...address, [key]: e.target.value } as never)}
-        />
-      );
-      return (
-        <div className="grid gap-2 sm:grid-cols-2">
-          {config.detail === 'full' ? part('line1', 'Street', 'sm:col-span-2') : null}
-          {part('city', 'Town')}
-          {part('state', 'State')}
-          {part('postalCode', 'Postcode')}
-        </div>
-      );
-    }
+    case 'address':
+      return <AddressField question={question} value={value} onChange={onChange} />;
     case 'signature':
       return (
         <div>
@@ -384,14 +372,18 @@ function Answer({
           onChange={(e) => onChange(e.target.value)}
         />
       );
-    default:
+    default: {
+      // A First name or Last name box tells the browser so, which offers to fill it in.
+      const name = nameQuestionOf(question);
       return (
         <Input
           id={id}
           value={typeof value === 'string' ? value : ''}
           placeholder={placeholder}
+          autoComplete={name ? NAME_QUESTIONS[name].autoComplete : undefined}
           onChange={(e) => onChange(e.target.value)}
         />
       );
+    }
   }
 }

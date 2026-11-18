@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import type { QuestionInput } from '../../src/forms/index';
 import { answerProblem } from '../../src/forms/render';
 import { allQuestions } from '../../src/forms/definition';
-import { ANSWER_TARGETS } from '../../src/forms/questions';
+import { ANSWER_TARGETS, NAME_MAX_LENGTH, NAME_QUESTIONS } from '../../src/forms/questions';
 import { contactFromAnswers, patchesFromAnswers } from '../../src/forms/submit';
 import { PersonCreateInput, PersonUpdateInput } from '../../src/schemas/person';
 import { choice, cid, def, number, page, pickOne, qid, shortText } from './fixtures';
@@ -50,6 +50,29 @@ describe('who a sent form says this is', () => {
       email: 'rosa@example.com',
       phone: null,
     });
+  });
+
+  it('saves the First name and Last name boxes as their name, whatever the business calls them', () => {
+    // The add menu's name boxes are short answers pointed at the customer's name (NAME_QUESTIONS), so rewording
+    // one ("What should we call you?") still saves it there, and a long name is cut to what a name holds.
+    const form = def({
+      pages: [
+        page('main', [
+          shortText('What should we call you?', { mapTo: NAME_QUESTIONS.first_name.mapTo }),
+          shortText('And your family name?', { mapTo: NAME_QUESTIONS.last_name.mapTo }),
+          email('Email'),
+        ]),
+      ],
+    });
+    const answers = {
+      [qid('What should we call you?')]: 'Rosa',
+      [qid('And your family name?')]: 'H'.repeat(120),
+      [qid('Email')]: 'rosa@example.com',
+    };
+    const contact = contactFromAnswers(form, answers);
+    expect(contact.firstName).toBe('Rosa');
+    expect(contact.lastName).toHaveLength(NAME_MAX_LENGTH);
+    expect(patchesFromAnswers(form, answers).person.fields).toMatchObject({ firstName: 'Rosa' });
   });
 
   it('splits one "Your name" or "Full name:" box into a first and a last name', () => {

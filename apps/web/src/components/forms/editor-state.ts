@@ -2,12 +2,15 @@
 import {
   applyFormOps,
   FormOpError,
+  NAME_MAX_LENGTH,
+  NAME_QUESTIONS,
   newChoiceId,
   newPageId,
   newQuestionId,
   QUESTION_CONFIGS,
   type FormDefinition,
   type FormOp,
+  type NameQuestion,
   type QuestionInput,
   type QuestionType,
 } from '@hfos/core';
@@ -193,6 +196,20 @@ export function newSingleCheckbox(): QuestionInput {
     title: 'I agree to the terms',
     required: true,
     config: { ...(question.config as Record<string, unknown>), display: 'checkbox' },
+  } as QuestionInput;
+}
+
+/**
+ * A First name or Last name box: a short answer saved as the customer's name, so whoever sends the form is saved
+ * under it, as an Email question saves their email. It starts optional, like the Email and Phone questions.
+ */
+export function newNameQuestion(which: NameQuestion): QuestionInput {
+  const question = newQuestion('short_text');
+  return {
+    ...question,
+    title: NAME_QUESTIONS[which].label,
+    mapTo: NAME_QUESTIONS[which].mapTo,
+    config: { ...(question.config as Record<string, unknown>), maxLength: NAME_MAX_LENGTH },
   } as QuestionInput;
 }
 

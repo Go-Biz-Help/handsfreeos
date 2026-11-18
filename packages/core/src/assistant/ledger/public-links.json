@@ -60,9 +60,10 @@
     "apps/web/src/components/chat-widget/chat-showcase.tsx": "ca141aed1861",
     "apps/web/src/components/chat-widget/chat-window.tsx": "96ea0e00ee8e",
     "apps/web/src/components/documents/signing-page.tsx": "93d3da610fb4",
+    "apps/web/src/components/forms/address-field.tsx": "20ece36ae74b",
     "apps/web/src/components/forms/booking-picker.tsx": "0b81d8526d1a",
     "apps/web/src/components/forms/public-form.tsx": "74581f9d1c48",
-    "apps/web/src/components/forms/question-field.tsx": "bbe8e1dd9aab",
+    "apps/web/src/components/forms/question-field.tsx": "b80ae03048fa",
     "apps/web/src/components/members/accept-invite.tsx": "26df3014e711",
     "apps/web/src/components/money/public-estimate.tsx": "82083d4d8a40",
     "apps/web/src/components/money/public-invoice.tsx": "71edaaf05241",
@@ -1415,6 +1416,13 @@
       "path": "Form → answer questions: text, choice, checkboxes, yes/no, rating, number, money, date, time, address, email, phone, video, button",
       "kind": "do",
       "file": "apps/web/src/components/forms/question-field.tsx:1",
+      "covered": "person",
+      "by": "the respondent answers"
+    },
+    {
+      "path": "Form → address with Google address search: pick a suggested address",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/address-field.tsx:1",
       "covered": "person",
       "by": "the respondent answers"
     },
