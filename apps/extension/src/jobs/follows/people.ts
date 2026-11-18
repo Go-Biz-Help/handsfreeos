@@ -61,14 +61,17 @@ async function followersSaved(job: Job, platform: FollowPlatform): Promise<JobEn
   job.progress('Opening your followers…');
   const page = spec.pages.followers(own);
   await job.tab.open(page ?? own.url);
-  // Their count of followers as their profile shows it (Threads'): none, and there's nobody to save.
+  // Their count of followers as their profile shows it (Threads'), or their page of followers saying nobody's there
+  // yet (X's): none, and there's nobody to save.
   let shown: number | null = null;
   for (let look = 0; look < LIST_LOOKS; look++) {
     await pause(LIST_MS);
     const read = await readFollowIn(job.tab, platform);
     if (read.found.people.length || read.signedOut || read.warnings.length) break;
     shown = read.found.profile?.followers ?? shown;
-    if (shown === 0)
+    // None as their profile counts them (Threads'), or as their page of followers says (X's, from 0.147.11: till then
+    // its "Looking for followers?" read as a list that didn't show, which would have held X's whole day).
+    if (shown === 0 || read.found.listEmpty)
       return {
         line: `No followers on ${spec.name} yet, so nobody to save.`,
         warned: false,

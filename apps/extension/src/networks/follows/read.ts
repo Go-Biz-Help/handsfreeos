@@ -215,13 +215,16 @@ export function readFollow(doc: Document, href: string, spec: FollowSpec): Follo
   const posts = postsOn(doc, href, spec, me);
   const here = kind === 'post' && page ? spec.postOf(page) : null;
   const post = here ? (posts.find((p) => p.url === here) ?? null) : null;
+  const people = peopleOn(doc, href, spec, me);
   return {
     profile: profileOn(doc, href, spec, posts),
     posts,
     post,
     // Under a post on its own page: what comes after it, never what came before (the posts it answers).
     replies: post ? posts.slice(posts.indexOf(post) + 1) : [],
-    people: peopleOn(doc, href, spec, me),
+    people,
+    // Their page of followers saying nobody follows them yet: nobody to save, rather than a list that didn't show.
+    listEmpty: kind === 'followers' && !people.length && (spec.listEmptyIn?.(doc) ?? false),
     me,
     // Its messages, where it has them (decision 167): the list of chats, and the chat open.
     chats: chatRowsOn(doc, href, spec),

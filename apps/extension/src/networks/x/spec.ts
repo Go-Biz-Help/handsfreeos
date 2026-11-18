@@ -9,7 +9,8 @@
  * `UserName`, its bio `UserDescription`, its Follow `<id>-follow` (`<id>-unfollow` once followed), "Follows you"
  * `userFollowIndicator`; the box to reply in is `tweetTextarea_0`, sent with `tweetButtonInline` (or `tweetButton` in
  * the box over the page); the Unfollow it asks to be sure with is `confirmationSheetConfirm`; a list's row is
- * `UserCell`; the menu's Profile is `AppTabBar_Profile_Link`. Never class names.
+ * `UserCell`, and a list with nobody in it shows `emptyState`; the menu's Profile is `AppTabBar_Profile_Link`; a
+ * picture's part is `UserAvatar-Container-<username>`, its name hidden in an outline. Never class names.
  */
 import { clean } from '../facebook/dom';
 import { visible } from '../facebook/fetch';
@@ -423,6 +424,10 @@ export const X_SPEC: FollowSpec = {
     return box ? (controlsSaying(box, /^unfollow\b/i)[0] ?? null) : null;
   },
   listIn: (doc) => (columnOf(doc).querySelector('[data-testid="UserCell"]') ? columnOf(doc) : null),
+  // A page of followers with nobody on it: X's own "Looking for followers?" in its column, where the list would be.
+  listEmptyIn: (doc) =>
+    !columnOf(doc).querySelector('[data-testid="UserCell"]') &&
+    byTestId(columnOf(doc), 'emptyState') !== null,
   rowStanding: (row) => standingIn(row.closest('[data-testid="UserCell"]') ?? row),
   replyBoxes: (doc) => {
     const boxes = [...doc.querySelectorAll<HTMLElement>('[data-testid="tweetTextarea_0"]')].filter(
@@ -434,15 +439,24 @@ export const X_SPEC: FollowSpec = {
     );
     return typed.length ? typed : boxesSaying(columnOf(doc), /^(post your reply|post text)$/i);
   },
+  // Its Reply beside the box: the nearest one going up from the box, however deep X wraps it (its box under a post sits
+  // more than 14 parts below its Reply, which Check X found on 18 Nov 2026), never past the box over the page, the
+  // post's own cell or the column it's in, so it's never another box's.
   sendFor: (box) => {
-    for (let up = box.parentElement, n = 0; up && n < 14; up = up.parentElement, n++) {
+    const edge = box.closest(
+      '[role="dialog"], [data-testid="cellInnerDiv"], [data-testid="primaryColumn"]',
+    );
+    for (let up = box.parentElement; up; up = up.parentElement) {
       const send =
         up.querySelector<HTMLElement>('[data-testid="tweetButtonInline"]') ??
         up.querySelector<HTMLElement>('[data-testid="tweetButton"]');
       if (send) return send;
+      if (up === edge) break;
     }
     return null;
   },
+  // A picture's part is named for whose it is: hidden in an outline, as a link to them is.
+  testIdName: /^(UserAvatar-Container-)(.+)$/,
   answersMe: (root, me) =>
     X_SPEC.replyingToIn(root).some((handle) => handle.toLowerCase() === me.toLowerCase()),
 };

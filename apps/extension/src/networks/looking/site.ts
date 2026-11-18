@@ -118,6 +118,8 @@ export interface LookingSite {
   readonly words: ReadonlySet<string>;
   /** Its own words in an address's query, kept in an outline beside every network's (tab, type, filter, sort). */
   readonly queryKept?: ReadonlySet<string>;
+  /** Its parts' test ids that end in someone's username (X's): the name hidden in an outline (../outline.ts). */
+  readonly testIdName?: RegExp;
   /** Its warnings, as its pages word them. */
   readonly warnings: readonly RegExp[];
   /** The addresses that are themselves a warning: a check of the account before going on. */
