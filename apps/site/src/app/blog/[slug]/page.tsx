@@ -254,8 +254,9 @@ export default async function PostPage({ params }: Props) {
                 Your business keeps answering while you’re on the job.
               </h2>
               <p className="text-text-2 mt-3">
-                HandsFreeOS answers your calls and texts, books the job, sends the quote and chases
-                the invoice — one system for small service businesses.
+                HandsFreeOS is the AI Business Operating System for small service businesses. Its AI
+                employees answer your calls and texts, book the job, send the quote and chase the
+                invoice.
               </p>
               <div className="mt-5 flex flex-wrap gap-3">
                 <Button href={urls.signUp}>Sign up</Button>

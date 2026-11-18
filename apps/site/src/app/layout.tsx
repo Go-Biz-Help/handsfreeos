@@ -21,21 +21,21 @@ export const metadata: Metadata = {
     // headline on the page itself is still the human one; these are for the result list.
     // The home page is the exception and leads with the name: Google's OAuth review checks it
     // against the consent screen's app name, and flagged a mismatch while the name came last.
-    default: 'HandsFreeOS · AI receptionist and CRM for service businesses',
+    default: 'HandsFreeOS · AI Business OS and CRM for service businesses',
     template: '%s · HandsFreeOS',
   },
   // No price: what is on sale changes by itself (0092), and a search result keeps this for weeks.
   description:
-    'HandsFreeOS answers your calls and texts, books the job, sends the quote and chases the invoice — one system for small service businesses.',
+    'HandsFreeOS is the AI Business Operating System for service businesses: AI employees answer calls and texts, book jobs and chase quotes and invoices.',
   applicationName: 'HandsFreeOS',
   alternates: { canonical: '/' },
   openGraph: {
     type: 'website',
     siteName: 'HandsFreeOS',
     url: urls.site,
-    title: 'HandsFreeOS · Make more money. Work fewer hours.',
+    title: 'HandsFreeOS · The AI Business OS that never misses a lead',
     description:
-      'It picks up your calls, answers texts and website chats, books the job and chases quotes and invoices. One app, one bill. 30 days, or your money back.',
+      'One system for your calls, texts, booking, quotes and invoices, with AI employees that do the work. One app instead of ten. 30 days, or your money back.',
     locale: 'en_US',
   },
   twitter: { card: 'summary_large_image' },

@@ -15,8 +15,12 @@ export type Faq = { readonly q: string; readonly a: string };
  */
 export const homeFaqs: readonly Faq[] = [
   {
+    q: 'What is an AI Business Operating System?',
+    a: 'One system that runs the customer side of your business, with AI that does the work in it. A CRM keeps track of your customers and waits for you. HandsFreeOS keeps those records too, and puts your phone, inbox, calendar, quotes, invoices and video calls beside them. Then its AI employees answer the calls and texts, book the jobs and chase the quotes and invoices, and bring you in when it matters.',
+  },
+  {
     q: 'I tried a CRM before. It just became another job.',
-    a: `That is the exact problem this one was built to fix. Most CRMs wait for you to type things in. HandsFreeOS fills itself in from every call, text and payment, and does the follow-ups for you. If it still feels like a job after ${moneyBack.days} days, ask and you get your money back.`,
+    a: `That is the exact problem this one was built to fix. Most CRMs wait for you to type things in. HandsFreeOS is more than a CRM: its AI fills in the records from every call, text and payment, and does the follow-ups for you. If it still feels like a job after ${moneyBack.days} days, ask and you get your money back.`,
   },
   {
     q: 'I don’t have time to switch.',
@@ -32,7 +36,7 @@ export const homeFaqs: readonly Faq[] = [
   },
   {
     q: 'How can it replace ten apps for $97?',
-    a: `It is one system built as one, not ten companies each charging for their slice. The texts, calls and AI you use are billed at what they cost us plus a small margin, usually $${typicalUsage.low} to $${typicalUsage.high} a month, so the plan is not padded for the busiest businesses. And there is no charge per person.`,
+    a: `It is one system built as one, not ten companies each charging for their slice, and its AI does the work those apps leave to you. The texts, calls and AI you use are billed at what they cost us plus a small margin, usually $${typicalUsage.low} to $${typicalUsage.high} a month, so the plan is not padded for the busiest businesses. And there is no charge per person.`,
   },
   {
     q: 'I already pay for Jobber or GoHighLevel.',

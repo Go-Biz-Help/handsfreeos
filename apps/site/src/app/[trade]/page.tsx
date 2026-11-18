@@ -117,7 +117,7 @@ export default async function TradePage({ params }: Props) {
 
         <Section>
           <Eyebrow>What it takes off you</Eyebrow>
-          <SectionHeading sub="The parts of the week that eat your evenings, done on their own. Every one of them is in the plan.">
+          <SectionHeading sub="The parts of the week that eat your evenings, done by your AI team. Every one of them is in the plan.">
             Built around the way {page.who.toLowerCase()} work.
           </SectionHeading>
           <div className="mt-12 grid gap-5 sm:grid-cols-2 sm:gap-6">
@@ -175,9 +175,9 @@ export default async function TradePage({ params }: Props) {
               The next lead texts <YourBusinessName fallback="you" /> tonight. Who answers?
             </h2>
             <p className="text-on-night-2 mt-6 text-lg">
-              Set it up this week. Watch every reply before it goes out, and let go of the ones it
-              gets right. If it isn&rsquo;t for you within {moneyBack.days} days, you get your money
-              back.
+              Put your AI team to work this week. Watch every reply before it goes out, and let go
+              of the ones it gets right. If it isn&rsquo;t for you within {moneyBack.days} days, you
+              get your money back.
             </p>
             <div data-cta="final" className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
               <Button href={urls.signUp} size="lg" arrow>

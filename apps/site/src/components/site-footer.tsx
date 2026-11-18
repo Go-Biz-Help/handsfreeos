@@ -71,9 +71,9 @@ export function SiteFooter() {
               The CRM that doesn&rsquo;t want you to use it.
             </p>
             <p className="text-text-2 mt-2 max-w-xs text-base">
-              One place for the calls, texts, email, calendar and money of a small service business.
-              It does the busywork on its own, so the less you use it, the better it&rsquo;s
-              working.
+              The AI Business Operating System for small service businesses: calls, texts, email,
+              calendar and money in one place, with AI employees doing the busywork. The less you
+              use it, the better it&rsquo;s working.
             </p>
           </div>
           {columns.map((column) => (
