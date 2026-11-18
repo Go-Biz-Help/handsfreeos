@@ -48,6 +48,7 @@ import {
   calendarCreate,
   calendarRestoreRevision,
   calendarSave,
+  calendarSetEmbedSites,
   calendarSetSlug,
   calendarSetStatus,
 } from './calendar';
@@ -710,6 +711,7 @@ export {
   calendarRestoreRevision,
   calendarSetStatus,
   calendarSetSlug,
+  calendarSetEmbedSites,
   serviceCreate,
   serviceUpdate,
   serviceArchive,
@@ -924,6 +926,7 @@ export const commands: readonly CommandDef[] = [
   calendarRestoreRevision,
   calendarSetStatus,
   calendarSetSlug,
+  calendarSetEmbedSites,
   serviceCreate,
   serviceUpdate,
   serviceArchive,

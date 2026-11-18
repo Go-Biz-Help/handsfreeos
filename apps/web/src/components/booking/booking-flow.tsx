@@ -50,6 +50,7 @@ import {
 import { cn } from '@/lib/utils';
 import { BookedPanel } from './booked-panel';
 import { DepositStep, TimeWentPanel } from './deposit-pay';
+import { showFrameTop, useEmbedded } from './embedded';
 import {
   dateShort,
   dayShort,
@@ -693,10 +694,13 @@ export function BookingFlow({
   const [waitFor, setWaitFor] = useState<WaitlistTarget | null>(null);
   const [waitlisted, setWaitlisted] = useState<{ position: number; again: boolean } | null>(null);
 
+  const embedded = useEmbedded();
   const go = (s: Step) => {
     setError(null);
     setStep(s);
     window.scrollTo({ top: 0 });
+    // On the business's own site, the box's top is what scrolled away, not this page's.
+    if (embedded) showFrameTop();
   };
 
   function failed(e: unknown) {

@@ -25,6 +25,7 @@ import {
   type RecordedPay,
 } from '@/lib/api/public-booking';
 import { cn } from '@/lib/utils';
+import { useEmbedded } from './embedded';
 import { dayShort, lengthLabel, money, timeOf, timeRange, joinNames, dayLong } from './format';
 import { callPhrase } from './public-shell';
 import { zoneWords } from './viewer-zone';
@@ -159,6 +160,10 @@ export function DepositStep({
   const [method, setMethod] = useState<PayMethod>(hold.pay.methods[0] ?? 'card');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // On the business's own site: the provider's page, opened in a tab of its own (it refuses to be shown inside
+  // another site), and whether the browser let it open by itself.
+  const embedded = useEmbedded();
+  const [payTab, setPayTab] = useState<{ url: string; opened: boolean } | null>(null);
   const d = hold.deposit;
   const full = d.mode === 'full';
 
@@ -171,6 +176,14 @@ export function DepositStep({
     try {
       const answer = await payDeposit(hold.holdToken, { ...press, website: '' });
       if (answer.stage === 'prepared') {
+        if (answer.payment.hostedUrl && embedded) {
+          // The provider sends them back to /hold/<token> in that tab, which finishes the booking there.
+          const tab = window.open(answer.payment.hostedUrl, '_blank');
+          if (tab) tab.opener = null;
+          setPayTab({ url: answer.payment.hostedUrl, opened: !!tab });
+          setBusy(false);
+          return;
+        }
         if (answer.payment.hostedUrl) {
           window.location.assign(answer.payment.hostedUrl);
           return;
@@ -286,13 +299,37 @@ export function DepositStep({
         </p>
       ) : null}
 
+      {payTab ? (
+        <div
+          role="status"
+          className="flex flex-col gap-1.5 rounded-[10px] bg-accent-soft px-3.5 py-3 text-[13px] text-accent-text"
+          data-testid="deposit-new-tab"
+        >
+          <span>
+            {payTab.opened
+              ? 'The secure payment page opened in a new tab. Pay there, and your booking is confirmed in that tab.'
+              : 'Open the secure payment page to pay. Your booking is confirmed there once it’s paid.'}
+          </span>
+          <a
+            href={payTab.url}
+            target="_blank"
+            rel="noopener"
+            className="w-fit font-medium underline"
+            data-testid="deposit-open-tab"
+          >
+            {payTab.opened ? 'Open it again' : 'Open the payment page'}
+          </a>
+        </div>
+      ) : null}
+
       <div className="sticky bottom-0 z-10 -mx-4 mt-auto flex flex-col gap-2 border-t border-border bg-card px-4 py-2.5 md:static md:mx-0 md:mt-2 md:border-0 md:bg-transparent md:p-0">
         <Button
           type="button"
           size="lg"
           className="w-full"
           loading={busy}
-          disabled={!hold.pay.canPay}
+          // Once the payment page is open in its own tab, paying happens there (Open it again reopens it).
+          disabled={!hold.pay.canPay || !!payTab}
           onClick={() => void pay()}
           data-testid="pay-deposit"
         >

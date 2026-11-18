@@ -406,7 +406,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'Calendars: every calendar, and New calendar',
       `Pressing a calendar opens its own settings, down the left under Settings on this calendar: ${CALENDAR_SECTION_NAMES}`,
       'At the top of a calendar: Turn on (Resume when it’s paused), History, Preview booking page, and More (Name, color and time zone…, Change link…, Pause, Back to draft, Archive, or Bring back as a draft once it’s archived)',
-      'Beside its settings: How this calendar works, Labels, Booking link (with Copy and Open, and Customers can book it online), and Things to check, with a Fix button for each problem it can fix',
+      'Beside its settings: How this calendar works, Labels, Booking link (with Copy, Open, Embed and Customers can book it online), and Things to check, with a Fix button for each problem it can fix',
     ],
     path: '/settings/calendars',
     permission: 'calendars.manage',
@@ -448,6 +448,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'See or put back an earlier version of a calendar: press the calendar, then History, then Restore',
       'See a calendar’s booking page: press the calendar, then Preview booking page',
       'Copy one calendar’s booking link: Settings → Calendars, the copy icon beside it, or press the calendar and Copy under Booking link',
+      'Put a calendar on the business’s own website: press the calendar, Embed under Booking link, list the site under Sites allowed to show it, then Copy the code and paste it on the site',
     ],
   },
   services: {

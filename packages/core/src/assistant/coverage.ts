@@ -317,6 +317,11 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   },
   // ---- Settings → Calendars ----
   'booking_site.set_page': {},
+  // A calendar's Booking link → Embed: the sites allowed to show it. get_calendar_settings gives the code to paste.
+  'calendar.set_embed_sites': {
+    about:
+      'embedOrigins is the whole list: read get_calendar_settings sitesAllowedToShowIt first and pass every site to keep plus the new ones (an empty list stops it showing on any site).',
+  },
   // ---- Settings → Payments and Partners ----
   'payment_connection.set_access': {},
   'partner.payout_forget_card': {

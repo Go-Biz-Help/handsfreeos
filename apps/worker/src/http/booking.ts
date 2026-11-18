@@ -60,6 +60,7 @@ import {
   appointmentStaff,
   bookingSites,
   calendarRevisions,
+  calendars,
   phoneNumbers,
   services as serviceRows,
   waitlistEntries,
@@ -1229,6 +1230,28 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             booking: open ? await bookingInfo(deps, tx, calendar, botCheck) : null,
           };
         });
+      },
+    );
+
+    // ---------- the sites allowed to show it inside them ----------
+    // The web's frame rule for an embedded booking page asks this (apps/web/src/lib/booking/frame.ts), and names the
+    // site it's on only when that's one of these. Not secret: they're the sites it shows on. A private, archived or
+    // unknown calendar is framed by nobody, so it answers an empty list rather than a 404 the web would have to read.
+    pub.get<{ Params: { site: string; calendar: string } }>(
+      '/public/book/:site/:calendar/embed',
+      { config: { rateLimit: limits.read } },
+      async (req) => {
+        const r = await findRoute(req.params.site, req.params.calendar);
+        if (!r?.calendar_id || !r.site_id || !r.calendar_public || r.calendar_status === 'archived')
+          return { embedOrigins: [] as string[] };
+        const scope = { workspaceId: r.workspace_id, organizationId: r.organization_id };
+        const [row] = await worker(scope, (tx) =>
+          tx
+            .select({ embedOrigins: calendars.embedOrigins })
+            .from(calendars)
+            .where(eq(calendars.id, r.calendar_id!)),
+        );
+        return { embedOrigins: row?.embedOrigins ?? [] };
       },
     );
 

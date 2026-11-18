@@ -710,6 +710,12 @@ function describeAction(e: AuditEntry): string {
       return calendarStatusSentence(e);
     case 'calendar.set_slug':
       return `changed the link for ${name(e)} from ${s(e.before?.slug)} to ${s(e.after?.slug)}`;
+    case 'calendar.set_embed_sites': {
+      const sites = Array.isArray(e.after?.sites) ? e.after.sites.map(s).filter(Boolean) : [];
+      return sites.length
+        ? `let ${sites.map((o) => o.replace(/^https?:\/\//, '')).join(', ')} show ${name(e)} on their pages`
+        : `stopped other websites showing ${name(e)}`;
+    }
     case 'service.create':
       return `added the service ${name(e)}`;
     case 'service.update':

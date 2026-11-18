@@ -23,4 +23,5 @@ export * from './agenda';
 export * from './reminder-words';
 export * from './areas';
 export * from './business-page';
+export * from './embed';
 export * from './job-steps';

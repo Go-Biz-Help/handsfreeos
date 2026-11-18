@@ -201,6 +201,20 @@ export const CalendarSetSlugOutput = z.object({
   slug: z.string(),
   previousSlug: z.string(),
 });
+export const CalendarSetEmbedSitesInput = z.object({
+  workspaceId: uuid,
+  calendarId: uuid,
+  /**
+   * The sites allowed to show its booking page inside them, as people typed them (acme.com,
+   * https://www.acme.com/book): saved as exact origins with their www twins, as a form's and the website chat's are.
+   * An empty list means it is embedded nowhere.
+   */
+  embedOrigins: z.array(z.string().max(300)).max(20),
+});
+export const CalendarSetEmbedSitesOutput = z.object({
+  calendarId: uuid,
+  embedOrigins: z.array(z.string()),
+});
 
 export const CalendarSummary = z.object({
   id: uuid,
@@ -248,6 +262,8 @@ export const CalendarGetOutput = z.object({
     config: CalendarConfig,
     /** The calendar's own zone; null follows the workspace. */
     ownTimezone: z.string().nullable(),
+    /** The sites allowed to show its booking page inside them (Booking link → On your website). Empty: nowhere. */
+    embedOrigins: z.array(z.string()),
     /** Conflicts in the saved settings, computed now. */
     issues: z.array(CalendarIssueOut),
     /** "How this calendar works": the builder's plain sentences about the saved settings. */

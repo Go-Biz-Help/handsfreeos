@@ -15,6 +15,7 @@ import {
 } from '@/lib/api/public-booking';
 import { cn } from '@/lib/utils';
 import { AddToCalendar } from './add-to-calendar';
+import { useEmbedded } from './embedded';
 import {
   dayLong,
   hoursLabel,
@@ -86,6 +87,7 @@ export function BookedPanel({
   deposit?: Held['deposit'] | null;
   onRestart?: () => void;
 }) {
+  const embedded = useEmbedded();
   const b = booked.booking;
   const p = booked.policies;
   const cutoffs = [
@@ -164,6 +166,8 @@ export function BookedPanel({
           variant="secondary"
           size="lg"
           className="w-full"
+          // On the business's own site, the booking's own page opens in a tab of its own: nothing frames it.
+          {...(embedded ? { target: '_blank', rel: 'noopener' } : {})}
         >
           Change or cancel
         </ButtonLink>

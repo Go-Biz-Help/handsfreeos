@@ -120,11 +120,13 @@ describe('after something happens with a customer', () => {
     expect(person.email).toBe('sol@new.test');
     expect(person.otherEmails).toEqual([{ email: 'sol@old.test', label: 'Previous' }]);
 
+    // One transaction writes both, so they share a time and come back in either order: look each up by its action.
     const audit = await auditOf(c.id);
-    expect(audit.map((a) => a.action)).toEqual(['record.set_tags', 'person.update']);
+    expect(audit.map((a) => a.action).sort()).toEqual(['person.update', 'record.set_tags']);
     for (const a of audit) expect(a.actor_type).toBe('system');
-    expect(audit[0]!.reason).toBe('Mentioned “Solar”');
-    expect(audit[1]!.reason).toBe('email: Gave a new email');
+    const logged = (action: string) => audit.find((a) => a.action === action);
+    expect(logged('record.set_tags')!.reason).toBe('Mentioned “Solar”');
+    expect(logged('person.update')!.reason).toBe('email: Gave a new email');
     const [event] = await rows<{ payload: Record<string, unknown> }>(
       admin(),
       sql`select payload from app.events where entity_id = ${c.id} and event_type = 'record.tags_changed'`,

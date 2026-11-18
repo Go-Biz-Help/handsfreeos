@@ -1,7 +1,7 @@
 {
   "area": "settings-calendars",
   "title": "Settings: calendars, services, resources, territories and the booking site",
-  "checkedOn": "2026-11-06",
+  "checkedOn": "2026-11-18",
   "files": {
     "apps/web/src/app/app/w/[workspaceId]/settings/calendars/[calendarId]/page.tsx": "934a5a7804cf",
     "apps/web/src/app/app/w/[workspaceId]/settings/calendars/booking-site/page.tsx": "616f1f3e4d68",
@@ -14,9 +14,10 @@
     "apps/web/src/components/calendars/address-input.tsx": "9a72d8346951",
     "apps/web/src/components/calendars/area-map.tsx": "e71af06c083d",
     "apps/web/src/components/calendars/booking-site-form.tsx": "f9c406f07de7",
-    "apps/web/src/components/calendars/builder.tsx": "abc0d4444387",
+    "apps/web/src/components/calendars/builder.tsx": "097539cfb039",
     "apps/web/src/components/calendars/calendars-list.tsx": "8897d35761c2",
     "apps/web/src/components/calendars/chips.tsx": "e12df0c43d2b",
+    "apps/web/src/components/calendars/embed-dialog.tsx": "be51af03b53d",
     "apps/web/src/components/calendars/history-sheet.tsx": "84f5900a0942",
     "apps/web/src/components/calendars/impact-dialog.tsx": "a4f8fffc6f1b",
     "apps/web/src/components/calendars/modules.tsx": "44384e36854d",
@@ -210,126 +211,126 @@
     {
       "path": "Calendar → breadcrumb: Settings, Calendars, name",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:423",
+      "file": "apps/web/src/components/calendars/builder.tsx:424",
       "covered": "yes",
       "by": "reads the destination: get_settings calendars"
     },
     {
       "path": "Calendar → header: name",
       "kind": "see",
-      "file": "apps/web/src/components/calendars/builder.tsx:440",
+      "file": "apps/web/src/components/calendars/builder.tsx:441",
       "covered": "yes",
       "by": "get_calendar_settings calendar.name"
     },
     {
       "path": "Calendar → header: status badge",
       "kind": "see",
-      "file": "apps/web/src/components/calendars/builder.tsx:442",
+      "file": "apps/web/src/components/calendars/builder.tsx:443",
       "covered": "yes",
       "by": "get_calendar_settings calendar.status"
     },
     {
       "path": "Calendar → header: its own time zone chip",
       "kind": "see",
-      "file": "apps/web/src/components/calendars/builder.tsx:443",
+      "file": "apps/web/src/components/calendars/builder.tsx:444",
       "covered": "yes",
       "by": "get_calendar_settings calendar.timeZone and timeZoneIs (its own or the business’s)"
     },
     {
       "path": "Calendar → header: Revision N · saved by X today at …",
       "kind": "see",
-      "file": "apps/web/src/components/calendars/builder.tsx:444",
+      "file": "apps/web/src/components/calendars/builder.tsx:445",
       "covered": "yes",
       "by": "get_calendar_settings version, versionSaved, versionSavedBy"
     },
     {
       "path": "Calendar → Turn on (draft) / Resume (paused)",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:451",
+      "file": "apps/web/src/components/calendars/builder.tsx:452",
       "covered": "yes",
       "by": "manage_calendar action turn_on"
     },
     {
       "path": "Calendar → History",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:460",
+      "file": "apps/web/src/components/calendars/builder.tsx:461",
       "covered": "yes",
       "by": "get_calendar_settings earlierVersions (newest 8, olderVersions counts the rest); update_calendar_settings restore takes any"
     },
     {
       "path": "Calendar → Preview booking page",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:464",
+      "file": "apps/web/src/components/calendars/builder.tsx:465",
       "covered": "yes",
       "by": "get_calendar_settings bookingLink (the whole link)"
     },
     {
       "path": "Calendar → More → Name, color and time zone…",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:486",
+      "file": "apps/web/src/components/calendars/builder.tsx:487",
       "covered": "yes",
       "by": "manage_calendar name, description, color, timezone (null = the business’s)"
     },
     {
       "path": "Calendar → More → Change link… (with a booking site)",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:490",
+      "file": "apps/web/src/components/calendars/builder.tsx:491",
       "covered": "yes",
       "by": "manage_calendar bookingLink → calendar.set_slug"
     },
     {
       "path": "Calendar → More → Pause",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:494",
+      "file": "apps/web/src/components/calendars/builder.tsx:495",
       "covered": "yes",
       "by": "manage_calendar action turn_off"
     },
     {
       "path": "Calendar → More → Back to draft",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:497",
+      "file": "apps/web/src/components/calendars/builder.tsx:498",
       "covered": "yes",
       "by": "manage_calendar to_draft"
     },
     {
       "path": "Calendar → More → Bring back as a draft (archived)",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:502",
+      "file": "apps/web/src/components/calendars/builder.tsx:503",
       "covered": "yes",
       "by": "manage_calendar to_draft on an archived calendar"
     },
     {
       "path": "Calendar → More → Archive (confirm: stops bookings, history stays)",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:506",
+      "file": "apps/web/src/components/calendars/builder.tsx:507",
       "covered": "yes",
       "by": "manage_calendar archive, with the screen’s warning"
     },
     {
       "path": "Calendar → banner: someone saved while you were editing → Load their version",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:526",
+      "file": "apps/web/src/components/calendars/builder.tsx:527",
       "covered": "yes",
       "by": "each tool reads the current revision before it saves"
     },
     {
       "path": "Calendar → Settings on this calendar → each section: name, one-line summary (list, or phone select)",
       "kind": "see",
-      "file": "apps/web/src/components/calendars/builder.tsx:557",
+      "file": "apps/web/src/components/calendars/builder.tsx:558",
       "covered": "yes",
       "by": "get_calendar_settings sections: each name and the builder’s one-line summary"
     },
     {
       "path": "Calendar → Settings on this calendar → pick a section",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:561",
+      "file": "apps/web/src/components/calendars/builder.tsx:562",
       "covered": "yes",
       "by": "get_calendar_settings reads every section; update_calendar_settings and manage_calendar change them"
     },
     {
       "path": "Calendar → Settings on this calendar → section's red/amber check dot",
       "kind": "see",
-      "file": "apps/web/src/components/calendars/builder.tsx:583",
+      "file": "apps/web/src/components/calendars/builder.tsx:584",
       "covered": "yes",
       "by": "get_calendar_settings sections[].check and needsFixing[].section"
     },
@@ -1141,133 +1142,168 @@
     {
       "path": "Calendar → How this calendar works (sentences)",
       "kind": "see",
-      "file": "apps/web/src/components/calendars/builder.tsx:624",
+      "file": "apps/web/src/components/calendars/builder.tsx:625",
       "covered": "yes",
       "by": "get_calendar_settings howItWorks"
     },
     {
       "path": "Calendar → Labels",
       "kind": "see",
-      "file": "apps/web/src/components/calendars/builder.tsx:636",
+      "file": "apps/web/src/components/calendars/builder.tsx:637",
       "covered": "yes",
       "by": "get_settings calendars → labels.tags"
     },
     {
       "path": "Calendar → Booking link (full link)",
       "kind": "see",
-      "file": "apps/web/src/components/calendars/builder.tsx:644",
+      "file": "apps/web/src/components/calendars/builder.tsx:645",
       "covered": "yes",
       "by": "get_calendar_settings bookingLink; get_settings calendars (whole links)"
     },
     {
       "path": "Calendar → Booking link → Copy",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:651",
+      "file": "apps/web/src/components/calendars/builder.tsx:652",
       "covered": "yes",
       "by": "the whole link to give: get_calendar_settings bookingLink"
     },
     {
       "path": "Calendar → Booking link → Open",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:659",
+      "file": "apps/web/src/components/calendars/builder.tsx:660",
       "covered": "yes",
       "by": "the whole link to give: get_calendar_settings bookingLink"
     },
     {
       "path": "Calendar → Booking link → note: stays the same on rename / never changes",
       "kind": "see",
-      "file": "apps/web/src/components/calendars/builder.tsx:669",
+      "file": "apps/web/src/components/calendars/builder.tsx:678",
       "covered": "yes",
       "by": "get_calendar_settings linkThatNeverChanges; manage_calendar bookingLink says the old link keeps working"
     },
     {
       "path": "Calendar → Booking link → Set up the booking site (no site)",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:675",
+      "file": "apps/web/src/components/calendars/builder.tsx:684",
       "covered": "yes",
       "by": "update_booking_site"
     },
     {
+      "path": "Calendar → Booking link → Embed",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:661",
+      "covered": "yes",
+      "by": "get_calendar_settings embedCode and sitesAllowedToShowIt"
+    },
+    {
+      "path": "Calendar → Booking link → Embed → Sites allowed to show it",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/embed-dialog.tsx:96",
+      "covered": "yes",
+      "by": "do_calendar_set_embed_sites embedOrigins (the whole list); get_calendar_settings sitesAllowedToShowIt"
+    },
+    {
+      "path": "Calendar → Booking link → Embed → warning: no site listed shows a blank box",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/embed-dialog.tsx:119",
+      "covered": "yes",
+      "by": "get_calendar_settings embedNote and sitesAllowedToShowIt (empty)"
+    },
+    {
+      "path": "Calendar → Booking link → Embed → Copy the code",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/embed-dialog.tsx:130",
+      "covered": "yes",
+      "by": "get_calendar_settings embedCode (written out whole, on the business’s own domain when one is serving)"
+    },
+    {
+      "path": "Calendar → Booking link → Embed → Set up the booking site (no site)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/embed-dialog.tsx:149",
+      "covered": "yes",
+      "by": "update_booking_site; get_calendar_settings embedNote says so"
+    },
+    {
       "path": "Calendar → Booking link → Customers can book it online",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:684",
+      "file": "apps/web/src/components/calendars/builder.tsx:693",
       "covered": "yes",
       "by": "manage_calendar listedOnBookingSite; get_calendar_settings customersCanBookOnline"
     },
     {
       "path": "Calendar → Things to check → count badge, each issue's message",
       "kind": "see",
-      "file": "apps/web/src/components/calendars/builder.tsx:695",
+      "file": "apps/web/src/components/calendars/builder.tsx:704",
       "covered": "yes",
       "by": "get_calendar_settings needsFixing"
     },
     {
       "path": "Calendar → Things to check → each issue: Blocks saving while active / Blocks turning it on / Doesn't block saving",
       "kind": "see",
-      "file": "apps/web/src/components/calendars/builder.tsx:758",
+      "file": "apps/web/src/components/calendars/builder.tsx:767",
       "covered": "yes",
       "by": "get_calendar_settings needsFixing blocks"
     },
     {
       "path": "Calendar → Things to check → each issue: Fix buttons",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:768",
+      "file": "apps/web/src/components/calendars/builder.tsx:777",
       "covered": "yes",
       "by": "get_calendar_settings needsFixing fixes; update_calendar_settings apply_fix (the issue, the fixId, and the label when two problems offer the same fix)"
     },
     {
       "path": "Calendar → Things to check → Connect an account (payment unavailable)",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:781",
+      "file": "apps/web/src/components/calendars/builder.tsx:790",
       "covered": "person",
       "by": "signing in to Stripe/Square (payment_connection.connect NEVER)"
     },
     {
       "path": "Calendar → Things to check → Done: fix, Undo",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:714",
+      "file": "apps/web/src/components/calendars/builder.tsx:723",
       "covered": "yes",
       "by": "update_calendar_settings apply_fix saves it; restore puts the version before back"
     },
     {
       "path": "Calendar → Things to check → Nothing to fix. Ready to save.",
       "kind": "see",
-      "file": "apps/web/src/components/calendars/builder.tsx:797",
+      "file": "apps/web/src/components/calendars/builder.tsx:806",
       "covered": "yes",
       "by": "get_calendar_settings needsFixing empty"
     },
     {
       "path": "Calendar → save bar: Fix the red item / Unsaved changes / All changes saved · revision N",
       "kind": "see",
-      "file": "apps/web/src/components/calendars/builder.tsx:810",
+      "file": "apps/web/src/components/calendars/builder.tsx:819",
       "covered": "yes",
       "by": "get_calendar_settings version; blocked card when it can't save"
     },
     {
       "path": "Calendar → save bar: See history",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:816",
+      "file": "apps/web/src/components/calendars/builder.tsx:825",
       "covered": "yes",
       "by": "get_calendar_settings earlierVersions and olderVersions"
     },
     {
       "path": "Calendar → Save",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:824",
+      "file": "apps/web/src/components/calendars/builder.tsx:833",
       "covered": "yes",
       "by": "each change saves on Confirm (calendar.save)"
     },
     {
       "path": "Calendar → Save → revision conflict, Reload",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:308",
+      "file": "apps/web/src/components/calendars/builder.tsx:309",
       "covered": "yes",
       "by": "tools read the current revision each time"
     },
     {
       "path": "Calendar → Save → toast: saved as revision N, N moved, N cancelled",
       "kind": "see",
-      "file": "apps/web/src/components/calendars/builder.tsx:288",
+      "file": "apps/web/src/components/calendars/builder.tsx:289",
       "covered": "yes",
       "by": "outcome: saved as version N, and how many visits went to someone else or were cancelled"
     },
@@ -1309,7 +1345,7 @@
     {
       "path": "Calendar → History → Restore → drops unsaved changes confirm",
       "kind": "see",
-      "file": "apps/web/src/components/calendars/builder.tsx:354",
+      "file": "apps/web/src/components/calendars/builder.tsx:355",
       "covered": "yes",
       "by": "no draft; the card asks before restoring"
     },
@@ -1365,63 +1401,63 @@
     {
       "path": "Calendar → More → Name, color and time zone → Name",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:912",
+      "file": "apps/web/src/components/calendars/builder.tsx:921",
       "covered": "yes",
       "by": "manage_calendar name (up to 80; screen 120); get_settings calendars name"
     },
     {
       "path": "Calendar → More → Name, color and time zone → Description (optional)",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:920",
+      "file": "apps/web/src/components/calendars/builder.tsx:929",
       "covered": "yes",
       "by": "manage_calendar description (null clears)"
     },
     {
       "path": "Calendar → More → Name, color and time zone → Time zone (Same as the business, or a zone)",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:941",
+      "file": "apps/web/src/components/calendars/builder.tsx:950",
       "covered": "yes",
       "by": "manage_calendar timezone (null = Same as the business)"
     },
     {
       "path": "Calendar → More → Name, color and time zone → time zone hint",
       "kind": "see",
-      "file": "apps/web/src/components/calendars/builder.tsx:935",
+      "file": "apps/web/src/components/calendars/builder.tsx:944",
       "covered": "yes",
       "by": "get_calendar_settings calendar.timeZoneIs"
     },
     {
       "path": "Calendar → More → Name, color and time zone → Color (8 swatches)",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:959",
+      "file": "apps/web/src/components/calendars/builder.tsx:968",
       "covered": "yes",
       "by": "manage_calendar color (the 8 swatches by name in its description); get_calendar_settings calendar.colour"
     },
     {
       "path": "Calendar → More → Name, color and time zone → Cancel / Apply",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:979",
+      "file": "apps/web/src/components/calendars/builder.tsx:988",
       "covered": "yes",
       "by": "card Confirm saves at once"
     },
     {
       "path": "Calendar → More → Change the link → Link name (with prefix)",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:1042",
+      "file": "apps/web/src/components/calendars/builder.tsx:1051",
       "covered": "yes",
       "by": "manage_calendar bookingLink"
     },
     {
       "path": "Calendar → More → Change the link → old link keeps working",
       "kind": "see",
-      "file": "apps/web/src/components/calendars/builder.tsx:1039",
+      "file": "apps/web/src/components/calendars/builder.tsx:1048",
       "covered": "yes",
       "by": "manage_calendar bookingLink: the outcome says the old link keeps working"
     },
     {
       "path": "Calendar → More → Change the link → Cancel / Change link",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/builder.tsx:1055",
+      "file": "apps/web/src/components/calendars/builder.tsx:1064",
       "covered": "yes",
       "by": "the card's Confirm"
     },

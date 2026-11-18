@@ -7863,6 +7863,26 @@ Owners and admins set up a workspace's booking site:
 
 Each visitor's internet address may load the pages 60 times a minute, make 5 bookings or waitlist requests in 10 minutes, and open a change-or-cancel link 30 times and change it 10 times a minute. Past that, the page says "That’s a lot of tries from here. Wait a minute and try again." The pages also have a hidden field that only bots fill in, and accept only US and Canadian phone numbers. A calendar's page is kept for up to 30 seconds, so a change to its settings can take that long to show.
 
+#### A calendar on the business's own website
+
+A calendar can sit on the business's own website, the way a form can (the owner, 2026-11-18). It comes from the migration `20261027029300_calendar_embed_sites.sql`.
+
+1. Open **Settings** → **Calendars** and press the calendar.
+2. Under **Booking link**, click **Embed**.
+3. In **Sites allowed to show it**, type the website, like `lonestarhvac.com`. The `www` version is added for you. It saves when you click out of the box.
+4. Click **Copy the code** and paste it into an HTML or custom-code block on the site, where the calendar should go.
+
+   You should see the calendar on the site, with no header of ours, its box growing and shrinking as the customer goes through it.
+
+How it works:
+
+- **The code** is an iframe of the calendar's booking link with `?embed=1`, and the line `/embed/v1/book.js`, which is the same script as a form's `/embed/v1/form.js`. The calendar needs a booking site first, since the code is built from its link.
+- **Only listed sites can show it.** A booking page's frame rule is `frame-ancestors 'self'` like every page of ours, except when it asks to be embedded and the site it's on (the request's Referer) is in the calendar's list (`apps/web/src/lib/booking/frame.ts`). The web asks the worker for the list (`GET /public/book/<site>/<calendar>/embed`) and keeps it a minute. The iframe sets its own `referrerpolicy`, so a site that hides its address from other sites still works.
+- **Leaving the page opens a new tab.** Payment pages and the customer's **Change or cancel** page can't be shown inside another site, so they open in a tab of their own. The deposit's payment page opens there by itself, or with a link when the browser blocks it, and the booking is confirmed in that tab once it's paid.
+- **It's always light,** whatever the visitor's device prefers, on the page's own light background, with the business's colour on the buttons.
+
+**If it shows a blank box:** the site isn't listed, or is listed differently (`shop.acme.com` needs its own entry). Check from a terminal with `curl https://hooks.handsfreeos.com/public/book/<site>/<calendar>/embed` and read `embedOrigins`. In the browser's developer console on the client's site, an error that mentions `frame-ancestors` means the site the visitor is on isn't in that list. A private or archived calendar is shown nowhere. A change to the list can take a minute to reach the site.
+
 Texts about appointments go out from the workspace's business number. When a client fills in **Business details for the carriers** ("What a client fills in" in "The phone carrier: Twilio"), check that **What you text about** is **Appointments, estimates and customer care**, and that **How customers agree to get texts** and the example texts cover appointment confirmations and reminders. The opt-in description should name the booking page's **Text me about this appointment** checkbox, which starts unticked.
 
 ### Who joined an online session

@@ -27,8 +27,9 @@ function script(body: string, status: number, cache: string): Response {
  */
 export async function GET(request: NextRequest, ctx: { params: Promise<{ file: string }> }) {
   const { file } = await ctx.params;
-  // A form's box that grows to fit it (lib/forms/embed-script.ts): the same for every form, so kept for a day.
-  if (file === 'form.js')
+  // A form's box that grows to fit it (lib/forms/embed-script.ts): the same for every form, so kept for a day. A
+  // calendar's embed (core's bookingEmbedSnippet) loads the same script by a name of its own.
+  if (file === 'form.js' || file === 'book.js')
     return script(formEmbedScript(), 200, 'public, max-age=86400, s-maxage=86400');
   const key = /^(wk_[A-Za-z0-9]{20})\.js$/.exec(file)?.[1];
   // The preview page (/chat-preview) loads the same script for a signed-in manager: never kept by shared caches.

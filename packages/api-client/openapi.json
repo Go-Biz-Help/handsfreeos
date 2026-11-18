@@ -14841,6 +14841,81 @@
         }
       }
     },
+    "/v1/commands/calendar.set_embed_sites": {
+      "post": {
+        "operationId": "command_calendar_set_embed_sites",
+        "summary": "Set the websites allowed to show a calendar’s booking page inside them (the embed). An empty list means it is shown on no other site; the booking link works either way.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires calendars.manage. Emits calendar.embed_sites_changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "calendarId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "embedOrigins": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 300
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "calendarId",
+                  "embedOrigins"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "calendarId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "embedOrigins": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "calendarId",
+                    "embedOrigins"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/service.create": {
       "post": {
         "operationId": "command_service_create",
@@ -166278,6 +166353,12 @@
                             "null"
                           ]
                         },
+                        "embedOrigins": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
                         "issues": {
                           "type": "array",
                           "items": {
@@ -166391,6 +166472,7 @@
                         "updatedAt",
                         "config",
                         "ownTimezone",
+                        "embedOrigins",
                         "issues",
                         "howItWorks",
                         "sections"

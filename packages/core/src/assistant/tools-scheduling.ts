@@ -84,7 +84,7 @@ export const schedulingTools: readonly AssistantTool[] = [
   define({
     name: 'get_calendar_settings',
     description:
-      'One calendar’s settings as they are now, in the words manage_calendar and update_calendar_settings take: its link, who works it and how a booking picks a person, services and lengths, hours, seats, places and video, resources, buffers and travel, the booking window, routing by ZIP code, repeats, the waitlist, intake questions, cancel and reschedule rules, confirmations and reminders, calendar connections, CRM, payments, how it works in plain words, what needs fixing (with the fixes offered), and its saved versions (to restore one). Call it before proposing a change to a calendar. Calendar ids are in the context and in get_settings (calendars).',
+      'One calendar’s settings as they are now, in the words manage_calendar and update_calendar_settings take: its link, the code to put it on the business’s own website and the sites allowed to show it, who works it and how a booking picks a person, services and lengths, hours, seats, places and video, resources, buffers and travel, the booking window, routing by ZIP code, repeats, the waitlist, intake questions, cancel and reschedule rules, confirmations and reminders, calendar connections, CRM, payments, how it works in plain words, what needs fixing (with the fixes offered), and its saved versions (to restore one). Call it before proposing a change to a calendar. Calendar ids are in the context and in get_settings (calendars).',
     input: z.object({ calendarId: uuid }),
     autonomy: 'auto',
     permission: 'workspace.read',
