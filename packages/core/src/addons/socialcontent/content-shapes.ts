@@ -429,6 +429,12 @@ export const LookPost = z.object({
   places: z.array(PostPlace),
   facebookPage: z.string().nullable(),
   postAt: z.string().nullable(),
+  /**
+   * A person pressed Check if it posted (or Check again): its window comes in front for the look right away, as a
+   * Check's does (the owner, 18 Nov). A look on its own, 10 minutes after a post that may have gone up, comes in front
+   * only while they're away (docs/outreach.md, decision 120).
+   */
+  asked: z.boolean().default(false),
 });
 export type LookPost = z.infer<typeof LookPost>;
 export const PostLookNextOutput = z.object({ post: LookPost.nullable() });

@@ -68,6 +68,11 @@ export const POSTS_NEWEST = 4;
  */
 export const POSTS_LOOKED_BACK = 12;
 export const POSTS_DRAW_MS = 30_000;
+/**
+ * How long a page in a window Chrome doesn't show is waited on: Facebook draws its newest post there and nothing past it
+ * however long it's given (the owner's Page, 17 Nov 2026), so it's looked at in front sooner, when it can be.
+ */
+export const POSTS_HIDDEN_MS = 10_000;
 const POSTS_LOOK_MS = 1_500;
 /**
  * The most a post's files may weigh together, as they're handed to the tab: within what Chrome passes to a page in one
@@ -191,14 +196,18 @@ const UNSEEN: PostLook = { found: false, link: null, seen: false };
  * hidden behind another: its posts were all still "Loading..." when the owner's Page posts of 15 and 16 Nov 2026 were
  * looked for, so four that may have gone up were marked as not. So while the post isn't among those drawn, the first
  * still loading is scrolled into view and waited on, till its newest few are drawn (`POSTS_NEWEST`), for up to
- * `POSTS_DRAW_MS`. When they never drew, it looks once more with its window in front, only while the person is away
- * (decision 120); `seen` is false when it still couldn't see them, so "not there" isn't said for sure.
+ * `POSTS_DRAW_MS` (`POSTS_HIDDEN_MS` while Chrome doesn't show its window). When they never drew, it looks once more
+ * with its window in front: only while the person is away (decision 120), or right away when they `asked` (Check if it
+ * posted, as a Check comes in front: the owner's look on 18 Nov at a Page post second from the top said Facebook
+ * didn't load the Page's posts, as its window was behind theirs). `seen` is false when it still couldn't see them, so
+ * "not there" isn't said for sure.
  */
 export async function lookOn(
   tab: ResearchTab,
   url: string,
   text: string,
   most: number = POSTS_NEWEST,
+  asked = false,
 ): Promise<PostLook> {
   await pause(SETTLE_MS);
   try {
@@ -206,7 +215,7 @@ export async function lookOn(
     const look = await lookDrawn(tab, text, most);
     if (look.found || look.seen) return look;
     try {
-      return await tab.inFront(() => lookDrawn(tab, text, most));
+      return await tab.inFront(() => lookDrawn(tab, text, most), asked);
     } catch (error) {
       if (error instanceof NotAway) return look;
       throw error;
@@ -227,7 +236,8 @@ export async function linkFrom(
 
 /** Reads the open page for the post, waiting by the clock while it still draws its newest posts. */
 async function lookDrawn(tab: ResearchTab, text: string, most: number): Promise<PostLook> {
-  const until = Date.now() + POSTS_DRAW_MS;
+  const started = Date.now();
+  const until = started + POSTS_DRAW_MS;
   for (;;) {
     const read = (await tab.hands('read')) as {
       posts?: { text: string; url: string | null }[];
@@ -239,6 +249,7 @@ async function lookDrawn(tab: ResearchTab, text: string, most: number): Promise<
     if (!drawing) return UNSEEN;
     if (!drawing.loading) return { found: false, link: null, seen: true };
     if (Date.now() >= until) return UNSEEN;
+    if (!drawing.shown && Date.now() >= started + POSTS_HIDDEN_MS) return UNSEEN;
     await pause(POSTS_LOOK_MS);
   }
 }

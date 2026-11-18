@@ -252,6 +252,21 @@ describe('outside a Check, in front only while the person is away (decision 120)
     expect(focused).toEqual([]);
   });
 
+  it('comes in front right away for a read the person asked for (Check if it posted, 18 Nov), then as before', async () => {
+    const focused: number[] = [];
+    const idle: { state: string; heard?: (state: string) => void } = { state: 'active' };
+    stub(focused, idle);
+    const tab = runner();
+    await tab.adopt(4);
+    expect(await tab.inFront(async () => (focused.push(0), 'read'), undefined, true)).toBe('read');
+    expect(focused).toEqual([9, 0, 1]);
+    // It didn't listen for them coming back: they were there all along.
+    expect(idle.heard).toBeUndefined();
+    // The runner's next read waits for them to be away again.
+    await expect(tab.inFront(async () => 'read')).rejects.toBeInstanceOf(NotAway);
+    expect(focused).toEqual([9, 0, 1]);
+  });
+
   it('comes in front once they’ve been away two minutes, then puts their window back', async () => {
     const focused: number[] = [];
     stub(focused, { state: 'idle' });

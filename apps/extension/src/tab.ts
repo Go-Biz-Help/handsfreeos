@@ -112,7 +112,9 @@ export class WorkTab {
   private stepped = false;
   private readonly place: TabPlace;
   private readonly kit: Kit;
-  private readonly when: FrontWhen;
+  /** When its reads come in front: as it was made, or right away for the one the person asked for (`inFront`). */
+  private when: FrontWhen;
+  private readonly made: FrontWhen;
   private readonly waits: boolean;
 
   constructor(
@@ -123,6 +125,7 @@ export class WorkTab {
     this.place = place;
     this.kit = kit;
     this.when = front;
+    this.made = front;
     this.waits = waits;
   }
 
@@ -299,9 +302,19 @@ export class WorkTab {
    * minutes, with no other network's window in front: an ask waits till then, saying so through `hold`; the runner's
    * read is put off (`NotAway`). The moment they're back their window goes back in front of its own, and the read goes
    * on in front again only once they're away again (an ask's), or is put off at its next page or step (the runner's).
+   * `now`: the person asked for this one (Check if it posted, 18 Nov 2026), so it comes in front right away, as a Check.
    */
-  async inFront<T>(work: () => Promise<T>, hold?: Hold): Promise<T> {
+  async inFront<T>(work: () => Promise<T>, hold?: Hold, now = false): Promise<T> {
     if (this.place !== 'window' || this.front) return work();
+    this.when = now ? 'now' : this.made;
+    try {
+      return await this.frontFor(work, hold);
+    } finally {
+      this.when = this.made;
+    }
+  }
+
+  private async frontFor<T>(work: () => Promise<T>, hold?: Hold): Promise<T> {
     const away = this.when === 'away';
     if (away) await this.untilAway(hold ?? null);
     const theirs = await lastFocused();
