@@ -4755,6 +4755,45 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         `ops/playbooks.ts` and `sends.ts` in Social Outreach; the worker's `today.ts` and `playbook-test.ts`; the lists'
         words in `main-offer/lists.ts`.
 
+177.  **What each person does and where, your own town, and Focus on local groups** (Chris, 18 Nov 2026: "this means we
+      should be keeping track of the area people are in and service if they are a local business. Also we should have
+      a setting to focus on groups in our local area. this way we could also ask if they want to do a networking
+      meeting in person this means we need to add our location and a radius for local meetings"). The answers: 1a, 2a,
+      3 as offered. The first of four parts; the calendars and meetups, the chat's length and the AI settings page,
+      and tagging referrals come next (see Not yet).
+      - **What they do and where** (1a, `local.ts`): their line of work ("roofing"), the town they work in with its
+        state ("Austin, TX"), and whom they serve (**Local**, **Nationwide** or **Online**). The AI says it from their
+        page and the chat as it writes to them (an opener, a reconnect, a reply, a pitch: `asksTheirWork`) or checks
+        them (`THEIR_WORK_ASK` in every check), and it's kept on their profile (`addon_outreach.profiles` `work`,
+        `area`, `town`, `reach`, with how it's known: `area_how` `page`, `chat` or `typed`). What the chat says beats
+        their page, and nothing the AI reads clears anything (`noteTheirWork`, `outreach.their_work.note`).
+      - **Shown and changed on their card** (the person menu's **What they do and where**, web and phone): "Roofing ·
+        Round Rock, TX · Local · 18 miles away", with how it's known, and **Change** to set it by hand
+        (`outreach.their_work.set`, the Assistant's `outreach_set_their_work`). What a person sets, the AI never writes
+        over. A town must be a known US town with its state; anything else is refused with how to write it
+        (`outreach_unknown_town`).
+      - **Towns are the US Census Bureau's** (`us-towns.ts`, as Alignable's near towns since decision 115), so how far
+        apart two are is worked out with no lookup and no map key: `townOfArea` reads "Austin, Texas" or "Austin TX"
+        as `austin-tx`, `townsNear` and `milesBetweenTowns` measure as the crow flies. A place that isn't a known town
+        ("Central Texas") is kept as the AI wrote it, with no miles.
+      - **Where you are** (2a, Settings → You, web and phone): each person's own town and **How far is local** (10,
+        25, 50 or 100 miles; 25 to start), with the towns that takes in. It starts from the business's address
+        (`suggested`) until they save their own (`outreach.location.get` and `outreach.location.set`, the Assistant's
+        `outreach_location` and `outreach_set_location`; columns `home_area`, `home_town`, `radius_miles` and
+        `local_focus` on `addon_outreach.automation`). Each person's own: how far someone is, and whether they're near,
+        is measured from the person looking.
+      - **Focus on local groups** (3, a switch under Where you are, which needs a town; clearing the town turns it off,
+        `outreach_local_needs_town`): group searches take each word with the person's town and the four towns nearest
+        it first, then the words alone (`groupSearchWords`, `LOCAL_SEARCH_TOWNS`; Alignable's already stay in town); a
+        group named for one of those towns counts as in their area when its fit is read (`withLocalArea`); and on
+        Today, people who work inside the radius go first within each kind of step.
+      - **The AI is told** (`theirWorkFact`): what they do, where, and whether they're local to the owner and about how
+        far, for the line about sending people their way (decision 176) and, next, the coffee for locals.
+      - **How it's built**: migration `20261027029200_outreach_local.sql`; `local.ts`, `ops/local.ts`, `ops/towns.ts`,
+        `checks.ts`, `today.ts`, `ops/group-checks.ts`, `ops/groups.ts`, `ops/today.ts` and `person-menu.ts` in
+        Social Outreach; the worker's `today.ts`; the web's `location-part.tsx` and `their-work.tsx`, and the phone's
+        `local.tsx`. No extension change.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -4803,6 +4842,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   `networkingStand`): no question right after the owner asked one, a demo only when they ask about the business, and
   a wrap-up after they've written back twice that asks nothing: the call with the person's own calendar link, then
   the line about mentioning them. Don't go back to a question in every reply.
+- **The AI never writes over what a person set of what someone does and where** (decision 177, `noteTheirWork`):
+  an `area_how` of `typed` is kept until a person changes it, and what the AI reads only fills or updates, never
+  clears. How far someone is, and whether they're local, is always measured from the person looking, never kept.
 - **In the networking chat, only a yes to a demo or a call is a yes** (decision 173, `ANSWER_AFTER_INTRO_ASK`,
   `answerOf`, `tookOf`): a friendly answer to the owner's question about them is no yes, so no ask for a time
   follows it. A call's yes (`follow_ups.call`) puts the ask and what follows it on the person's own calendar, with no
@@ -5625,6 +5667,16 @@ Alignable's groups on the Groups tab. LinkedIn's comments waiting at first came 
 commenter's comment, the AI's check of Facebook's group members, 3 screens of a Likes or reactions box, likers on
 Alignable, the business's found checks a day, results by hashtag, phrase and kind of business, and tidying away finds
 never checked after two weeks came with decision 116, the comment Like and Alignable's likers from guessed markup too.
+
+Local networking (decision 177 is the first of four parts, from the owner's picks of 18 Nov 2026) still to come: a
+Networking calendar and a Lead calendar for each person, demos on the Lead calendar with the playbook's link as the
+backup, a calendar for meeting locals in person that works out the drive from the previous appointment's address
+that day (else the start address), as a core calendar feature, and "a call or grab coffee" for people inside the
+radius (part 2); a chat whose length follows their interest, and a page of settings for how the AI networks (part
+3); and tagging the people the owner has talked with on recent posts in their area that fit, a short ask after two
+referrals once the chat has been quiet for a few days, the About you interview, a prep note before each networking
+call and a thank-you after, a weekly count of 1-on-1s, and local Facebook events (part 4). Today's ordering is
+the only place near people go first; the Pipeline and the lists don't sort by distance yet.
 
 Next: the AI suggesting a conversation from the rest of the playbook, with AI drafting. Then leads. Then the rest of decisions 26 to 35 (the onboarding,
 decision 36, joining groups, decision 48, and tidying on its own, decision 98, are built), in the order above: team sharing, the after-demo workflow, birthday notes and

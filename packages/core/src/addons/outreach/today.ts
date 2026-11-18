@@ -107,6 +107,7 @@ import { WarningState } from './tidy';
 import { TodayGoal } from './goal';
 import { inNetworkWords, NETWORKS, type Platform } from './networks';
 import { VISIT_LIKES } from './keep-warm';
+import { REACH_KEYS, THEIR_WORK_ASK, TheirWorkFound, type TheirWork } from './local';
 import { PLATFORM_KEYS, type PlaybookDetails, type PlaybookStep } from './playbooks';
 import { COMMENT_DRAFTS } from './posts';
 import { RECENT_SHOWN, RecentMessage } from './sends';
@@ -1714,6 +1715,7 @@ export function todayDraftPrompt(input: {
     input.kind === 'reply' && c?.step === 'intro' ? ANSWER_AFTER_INTRO_ASK : ANSWER_ASK,
     input.kind === 'comment' && input.post ? COMMENT_ABOUT_ASK : null,
     input.kind === 'comment' && input.post?.shown ? COMMENT_SAW_ASK : null,
+    asksTheirWork(input.kind) ? THEIR_WORK_ASK : null,
     TODAY_DRAFT_ASK,
   ]
     .filter(Boolean)
@@ -1765,6 +1767,7 @@ export const ANSWER_AFTER_INTRO_ASK =
 
 const DRAFT_ANSWERS = [...ANSWER_KEYS, 'none'] as const;
 const DRAFT_TOOK = [...TOOK_KEYS, 'none'] as const;
+const DRAFT_REACH = [...REACH_KEYS, ''] as const;
 
 export const TodayDraftAnswer = z.object({
   drafts: z.array(z.string()).max(10),
@@ -1785,13 +1788,40 @@ export const TodayDraftAnswer = z.object({
    * (./comment-says.ts `COMMENT_SAW_ASK`), else empty.
    */
   saw: z.string().catch('').default(''),
+  /**
+   * What they do and where (decision 177, ./local.ts `THEIR_WORK_ASK`): asked where it reads their page or the chat
+   * (`asksTheirWork`), else empty.
+   */
+  work: z.string().catch('').default(''),
+  area: z.string().catch('').default(''),
+  reach: z.enum(DRAFT_REACH).catch('').default(''),
 });
 export type TodayDraftAnswer = z.output<typeof TodayDraftAnswer>;
+
+/** The kinds whose draft reads their page or the chat closely enough to say what they do and where (decision 177). */
+export const asksTheirWork = (kind: CustomerDraftKind): boolean =>
+  kind === 'opener' || kind === 'reconnect' || kind === 'reply' || kind === 'pitch';
+
+/** What a draft's answer says they do and where, as it's kept (./local.ts `TheirWorkFound`). */
+export const theirWorkOf = (a: Pick<TodayDraftAnswer, 'work' | 'area' | 'reach'>): TheirWork =>
+  TheirWorkFound.parse({ work: a.work, area: a.area, reach: a.reach || null });
 
 export const TODAY_DRAFT_SCHEMA: Record<string, unknown> = {
   type: 'object',
   additionalProperties: false,
-  required: ['drafts', 'simple', 'answer', 'took', 'unanswered', 'time', 'about', 'saw'],
+  required: [
+    'drafts',
+    'simple',
+    'answer',
+    'took',
+    'unanswered',
+    'time',
+    'about',
+    'saw',
+    'work',
+    'area',
+    'reach',
+  ],
   properties: {
     drafts: { type: 'array', items: { type: 'string' } },
     simple: { type: 'boolean' },
@@ -1801,6 +1831,9 @@ export const TODAY_DRAFT_SCHEMA: Record<string, unknown> = {
     time: { type: 'string' },
     about: { type: 'string' },
     saw: { type: 'string' },
+    work: { type: 'string' },
+    area: { type: 'string' },
+    reach: { type: 'string', enum: [...DRAFT_REACH] },
   },
 };
 

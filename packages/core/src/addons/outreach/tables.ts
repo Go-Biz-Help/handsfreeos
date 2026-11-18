@@ -51,6 +51,7 @@ import type {
   MessageSamples,
 } from './conversation';
 import type { CountryHow, MutualCountries } from './countries';
+import type { AreaHow, Reach } from './local';
 import type { GroupCheckState, JoinAnswered, JoinState } from './group-checks';
 import type { PitchRead } from './stages';
 import type { DemoHow } from './demos';
@@ -237,6 +238,18 @@ export const profiles = addonOutreach.table(
     /** Whoever reached them first (decision 107), and since when: another's Today leaves them out. */
     ownerUserId: userRef('owner_user_id'),
     ownedAt: ts('owned_at'),
+    /**
+     * What they do and where (decision 177, ../local.ts): their line of work, their area as it reads and as a known US
+     * town, whether they serve local customers, nationwide or online, and how it's known (their page, the chat, or a
+     * person typed it, which the AI never writes over), when and by whom.
+     */
+    work: text('work'),
+    area: text('area'),
+    town: text('town'),
+    reach: text('reach').$type<Reach>(),
+    areaHow: text('area_how').$type<AreaHow>(),
+    areaAt: ts('area_at'),
+    areaBy: userRef('area_by'),
     savedBy: userRef('saved_by'),
     lastSeenBy: userRef('last_seen_by'),
     lastSeenAt: ts('last_seen_at').notNull().defaultNow(),
@@ -819,6 +832,14 @@ export const automation = addonOutreach.table(
     dayReport: boolean('day_report').notNull().default(true),
     /** A push when someone accepts their friend request, connection or follow (decision 101). Off to start. */
     acceptedPush: boolean('accepted_push').notNull().default(false),
+    /**
+     * Where they are (decision 177, ../local.ts): their town as it reads and as a known US town, how far from it is
+     * near, and whether group searches and Today lean local.
+     */
+    homeArea: text('home_area'),
+    homeTown: text('home_town'),
+    radiusMiles: smallint('radius_miles').notNull().default(25),
+    localFocus: boolean('local_focus').notNull().default(false),
     /** How the AI writes for them (../voice.ts). */
     voiceShorthand: boolean('voice_shorthand').notNull().default(false),
     voiceAcronyms: boolean('voice_acronyms').notNull().default(false),

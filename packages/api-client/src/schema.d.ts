@@ -9397,6 +9397,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.location.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the person’s own town in Social Outreach (Settings → You → Where you are: a US town and its state, like “Dallas, TX”), how many miles from it is local to them (5 to 100), or Focus on local groups, which adds their town and the towns near it to group searches, ranks local groups higher and puts people who work near them first on Today. A part left out stays.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.location.set.
+         */
+        post: operations["command_outreach_location_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.messages.edit": {
         parameters: {
             query?: never;
@@ -10111,6 +10131,26 @@ export interface paths {
          * @description Risk level 0. Requires outreach.use. Emits outreach.stage.marked, outreach.lead.wanted.
          */
         post: operations["command_outreach_stage_mark"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.their_work.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change what someone in Social Outreach does and where (their card’s What they do and where): their line of work, the US town they work in with its state (“Austin, TX”), and whether they serve customers locally, nationwide or online. What a person sets, the AI never writes over. Empty clears a part; a part left out stays.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.their_work.set.
+         */
+        post: operations["command_outreach_their_work_set"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22971,6 +23011,26 @@ export interface paths {
          * @description Requires outreach.manage.
          */
         post: operations["query_outreach_live_team"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.location.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s own town in Social Outreach (Settings → You → Where you are), how far from it is local to them, whether Focus on local groups is on, and the towns inside that radius; with the business’s town to start from when they haven’t set theirs.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_location_get"];
         delete?: never;
         options?: never;
         head?: never;
@@ -49991,6 +50051,43 @@ export interface operations {
             };
         };
     };
+    command_outreach_location_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    area?: string | null;
+                    localFocus?: boolean;
+                    radiusMiles?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        area: string | null;
+                        localFocus: boolean;
+                        near: string[];
+                        nearCount: number;
+                        radiusMiles: number;
+                        suggested: string | null;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_messages_edit: {
         parameters: {
             query?: never;
@@ -53015,6 +53112,49 @@ export interface operations {
                         profileId: string;
                         /** @enum {string} */
                         stage: "found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "client" | "lost";
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_their_work_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    area?: string | null;
+                    /** Format: uuid */
+                    profileId: string;
+                    reach?: ("local" | "nationwide" | "online") | null;
+                    work?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        profileId: string;
+                        shown: {
+                            area: string | null;
+                            how: ("page" | "chat" | "typed") | null;
+                            miles: number | null;
+                            near: boolean;
+                            reach: ("local" | "nationwide" | "online") | null;
+                            work: string | null;
+                        };
                     };
                 };
             };
@@ -90579,6 +90719,40 @@ export interface operations {
             };
         };
     };
+    query_outreach_location_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        area: string | null;
+                        localFocus: boolean;
+                        near: string[];
+                        nearCount: number;
+                        radiusMiles: number;
+                        suggested: string | null;
+                    };
+                };
+            };
+        };
+    };
     query_outreach_lookup: {
         parameters: {
             query?: never;
@@ -91404,6 +91578,14 @@ export interface operations {
                         platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                         /** Format: uuid */
                         profileId: string;
+                        theirWork?: {
+                            area: string | null;
+                            how: ("page" | "chat" | "typed") | null;
+                            miles: number | null;
+                            near: boolean;
+                            reach: ("local" | "nationwide" | "online") | null;
+                            work: string | null;
+                        };
                         url: string;
                     };
                 };

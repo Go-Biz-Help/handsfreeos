@@ -62,6 +62,8 @@ import {
 import { aboutOwnerFor } from '@hfos/core/addons/outreach/ops/about-owner';
 import { voiceFor } from '@hfos/core/addons/outreach/ops/automation';
 import { answerNote } from '@hfos/core/addons/outreach/ops/conversation';
+import { theirWorkNote, theirWorkShown } from '@hfos/core/addons/outreach/ops/local';
+import { RADIUS_START, theirWorkFact } from '@hfos/core/addons/outreach/local';
 import {
   paceOf,
   PlaybookDetails,
@@ -72,7 +74,9 @@ import { underAPost } from '@hfos/core/addons/outreach/automation';
 import { replyNeedsYou } from '@hfos/core/addons/outreach/sends';
 import {
   answerOf,
+  asksTheirWork,
   checkedDrafts,
+  theirWorkOf,
   tookOf,
   connectedLately,
   draftOfferOf,
@@ -234,11 +238,16 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
             group: string | null;
             client: boolean;
             country: string | null;
+            work: string | null;
+            area: string | null;
+            town: string | null;
+            reach: string | null;
+            area_how: string | null;
           }>(
             tx,
             // A client in Contacts (decision 91) gets replies only: no link, no video, and a yes isn't a pitch.
             sql`select p.name, p.platform, p.intro, p.mutual_friends, g.name as group, ${isClient('p')} as client,
-                  p.country
+                  p.country, p.work, p.area, p.town, p.reach, p.area_how
                 from addon_outreach.profiles p left join addon_outreach.groups g on g.id = p.group_id
                 where p.workspace_id = ${ws} and p.id = ${profileId}`,
           )
@@ -406,6 +415,12 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         sql`select message_samples, message_notes from addon_outreach.setup
             where workspace_id = ${ws} and user_id = ${ctx.userId}`,
       );
+      // The person's own town and radius (decision 177): how far from them they are.
+      const [home] = await rows<{ home_town: string | null; radius_miles: number }>(
+        tx,
+        sql`select home_town, radius_miles from addon_outreach.automation
+            where workspace_id = ${ws} and user_id = ${ctx.userId}`,
+      );
       return {
         business,
         chat,
@@ -435,6 +450,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         library: installed ? outreachSettings(installed.settings).videos : undefined,
         sentTexts: sentTexts.map((t) => t.text),
         groups: groups.map((g) => g.name),
+        home: { town: home?.home_town ?? null, radiusMiles: home?.radius_miles ?? RADIUS_START },
       };
     });
     const name = found.profile?.name ?? found.chat?.name;
@@ -456,6 +472,10 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       ...(found.profile?.intro ?? []),
       ...(found.check?.about ? [found.check.about] : []),
       ...(found.check?.why ?? []),
+      // What they do and where, and how far from the person (decision 177).
+      ...[found.profile ? theirWorkFact(theirWorkShown(found.profile, found.home)) : null].filter(
+        (f): f is string => f !== null,
+      ),
       // Only for Reconnect's catch-up (decision 164): never a first message, a follow-up or a reply.
       ...[firstStepFact(input.kind, found.check?.next_step)].filter((f): f is string => f !== null),
     ];
@@ -680,6 +700,23 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     try {
       let kind: CustomerDraftKind = input.kind;
       let made = await draft(kind);
+      // What they do and where (decision 177): what the draft read of their page or the chat, kept on their profile
+      // unless a person set it.
+      const them = asksTheirWork(kind) ? theirWorkOf(made.value) : null;
+      if (profileId && them && (them.work || them.area || them.reach))
+        await executeCommand(
+          ctx.db,
+          theirWorkNote,
+          {
+            workspaceId: ws,
+            userId: ctx.userId,
+            profileId,
+            how: recent.some((m) => !m.fromMe) ? 'chat' : 'page',
+            them,
+          },
+          ctx.actor,
+          ctx.meta,
+        );
       // A reply: what they answered to the person's last step is kept, and a yes gets the next step instead. After an
       // introduction (decision 173), only a yes to a demo or a networking call is one, and it says which.
       const step = found.conversation?.step ?? null;

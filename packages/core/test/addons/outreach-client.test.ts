@@ -270,6 +270,8 @@ describe('Mark as client', () => {
       // The person panel's (decision 128): nothing read of them, and no step yet.
       mutualFriends: null,
       intro: [],
+      // What they do and where (decision 177): nothing known yet.
+      theirWork: { work: null, area: null, reach: null, how: null, miles: null, near: false },
       journey: {
         stage: null,
         why: [],

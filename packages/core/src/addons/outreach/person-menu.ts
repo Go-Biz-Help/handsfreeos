@@ -20,6 +20,7 @@ import { z } from 'zod';
 import { CLIENT_CAUSES, type ClientCause } from '../../crm/record-words';
 import { SEND_KINDS, type MessageKind, type SendKind } from './automation';
 import { Journey } from './journey';
+import { TheirWorkShown } from './local';
 import { chatUrlOn, openChatWords, openPageWords } from './network-words';
 import { PLATFORM_KEYS, type Platform } from './networks';
 import { OWNER_WORDS, TeamOwner } from './owners';
@@ -174,6 +175,11 @@ export const ProfileMarksOutput = z.object({
   journey: Journey.optional(),
   intro: z.array(z.string()).optional(),
   mutualFriends: z.number().int().nullable().optional(),
+  /**
+   * What they do and where (decision 177, ./local.ts), with how far it is from the person: the card's What they do and
+   * where. Left out by builds from before it.
+   */
+  theirWork: TheirWorkShown.optional(),
 });
 export type ProfileMarksOutput = z.output<typeof ProfileMarksOutput>;
 

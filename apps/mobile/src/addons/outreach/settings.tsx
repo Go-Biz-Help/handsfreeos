@@ -57,6 +57,7 @@ import {
 import { SaveLine } from './settings-bits';
 import { RowsCard } from './settings-hands-off';
 import { VideoLibraryPart } from './video-library';
+import { LocationPart } from './local';
 import { GeneralMine, GeneralTeam } from './settings-general';
 import { NetworkMine, NetworkTeam, type NetworkHere } from './settings-network';
 import { useAskActions, useAsks, type AskActions } from './asks';
@@ -700,6 +701,8 @@ function PartPage({
               manages={manages}
               onHandsOff={(level) => handsOff(null, level)}
             />
+            {/* Where you are and Focus on local groups (decision 177): only ever your own. */}
+            {mine ? <LocationPart /> : null}
             {manages ? (
               <TeamMoved
                 words={SETTINGS_WORDS.teamMovedAll}
