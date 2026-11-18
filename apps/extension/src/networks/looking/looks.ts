@@ -76,8 +76,12 @@ export async function emptyIn(doc: Document, box: HTMLElement, tries = 3): Promi
 /** What a person presses: buttons, links drawn as buttons, and menu rows. */
 const CONTROLS =
   'button, [role="button"], a[href], [role="link"], [role="menuitem"], [role="tab"], input[type="submit"], input[type="button"]';
-/** Where a person writes: a plain box, or one drawn to write in. */
-const BOXES = 'textarea, input[type="text"], [role="textbox"], [contenteditable="true"]';
+/**
+ * Where a person writes: a plain box, or one drawn to write in. An input with no type is a text box too (Instagram's
+ * box in a reel's comments, the owner's problem report of 18 Nov 2026), as the reader's own boxes count it.
+ */
+const BOXES =
+  'textarea, input[type="text"], input:not([type]), [role="textbox"], [contenteditable="true"]';
 
 /** What a box to write in is for: its label, its placeholder, or the label tied to it. */
 export function boxName(box: Element): string {

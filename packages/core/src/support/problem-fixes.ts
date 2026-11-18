@@ -265,14 +265,6 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     said: 'Threads’ reply box ignores the “select all, delete” the extension used to take its word out again. It now waits for the box to see the selection and types nothing over it, which Threads’ editor takes.',
   },
   {
-    area: 'instagram',
-    job: 'send',
-    note: 'couldn’t find the post’s own box to comment in',
-    fixedIn: '0.141.1',
-    pr: 643,
-    said: 'A reel opens in the reels player, which has no link to the reel and no box to comment in till its own Comment opens its comments. The comment now goes on the reel the player opened on, while it’s theirs, by pressing its Comment and writing in the box that shows.',
-  },
-  {
     area: 'facebook',
     job: 'comment',
     note: 'couldn’t find the box to comment in',
@@ -351,6 +343,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     fixedIn: '0.147.11',
     pr: 675,
     said: 'X wraps its box to reply in more than 14 parts deep below its Reply, and the Reply was looked for only 14 parts up, so it was never found and no comment could go. It’s looked for as far up as it takes now, never past the post’s own cell or a box over the page.',
+  },
+  {
+    area: 'instagram',
+    job: 'send',
+    note: 'couldn’t find the post’s own box to comment in',
+    fixedIn: '0.147.13',
+    pr: 680,
+    said: 'The reel’s Comment opened its comments, but their box (“Add a comment…”) is now an input beside Emoji, in no form, and only inputs marked as text boxes were looked for, so one with no type was never found (0.147.11, 18 Nov; the likely cause, as the outline doesn’t show an input’s type). An input with no type counts as a box to write in now. Before that, a reel opened in the reels player, which shows no box till its own Comment opens its comments: the comment goes on the reel the player opened on, while it’s theirs, by pressing its Comment and writing in the box that shows (0.141.1, #643).',
   },
 ];
 

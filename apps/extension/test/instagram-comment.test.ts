@@ -57,7 +57,7 @@ const postPage = ({
 function postable(doc: Document, takes = true): string[] {
   const posted: string[] = [];
   const form = doc.querySelector('#own');
-  const box = form?.querySelector('textarea');
+  const box = form?.querySelector<HTMLTextAreaElement | HTMLInputElement>('textarea, input');
   if (!form || !box) return posted;
   const draw = () => {
     form.querySelector('[data-post]')?.remove();
@@ -189,11 +189,18 @@ describe('a comment on their reel in the reels player on Instagram', () => {
       <a role="link" href="/reels/audio/1234567/"><div><img alt="Original audio"></div></a></div>
   </div>`;
 
+  /** The comments' own box: in its form with Post (as the post's page draws it), or a bare input beside Emoji. */
+  const BOXES = {
+    form: '<form id="own"><textarea aria-label="Add a comment…" placeholder="Add a comment…"></textarea></form>',
+    input: `<div><img alt=""><div id="own"><input placeholder="Add a comment…">
+      <div role="button" aria-expanded="false"><svg role="img" aria-label="Emoji"></svg></div></div></div>`,
+  };
+
   /**
    * The player opened on `first`, `next` under it. A reel's Comment opens its comments beside the player, with their
-   * box to comment in, in its form (as the post's page draws it); `opened` says whose were opened.
+   * box to comment in (`box`); `opened` says whose were opened.
    */
-  function player(first: string, next: string, others = '') {
+  function player(first: string, next: string, others = '', box: keyof typeof BOXES = 'form') {
     const doc = new JSDOM(
       `<!doctype html><html><body><main role="main"><div>${reelPart(first, 'first', others)}${reelPart(next, 'next')}</div></main></body></html>`,
       { url: `${IG}/reels/C4ddddddd/` },
@@ -207,7 +214,7 @@ describe('a comment on their reel in the reels player on Instagram', () => {
         doc.body.insertAdjacentHTML(
           'beforeend',
           `<div role="dialog"><div><h2>Comments</h2>${comment('sam.lee', '17900000000000001', 'Great work!')}</div>
-            <form id="own"><textarea aria-label="Add a comment…" placeholder="Add a comment…"></textarea></form></div>`,
+            ${BOXES[box]}</div>`,
         );
         posted = postable(doc);
       });
@@ -220,6 +227,16 @@ describe('a comment on their reel in the reels player on Instagram', () => {
     expect(opened).toEqual(['first']);
     expect(posted()).toEqual([TEXT]);
     expect(doc.querySelector<HTMLTextAreaElement>('#own textarea')!.value).toBe('');
+  });
+
+  it('writes in the comments’ box when it’s a bare input, with no type, no form and Post only once written', async () => {
+    // The owner's problem report of 18 Nov 2026 (0.147.11): the reel's Comment opened its comments, and their box
+    // ("Add a comment…") was an input with no type beside Emoji, not in a form, so no box was found to comment in.
+    const { doc, opened, posted } = player('dana.reyes', 'sam.lee', '', 'input');
+    expect(await commenting(doc, REEL)).toBe('done');
+    expect(opened).toEqual(['first']);
+    expect(posted()).toEqual([TEXT]);
+    expect(doc.querySelector<HTMLInputElement>('#own input')!.value).toBe('');
   });
 
   it('comments on a reel of theirs they made with another account, its others behind a button', async () => {
