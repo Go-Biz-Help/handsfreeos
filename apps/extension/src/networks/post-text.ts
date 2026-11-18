@@ -7,11 +7,15 @@
  * paragraph by paragraph, the blank lines too. A plain box (a textarea), or one that takes no paste, is typed in as
  * before: Chrome's own typing keeps the lines there. A post of one line is typed as before.
  *
- * LinkedIn's box takes pasted words a line to a paragraph but drops the blank lines between them, as a ProseMirror box
- * does: the owner's post of 15 Nov 2026 went up with every paragraph straight under the one before, the hashtags too.
- * Copied from a web page, the same words come with the page's paragraphs (HTML), an empty one for each blank line, and
- * those boxes keep them. So when a box shows the words but none of their blank lines, it's emptied and they're pasted
- * again as a page gives them (`postHtml`). A box that takes the plain words with their blank lines never sees that.
+ * LinkedIn's box (Tiptap, on ProseMirror) takes pasted words a line to a paragraph but drops the blank lines between
+ * them: the owner's posts of 15 and 18 Nov 2026 went up with every paragraph straight under the one before, the
+ * hashtags too. Chrome's own typing keeps them there, each blank line an empty paragraph, as pressing Enter twice
+ * does (tried in LinkedIn's own box, 18 Nov 2026). So when a box shows the words but none of their blank lines, it's
+ * emptied and they're typed in. A box that takes the plain words with their blank lines never sees that.
+ *
+ * Words pasted as a web page gives them (HTML) can't help on LinkedIn: its page lets no script but its own read pasted
+ * HTML (Trusted Types), so its box throws such a paste away. Extension 0.141.5 to 0.147.11 tried that, and the plain
+ * words went back in without their blank lines.
  *
  * Typing goes where the focus is: the caller focuses and presses the box first, and checks after that it took them.
  */
@@ -30,17 +34,6 @@ export type PutIn = 'pasted' | 'typed';
 /** The post's words as pasted: one kind of line break, and none at either end. */
 export function postLines(text: string): string {
   return text.replace(/\r\n?/g, '\n').trim();
-}
-
-const escaped = (line: string) =>
-  line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-/** The words as a web page gives them when copied: each line its own paragraph, a blank line an empty one. */
-export function postHtml(words: string): string {
-  return postLines(words)
-    .split('\n')
-    .map((line) => (line.trim() ? `<p>${escaped(line)}</p>` : '<p><br></p>'))
-    .join('');
 }
 
 /** What starts a line of its own in a box. */
@@ -96,11 +89,10 @@ export function lostBlankLines(box: Element, words: string): boolean {
   return wanted && !linesIn(box).some(blank);
 }
 
-/** Pastes the words, with a web page's paragraphs when `html` is given. */
-function paste(view: Window & typeof globalThis, box: HTMLElement, words: string, html?: string) {
+/** Pastes the words, as a person pasting them would. */
+function paste(view: Window & typeof globalThis, box: HTMLElement, words: string) {
   const pasted = new view.DataTransfer();
   pasted.setData('text/plain', words);
-  if (html) pasted.setData('text/html', html);
   box.dispatchEvent(
     new view.ClipboardEvent('paste', { clipboardData: pasted, bubbles: true, cancelable: true }),
   );
@@ -110,30 +102,45 @@ function paste(view: Window & typeof globalThis, box: HTMLElement, words: string
 const within = (ms: number, ready: () => boolean): Promise<boolean> =>
   steadyWithin(ms, ready, LOOK_MS);
 
-/**
- * The box showed the words without their blank lines: it's emptied (all of it picked, then deleted, as a person
- * would), and the words pasted again with a web page's paragraphs. A box that won't empty is left as it was, and one
- * that ignores the second paste gets the plain words back: never the words twice, and never an empty box.
- */
-async function pasteAsPage(
+/** Empties the box as a person would (all of it picked, then deleted). Whether it's empty after. */
+async function emptied(
   doc: Document,
-  view: Window & typeof globalThis,
   box: HTMLElement,
-  words: string,
   written: (box: HTMLElement) => boolean,
-): Promise<void> {
+): Promise<boolean> {
   const picked = doc.getSelection();
-  if (!picked) return;
+  if (!picked) return false;
   box.focus();
   picked.selectAllChildren(box);
   // Gives the box a moment to see what's picked before it's deleted.
   await pause(LOOK_MS);
   doc.execCommand('delete');
-  if (!(await within(EMPTY_MS, () => !written(box)))) return;
-  paste(view, box, words, postHtml(words));
-  if (await within(PASTE_MS, () => written(box))) return;
+  return within(EMPTY_MS, () => !written(box));
+}
+
+/**
+ * The box showed the pasted words without their blank lines: it's emptied and the words typed in, as Chrome types
+ * them. A box that won't empty is left as it was. One that takes no typing, or shows fewer lines from it than the
+ * paste gave, gets the plain words pasted back: never the words twice, never an empty box, and never worse than the
+ * paste.
+ */
+async function typeAgain(
+  doc: Document,
+  view: Window & typeof globalThis,
+  box: HTMLElement,
+  words: string,
+  written: (box: HTMLElement) => boolean,
+): Promise<PutIn> {
+  const pastedLines = linesIn(box).length;
+  if (!(await emptied(doc, box, written))) return 'pasted';
+  doc.execCommand('insertText', false, words);
+  if (await within(PASTE_MS, () => written(box))) {
+    if (linesIn(box).length >= pastedLines) return 'typed';
+    if (!(await emptied(doc, box, written))) return 'typed';
+  }
   paste(view, box, words);
   await within(PASTE_MS, () => written(box));
+  return 'pasted';
 }
 
 /**
@@ -152,7 +159,7 @@ export async function putPostIn(
   if (drawn && words.includes('\n') && view?.ClipboardEvent && view.DataTransfer) {
     paste(view, box, words);
     if (await within(PASTE_MS, () => written(box))) {
-      if (lostBlankLines(box, words)) await pasteAsPage(doc, view, box, words, written);
+      if (lostBlankLines(box, words)) return typeAgain(doc, view, box, words, written);
       return 'pasted';
     }
   }

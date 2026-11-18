@@ -4047,6 +4047,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         the blank lines, as a ProseMirror box does. From extension 0.141.5 a box that shows the words but none of their
         blank lines is emptied and gets them pasted again as a web page gives them (HTML, an empty paragraph for each
         blank line), which it keeps (`lostBlankLines` and `postHtml`). Boxes that kept them get one paste, as before.
+        Chris, 18 Nov 2026: "linkedin is still not adding line breaks to the posts". LinkedIn's real box (Tiptap)
+        throws a pasted web page's copy away, as its page lets no script but its own read pasted HTML, so the plain
+        words went back in. From extension 0.147.12 such a box is emptied and the words typed in as Chrome types
+        them, which kept each blank line in LinkedIn's own box (`typeAgain`).
 159.  **Never a message to someone who doesn't follow back on Instagram** (Chris, 11 Nov 2026: "the social outreach
       tool add people to message that have not followed us back on instagram", then "again we never message people
       that don't follow us because it doesn't go to their inbox and them following us is the trigger to inbox them").

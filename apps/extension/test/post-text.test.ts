@@ -1,13 +1,19 @@
 /**
  * Posts keep their paragraphs (docs/outreach.md, decision 158): Facebook's box lost every line break when the whole post
  * was typed, so a post with line breaks is pasted into a box drawn to write in; one line, a plain box, or a box that
- * takes no paste is typed in as before. LinkedIn's box dropped the blank lines from the pasted words (the owner's post
- * of 15 Nov 2026), so a box that shows none gets them pasted again as a web page gives them.
+ * takes no paste is typed in as before. LinkedIn's box dropped the blank lines from the pasted words (the owner's posts
+ * of 15 and 18 Nov 2026), so a box that shows none is emptied and gets them typed, as Chrome types them.
  */
 import { JSDOM } from 'jsdom';
 import { describe, expect, it, vi } from 'vitest';
-import { linesIn, lostBlankLines, postHtml, postLines, putPostIn } from '../src/networks/post-text';
-import { canPaste, paragraphs, pastesLikeFacebook, pastesLikeLinkedIn } from './paste';
+import { linesIn, lostBlankLines, postLines, putPostIn } from '../src/networks/post-text';
+import {
+  asParagraphs,
+  canPaste,
+  paragraphs,
+  pastesLikeFacebook,
+  pastesLikeLinkedIn,
+} from './paste';
 
 // The wait for a box that takes no paste: none here.
 vi.useFakeTimers({ shouldAdvanceTime: true, advanceTimeDelta: 50 });
@@ -23,9 +29,17 @@ const POST = [
 
 /**
  * A page with one box to write in, where typing goes; `pastes` when it takes a paste as Facebook's does, `linkedin`
- * when as LinkedIn's does (`html: false` when it ignores a web page's copy). Delete empties the box unless `stuck`.
+ * when as LinkedIn's does. Typing puts each line in a paragraph of its own, as Chrome's does in a box drawn to write in,
+ * unless `typing` is `flat` (every line break lost, as Lexical's box loses them) or `none` (a box that takes none).
+ * Delete empties the box unless `stuck`.
  */
-function page({ pastes = true, plain = false, linkedin = false, html = true, stuck = false } = {}) {
+function page({
+  pastes = true,
+  plain = false,
+  linkedin = false,
+  typing = 'lines' as 'lines' | 'flat' | 'none',
+  stuck = false,
+} = {}) {
   const doc = new JSDOM('<body></body>').window.document;
   canPaste(doc);
   const box = doc.createElement(plain ? 'textarea' : 'div');
@@ -48,10 +62,11 @@ function page({ pastes = true, plain = false, linkedin = false, html = true, stu
     }
     typed.push(text ?? '');
     if (plain) (box as HTMLTextAreaElement).value = text ?? '';
-    else box.textContent = text ?? '';
+    else if (typing === 'lines') asParagraphs(box, (text ?? '').split('\n'));
+    else if (typing === 'flat') asParagraphs(box, [(text ?? '').replace(/\n/g, '')]);
     return true;
   };
-  if (linkedin) pastesLikeLinkedIn(box, { html });
+  if (linkedin) pastesLikeLinkedIn(box);
   else if (pastes && !plain) pastesLikeFacebook(box);
   return { doc, box, typed, pasted };
 }
@@ -71,28 +86,37 @@ describe('putting a post’s words in the box', () => {
     expect(pasted).toEqual(['plain']);
   });
 
-  it('pastes it again as a web page gives it when the box drops the blank lines, as LinkedIn’s did', async () => {
+  it('types the words again when the box drops the blank lines, as LinkedIn’s did', async () => {
     const { doc, box, typed, pasted } = page({ linkedin: true });
-    expect(await putPostIn(doc, box, POST, written)).toBe('pasted');
+    expect(await putPostIn(doc, box, POST, written)).toBe('typed');
     expect(paragraphs(box)).toEqual(POST.split('\n'));
-    expect(pasted).toEqual(['plain', 'page']);
-    expect(typed).toEqual([]);
+    // Pasted once, emptied, then typed once: never a web page's copy, which LinkedIn's box throws away.
+    expect(pasted).toEqual(['plain']);
+    expect(typed).toEqual([POST]);
   });
 
-  it('never leaves the words twice, nor an empty box, when the second paste can’t go', async () => {
+  it('never leaves the words twice, an empty box, or fewer lines when typing them again can’t go', async () => {
     // The box won't empty: the words stay as they went in, once.
     const stuck = page({ linkedin: true, stuck: true });
     expect(await putPostIn(stuck.doc, stuck.box, POST, written)).toBe('pasted');
     expect(paragraphs(stuck.box)).toEqual(POST.split('\n').filter(Boolean));
     expect(stuck.pasted).toEqual(['plain']);
+    expect(stuck.typed).toEqual([]);
 
-    // The box ignores a web page's copy: the plain words go back in.
-    const ignores = page({ linkedin: true, html: false });
+    // The box takes no typing: the plain words go back in.
+    const ignores = page({ linkedin: true, typing: 'none' });
     const going = putPostIn(ignores.doc, ignores.box, POST, written);
     await vi.advanceTimersByTimeAsync(2_000);
     expect(await going).toBe('pasted');
     expect(paragraphs(ignores.box)).toEqual(POST.split('\n').filter(Boolean));
-    expect(ignores.pasted).toEqual(['plain', 'page', 'plain']);
+    expect(ignores.pasted).toEqual(['plain', 'plain']);
+
+    // Typing loses every line break: emptied again, and the plain words go back in, a paragraph to a line.
+    const flat = page({ linkedin: true, typing: 'flat' });
+    expect(await putPostIn(flat.doc, flat.box, POST, written)).toBe('pasted');
+    expect(paragraphs(flat.box)).toEqual(POST.split('\n').filter(Boolean));
+    expect(flat.pasted).toEqual(['plain', 'plain']);
+    expect(flat.typed).toEqual([POST]);
   });
 
   it('types a post of one line as before', async () => {
@@ -115,12 +139,6 @@ describe('putting a post’s words in the box', () => {
 
   it('pastes one kind of line break, with none at either end', () => {
     expect(postLines('\nFirst.\r\n\r\nSecond.\rThird.\n')).toBe('First.\n\nSecond.\nThird.');
-  });
-
-  it('gives the words as a web page does: a paragraph to a line, an empty one for a blank line', () => {
-    expect(postHtml('Tips & tricks <3\n\nBook a call.\n#roofing')).toBe(
-      '<p>Tips &amp; tricks &lt;3</p><p><br></p><p>Book a call.</p><p>#roofing</p>',
-    );
   });
 });
 
