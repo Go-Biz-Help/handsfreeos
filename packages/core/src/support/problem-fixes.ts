@@ -336,6 +336,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 662,
     said: 'Create opened Threads’ New thread box, but Threads now draws it as a menu, not a box over the page, so it was never found. A menu with a box to write in counts now; one without (More’s) never does (0.147.4, #659). Then a page showed no Create, and the feed’s box, labelled “Empty text field…” while it shows “What’s new?”, wasn’t known by its words, so nothing was pressed: every way Threads shows to open the box (the feed’s box, New thread, Create) is found by its label or its words now, and tried in turn till one opens it.',
   },
+  {
+    area: 'linkedin',
+    job: 'friend_request',
+    note: 'you’re connected already',
+    fixedIn: '0.147.9',
+    pr: 670,
+    said: 'They weren’t connected: LinkedIn’s newer profile can say “· 1st” beside the real “· 2nd”, and with Follow first and Connect under More (not on the page until More is pressed) the “· 1st” was taken as theirs. The other degree is theirs now whenever both show, so More is opened and the invitation sent. Someone truly connected is passed over without a report, as nothing’s left to do.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */

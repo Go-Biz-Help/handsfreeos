@@ -1272,6 +1272,19 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### A LinkedIn profile that says "1st" beside the real degree, read as not connected (0.147.9)
+
+On 0.147.5 an invitation of 17 Nov 2026 was passed over as "you’re connected already", and reported. Its problem
+report's outline showed a profile whose main button is Follow, then Message and More, with "· 1st" and "· 2nd" both
+under the name: LinkedIn's newer top card can say "· 1st" beside the real one. That was known from the owner's Check
+LinkedIn of 17 Oct 2026, but only where Connect shows in the top card. Here Connect is under More, whose menu isn't on
+the page until it's pressed, so the "· 1st" was taken as theirs. From 0.147.9 (`readProfile` in
+`src/networks/linkedin/profile.ts`) the other degree is theirs whenever both show, so the runner opens More and sends
+the invitation, and Check LinkedIn tries Connect there too. Someone truly connected (only "· 1st", or Remove connection)
+is passed over as before, and from 0.147.9 never reported: there's nothing left to do (decision 145), as on Facebook
+and Alignable. Their own profile is passed over the same way. Their invitation waiting is still the person's to
+accept.
+
 ### A Facebook chat's messages without the "Sent 33m ago" under them (0.147.8)
 
 The owner's screenshots of 17 Nov 2026 showed Facebook chats on Needs you with one check-in six times over, each

@@ -161,6 +161,38 @@ describe('connecting without a note', () => {
     },
   );
 
+  it.each(asWrittenAndBoxed)(
+    'finds Connect under More when the top card says 1st beside their real degree, %s',
+    async (_, boxed) => {
+      // A problem report of 17 Nov 2026 (0.147.5): Follow first, Message, More, and "· 1st" beside "· 2nd" above
+      // them, read as a connection, so the invitation was passed over as "you’re connected already". More's menu
+      // isn't on the page until it's pressed, so no Connect shows before.
+      const url = `${LI}/in/sam-lee-77/`;
+      const { doc, pressed } = profile('linkedin-profile-follow.html', url, 'Sam Lee', boxed);
+      const degree = [...doc.querySelectorAll('main span')].find(
+        (span) => span.textContent === '· 3rd+',
+      )!;
+      degree.insertAdjacentHTML('beforebegin', '<p>· 1st</p>');
+      const menu = [...doc.querySelectorAll('main [aria-hidden="true"]')].find((hidden) =>
+        hidden.querySelector('[aria-label="Invite Sam Lee to connect"]'),
+      )!;
+      const place = menu.parentElement!;
+      menu.remove();
+      menu.removeAttribute('aria-hidden');
+      expect(readPage(doc, url).profile).toMatchObject({
+        degree: '3rd',
+        connection: 'not_connected',
+      });
+      const more = doc.querySelector('[aria-label="More actions"]')!;
+      more.addEventListener('click', () => {
+        more.setAttribute('aria-expanded', 'true');
+        place.append(menu);
+      });
+      expect(await connect(doc, url)).toBe('done');
+      expect(pressed).toEqual(['Connect', 'Send without a note']);
+    },
+  );
+
   describe('Connect in the menu More opens outside the top card', () => {
     // The owner's problem reports of 4 Nov 2026 (0.126.2): More's menu shows outside the top card, its Connect a link
     // to the invitation box, so only the AI helper found it, each time.

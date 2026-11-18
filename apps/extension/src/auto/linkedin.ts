@@ -741,12 +741,11 @@ async function invite(item: TodayListItem, businessId: string): Promise<Outcome>
   const standing = opened.page.profile!.connection;
   if (standing === 'pending')
     return { done: false, line: `${item.name}: invited already`, skip: true };
+  if (standing === 'received')
+    return { done: false, line: `${item.name}: ${STANDING.received}`, need: true };
+  // Connected already, or their own profile: nothing's left to do, so it's no failure (decision 145).
   if (STANDING[standing])
-    return {
-      done: false,
-      line: `${item.name}: ${STANDING[standing]}`,
-      ...(standing === 'received' ? { need: true as const } : {}),
-    };
+    return { done: false, line: `${item.name}: ${STANDING[standing]}`, skip: true };
   const pressConnect = async (sent?: true) => {
     const went = await tab.ask({ type: 'hfos-connect', ...(sent ? { sent } : {}) });
     if (!went.ok) throw new Error(went.error);
