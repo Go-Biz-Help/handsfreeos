@@ -351,6 +351,7 @@ export const contentMarkPosted = defineAddonCommand(socialcontentAddon, {
           lookDueAt: null,
           lookedAt: null,
           lookFailure: null,
+          lookAsked: false,
           checksDueAt: c.checksDueAt ?? nextCheckAt(postedTo, c.numbers),
           updatedAt: at,
         })
@@ -403,7 +404,8 @@ export const contentLook = defineAddonCommand(socialcontentAddon, {
       }
       await ctx.tx
         .update(content)
-        .set({ lookDueAt: at, lookFailure: null })
+        // Asked for by a person: its window comes in front for the look right away, as a Check's does.
+        .set({ lookDueAt: at, lookFailure: null, lookAsked: true })
         .where(eq(content.recordId, c.recordId));
       asked++;
     }
@@ -505,7 +507,7 @@ export const postLookNext = defineAddonCommand(socialcontentAddon, {
       if (!canLook(c) || !isPostingNetwork(network) || !places.length) {
         await ctx.tx
           .update(content)
-          .set({ lookDueAt: null })
+          .set({ lookDueAt: null, lookAsked: false })
           .where(eq(content.recordId, c.recordId));
         continue;
       }
@@ -521,6 +523,7 @@ export const postLookNext = defineAddonCommand(socialcontentAddon, {
           places,
           facebookPage: (await settingsOf(ctx)).facebookPage,
           postAt: c.postAt?.toISOString() ?? null,
+          asked: c.lookAsked,
         },
       };
     }
@@ -543,11 +546,14 @@ export const postLooked = defineAddonCommand(socialcontentAddon, {
     const at = changeMoment(ctx.meta);
     if (!canLook(c)) {
       // Redone or marked meanwhile: what it found no longer matters.
-      await ctx.tx.update(content).set({ lookDueAt: null }).where(eq(content.recordId, c.recordId));
+      await ctx.tx
+        .update(content)
+        .set({ lookDueAt: null, lookAsked: false })
+        .where(eq(content.recordId, c.recordId));
     } else if (input.failure && !input.found.length) {
       await ctx.tx
         .update(content)
-        .set({ lookDueAt: null, lookFailure: input.failure, updatedAt: at })
+        .set({ lookDueAt: null, lookAsked: false, lookFailure: input.failure, updatedAt: at })
         .where(eq(content.recordId, c.recordId));
     } else {
       const kept = new Set(c.postedTo.map((p) => p.place));
@@ -564,6 +570,7 @@ export const postLooked = defineAddonCommand(socialcontentAddon, {
           postedTo,
           postLink: postedTo.find((p) => p.link)?.link ?? c.postLink,
           lookDueAt: null,
+          lookAsked: false,
           lookFailure: null,
           lookedAt: done ? null : at,
           ...(done

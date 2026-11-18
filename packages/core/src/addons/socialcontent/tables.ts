@@ -305,6 +305,11 @@ export const content = addonSocialcontent.table(
     lookDueAt: ts('look_due_at'),
     lookedAt: ts('looked_at'),
     lookFailure: text('look_failure'),
+    /**
+     * Whether a person asked for the look (Check if it posted, the owner, 18 Nov): its window then comes in front right
+     * away, as a Check's does; a look on its own comes in front only while they're away (docs/outreach.md, decision 120).
+     */
+    lookAsked: boolean('look_asked').notNull().default(false),
     createdBy: userRef('created_by'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),

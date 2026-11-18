@@ -85,6 +85,7 @@ export const NOT_HIDDEN_OR_LOOKED = {
   lookDueAt: null,
   lookedAt: null,
   lookFailure: null,
+  lookAsked: false,
 } as const;
 
 /** The post, with its record's name, when it's in this business and not in the Deleted bin. */
@@ -189,6 +190,7 @@ function fromRaw(r: RawRow): ContentRow {
     lookDueAt: asDate(r['look_due_at']),
     lookedAt: asDate(r['looked_at']),
     lookFailure: (r['look_failure'] as string | null) ?? null,
+    lookAsked: r['look_asked'] === true,
     createdBy: (r['created_by'] as string | null) ?? null,
     createdAt: asDate(r['created_at'])!,
     updatedAt: asDate(r['updated_at'])!,
