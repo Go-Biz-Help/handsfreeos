@@ -950,19 +950,31 @@ export function networkingStand(recent: readonly DownloadMessage[]): NetworkingS
  * conversation go on to long. Also doesnt relate to what they say enough"). It reacts to what they said and shares
  * something of the owner's that connects, from the business's story; it asks a question only when the chat would stall,
  * never right after the owner asked one; a demo is offered only when they ask about the business, after a quick
- * answer; and once they've written back twice it wraps up, with the networking call once, or a warm sign-off. Each
- * offer only while its switch is on. Opens as every reply does, which the worker's stand-in model reads.
+ * answer; and once they've written back twice it wraps up in one message that asks nothing (the owner, 18 Nov 2026:
+ * "if they ever want to network and see how we can support each other or refer each other then let's jump on a call
+ * and then send the Chris's calendar and then say if i see anyone online looking for your services in your area I'll
+ * be sure to mention you"): the networking call with `callLink`, the person's own calendar, then the line about sending
+ * people their way, or a warm sign-off. Each offer only while its switch is on. Opens as every reply does, which the
+ * worker's stand-in model reads.
  */
 export function networkingReplyTask(
   says: FullScript,
   on: PlaybookNetworking,
   stand: NetworkingStand = { wroteBack: 1, ownerAsked: false },
+  callLink: string | null = null,
 ): string {
   const asked =
     'they ask about the business (what it does, what it offers, how it works, the price)';
-  const call = on.call
-    ? `offer the networking call, once in the whole chat, unless the chat shows the owner already offered it or they passed on it. ${asMessage('the networking call offer', says.callOffer)} When it was, `
-    : '';
+  const wrap = [
+    on.call
+      ? `the networking call offer, once in the whole chat, unless the chat shows the owner already offered it or they passed on it. ${asMessage('the networking call offer', says.callOffer)} ${callLink ? `The owner’s own calendar link for [calendar link], exactly as written: ${quoteData(callLink)}. Never the playbook’s link for it.` : 'There’s no calendar link to give, so leave [calendar link] and the words that give it out.'}`
+      : null,
+    on.sendPeople
+      ? `${on.call ? 'Then, in the same message, ' : ''}the line about sending people their way, once in the whole chat, unless the chat shows the owner already said it. ${asMessage('it', says.sendPeople)}`
+      : null,
+  ].filter(Boolean);
+  // The wrap-up: one message, the offers in it said once in the whole chat; once they've been, only a sign-off.
+  const wrapUp = `wrap the chat up in one message that asks nothing: ${wrap.length ? `${wrap.join(' ')} That’s the sign-off. When the chat shows the owner already said ${wrap.length > 1 ? 'them' : 'it'}, just ` : ''}a short, warm sign-off, with no offer and no link.`;
   return [
     'They wrote last. Read the whole chat first, not only their last message, and write the owner’s reply to where it is now.',
     'They wrote back after the owner’s introduction, so this is a networking chat: a short one between two business owners, not a sales chat. Keep the reply to a line or two. Never pitch and never push.',
@@ -973,14 +985,10 @@ export function networkingReplyTask(
     on.demo
       ? `When ${asked}: answer in a sentence or two from the offer and <content_lists>, then offer a demo, once in the whole chat, unless the chat shows the owner already offered one. ${asMessage('the demo offer', says.demoOffer)} Never offer a demo when they haven’t asked, even when they name a problem the business fixes.`
       : `When ${asked}: answer in a sentence or two from the offer and <content_lists>. Never offer a demo.`,
-    on.sendPeople
-      ? `Once the chat shows what they do and where they work, say it, once in the whole chat, unless the chat shows the owner already did. ${asMessage('it', says.sendPeople)}`
-      : null,
     stand.wroteBack >= NETWORKING_WRAP_AFTER
-      ? `They’ve written back ${stand.wroteBack} times, so unless ${asked}, wrap the chat up now and ask nothing more: ${call}a short, warm sign-off.`
-      : 'Don’t offer a call yet.',
+      ? `They’ve written back ${stand.wroteBack} times, so unless ${asked}, ${wrapUp}`
+      : `When their last message only signs off (thanks, you too, a thumbs up), ${wrapUp}${wrap.length ? ' Otherwise, nothing of the wrap-up yet: no call and no line about sending people their way.' : ''}`,
     `When they said not now: ${playbookSays(says.later)} When they said no: ${playbookSays(says.no)}`,
-    'When the chat has already come to a close (their last message only signs off: thanks, you too, a thumbs up), write one short, warm sign-off, with no question, no offer and no link.',
   ]
     .filter(Boolean)
     .join(' ');
@@ -1013,10 +1021,12 @@ function taskFor(
   networking: PlaybookNetworking | null = null,
   /** Where the networking chat stands (decision 176). */
   stand: NetworkingStand | null = null,
+  /** The person's own calendar, for the networking call when the chat wraps up (decision 176). */
+  callLink: string | null = null,
 ): string {
   // The networking chat after an introduction (decision 173): a reply about them, and its one nudge.
   if (kind === 'reply' && step === 'intro' && networking)
-    return networkingReplyTask(says, networking, stand ?? undefined);
+    return networkingReplyTask(says, networking, stand ?? undefined, callLink);
   if (kind === 'follow_up' && step === 'intro')
     return `The owner introduced themselves and they haven’t written back. Write the owner’s one nudge. ${asHow('the nudge', says.nudge)} It’s the only one: never say you’ll check back, and never repeat the introduction.`;
   if (kind === 'pitch' && call)
@@ -1352,6 +1362,12 @@ export function todayDraftPrompt(input: {
   /** Where they are in the conversation, for a follow-up, a check-in or a reply. */
   readonly conversation?: DraftConversation | null;
   /**
+   * For a reply in the networking chat after an introduction: the person's own calendar (decision 173), never the
+   * playbook's demo page, for the networking call the chat wraps up with (decision 176). Left out, the call goes with
+   * no link.
+   */
+  readonly callLink?: string | null;
+  /**
    * Their post, for a comment, and the group it's in: only whether it's in one is told (decision 157), never which.
    */
   readonly post?: {
@@ -1513,6 +1529,7 @@ export function todayDraftPrompt(input: {
                   ? { ...NETWORKING_ON, ...(p?.networking ?? {}) }
                   : null,
                 networkingStand(input.recent),
+                input.callLink ?? null,
               ),
               platform,
               !!input.post?.group,

@@ -435,9 +435,10 @@ became.
 - **The networking chat after it** (decisions 173 and 176, `script.ts` `PLAYBOOK_NETWORKING`, `today.ts`
   `networkingReplyTask`): short replies that react to what they said and share the owner's story from the main offer;
   a question only when the chat would stall; one nudge if they stay quiet, then a check-in once a month; a demo offered
-  once, only when they ask about the business, a networking call once to wrap up after they've written back twice
-  (booked on the person's own calendar, the worker's `callLinkFor`), and "I'll send people your way" once, each a
-  switch in the playbook, all on to start.
+  once, only when they ask about the business, and a wrap-up after they've written back twice: one message with the
+  networking call and its link to the person's own calendar (the worker's `callLinkFor`), then "if I see anyone
+  online looking for what you do in your area, I'll be sure to mention you". Each is a switch in the playbook, all on
+  to start.
 - **Refer someone you've talked with** (decision 174, `referrals.ts`, `ops/referrals.ts`, the worker's `referrals.ts`):
   when a post the extension read asks for a recommendation, the AI looks among the people who wrote back at least twice
   for one who plainly does that, and writes a comment naming them and a heads-up to them from their playbook. Both wait
@@ -4728,16 +4729,27 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         price, a sentence or two from the offer and the lists, then the part **Offering a demo**, whose starting words
         are now Chris's: "I’d love to show you a demo if you have a bit of time in the next week or so." Never when they
         only name a problem. The switch reads **Offer a demo when they ask**.
-      - **It wraps up after two replies** (`NETWORKING_WRAP_AFTER`, a few texts in a row counting as one): unless
-        they've just asked about the business, the reply asks nothing more and offers the networking call once (while
-        its switch is on), or, once it was offered or they passed, signs off warmly. Before that, no call.
+      - **It wraps up after two replies** (`NETWORKING_WRAP_AFTER`, a few texts in a row counting as one, or sooner
+        when they sign off), in one message that asks nothing (Chris, 18 Nov 2026: "just mention something like…if
+        they ever want to network and see how we can support each other or refer each other then let’s jump on a
+        call and then send the Chris’s calendar and then say if i see anyone online looking for your services in your
+        area I’ll be sure to mention you"): unless they've just asked about the business, the part **Offering a
+        networking call**, "If you ever want to network and see how we can support each other or refer each other,
+        let’s jump on a call. Here’s my calendar: [calendar link]", then the part **Sending people their way**, "If I
+        see anyone online looking for [what they do] in [their area], I’ll be sure to mention you." Each once in the
+        chat and only while its switch is on; once said, only a warm sign-off. Before that, nothing of the wrap-up.
+      - **The call's link is in the wrap-up** (the draft's `callLink`, the worker's `callLinkFor`, a new blank
+        **[calendar link]**): the person's own calendar, as for a yes to a call (decision 173), never the playbook's
+        demo link. For the owner that's Chris’s calendar. With no calendar of their own, the words that give the link
+        are left out.
       - **The lists are renamed** (Chris's 3: "the part in the main offer thats for social posts should just be for both
         the content creator and outreach so maybe we should rename it?"): Settings → Main offer → **For your posts and
         messages**, on the web and the phone (`MAIN_OFFER_LISTS_WORDS`), was For your content (docs/main-offer.md).
       - **Written again** (4a; `RULES_VERSION` 5): every message still waiting for an OK, or OK'd and not sent, is
         written again the next time the extension queues one.
-      - **How it's built** (no migration, no extension change): `today.ts`, `script.ts`, `about-owner.ts` and `sends.ts`
-        in Social Outreach; the lists' words in `main-offer/lists.ts`.
+      - **How it's built** (no migration, no extension change): `today.ts`, `script.ts`, `about-owner.ts`,
+        `ops/playbooks.ts` and `sends.ts` in Social Outreach; the worker's `today.ts` and `playbook-test.ts`; the lists'
+        words in `main-offer/lists.ts`.
 
 ## Rules worth knowing before changing anything
 
@@ -4785,7 +4797,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   first message to someone's Requests. Don't let a playbook's own words drop it.
 - **A networking chat stays short and about what they said** (decision 176, `networkingReplyTask`,
   `networkingStand`): no question right after the owner asked one, a demo only when they ask about the business, and
-  a wrap-up after they've written back twice. Don't go back to a question in every reply.
+  a wrap-up after they've written back twice that asks nothing: the call with the person's own calendar link, then
+  the line about mentioning them. Don't go back to a question in every reply.
 - **In the networking chat, only a yes to a demo or a call is a yes** (decision 173, `ANSWER_AFTER_INTRO_ASK`,
   `answerOf`, `tookOf`): a friendly answer to the owner's question about them is no yes, so no ask for a time
   follows it. A call's yes (`follow_ups.call`) puts the ask and what follows it on the person's own calendar, with no

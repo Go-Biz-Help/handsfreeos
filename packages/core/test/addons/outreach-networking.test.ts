@@ -124,11 +124,14 @@ describe('what the AI is told in the networking chat', () => {
     // A demo only when they ask about the business, after a quick answer (the owner's 2).
     expect(prompt).toContain(playbookSays(STARTING_DEMO_OFFER));
     expect(prompt).toContain('Never offer a demo when they haven’t asked');
-    expect(prompt).toContain(playbookSays(STARTING_SEND_PEOPLE));
     expect(prompt).toContain('once in the whole chat');
-    // One reply in: no call yet.
-    expect(prompt).not.toContain(playbookSays(STARTING_CALL_OFFER));
-    expect(prompt).toContain('Don’t offer a call yet.');
+    // One reply in: nothing of the wrap-up yet, unless they sign off.
+    expect(prompt).toContain(
+      'When their last message only signs off (thanks, you too, a thumbs up), wrap the chat up in one message that asks nothing:',
+    );
+    expect(prompt).toContain(
+      'Otherwise, nothing of the wrap-up yet: no call and no line about sending people their way.',
+    );
     expect(prompt).toContain(ANSWER_AFTER_INTRO_ASK);
     expect(prompt).not.toContain(ANSWER_ASK);
     // A switch turned off: never offered.
@@ -168,19 +171,58 @@ describe('what the AI is told in the networking chat', () => {
     const wrap = todayDraftPrompt({ kind: 'reply', ...base, recent: long, conversation: inChat });
     expect(wrap).toContain('Ask a question only when the chat would stall without one');
     expect(wrap).toContain('They’ve written back 2 times, so unless they ask about the business');
+    // One message that asks nothing: the call with the person's own calendar, then the line about sending people
+    // their way (the owner, 18 Nov 2026).
+    expect(wrap).toContain('wrap the chat up in one message that asks nothing:');
     expect(wrap).toContain(playbookSays(STARTING_CALL_OFFER));
-    expect(wrap).toContain('a short, warm sign-off.');
-    expect(wrap).not.toContain('Don’t offer a call yet.');
-    // With the call off it only signs off.
+    expect(wrap).toContain('Then, in the same message, the line about sending people their way');
+    expect(wrap).toContain(playbookSays(STARTING_SEND_PEOPLE));
+    expect(wrap).toContain('just a short, warm sign-off, with no offer and no link.');
+    expect(wrap).not.toContain('nothing of the wrap-up yet');
+    // No calendar of their own: the call goes with no link.
+    expect(wrap).toContain('There’s no calendar link to give');
+    const own = 'https://app.handsfreeos.com/book/acme/dana';
+    const linked = todayDraftPrompt({
+      kind: 'reply',
+      ...base,
+      recent: long,
+      conversation: inChat,
+      callLink: own,
+    });
+    expect(linked).toContain(
+      `The owner’s own calendar link for [calendar link], exactly as written: ${own}.`,
+    );
+    expect(linked).not.toContain('There’s no calendar link to give');
+    // With the call off it says the line and signs off; with both off it only signs off.
     const noCall = todayDraftPrompt({
       kind: 'reply',
       ...base,
       playbook: { ...intro, networking: { demo: true, call: false, sendPeople: true } },
       recent: long,
       conversation: inChat,
+      callLink: own,
     });
     expect(noCall).not.toContain(playbookSays(STARTING_CALL_OFFER));
-    expect(noCall).toContain('wrap the chat up now and ask nothing more: a short, warm sign-off.');
+    expect(noCall).not.toContain(own);
+    expect(noCall).toContain(
+      'wrap the chat up in one message that asks nothing: the line about sending people their way',
+    );
+    const neither = todayDraftPrompt({
+      kind: 'reply',
+      ...base,
+      playbook: { ...intro, networking: { demo: true, call: false, sendPeople: false } },
+      recent: long,
+      conversation: inChat,
+    });
+    expect(neither).toContain(
+      'wrap the chat up in one message that asks nothing: a short, warm sign-off, with no offer and no link.',
+    );
+    // The words the owner gave (18 Nov 2026), with the person's own calendar's blank.
+    expect(STARTING_CALL_OFFER).toContain('let’s jump on a call');
+    expect(STARTING_CALL_OFFER).toContain('[calendar link]');
+    expect(STARTING_SEND_PEOPLE).toBe(
+      'If I see anyone online looking for [what they do] in [their area], I’ll be sure to mention you.',
+    );
   });
 
   it('writes the one nudge from its own words, never a follow-up number', () => {

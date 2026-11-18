@@ -48,7 +48,7 @@ import {
   PlaybookDetails,
   upgradePlaybookDetails,
 } from '@hfos/core/addons/outreach/playbooks';
-import { firstMessagesOf, opensWithIntro } from '@hfos/core/addons/outreach/script';
+import { firstMessagesOf, networkingOf, opensWithIntro } from '@hfos/core/addons/outreach/script';
 import {
   answerOf,
   tookOf,
@@ -239,6 +239,11 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
         // After a yes to a networking call (decision 173): the person's own calendar, not the demo page.
         const call = o.state.call && o.state.step === 'link';
         const onLink = call ? await callLinkFor(ctx, ctx.userId, details.link) : details.link;
+        // The networking chat's wrap-up (decision 176): its call offer carries the person's own calendar.
+        const wrapLink =
+          o.state.step === 'intro' && networkingOf(details).call
+            ? await callLinkFor(ctx, ctx.userId, details.link)
+            : null;
         const meeting =
           o.times && !declined
             ? await meetingFor(ctx, {
@@ -266,6 +271,7 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
             conversation: o.state.step
               ? { step: o.state.step, sent: o.state.sent, followUps: pace.followUps, call }
               : null,
+            callLink: wrapLink,
             post: null,
             opener: { kind: intro ? 'intro' : 'own', text: firsts[version]! },
             // Their name for an introduction's [your first name], and whether they just connected (decision 168).
