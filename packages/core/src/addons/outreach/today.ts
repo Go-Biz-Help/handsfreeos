@@ -895,17 +895,23 @@ export interface DraftConversation {
 
 /**
  * The playbook's introduction in place of the first message (decision 168, the owner, 15 Nov 2026: "thanks for
- * connecting and who we are and what we offer"), which ends with a question about them to get them talking (decision
- * 173). `fresh` when they just connected; a friend of a while who was never talked to gets a hello in place of the
- * thanks for connecting.
+ * connecting and who we are and what we offer"), with a question about them to get them talking (decision 173). `fresh`
+ * when they just connected; a friend of a while who was never talked to gets a hello in place of the thanks for
+ * connecting. `two` when the question goes as its own text right after it (decision 175, the owner, 17 Nov 2026: "the
+ * question should be in a second message right after the introduction so it's not all in one"); else it's one message,
+ * the question last.
  */
-export function introTask(intro: string, fresh: boolean): string {
+export function introTask(intro: string, fresh: boolean, two = false): string {
   return [
     `They and the owner haven’t talked yet, so this is the owner’s first message to them: an introduction, not a pitch. ${asMessage('the introduction', intro, true)}`,
     fresh
       ? 'They just connected with the owner: they accepted the owner’s request, the owner accepted theirs, or they followed the owner.'
       : 'They’ve been connected with the owner a while without ever talking: in place of thanking them for connecting, say a friendly hello, and keep the rest.',
-    'It says who the owner is and what the business offers. Ask only what the playbook’s words ask, as one question at most: a question about them, never about the offer, and no ask for a call or a demo. It’s one message. Never say how the offer works or the price in it, and no link or web address unless the playbook’s words have one.',
+    'It says who the owner is and what the business offers, then asks one question about them to get them talking: the one the playbook’s words ask, or, when they ask none, one about them from their page. That’s its only question: never about the offer, and no ask for a call or a demo.',
+    two
+      ? 'The question goes as its own text, right after the introduction: write the introduction with no question in it, then a blank line, then the question alone.'
+      : 'It’s one message, with the question last.',
+    'Never say how the offer works or the price in it, and no link or web address unless the playbook’s words have one.',
   ].join(' ');
 }
 
@@ -1424,6 +1430,9 @@ export function todayDraftPrompt(input: {
   // message. One to someone who turned the offer down only catches up.
   const catchUp = input.kind === 'reconnect' && declined !== null;
   const twoTexts = input.kind === 'reconnect' && !catchUp;
+  // An introduction's question about them goes as its own text right after it when the person sends a few (decision
+  // 175); to their Requests it's one text.
+  const introTwo = input.kind === 'opener' && opensWithIntro(p) && !requests && voice.split;
   // What the playbook says for this message (decision 164, ./script.ts), and the first message's version whose turn
   // it is.
   const says = draftScript(p);
@@ -1440,7 +1449,12 @@ export function todayDraftPrompt(input: {
       : warm
         ? warmCommentTask(says.warmUp, input.post?.shown?.kind ?? null)
         : intro
-          ? taskOn(input.kind, introTask(introWords, input.fresh ?? true), platform, false)
+          ? taskOn(
+              input.kind,
+              introTask(introWords, input.fresh ?? true, introTwo),
+              platform,
+              false,
+            )
           : taskOn(
               input.kind,
               taskFor(
@@ -1621,7 +1635,7 @@ export function todayDraftPrompt(input: {
       input.own ?? null,
       requests || input.kind === 'opener' || input.kind === 'reconnect' || input.kind === 'pitch',
     ),
-    voiceLines(voice, texts, twoTexts),
+    voiceLines(voice, texts || introTwo, twoTexts || introTwo),
     texts
       ? gapLine(input.lastAt ?? lastOf(input.recent), input.now ?? Date.now(), {
           // Reconnect's greeting is its catch-up's: the question is the second text.

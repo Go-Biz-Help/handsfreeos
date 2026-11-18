@@ -37,7 +37,7 @@ export const tradePages: readonly TradePage[] = [
     description:
       'HandsFreeOS answers your HVAC calls and texts in seconds, books the visit, chases the quote and bills maintenance plans every month. One plan, your whole crew.',
     h1: 'The no-cool call at 7pm gets answered, and booked.',
-    sub: 'HandsFreeOS picks up your calls, answers texts and website chats, books the visit and chases the quote and the invoice. You step in only when it matters.',
+    sub: 'HandsFreeOS is your AI Business OS. Its AI employees pick up your calls, answer texts and website chats, book the visit and chase the quote and the invoice. You step in only when it matters.',
     night: 'When it’s 95 out, they call whoever answers first.',
     pains: [
       {
@@ -80,7 +80,7 @@ export const tradePages: readonly TradePage[] = [
     description:
       'HandsFreeOS answers your plumbing calls and texts in seconds, books the job, takes the deposit and chases the invoice. One plan, your whole crew.',
     h1: 'The burst pipe at 9pm gets answered, and booked.',
-    sub: 'HandsFreeOS picks up your calls, answers texts and website chats, books the job and chases the quote and the invoice. You step in only when it matters.',
+    sub: 'HandsFreeOS is your AI Business OS. Its AI employees pick up your calls, answer texts and website chats, book the job and chase the quote and the invoice. You step in only when it matters.',
     night: 'A leak can’t wait, so they won’t wait for you.',
     pains: [
       {
@@ -123,7 +123,7 @@ export const tradePages: readonly TradePage[] = [
     description:
       'HandsFreeOS answers your calls and texts in seconds, books the job, gets quotes approved on the customer’s phone and chases the invoice. One plan, your whole crew.',
     h1: 'Every “is anyone free this week?” answered in seconds.',
-    sub: 'HandsFreeOS picks up your calls, answers texts and website chats, books the job and chases the quote and the invoice. You step in only when it matters.',
+    sub: 'HandsFreeOS is your AI Business OS. Its AI employees pick up your calls, answer texts and website chats, book the job and chase the quote and the invoice. You step in only when it matters.',
     night: 'You can’t answer the phone from inside a panel.',
     pains: [
       {
@@ -166,7 +166,7 @@ export const tradePages: readonly TradePage[] = [
     description:
       'HandsFreeOS answers your cleaning leads in seconds, books the visit, books repeat cleans and asks for the review. One plan, your whole team.',
     h1: 'Every “how soon can you come?” answered, and booked.',
-    sub: 'HandsFreeOS answers your texts, calls and website chats, books the clean, books the repeat visits and asks for the review. You step in only when it matters.',
+    sub: 'HandsFreeOS is your AI Business OS. Its AI employees answer your texts, calls and website chats, book the clean and the repeat visits, and ask for the review. You step in only when it matters.',
     night: 'They asked three cleaners. The first to answer got the house.',
     pains: [
       {
@@ -209,7 +209,7 @@ export const tradePages: readonly TradePage[] = [
     description:
       'HandsFreeOS answers your lawn care leads in seconds, books the visit, bills plans every month and chases the invoice. One plan, your whole crew.',
     h1: 'Every “how much for my yard?” answered while you mow.',
-    sub: 'HandsFreeOS answers your texts, calls and website chats, books the visit to measure, bills the plan every month and chases the invoice. You step in only when it matters.',
+    sub: 'HandsFreeOS is your AI Business OS. Its AI employees answer your texts, calls and website chats, book the visit to measure, bill the plan every month and chase the invoice. You step in only when it matters.',
     night: 'You can’t hear the phone over a mower.',
     pains: [
       {
@@ -252,7 +252,7 @@ export const tradePages: readonly TradePage[] = [
     description:
       'HandsFreeOS answers your roofing leads in seconds, books the inspection, gets contracts signed and chases the quote. One plan, your whole crew.',
     h1: 'After the storm, every leak gets an answer first.',
-    sub: 'HandsFreeOS answers your calls, texts and website chats, books the inspection, gets the contract signed and chases the quote. You step in only when it matters.',
+    sub: 'HandsFreeOS is your AI Business OS. Its AI employees answer your calls, texts and website chats, book the inspection, get the contract signed and chase the quote. You step in only when it matters.',
     night: 'After a storm, the phone rings while you’re on a roof.',
     pains: [
       {
@@ -295,7 +295,7 @@ export const tradePages: readonly TradePage[] = [
     description:
       'HandsFreeOS answers your pest control calls and texts in seconds, books the treatment, books the follow-ups and bills plans every month. One plan, your whole crew.',
     h1: 'Every “we just saw one” answered, and booked.',
-    sub: 'HandsFreeOS answers your calls, texts and website chats, books the treatment and the follow-ups, and bills the plan every month. You step in only when it matters.',
+    sub: 'HandsFreeOS is your AI Business OS. Its AI employees answer your calls, texts and website chats, book the treatment and the follow-ups, and bill the plan every month. You step in only when it matters.',
     night: 'Nobody waits until morning with something in the kitchen.',
     pains: [
       {
@@ -338,7 +338,7 @@ export const tradePages: readonly TradePage[] = [
     description:
       'HandsFreeOS answers your handyman leads in seconds, books the job, sends the quote and chases the invoice. One plan, everyone who works with you.',
     h1: 'Every “can you fix this?” answered while you fix something else.',
-    sub: 'HandsFreeOS answers your calls, texts and website chats, books the job, gets the quote approved and chases the invoice. You step in only when it matters.',
+    sub: 'HandsFreeOS is your AI Business OS. Its AI employees answer your calls, texts and website chats, book the job, get the quote approved and chase the invoice. You step in only when it matters.',
     night: 'You’re the one doing the work, and the one answering the phone.',
     pains: [
       {

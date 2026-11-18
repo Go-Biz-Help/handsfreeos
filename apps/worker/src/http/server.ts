@@ -101,6 +101,7 @@ import { registerVideoCallRoutes } from '../video-calls/routes';
 import { registerDocumentRoutes } from '../documents/routes';
 import { registerDocumentPagesRoutes } from '../documents/pages';
 import { registerPlaceFieldsRoutes } from '../documents/place';
+import { registerReadCardRoutes } from '../contacts/read-card';
 
 export type { HttpDeps } from './common';
 
@@ -432,6 +433,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerPlaceFieldsRoutes(app, deps);
   // A document's pages drawn for the phone, which has no PDF reader of its own.
   await registerDocumentPagesRoutes(app, deps);
+  // A business card scanned on the phone: read by the AI, and straightened (Contacts → + → Scan a business card).
+  await registerReadCardRoutes(app, deps);
   // Add-ons' public pages: a listing's page, an open house's sign-in.
   await registerAddonPublicRoutes(app, deps);
   // Signing in to the browser extension with a prompt on the phone or the web (20261027002910).

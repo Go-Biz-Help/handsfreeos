@@ -216,7 +216,7 @@ describe('a playbook’s Test console', () => {
     });
   });
 
-  it('starts a networking chat with an introduction: one nudge, and a yes to a call asks for a time for it (decision 173)', async () => {
+  it('starts a networking chat with an introduction, its question a text of its own: one nudge, and a yes to a call asks for a time for it (decisions 173 and 175)', async () => {
     const details = { ...crm.details, avoid: ['free trial'], opens: 'intro' };
     const intro = async (input: Record<string, unknown>): Promise<PlaybookTestOutput> => {
       const res = await ask(owner, { details, name: crm.name, person: sam, ...input });
@@ -230,6 +230,8 @@ describe('a playbook’s Test console', () => {
       state: { step: 'intro', sent: 5 },
       next: 'If they stay quiet, one friendly nudge goes 2 days later, then a check-in once a month.',
     });
+    // Its question about them goes as a second text right after it (decision 175).
+    expect(first.message).toMatch(/thanks for connecting![^?]*\n\nHow did you get started\?$/);
     const chat = [{ fromMe: true, text: first.message! }];
     const nudge = await intro({ move: 'quiet', chat, state: first.state });
     expect(nudge).toMatchObject({ kind: 'follow_up', label: 'Nudge', state: { sent: 6 } });

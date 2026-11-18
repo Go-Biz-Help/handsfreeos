@@ -3,6 +3,7 @@
  * saved Facebook pages: these tests hold the readers' logic still, and the page outlines testers send back are what
  * tune them to the real thing.
  */
+import { WORDLESS } from '@hfos/core/addons/outreach/chat-collect';
 import { describe, expect, it } from 'vitest';
 import { measuredSide, readChat } from '../src/networks/facebook/chat';
 import { friendListOf, mutualFriendsIn, yourProfile } from '../src/networks/facebook/friends';
@@ -609,6 +610,27 @@ describe('a chat, as Facebook drew it in 2026', () => {
       { from: 'me', sender: null, text: 'yeah that works', when: sep25 },
       { from: 'me', sender: null, text: 'We still on in an hour?', when: 'Wed 11:02 AM' },
     ]);
+  });
+
+  // Under your last message Messenger says whether it went and when. Read as part of it, each read brought the same
+  // message with new words (the owner's screenshots, 17 Nov 2026: one check-in, sent once, kept six times over).
+  it('leaves off the line under your last message, and reads one with only that as yours with no words', () => {
+    const doc = load('chat-2026.html', url);
+    const articles = doc.querySelectorAll('[role="article"]');
+    const lastOne = articles[articles.length - 1]!.querySelector('[data-scope="messages_table"]')!;
+    const status = doc.createElement('span');
+    status.setAttribute('dir', 'auto');
+    status.textContent = 'Sent 33m ago';
+    lastOne.append(status);
+    const said = { from: 'me', sender: null, when: 'Wed 11:02 AM' };
+    expect(readIt(doc).messages.at(-1)).toEqual({ ...said, text: 'We still on in an hour?' });
+    // A picture, a sticker or a like: nothing said, only the line under it, and on any side.
+    lastOne.querySelector('div[dir="auto"]')!.remove();
+    for (const side of ['left', 'right', null] as const)
+      expect(readIt(doc, () => side).messages.at(-1), String(side)).toEqual({
+        ...said,
+        text: WORDLESS,
+      });
   });
 
   it('goes by the line that repeats each message, wherever the message seems to sit', () => {

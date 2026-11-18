@@ -39,7 +39,7 @@ export default function AddonsPage() {
         <Eyebrow>Add-ons · early access</Eyebrow>
         <SectionHeading
           as="h1"
-          sub="HandsFreeOS answers the customers who come to you. These go out and find more of them, help you post, and help your team close. Founding members can ask for early access now."
+          sub="HandsFreeOS’s AI employees answer the customers who come to you. These go out and find more of them, help you post, and help your team close. Founding members can ask for early access now."
         >
           Go find the next customer, not just answer them.
         </SectionHeading>

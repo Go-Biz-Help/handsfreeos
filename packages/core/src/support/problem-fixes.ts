@@ -340,7 +340,7 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     area: 'linkedin',
     job: 'friend_request',
     note: 'you’re connected already',
-    fixedIn: '0.147.7',
+    fixedIn: '0.147.9',
     pr: 670,
     said: 'They weren’t connected: LinkedIn’s newer profile can say “· 1st” beside the real “· 2nd”, and with Follow first and Connect under More (not on the page until More is pressed) the “· 1st” was taken as theirs. The other degree is theirs now whenever both show, so More is opened and the invitation sent. Someone truly connected is passed over without a report, as nothing’s left to do.',
   },

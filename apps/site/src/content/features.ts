@@ -76,7 +76,7 @@ export const featureSections: readonly FeatureSection[] = [
   {
     id: 'customers',
     nav: 'Customers',
-    title: 'A customer record that fills itself in',
+    title: 'A CRM that fills itself in',
     intro:
       'Not a contact list you keep up to date. Every text, call, email, appointment, quote and invoice lands on the customer’s page by itself, in the order it happened, with your notes and photos beside it.',
     points: [

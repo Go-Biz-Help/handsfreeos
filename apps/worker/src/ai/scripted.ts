@@ -1992,12 +1992,15 @@ function scriptedTodayDraft(message: string) {
     // An introduction (decision 168) names the owner and the business too.
     const owner = unquote(quotedBlock(message, 'owner_name') ?? '').split(/\s+/)[0] ?? '';
     const business = unquote(quotedBlock(message, 'business') ?? '');
+    // Its question about them (decision 173), as a text of its own when it's told so (decision 175).
+    const ask = message.includes('The question goes as its own text') ? '\n\n' : ' ';
     const says = scriptedFill(
       unquote(quotedBlock(message, 'playbook_says') ?? '')
         .replace(/\[your first name\]/g, owner)
-        .replace(/\[your business name\]/g, business),
+        .replace(/\[your business name\]/g, business)
+        .replace(/ ?\[a question about them\]/g, ' QUESTION'),
       first ?? '',
-    );
+    ).replace(/ ?QUESTION$/, `${ask}How did you get started?`);
     return {
       simple: false,
       answer: 'none',
@@ -3488,6 +3491,40 @@ export const DOCUMENT_RULES: readonly ScriptRule[] = [
 ];
 
 /**
+ * A business card scanned on the phone (contacts/read-card.ts): the stand-in can't see the picture, so every card
+ * reads as the same sample one, with no corners. The worker still looks for the card in the picture by its edges.
+ */
+export const SCRIPTED_BUSINESS_CARD = {
+  isCard: true,
+  corners: [],
+  firstName: 'MARIA',
+  lastName: 'LOPEZ',
+  jobTitle: 'Owner',
+  company: 'Lopez Roofing',
+  phones: [
+    { number: '(713) 555-0100', label: 'O' },
+    { number: '(713) 555-0142', label: 'Cell' },
+  ],
+  emails: [{ email: 'Maria@LopezRoofing.com', label: '' }],
+  website: 'https://lopezroofing.com/',
+  address: {
+    street: '1200 Main St, Suite 4',
+    city: 'Houston',
+    state: 'TX',
+    postalCode: '77002',
+    country: 'US',
+  },
+  extra: 'TX roofing licence 12345',
+} as const;
+
+export const BUSINESS_CARD_RULES: readonly ScriptRule[] = [
+  {
+    when: /Read this side of the business card\. The picture is \d+ pixels wide and \d+ pixels high\.$/,
+    json: () => SCRIPTED_BUSINESS_CARD,
+  },
+];
+
+/**
  * AI Social Media Content Creator's niches (addons/socialcontent/niches.ts): the business's own niche from the first
  * line of its profile, three steady similar ones, and searches made of the niche's words, so the same profile always
  * gets the same answer.
@@ -3658,6 +3695,7 @@ export const SCRIPTED_RULES: readonly ScriptRule[] = [
   ...SALESCOACH_RULES,
   ...SOCIALCONTENT_RULES,
   ...DOCUMENT_RULES,
+  ...BUSINESS_CARD_RULES,
 ];
 
 /** The stand-in model; tests may put their own rules first (and their own teammate rules). */

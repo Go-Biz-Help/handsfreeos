@@ -84,7 +84,7 @@ export const SCRIPT_INFO: Readonly<
   },
   intro: {
     label: 'Introduction',
-    when: 'In place of the first message, when the playbook starts with an introduction: once they accept your request, you accept theirs, or they follow you, after the days you set under Steps and pace. It ends with a question about them, to get them talking.',
+    when: 'In place of the first message, when the playbook starts with an introduction: once they accept your request, you accept theirs, or they follow you, after the days you set under Steps and pace. Its question about them, to get them talking, goes right after it as a second message when you send messages as a few texts.',
     says: 'message',
   },
   nudge: {
@@ -514,9 +514,10 @@ export function openerAsFirst(opener: string): string | null {
 /**
  * How a playbook starts a chat with someone who just connected (decision 168, the owner's 1a): the first message's
  * question (`pitch`, decisions 152 and 164), or an introduction in its place (`intro`): thanks for connecting, who the
- * owner is and what the business offers, and a question about them (decision 173). A networking chat follows: one
- * nudge if they stay quiet, then a check-in once a month; a demo or a networking call offered once each, when it fits;
- * and a yes to either gets the ask for a time.
+ * owner is and what the business offers, and a question about them (decision 173), as a text of its own right after it
+ * when the person sends a few (decision 175). A networking chat follows: one nudge if they stay quiet, then a check-in
+ * once a month; a demo or a networking call offered once each, when it fits; and a yes to either gets the ask for a
+ * time.
  */
 export const PLAYBOOK_OPENS = {
   pitch: {
@@ -525,7 +526,7 @@ export const PLAYBOOK_OPENS = {
   },
   intro: {
     label: 'Introduction',
-    hint: 'Thanks them for connecting, says who you are and what you offer, and asks them something about themselves to get them talking. Then a friendly chat, one nudge if they’re quiet, and a check-in once a month.',
+    hint: 'Thanks them for connecting, says who you are and what you offer, then asks them something about themselves in a second message to get them talking. Then a friendly chat, one nudge if they’re quiet, and a check-in once a month.',
   },
 } as const;
 export type PlaybookOpens = keyof typeof PLAYBOOK_OPENS;
