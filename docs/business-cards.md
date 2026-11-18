@@ -20,6 +20,9 @@ signal and says so.
 Under each side's picture: **Retake**, **Fix the edges** (drag the four corners onto the card, then **Crop**) and
 **Remove**.
 
+Afterwards the card's pictures are on the contact's **Files** tab, on the phone and the web, as "Business card
+front.jpg" and "Business card back.jpg". On the phone, tapping one opens it over the screen.
+
 ## How it works
 
 - The phone takes or picks the picture with the camera it already had (no new native code, so it ships as an
@@ -66,5 +69,12 @@ Under each side's picture: **Retake**, **Fix the edges** (drag the four corners 
   hint is no help. A white card on white paper, or a dark card on a dark keyboard, is left uncropped. Fix the edges
   covers each of these.
 - **Never put a real card's photo in the repository.** It shows a stranger's details. The tests draw their cards.
+- **The phone opens a file from Storage, inside the app** (`FileRows` in
+  `apps/mobile/src/components/customers/files.tsx`): a signed link made for the person, then the photo viewer, or the
+  phone's browser for a PDF. Never send the phone to a page of the web app for a file. Until 18 November 2026 it went
+  to `/app/f/<id>`, a page that was never built, so every file on the phone opened "We could not find that".
+- **A finished upload leaves the list.** A photo's row on the phone outlives its upload, so the Files tab shows it as
+  "Uploading on its own" only until its file reaches the phone's copy (`stillUploading` in
+  `apps/mobile/src/customers/outbox.ts`). Before that fix, each card stayed twice: once uploading, once landed.
 - **No new native modules on the phone** for this: the App Store has 1.0.0, and a native change means 1.0.1 and a
   review. A native document scanner (VisionKit, ML Kit) would be an upgrade for a later native release.

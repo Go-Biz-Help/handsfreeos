@@ -29,6 +29,7 @@ import {
   useRecordChanges,
   usePhotoUploads,
   stateOf,
+  stillUploading,
   type RecordChange,
   type RecordState,
 } from './outbox';
@@ -194,6 +195,7 @@ export function useRecord(kind: RecordKind, recordId: string): RecordData {
       ),
     );
     const appt = apptRows[0];
+    const landed = new Set(fileRows.map((row) => row.id ?? ''));
     const address = person
       ? addressLine(person.address)
       : company
@@ -212,7 +214,9 @@ export function useRecord(kind: RecordKind, recordId: string): RecordData {
       leads,
       tasks: taskRows.map((row) => taskOfSynced(row as never, names, timeZone)),
       files: fileRows.map((row) => fileOfSynced(row as never, names)),
-      uploading: photos.filter((p) => p.record_id === recordId),
+      uploading: photos.filter(
+        (p) => p.record_id === recordId && stillUploading(p, landed, Date.now()),
+      ),
       timeline: timelineOrder(
         timelineRows.map((row) => timelineEntryOfSynced(row as never, names)),
       ),
