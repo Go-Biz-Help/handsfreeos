@@ -763,7 +763,7 @@ function CapacityModule({ draft, patch }: ModuleProps) {
 
 // ---------- Locations ----------
 
-const KINDS: LocationKind[] = ['customer_address', 'business', 'virtual', 'phone'];
+const KINDS: LocationKind[] = ['customer_address', 'business', 'virtual', 'phone', 'meetup'];
 
 function LocationsModule({ draft, patch, workspaceId }: ModuleProps) {
   const options = draft.locations.options;
@@ -897,6 +897,22 @@ function LocationsModule({ draft, patch, workspaceId }: ModuleProps) {
                     }
                   />
                 )}
+              </>
+            ) : o.kind === 'meetup' ? (
+              <>
+                <CommitInput
+                  label="Your usual spot"
+                  placeholder="Your usual spot (optional)"
+                  className="min-w-[200px] flex-1"
+                  value={o.address ?? ''}
+                  onCommit={(v) =>
+                    set(options.map((x, j) => (j === i ? { ...x, address: v.trim() || null } : x)))
+                  }
+                />
+                <span className="w-full text-xs text-text-3">
+                  Customers pick your usual spot, a coffee shop halfway between you, or a place they
+                  name.
+                </span>
               </>
             ) : (
               <span className="flex-1 text-xs text-text-3">
@@ -1223,6 +1239,17 @@ function BuffersModule({ draft, patch }: ModuleProps) {
           options={TRAVEL}
           label="Travel time"
           onChange={(travelMinutes) => patch({ buffers: { travelMinutes } })}
+        />
+      </SetRow>
+      <SetRow
+        center
+        title="Leave time to drive between visits"
+        description="Customers give their address first and see only times you can drive to, from your visit before or where your day starts (Settings → My calendar). Travel time is added on top."
+      >
+        <Switch
+          checked={b.driveBetween}
+          label="Leave time to drive between visits"
+          onChange={(driveBetween) => patch({ buffers: { driveBetween } })}
         />
       </SetRow>
     </>

@@ -1412,7 +1412,7 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "enum": ["customer_address", "business", "virtual", "phone"]
+                    "enum": ["customer_address", "business", "virtual", "phone", "meetup"]
                   },
                   {
                     "type": "null"
@@ -1665,7 +1665,7 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "enum": ["customer_address", "business", "virtual", "phone"]
+                    "enum": ["customer_address", "business", "virtual", "phone", "meetup"]
                   },
                   {
                     "type": "null"
@@ -17660,7 +17660,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["customer_address", "business", "virtual", "phone"]
+                "enum": ["customer_address", "business", "virtual", "phone", "meetup"]
               },
               {
                 "type": "null"

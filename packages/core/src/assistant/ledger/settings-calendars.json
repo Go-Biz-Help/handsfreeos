@@ -21,7 +21,7 @@
     "apps/web/src/components/calendars/embed-dialog.tsx": "be51af03b53d",
     "apps/web/src/components/calendars/history-sheet.tsx": "84f5900a0942",
     "apps/web/src/components/calendars/impact-dialog.tsx": "a4f8fffc6f1b",
-    "apps/web/src/components/calendars/modules.tsx": "42866ccc018b",
+    "apps/web/src/components/calendars/modules.tsx": "ed0a2228872a",
     "apps/web/src/components/calendars/preset-picker.tsx": "d94ea6b44ddb",
     "apps/web/src/components/calendars/resources-page.tsx": "2be3dc659304",
     "apps/web/src/components/calendars/services-page.tsx": "b24ab458a23f",
@@ -539,11 +539,18 @@
       "by": "get_calendar_settings locations.places"
     },
     {
-      "path": "Calendar → Locations → each place: kind (customer's address, business, online, phone)",
+      "path": "Calendar → Locations → each place: kind (customer's address, business, online, phone, meet-up spot)",
       "kind": "do",
       "file": "apps/web/src/components/calendars/modules.tsx:787",
       "covered": "yes",
       "by": "update_calendar_settings locations.places kind"
+    },
+    {
+      "path": "Calendar → Locations → meet-up place: Your usual spot",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:900",
+      "covered": "yes",
+      "by": "update_calendar_settings locations.places address (kind meetup)"
     },
     {
       "path": "Calendar → Locations → business place: Address",
@@ -691,6 +698,13 @@
       "file": "apps/web/src/components/calendars/modules.tsx:1217",
       "covered": "yes",
       "by": "get_calendar_settings buffers.travelMinutes; manage_calendar travelMinutes"
+    },
+    {
+      "path": "Calendar → Buffers & travel → Leave time to drive between visits",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1226",
+      "covered": "yes",
+      "by": "get_calendar_settings buffers.driveBetween; manage_calendar driveBetween"
     },
     {
       "path": "Calendar → Territories → Route by ZIP code",

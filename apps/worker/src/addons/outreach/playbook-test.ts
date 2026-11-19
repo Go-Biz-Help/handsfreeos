@@ -62,7 +62,7 @@ import { asWorker, rows, sql } from '@hfos/db/client';
 import { askStructured } from '../../ai/ask';
 import type { AddonWorkerAction } from '../types';
 import { businessKnows } from './knows';
-import { callLinkFor, meetingFor, offeredWords } from './times';
+import { callLinkFor, leadLinkFor, meetingFor, offeredWords } from './times';
 import { draftRefusal, writeDrafts, type DraftBase } from './today';
 
 export const PLAYBOOK_TEST_ACTION = 'outreach.playbook.test';
@@ -236,13 +236,15 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
               ),
             }
           : null;
-        // After a yes to a networking call (decision 173): the person's own calendar, not the demo page.
+        // A demo books on their own Lead calendar first (decision 178), the playbook's link as the backup; after a yes
+        // to a networking call (decision 173), on their Networking calendar or own calendar, not the demo page.
+        const bookLink = await leadLinkFor(ctx, ctx.userId, details.link);
         const call = o.state.call && o.state.step === 'link';
-        const onLink = call ? await callLinkFor(ctx, ctx.userId, details.link) : details.link;
+        const onLink = call ? await callLinkFor(ctx, ctx.userId, bookLink) : bookLink;
         // The networking chat's wrap-up (decision 176): its call offer carries the person's own calendar.
         const wrapLink =
           o.state.step === 'intro' && networkingOf(details).call
-            ? await callLinkFor(ctx, ctx.userId, details.link)
+            ? await callLinkFor(ctx, ctx.userId, bookLink)
             : null;
         const meeting =
           o.times && !declined

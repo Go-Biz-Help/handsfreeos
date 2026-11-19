@@ -53,6 +53,7 @@ import { api, errorMessage, unwrap } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 import { NeedsSignal, Note, openOutreach, openOutside } from './kit';
+import { TheirWork } from './local';
 
 /**
  * The person menu on someone's name (docs/outreach.md, decision 91), as the web's
@@ -385,6 +386,18 @@ function NameMenu({
         online={online}
         loading={online && marks === null && problem === null}
         problem={problem}
+        theirWork={
+          marks?.theirWork ? (
+            <TheirWork
+              key={profileId}
+              workspaceId={workspaceId}
+              profileId={profileId}
+              shown={marks.theirWork}
+              online={online}
+              onSaved={(theirWork) => setMarks((m) => (m ? { ...m, theirWork } : m))}
+            />
+          ) : null
+        }
         story={
           marks?.journey
             ? {
@@ -449,6 +462,7 @@ export function PersonMenuSheet({
   online,
   loading,
   problem,
+  theirWork = null,
   story = null,
   onClose,
   onItem,
@@ -467,6 +481,8 @@ export function PersonMenuSheet({
   loading: boolean;
   /** Why where they stand couldn't be asked. */
   problem: string | null;
+  /** What they do and where (decision 177), with Change: null until where they stand comes. */
+  theirWork?: React.ReactNode;
   /** Everything about them, under the actions (decision 128): null until where they stand comes. */
   story?: PersonStoryProps | null;
   onClose: () => void;
@@ -585,6 +601,7 @@ export function PersonMenuSheet({
             {P.holdForHint}
           </Text>
         ) : null}
+        {theirWork}
         {story ? <PersonStory {...story} /> : null}
       </View>
     </Sheet>

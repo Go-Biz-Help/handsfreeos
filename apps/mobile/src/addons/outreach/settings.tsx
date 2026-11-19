@@ -57,6 +57,7 @@ import {
 import { SaveLine } from './settings-bits';
 import { RowsCard } from './settings-hands-off';
 import { VideoLibraryPart } from './video-library';
+import { LocationPart, MyCalendarsPart } from './local';
 import { GeneralMine, GeneralTeam } from './settings-general';
 import { NetworkMine, NetworkTeam, type NetworkHere } from './settings-network';
 import { useAskActions, useAsks, type AskActions } from './asks';
@@ -242,6 +243,7 @@ export function SettingsScreen({ whose, part: raw }: { whose?: string; part?: st
   return (
     <SettingsPartBody
       part={part}
+      workspaceId={ws}
       automation={automation.data}
       error={automation.error}
       asks={asks.data}
@@ -520,6 +522,8 @@ interface PartProps {
   onEndWheels?: (userId: string, platform: Platform) => Promise<string | null>;
   /** On Videos: the playbooks' short videos, the library until it's first saved (decision 154). */
   playbookVideos?: readonly PlaybookVideo[];
+  /** On You: the business, for Where you are and Your calendars, which load their own (decisions 177 and 178). */
+  workspaceId?: string;
 }
 
 /** A part's page: You, a network's, Videos or Team. */
@@ -572,6 +576,7 @@ function PartPage({
   onTeam,
   onEndWheels,
   playbookVideos = [],
+  workspaceId,
 }: Omit<PartProps, 'automation' | 'error'> & { title: string; automation: AutomationOutput }) {
   const mineID =
     part === 'general'
@@ -700,6 +705,13 @@ function PartPage({
               manages={manages}
               onHandsOff={(level) => handsOff(null, level)}
             />
+            {/* Where you are and Focus on local groups (decision 177): only ever your own. */}
+            {mine && workspaceId ? (
+              <LocationPart workspaceId={workspaceId} online={online} />
+            ) : null}
+            {mine && workspaceId ? (
+              <MyCalendarsPart workspaceId={workspaceId} online={online} />
+            ) : null}
             {manages ? (
               <TeamMoved
                 words={SETTINGS_WORDS.teamMovedAll}

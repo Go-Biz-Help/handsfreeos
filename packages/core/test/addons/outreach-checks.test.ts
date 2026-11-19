@@ -80,6 +80,8 @@ describe('the AI’s check', () => {
       nextStep: null,
       partner: null,
       country: { code: null, other: null, sure: false, why: null },
+      // Nothing said of what they do and where (decision 177).
+      them: { work: null, area: null, reach: null },
       request: null,
     });
     // Not a fit names no playbook; one that isn't the business's is none, unless it has only one.

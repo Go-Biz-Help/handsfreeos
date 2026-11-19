@@ -104,9 +104,13 @@ describe('Social Outreach', () => {
         'outreach.country.unskip',
         'outreach.day.start',
         'outreach.messages.edit',
+        // Your Networking calendar and Lead calendar (decision 178): a setting.
+        'outreach.my_calendars.set',
         'outreach.friend.set',
         'outreach.friends.cancel_all',
         'outreach.helpful.ok',
+        // Your own town, how far is local and Focus on local groups (decision 177): a setting.
+        'outreach.location.set',
         // Retry and Retry all on any step handed over (decision 145): a message goes again, a request goes back on Today.
         'outreach.need.retry',
         'outreach.partner.mark',
@@ -121,6 +125,8 @@ describe('Social Outreach', () => {
         'outreach.requests.start_again',
         'outreach.send.approve',
         'outreach.send.retry',
+        // What someone does and where, set by hand (decision 177): the AI then never writes over it.
+        'outreach.their_work.set',
         'outreach.wheels.end',
       ].sort(),
     );

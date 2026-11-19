@@ -105,11 +105,12 @@ type OfferRow = {
   booking: { at: string; says: string; email: string | null } | null;
   send_id: string | null;
   appointment_id: string | null;
+  calendar_id: string;
 };
 const offer = async (id: string): Promise<OfferRow> => {
   const [o] = await rows<OfferRow>(
     admin(),
-    sql`select id, state, zone, host_user_id, times, booking, send_id, appointment_id
+    sql`select id, state, zone, host_user_id, times, booking, send_id, appointment_id, calendar_id
         from addon_outreach.time_offers where id = ${id}`,
   );
   return o!;
@@ -323,6 +324,62 @@ describe('a networking call after an introduction (decision 173)', () => {
       sql`update addon_outreach.playbooks set details = details - 'opens'
           where workspace_id = ${w.workspaceId}`,
     );
+  });
+});
+
+describe('the person’s own calendars (decision 178)', () => {
+  const pick = (column: 'lead_calendar_id' | 'networking_calendar_id', id: string | null) =>
+    admin().execute(
+      sql`insert into addon_outreach.automation (workspace_id, user_id, ${sql.raw(column)})
+          values (${w.workspaceId}, ${w.owner.id}, ${id})
+          on conflict (workspace_id, user_id) do update set ${sql.raw(column)} = excluded.${sql.raw(column)}`,
+    );
+
+  it('books a demo on their Lead calendar ahead of the playbook’s link', async () => {
+    const lead = await makeCalendar(w, 'Demo with Pat');
+    await pick('lead_calendar_id', lead.id);
+    const out = await draft({ kind: 'pitch', profileId: await person('Lee Shaw') });
+    expect(out.meeting?.offered).toHaveLength(3);
+    expect(out.drafts[0]).toContain(`/book/${w.site}/${lead.slug}`);
+    expect(out.drafts[0]).not.toContain(`/book/${w.site}/${calendar.slug}?`);
+    expect(out.drafts[0]).toContain(`ref=${DEMO_REF_PREFIX}`);
+    const kept = await offer(out.meeting!.offerId!);
+    expect(kept.calendar_id).toBe(lead.id);
+    // One that stops taking bookings is no pick: the playbook's link again.
+    await admin().execute(sql`update app.calendars set public = false where id = ${lead.id}`);
+    const back = await draft({ kind: 'pitch', profileId: await person('Max Shaw') });
+    expect(back.drafts[0]).toContain(`/book/${w.site}/${calendar.slug}`);
+    await pick('lead_calendar_id', null);
+  });
+
+  it('asks for a networking call’s time on their Networking calendar', async () => {
+    const networking = await makeCalendar(w, 'Coffee chats');
+    await pick('networking_calendar_id', networking.id);
+    await admin().execute(
+      sql`update addon_outreach.playbooks set details = details || '{"opens": "intro"}'::jsonb
+          where workspace_id = ${w.workspaceId}`,
+    );
+    const ivy = await person('Ivy Park', ['Lives in Chicago, Illinois']);
+    await admin().execute(
+      sql`insert into addon_outreach.follow_ups (workspace_id, user_id, profile_id, step, step_at, sent, last_at,
+            next, due_at)
+          values (${w.workspaceId}, ${w.owner.id}, ${ivy}, 'intro', now() - interval '1 day', 6,
+            now() - interval '1 day', 'check_in', now() + interval '29 days')`,
+    );
+    const chatId = await chatWith(ivy, 'Ivy Park', 'Sure, a call sounds good');
+    const out = await draft({ kind: 'reply', profileId: ivy, chatId });
+    expect(out.kind).toBe('pitch');
+    const [kept] = await rows<{ calendar_id: string }>(
+      admin(),
+      sql`select calendar_id from addon_outreach.time_offers
+          where workspace_id = ${w.workspaceId} and profile_id = ${ivy}`,
+    );
+    expect(kept!.calendar_id).toBe(networking.id);
+    await admin().execute(
+      sql`update addon_outreach.playbooks set details = details - 'opens'
+          where workspace_id = ${w.workspaceId}`,
+    );
+    await pick('networking_calendar_id', null);
   });
 });
 

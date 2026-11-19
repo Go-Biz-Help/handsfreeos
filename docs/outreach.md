@@ -4755,6 +4755,104 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         `ops/playbooks.ts` and `sends.ts` in Social Outreach; the worker's `today.ts` and `playbook-test.ts`; the lists'
         words in `main-offer/lists.ts`.
 
+177.  **What each person does and where, your own town, and Focus on local groups** (Chris, 18 Nov 2026: "this means we
+      should be keeping track of the area people are in and service if they are a local business. Also we should have
+      a setting to focus on groups in our local area. this way we could also ask if they want to do a networking
+      meeting in person this means we need to add our location and a radius for local meetings"). The answers: 1a, 2a,
+      3 as offered. The first of four parts; the calendars and meetups, the chat's length and the AI settings page,
+      and tagging referrals come next (see Not yet).
+      - **What they do and where** (1a, `local.ts`): their line of work ("roofing"), the town they work in with its
+        state ("Austin, TX"), and whom they serve (**Local**, **Nationwide** or **Online**). The AI says it from their
+        page and the chat as it writes to them (an opener, a reconnect, a reply, a pitch: `asksTheirWork`) or checks
+        them (`THEIR_WORK_ASK` in every check), and it's kept on their profile (`addon_outreach.profiles` `work`,
+        `area`, `town`, `reach`, with how it's known: `area_how` `page`, `chat` or `typed`). What the chat says beats
+        their page, and nothing the AI reads clears anything (`noteTheirWork`, `outreach.their_work.note`).
+      - **Shown and changed on their card** (the person menu's **What they do and where**, web and phone): "Roofing ·
+        Round Rock, TX · Local · 18 miles away", with how it's known, and **Change** to set it by hand
+        (`outreach.their_work.set`, the Assistant's `outreach_set_their_work`). What a person sets, the AI never writes
+        over. A town must be a known US town with its state; anything else is refused with how to write it
+        (`outreach_unknown_town`).
+      - **Towns are the US Census Bureau's** (`us-towns.ts`, as Alignable's near towns since decision 115), so how far
+        apart two are is worked out with no lookup and no map key: `townOfArea` reads "Austin, Texas" or "Austin TX"
+        as `austin-tx`, `townsNear` and `milesBetweenTowns` measure as the crow flies. A place that isn't a known town
+        ("Central Texas") is kept as the AI wrote it, with no miles.
+      - **Where you are** (2a, Settings → You, web and phone): each person's own town and **How far is local** (10,
+        25, 50 or 100 miles; 25 to start), with the towns that takes in. It starts from the business's address
+        (`suggested`) until they save their own (`outreach.location.get` and `outreach.location.set`, the Assistant's
+        `outreach_location` and `outreach_set_location`; columns `home_area`, `home_town`, `radius_miles` and
+        `local_focus` on `addon_outreach.automation`). Each person's own: how far someone is, and whether they're near,
+        is measured from the person looking.
+      - **Focus on local groups** (3, a switch under Where you are, which needs a town; clearing the town turns it off,
+        `outreach_local_needs_town`): group searches take each word with the person's town and the four towns nearest
+        it first, then the words alone (`groupSearchWords`, `LOCAL_SEARCH_TOWNS`; Alignable's already stay in town); a
+        group named for one of those towns counts as in their area when its fit is read (`withLocalArea`); and on
+        Today, people who work inside the radius go first within each kind of step.
+      - **The AI is told** (`theirWorkFact`): what they do, where, and whether they're local to the owner and about how
+        far, for the line about sending people their way (decision 176) and, next, the coffee for locals.
+      - **How it's built**: migration `20261027029400_outreach_local.sql`; `local.ts`, `ops/local.ts`, `ops/towns.ts`,
+        `checks.ts`, `today.ts`, `ops/group-checks.ts`, `ops/groups.ts`, `ops/today.ts` and `person-menu.ts` in
+        Social Outreach; the worker's `today.ts`; the web's `location-part.tsx` and `their-work.tsx`, and the phone's
+        `local.tsx`. No extension change.
+
+178.  **Your Networking calendar and Lead calendar, and coffee for locals** (Chris, 18 Nov 2026: "we should have a
+      networking calendar and a lead calendar that users of this add on will use. mine is the Chris’ calendar and the
+      Demo Calendar respectively"; their picks 5a and 4a). The second of the four parts begun in decision 177:
+      - **Your calendars** (Settings → You, web and phone, each person's own): **Networking calendar** and **Lead
+        calendar**, each one of the business's calendars that takes bookings online now (on, public, on the booking
+        site, which is on), or **None picked** (`outreach.my_calendars.get` and `outreach.my_calendars.set`, the
+        Assistant's `outreach_my_calendars` and `outreach_set_my_calendars`; columns `networking_calendar_id` and
+        `lead_calendar_id` on `addon_outreach.automation`, cleared when the calendar is deleted). A calendar that can't
+        be booked online is refused with how to fix it (`outreach_calendar_not_bookable`), and a pick that stops taking
+        bookings counts as none.
+      - **A demo books on the Lead calendar** (5a; the worker's `leadLinkFor`, core Today's `leadPathOf`): its link,
+        with the demo's ref, and its open times (decision 149) take the place of the playbook's link, which stays the
+        backup when none is picked. The link is on the playbook link's own address when that's the business's booking
+        site, else HandsFreeOS's.
+      - **A networking call books on the Networking calendar** (`callLinkFor`): the wrap-up's link (decision 176) and
+        a yes to a call (decision 173). With none picked, as before: the person's own oldest calendar that isn't the
+        demo page, which Your calendars names ("None picked, so calls go on Chris’s calendar").
+      - **A call or coffee for locals** (4a, `LOCAL_COFFEE`): in the wrap-up, someone who works inside the person's
+        radius (decision 177) is offered "a call or grab coffee", said within the playbook's words, never with a place
+        or a time; the calendar link is the same. Where coffee happens, and a calendar for meeting in person that
+        leaves time to drive, came with decision 179.
+      - **How it's built**: migration `20261027029500_outreach_calendars.sql`; `local.ts`, `ops/local.ts`,
+        `ops/today.ts` and `today.ts` in Social Outreach; the worker's `times.ts`, `today.ts` and `playbook-test.ts`;
+        the web's `my-calendars.tsx` and the phone's `local.tsx`. No extension change.
+
+179.  **Drive times between visits, where each person's day starts, and coffee spots** (Chris, 18 Nov 2026: a local
+      meeting calendar that works out driving times from the last known location is a core feature, "e.g. mobile car
+      detailer"; their picks "1a 2a 3(all 3 options)"). The rest of part 2 begun in decision 178. It's a core calendar
+      feature, for every business, not only Social Outreach:
+      - **Leave time to drive between visits** (1a; a switch under Buffers & travel on any calendar whose places go
+        to people: the customer's address or a meet-up spot; `buffers.driveBetween`, off to start; the Assistant's
+        `manage_calendar` `driveBetween`): the booking page asks for the address first, then offers only times that
+        leave room to drive by road from the visit before (its address: the last known location) and on to the next.
+        The first visit of a day is timed from where that person's day starts. An address that can't be found on a
+        map gets no times on a guess (`address_not_found`, 422), and a booking too close is refused like a taken time.
+        Without an address on a map (a booking made by the team, or the geocoder off), the usual rules: back to back
+        is fine. Travel time, when set, is still kept on top. A calendar with the switch on and no place that goes
+        out gets a fix on its Issues (`drive_without_visits`).
+      - **Where your day starts** (2a; Settings → My calendar, web; `day_start.get` and `day_start.set`, the
+        Assistant's `read_day_start_get` and `do_day_start_set`): the address each person sets out from, one per
+        person in each business (`app.day_starts`), the business's address until they set their own. It's often a
+        home, so only they and the owners and admins read it, and the history says only whether it's their own
+        address or the business's, never the address. A deleted account keeps none of it (`private.anonymize_user`).
+      - **Coffee spots** (3, all three options): a calendar's place can be a **Meet up** spot (`meetup`) with **Your
+        usual spot** (optional). The customer picks your usual spot, a coffee shop halfway between you (**Find a
+        spot**: the midpoint of their address and where the host's day starts, then the nearest coffee shop on
+        Google's Places API, `GET /public/book/:site/:calendar/halfway`, `no_meetup` when the calendar has no meet-up
+        place), or **I’ll pick the place**. The spot's address is kept as the appointment's place, so drive times and
+        the next booking count it.
+      - **How the drives are worked out** (the worker's `booking/drives.ts`, core's `engine/drives.ts`): every address
+        found on the map once and kept (`app.geocodes`), the drives from the customer's place to each nearby visit
+        and day start asked of Google's Routes API in one matrix (at most 60 places a request) and kept in memory, so
+        paging through a month costs one road lookup per new place. Drive times are taken as the same both ways.
+      - **How it's built**: migration `20261027029600_day_starts.sql` (also lets a service offer `meetup`); core's
+        `day-start.ts`, `engine/drives.ts`, `calendar-hours.ts` and `appointment-online.ts`; the worker's
+        `booking/drives.ts`, `geo/driving.ts`, `geo/places.ts` and `http/booking.ts`; the web's `day-start.tsx`,
+        `modules.tsx` and `booking-flow.tsx`. No extension change. The server's Google key needs the **Places API
+        (New)** turned on for Find a spot (docs/operations.md); without it, the other two spots are offered.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -4803,6 +4901,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   `networkingStand`): no question right after the owner asked one, a demo only when they ask about the business, and
   a wrap-up after they've written back twice that asks nothing: the call with the person's own calendar link, then
   the line about mentioning them. Don't go back to a question in every reply.
+- **The AI never writes over what a person set of what someone does and where** (decision 177, `noteTheirWork`):
+  an `area_how` of `typed` is kept until a person changes it, and what the AI reads only fills or updates, never
+  clears. How far someone is, and whether they're local, is always measured from the person looking, never kept.
 - **In the networking chat, only a yes to a demo or a call is a yes** (decision 173, `ANSWER_AFTER_INTRO_ASK`,
   `answerOf`, `tookOf`): a friendly answer to the owner's question about them is no yes, so no ask for a time
   follows it. A call's yes (`follow_ups.call`) puts the ask and what follows it on the person's own calendar, with no
@@ -5625,6 +5726,16 @@ Alignable's groups on the Groups tab. LinkedIn's comments waiting at first came 
 commenter's comment, the AI's check of Facebook's group members, 3 screens of a Likes or reactions box, likers on
 Alignable, the business's found checks a day, results by hashtag, phrase and kind of business, and tidying away finds
 never checked after two weeks came with decision 116, the comment Like and Alignable's likers from guessed markup too.
+
+Local networking (decisions 177 to 179 are the first two of four parts, from the owner's picks of 18 Nov 2026) still
+to come: a chat whose length follows their interest, and a page of settings for how the AI networks (part 3); and tagging the people the owner has talked with on recent posts in their area that fit, a short ask after two
+referrals once the chat has been quiet for a few days, the About you interview, a prep note before each networking
+call and a thank-you after, a weekly count of 1-on-1s, and local Facebook events (part 4). Today's ordering is
+the only place near people go first; the Pipeline and the lists don't sort by distance yet.
+
+Drive times (decision 179) count only on the booking page, a reschedule from the customer's link and the AI's open
+times: a booking the team makes in New appointment, or the Assistant's, isn't checked for the drive. Where your day
+starts is on the web's Settings → My calendar, not yet on the phone. Google's drives are without traffic.
 
 Next: the AI suggesting a conversation from the rest of the playbook, with AI drafting. Then leads. Then the rest of decisions 26 to 35 (the onboarding,
 decision 36, joining groups, decision 48, and tidying on its own, decision 98, are built), in the order above: team sharing, the after-demo workflow, birthday notes and

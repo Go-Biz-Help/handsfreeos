@@ -24,6 +24,7 @@ export const LOCATION_NAMES: Readonly<Record<LocationKind, string>> = {
   business: 'business',
   virtual: 'video call',
   phone: 'phone call',
+  meetup: 'meet-up spot',
 };
 
 const SERVICE_MODES = { none: 'off', one: 'one service', choice: 'customer picks' } as const;
@@ -183,6 +184,12 @@ export function diffConfigs(a: CalendarConfig, b: CalendarConfig, catalogs?: Nam
   change('Buffer before', a.buffers.before, b.buffers.before, minutesOrNone);
   change('Buffer after', a.buffers.after, b.buffers.after, minutesOrNone);
   change('Travel time', a.buffers.travelMinutes, b.buffers.travelMinutes, minutesOrNone);
+  change(
+    'Leave time to drive between visits',
+    a.buffers.driveBetween,
+    b.buffers.driveBetween,
+    onOff,
+  );
   change('ZIP routing', a.territory.routing === 'zip', b.territory.routing === 'zip', onOff);
   change('Territories', a.territory.territoryIds, b.territory.territoryIds, (v) =>
     v.length ? v.map(territory).join(', ') : 'all',

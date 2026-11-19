@@ -568,6 +568,8 @@ function whereOf(l: AppointmentOut['location']): string | null {
       return l.meetingUrl ?? 'Video call';
     case 'phone':
       return 'Phone call';
+    case 'meetup':
+      return 'At a meet-up spot';
     default:
       return null;
   }
@@ -641,6 +643,7 @@ const PLACE_WORDS: Record<string, string> = {
   business: 'visits at the business',
   virtual: 'video calls',
   phone: 'phone calls',
+  meetup: 'meet-ups (coffee, or a spot you both pick)',
 };
 
 /**
@@ -683,7 +686,7 @@ function placeFor(
       postalCode: address && address === home ? person!.address.postalCode : zipOf(address),
     };
   }
-  if (kind === 'business')
+  if (kind === 'business' || kind === 'meetup')
     return { kind, address: str(chosen['address']) ?? option?.address ?? null };
   if (kind === 'virtual')
     return { kind, meetingUrl: str(chosen['meetingLink']) ?? option?.meetingUrl ?? null };

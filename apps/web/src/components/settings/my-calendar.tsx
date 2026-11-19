@@ -15,6 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type {
   CalendarConnection,
+  DayStart,
   MeetingConnection,
   TeamSchedule,
   TimeOffSpan,
@@ -30,6 +31,7 @@ import {
 } from '@/lib/calendar/time';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { CalendarConnectionCard } from './calendar-connection-card';
+import { DayStartPart } from './day-start';
 import { MeetingConnectionCard } from './meeting-connection-card';
 import { SettingAnchor } from './setting-anchor';
 
@@ -86,6 +88,7 @@ export function MyCalendar({
   businessZone,
   connection,
   meeting,
+  dayStart,
   isSelf,
   canManage,
   result,
@@ -97,6 +100,8 @@ export function MyCalendar({
   businessZone: string;
   connection: CalendarConnection | null;
   meeting: MeetingConnection | null;
+  /** Where their day starts, for drive times; null when it couldn't be read. */
+  dayStart: DayStart | null;
   isSelf: boolean;
   canManage: boolean;
   result: string | null;
@@ -300,6 +305,17 @@ export function MyCalendar({
               </ul>
             )}
           </SettingAnchor>
+
+          {dayStart ? (
+            <SettingAnchor as="section" row setting="my_calendar.day_start">
+              <DayStartPart
+                workspaceId={workspaceId}
+                shown={dayStart}
+                isSelf={isSelf}
+                firstName={firstName}
+              />
+            </SettingAnchor>
+          ) : null}
 
           <SettingAnchor as="section" row setting="my_calendar.connection">
             <div className="mb-1.5 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">

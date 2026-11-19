@@ -107,6 +107,7 @@ import { WarningState } from './tidy';
 import { TodayGoal } from './goal';
 import { inNetworkWords, NETWORKS, type Platform } from './networks';
 import { VISIT_LIKES } from './keep-warm';
+import { REACH_KEYS, THEIR_WORK_ASK, TheirWorkFound, type TheirWork } from './local';
 import { PLATFORM_KEYS, type PlaybookDetails, type PlaybookStep } from './playbooks';
 import { COMMENT_DRAFTS } from './posts';
 import { RECENT_SHOWN, RecentMessage } from './sends';
@@ -962,12 +963,14 @@ export function networkingReplyTask(
   on: PlaybookNetworking,
   stand: NetworkingStand = { wroteBack: 1, ownerAsked: false },
   callLink: string | null = null,
+  /** They work inside the owner's radius (decision 177): the call offer is a call or coffee (the owner's 4a). */
+  local = false,
 ): string {
   const asked =
     'they ask about the business (what it does, what it offers, how it works, the price)';
   const wrap = [
     on.call
-      ? `the networking call offer, once in the whole chat, unless the chat shows the owner already offered it or they passed on it. ${asMessage('the networking call offer', says.callOffer)} ${callLink ? `The owner’s own calendar link for [calendar link], exactly as written: ${quoteData(callLink)}. Never the playbook’s link for it.` : 'There’s no calendar link to give, so leave [calendar link] and the words that give it out.'}`
+      ? `the networking call offer, once in the whole chat, unless the chat shows the owner already offered it or they passed on it. ${asMessage('the networking call offer', says.callOffer)}${local ? ` ${LOCAL_COFFEE}` : ''} ${callLink ? `The owner’s own calendar link for [calendar link], exactly as written: ${quoteData(callLink)}. Never the playbook’s link for it.` : 'There’s no calendar link to give, so leave [calendar link] and the words that give it out.'}`
       : null,
     on.sendPeople
       ? `${on.call ? 'Then, in the same message, ' : ''}the line about sending people their way, once in the whole chat, unless the chat shows the owner already said it. ${asMessage('it', says.sendPeople)}`
@@ -993,6 +996,13 @@ export function networkingReplyTask(
     .filter(Boolean)
     .join(' ');
 }
+
+/**
+ * The networking call offer to someone who works near the owner (decision 177, the owner's 4a: locals get "a call or grab
+ * coffee"), said within the playbook's words.
+ */
+export const LOCAL_COFFEE =
+  'They work near the owner, so offer a call or to grab coffee: where the words say a call, say a call or coffee, like “let’s jump on a call or grab coffee”. Never name a place or a time for the coffee.';
 
 /**
  * Whether someone connected with the owner lately enough for an introduction to thank them for it (decision 168):
@@ -1023,10 +1033,12 @@ function taskFor(
   stand: NetworkingStand | null = null,
   /** The person's own calendar, for the networking call when the chat wraps up (decision 176). */
   callLink: string | null = null,
+  /** They work inside the owner's radius (decision 177). */
+  local = false,
 ): string {
   // The networking chat after an introduction (decision 173): a reply about them, and its one nudge.
   if (kind === 'reply' && step === 'intro' && networking)
-    return networkingReplyTask(says, networking, stand ?? undefined, callLink);
+    return networkingReplyTask(says, networking, stand ?? undefined, callLink, local);
   if (kind === 'follow_up' && step === 'intro')
     return `The owner introduced themselves and they haven’t written back. Write the owner’s one nudge. ${asHow('the nudge', says.nudge)} It’s the only one: never say you’ll check back, and never repeat the introduction.`;
   if (kind === 'pitch' && call)
@@ -1367,6 +1379,8 @@ export function todayDraftPrompt(input: {
    * no link.
    */
   readonly callLink?: string | null;
+  /** They work inside the owner's radius (decision 177): the networking call offer is a call or coffee. */
+  readonly local?: boolean;
   /**
    * Their post, for a comment, and the group it's in: only whether it's in one is told (decision 157), never which.
    */
@@ -1530,6 +1544,7 @@ export function todayDraftPrompt(input: {
                   : null,
                 networkingStand(input.recent),
                 input.callLink ?? null,
+                input.local ?? false,
               ),
               platform,
               !!input.post?.group,
@@ -1714,6 +1729,7 @@ export function todayDraftPrompt(input: {
     input.kind === 'reply' && c?.step === 'intro' ? ANSWER_AFTER_INTRO_ASK : ANSWER_ASK,
     input.kind === 'comment' && input.post ? COMMENT_ABOUT_ASK : null,
     input.kind === 'comment' && input.post?.shown ? COMMENT_SAW_ASK : null,
+    asksTheirWork(input.kind) ? THEIR_WORK_ASK : null,
     TODAY_DRAFT_ASK,
   ]
     .filter(Boolean)
@@ -1765,6 +1781,7 @@ export const ANSWER_AFTER_INTRO_ASK =
 
 const DRAFT_ANSWERS = [...ANSWER_KEYS, 'none'] as const;
 const DRAFT_TOOK = [...TOOK_KEYS, 'none'] as const;
+const DRAFT_REACH = [...REACH_KEYS, ''] as const;
 
 export const TodayDraftAnswer = z.object({
   drafts: z.array(z.string()).max(10),
@@ -1785,13 +1802,40 @@ export const TodayDraftAnswer = z.object({
    * (./comment-says.ts `COMMENT_SAW_ASK`), else empty.
    */
   saw: z.string().catch('').default(''),
+  /**
+   * What they do and where (decision 177, ./local.ts `THEIR_WORK_ASK`): asked where it reads their page or the chat
+   * (`asksTheirWork`), else empty.
+   */
+  work: z.string().catch('').default(''),
+  area: z.string().catch('').default(''),
+  reach: z.enum(DRAFT_REACH).catch('').default(''),
 });
 export type TodayDraftAnswer = z.output<typeof TodayDraftAnswer>;
+
+/** The kinds whose draft reads their page or the chat closely enough to say what they do and where (decision 177). */
+export const asksTheirWork = (kind: CustomerDraftKind): boolean =>
+  kind === 'opener' || kind === 'reconnect' || kind === 'reply' || kind === 'pitch';
+
+/** What a draft's answer says they do and where, as it's kept (./local.ts `TheirWorkFound`). */
+export const theirWorkOf = (a: Pick<TodayDraftAnswer, 'work' | 'area' | 'reach'>): TheirWork =>
+  TheirWorkFound.parse({ work: a.work, area: a.area, reach: a.reach || null });
 
 export const TODAY_DRAFT_SCHEMA: Record<string, unknown> = {
   type: 'object',
   additionalProperties: false,
-  required: ['drafts', 'simple', 'answer', 'took', 'unanswered', 'time', 'about', 'saw'],
+  required: [
+    'drafts',
+    'simple',
+    'answer',
+    'took',
+    'unanswered',
+    'time',
+    'about',
+    'saw',
+    'work',
+    'area',
+    'reach',
+  ],
   properties: {
     drafts: { type: 'array', items: { type: 'string' } },
     simple: { type: 'boolean' },
@@ -1801,6 +1845,9 @@ export const TODAY_DRAFT_SCHEMA: Record<string, unknown> = {
     time: { type: 'string' },
     about: { type: 'string' },
     saw: { type: 'string' },
+    work: { type: 'string' },
+    area: { type: 'string' },
+    reach: { type: 'string', enum: [...DRAFT_REACH] },
   },
 };
 

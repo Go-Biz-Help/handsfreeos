@@ -62,6 +62,8 @@ import {
 import { aboutOwnerFor } from '@hfos/core/addons/outreach/ops/about-owner';
 import { voiceFor } from '@hfos/core/addons/outreach/ops/automation';
 import { answerNote } from '@hfos/core/addons/outreach/ops/conversation';
+import { theirWorkNote, theirWorkShown } from '@hfos/core/addons/outreach/ops/local';
+import { RADIUS_START, theirWorkFact } from '@hfos/core/addons/outreach/local';
 import {
   paceOf,
   PlaybookDetails,
@@ -72,7 +74,9 @@ import { underAPost } from '@hfos/core/addons/outreach/automation';
 import { replyNeedsYou } from '@hfos/core/addons/outreach/sends';
 import {
   answerOf,
+  asksTheirWork,
   checkedDrafts,
+  theirWorkOf,
   tookOf,
   connectedLately,
   draftOfferOf,
@@ -122,6 +126,7 @@ import {
   callLinkFor,
   draftTimes,
   keepTimes,
+  leadLinkFor,
   meetingFor,
   offeredWords,
   type Meeting,
@@ -234,11 +239,16 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
             group: string | null;
             client: boolean;
             country: string | null;
+            work: string | null;
+            area: string | null;
+            town: string | null;
+            reach: string | null;
+            area_how: string | null;
           }>(
             tx,
             // A client in Contacts (decision 91) gets replies only: no link, no video, and a yes isn't a pitch.
             sql`select p.name, p.platform, p.intro, p.mutual_friends, g.name as group, ${isClient('p')} as client,
-                  p.country
+                  p.country, p.work, p.area, p.town, p.reach, p.area_how
                 from addon_outreach.profiles p left join addon_outreach.groups g on g.id = p.group_id
                 where p.workspace_id = ${ws} and p.id = ${profileId}`,
           )
@@ -406,6 +416,12 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         sql`select message_samples, message_notes from addon_outreach.setup
             where workspace_id = ${ws} and user_id = ${ctx.userId}`,
       );
+      // The person's own town and radius (decision 177): how far from them they are.
+      const [home] = await rows<{ home_town: string | null; radius_miles: number }>(
+        tx,
+        sql`select home_town, radius_miles from addon_outreach.automation
+            where workspace_id = ${ws} and user_id = ${ctx.userId}`,
+      );
       return {
         business,
         chat,
@@ -435,6 +451,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         library: installed ? outreachSettings(installed.settings).videos : undefined,
         sentTexts: sentTexts.map((t) => t.text),
         groups: groups.map((g) => g.name),
+        home: { town: home?.home_town ?? null, radiusMiles: home?.radius_miles ?? RADIUS_START },
       };
     });
     const name = found.profile?.name ?? found.chat?.name;
@@ -451,11 +468,14 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         ),
       ),
     ];
+    // What they do and where, and how far from the person (decision 177).
+    const them = found.profile ? theirWorkShown(found.profile, found.home) : null;
     const facts = [
       ...found.lines,
       ...(found.profile?.intro ?? []),
       ...(found.check?.about ? [found.check.about] : []),
       ...(found.check?.why ?? []),
+      ...[theirWorkFact(them)].filter((f): f is string => f !== null),
       // Only for Reconnect's catch-up (decision 164): never a first message, a follow-up or a reply.
       ...[firstStepFact(input.kind, found.check?.next_step)].filter((f): f is string => f !== null),
     ];
@@ -506,14 +526,16 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     const client = found.profile?.client ?? false;
     // The playbook's link, as the person's demo link for them (decision 24).
     const profileId = input.profileId ?? found.chat?.profile_id ?? found.post?.profile_id ?? null;
+    // Their own Lead calendar first (decision 178, the owner's 5a), the playbook's link as the backup.
+    const bookLink = client ? null : await leadLinkFor(ctx, ctx.userId, playbook?.details.link);
     const demoLinkFor = client
       ? null
       : playbook && profileId
-        ? demoLink(playbook.details.link, demoRef(ctx.userId, profileId))
-        : (playbook?.details.link ?? null);
+        ? demoLink(bookLink, demoRef(ctx.userId, profileId))
+        : bookLink;
     // After a yes to a networking call (decision 173, the owner's 5): the ask for a time and what follows it go on the
-    // person's own calendar, with no demo ref, never the playbook's demo page.
-    const callLink = () => callLinkFor(ctx, ctx.userId, playbook?.details.link);
+    // person's Networking calendar (decision 178) or own calendar, with no demo ref, never the demo page.
+    const callLink = () => callLinkFor(ctx, ctx.userId, bookLink);
     const onCall =
       !client && found.conversation?.call === true && found.conversation.step === 'link';
     const link = onCall ? await callLink() : demoLinkFor;
@@ -598,7 +620,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       isTimeKind(input.kind) &&
       (input.kind !== 'follow_up' || found.conversation?.step === 'link') &&
       !(input.kind === 'reply' && found.conversation?.step === 'intro')
-        ? await meetingOn(onCall ? link : playbook?.details.link)
+        ? await meetingOn(onCall ? link : bookLink)
         : null;
     // What the business knows (decision 122): its profile and Knowledge, with what matches their latest words, their
     // post or their comment first. Read once, for the reply and the step after a yes alike.
@@ -635,6 +657,8 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         lists: found.lists,
         conversation,
         callLink: wrapLink,
+        // Someone who works inside the person's radius gets a call or coffee (decision 177, the owner's 4a).
+        local: them?.near ?? false,
         post: found.engaged
           ? {
               text: `Your post: ${found.engaged.body ?? ''}\n\nTheir comment: ${found.engaged.comment}`,
@@ -680,6 +704,23 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     try {
       let kind: CustomerDraftKind = input.kind;
       let made = await draft(kind);
+      // What they do and where (decision 177): what the draft read of their page or the chat, kept on their profile
+      // unless a person set it.
+      const read = asksTheirWork(kind) ? theirWorkOf(made.value) : null;
+      if (profileId && read && (read.work || read.area || read.reach))
+        await executeCommand(
+          ctx.db,
+          theirWorkNote,
+          {
+            workspaceId: ws,
+            userId: ctx.userId,
+            profileId,
+            how: recent.some((m) => !m.fromMe) ? 'chat' : 'page',
+            them: read,
+          },
+          ctx.actor,
+          ctx.meta,
+        );
       // A reply: what they answered to the person's last step is kept, and a yes gets the next step instead. After an
       // introduction (decision 173), only a yes to a demo or a networking call is one, and it says which.
       const step = found.conversation?.step ?? null;
@@ -714,7 +755,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
           // After an introduction (decision 173): a call's ask goes on the person's own calendar, a demo's on the
           // playbook's link, each with its own open times, since the chat's reply offered none.
           const nextLink = took === 'call' ? await callLink() : demoLinkFor;
-          const nextMeeting = await meetingOn(took === 'call' ? nextLink : playbook?.details.link);
+          const nextMeeting = await meetingOn(took === 'call' ? nextLink : bookLink);
           base = {
             ...base,
             told: {

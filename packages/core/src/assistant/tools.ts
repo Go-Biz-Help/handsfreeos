@@ -546,6 +546,12 @@ export const assistantTools = [
         .max(240)
         .optional()
         .describe('Travel time kept before and after each visit at the customer’s address'),
+      driveBetween: z
+        .boolean()
+        .optional()
+        .describe(
+          'Leave time to drive between visits: the booking page asks for the address first and offers only times the person can drive to, from their visit before or where their day starts',
+        ),
       minNoticeMinutes: z
         .int()
         .min(0)

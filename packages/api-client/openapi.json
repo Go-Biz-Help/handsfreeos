@@ -13584,7 +13584,8 @@
                                     "customer_address",
                                     "business",
                                     "virtual",
-                                    "phone"
+                                    "phone",
+                                    "meetup"
                                   ]
                                 },
                                 "address": {
@@ -13734,6 +13735,10 @@
                             "type": "integer",
                             "minimum": 0,
                             "maximum": 240
+                          },
+                          "driveBetween": {
+                            "default": false,
+                            "type": "boolean"
                           }
                         }
                       },
@@ -15207,7 +15212,7 @@
                   },
                   "locationKinds": {
                     "default": [],
-                    "maxItems": 4,
+                    "maxItems": 5,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -15215,7 +15220,8 @@
                         "customer_address",
                         "business",
                         "virtual",
-                        "phone"
+                        "phone",
+                        "meetup"
                       ]
                     }
                   },
@@ -15415,7 +15421,7 @@
                     ]
                   },
                   "locationKinds": {
-                    "maxItems": 4,
+                    "maxItems": 5,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -15423,7 +15429,8 @@
                         "customer_address",
                         "business",
                         "virtual",
-                        "phone"
+                        "phone",
+                        "meetup"
                       ]
                     }
                   },
@@ -16797,6 +16804,90 @@
         }
       }
     },
+    "/v1/commands/day_start.set": {
+      "post": {
+        "operationId": "command_day_start_set",
+        "summary": "Set where your working day starts (a street address), or (owners and admins) a teammate’s: on calendars that leave time to drive between visits, the drive to the first visit of a day is timed from it. Null starts the day from the business’s address again.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires appointments.write. Emits day_start.updated.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "userId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "address": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 300
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "address"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "userId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "address": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "businessAddress": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "userId",
+                    "address",
+                    "businessAddress"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/appointment.create": {
       "post": {
         "operationId": "command_appointment_create",
@@ -16900,7 +16991,8 @@
                               "customer_address",
                               "business",
                               "virtual",
-                              "phone"
+                              "phone",
+                              "meetup"
                             ]
                           },
                           {
@@ -17213,7 +17305,8 @@
                               "customer_address",
                               "business",
                               "virtual",
-                              "phone"
+                              "phone",
+                              "meetup"
                             ]
                           },
                           {
@@ -18277,7 +18370,8 @@
                               "customer_address",
                               "business",
                               "virtual",
-                              "phone"
+                              "phone",
+                              "meetup"
                             ]
                           },
                           {
@@ -18654,7 +18748,8 @@
                               "customer_address",
                               "business",
                               "virtual",
-                              "phone"
+                              "phone",
+                              "meetup"
                             ]
                           },
                           {
@@ -116268,6 +116363,441 @@
         }
       }
     },
+    "/v1/commands/outreach.their_work.set": {
+      "post": {
+        "operationId": "command_outreach_their_work_set",
+        "summary": "Change what someone in Social Outreach does and where (their card’s What they do and where): their line of work, the US town they work in with its state (“Austin, TX”), and whether they serve customers locally, nationwide or online. What a person sets, the AI never writes over. Empty clears a part; a part left out stays.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.their_work.set.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "profileId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "work": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 80
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "area": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 80
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "reach": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "local",
+                          "nationwide",
+                          "online"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "profileId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "profileId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "shown": {
+                      "type": "object",
+                      "properties": {
+                        "work": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "area": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "reach": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "local",
+                                "nationwide",
+                                "online"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "how": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "page",
+                                "chat",
+                                "typed"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "miles": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "near": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "work",
+                        "area",
+                        "reach",
+                        "how",
+                        "miles",
+                        "near"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "profileId",
+                    "shown"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.location.set": {
+      "post": {
+        "operationId": "command_outreach_location_set",
+        "summary": "Change the person’s own town in Social Outreach (Settings → You → Where you are: a US town and its state, like “Dallas, TX”), how many miles from it is local to them (5 to 100), or Focus on local groups, which adds their town and the towns near it to group searches, ranks local groups higher and puts people who work near them first on Today. A part left out stays.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.location.set.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "area": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 80
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "radiusMiles": {
+                    "type": "integer",
+                    "minimum": 5,
+                    "maximum": 100
+                  },
+                  "localFocus": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "area": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "suggested": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "radiusMiles": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "localFocus": {
+                      "type": "boolean"
+                    },
+                    "near": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "nearCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "area",
+                    "suggested",
+                    "radiusMiles",
+                    "localFocus",
+                    "near",
+                    "nearCount"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.my_calendars.set": {
+      "post": {
+        "operationId": "command_outreach_my_calendars_set",
+        "summary": "Pick the person’s own calendars in Social Outreach (Settings → You → Your calendars): the Networking calendar a networking call books on, and the Lead calendar a demo books on ahead of the playbook’s booking link. Each is one of the business’s calendars that takes bookings online (`outreach_my_calendars` lists them), or null for none. A part left out stays.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.my_calendars.set.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "networkingCalendarId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "leadCalendarId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "networking": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "mine": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "mine"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "lead": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "mine": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "mine"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "networkingOtherwise": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "choices": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "mine": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "mine"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "networking",
+                    "lead",
+                    "networkingOtherwise",
+                    "choices"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/outreach.partner.leads": {
       "post": {
         "operationId": "command_outreach_partner_leads",
@@ -165817,7 +166347,8 @@
                                           "customer_address",
                                           "business",
                                           "virtual",
-                                          "phone"
+                                          "phone",
+                                          "meetup"
                                         ]
                                       },
                                       "address": {
@@ -165989,12 +166520,17 @@
                                   "type": "integer",
                                   "minimum": 0,
                                   "maximum": 240
+                                },
+                                "driveBetween": {
+                                  "default": false,
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
                                 "before",
                                 "after",
-                                "travelMinutes"
+                                "travelMinutes",
+                                "driveBetween"
                               ],
                               "additionalProperties": false
                             },
@@ -167091,7 +167627,8 @@
                           "customer_address",
                           "business",
                           "virtual",
-                          "phone"
+                          "phone",
+                          "meetup"
                         ]
                       },
                       {
@@ -167429,7 +167966,8 @@
                                       "customer_address",
                                       "business",
                                       "virtual",
-                                      "phone"
+                                      "phone",
+                                      "meetup"
                                     ]
                                   },
                                   {
@@ -168031,7 +168569,8 @@
                                     "customer_address",
                                     "business",
                                     "virtual",
-                                    "phone"
+                                    "phone",
+                                    "meetup"
                                   ]
                                 },
                                 {
@@ -169639,6 +170178,78 @@
                   "required": [
                     "timezone",
                     "people"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/day_start.get": {
+      "post": {
+        "operationId": "query_day_start_get",
+        "summary": "Where a person’s working day starts, for drive times between visits: their own address, or none (then the business’s address, also given). Yours, or (owners and admins) a teammate’s.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires workspace.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "userId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "userId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "address": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "businessAddress": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "userId",
+                    "address",
+                    "businessAddress"
                   ],
                   "additionalProperties": false
                 }
@@ -256991,6 +257602,77 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "theirWork": {
+                      "type": "object",
+                      "properties": {
+                        "work": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "area": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "reach": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "local",
+                                "nationwide",
+                                "online"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "how": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "page",
+                                "chat",
+                                "typed"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "miles": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "near": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "work",
+                        "area",
+                        "reach",
+                        "how",
+                        "miles",
+                        "near"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -259056,6 +259738,230 @@
                   "required": [
                     "near",
                     "today"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/outreach.location.get": {
+      "post": {
+        "operationId": "query_outreach_location_get",
+        "summary": "The person’s own town in Social Outreach (Settings → You → Where you are), how far from it is local to them, whether Focus on local groups is on, and the towns inside that radius; with the business’s town to start from when they haven’t set theirs.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires outreach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "area": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "suggested": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "radiusMiles": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "localFocus": {
+                      "type": "boolean"
+                    },
+                    "near": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "nearCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "area",
+                    "suggested",
+                    "radiusMiles",
+                    "localFocus",
+                    "near",
+                    "nearCount"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/outreach.my_calendars.get": {
+      "post": {
+        "operationId": "query_outreach_my_calendars_get",
+        "summary": "The person’s own calendars in Social Outreach (Settings → You → Your calendars): the Networking calendar a networking call books on, the Lead calendar a demo books on, where a call goes while none is picked, and the business’s calendars that take bookings online, to pick from.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires outreach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "networking": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "mine": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "mine"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "lead": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "mine": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "mine"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "networkingOtherwise": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "choices": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "mine": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "mine"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "networking",
+                    "lead",
+                    "networkingOtherwise",
+                    "choices"
                   ],
                   "additionalProperties": false
                 }

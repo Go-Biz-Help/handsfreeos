@@ -377,6 +377,84 @@ describe('app.user_about', () => {
   });
 });
 
+describe('app.day_starts', () => {
+  it('is read by the person and the business’s owners only, changed by whoever may change their hours', async () => {
+    const read = (tx: Tx) =>
+      rows<{ address: string }>(
+        tx,
+        sql`select address from app.day_starts where workspace_id = ${A.ws} and user_id = ${marco.id}`,
+      );
+    await as(marco)((tx) =>
+      tx.execute(
+        sql`insert into app.day_starts (workspace_id, user_id, address, updated_by) values (${A.ws}, ${marco.id}, '7 Home St, Austin, TX', ${marco.id})`,
+      ),
+    );
+    expect(await as(marco)(read)).toEqual([{ address: '7 Home St, Austin, TX' }]);
+    // The owner reads it (and may change it); nobody outside the business does.
+    expect(await as(dale)(read)).toEqual([{ address: '7 Home St, Austin, TX' }]);
+    expect(await as(stranger)(read)).toHaveLength(0);
+    // The worker reads it for its own business only, and never writes it.
+    expect(await worker(A)(read)).toHaveLength(1);
+    expect(await worker(S)(read)).toHaveLength(0);
+    expect(
+      (
+        await expectPgError(() =>
+          worker(A)((tx) =>
+            tx.execute(
+              sql`update app.day_starts set address = 'Elsewhere' where user_id = ${marco.id}`,
+            ),
+          ),
+        )
+      ).code,
+    ).toBe('42501');
+    // A member can't set the owner's.
+    expect(
+      (
+        await expectPgError(() =>
+          as(marco)((tx) =>
+            tx.execute(
+              sql`insert into app.day_starts (workspace_id, user_id, address, updated_by) values (${A.ws}, ${dale.id}, 'Not mine', ${marco.id})`,
+            ),
+          ),
+        )
+      ).code,
+    ).toBe('42501');
+    // Never empty, and whose it is never changes.
+    expect(
+      (
+        await expectPgError(() =>
+          as(marco)((tx) =>
+            tx.execute(
+              sql`update app.day_starts set address = '  ', updated_by = ${marco.id} where user_id = ${marco.id}`,
+            ),
+          ),
+        )
+      ).code,
+    ).toBe('23514');
+    expect(
+      (
+        await expectPgError(() =>
+          as(marco)((tx) =>
+            tx.execute(
+              sql`update app.day_starts set user_id = ${dale.id} where user_id = ${marco.id}`,
+            ),
+          ),
+        )
+      ).code,
+    ).toBe('42501');
+    await as(dale)((tx) =>
+      tx.execute(
+        sql`update app.day_starts set address = '9 Shop Rd, Austin, TX', updated_by = ${dale.id} where user_id = ${marco.id}`,
+      ),
+    );
+    expect(await as(marco)(read)).toEqual([{ address: '9 Shop Rd, Austin, TX' }]);
+    await as(marco)((tx) =>
+      tx.execute(sql`delete from app.day_starts where user_id = ${marco.id}`),
+    );
+    expect(await as(marco)(read)).toHaveLength(0);
+  });
+});
+
 describe('possible_duplicate_of', () => {
   it('points at a record of the same business, never itself', async () => {
     const person = async (
@@ -444,6 +522,11 @@ describe('private.anonymize_user', () => {
         sql`insert into app.user_about (user_id, about) values (${leaver.id}, 'I’m from Tulsa.')`,
       ),
     );
+    await as(leaver)((tx) =>
+      tx.execute(
+        sql`insert into app.day_starts (workspace_id, user_id, address, updated_by) values (${A.ws}, ${leaver.id}, '4 Home Ln, Tulsa, OK', ${leaver.id})`,
+      ),
+    );
     const commandId = randomUUID();
     await as(leaver)(async (tx) => {
       await tx.execute(
@@ -505,6 +588,7 @@ describe('private.anonymize_user', () => {
             (select count(*)::int from app.push_devices where user_id = ${leaver.id}) as devices,
             (select count(*)::int from app.user_phones where user_id = ${leaver.id}) as cells,
             (select count(*)::int from app.user_about where user_id = ${leaver.id}) as about,
+            (select count(*)::int from app.day_starts where user_id = ${leaver.id}) as starts,
             (select count(*)::int from app.command_receipts where user_id = ${leaver.id}) as receipts,
             (select count(*)::int from app.assistant_threads where user_id = ${leaver.id}) as chats,
             (select count(*)::int from app.calendar_busy_blocks where user_id = ${leaver.id}) as busy,
@@ -516,6 +600,7 @@ describe('private.anonymize_user', () => {
       devices: 0,
       cells: 0,
       about: 0,
+      starts: 0,
       receipts: 0,
       chats: 0,
       busy: 0,

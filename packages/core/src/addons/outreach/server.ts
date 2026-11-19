@@ -46,6 +46,7 @@ import { setupCommands, setupQueries } from './ops/setup';
 import { stageCommands, stageQueries } from './ops/stages';
 import { tidyCommands, tidyQueries } from './ops/tidy';
 import { townQueries } from './ops/towns';
+import { localCommands, localQueries } from './ops/local';
 import { postCommands, postQueries } from './ops/posts';
 import { referralCommands, referralQueries } from './ops/referrals';
 import { commentReplyCommands } from './ops/comment-replies';
@@ -94,6 +95,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...helpfulCommands,
     ...referralCommands,
     ...countryCommands,
+    ...localCommands,
     ...trackingCommands,
     ...partnerCommands,
     ...personMenuCommands,
@@ -146,6 +148,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...followersQueries,
     ...activeQueries,
     ...townQueries,
+    ...localQueries,
   ],
   // What the extension sends in: only the person's own browser can see Facebook, Instagram, LinkedIn and Alignable.
   notForTheAssistant: {

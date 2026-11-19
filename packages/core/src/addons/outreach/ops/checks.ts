@@ -52,6 +52,7 @@ import { fewAhead } from '../goal';
 import { limitNow } from '../limits';
 import { answersRequests, NETWORKS, profileMisfit, type Platform } from '../networks';
 import { outreachAddon } from '../manifest';
+import { noteTheirWork } from './local';
 import { partnerReadsPerDay } from '../partners';
 import type { PlaybookDetails } from '../playbooks';
 import { opensWithIntro } from '../script';
@@ -992,6 +993,8 @@ export const checkSave = defineAddonCommand(outreachAddon, {
       const lined = linesCountry(check.lines);
       if (lined) await keepCountry(ctx, check.profileId, lined);
     }
+    // What they do and where (decision 177), from their pages: never over what a person set.
+    if (a) await noteTheirWork(ctx, check.profileId, 'page', a.them);
     await ctx.tx
       .update(checks)
       .set({

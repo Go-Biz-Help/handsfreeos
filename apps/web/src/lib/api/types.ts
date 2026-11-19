@@ -150,6 +150,7 @@ export type AppointmentWarning = Ok<'/v1/commands/appointment.create'>['warnings
 export type ScheduleTeam = Ok<'/v1/queries/schedule.team'>;
 export type TeamSchedule = ScheduleTeam['people'][number];
 export type TimeOffSpan = TeamSchedule['timeOff'][number];
+export type DayStart = Ok<'/v1/queries/day_start.get'>;
 export type CalendarConnection = Ok<'/v1/queries/calendar_connection.list'>['items'][number];
 export type MeetingConnection = Ok<'/v1/queries/meeting_connection.list'>['items'][number];
 export type WeeklyHoursIn = Body<'/v1/commands/schedule.set'>['weekly'];

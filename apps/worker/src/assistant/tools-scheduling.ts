@@ -287,6 +287,8 @@ function whereOf(l: Place | null | undefined): string | null {
       return l.meetingUrl ?? 'Video call';
     case 'phone':
       return 'Phone call';
+    case 'meetup':
+      return 'At a meet-up spot';
     default:
       return null;
   }
@@ -874,6 +876,7 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
           bufferBeforeMinutes: c.buffers.before,
           bufferAfterMinutes: c.buffers.after,
           travelMinutes: c.buffers.travelMinutes,
+          driveBetween: c.buffers.driveBetween,
         },
         bookingWindow: {
           minNoticeMinutes: c.window.minNoticeMinutes,
@@ -1049,7 +1052,7 @@ function locationFrom(place: Args | null, was: StoredLocation): StoredLocation {
   const kind = String(place['kind']);
   const same = was.kind === kind;
   const address =
-    kind === 'customer_address' || kind === 'business'
+    kind === 'customer_address' || kind === 'business' || kind === 'meetup'
       ? (str(place['address']) ?? (same ? was.address : null))
       : null;
   return {

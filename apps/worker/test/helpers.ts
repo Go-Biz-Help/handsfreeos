@@ -32,6 +32,7 @@ import { createFakeTelephony, type FakeTelephony } from '../src/telephony/fake';
 import { roughDriveTimer } from '../src/geo/driving';
 import { createFakeSpeech } from '../src/voice-agent/fake-speech';
 import { createFakeGeocoder } from '../src/geo/geocoder';
+import { createFakePlaceFinder } from '../src/geo/places';
 import { createFakeTranscriber, type FakeTranscriber } from '../src/telephony/fake-transcriber';
 import { createFakeVideoConverter } from '../src/telephony/video';
 import { createFakeVideo, type FakeVideo } from '../src/video-calls/fake';
@@ -99,6 +100,7 @@ export function testServices(
     video: createFakeVideoConverter(),
     geocoder: createFakeGeocoder(),
     driving: roughDriveTimer,
+    places: createFakePlaceFinder(),
     speech: createFakeSpeech(),
     voiceAi: null,
     aiFor: null,

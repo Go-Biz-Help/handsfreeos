@@ -4177,6 +4177,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/day_start.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set where your working day starts (a street address), or (owners and admins) a teammate’s: on calendars that leave time to drive between visits, the drive to the first visit of a day is timed from it. Null starts the day from the business’s address again.
+         * @description Risk level 1. Requires appointments.write. Emits day_start.updated.
+         */
+        post: operations["command_day_start_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/document_template.archive": {
         parameters: {
             query?: never;
@@ -9397,6 +9417,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.location.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the person’s own town in Social Outreach (Settings → You → Where you are: a US town and its state, like “Dallas, TX”), how many miles from it is local to them (5 to 100), or Focus on local groups, which adds their town and the towns near it to group searches, ranks local groups higher and puts people who work near them first on Today. A part left out stays.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.location.set.
+         */
+        post: operations["command_outreach_location_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.messages.edit": {
         parameters: {
             query?: never;
@@ -9431,6 +9471,26 @@ export interface paths {
          * @description Risk level 0. Requires outreach.use. Emits outreach.readiness.saved.
          */
         post: operations["command_outreach_messages_forget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.my_calendars.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pick the person’s own calendars in Social Outreach (Settings → You → Your calendars): the Networking calendar a networking call books on, and the Lead calendar a demo books on ahead of the playbook’s booking link. Each is one of the business’s calendars that takes bookings online (`outreach_my_calendars` lists them), or null for none. A part left out stays.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.my_calendars.set.
+         */
+        post: operations["command_outreach_my_calendars_set"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10111,6 +10171,26 @@ export interface paths {
          * @description Risk level 0. Requires outreach.use. Emits outreach.stage.marked, outreach.lead.wanted.
          */
         post: operations["command_outreach_stage_mark"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.their_work.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change what someone in Social Outreach does and where (their card’s What they do and where): their line of work, the US town they work in with its state (“Austin, TX”), and whether they serve customers locally, nationwide or online. What a person sets, the AI never writes over. Empty clears a part; a part left out stays.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.their_work.set.
+         */
+        post: operations["command_outreach_their_work_set"];
         delete?: never;
         options?: never;
         head?: never;
@@ -20657,6 +20737,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/day_start.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Where a person’s working day starts, for drive times between visits: their own address, or none (then the business’s address, also given). Yours, or (owners and admins) a teammate’s.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_day_start_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/document_template.get": {
         parameters: {
             query?: never;
@@ -22977,6 +23077,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.location.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s own town in Social Outreach (Settings → You → Where you are), how far from it is local to them, whether Focus on local groups is on, and the towns inside that radius; with the business’s town to start from when they haven’t set theirs.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_location_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.lookup": {
         parameters: {
             query?: never;
@@ -22991,6 +23111,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_lookup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.my_calendars.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s own calendars in Social Outreach (Settings → You → Your calendars): the Networking calendar a networking call books on, the Lead calendar a demo books on, where a call goes while none is picked, and the business’s calendars that take bookings online, to pick from.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_my_calendars_get"];
         delete?: never;
         options?: never;
         head?: never;
@@ -29243,7 +29383,7 @@ export interface operations {
                         /** @default null */
                         address?: string | null;
                         /** @default null */
-                        kind?: ("customer_address" | "business" | "virtual" | "phone") | null;
+                        kind?: ("customer_address" | "business" | "virtual" | "phone" | "meetup") | null;
                         /** @default null */
                         meetingError?: string | null;
                         /** @default null */
@@ -29605,7 +29745,7 @@ export interface operations {
                         /** @default null */
                         address?: string | null;
                         /** @default null */
-                        kind?: ("customer_address" | "business" | "virtual" | "phone") | null;
+                        kind?: ("customer_address" | "business" | "virtual" | "phone" | "meetup") | null;
                         /** @default null */
                         meetingError?: string | null;
                         /** @default null */
@@ -31406,6 +31546,8 @@ export interface operations {
                             after?: number;
                             /** @default 0 */
                             before?: number;
+                            /** @default false */
+                            driveBetween?: boolean;
                             /** @default 0 */
                             travelMinutes?: number;
                         };
@@ -31555,7 +31697,7 @@ export interface operations {
                                 /** @default null */
                                 address?: string | null;
                                 /** @enum {string} */
-                                kind: "customer_address" | "business" | "virtual" | "phone";
+                                kind: "customer_address" | "business" | "virtual" | "phone" | "meetup";
                                 /** @default null */
                                 meetingUrl?: string | null;
                                 /** @default false */
@@ -36304,6 +36446,41 @@ export interface operations {
                         /** @default [] */
                         notApplied: string[];
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_day_start_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    address: string | null;
+                    /** Format: uuid */
+                    userId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        address: string | null;
+                        businessAddress: string | null;
+                        /** Format: uuid */
+                        userId: string;
                     };
                 };
             };
@@ -50068,6 +50245,43 @@ export interface operations {
             };
         };
     };
+    command_outreach_location_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    area?: string | null;
+                    localFocus?: boolean;
+                    radiusMiles?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        area: string | null;
+                        localFocus: boolean;
+                        near: string[];
+                        nearCount: number;
+                        radiusMiles: number;
+                        suggested: string | null;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_messages_edit: {
         parameters: {
             query?: never;
@@ -50509,6 +50723,55 @@ export interface operations {
                             } | null;
                         } | null;
                         ready: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_my_calendars_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    leadCalendarId?: string | null;
+                    networkingCalendarId?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        choices: {
+                            /** Format: uuid */
+                            id: string;
+                            mine: boolean;
+                            name: string;
+                        }[];
+                        lead: {
+                            /** Format: uuid */
+                            id: string;
+                            mine: boolean;
+                            name: string;
+                        } | null;
+                        networking: {
+                            /** Format: uuid */
+                            id: string;
+                            mine: boolean;
+                            name: string;
+                        } | null;
+                        networkingOtherwise: string | null;
                     };
                 };
             };
@@ -53092,6 +53355,49 @@ export interface operations {
                         profileId: string;
                         /** @enum {string} */
                         stage: "found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "client" | "lost";
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_their_work_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    area?: string | null;
+                    /** Format: uuid */
+                    profileId: string;
+                    reach?: ("local" | "nationwide" | "online") | null;
+                    work?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        profileId: string;
+                        shown: {
+                            area: string | null;
+                            how: ("page" | "chat" | "typed") | null;
+                            miles: number | null;
+                            near: boolean;
+                            reach: ("local" | "nationwide" | "online") | null;
+                            work: string | null;
+                        };
                     };
                 };
             };
@@ -64990,7 +65296,7 @@ export interface operations {
                         /** @default null */
                         address?: string | null;
                         /** @default null */
-                        kind?: ("customer_address" | "business" | "virtual" | "phone") | null;
+                        kind?: ("customer_address" | "business" | "virtual" | "phone" | "meetup") | null;
                         /** @default null */
                         meetingError?: string | null;
                         /** @default null */
@@ -65126,7 +65432,7 @@ export interface operations {
                         start: string;
                     }[] | null;
                     /** @default [] */
-                    locationKinds?: ("customer_address" | "business" | "virtual" | "phone")[];
+                    locationKinds?: ("customer_address" | "business" | "virtual" | "phone" | "meetup")[];
                     name: string;
                     priceCents?: number | null;
                     repeatMonths?: number | null;
@@ -65180,7 +65486,7 @@ export interface operations {
                         end: string;
                         start: string;
                     }[] | null;
-                    locationKinds?: ("customer_address" | "business" | "virtual" | "phone")[];
+                    locationKinds?: ("customer_address" | "business" | "virtual" | "phone" | "meetup")[];
                     name?: string;
                     priceCents?: number | null;
                     repeatMonths?: number | null;
@@ -65234,7 +65540,7 @@ export interface operations {
                         /** @default null */
                         address?: string | null;
                         /** @default null */
-                        kind?: ("customer_address" | "business" | "virtual" | "phone") | null;
+                        kind?: ("customer_address" | "business" | "virtual" | "phone" | "meetup") | null;
                         /** @default null */
                         meetingError?: string | null;
                         /** @default null */
@@ -74935,7 +75241,7 @@ export interface operations {
                                 /** @default null */
                                 address: string | null;
                                 /** @default null */
-                                kind: ("customer_address" | "business" | "virtual" | "phone") | null;
+                                kind: ("customer_address" | "business" | "virtual" | "phone" | "meetup") | null;
                                 /** @default null */
                                 meetingError: string | null;
                                 /** @default null */
@@ -75090,7 +75396,7 @@ export interface operations {
                                 /** @default null */
                                 address: string | null;
                                 /** @default null */
-                                kind: ("customer_address" | "business" | "virtual" | "phone") | null;
+                                kind: ("customer_address" | "business" | "virtual" | "phone" | "meetup") | null;
                                 /** @default null */
                                 meetingError: string | null;
                                 /** @default null */
@@ -76795,7 +77101,7 @@ export interface operations {
                     durationMinutes?: number;
                     /** Format: date-time */
                     from: string;
-                    locationKind?: ("customer_address" | "business" | "virtual" | "phone") | null;
+                    locationKind?: ("customer_address" | "business" | "virtual" | "phone" | "meetup") | null;
                     /** @default 1 */
                     partySize?: number;
                     point?: {
@@ -76876,6 +77182,8 @@ export interface operations {
                                     after: number;
                                     /** @default 0 */
                                     before: number;
+                                    /** @default false */
+                                    driveBetween: boolean;
                                     /** @default 0 */
                                     travelMinutes: number;
                                 };
@@ -77017,7 +77325,7 @@ export interface operations {
                                         /** @default null */
                                         address: string | null;
                                         /** @enum {string} */
-                                        kind: "customer_address" | "business" | "virtual" | "phone";
+                                        kind: "customer_address" | "business" | "virtual" | "phone" | "meetup";
                                         /** @default null */
                                         meetingUrl: string | null;
                                         /** @default false */
@@ -80520,6 +80828,40 @@ export interface operations {
                             updatedAt: string;
                         }[];
                         nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_day_start_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    userId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        address: string | null;
+                        businessAddress: string | null;
+                        /** Format: uuid */
+                        userId: string;
                     };
                 };
             };
@@ -90731,6 +91073,40 @@ export interface operations {
             };
         };
     };
+    query_outreach_location_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        area: string | null;
+                        localFocus: boolean;
+                        near: string[];
+                        nearCount: number;
+                        radiusMiles: number;
+                        suggested: string | null;
+                    };
+                };
+            };
+        };
+    };
     query_outreach_lookup: {
         parameters: {
             query?: never;
@@ -90819,6 +91195,53 @@ export interface operations {
                             /** Format: uuid */
                             threadId: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_my_calendars_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        choices: {
+                            /** Format: uuid */
+                            id: string;
+                            mine: boolean;
+                            name: string;
+                        }[];
+                        lead: {
+                            /** Format: uuid */
+                            id: string;
+                            mine: boolean;
+                            name: string;
+                        } | null;
+                        networking: {
+                            /** Format: uuid */
+                            id: string;
+                            mine: boolean;
+                            name: string;
+                        } | null;
+                        networkingOtherwise: string | null;
                     };
                 };
             };
@@ -91556,6 +91979,14 @@ export interface operations {
                         platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                         /** Format: uuid */
                         profileId: string;
+                        theirWork?: {
+                            area: string | null;
+                            how: ("page" | "chat" | "typed") | null;
+                            miles: number | null;
+                            near: boolean;
+                            reach: ("local" | "nationwide" | "online") | null;
+                            work: string | null;
+                        };
                         url: string;
                     };
                 };

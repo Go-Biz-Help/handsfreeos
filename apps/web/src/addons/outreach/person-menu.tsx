@@ -69,6 +69,7 @@ import { useCan } from '@/components/shell/workspace-shell';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Tooltip, TooltipProvider } from '@/components/ui/tooltip';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { TheirWork } from './their-work';
 import { cn, relativeTime } from '@/lib/utils';
 import { outreachHref } from './address';
 import { SameNameDialog, sameNamesFor, type SameName } from './same-name';
@@ -557,6 +558,15 @@ function NameMenu({
               </p>
             ) : null}
           </div>
+          {marks?.theirWork ? (
+            <TheirWork
+              key={`${marks.theirWork.work}|${marks.theirWork.area}|${marks.theirWork.reach}`}
+              workspaceId={workspaceId}
+              profileId={profileId}
+              shown={marks.theirWork}
+              onSaved={reload}
+            />
+          ) : null}
           {marks?.journey ? (
             <PersonStory
               workspaceId={workspaceId}

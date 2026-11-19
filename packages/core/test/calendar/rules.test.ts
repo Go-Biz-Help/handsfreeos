@@ -116,6 +116,12 @@ const CASES: Case[] = [
     message: 'Travel time needs a customer-address location',
   },
   {
+    code: 'drive_without_visits',
+    severity: 'warning',
+    patch: { buffers: { driveBetween: true } },
+    message: 'Leave time to drive between visits needs a customer-address location',
+  },
+  {
     code: 'zip_without_visits',
     severity: 'error',
     patch: { territory: { routing: 'zip' } },
@@ -310,6 +316,10 @@ it('offers the plan’s second fixes too', () => {
   ]);
   expect(labels(patchOf('travel_without_visits'), 'travel_without_visits')).toEqual([
     'travel_zero',
+    'add_customer_address',
+  ]);
+  expect(labels(patchOf('drive_without_visits'), 'drive_without_visits')).toEqual([
+    'drive_off',
     'add_customer_address',
   ]);
   expect(labels(patchOf('zip_without_visits'), 'zip_without_visits')).toEqual([

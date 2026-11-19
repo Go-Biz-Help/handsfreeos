@@ -29,6 +29,7 @@ import {
 import { REPLY_STARTS } from '../alerts';
 import { GROUP_REPLY_WORDS, groupRepliesOn, REPLY_KEPT_DAYS } from '../active';
 import { demoLink, demoRef } from '../demos';
+import { bookingPageOf } from '../meeting-times';
 import { bestFit, type Fit, type FitPlaybook } from '../fit';
 import type { GroupCheckState } from '../group-checks';
 import { DAILY_STEPS, type DailyStep, type FriendAnswer } from '../limits';
@@ -109,6 +110,8 @@ import {
   requestAnswerColumns,
   type Ctx,
 } from './common';
+import { leadPathOf, localOf } from './local';
+import { milesBetweenTowns } from './towns';
 import {
   acceptedMine,
   connectedToMe,
@@ -466,8 +469,15 @@ export async function todayFor(
   const linked = [...playbooks]
     .sort((a, b) => a.name.localeCompare(b.name))
     .find((p) => p.details.link);
+  // Their own Lead calendar comes first (decision 178), on the playbook link's address when that's one of the business's
+  // booking pages; the playbook's link is the backup.
+  const leadPath = linked && bookingPageOf(linked.details.link) ? await leadPathOf(ctx, me) : null;
+  const bookLink =
+    linked && leadPath
+      ? `${new URL(linked.details.link!).origin}${leadPath}`
+      : linked?.details.link;
   const demoFor = (profileId: string | null) =>
-    linked && profileId ? demoLink(linked.details.link, demoRef(me, profileId)) : null;
+    bookLink && profileId ? demoLink(bookLink, demoRef(me, profileId)) : null;
 
   // Requests the person got to confirm, as they picked and the AI says (decisions 30, 121 and 136). The rest lately
   // are theirs to decide, in Waiting for you.
@@ -2043,9 +2053,10 @@ export async function todayFor(
         marked: boolean;
         answer: Answer | null;
         partner_hint: string | null;
+        town: string | null;
       }>(
         ctx.tx,
-        sql`select p.id, p.person_id, p.platform_id, exists (select 1 from addon_outreach.demos d
+        sql`select p.id, p.person_id, p.platform_id, p.town, exists (select 1 from addon_outreach.demos d
                 where d.profile_id = p.id and d.user_id = ${me} and d.how = 'marked' and d.undone_at is null) as marked,
                 (select f.answer from addon_outreach.follow_ups f
                   where f.profile_id = p.id and f.user_id = ${me} and f.answered_at >= f.last_at) as answer,
@@ -2067,7 +2078,18 @@ export async function todayFor(
   // A post asking for what the business offers tops the list (decision 49): answered fast, before anything else.
   // The rest go in the kinds' order (../today.ts `TODAY_KINDS`), each kind as it was worked out.
   const order = new Map(TODAY_KIND_KEYS.map((k, i) => [k, i] as const));
-  const byKind = (a: TodayItem, b: TodayItem) => order.get(a.kind)! - order.get(b.kind)!;
+  // Within a kind, while the person focuses on local groups (decision 177), people who work near them go first.
+  const local = await localOf(ctx, me);
+  const near = new Set(
+    local.localFocus && local.town
+      ? known
+          .filter((k) => (milesBetweenTowns(local.town, k.town) ?? Infinity) <= local.radiusMiles)
+          .map((k) => k.id)
+      : [],
+  );
+  const isNear = (i: TodayItem) => Number(i.profileId !== null && near.has(i.profileId));
+  const byKind = (a: TodayItem, b: TodayItem) =>
+    order.get(a.kind)! - order.get(b.kind)! || isNear(b) - isNear(a);
   // Under Autopilot, whatever's left for someone not OK'd yet waits for the day's list (decision 151): a step tried
   // again, a demo's reminder, a note for their day. Someone with nobody kept for them can't be on it, so waits too.
   const okd = gate ? await okdAmong(ctx, me, items) : null;

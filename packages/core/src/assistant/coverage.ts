@@ -205,6 +205,8 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'calendar_connection.sync_now': {},
   'meeting_connection.check_settings': {},
   'meeting_connection.disconnect': {},
+  // Where your day starts, for drive times between visits (decision 179 in docs/outreach.md).
+  'day_start.set': {},
   'live_meeting_account.disconnect': { offeredTo: 'assistant.use' },
   // ---- Settings → Workspace, Add-ons and Safety ----
   'look.find': {},
@@ -665,6 +667,7 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'do_calendar_connection_sync_now', field: 'connectionId' },
   ],
   'my_calendar.video': [{ tool: 'do_meeting_connection_disconnect', field: 'connectionId' }],
+  'my_calendar.day_start': [{ tool: 'do_day_start_set', field: 'address' }],
   // ---- Workspace ----
   'workspace.name': [{ tool: 'update_business', field: 'name' }],
   'workspace.time_zone': [{ tool: 'update_business', field: 'timezone' }],

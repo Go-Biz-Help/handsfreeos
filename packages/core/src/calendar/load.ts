@@ -34,7 +34,14 @@ import type {
   CatalogService,
   CatalogTerritory,
 } from './catalogs';
-import { parseConfig, type CalendarConfig, type LocationKind, type WeeklyHours } from './config';
+import {
+  goesOut,
+  parseConfig,
+  type CalendarConfig,
+  type LocationKind,
+  type WeeklyHours,
+} from './config';
+import type { Drives } from './engine/drives';
 import { expandWeeklyHours } from './engine/hours';
 import { normalize, subtract, type Interval } from './engine/intervals';
 import { MAX_RANGE_DAYS } from './engine/slots';
@@ -863,6 +870,8 @@ export interface SlotRequest {
   readonly locationKind?: LocationKind | null;
   /** Leave these appointments out (the one being moved). */
   readonly excludeAppointmentIds?: readonly string[];
+  /** Drive times to the customer's place (decision 179), worked out by the worker. */
+  readonly drives?: Drives | null;
 }
 
 export interface SlotLoadOptions {
@@ -919,7 +928,7 @@ export async function loadSlotInput(
   const durationMinutes = req.durationMinutes ?? bookableDurations(config, service)[0] ?? 60;
   const locationKind =
     req.locationKind === undefined ? defaultLocationKind(config) : req.locationKind;
-  const travel = locationKind === 'customer_address' ? terms.travelMinutes : 0;
+  const travel = goesOut(locationKind) ? terms.travelMinutes : 0;
   const bufferBefore = terms.bufferBefore + travel;
   const bufferAfter = terms.bufferAfter + travel;
   const tz = calendar.timeZone;
@@ -987,6 +996,7 @@ export async function loadSlotInput(
     locationKind,
     postalCode: req.postalCode ?? null,
     point: req.point ?? null,
+    drives: req.drives ?? null,
     chosenUserId: req.chosenUserId ?? null,
     calendarWindows,
     serviceWindows,

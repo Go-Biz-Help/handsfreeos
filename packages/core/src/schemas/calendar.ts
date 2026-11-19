@@ -283,6 +283,15 @@ export const GeoPointInput = z.object({
   lng: z.number().min(-180).max(180),
 });
 
+/** Drive minutes to a customer's place (decision 179 in docs/outreach.md), worked out by the worker. */
+const driveMinutes = z.int().min(0).max(600);
+export const DrivesInput = z.object({
+  /** From where each person's day starts, by user id. */
+  fromStart: z.record(uuid, driveMinutes),
+  /** Between each nearby appointment's place and the customer's, by appointment id. */
+  around: z.record(uuid, driveMinutes),
+});
+
 export const CalendarAvailabilityInput = z.object({
   workspaceId: uuid,
   calendarId: uuid,
@@ -344,7 +353,7 @@ export const ServiceCreateInput = z.object({
   priceCents: z.int().min(0).max(100_000_000).nullable().optional(),
   locationKinds: z
     .array(LocationKind)
-    .max(4)
+    .max(5)
     .default(() => []),
   /** Who does it; empty means everyone. */
   staffUserIds: z
@@ -377,7 +386,7 @@ export const ServiceUpdateInput = z.object({
     .nullable()
     .optional(),
   priceCents: z.int().min(0).max(100_000_000).nullable().optional(),
-  locationKinds: z.array(LocationKind).max(4).optional(),
+  locationKinds: z.array(LocationKind).max(5).optional(),
   staffUserIds: z.array(uuid).max(50).optional(),
   resources: z.array(ServiceResourceInput).max(20).optional(),
   hours: WeeklyHours.nullable().optional(),
@@ -597,6 +606,31 @@ export const TimeOffAddOutput = z.object({
 });
 export const TimeOffRemoveInput = z.object({ workspaceId: uuid, exceptionId: uuid });
 export const TimeOffRemoveOutput = z.object({ exceptionId: uuid });
+
+/**
+ * Where a person's day starts (decision 179 in docs/outreach.md): on a calendar that leaves time to drive between
+ * visits, the drive to their first visit of a day is timed from here. Theirs to set; owners and admins set anyone's.
+ */
+export const DayStartSetInput = z.object({
+  workspaceId: uuid,
+  /** A teammate (owners and admins only); yourself when missing. */
+  userId: uuid.optional(),
+  /** A street address; null or empty starts the day from the business's address again. */
+  address: z.string().trim().max(300, 'Keep the address under 300 characters.').nullable(),
+});
+export const DayStartGetInput = z.object({
+  workspaceId: uuid,
+  /** A teammate (owners and admins only); yourself when missing. */
+  userId: uuid.optional(),
+});
+export const DayStartShown = z.object({
+  userId: uuid,
+  /** Their own; null when the day starts from the business's address. */
+  address: z.string().nullable(),
+  /** The business's address, where a day starts when they've set none; null when the business has given none. */
+  businessAddress: z.string().nullable(),
+});
+export type DayStartShown = z.infer<typeof DayStartShown>;
 
 export const ScheduleTeamInput = z.object({
   workspaceId: uuid,
@@ -1174,6 +1208,11 @@ export const AppointmentBookOnlineInput = z.object({
   postalCode: z.string().trim().max(20).nullable().optional(),
   /** Where the address is (the worker looks it up), for distance and drawn service areas. */
   point: GeoPointInput.nullable().optional(),
+  /**
+   * Drive times to the customer's place, on a calendar that leaves time to drive between visits (decision 179 in
+   * docs/outreach.md). The worker times them by road; the time must leave room for them.
+   */
+  drives: DrivesInput.nullable().optional(),
   chosenUserId: uuid.nullable().optional(),
   /**
    * Who to book it with when they're free then, whatever the calendar's way of picking (Social Outreach's booking in
@@ -1265,6 +1304,8 @@ export const AttendeeRescheduleOnlineInput = z.object({
   manageVersion: z.int().min(1),
   startsAt: isoDateTime,
   sessionId: uuid.nullable().optional(),
+  /** Drive times to the visit's address (decision 179), worked out by the worker. */
+  drives: DrivesInput.nullable().optional(),
 });
 export const AttendeeRescheduleOnlineOutput = z.object({
   appointmentId: uuid,

@@ -39,6 +39,7 @@ import {
 } from '../group-checks';
 import { bestGroupFit, checkedGroupFit, type GroupFit, type GroupFitPlaybook } from '../groups';
 import { limitNow } from '../limits';
+import { LOCAL_SEARCH_TOWNS, townName } from '../local';
 import { outreachAddon } from '../manifest';
 import { networkLimitsNow, NETWORKS, type Platform } from '../networks';
 import type { PlaybookDetails } from '../playbooks';
@@ -56,6 +57,7 @@ import {
   requestable,
   type Ctx,
 } from './common';
+import { localTowns } from './local';
 import { tally } from './tallies';
 import { playbooksInUse } from './friends';
 import { claimGroup } from './owners';
@@ -233,8 +235,10 @@ const ago = (now: number, days: number) => new Date(now - days * DAY).toISOStrin
 export function groupSearchWords(
   playbooks: readonly { readonly details: Pick<PlaybookDetails, 'groupWords' | 'worksOnline'> }[],
   platform: Platform,
+  /** The towns local to the person while they focus on local groups (decision 177): theirs first. */
+  towns: readonly string[] | null = null,
 ): { words: string; anywhere: boolean }[] {
-  return eachSearchOnce(
+  const plain = eachSearchOnce(
     playbooks.flatMap((p) =>
       p.details.groupWords.flatMap((w) => {
         const words = w.replace(/[“”"]/g, '').trim();
@@ -244,6 +248,33 @@ export function groupSearchWords(
       }),
     ),
   );
+  // Focused on local groups (decision 177): each word with the person's town, then with each of the towns nearest it,
+  // ahead of the words alone, so a day's search takes the local ones first. Where groups go by the AI's check
+  // (Alignable's), searches already stay in their town.
+  if (!towns?.length || groupsByCheck(platform)) return plain;
+  return eachSearchOnce([
+    ...towns
+      .slice(0, LOCAL_SEARCH_TOWNS)
+      .map(townName)
+      .flatMap((place) => plain.map((w) => ({ words: `${place} ${w.words}`, anywhere: false }))),
+    ...plain,
+  ]);
+}
+
+/**
+ * The playbooks as a group's fit reads them for the person (decision 177): while they focus on local groups, a group
+ * named for their town or a town near it is in their area, whatever each playbook's own area says.
+ */
+export function withLocalArea<P extends { readonly details: Pick<PlaybookDetails, 'area'> }>(
+  playbooks: readonly P[],
+  towns: readonly string[] | null,
+): P[] {
+  if (!towns?.length) return [...playbooks];
+  const places = towns.map(townName).join(', ');
+  return playbooks.map((p) => ({
+    ...p,
+    details: { ...p.details, area: p.details.area ? `${p.details.area}, ${places}` : places },
+  }));
 }
 
 export const groupsToCheck = defineAddonQuery(outreachAddon, {
@@ -278,7 +309,11 @@ export const groupsToCheck = defineAddonQuery(outreachAddon, {
                 and g.about_at < ${ago(now, GROUP_CHECK_RETRY_DAYS)}::timestamptz))
           order by g.seen_at desc nulls last limit 500`,
     );
-    const playbooks = await playbooksInUse(ctx, input.platform);
+    // Groups named for the person's towns rank higher while they focus on local groups (decision 177).
+    const playbooks = withLocalArea(
+      await playbooksInUse(ctx, input.platform),
+      await localTowns(ctx, me),
+    );
     const ranked = found
       .map((g) => ({ g, fit: bestGroupFit(playbooks, { ...g, joined: g.joined }) }))
       // The person's own groups first; then groups found that fit by name, never one its name skips.
@@ -455,14 +490,17 @@ export const joinsNext = defineAddonQuery(outreachAddon, {
             and j.asked_at >= ${todayStart.toISOString()}::timestamptz`,
     );
     const today = done?.n ?? 0;
-    const playbooks = await playbooksInUse(ctx, platform);
+    const inUse = await playbooksInUse(ctx, platform);
     const choices = (await automationOf(ctx, me, now, platform)).choices;
     const prospects = await prospectsOf(
       ctx,
-      await peopleLeft(ctx, me, playbooks, platform, onlyMyGroups(choices)),
+      await peopleLeft(ctx, me, inUse, platform, onlyMyGroups(choices)),
       platform,
     );
-    const words = groupSearchWords(playbooks, platform);
+    // Focused on local groups (decision 177): searches take the person's towns, and groups named for them rank higher.
+    const towns = await localTowns(ctx, me);
+    const playbooks = withLocalArea(inUse, towns);
+    const words = groupSearchWords(inUse, platform, towns);
     const room = Math.max(0, Math.min(input.most, perDay - today));
     const found = room
       ? await rows<CheckedGroupRow & { id: string; url: string }>(

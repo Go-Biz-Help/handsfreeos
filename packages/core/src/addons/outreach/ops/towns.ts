@@ -54,14 +54,21 @@ export function milesApart(
   return 2 * EARTH_MILES * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
-/** The towns within `NEAR_MILES` of one, the closest first, up to `NEAR_TOWNS_MOST`: none for a town not known. */
-export function townsNear(town: string): string[] {
+/**
+ * The towns within `miles` of one (`NEAR_MILES` to start), the closest first, up to `most` (`NEAR_TOWNS_MOST`): none
+ * for a town not known.
+ */
+export function townsNear(
+  town: string,
+  miles: number = NEAR_MILES,
+  most = NEAR_TOWNS_MOST,
+): string[] {
   const { all, byKey } = towns();
   const here = byKey.get(townKey(town));
   if (!here) return [];
   // A quick box first: a degree of latitude is about 69 miles, one of longitude less away from the equator.
-  const dLat = NEAR_MILES / 69;
-  const dLon = NEAR_MILES / (69 * Math.max(0.2, Math.cos(radians(here.lat))));
+  const dLat = miles / 69;
+  const dLon = miles / (69 * Math.max(0.2, Math.cos(radians(here.lat))));
   return all
     .filter(
       (t) =>
@@ -70,10 +77,25 @@ export function townsNear(town: string): string[] {
         Math.abs(t.lon - here.lon) <= dLon,
     )
     .map((t) => ({ town: t.town, miles: milesApart(here, t) }))
-    .filter((t) => t.miles <= NEAR_MILES)
+    .filter((t) => t.miles <= miles)
     .sort((a, b) => a.miles - b.miles || a.town.localeCompare(b.town))
-    .slice(0, NEAR_TOWNS_MOST)
+    .slice(0, most)
     .map((t) => t.town);
+}
+
+/** A town as ./us-towns.ts writes it ("round-rock-tx"), when it's a known one: else null. */
+export function knownTown(town: string | null | undefined): string | null {
+  if (!town) return null;
+  return towns().byKey.get(townKey(town))?.town ?? null;
+}
+
+/** How far apart two known towns are, in miles as the crow flies: null when either isn't known. */
+export function milesBetweenTowns(a: string | null, b: string | null): number | null {
+  if (!a || !b) return null;
+  const { byKey } = towns();
+  const from = byKey.get(townKey(a));
+  const to = byKey.get(townKey(b));
+  return from && to ? milesApart(from, to) : null;
 }
 
 export const findsTowns = defineAddonQuery(outreachAddon, {

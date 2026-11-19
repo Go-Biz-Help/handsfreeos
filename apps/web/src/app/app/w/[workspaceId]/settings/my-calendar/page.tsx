@@ -34,7 +34,7 @@ export default async function MyCalendarPage({
   );
   if (!known) notFound();
   const now = Date.now();
-  const [team, connections, meetings] = await Promise.all([
+  const [team, connections, meetings, dayStart] = await Promise.all([
     api
       .POST('/v1/queries/schedule.team', {
         body: {
@@ -55,6 +55,11 @@ export default async function MyCalendarPage({
         body: { workspaceId, userId: targetId },
       })
       .then(unwrapPage),
+    // Where their day starts (decision 179): the page still opens if it can't be read.
+    api
+      .POST('/v1/queries/day_start.get', { body: { workspaceId, userId: targetId } })
+      .then((r) => r.data ?? null)
+      .catch(() => null),
   ]);
   const person = team.people[0];
   if (!person) notFound();
@@ -79,6 +84,7 @@ export default async function MyCalendarPage({
         businessZone={team.timezone}
         connection={connections.items.find((c) => c.status !== 'pending') ?? null}
         meeting={meetings.items.find((c) => c.status !== 'pending') ?? null}
+        dayStart={dayStart}
         isSelf={targetId === userId}
         canManage={canManage}
         result={targetId === userId && typeof calendar === 'string' ? calendar : null}

@@ -5073,6 +5073,27 @@ export const userAbout = app.table('user_about', {
   ...timestamps(),
 });
 
+/**
+ * Where a person sets out from each day (20261027029600, docs/outreach.md decision 179): on a calendar that leaves
+ * time to drive between visits, the drive to their first visit of a day is timed from here. None: the business's
+ * address. Only they and owners and admins read it.
+ */
+export const dayStarts = app.table(
+  'day_starts',
+  {
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    address: text('address').notNull(),
+    updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+    ...timestamps(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.userId] })],
+);
+
 // ---------- Milestone 11: moving a business here from another CRM (0064-0066) ----------
 export const migrationSource = app.enum('migration_source', [
   'gohighlevel',
@@ -8960,6 +8981,7 @@ export const tables = {
   calendarAssignmentState,
   schedules,
   scheduleExceptions,
+  dayStarts,
   appointmentSeries,
   appointments,
   appointmentStaff,
