@@ -1,3 +1,4 @@
+import { HANDS_OUTREACH_WORDS } from '@hfos/core/addons/outreach/in-hands';
 import type { ProfileMarksOutput } from '@hfos/core/addons/outreach/person-menu';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import * as React from 'react';
@@ -195,11 +196,14 @@ describe('The person menu on the phone', () => {
       'person-demo-mark',
       'person-partner',
       'person-later',
+      // Take over (decision 181), beside the lists.
+      'person-hands',
       'person-dont-pitch',
       'person-never-contact',
     ]);
     expect(screen.getByText('Open on Alignable')).toBeTruthy();
     expect(screen.getByText('Mark as client')).toBeTruthy();
+    expect(screen.getByText(HANDS_OUTREACH_WORDS.takeOver)).toBeTruthy();
   });
 
   it('opens their page, and their chat, with no signal, while the rest wait under the note', async () => {
