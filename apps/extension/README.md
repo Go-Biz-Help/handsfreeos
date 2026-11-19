@@ -1272,6 +1272,25 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### A song on a post read as a Facebook warning (0.147.14)
+
+On 18 Nov 2026 (0.147.11) the extension liked a friend's post and stopped on Facebook for the day, with "Facebook warned
+you" and the owner's limits halved for a week. There was no warning: the post had the song "Good Times Go By Too
+Fast" on it, and the line under its author (the date, which Facebook scrambles letter by letter with an invisible
+U+034F between them, then the song and its artist) matched "too fast". The post was neither an article nor in a feed,
+as 2026 posts often aren't, so the reader (`src/networks/facebook/warnings.ts`) didn't know it was a post. From
+0.147.14:
+
+- A post is left out wherever it is: an article or a feed's as before, a 2026 post found by its own controls
+  (`postBoxes`), or a post opened in a dialog over the page, which holds its Like, its menu or its box to comment in
+  (`holdsPost` in `src/networks/facebook/posts.ts`). An alert inside a post, under its comment box, is still read.
+- A phrase needs Facebook's own wording: "going too fast" or "doing this too often", never "too fast" or "too often"
+  on their own.
+- A line with Facebook's scrambled letters in it is never a warning.
+
+The owner chose to have the false warning cleared in HandsFreeOS (19 Nov). It was the only Facebook warning ever noted,
+for any business.
+
 ### A reel's comments' box found when it's an input with no type (0.147.13)
 
 On 0.147.11 a comment on a reel of 18 Nov 2026 stopped at "couldn’t find the post’s own box to comment in". Its

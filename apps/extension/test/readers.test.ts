@@ -901,6 +901,58 @@ describe('Facebook’s warnings', () => {
     ]);
   });
 
+  describe('a post with a song called “Good Times Go By Too Fast” on it (18 Nov 2026)', () => {
+    const url = 'https://www.facebook.com/sam.rivera.77/posts/pfbid0abc';
+    const song = () => load('warning-song-post.html', url);
+    const block = (doc: Document) => {
+      const dialog = doc.createElement('div');
+      dialog.setAttribute('role', 'dialog');
+      dialog.innerHTML =
+        '<h2><span>You’re Temporarily Blocked</span></h2><div><span>It looks like you were misusing this feature by going too fast.</span></div>';
+      doc.body.append(dialog);
+    };
+
+    it('isn’t a warning, opened over the page', () => {
+      expect(readWarnings(song(), url)).toEqual([]);
+    });
+
+    it('isn’t a warning on the page either, where the post is neither an article nor in a dialog', () => {
+      const doc = song();
+      const dialog = doc.querySelector('[role="dialog"]')!;
+      doc.querySelector('[role="main"]')!.append(...dialog.childNodes);
+      dialog.remove();
+      expect(readWarnings(doc, url)).toEqual([]);
+    });
+
+    it('isn’t a warning in a box of its own: Facebook’s scrambled letters are never one, nor a song’s “too fast”', () => {
+      const doc = song();
+      const line = doc.querySelector('[role="heading"] div')!;
+      const alert = doc.createElement('div');
+      alert.setAttribute('role', 'alert');
+      alert.append(line.cloneNode(true));
+      doc.body.append(alert);
+      const tooFast = doc.createElement('div');
+      tooFast.setAttribute('role', 'alert');
+      tooFast.textContent = 'Good Times Go By Too Fast';
+      doc.body.append(tooFast);
+      expect(readWarnings(doc, url)).toEqual([]);
+    });
+
+    it('still finds a real block shown with it, and one under the post’s comment box', () => {
+      const doc = song();
+      block(doc);
+      const alert = doc.createElement('div');
+      alert.setAttribute('role', 'alert');
+      alert.textContent = 'You can’t comment right now.';
+      doc.querySelector('[data-post]')!.append(alert);
+      expect(readWarnings(doc, url)).toEqual([
+        'You can’t comment right now.',
+        'You’re Temporarily Blocked',
+        'It looks like you were misusing this feature by going too fast.',
+      ]);
+    });
+  });
+
   it('counts a checkpoint page as a warning', () => {
     const doc = load('profile.html', 'https://www.facebook.com/checkpoint/1501092823525282/');
     expect(readWarnings(doc, 'https://www.facebook.com/checkpoint/1501092823525282/')).toEqual([
