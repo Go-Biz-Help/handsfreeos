@@ -7,6 +7,10 @@ import {
   PartnerReferralSetOutput,
   PartnerUpdateInput,
   PartnerUpdateOutput,
+  PersonHandBackInput,
+  PersonHandBackOutput,
+  PersonTakeOverInput,
+  PersonTakeOverOutput,
   ExtensionSignInAnswerInput,
   ExtensionSignInAnswerOutput,
   ActivityLogInput,
@@ -720,6 +724,10 @@ export const PHONE_COMMANDS = {
   'partner.add': command(ONLINE, PartnerAddInput, PartnerAddOutput),
   'partner.referral_set': command(ONLINE, PartnerReferralSetInput, PartnerReferralSetOutput),
   'partner.update': command(ONLINE, PartnerUpdateInput, PartnerUpdateOutput),
+  // In your hands, on a customer's page and Contacts → In your hands: online, since each is for who has them now, and
+  // giving back has the AI answer what they're waiting on.
+  'person.take_over': command(ONLINE, PersonTakeOverInput, PersonTakeOverOutput),
+  'person.hand_back': command(ONLINE, PersonHandBackInput, PersonHandBackOutput),
   'message.cancel_scheduled': command(
     ANYTIME,
     MessageCancelScheduledInput,

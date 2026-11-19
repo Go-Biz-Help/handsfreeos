@@ -2048,7 +2048,7 @@ export interface paths {
         put?: never;
         /**
          * Call a customer through your own cell: HandsFreeOS rings your verified cell from the business number, you press 1, and the customer is connected, seeing the business number. Recorded, and filed in the customer’s conversation.
-         * @description Risk level 2. Requires inbox.use. Emits call.started.
+         * @description Risk level 2. Requires inbox.use. Emits call.started, person.taken_over, conversation.taken_over.
          */
         post: operations["command_call_connect_me"];
         delete?: never;
@@ -2068,7 +2068,7 @@ export interface paths {
         put?: never;
         /**
          * Call a customer from the browser. Returns what the browser dials with; customers see the business number.
-         * @description Risk level 1. Requires inbox.use. Emits call.started.
+         * @description Risk level 1. Requires inbox.use. Emits call.started, person.taken_over, conversation.taken_over.
          */
         post: operations["command_call_start"];
         delete?: never;
@@ -3687,8 +3687,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Hand a conversation back to the AI teammate. It answers what’s waiting and whatever the customer writes next.
-         * @description Risk level 1. Requires inbox.use. Emits conversation.handed_to_ai. Can wait on a phone for 30 minutes, then asks.
+         * Hand a conversation back to the AI teammate. It answers what’s waiting and whatever the customer writes next, and the customer is out of your hands everywhere.
+         * @description Risk level 1. Requires inbox.use. Emits conversation.handed_to_ai, person.handed_back. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_conversation_hand_to_ai"];
         delete?: never;
@@ -3887,8 +3887,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Take a conversation from the AI teammate (or from “Needs a person”): the teammate stays quiet until someone hands it back, and its pending reply is dropped.
-         * @description Risk level 1. Requires inbox.use. Emits conversation.taken_over. Can wait on a phone with no signal.
+         * Take a conversation from the AI teammate (or from “Needs a person”): the customer is in your hands everywhere, the teammate stays quiet with them until someone hands them back, and its pending reply is dropped.
+         * @description Risk level 1. Requires inbox.use. Emits conversation.taken_over, person.taken_over. Can wait on a phone with no signal.
          */
         post: operations["command_conversation_take_over"];
         delete?: never;
@@ -7327,8 +7327,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Text, email or chat with a customer: a text from the business number, an email from a workspace address or a connected mailbox, a reply in a website chat, or a reply on Facebook Messenger or Instagram. Texts, emails and Messenger and Instagram replies are queued here and the worker sends them. A person writing in a conversation the AI teammate is answering takes it over.
-         * @description Risk level 2. Requires inbox.use. Emits message.queued, message.sent, message.scheduled, conversation.created, conversation.taken_over, email.private_queued. Can wait on a phone for 30 minutes, then asks.
+         * Text, email or chat with a customer: a text from the business number, an email from a workspace address or a connected mailbox, a reply in a website chat, or a reply on Facebook Messenger or Instagram. Texts, emails and Messenger and Instagram replies are queued here and the worker sends them. A person writing to a customer takes them on: the AI teammate stops answering them anywhere until someone gives them back.
+         * @description Risk level 2. Requires inbox.use. Emits message.queued, message.sent, message.scheduled, conversation.created, conversation.taken_over, person.taken_over, email.private_queued. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_message_send"];
         delete?: never;
@@ -10657,6 +10657,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/person.hand_back": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give customers back to the AI: out of anyone’s hands, and their conversations go back to the AI teammate where it answers that channel, so it answers what they’re waiting on. One the AI teammate handed to a person still waits for them. Pass personIds, or all (with mine for only your own).
+         * @description Risk level 1. Requires inbox.use. Emits person.handed_back, conversation.handed_to_ai.
+         */
+        post: operations["command_person_hand_back"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/person.merge": {
         parameters: {
             query?: never;
@@ -10731,6 +10751,26 @@ export interface paths {
          * @description Risk level 1. Requires inbox.use. Emits person.opted_out, person.opted_in.
          */
         post: operations["command_person_set_sms_consent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/person.take_over": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a customer on yourself: the AI teammate, its follow-ups, funnels and AI calls leave them alone everywhere until someone gives them back, and its replies to them waiting for an OK are dropped.
+         * @description Risk level 1. Requires inbox.use. Emits person.taken_over, conversation.taken_over.
+         */
+        post: operations["command_person_take_over"];
         delete?: never;
         options?: never;
         head?: never;
@@ -23751,6 +23791,26 @@ export interface paths {
          * @description Requires records.read.
          */
         post: operations["query_person_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/person.in_hands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The customers in someone’s hands (they messaged or called them themselves, or pressed Take over), so the AI leaves them alone: whose hands, how, when, and whether one waits on a reply. Pass personId for one customer, mine for only yours.
+         * @description Requires records.read.
+         */
+        post: operations["query_person_in_hands"];
         delete?: never;
         options?: never;
         head?: never;
@@ -54361,6 +54421,42 @@ export interface operations {
             };
         };
     };
+    command_person_hand_back: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    all?: boolean;
+                    /** @default false */
+                    mine?: boolean;
+                    /** @default [] */
+                    personIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        handedBack: number;
+                        toAi: number;
+                    };
+                };
+            };
+        };
+    };
     command_person_merge: {
         parameters: {
             query?: never;
@@ -54501,6 +54597,40 @@ export interface operations {
                     "application/json": {
                         /** @enum {string} */
                         consent: "unknown" | "opted_in" | "opted_out";
+                        /** Format: uuid */
+                        personId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_person_take_over: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        already: boolean;
+                        draftsCancelled: number;
                         /** Format: uuid */
                         personId: string;
                     };
@@ -75942,7 +76072,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack" | "webinar";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "in_hands" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack" | "webinar";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -76074,7 +76204,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack" | "webinar";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "in_hands" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack" | "webinar";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -76166,7 +76296,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack" | "webinar";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "in_hands" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack" | "webinar";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -94772,6 +94902,59 @@ export interface operations {
                             /** Format: date-time */
                             updatedAt: string;
                         };
+                    };
+                };
+            };
+        };
+    };
+    query_person_in_hands: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 100 */
+                    limit?: number;
+                    /** @default false */
+                    mine?: boolean;
+                    /** Format: uuid */
+                    personId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        people: {
+                            /** @enum {string} */
+                            how: "wrote" | "called" | "took_over";
+                            /** Format: date-time */
+                            lastAt: string;
+                            name: string;
+                            /** Format: uuid */
+                            personId: string;
+                            place: string | null;
+                            /** Format: date-time */
+                            since: string;
+                            user: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            waitingSince: string | null;
+                        }[];
+                        total: number;
                     };
                 };
             };

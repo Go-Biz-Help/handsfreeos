@@ -185,7 +185,9 @@ export function HandlingBanner({
         <UserRound className="h-4 w-4 flex-none" strokeWidth={1.5} />
         <span className="min-w-0 flex-1">
           <strong className="font-semibold text-text">{whoTook} took over</strong>
-          {compact ? null : <>. {name} stays quiet until someone hands it back.</>}
+          {compact ? null : (
+            <>. {name} stays quiet with them everywhere until someone hands them back.</>
+          )}
         </span>
         <Button
           variant="secondary"

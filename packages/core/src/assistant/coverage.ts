@@ -110,6 +110,16 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'funnel.decide_suggestion': {},
   'funnel.pause_person': {},
   'funnel.remove_person': {},
+  // In your hands (messaging/hands.ts): Take over on a customer's page, and Give back to the AI there and on
+  // Contacts → In your hands.
+  'person.take_over': {
+    about:
+      'As Take over on a customer’s page: the AI stops messaging them anywhere until someone gives them back. Messaging or calling them yourself does the same on its own.',
+  },
+  'person.hand_back': {
+    about:
+      'As Give back to the AI on a customer’s page or Contacts → In your hands: pass personIds from read_person_in_hands, or all (with mine for only the person’s own) for Give all back.',
+  },
   // ---- Calendar and an appointment ----
   'appointment.make_meeting_link': {},
   // Still there, on the "How did it go?" push after a visit: nothing about the visit changes.

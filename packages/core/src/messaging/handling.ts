@@ -39,11 +39,6 @@ export async function cancelPendingReplyDraft(
   return row?.id ?? null;
 }
 
-/** Whether a person acting here takes the conversation: the AI teammate answers it, or it waits for a person. */
-export function personTakesOver(ctx: CommandContext, conv: Conversation): boolean {
-  return ctx.actor.type === 'human' && (conv.handledBy === 'ai' || conv.needsPersonSince !== null);
-}
-
 /**
  * Whoever answers first owns it, where a business has narrowed its inbox (M17).
  *

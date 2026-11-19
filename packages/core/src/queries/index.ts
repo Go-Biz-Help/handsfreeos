@@ -115,6 +115,7 @@ import { leadBoard, leadGet, leadList } from './lead';
 import { me } from './me';
 import { extensionSignInPending } from './extension-sign-in';
 import { personGet, personList } from './person';
+import { personInHands } from './person-hands';
 import { pipelineList } from './pipeline.list';
 import { taskList } from './task.list';
 import { timelineList } from './timeline.list';
@@ -216,6 +217,7 @@ export {
   me,
   personGet,
   personList,
+  personInHands,
   pipelineList,
   tagList,
   taskList,
@@ -322,6 +324,7 @@ export const queries: readonly QueryDef[] = [
   companyGet,
   personList,
   personGet,
+  personInHands,
   tagList,
   leadBoard,
   leadList,
@@ -563,3 +566,4 @@ export * from './record-hold';
 export * from './safety';
 export * from './onboarding';
 export * from './ideas';
+export * from './person-hands';

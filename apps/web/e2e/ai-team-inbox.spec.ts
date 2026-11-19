@@ -103,7 +103,11 @@ test('AI teammate in the inbox: approve, edit and reject its drafts', async ({ p
   const next = page.getByTestId('draft-rejected');
   await expect(next).toContainText('You rejected Ava’s draft. Nothing went to them. What next?');
   await next.getByTestId('draft-ill-reply').click();
-  await expect(page.getByText('It’s yours. Ava stays quiet until you hand it back.')).toBeVisible();
+  await expect(
+    page.getByText(
+      'They’re in your hands. Ava stays quiet with them everywhere until you hand them back.',
+    ),
+  ).toBeVisible();
   await expect(page.getByTestId('draft-rejected')).toHaveCount(0);
 
   const got = await api<Progress>(b.token, 'queries', 'ai_teammate.get', {
@@ -133,7 +137,7 @@ test('AI teammate in the inbox: take over, hand back and needs a person', async 
     'Ava (AI) is handling this. Each reply waits for an OK.',
   );
   await expect(page.getByTestId('composer-handover')).toContainText(
-    'Sending takes this conversation over from Ava.',
+    'Sending puts them in your hands.',
   );
   await expect(page.getByTestId('box-ai-count')).toHaveText('1');
 

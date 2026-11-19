@@ -503,6 +503,8 @@ export const FUNNEL_HANDLERS: Readonly<Record<string, EventHandler>> = {
   'conversation.taken_over': pauseOn('taken_over'),
   'conversation.handed_off': pauseOn('handed_off'),
   'conversation.handed_to_ai': onHandedBack,
+  // Given back to the AI from In your hands (core's messaging/hands.ts), with no conversation of theirs handed back.
+  'person.handed_back': onHandedBack,
   'person.opted_out': takeOut('opted_out', 'person'),
   'lead.archived': takeOut('lead_gone', 'lead'),
   'lead.deleted': takeOut('lead_gone', 'lead'),

@@ -131,7 +131,7 @@ export function HandlingBanner({
           <Text className="text-[13.5px] font-semibold">
             {`${whoTookOver(c.takenOverBy, myUserId)} took over.`}
           </Text>
-          {` ${teammateName} stays quiet until someone hands it back.`}
+          {` ${teammateName} stays quiet with them everywhere until someone hands them back.`}
         </Text>
         <Button
           variant="secondary"

@@ -236,6 +236,10 @@ const ONLINE_COMMANDS = [
   'contractor.note.remove',
   // About you (docs/outreach.md, decision 165), on More → Settings, with signal: what a person says of themselves.
   'user_about.set',
+  // In your hands (messaging/hands.ts), on a customer's page and Contacts → In your hands, with signal: Take over, and
+  // Give back to the AI.
+  'person.take_over',
+  'person.hand_back',
 ];
 /**
  * Commands only the browser extension sends, which can wait in it as long as the browser is offline (Social
@@ -370,6 +374,8 @@ const QUERIES = [
   'socialcontent.content.get',
   // About you, with signal: it's the person's alone, so never in the phone's copy (decision 165).
   'user_about.get',
+  // In your hands, with signal: whether someone on the team has a customer, and the list of everyone they have.
+  'person.in_hands',
 ];
 
 /** An input's JSON Schema, without the regex a format already stands for (a uuid's, a date-time's). */

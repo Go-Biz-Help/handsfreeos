@@ -12330,8 +12330,55 @@
         "required": ["workspaceId"]
       }
     },
+    "person.hand_back": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personIds": {
+            "default": [],
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "all": {
+            "default": false,
+            "type": "boolean"
+          },
+          "mine": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
     "person.restore": {
       "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "personId"]
+      }
+    },
+    "person.take_over": {
+      "offline": "online",
       "input": {
         "type": "object",
         "properties": {
@@ -18546,6 +18593,32 @@
           "workspaceId": {
             "type": "string",
             "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "person.in_hands": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mine": {
+            "default": false,
+            "type": "boolean"
+          },
+          "limit": {
+            "default": 100,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
           }
         },
         "required": ["workspaceId"]

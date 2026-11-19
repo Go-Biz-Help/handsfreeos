@@ -10147,11 +10147,11 @@
     "/v1/commands/message.send": {
       "post": {
         "operationId": "command_message_send",
-        "summary": "Text, email or chat with a customer: a text from the business number, an email from a workspace address or a connected mailbox, a reply in a website chat, or a reply on Facebook Messenger or Instagram. Texts, emails and Messenger and Instagram replies are queued here and the worker sends them. A person writing in a conversation the AI teammate is answering takes it over.",
+        "summary": "Text, email or chat with a customer: a text from the business number, an email from a workspace address or a connected mailbox, a reply in a website chat, or a reply on Facebook Messenger or Instagram. Texts, emails and Messenger and Instagram replies are queued here and the worker sends them. A person writing to a customer takes them on: the AI teammate stops answering them anywhere until someone gives them back.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires inbox.use. Emits message.queued, message.sent, message.scheduled, conversation.created, conversation.taken_over, email.private_queued. Can wait on a phone for 30 minutes, then asks.",
+        "description": "Risk level 2. Requires inbox.use. Emits message.queued, message.sent, message.scheduled, conversation.created, conversation.taken_over, person.taken_over, email.private_queued. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -11096,7 +11096,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires inbox.use. Emits call.started.",
+        "description": "Risk level 1. Requires inbox.use. Emits call.started, person.taken_over, conversation.taken_over.",
         "requestBody": {
           "required": true,
           "content": {
@@ -11184,7 +11184,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires inbox.use. Emits call.started.",
+        "description": "Risk level 2. Requires inbox.use. Emits call.started, person.taken_over, conversation.taken_over.",
         "requestBody": {
           "required": true,
           "content": {
@@ -29638,11 +29638,11 @@
     "/v1/commands/conversation.take_over": {
       "post": {
         "operationId": "command_conversation_take_over",
-        "summary": "Take a conversation from the AI teammate (or from “Needs a person”): the teammate stays quiet until someone hands it back, and its pending reply is dropped.",
+        "summary": "Take a conversation from the AI teammate (or from “Needs a person”): the customer is in your hands everywhere, the teammate stays quiet with them until someone hands them back, and its pending reply is dropped.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires inbox.use. Emits conversation.taken_over. Can wait on a phone with no signal.",
+        "description": "Risk level 1. Requires inbox.use. Emits conversation.taken_over, person.taken_over. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -29701,11 +29701,11 @@
     "/v1/commands/conversation.hand_to_ai": {
       "post": {
         "operationId": "command_conversation_hand_to_ai",
-        "summary": "Hand a conversation back to the AI teammate. It answers what’s waiting and whatever the customer writes next.",
+        "summary": "Hand a conversation back to the AI teammate. It answers what’s waiting and whatever the customer writes next, and the customer is out of your hands everywhere.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires inbox.use. Emits conversation.handed_to_ai. Can wait on a phone for 30 minutes, then asks.",
+        "description": "Risk level 1. Requires inbox.use. Emits conversation.handed_to_ai, person.handed_back. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -29754,6 +29754,152 @@
                   "required": [
                     "conversationId",
                     "teammateId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/person.take_over": {
+      "post": {
+        "operationId": "command_person_take_over",
+        "summary": "Take a customer on yourself: the AI teammate, its follow-ups, funnels and AI calls leave them alone everywhere until someone gives them back, and its replies to them waiting for an OK are dropped.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires inbox.use. Emits person.taken_over, conversation.taken_over.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "personId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "personId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "personId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "already": {
+                      "type": "boolean"
+                    },
+                    "draftsCancelled": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "personId",
+                    "already",
+                    "draftsCancelled"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/person.hand_back": {
+      "post": {
+        "operationId": "command_person_hand_back",
+        "summary": "Give customers back to the AI: out of anyone’s hands, and their conversations go back to the AI teammate where it answers that channel, so it answers what they’re waiting on. One the AI teammate handed to a person still waits for them. Pass personIds, or all (with mine for only your own).",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires inbox.use. Emits person.handed_back, conversation.handed_to_ai.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "personIds": {
+                    "default": [],
+                    "maxItems": 500,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "all": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "mine": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "handedBack": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "toAi": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "handedBack",
+                    "toAi"
                   ],
                   "additionalProperties": false
                 }
@@ -152203,6 +152349,163 @@
         }
       }
     },
+    "/v1/queries/person.in_hands": {
+      "post": {
+        "operationId": "query_person_in_hands",
+        "summary": "The customers in someone’s hands (they messaged or called them themselves, or pressed Take over), so the AI leaves them alone: whose hands, how, when, and whether one waits on a reply. Pass personId for one customer, mine for only yours.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires records.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "personId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "mine": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "limit": {
+                    "default": 100,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "people": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "personId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "user": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "fullName": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "fullName"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "how": {
+                            "type": "string",
+                            "enum": [
+                              "wrote",
+                              "called",
+                              "took_over"
+                            ]
+                          },
+                          "place": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "since": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "lastAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "waitingSince": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "personId",
+                          "name",
+                          "user",
+                          "how",
+                          "place",
+                          "since",
+                          "lastAt",
+                          "waitingSince"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "people",
+                    "total"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/tag.list": {
       "post": {
         "operationId": "query_tag_list",
@@ -190229,6 +190532,7 @@
                                     "repeat_customer",
                                     "came_in_today",
                                     "handed_off",
+                                    "in_hands",
                                     "last_contact",
                                     "no_contact",
                                     "follow_up_overdue",
@@ -190858,6 +191162,7 @@
                                     "repeat_customer",
                                     "came_in_today",
                                     "handed_off",
+                                    "in_hands",
                                     "last_contact",
                                     "no_contact",
                                     "follow_up_overdue",
@@ -191790,6 +192095,7 @@
                                     "repeat_customer",
                                     "came_in_today",
                                     "handed_off",
+                                    "in_hands",
                                     "last_contact",
                                     "no_contact",
                                     "follow_up_overdue",

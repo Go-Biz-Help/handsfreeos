@@ -637,6 +637,8 @@ interface ConversationInfo {
   readonly takenOverBy: string | null;
   /** Automations told the owners a hand-off still waits (`conversation.handoff_escalated`). */
   readonly escalated: boolean;
+  /** Its customer is in someone's hands (messaging/hands.ts). */
+  readonly inHands: boolean;
   readonly lastMessageAt: string | null;
   readonly counterpart: string;
   readonly personName: string | null;
@@ -760,6 +762,7 @@ async function loadConversations(
     needs_person_since: Date | null;
     taken_over_by: string | null;
     escalated: boolean;
+    in_hands: boolean;
     last_message_at: Date | null;
     counterpart: string;
     first_name: string | null;
@@ -774,6 +777,7 @@ async function loadConversations(
             where e.entity_type = 'conversation' and e.entity_id = c.id
               and e.event_type = 'conversation.handoff_escalated'
               and e.created_at >= c.needs_person_since) as escalated,
+          exists (select 1 from app.people_in_hands h where h.person_id = c.person_id) as in_hands,
           c.last_message_at, c.counterpart, p.first_name, p.last_name,
           mx.name as social_name, mx.username as social_username
         from app.conversations c left join app.people p on p.id = c.person_id
@@ -805,6 +809,7 @@ async function loadConversations(
         needsPersonSince: iso(r.needs_person_since),
         takenOverBy: r.taken_over_by,
         escalated: r.escalated,
+        inHands: r.in_hands,
         lastMessageAt: iso(r.last_message_at),
         counterpart: r.counterpart,
         personName: nameOf(r.first_name, r.last_name),
@@ -2324,6 +2329,7 @@ export async function reconcile(
           needsPersonSince: c.needsPersonSince,
           takenOverBy: c.takenOverBy,
           escalated: c.escalated,
+          inHands: c.inHands,
         },
         replyThresholdMinutes: ctx.replyThresholdMinutes,
         lead,

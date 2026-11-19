@@ -390,6 +390,7 @@ import {
   conversationPickUp,
   conversationTakeOver,
 } from './conversation-handling';
+import { personHandBack, personTakeOver } from './person-hands';
 import { indeedApplicantReceive, intakeSubmit } from './intake';
 import {
   intakeSourceArchive,
@@ -1060,6 +1061,8 @@ export const commands: readonly CommandDef[] = [
   conversationTakeOver,
   conversationHandToAi,
   conversationPickUp,
+  personTakeOver,
+  personHandBack,
   aiTeammateCreate,
   aiTeammateSaveConfig,
   aiTeammateRestore,
@@ -1334,6 +1337,7 @@ export * from './portal-access';
 export * from './portal-files';
 export * from './portal-messages';
 export * from './conversation-handling';
+export * from './person-hands';
 export { leadRecordAnswers } from './lead.record_answers';
 export * from './chat-widget';
 export * from './intake-source';

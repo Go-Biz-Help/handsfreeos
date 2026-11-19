@@ -37,6 +37,7 @@ export * from './onboarding-setup/load';
 export * from './messaging/email-setup-load';
 export * from './ai-team/reach';
 export * from './messaging/handling';
+export * from './messaging/hands';
 export * from './attention/load';
 export * from './automations/maintenance-load';
 export * from './automations/pipeline-load';
