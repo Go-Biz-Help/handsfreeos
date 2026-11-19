@@ -4,6 +4,7 @@
  */
 import type { CatalogService, CatalogTerritory } from '../catalogs';
 import type { CalendarConfig, LocationKind } from '../config';
+import type { Drives } from './drives';
 import type { Interval } from './intervals';
 
 /** An existing appointment someone (or something) is on. */
@@ -14,6 +15,8 @@ export interface Booking {
   readonly blocked: Interval;
   /** Counts toward this calendar's daily limit when it matches `SlotInput.calendarId`. */
   readonly calendarId?: string | null;
+  /** The appointment, so the drive to and from its place can be kept clear (`SlotInput.drives`). */
+  readonly appointmentId?: string;
 }
 
 export interface StaffInput {
@@ -79,6 +82,11 @@ export interface SlotInput {
   readonly sessions?: readonly SessionInput[];
   /** The workspace's territories (the calendar's selection is applied here). */
   readonly territories?: readonly CatalogTerritory[];
+  /**
+   * Drive times to the customer's place, on a calendar that leaves time to drive between visits (decision 179 in
+   * docs/outreach.md): kept clear around each person's appointments and at the start of their day.
+   */
+  readonly drives?: Drives | null;
 }
 
 export interface Slot {

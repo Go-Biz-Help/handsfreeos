@@ -13584,7 +13584,8 @@
                                     "customer_address",
                                     "business",
                                     "virtual",
-                                    "phone"
+                                    "phone",
+                                    "meetup"
                                   ]
                                 },
                                 "address": {
@@ -13734,6 +13735,10 @@
                             "type": "integer",
                             "minimum": 0,
                             "maximum": 240
+                          },
+                          "driveBetween": {
+                            "default": false,
+                            "type": "boolean"
                           }
                         }
                       },
@@ -15012,7 +15017,7 @@
                   },
                   "locationKinds": {
                     "default": [],
-                    "maxItems": 4,
+                    "maxItems": 5,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -15020,7 +15025,8 @@
                         "customer_address",
                         "business",
                         "virtual",
-                        "phone"
+                        "phone",
+                        "meetup"
                       ]
                     }
                   },
@@ -15220,7 +15226,7 @@
                     ]
                   },
                   "locationKinds": {
-                    "maxItems": 4,
+                    "maxItems": 5,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -15228,7 +15234,8 @@
                         "customer_address",
                         "business",
                         "virtual",
-                        "phone"
+                        "phone",
+                        "meetup"
                       ]
                     }
                   },
@@ -16602,6 +16609,90 @@
         }
       }
     },
+    "/v1/commands/day_start.set": {
+      "post": {
+        "operationId": "command_day_start_set",
+        "summary": "Set where your working day starts (a street address), or (owners and admins) a teammate’s: on calendars that leave time to drive between visits, the drive to the first visit of a day is timed from it. Null starts the day from the business’s address again.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires appointments.write. Emits day_start.updated.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "userId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "address": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 300
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "address"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "userId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "address": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "businessAddress": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "userId",
+                    "address",
+                    "businessAddress"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/appointment.create": {
       "post": {
         "operationId": "command_appointment_create",
@@ -16705,7 +16796,8 @@
                               "customer_address",
                               "business",
                               "virtual",
-                              "phone"
+                              "phone",
+                              "meetup"
                             ]
                           },
                           {
@@ -17018,7 +17110,8 @@
                               "customer_address",
                               "business",
                               "virtual",
-                              "phone"
+                              "phone",
+                              "meetup"
                             ]
                           },
                           {
@@ -18082,7 +18175,8 @@
                               "customer_address",
                               "business",
                               "virtual",
-                              "phone"
+                              "phone",
+                              "meetup"
                             ]
                           },
                           {
@@ -18459,7 +18553,8 @@
                               "customer_address",
                               "business",
                               "virtual",
-                              "phone"
+                              "phone",
+                              "meetup"
                             ]
                           },
                           {
@@ -166057,7 +166152,8 @@
                                           "customer_address",
                                           "business",
                                           "virtual",
-                                          "phone"
+                                          "phone",
+                                          "meetup"
                                         ]
                                       },
                                       "address": {
@@ -166229,12 +166325,17 @@
                                   "type": "integer",
                                   "minimum": 0,
                                   "maximum": 240
+                                },
+                                "driveBetween": {
+                                  "default": false,
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
                                 "before",
                                 "after",
-                                "travelMinutes"
+                                "travelMinutes",
+                                "driveBetween"
                               ],
                               "additionalProperties": false
                             },
@@ -167105,7 +167206,8 @@
                           "customer_address",
                           "business",
                           "virtual",
-                          "phone"
+                          "phone",
+                          "meetup"
                         ]
                       },
                       {
@@ -167443,7 +167545,8 @@
                                       "customer_address",
                                       "business",
                                       "virtual",
-                                      "phone"
+                                      "phone",
+                                      "meetup"
                                     ]
                                   },
                                   {
@@ -168045,7 +168148,8 @@
                                     "customer_address",
                                     "business",
                                     "virtual",
-                                    "phone"
+                                    "phone",
+                                    "meetup"
                                   ]
                                 },
                                 {
@@ -169653,6 +169757,78 @@
                   "required": [
                     "timezone",
                     "people"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/day_start.get": {
+      "post": {
+        "operationId": "query_day_start_get",
+        "summary": "Where a person’s working day starts, for drive times between visits: their own address, or none (then the business’s address, also given). Yours, or (owners and admins) a teammate’s.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires workspace.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "userId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "userId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "address": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "businessAddress": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "userId",
+                    "address",
+                    "businessAddress"
                   ],
                   "additionalProperties": false
                 }

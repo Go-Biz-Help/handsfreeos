@@ -4177,6 +4177,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/day_start.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set where your working day starts (a street address), or (owners and admins) a teammate’s: on calendars that leave time to drive between visits, the drive to the first visit of a day is timed from it. Null starts the day from the business’s address again.
+         * @description Risk level 1. Requires appointments.write. Emits day_start.updated.
+         */
+        post: operations["command_day_start_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/document_template.archive": {
         parameters: {
             query?: never;
@@ -20717,6 +20737,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/day_start.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Where a person’s working day starts, for drive times between visits: their own address, or none (then the business’s address, also given). Yours, or (owners and admins) a teammate’s.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_day_start_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/document_template.get": {
         parameters: {
             query?: never;
@@ -29343,7 +29383,7 @@ export interface operations {
                         /** @default null */
                         address?: string | null;
                         /** @default null */
-                        kind?: ("customer_address" | "business" | "virtual" | "phone") | null;
+                        kind?: ("customer_address" | "business" | "virtual" | "phone" | "meetup") | null;
                         /** @default null */
                         meetingError?: string | null;
                         /** @default null */
@@ -29705,7 +29745,7 @@ export interface operations {
                         /** @default null */
                         address?: string | null;
                         /** @default null */
-                        kind?: ("customer_address" | "business" | "virtual" | "phone") | null;
+                        kind?: ("customer_address" | "business" | "virtual" | "phone" | "meetup") | null;
                         /** @default null */
                         meetingError?: string | null;
                         /** @default null */
@@ -31506,6 +31546,8 @@ export interface operations {
                             after?: number;
                             /** @default 0 */
                             before?: number;
+                            /** @default false */
+                            driveBetween?: boolean;
                             /** @default 0 */
                             travelMinutes?: number;
                         };
@@ -31578,7 +31620,7 @@ export interface operations {
                                 /** @default null */
                                 address?: string | null;
                                 /** @enum {string} */
-                                kind: "customer_address" | "business" | "virtual" | "phone";
+                                kind: "customer_address" | "business" | "virtual" | "phone" | "meetup";
                                 /** @default null */
                                 meetingUrl?: string | null;
                                 /** @default false */
@@ -36327,6 +36369,41 @@ export interface operations {
                         /** @default [] */
                         notApplied: string[];
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_day_start_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    address: string | null;
+                    /** Format: uuid */
+                    userId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        address: string | null;
+                        businessAddress: string | null;
+                        /** Format: uuid */
+                        userId: string;
                     };
                 };
             };
@@ -65142,7 +65219,7 @@ export interface operations {
                         /** @default null */
                         address?: string | null;
                         /** @default null */
-                        kind?: ("customer_address" | "business" | "virtual" | "phone") | null;
+                        kind?: ("customer_address" | "business" | "virtual" | "phone" | "meetup") | null;
                         /** @default null */
                         meetingError?: string | null;
                         /** @default null */
@@ -65278,7 +65355,7 @@ export interface operations {
                         start: string;
                     }[] | null;
                     /** @default [] */
-                    locationKinds?: ("customer_address" | "business" | "virtual" | "phone")[];
+                    locationKinds?: ("customer_address" | "business" | "virtual" | "phone" | "meetup")[];
                     name: string;
                     priceCents?: number | null;
                     repeatMonths?: number | null;
@@ -65332,7 +65409,7 @@ export interface operations {
                         end: string;
                         start: string;
                     }[] | null;
-                    locationKinds?: ("customer_address" | "business" | "virtual" | "phone")[];
+                    locationKinds?: ("customer_address" | "business" | "virtual" | "phone" | "meetup")[];
                     name?: string;
                     priceCents?: number | null;
                     repeatMonths?: number | null;
@@ -65386,7 +65463,7 @@ export interface operations {
                         /** @default null */
                         address?: string | null;
                         /** @default null */
-                        kind?: ("customer_address" | "business" | "virtual" | "phone") | null;
+                        kind?: ("customer_address" | "business" | "virtual" | "phone" | "meetup") | null;
                         /** @default null */
                         meetingError?: string | null;
                         /** @default null */
@@ -75087,7 +75164,7 @@ export interface operations {
                                 /** @default null */
                                 address: string | null;
                                 /** @default null */
-                                kind: ("customer_address" | "business" | "virtual" | "phone") | null;
+                                kind: ("customer_address" | "business" | "virtual" | "phone" | "meetup") | null;
                                 /** @default null */
                                 meetingError: string | null;
                                 /** @default null */
@@ -75242,7 +75319,7 @@ export interface operations {
                                 /** @default null */
                                 address: string | null;
                                 /** @default null */
-                                kind: ("customer_address" | "business" | "virtual" | "phone") | null;
+                                kind: ("customer_address" | "business" | "virtual" | "phone" | "meetup") | null;
                                 /** @default null */
                                 meetingError: string | null;
                                 /** @default null */
@@ -76947,7 +77024,7 @@ export interface operations {
                     durationMinutes?: number;
                     /** Format: date-time */
                     from: string;
-                    locationKind?: ("customer_address" | "business" | "virtual" | "phone") | null;
+                    locationKind?: ("customer_address" | "business" | "virtual" | "phone" | "meetup") | null;
                     /** @default 1 */
                     partySize?: number;
                     point?: {
@@ -77028,6 +77105,8 @@ export interface operations {
                                     after: number;
                                     /** @default 0 */
                                     before: number;
+                                    /** @default false */
+                                    driveBetween: boolean;
                                     /** @default 0 */
                                     travelMinutes: number;
                                 };
@@ -77094,7 +77173,7 @@ export interface operations {
                                         /** @default null */
                                         address: string | null;
                                         /** @enum {string} */
-                                        kind: "customer_address" | "business" | "virtual" | "phone";
+                                        kind: "customer_address" | "business" | "virtual" | "phone" | "meetup";
                                         /** @default null */
                                         meetingUrl: string | null;
                                         /** @default false */
@@ -80597,6 +80676,40 @@ export interface operations {
                             updatedAt: string;
                         }[];
                         nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_day_start_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    userId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        address: string | null;
+                        businessAddress: string | null;
+                        /** Format: uuid */
+                        userId: string;
                     };
                 };
             };

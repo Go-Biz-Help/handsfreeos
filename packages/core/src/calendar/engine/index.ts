@@ -6,3 +6,4 @@ export * from './hours';
 export * from './types';
 export { bookingWindow, candidatePool, computeSlots, MAX_MEMBERS, MAX_RANGE_DAYS } from './slots';
 export { chooseAssignment, memberState } from './strategies';
+export { withDrives, type Drives } from './drives';

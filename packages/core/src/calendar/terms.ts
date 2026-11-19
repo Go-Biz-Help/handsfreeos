@@ -3,7 +3,7 @@
  * this calendar's overrides for that service, composed. Rules and the engine both read terms from here.
  */
 import type { CatalogService } from './catalogs';
-import type { CalendarConfig, LocationKind, RequiredResource } from './config';
+import { goesOut, type CalendarConfig, type LocationKind, type RequiredResource } from './config';
 
 export interface Terms {
   readonly serviceId: string | null;
@@ -72,6 +72,11 @@ export function defaultLocationKind(config: CalendarConfig): LocationKind | null
 
 export function hasCustomerAddress(config: CalendarConfig): boolean {
   return config.locations.options.some((o) => o.kind === 'customer_address');
+}
+
+/** A place the team goes out to (the customer's address or a meet-up spot), where travel and drives apply. */
+export function goesOutTo(config: CalendarConfig): boolean {
+  return config.locations.options.some((o) => goesOut(o.kind));
 }
 
 /** Calendar people allowed by the terms, in team order. */

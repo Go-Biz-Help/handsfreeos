@@ -710,6 +710,38 @@ describe('hours mode', () => {
     ]);
   });
 
+  it('leaves time to drive from the visit before, on to the next, and from where the day starts (decision 179)', () => {
+    const near = { during: span(MON, '11:00', '12:00'), blocked: span(MON, '11:00', '12:00') };
+    const staff = [
+      person(A, [span(MON, '09:00', '13:00')], {
+        bookings: [{ ...near, appointmentId: 'near' }],
+      }),
+    ];
+    const patch = {
+      ...solo,
+      buffers: { driveBetween: true },
+      locations: { options: [{ kind: 'customer_address' as const }] },
+    };
+    // No drives worked out (no address yet): the usual times.
+    expect(clocks(computeSlots(world(patch, { staff })))).toEqual([
+      '09:00',
+      '09:30',
+      '10:00',
+      '12:00',
+    ]);
+    // 30 minutes from where the day starts, 30 to and from the 11:00 visit.
+    const drives = { fromStart: { [A]: 30 }, around: { near: 30 } };
+    expect(clocks(computeSlots(world(patch, { staff, drives })))).toEqual(['09:30']);
+    // An appointment the drives don't cover (no address) keeps only its own buffers.
+    const other = { fromStart: {}, around: { elsewhere: 90 } };
+    expect(clocks(computeSlots(world(patch, { staff, drives: other })))).toEqual([
+      '09:00',
+      '09:30',
+      '10:00',
+      '12:00',
+    ]);
+  });
+
   it('treats busy times as appointments', () => {
     const staff = [nineToFive(A, MON, { busy: [span(MON, '09:30', '16:00')] })];
     expect(clocks(computeSlots(world(solo, { staff })))).toEqual(['16:00']);

@@ -65,7 +65,7 @@ import {
   territoryDelete,
   territoryUpdate,
 } from './calendar-catalog';
-import { scheduleSet, timeOffAdd, timeOffRemove } from './calendar-hours';
+import { dayStartSet, scheduleSet, timeOffAdd, timeOffRemove } from './calendar-hours';
 import { calendarConnectionCommands } from './calendar-connection';
 import { meetingConnectionCommands } from './meeting-connection';
 import { liveMeetingCommands } from './live-meeting';
@@ -726,6 +726,7 @@ export {
   scheduleSet,
   timeOffAdd,
   timeOffRemove,
+  dayStartSet,
   appointmentCreate,
   appointmentUpdate,
   appointmentSetMeetingLink,
@@ -941,6 +942,7 @@ export const commands: readonly CommandDef[] = [
   scheduleSet,
   timeOffAdd,
   timeOffRemove,
+  dayStartSet,
   appointmentCreate,
   appointmentUpdate,
   appointmentSetMeetingLink,

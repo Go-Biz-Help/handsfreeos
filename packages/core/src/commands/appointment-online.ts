@@ -39,6 +39,7 @@ import {
 } from '../calendar/booking';
 import type { CalendarConfig } from '../calendar/config';
 import { DEPOSIT_HOLD_MS } from '../calendar/deposit';
+import type { Drives } from '../calendar/engine/drives';
 import { computeSlots } from '../calendar/engine/slots';
 import { chooseAssignment } from '../calendar/engine/strategies';
 import { isLocalDate } from '../calendar/engine/zoned';
@@ -397,15 +398,17 @@ export const appointmentBookOnline = defineCommand({
       locationKind,
       postalCode: input.postalCode ?? null,
       point: input.point ?? null,
+      drives: input.drives ?? null,
       chosenUserId: input.chosenUserId ?? null,
       preferUserIds: input.withUserId ? [input.withUserId] : undefined,
       choice: { mode: 'customer' },
       attendee,
       notes: input.notes ?? null,
+      // A meet-up spot (decision 179) is where the customer picked to meet: the usual spot, one halfway, or theirs.
       location:
-        locationKind === 'customer_address'
+        locationKind === 'customer_address' || (locationKind === 'meetup' && input.address)
           ? {
-              kind: 'customer_address',
+              kind: locationKind,
               address: input.address ?? null,
               meetingUrl: null,
               video: null,
@@ -498,7 +501,12 @@ export const appointmentBookOnline = defineCommand({
 export async function rescheduleBooking(
   ctx: CommandContext,
   booked: BookedAttendee,
-  input: { readonly startsAt: string; readonly sessionId?: string | null },
+  input: {
+    readonly startsAt: string;
+    readonly sessionId?: string | null;
+    /** Drive times to the visit's address (decision 179), worked out by the worker. */
+    readonly drives?: Drives | null;
+  },
 ): Promise<{ appointmentId: string; attendeeId: string; startsAt: string; endsAt: string }> {
   const ws = ctx.scope.workspaceId!;
   const { att, appt, calendar, policies } = booked;
@@ -543,6 +551,7 @@ export async function rescheduleBooking(
       locationKind: (location.kind ?? null) as never,
       postalCode: location.postalCode ?? null,
       excludeAppointmentIds: [appt.id],
+      drives: input.drives ?? null,
     };
     const current = await staffIdsOf(ctx.tx, appt.id);
     for (let attempt = 0; attempt < 2; attempt++) {

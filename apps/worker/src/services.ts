@@ -27,6 +27,7 @@ import type { PracticeKit } from './practice/kit';
 import type { PictureMaker } from './pictures';
 import type { TelephonyProvider } from './telephony/provider';
 import type { DriveTimer } from './geo/driving';
+import type { PlaceFinder } from './geo/places';
 import type { Geocoder } from './geo/geocoder';
 import type { Transcriber } from './telephony/transcriber';
 import type { VideoConverter } from './telephony/video';
@@ -65,8 +66,10 @@ export interface WorkerServices {
   readonly video: VideoConverter;
   /** Where an address is, for distance and drawn service areas (M18); `off` without a key. */
   readonly geocoder: Geocoder;
-  /** How long a drive takes, for On my way's arrival time (M18). */
+  /** How long a drive takes, for On my way's arrival time (M18) and drive times between visits (decision 179). */
   readonly driving: DriveTimer;
+  /** A spot to meet halfway between two people (decision 179: coffee spots); `off` without a key. */
+  readonly places: PlaceFinder;
   /**
    * Hearing and speaking when the AI teammate answers a call live (M18 step 5). **Null when it's off**
    * (production with no Deepgram key): every call rings the team and goes to voicemail, as before.

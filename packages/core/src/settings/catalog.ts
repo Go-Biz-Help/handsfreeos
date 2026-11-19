@@ -226,6 +226,12 @@ const ROWS = {
     label: 'Video meetings',
     words: ['zoom', 'google meet', 'teams', 'video link'],
   },
+  'my_calendar.day_start': {
+    page: 'my_calendar',
+    section: null,
+    label: 'Where your day starts',
+    words: ['start address', 'home address', 'drive time', 'driving between visits'],
+  },
 
   // ---- Workspace ----
   'workspace.name': {

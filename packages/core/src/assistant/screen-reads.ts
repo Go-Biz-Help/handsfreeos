@@ -41,6 +41,7 @@ export const SCREEN_READS = [
   'call_suggestion.list',
   'chat_widget.get',
   'crm.summary',
+  'day_start.get',
   'document.get',
   'document.list',
   'document.prefill',

@@ -27,9 +27,11 @@ const onOff = z.boolean().optional();
 /** Where something happens, as the model says it: the kind of place, and its address or link. */
 export const Place = z.object({
   kind: LocationKind.describe(
-    'customer_address (they come to the customer), business, virtual (a video call) or phone',
+    'customer_address (they come to the customer), business, virtual (a video call), phone or meetup (a meet-up spot, such as a coffee shop)',
   ),
-  address: text(300).optional().describe('The street address, for customer_address or business'),
+  address: text(300)
+    .optional()
+    .describe('The street address, for customer_address, business or meetup'),
   meetingLink: z.url().max(500).optional().describe('The video call link, for virtual'),
 });
 

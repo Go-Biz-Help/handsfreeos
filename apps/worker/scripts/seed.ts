@@ -49,6 +49,7 @@ import { createFakeHost } from '../src/hosting';
 import { roughDriveTimer } from '../src/geo/driving';
 import { createFakeSpeech } from '../src/voice-agent/fake-speech';
 import { createFakeGeocoder } from '../src/geo/geocoder';
+import { createFakePlaceFinder } from '../src/geo/places';
 import { createFakeTranscriber } from '../src/telephony/fake-transcriber';
 import { createFakeVideoConverter } from '../src/telephony/video';
 import { createWorkflowAi } from '../src/workflows/ai-runner';
@@ -216,6 +217,7 @@ async function main(): Promise<void> {
     video: createFakeVideoConverter(),
     geocoder: createFakeGeocoder(),
     driving: roughDriveTimer,
+    places: createFakePlaceFinder(),
     speech: createFakeSpeech(),
     voiceAi: null,
     aiFor: null,

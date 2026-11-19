@@ -23,7 +23,7 @@
     "apps/web/src/app/app/w/[workspaceId]/settings/my-calendar/page.tsx": "c8b1891de1c2",
     "apps/web/src/components/booking/add-to-calendar.tsx": "b1fe85e88a23",
     "apps/web/src/components/booking/booked-panel.tsx": "ff76fb3f55d0",
-    "apps/web/src/components/booking/booking-flow.tsx": "b2f7a2b6f9a6",
+    "apps/web/src/components/booking/booking-flow.tsx": "9fca6343b0b1",
     "apps/web/src/components/booking/business-page.tsx": "2638ffe26ea9",
     "apps/web/src/components/booking/chat-button.tsx": "2eb031ad5c0b",
     "apps/web/src/components/booking/deposit-pay.tsx": "2e65d379e63e",
@@ -39,7 +39,7 @@
     "apps/web/src/components/booking/webinar-door.tsx": "aa74fac075b5",
     "apps/web/src/components/calendar/add-attendee-dialog.tsx": "502e321ab7da",
     "apps/web/src/components/calendar/agenda.tsx": "5a875937bc8b",
-    "apps/web/src/components/calendar/appointment-dialog.tsx": "58903c5b87de",
+    "apps/web/src/components/calendar/appointment-dialog.tsx": "89b0ad273c7d",
     "apps/web/src/components/calendar/appointment-sheet.tsx": "18d1db33c373",
     "apps/web/src/components/calendar/appt.ts": "762bf72583c0",
     "apps/web/src/components/calendar/calendar-page.tsx": "ec13031132fb",
@@ -61,6 +61,7 @@
     "apps/web/src/components/calendar/zone-field.tsx": "bb70cbad3575",
     "apps/web/src/components/calendars/weekly-hours.tsx": "86cab98e3be1",
     "apps/web/src/components/settings/calendar-connection-card.tsx": "fb70eee130ed",
+    "apps/web/src/components/settings/day-start.tsx": "6eece1cc5610",
     "apps/web/src/components/settings/meeting-connection-card.tsx": "a7a95b16bd67",
     "apps/web/src/components/settings/my-calendar.tsx": "a22d9ea4da17",
     "apps/web/src/components/settings/zoom-coach-card.tsx": "53c1cd48f3f4",
@@ -1398,6 +1399,13 @@
       "by": "update_my_hours userId (owners and admins); read_schedule_team"
     },
     {
+      "path": "My calendar → Where your day starts (an address, or empty for the business’s; Save, Undo, Use the business’s address)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/day-start.tsx:59",
+      "covered": "yes",
+      "by": "read_day_start_get (userId for owners and admins); do_day_start_set address (null for the business’s)"
+    },
+    {
       "path": "My calendar → connected or failed notes after signing in",
       "kind": "see",
       "file": "apps/web/src/components/settings/my-calendar.tsx:36",
@@ -1573,6 +1581,13 @@
       "by": "territories readable; no ZIP check tool"
     },
     {
+      "path": "Booking link → street address first, on a calendar that leaves time to drive between visits",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1037",
+      "covered": "yes",
+      "by": "get_calendar_settings buffers.driveBetween (the customer's own page; the Assistant books from the team's side)"
+    },
+    {
       "path": "Booking link → service, length",
       "kind": "do",
       "file": "apps/web/src/components/booking/booking-flow.tsx:1087",
@@ -1592,6 +1607,13 @@
       "file": "apps/web/src/components/booking/booking-flow.tsx:1149",
       "covered": "yes",
       "by": "book_appointment location"
+    },
+    {
+      "path": "Booking link → meet-up spot: your usual spot, Find a spot halfway, or I’ll pick the place",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:262",
+      "covered": "yes",
+      "by": "book_appointment location kind meetup with the spot's address (the customer's own page finds the halfway spot; the Assistant books from the team's side)"
     },
     {
       "path": "Booking link → time picker: days, month, Earlier, Later, Morning, Afternoon, slots",

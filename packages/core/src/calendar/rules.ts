@@ -10,7 +10,7 @@ import type { CalendarConfig, ConfigPatch, TeamMember, WeeklyHours } from './con
 import { intersect, longest, normalize, union, type Interval } from './engine/intervals';
 import { localDateOf, parseClock } from './engine/zoned';
 import { formatDuration } from './format';
-import { eligibleMembers, hasCustomerAddress, resolveTerms } from './terms';
+import { eligibleMembers, goesOutTo, hasCustomerAddress, resolveTerms } from './terms';
 
 export const ISSUE_CODES = [
   'collective_needs_two',
@@ -23,6 +23,7 @@ export const ISSUE_CODES = [
   'sessions_multi_duration',
   'sessions_customer_series',
   'travel_without_visits',
+  'drive_without_visits',
   'zip_without_visits',
   'zip_uncovered',
   'party_over_seats',
@@ -273,7 +274,8 @@ function scheduleRules({ config, push }: Ctx): void {
 
 function visitRules({ config, catalogs, push }: Ctx): void {
   const visits = hasCustomerAddress(config);
-  if (config.buffers.travelMinutes > 0 && !visits)
+  const out = goesOutTo(config);
+  if (config.buffers.travelMinutes > 0 && !out)
     push({
       code: 'travel_without_visits',
       severity: 'warning',
@@ -281,6 +283,21 @@ function visitRules({ config, catalogs, push }: Ctx): void {
       fields: ['buffers.travelMinutes', 'locations.options'],
       fixes: [
         { id: 'travel_zero', label: 'Set travel to 0', patch: { buffers: { travelMinutes: 0 } } },
+        ...customerAddressFix(config),
+      ],
+    });
+  if (config.buffers.driveBetween && !out)
+    push({
+      code: 'drive_without_visits',
+      severity: 'warning',
+      message: 'Leave time to drive between visits needs a customer-address location',
+      fields: ['buffers.driveBetween', 'locations.options'],
+      fixes: [
+        {
+          id: 'drive_off',
+          label: 'Turn off drive times',
+          patch: { buffers: { driveBetween: false } },
+        },
         ...customerAddressFix(config),
       ],
     });

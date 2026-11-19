@@ -352,6 +352,7 @@ function calendarPatch(args: Args, config: CalendarConfig): ConfigPatch {
     before: num(args['bufferBeforeMinutes']),
     after: num(args['bufferAfterMinutes']),
     travelMinutes: num(args['travelMinutes']),
+    driveBetween: typeof args['driveBetween'] === 'boolean' ? args['driveBetween'] : undefined,
   });
   if (Object.keys(buffers).length) patch['buffers'] = buffers;
   const window = defined({
@@ -429,6 +430,11 @@ async function calendarFields(
   const travel = num(args['travelMinutes']);
   if (travel !== undefined)
     fields.push({ label: 'Travel time', value: travel ? `${travel} min each way` : 'None' });
+  if (typeof args['driveBetween'] === 'boolean')
+    fields.push({
+      label: 'Leave time to drive between visits',
+      value: args['driveBetween'] ? 'On' : 'Off',
+    });
   const notice = num(args['minNoticeMinutes']);
   if (notice !== undefined)
     fields.push({ label: 'Notice to book', value: notice ? formatNotice(notice) : 'None' });

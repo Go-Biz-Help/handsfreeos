@@ -13,6 +13,11 @@ export interface DriveTimer {
   readonly name: 'google' | 'rough';
   /** Minutes of driving, or null when there's no road answer and no guess worth giving. */
   minutes(from: GeoPoint, to: GeoPoint): Promise<number | null>;
+  /**
+   * Minutes of driving from one place to each of many (decision 179, drive times between visits), in their order,
+   * without traffic: the visits are days away. A place Google has no road to gets the rough guess.
+   */
+  many(from: GeoPoint, to: readonly GeoPoint[]): Promise<number[]>;
 }
 
 /** Roads wind (1.3× the straight line) at about 30 mph in town; a guess, rounded up to five minutes. */
@@ -24,9 +29,13 @@ export function roughMinutes(from: GeoPoint, to: GeoPoint): number {
 export const roughDriveTimer: DriveTimer = {
   name: 'rough',
   minutes: async (from, to) => roughMinutes(from, to),
+  many: async (from, to) => to.map((p) => roughMinutes(from, p)),
 };
 
 const ROUTES = 'https://routes.googleapis.com/directions/v2:computeRoutes';
+const MATRIX = 'https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix';
+/** Destinations in one matrix request: well inside Google's 625 elements. */
+const MATRIX_CHUNK = 25;
 
 export function createGoogleDriveTimer(opts: {
   apiKey: string;
@@ -35,8 +44,57 @@ export function createGoogleDriveTimer(opts: {
 }): DriveTimer {
   const get = opts.fetch ?? fetch;
   const latLng = (p: GeoPoint) => ({ location: { latLng: { latitude: p.lat, longitude: p.lng } } });
+  /** One request: minutes to each destination, null where Google gave no route. */
+  async function matrix(from: GeoPoint, to: readonly GeoPoint[]): Promise<(number | null)[]> {
+    const res = await get(MATRIX, {
+      method: 'POST',
+      signal: AbortSignal.timeout(10_000),
+      headers: {
+        'content-type': 'application/json',
+        'x-goog-api-key': opts.apiKey,
+        'x-goog-fieldmask': 'originIndex,destinationIndex,duration,condition',
+      },
+      body: JSON.stringify({
+        origins: [{ waypoint: latLng(from) }],
+        destinations: to.map((p) => ({ waypoint: latLng(p) })),
+        travelMode: 'DRIVE',
+        routingPreference: 'TRAFFIC_UNAWARE',
+      }),
+    });
+    if (!res.ok) throw new Error(`Route matrix answered ${res.status}`);
+    const body = (await res.json()) as {
+      destinationIndex?: number;
+      duration?: string;
+      condition?: string;
+    }[];
+    const out: (number | null)[] = to.map(() => null);
+    for (const e of Array.isArray(body) ? body : []) {
+      const seconds = Number.parseInt(e.duration ?? '', 10);
+      if (e.condition === 'ROUTE_EXISTS' && Number.isFinite(seconds))
+        out[e.destinationIndex ?? 0] = Math.max(1, Math.round(seconds / 60));
+    }
+    return out;
+  }
   return {
     name: 'google',
+    async many(from, to) {
+      const out: number[] = [];
+      for (let i = 0; i < to.length; i += MATRIX_CHUNK) {
+        const chunk = to.slice(i, i + MATRIX_CHUNK);
+        try {
+          const got = await matrix(from, chunk);
+          chunk.forEach((p, j) => out.push(got[j] ?? roughMinutes(from, p)));
+        } catch (e) {
+          // A key without the Routes API, or an outage: the booking page still leaves a rough drive.
+          opts.log.warn(
+            { err: e instanceof Error ? e.message : String(e) },
+            'route matrix from Google failed',
+          );
+          chunk.forEach((p) => out.push(roughMinutes(from, p)));
+        }
+      }
+      return out;
+    },
     async minutes(from, to) {
       try {
         const res = await get(ROUTES, {

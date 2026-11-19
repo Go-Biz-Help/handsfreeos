@@ -748,6 +748,8 @@ function describeAction(e: AuditEntry): string {
             : `updated the booking site /book/${s(e.after?.slug)}`;
     case 'schedule.set':
       return `set ${possessive(e)} hours to ${s(e.after?.hours) || 'closed'}`;
+    case 'day_start.set':
+      return `set ${possessive(e)} day to start from ${s(e.after?.dayStart) || 'the business’s address'}`;
     case 'time_off.add':
       return `added ${s(e.after?.kind) === 'available' ? 'extra open time' : 'time off'} for ${owner(e)}: ${offSpan(e.after)}`;
     case 'time_off.remove':
@@ -1959,6 +1961,7 @@ const CALENDAR_PREFIXES = [
   'booking_site.',
   'schedule.',
   'time_off.',
+  'day_start.',
   'appointment.',
   'attendee.',
   'session.',
