@@ -62,7 +62,14 @@ import { answer, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
 import { chatMemory, LINKEDIN_MESSAGING, readChats } from '../jobs/chats';
 import { NO_RESEARCH, researchRuns } from '../jobs/comment-research';
-import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
+import {
+  pause as settle,
+  valueOf,
+  warnedLine,
+  type Hfos,
+  type Job,
+  type JobEnd,
+} from '../jobs/job';
 import { readLinkedInComments } from '../jobs/linkedin/comment-research';
 import { reporter } from '../jobs/report';
 import { checkConnections, isThem, readThemOnLinkedIn } from '../jobs/linkedin/checks';
@@ -1076,8 +1083,32 @@ async function sendMessage(
   return { done: true, line: partly ?? `Sent ${item.name} a message` };
 }
 
-/** Does a piece of work: a step on the list, a draft, or a send. */
-export function doWork(work: Work, businessId: string, split: boolean): Promise<Outcome> {
+/**
+ * A LinkedIn warning that came after a step's own read, on a page LinkedIn moved to once it had drawn: its security
+ * check (/checkpoint/challenge/…), from the owner's problem reports of 19 Nov 2026 (0.147.11), where a warm-up read
+ * their profile's address before LinkedIn went on to its check, said "LinkedIn showed a different page", and the next
+ * two steps were handed over the same way. The page is read again once it has settled: its warning stops LinkedIn for
+ * the day, as one read in time does. Null with none, or with no window open.
+ */
+async function warnedLate(businessId: string): Promise<{ readonly stop: string } | null> {
+  if (tab.tabId === null) return null;
+  await settle(SETTLE_MS);
+  const page = await read().catch(() => null);
+  const stop = page ? await warnedOn(page, businessId) : null;
+  return stop ? { stop } : null;
+}
+
+/**
+ * Does a piece of work: a step on the list, a draft, or a send. One that didn't go, on a page that shows a LinkedIn
+ * warning by then, stops for the day instead (`warnedLate`).
+ */
+export async function doWork(work: Work, businessId: string, split: boolean): Promise<Outcome> {
+  const outcome = await workDone(work, businessId, split);
+  if ('stop' in outcome || outcome.done || outcome.skip) return outcome;
+  return (await warnedLate(businessId)) ?? outcome;
+}
+
+function workDone(work: Work, businessId: string, split: boolean): Promise<Outcome> {
   if (work.do === 'draft') return draftMessage(work.item, businessId);
   if (work.do === 'send') return sendMessage(work.item, businessId, split);
   switch (work.item.kind) {

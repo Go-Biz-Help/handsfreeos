@@ -1272,6 +1272,25 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### LinkedIn's security check that came late, and a hashtag search still loading (0.147.15)
+
+Two of the owner's problem reports of 19 Nov 2026 (0.147.11):
+
+- **LinkedIn's security check.** Three warm-ups in 40 minutes said "LinkedIn showed a different page" and were handed
+  over, each with LinkedIn's security check (/checkpoint/challenge/…) in the window by the time it was outlined. The
+  step had read the page before LinkedIn went on to its check, so the check's warning never stopped LinkedIn for the
+  day, and the next step met it again. From 0.147.15 a step that didn't go reads the page once more after a moment
+  (`warnedLate` in `src/auto/linkedin.ts`): a LinkedIn warning there stops LinkedIn for the day, noted as LinkedIn's,
+  as one read in time does, and the step isn't handed over.
+- **A hashtag's search still loading.** A hashtag's page, which Instagram sends to a search
+  (/explore/search/keyword/?q=%23…), showed nothing but Instagram's loading mark when it was read, and was noted as
+  "No posts on the page." (also on 1 and 3 Nov). Its list ended at once, as the page had nowhere to scroll. From
+  0.147.15 a page whose main part shows only the loading mark has more to come (`scrollDialog` in
+  `src/networks/instagram/browse.ts`), so it's read again after the list's pause, up to its usual screens.
+
+The third report that day, "Nobody read in the post’s Likes box.", isn't changed: the box showed only the person
+themselves, who liked the post, with Instagram's line about two more it didn't list.
+
 ### A song on a post read as a Facebook warning (0.147.14)
 
 On 18 Nov 2026 (0.147.11) the extension liked a friend's post and stopped on Facebook for the day, with "Facebook warned
