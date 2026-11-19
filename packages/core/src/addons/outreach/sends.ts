@@ -74,8 +74,10 @@ export const SEND_STATE_KEYS = Object.keys(SEND_STATES) as [SendState, ...SendSt
  * 5. A networking chat's reply is short, reacts to what they said with the business's story, asks a question only when
  *    the chat would stall, offers a demo only when they ask about the business, and wraps up after they've written back
  *    twice (decision 176, ./today.ts `networkingReplyTask`).
+ * 6. An introduction says one true thing the owner and they have in common, right after the thanks (decision 181,
+ *    ./script.ts `STARTING_INTRO` and `FILL_BLANKS`).
  */
-export const RULES_VERSION = 5;
+export const RULES_VERSION = 6;
 
 /** Why one drafted under older rules can't be OK'd (`RULES_VERSION`), and what happens to it. */
 export const SEND_REWRITTEN =

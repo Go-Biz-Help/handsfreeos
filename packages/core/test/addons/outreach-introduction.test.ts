@@ -43,7 +43,12 @@ import {
   startingScript,
 } from '../../src/addons/outreach/script';
 import { RULES_VERSION } from '../../src/addons/outreach/sends';
-import { connectedLately, introTask, todayDraftPrompt } from '../../src/addons/outreach/today';
+import {
+  connectedLately,
+  introTask,
+  requestsTask,
+  todayDraftPrompt,
+} from '../../src/addons/outreach/today';
 import { introTexts, VOICE_DEFAULTS } from '../../src/addons/outreach/voice';
 
 const crm = { name: 'CRM demos', ...PLAYBOOK_TEMPLATES.crm_demos.details };
@@ -53,7 +58,7 @@ const pace = paceOf(blankPlaybook().pace);
 describe('a playbook that starts with an introduction', () => {
   it('has the owner’s starting words, and a choice that keeps when a save leaves it out', () => {
     expect(STARTING_INTRO).toBe(
-      'Hey [first name], thanks for connecting! I’m [your first name] with [your business name]. We help [their kind of business] businesses get [what your offer gets them] with [what your offer is]. [a question about them]',
+      'Hey [first name], thanks for connecting! [something you have in common] I’m [your first name] with [your business name]. We help [their kind of business] businesses get [what your offer gets them] with [what your offer is]. [a question about them]',
     );
     for (const goal of PLAYBOOK_GOAL_KEYS) expect(startingScript(goal).intro).toBe(STARTING_INTRO);
     expect(SCRIPT_INFO.intro.label).toBe('Introduction');
@@ -239,6 +244,47 @@ describe('what the AI is told for an introduction', () => {
 
   it('writes again the introductions already waiting, so they ask it too', () => {
     expect(RULES_VERSION).toBeGreaterThanOrEqual(4);
+  });
+
+  it('says one true thing they have in common right after the thanks (decision 181)', () => {
+    // The starting words put it after the thanks and before who the owner is.
+    expect(STARTING_INTRO.indexOf('[something you have in common]')).toBeGreaterThan(
+      STARTING_INTRO.indexOf('thanks for connecting!'),
+    );
+    expect(STARTING_INTRO.indexOf('[something you have in common]')).toBeLessThan(
+      STARTING_INTRO.indexOf('I’m [your first name]'),
+    );
+    expect(SCRIPT_BLANKS.map((b) => b.blank)).toContain('[something you have in common]');
+    expect(PLAYBOOK_OPENS.intro.hint).toContain('says something you have in common');
+    const prompt = todayDraftPrompt({ kind: 'opener', ...base, recent: [] });
+    expect(prompt).toContain(FILL_BLANKS);
+    expect(FILL_BLANKS).toContain('[something you have in common] is one short line');
+    // Only what's true: local, the same work, About you, or both running a business; never a group or a guess.
+    expect(FILL_BLANKS).toContain('that they’re local to each other, when the facts say so');
+    expect(FILL_BLANKS).toContain('only when the owner’s own business is in it');
+    expect(FILL_BLANKS).toContain('something About you says of the owner');
+    expect(FILL_BLANKS).toContain('Always good to meet a fellow business owner!');
+    expect(FILL_BLANKS).toContain('Never a group, or where the owner came across them');
+    expect(FILL_BLANKS).toContain('never as a question');
+    // A friend of a while gets a hello in its place, and keeps the rest of the words.
+    expect(todayDraftPrompt({ kind: 'opener', ...base, recent: [], fresh: false })).toContain(
+      playbookSays(STARTING_INTRO),
+    );
+    // To their Requests it's left out, to keep that one text short; words without it are told nothing of it.
+    expect(requestsTask(STARTING_INTRO)).toContain(
+      'leave out [something you have in common] and its line',
+    );
+    expect(requestsTask(STARTING_FIRST_MESSAGE)).not.toContain('[something you have in common]');
+    // A playbook's own words without it get no such line added.
+    const own = todayDraftPrompt({
+      kind: 'opener',
+      ...base,
+      recent: [],
+      opener: { kind: 'intro', text: 'Hi [first name], thanks for the add!' },
+    });
+    expect(own).toContain('Add nothing of your own before or after it');
+    // The introductions already waiting are written again with it.
+    expect(RULES_VERSION).toBeGreaterThanOrEqual(6);
   });
 
   it('tells a check-in after an introduction that nothing was asked', () => {

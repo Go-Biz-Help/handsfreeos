@@ -4884,6 +4884,28 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         `networkingStand`) and `ops/playbooks.ts` in Social Outreach; the web's `playbook-builder.tsx` and the phone's
         `playbook-script.tsx` and `playbook.tsx`.
 
+181.  **The introduction says what you have in common, right after the thanks** (Chris, 19 Nov 2026, passing on a
+      friend's advice: "You’re skipping the identify part that’s the part they said was huge. That’s what engages them
+      into the rest of the message. Find a way to say I see you own a business too ... Share a commonality", and asked
+      to build it). Builds on decisions 168 and 173:
+      - **A new blank, `[something you have in common]`** (`SCRIPT_BLANKS`, `FILL_BLANKS`): one short line on one true
+        thing the owner and they share, said plainly and never as a question, so they feel a connection before the
+        owner says what the business does. The AI picks the truest it can back up: that they're local to each other
+        when the facts say so (decision 177: "Always great to meet another business owner here in the Austin area!"),
+        the same line of work only when the owner's own business is in it, something About you says of the owner
+        that their pages show of them too (decision 165), and otherwise that they both run a business ("Always good
+        to meet a fellow business owner!"). Never a group or where the owner came across them (decision 157), never a
+        guess, and left out for someone who doesn't run a business when nothing else is shared.
+      - **The starting words have it** (`STARTING_INTRO`): "Hey [first name], thanks for connecting! [something you have
+        in common] I’m [your first name] with [your business name]. We help …". A playbook on the starting words, as the
+        owner's is, gets it at once; one with its own words gets it only where they have the blank, since nothing is
+        added to a playbook's own words (decision 164). The Introduction choice's hint says so too.
+      - **Left out of a message to someone's Requests** (`requestsTask`), to keep that one text under 300 characters.
+      - **Introductions already waiting are written again** (`RULES_VERSION` 6), so they say it too. That rewrites
+        every message still waiting for an OK, once.
+      - **How it's built** (no migration, no extension change): `script.ts`, `today.ts` and `sends.ts` in Social
+        Outreach.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -4928,6 +4950,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 - **An introduction always asks a question about them, as its own text** (decisions 173 and 175, `introTask`,
   `introTexts`): the question goes as a second text right after it when the person sends a few, and never in a
   first message to someone's Requests. Don't let a playbook's own words drop it.
+- **What an introduction says you have in common is always true** (decision 181, `FILL_BLANKS`): local only when the
+  facts say so, the same work only when the owner's business is in it, a shared background only from About you,
+  else both running a business. Never a group, never a guess.
 - **A networking chat stays short and about what they said** (decision 176, `networkingReplyTask`,
   `networkingStand`): no question right after the owner asked one, a demo only when they ask about the business, and
   a wrap-up after they've written back twice that asks nothing: the call with the person's own calendar link, then
