@@ -426,6 +426,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'whether it checks people’s own Google or Outlook calendars, and adds bookings to them',
       'CRM: a lead for each booking, and the customer’s owner',
       'taking a deposit or the full price when they book, and which account it’s paid into',
+      'how its booking page looks on its own and on the business’s website: colours, font, corners, buttons, its name and logo at the top, or matched to the business’s website',
       'put back an earlier saved version',
     ],
     handovers: [CONNECT_CALENDAR],
@@ -449,6 +450,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'See a calendar’s booking page: press the calendar, then Preview booking page',
       'Copy one calendar’s booking link: Settings → Calendars, the copy icon beside it, or press the calendar and Copy under Booking link',
       'Put a calendar on the business’s own website: press the calendar, Embed under Booking link, list the site under Sites allowed to show it, then Copy the code and paste it on the site',
+      `Change how a calendar’s booking page looks (colours, font, corners, buttons), or match it to your website: ${ON_A_CALENDAR} Design, then Save`,
     ],
   },
   services: {

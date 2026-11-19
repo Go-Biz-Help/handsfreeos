@@ -7879,7 +7879,20 @@ How it works:
 - **The code** is an iframe of the calendar's booking link with `?embed=1`, and the line `/embed/v1/book.js`, which is the same script as a form's `/embed/v1/form.js`. The calendar needs a booking site first, since the code is built from its link.
 - **Only listed sites can show it.** A booking page's frame rule is `frame-ancestors 'self'` like every page of ours, except when it asks to be embedded and the site it's on (the request's Referer) is in the calendar's list (`apps/web/src/lib/booking/frame.ts`). The web asks the worker for the list (`GET /public/book/<site>/<calendar>/embed`) and keeps it a minute. The iframe sets its own `referrerpolicy`, so a site that hides its address from other sites still works.
 - **Leaving the page opens a new tab.** Payment pages and the customer's **Change or cancel** page can't be shown inside another site, so they open in a tab of their own. The deposit's payment page opens there by itself, or with a link when the browser blocks it, and the booking is confirmed in that tab once it's paid.
-- **It's always light,** whatever the visitor's device prefers, on the page's own light background, with the business's colour on the buttons.
+- **It's always light,** whatever the visitor's device prefers, on the page's own light background, with the business's colour on the buttons, until the calendar has a design of its own (below).
+
+**How it looks** is the calendar's **Design** section, the last one down its left (the owner, 2026-11-19: "a design feature similar to the form design"). It has the same choices as a form's Design tab (`docs/forms.md`, "How a form looks"): light or dark, each colour, the font and text size, corners, the boxes people type in, the buttons, and the calendar's name and logo at the top, with **Match my website** and a preview on a website or its own page, on a computer or a phone.
+
+1. Open **Settings** → **Calendars**, press the calendar, then **Design**.
+2. Pick the colours and the rest, or type the website under **Match my website** and click **Match**.
+3. Click **Save**.
+
+   You should see the new look on the booking page and on the website within a minute (the page's details are kept 30 seconds).
+
+- **It's part of the calendar's settings** (`config.design`, the same `FormDesign` a form keeps), so it goes live with **Save**, shows in **History** ("Design: the business’s colour → its own look") and **Restore** puts an older look back. No migration: the settings are one JSON column. Never designed (`null`) is the look every calendar had before, the business's colour and nothing else.
+- **On its own page** the whole page wears it, header included; the header already has the logo, so **Your logo, on your website** shows only in the embed. **On a website** it's see-through unless the design picks a background, like a form, so it sits on the site's own background.
+- **Match my website** for a calendar is `POST /v1/calendars/website-style` on the worker, which needs `calendars.manage` (a form's needs `forms.manage`); both read the site the same way (`apps/worker/src/http/website-style.ts`). The Assistant does it too, through `update_calendar_settings` `design.matchWebsite`, reading the site again when the change is confirmed.
+- **Spacing, where question words go and the widest it gets** are a form's alone; a calendar's layout is the booking page's own.
 
 **If it shows a blank box:** the site isn't listed, or is listed differently (`shop.acme.com` needs its own entry). Check from a terminal with `curl https://hooks.handsfreeos.com/public/book/<site>/<calendar>/embed` and read `embedOrigins`. In the browser's developer console on the client's site, an error that mentions `frame-ancestors` means the site the visitor is on isn't in that list. A private or archived calendar is shown nowhere. A change to the list can take a minute to reach the site.
 

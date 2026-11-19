@@ -213,6 +213,9 @@ words.
   form's light or dark. If it can't run, the form says so above the send button.
 - **A hidden name stays for screen readers.** With no logo, name or intro showing, the form starts at its first
   question.
+- **A calendar's booking page uses the same design** (its **Design** section, `config.design` in its settings, saved
+  with Save rather than Publish), drawn by the same `FormLookFrame`. Its buttons carry `data-form-action` like a
+  form's. "A calendar on the business's own website" in `docs/operations.md` says what differs.
 - **Site builders that wrap pasted code in a frame of their own** (GoDaddy's HTML section: an `srcdoc` frame sized
   once, when the page loads) get that frame grown with the form by `/embed/v1/form.js` too. The script also asks each
   form for its height when it starts, so a form that loaded first isn't left at the snippet's height.

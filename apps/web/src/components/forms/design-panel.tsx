@@ -37,7 +37,7 @@ export interface FormBrand {
 }
 
 /** What the worker hands back for Match my website (apps/worker/src/http/website-style.ts). */
-interface MatchedWebsite {
+export interface MatchedWebsite {
   readonly site: string;
   readonly design: Partial<FormDesignInput>;
   /** Said when the site's font isn't free and another stands in. */
@@ -85,7 +85,7 @@ const COLOURS: readonly {
 ];
 
 /** The colour each token comes out as now, for the swatch beside "Automatic". */
-const TOKEN: Record<keyof FormDesignColors, string> = {
+export const DESIGN_TOKEN: Record<keyof FormDesignColors, string> = {
   button: '--accent',
   buttonText: '--form-on-accent',
   background: '--bg',
@@ -165,7 +165,7 @@ export function FormDesignPanel({
               title={c.title}
               autoLabel={c.auto}
               value={design.colors[c.key]}
-              shownAuto={shownColour(shown[TOKEN[c.key]])}
+              shownAuto={shownColour(shown[DESIGN_TOKEN[c.key]])}
               onChange={(next) => setColour(c.key, next)}
               testId={`design-color-${c.key}`}
               hint={c.hint}
@@ -380,19 +380,26 @@ export function FormDesignPanel({
 
 /**
  * Match my website: the worker reads the site and hands back its button colour, words, font and corners, which land
- * in the draft as one edit, to check and change before publishing (and Undo takes it back).
+ * in the draft as one edit, to check and change before publishing (and Undo takes it back). A calendar's Design
+ * section uses it too, with its own route, and the match waits there for Save.
  */
-function MatchWebsite({
+export function MatchWebsite({
   workspaceId,
   suggested,
   matched,
   onMatched,
+  route = '/v1/forms/website-style',
+  then = 'Check it here, then publish.',
 }: {
   workspaceId: string;
   /** The first site the form may show on, or the business's website. */
   suggested: string;
   matched: FormDesign['matched'];
   onMatched: (m: MatchedWebsite) => void;
+  /** The worker route that reads the site (a calendar's needs calendars.manage, a form's forms.manage). */
+  route?: string;
+  /** What to do after, in the toast. */
+  then?: string;
 }) {
   const [site, setSite] = useState(matched?.site ? hostOf(matched.site) : hostOf(suggested));
   const [busy, setBusy] = useState(false);
@@ -402,12 +409,12 @@ function MatchWebsite({
     setBusy(true);
     setError(null);
     try {
-      const out = await workerPost<MatchedWebsite>('/v1/forms/website-style', {
+      const out = await workerPost<MatchedWebsite>(route, {
         workspaceId,
         ...(site.trim() ? { site: site.trim() } : {}),
       });
       onMatched(out);
-      toast.success(`Matched to ${hostOf(out.site)}. Check it here, then publish.`);
+      toast.success(`Matched to ${hostOf(out.site)}. ${then}`);
       if (out.fontNote) toast.message(out.fontNote);
     } catch (e) {
       setError(errorMessage(e));
@@ -500,10 +507,10 @@ function UseEverywhere({ onConfirm }: { onConfirm: () => Promise<void> }) {
 }
 
 /** A colour token's value as a swatch shows it: the hex, or white for one worked out by the browser. */
-const shownColour = (value: string | undefined): string =>
+export const shownColour = (value: string | undefined): string =>
   value && /^#[0-9a-f]{6}$/i.test(value) ? value : '#ffffff';
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+export function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Card className="space-y-4 p-4">
       <h3 className="text-[14px] font-medium text-text">{title}</h3>
@@ -512,7 +519,13 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function Labelled({ title, children }: { title: string; children: (id: string) => ReactNode }) {
+export function Labelled({
+  title,
+  children,
+}: {
+  title: string;
+  children: (id: string) => ReactNode;
+}) {
   const id = useId();
   return (
     <div>
@@ -525,7 +538,7 @@ function Labelled({ title, children }: { title: string; children: (id: string) =
 }
 
 /** A switch with its words beside it, the words pressable too. */
-function SwitchRow(props: {
+export function SwitchRow(props: {
   label: string;
   checked: boolean;
   onChange: (next: boolean) => void;
@@ -540,7 +553,7 @@ function SwitchRow(props: {
   );
 }
 
-function Choice<T extends string>({
+export function Choice<T extends string>({
   title,
   value,
   onChange,

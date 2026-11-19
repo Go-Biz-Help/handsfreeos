@@ -27,6 +27,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { FormLogoMark, useFormLook } from '@/components/forms/form-look';
 import { Button } from '@/components/ui/button';
 import { FieldError, Label } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
@@ -106,13 +107,17 @@ function StepHead({
   sub,
   onBack,
   className,
+  isName,
 }: {
   label?: string;
   title: string;
   sub?: ReactNode;
   onBack?: () => void;
   className?: string;
+  /** The heading is the calendar's name, which its design can hide (screen readers still hear it). */
+  isName?: boolean;
 }) {
+  const { showTitle } = useFormLook();
   return (
     <div className={cn('flex flex-col gap-0.5', className)}>
       <div className="flex min-h-6 items-center justify-between">
@@ -134,7 +139,14 @@ function StepHead({
           </button>
         ) : null}
       </div>
-      <h1 className="text-lg font-semibold tracking-[-0.005em]">{title}</h1>
+      <h1
+        className={cn(
+          'text-lg font-semibold tracking-[-0.005em]',
+          isName && !showTitle && 'sr-only',
+        )}
+      >
+        {title}
+      </h1>
       {sub ? <p className="text-[13px] text-text-2">{sub}</p> : null}
     </div>
   );
@@ -515,6 +527,8 @@ export function BookingFlow({
   linkRef?: string | null;
 }) {
   const info = page.booking!;
+  // The calendar's name at the top, unless its design hides it (screen readers still hear it).
+  const { showTitle } = useFormLook();
   // Times in the visitor's zone (their device's, or the one they changed it to), the owner's pick 4a.
   const [tz, setTz] = useViewerZone(page.timezone);
   const zoneLine = (
@@ -1030,7 +1044,12 @@ export function BookingFlow({
   if (step === 'choose') {
     content = (
       <>
-        <StepHead label={stepLabel} title={page.calendar.name} sub={page.calendar.description} />
+        <StepHead
+          label={stepLabel}
+          title={page.calendar.name}
+          sub={page.calendar.description}
+          isName
+        />
         {byAddress ? (
           <div>
             <Label htmlFor="bk-where">Your street address</Label>
@@ -1167,6 +1186,7 @@ export function BookingFlow({
           <Button
             size="lg"
             className="w-full"
+            data-form-action=""
             disabled={!zipCovered || (info.services.length > 0 && !service)}
             onClick={() => go('time')}
           >
@@ -1192,7 +1212,14 @@ export function BookingFlow({
               <span className="text-xs font-semibold uppercase tracking-[0.04em] text-text-3">
                 {stepLabel}
               </span>
-              <h1 className="text-lg font-semibold">{what}</h1>
+              <h1
+                className={cn(
+                  'text-lg font-semibold',
+                  what === page.calendar.name && !showTitle && 'sr-only',
+                )}
+              >
+                {what}
+              </h1>
               <span className="flex items-center gap-2 text-[13px] text-text-2">
                 <Clock size={15} aria-hidden />
                 {lengthLabel(duration)}
@@ -1240,7 +1267,12 @@ export function BookingFlow({
             }}
             onEmpty={() => setNoTimes(true)}
             footer={
-              <Button className="w-full" disabled={!slot} onClick={() => go('details')}>
+              <Button
+                className="w-full"
+                disabled={!slot}
+                onClick={() => go('details')}
+                data-form-action=""
+              >
                 {slot ? `Continue with ${timeOf(slot.startsAt, tz)}` : 'Continue'}
               </Button>
             }
@@ -1255,7 +1287,13 @@ export function BookingFlow({
               <span className="text-text-3">{lengthLabel(duration)}</span>
             </div>
           ) : null}
-          <Button size="lg" className="w-full" disabled={!slot} onClick={() => go('details')}>
+          <Button
+            size="lg"
+            className="w-full"
+            disabled={!slot}
+            onClick={() => go('details')}
+            data-form-action=""
+          >
             Continue
           </Button>
         </ActionBar>
@@ -1264,7 +1302,7 @@ export function BookingFlow({
   } else if (step === 'sessions') {
     content = (
       <>
-        <StepHead title={page.calendar.name} sub={page.calendar.description} />
+        <StepHead title={page.calendar.name} sub={page.calendar.description} isName />
         {maxParty > 1 ? <PartyStepper value={party} max={maxParty} onChange={setParty} /> : null}
         {rows.length ? (
           <div className="divide-y divide-border overflow-hidden rounded-card border border-border bg-card shadow-1">
@@ -1400,6 +1438,7 @@ export function BookingFlow({
             className="w-full"
             loading={submitting}
             disabled={botSiteKey !== null && !botToken}
+            data-form-action=""
           >
             Join the waitlist
           </Button>
@@ -1531,6 +1570,7 @@ export function BookingFlow({
             className="w-full"
             loading={submitting}
             disabled={!slot || (botSiteKey !== null && !botToken)}
+            data-form-action=""
           >
             {takesPayment ? 'Continue to payment' : `Book ${what}`}
           </Button>
@@ -1547,6 +1587,8 @@ export function BookingFlow({
       )}
       data-testid={`step-${step}`}
     >
+      {/* The business's logo, when the design shows it on a website (its own page has it in the header). */}
+      <FormLogoMark className="mb-0 self-start" />
       {content}
     </div>
   );

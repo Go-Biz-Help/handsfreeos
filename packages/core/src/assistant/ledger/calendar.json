@@ -1,7 +1,7 @@
 {
   "area": "calendar",
   "title": "Calendar, appointments, My calendar and booking links",
-  "checkedOn": "2026-11-18",
+  "checkedOn": "2026-11-19",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/calendar.tsx": "bf2926675f7a",
     "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx": "99f851115c11",
@@ -23,7 +23,7 @@
     "apps/web/src/app/app/w/[workspaceId]/settings/my-calendar/page.tsx": "c8b1891de1c2",
     "apps/web/src/components/booking/add-to-calendar.tsx": "b1fe85e88a23",
     "apps/web/src/components/booking/booked-panel.tsx": "ff76fb3f55d0",
-    "apps/web/src/components/booking/booking-flow.tsx": "b2f7a2b6f9a6",
+    "apps/web/src/components/booking/booking-flow.tsx": "488740f4e8bf",
     "apps/web/src/components/booking/business-page.tsx": "2638ffe26ea9",
     "apps/web/src/components/booking/chat-button.tsx": "2eb031ad5c0b",
     "apps/web/src/components/booking/deposit-pay.tsx": "2e65d379e63e",
@@ -31,7 +31,7 @@
     "apps/web/src/components/booking/hold-page.tsx": "03f38595271e",
     "apps/web/src/components/booking/join-session.tsx": "5106dc9cc988",
     "apps/web/src/components/booking/manage-booking.tsx": "8c2bab34c5e9",
-    "apps/web/src/components/booking/public-shell.tsx": "aad974c4e588",
+    "apps/web/src/components/booking/public-shell.tsx": "f984ec968255",
     "apps/web/src/components/booking/time-picker.tsx": "5f1a28eaa2f5",
     "apps/web/src/components/booking/turnstile.tsx": "71d6ad4df878",
     "apps/web/src/components/booking/viewer-zone.tsx": "f36a65de3bfa",
@@ -1851,6 +1851,13 @@
       "file": "apps/web/src/components/booking/webinar-door.tsx:107",
       "covered": "person",
       "by": "joining a call is the person’s"
+    },
+    {
+      "path": "Booking link → the page in the calendar’s design (colours, font, corners, buttons, its name and logo at the top), on its own and on a website",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:143",
+      "covered": "yes",
+      "by": "get_calendar_settings design"
     }
   ],
   "gaps": [

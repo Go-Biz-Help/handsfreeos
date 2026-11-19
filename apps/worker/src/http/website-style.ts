@@ -1,9 +1,10 @@
 /**
- * Match my website (a form's Design tab, core's forms/design.ts): reads a website's start page and its stylesheets,
- * as robots.txt lets HandsFreeOS, and hands back the design that matches it (look/style.ts). Nothing is kept here:
- * the editor puts it in the form's draft as an edit, to check and change before publishing.
+ * Match my website (a form's Design tab and a calendar's Design section, core's forms/design.ts): reads a website's
+ * start page and its stylesheets, as robots.txt lets HandsFreeOS, and hands back the design that matches it
+ * (look/style.ts). Nothing is kept here: the editor puts it in the form's draft (or the calendar's unsaved
+ * settings) as an edit, to check and change before publishing or saving.
  *
- * Signed in, with forms.manage in the business. The site is the one asked for, else the business's own website
+ * Signed in, with forms.manage in the business (calendars.manage for a calendar's). The site is the one asked for, else the business's own website
  * (Settings → Workspace). Every request goes through deps.fetchUrl: https only, never a private address.
  */
 import rateLimit from '@fastify/rate-limit';
@@ -61,6 +62,17 @@ export async function registerWebsiteStyleRoutes(
         return websiteDesign(deps, url);
       },
     );
+    scoped.post(
+      '/v1/calendars/website-style',
+      { config: { rateLimit: { max: 12, timeWindow: '1 minute' } } },
+      async (req) => {
+        const actor = await authenticate(deps, req);
+        const body = parseBody(Body, req.body);
+        await requirePermission(deps, actor.userId, body.workspaceId, 'calendars.manage');
+        const url = await siteToRead(deps, body.workspaceId, body.site);
+        return websiteDesign(deps, url, 'the calendar’s Design section');
+      },
+    );
   });
 }
 
@@ -71,7 +83,12 @@ type SiteReader = Pick<HttpDeps, 'fetchUrl' | 'log'>;
  * The design that matches a site, or why there is none: what Match my website fills in, and what the Assistant's
  * build_form puts in a draft when asked to match one. Nothing is kept here.
  */
-export async function websiteDesign(deps: SiteReader, url: string) {
+export async function websiteDesign(
+  deps: SiteReader,
+  url: string,
+  /** Where to pick them by hand instead, for the words. */
+  where = 'the form’s Design tab',
+) {
   const read = await readSite(deps, url);
   if (!read)
     throw HfosError.rule(
@@ -85,7 +102,7 @@ export async function websiteDesign(deps: SiteReader, url: string) {
     throw HfosError.rule(
       'website_style_unknown',
       422,
-      `We read ${hostOf(read.url)} but couldn’t tell its colours or font. Pick them on the form’s Design tab instead.`,
+      `We read ${hostOf(read.url)} but couldn’t tell its colours or font. Pick them on ${where} instead.`,
     );
   return { site: read.url, design: patch, fontNote, style };
 }

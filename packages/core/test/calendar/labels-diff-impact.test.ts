@@ -209,6 +209,23 @@ describe('diff', () => {
     ]);
   });
 
+  it('describes the booking page’s design, so a design change is a save of its own', () => {
+    const designed = applyPatch(personal, { design: { colors: { button: '#0f766e' } } });
+    expect(designed.design).toMatchObject({ colors: { button: '#0f766e' }, corners: 'slight' });
+    expect(diffConfigs(personal, designed, catalogs)).toEqual([
+      'Design: the business’s colour → its own look',
+    ]);
+    const rounder = applyPatch(designed, { design: { corners: 'round', font: 'Lora' } });
+    expect(diffConfigs(designed, rounder, catalogs)).toEqual(['Design: changed the font, corners']);
+    // A part the Design section doesn't offer still counts.
+    const roomy = applyPatch(rounder, { design: { spacing: 'roomy' } });
+    expect(diffConfigs(rounder, roomy, catalogs)).toEqual(['Design changed']);
+    // Back to the business's colour.
+    expect(diffConfigs(roomy, applyPatch(roomy, { design: null }), catalogs)).toEqual([
+      'Design: its own look → the business’s colour',
+    ]);
+  });
+
   it('works without catalogs', () => {
     const rr = applyPatch(personal, { team: { members: [{ userId: PRIYA }] } });
     expect(diffConfigs(personal, rr)).toEqual(['Added Someone', 'Removed Someone']);

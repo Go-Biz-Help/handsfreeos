@@ -1226,6 +1226,8 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
               id: calendar.id,
               name: calendar.name,
               description: calendar.description,
+              /** How the page looks (the builder's Design section); null: the business's colour, as before. */
+              design: calendar.config.design,
             },
             booking: open ? await bookingInfo(deps, tx, calendar, botCheck) : null,
           };
