@@ -25,7 +25,7 @@ import {
   networkingOf,
   partShown,
   PLAYBOOK_CHAT,
-  PlaybookChat,
+  type PlaybookChat,
   playbookSays,
   SCRIPT_BLANKS,
   SCRIPT_GROUPS,
