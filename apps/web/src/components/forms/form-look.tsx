@@ -102,7 +102,7 @@ export function FormSurface({
 }
 
 /** The business's logo above the form's heading, when the design shows it. */
-export function FormLogoMark() {
+export function FormLogoMark({ className = 'mb-4' }: { className?: string } = {}) {
   const { logo } = useFormLook();
   if (!logo) return null;
   // At most 48 high and 220 across, its shape kept.
@@ -114,7 +114,7 @@ export function FormLogoMark() {
       alt=""
       width={Math.round(logo.width * scale)}
       height={Math.round(logo.height * scale)}
-      className="mb-4"
+      className={className}
       data-testid="form-logo"
     />
   );

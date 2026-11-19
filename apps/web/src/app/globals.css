@@ -202,11 +202,19 @@
 .form-look .text-white {
   color: var(--form-on-accent, #ffffff);
 }
+.form-look .text-white\/85 {
+  color: color-mix(in oklab, var(--form-on-accent, #ffffff) 85%, transparent);
+}
 .form-look textarea {
   border-radius: min(var(--radius-control), 16px);
 }
 .form-look[data-button-width='auto'] [data-form-action] {
   flex: none;
+}
+/* A booking page's buttons are as wide as it (w-full) until its design says as wide as their words. */
+.form-look[data-button-width='auto'] [data-form-action].w-full {
+  width: auto;
+  align-self: flex-start;
 }
 .form-look[data-button='outline'] [data-form-action] {
   background: transparent;

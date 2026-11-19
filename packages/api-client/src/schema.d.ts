@@ -31577,6 +31577,83 @@ export interface operations {
                              */
                             ownership?: "assigned_staff" | "calendar_owner" | "none";
                         };
+                        /** @default null */
+                        design?: {
+                            /** @default {} */
+                            button?: {
+                                /** @default true */
+                                fullWidth?: boolean;
+                                /**
+                                 * @default filled
+                                 * @enum {string}
+                                 */
+                                style?: "filled" | "outline";
+                            };
+                            /** @default {} */
+                            colors?: {
+                                /** @default null */
+                                background?: string | null;
+                                /** @default null */
+                                button?: string | null;
+                                /** @default null */
+                                buttonText?: string | null;
+                                /** @default null */
+                                error?: string | null;
+                                /** @default null */
+                                field?: string | null;
+                                /** @default null */
+                                fieldBorder?: string | null;
+                                /** @default null */
+                                text?: string | null;
+                            };
+                            /**
+                             * @default slight
+                             * @enum {string}
+                             */
+                            corners?: "square" | "slight" | "round";
+                            /**
+                             * @default boxed
+                             * @enum {string}
+                             */
+                            fields?: "boxed" | "filled" | "underline";
+                            /** @default null */
+                            font?: string | null;
+                            /**
+                             * @default above
+                             * @enum {string}
+                             */
+                            labels?: "above" | "inside";
+                            /** @default null */
+                            matched?: {
+                                /** Format: date-time */
+                                at: string;
+                                site: string;
+                            } | null;
+                            /**
+                             * @default light
+                             * @enum {string}
+                             */
+                            scheme?: "light" | "dark";
+                            /** @default false */
+                            showLogo?: boolean;
+                            /** @default true */
+                            showTitle?: boolean;
+                            /**
+                             * @default normal
+                             * @enum {string}
+                             */
+                            spacing?: "compact" | "normal" | "roomy";
+                            /**
+                             * @default medium
+                             * @enum {string}
+                             */
+                            textSize?: "small" | "medium" | "large";
+                            /**
+                             * @default medium
+                             * @enum {string}
+                             */
+                            width?: "narrow" | "medium" | "wide" | "full";
+                        } | null;
                         /** @default {} */
                         durations?: {
                             /** @default false */
@@ -77134,6 +77211,81 @@ export interface operations {
                                      */
                                     ownership: "assigned_staff" | "calendar_owner" | "none";
                                 };
+                                /** @default null */
+                                design: {
+                                    button: {
+                                        /** @default true */
+                                        fullWidth: boolean;
+                                        /**
+                                         * @default filled
+                                         * @enum {string}
+                                         */
+                                        style: "filled" | "outline";
+                                    };
+                                    colors: {
+                                        /** @default null */
+                                        background: string | null;
+                                        /** @default null */
+                                        button: string | null;
+                                        /** @default null */
+                                        buttonText: string | null;
+                                        /** @default null */
+                                        error: string | null;
+                                        /** @default null */
+                                        field: string | null;
+                                        /** @default null */
+                                        fieldBorder: string | null;
+                                        /** @default null */
+                                        text: string | null;
+                                    };
+                                    /**
+                                     * @default slight
+                                     * @enum {string}
+                                     */
+                                    corners: "square" | "slight" | "round";
+                                    /**
+                                     * @default boxed
+                                     * @enum {string}
+                                     */
+                                    fields: "boxed" | "filled" | "underline";
+                                    /** @default null */
+                                    font: string | null;
+                                    /**
+                                     * @default above
+                                     * @enum {string}
+                                     */
+                                    labels: "above" | "inside";
+                                    /** @default null */
+                                    matched: {
+                                        /** Format: date-time */
+                                        at: string;
+                                        site: string;
+                                    } | null;
+                                    /**
+                                     * @default light
+                                     * @enum {string}
+                                     */
+                                    scheme: "light" | "dark";
+                                    /** @default false */
+                                    showLogo: boolean;
+                                    /** @default true */
+                                    showTitle: boolean;
+                                    /**
+                                     * @default normal
+                                     * @enum {string}
+                                     */
+                                    spacing: "compact" | "normal" | "roomy";
+                                    /**
+                                     * @default medium
+                                     * @enum {string}
+                                     */
+                                    textSize: "small" | "medium" | "large";
+                                    /**
+                                     * @default medium
+                                     * @enum {string}
+                                     */
+                                    width: "narrow" | "medium" | "wide" | "full";
+                                } | null;
                                 durations: {
                                     /** @default false */
                                     customerChooses: boolean;

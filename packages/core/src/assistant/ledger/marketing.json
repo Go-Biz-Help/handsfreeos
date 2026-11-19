@@ -1,7 +1,7 @@
 {
   "area": "marketing",
   "title": "Campaigns, Reviews, Forms, surveys, quizzes and website chats",
-  "checkedOn": "2026-11-18",
+  "checkedOn": "2026-11-19",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/forms.tsx": "ec0ccb8ac910",
     "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/answers/[responseId].tsx": "ee23933f5989",
@@ -33,12 +33,12 @@
     "apps/web/src/components/crm/tag-picker.tsx": "74b0055a510a",
     "apps/web/src/components/forms/booking-picker.tsx": "0b81d8526d1a",
     "apps/web/src/components/forms/chips.tsx": "9f46c43f3308",
-    "apps/web/src/components/forms/design-panel.tsx": "b04ed6cce50a",
+    "apps/web/src/components/forms/design-panel.tsx": "d43d1c96a7f3",
     "apps/web/src/components/forms/editor-state.ts": "f0f625bca14e",
     "apps/web/src/components/forms/editor.tsx": "1a53390c2def",
     "apps/web/src/components/forms/embed-height.tsx": "bafe88e2662d",
     "apps/web/src/components/forms/form-list.tsx": "56e0517bcfd4",
-    "apps/web/src/components/forms/form-look.tsx": "8a4ddcb9710d",
+    "apps/web/src/components/forms/form-look.tsx": "228d675dd64c",
     "apps/web/src/components/forms/name-header.tsx": "490c11e1f3ab",
     "apps/web/src/components/forms/new-form-button.tsx": "f2b28d487f05",
     "apps/web/src/components/forms/new-form.tsx": "ce355379405f",

@@ -7,6 +7,7 @@
  */
 import { z } from 'zod';
 import { AssignmentMode, IntakeKind, LocationKind, VideoProvider } from '../calendar/config';
+import { FORM_CORNERS, FORM_FIELD_STYLES, FORM_FONTS, FORM_TEXT_SIZES } from '../forms/design';
 import { POLL_AI_MODES } from '../meetings/polls';
 import { timezone, uuid } from '../schemas/common';
 import { JOB_SET_STATUSES } from '../schemas/job';
@@ -24,6 +25,15 @@ import {
 
 const notesText = z.string().trim().max(5000);
 const onOff = z.boolean().optional();
+/** A colour on the booking page's design: #rrggbb, or null for automatic. */
+const designColour = (what: string) =>
+  z
+    .string()
+    .trim()
+    .regex(/^#[0-9a-fA-F]{6}$/, { error: 'Use a colour like #2d69d8.' })
+    .nullable()
+    .optional()
+    .describe(`${what}, like #2d69d8; null for automatic`);
 /** Where something happens, as the model says it: the kind of place, and its address or link. */
 export const Place = z.object({
   kind: LocationKind.describe(
@@ -86,7 +96,7 @@ export const schedulingTools: readonly AssistantTool[] = [
   define({
     name: 'get_calendar_settings',
     description:
-      'One calendar’s settings as they are now, in the words manage_calendar and update_calendar_settings take: its link, the code to put it on the business’s own website and the sites allowed to show it, who works it and how a booking picks a person, services and lengths, hours, seats, places and video, resources, buffers and travel, the booking window, routing by ZIP code, repeats, the waitlist, intake questions, cancel and reschedule rules, confirmations and reminders, calendar connections, CRM, payments, how it works in plain words, what needs fixing (with the fixes offered), and its saved versions (to restore one). Call it before proposing a change to a calendar. Calendar ids are in the context and in get_settings (calendars).',
+      'One calendar’s settings as they are now, in the words manage_calendar and update_calendar_settings take: its link, the code to put it on the business’s own website and the sites allowed to show it, who works it and how a booking picks a person, services and lengths, hours, seats, places and video, resources, buffers and travel, the booking window, routing by ZIP code, repeats, the waitlist, intake questions, cancel and reschedule rules, confirmations and reminders, calendar connections, CRM, payments, how its booking page looks (design), how it works in plain words, what needs fixing (with the fixes offered), and its saved versions (to restore one). Call it before proposing a change to a calendar. Calendar ids are in the context and in get_settings (calendars).',
     input: z.object({ calendarId: uuid }),
     autonomy: 'auto',
     permission: 'workspace.read',
@@ -235,7 +245,7 @@ export const schedulingTools: readonly AssistantTool[] = [
   define({
     name: 'update_calendar_settings',
     description:
-      'Change the parts of a calendar manage_calendar doesn’t: how a booking picks a person, people per booking, each person’s weight, order and Must go; whether it books services and each service’s own video link; its lengths and start times; open hours or fixed sessions; seats per time; the places it happens and their video links; a webinar’s settings; routing by ZIP code and which territories; repeat visits; the waitlist; intake questions; the cancel and reschedule rules; the confirmation and reminders customers get; checking and adding to people’s own calendars; CRM (a lead for each booking, the customer’s owner) and taking payment when they book. Or apply one of the fixes Things to check offers, or restore an earlier saved version. Read it with get_calendar_settings first and pass only what changes; lists (people, places, questions, reminders, territories) replace the whole list. The card shows each change as before → after. Territory ids from get_settings (territories), pipelines and stages from get_settings (pipelines), payment accounts from get_settings (payments), live polls from list_forms (mode poll).',
+      'Change the parts of a calendar manage_calendar doesn’t: how a booking picks a person, people per booking, each person’s weight, order and Must go; whether it books services and each service’s own video link; its lengths and start times; open hours or fixed sessions; seats per time; the places it happens and their video links; a webinar’s settings; routing by ZIP code and which territories; repeat visits; the waitlist; intake questions; the cancel and reschedule rules; the confirmation and reminders customers get; checking and adding to people’s own calendars; CRM (a lead for each booking, the customer’s owner); taking payment when they book; and how its booking page looks (the Design section: colours, font, corners, buttons, its name and logo at the top, or matched to a website). Or apply one of the fixes Things to check offers, or restore an earlier saved version. Read it with get_calendar_settings first and pass only what changes; lists (people, places, questions, reminders, territories) replace the whole list. The card shows each change as before → after. Territory ids from get_settings (territories), pipelines and stages from get_settings (pipelines), payment accounts from get_settings (payments), live polls from list_forms (mode poll).',
     input: z.object({
       calendarId: uuid,
       action: z
@@ -524,6 +534,61 @@ export const schedulingTools: readonly AssistantTool[] = [
             .describe('The account it’s paid into; null for the business’s own'),
         })
         .optional(),
+      design: z
+        .object({
+          reset: z
+            .boolean()
+            .optional()
+            .describe(
+              'true: back to the business’s own colour and HandsFreeOS’s look (Start over from your colour)',
+            ),
+          matchWebsite: z
+            .string()
+            .trim()
+            .min(3)
+            .max(300)
+            .optional()
+            .describe(
+              'A website’s address, like acme.com: copy its button colour, words, font and corners (Match my website). Anything else given here goes on top',
+            ),
+          scheme: z.enum(['light', 'dark']).optional(),
+          buttonColor: designColour(
+            'Buttons, and the day and time picked (automatic: the business’s colour)',
+          ),
+          buttonTextColor: designColour('Words on buttons'),
+          backgroundColor: designColour(
+            'Background (automatic: white, and see-through on the business’s website)',
+          ),
+          textColor: designColour('Words'),
+          boxColor: designColour('Inside the open times and the boxes people type in'),
+          boxOutlineColor: designColour('Box outlines'),
+          mistakeColor: designColour('What a customer needs to fix'),
+          font: z
+            .string()
+            .trim()
+            .max(60)
+            .nullable()
+            .optional()
+            .describe(
+              `A Google font; null for HandsFreeOS’s own. Offered: ${FORM_FONTS.map((f) => f.name).join(', ')}`,
+            ),
+          textSize: z.enum(FORM_TEXT_SIZES).optional(),
+          corners: z.enum(FORM_CORNERS).optional(),
+          boxes: z
+            .enum(FORM_FIELD_STYLES)
+            .optional()
+            .describe('The boxes people type in: boxed (outlined), filled or underline'),
+          buttonStyle: z.enum(['filled', 'outline']).optional(),
+          buttonsFullWidth: onOff.describe('As wide as the page, or as wide as their words'),
+          showName: onOff.describe('The calendar’s name at the top'),
+          showLogo: onOff.describe(
+            'The business’s logo at the top, on its website (its own page has it in the header)',
+          ),
+        })
+        .optional()
+        .describe(
+          'How its booking page looks, on its own and on the business’s website (the Design section)',
+        ),
       upcomingVisits: UpcomingVisits,
     }),
     autonomy: 'confirm',

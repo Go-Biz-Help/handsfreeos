@@ -14183,6 +14183,201 @@
                             }
                           }
                         }
+                      },
+                      "design": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "scheme": {
+                                "default": "light",
+                                "type": "string",
+                                "enum": [
+                                  "light",
+                                  "dark"
+                                ]
+                              },
+                              "colors": {
+                                "default": {},
+                                "type": "object",
+                                "properties": {
+                                  "button": {
+                                    "default": null,
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "buttonText": {
+                                    "default": null,
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "background": {
+                                    "default": null,
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "text": {
+                                    "default": null,
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "field": {
+                                    "default": null,
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "fieldBorder": {
+                                    "default": null,
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "error": {
+                                    "default": null,
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                }
+                              },
+                              "font": {
+                                "default": null,
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 60,
+                                    "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9]| (?! ))*[A-Za-z0-9]$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "textSize": {
+                                "default": "medium",
+                                "type": "string",
+                                "enum": [
+                                  "small",
+                                  "medium",
+                                  "large"
+                                ]
+                              },
+                              "corners": {
+                                "default": "slight",
+                                "type": "string",
+                                "enum": [
+                                  "square",
+                                  "slight",
+                                  "round"
+                                ]
+                              },
+                              "fields": {
+                                "default": "boxed",
+                                "type": "string",
+                                "enum": [
+                                  "boxed",
+                                  "filled",
+                                  "underline"
+                                ]
+                              },
+                              "button": {
+                                "default": {},
+                                "type": "object",
+                                "properties": {
+                                  "style": {
+                                    "default": "filled",
+                                    "type": "string",
+                                    "enum": [
+                                      "filled",
+                                      "outline"
+                                    ]
+                                  },
+                                  "fullWidth": {
+                                    "default": true,
+                                    "type": "boolean"
+                                  }
+                                }
+                              },
+                              "spacing": {
+                                "default": "normal",
+                                "type": "string",
+                                "enum": [
+                                  "compact",
+                                  "normal",
+                                  "roomy"
+                                ]
+                              },
+                              "labels": {
+                                "default": "above",
+                                "type": "string",
+                                "enum": [
+                                  "above",
+                                  "inside"
+                                ]
+                              },
+                              "width": {
+                                "default": "medium",
+                                "type": "string",
+                                "enum": [
+                                  "narrow",
+                                  "medium",
+                                  "wide",
+                                  "full"
+                                ]
+                              },
+                              "showLogo": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "showTitle": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "matched": {
+                                "default": null,
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "site": {
+                                        "type": "string",
+                                        "maxLength": 300
+                                      },
+                                      "at": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                      }
+                                    },
+                                    "required": [
+                                      "site",
+                                      "at"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
                     "required": [
@@ -166856,6 +167051,231 @@
                                 "workflowIds"
                               ],
                               "additionalProperties": false
+                            },
+                            "design": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "scheme": {
+                                      "default": "light",
+                                      "type": "string",
+                                      "enum": [
+                                        "light",
+                                        "dark"
+                                      ]
+                                    },
+                                    "colors": {
+                                      "type": "object",
+                                      "properties": {
+                                        "button": {
+                                          "default": null,
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ]
+                                        },
+                                        "buttonText": {
+                                          "default": null,
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ]
+                                        },
+                                        "background": {
+                                          "default": null,
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ]
+                                        },
+                                        "text": {
+                                          "default": null,
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ]
+                                        },
+                                        "field": {
+                                          "default": null,
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ]
+                                        },
+                                        "fieldBorder": {
+                                          "default": null,
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ]
+                                        },
+                                        "error": {
+                                          "default": null,
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "button",
+                                        "buttonText",
+                                        "background",
+                                        "text",
+                                        "field",
+                                        "fieldBorder",
+                                        "error"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "font": {
+                                      "default": null,
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 60,
+                                          "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9]| (?! ))*[A-Za-z0-9]$"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "textSize": {
+                                      "default": "medium",
+                                      "type": "string",
+                                      "enum": [
+                                        "small",
+                                        "medium",
+                                        "large"
+                                      ]
+                                    },
+                                    "corners": {
+                                      "default": "slight",
+                                      "type": "string",
+                                      "enum": [
+                                        "square",
+                                        "slight",
+                                        "round"
+                                      ]
+                                    },
+                                    "fields": {
+                                      "default": "boxed",
+                                      "type": "string",
+                                      "enum": [
+                                        "boxed",
+                                        "filled",
+                                        "underline"
+                                      ]
+                                    },
+                                    "button": {
+                                      "type": "object",
+                                      "properties": {
+                                        "style": {
+                                          "default": "filled",
+                                          "type": "string",
+                                          "enum": [
+                                            "filled",
+                                            "outline"
+                                          ]
+                                        },
+                                        "fullWidth": {
+                                          "default": true,
+                                          "type": "boolean"
+                                        }
+                                      },
+                                      "required": [
+                                        "style",
+                                        "fullWidth"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "spacing": {
+                                      "default": "normal",
+                                      "type": "string",
+                                      "enum": [
+                                        "compact",
+                                        "normal",
+                                        "roomy"
+                                      ]
+                                    },
+                                    "labels": {
+                                      "default": "above",
+                                      "type": "string",
+                                      "enum": [
+                                        "above",
+                                        "inside"
+                                      ]
+                                    },
+                                    "width": {
+                                      "default": "medium",
+                                      "type": "string",
+                                      "enum": [
+                                        "narrow",
+                                        "medium",
+                                        "wide",
+                                        "full"
+                                      ]
+                                    },
+                                    "showLogo": {
+                                      "default": false,
+                                      "type": "boolean"
+                                    },
+                                    "showTitle": {
+                                      "default": true,
+                                      "type": "boolean"
+                                    },
+                                    "matched": {
+                                      "default": null,
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "site": {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            "at": {
+                                              "type": "string",
+                                              "format": "date-time",
+                                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                            }
+                                          },
+                                          "required": [
+                                            "site",
+                                            "at"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "scheme",
+                                    "colors",
+                                    "font",
+                                    "textSize",
+                                    "corners",
+                                    "fields",
+                                    "button",
+                                    "spacing",
+                                    "labels",
+                                    "width",
+                                    "showLogo",
+                                    "showTitle",
+                                    "matched"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -166879,7 +167299,8 @@
                             "integrations",
                             "crm",
                             "payments",
-                            "automations"
+                            "automations",
+                            "design"
                           ],
                           "additionalProperties": false
                         },

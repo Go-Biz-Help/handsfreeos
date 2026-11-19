@@ -5,7 +5,7 @@
  * production so a busy page doesn't spend the worker's per-address limits. Open times, bookings and the
  * change-or-cancel page are asked from the customer's own browser, so those limits count per customer.
  */
-import type { BusinessPageParts, PollOnScreen } from '@hfos/core';
+import type { BusinessPageParts, FormDesign, PollOnScreen } from '@hfos/core';
 import { notFound } from 'next/navigation';
 import { publicEnv } from '../env';
 import { ApiError } from './errors';
@@ -158,6 +158,8 @@ export interface PublicCalendarPage {
     readonly id: string;
     readonly name: string;
     readonly description: string | null;
+    /** How the page looks (the calendar's Design section); null: the business's colour, as before. */
+    readonly design: FormDesign | null;
   };
   readonly booking: BookingInfo | null;
 }

@@ -35,6 +35,22 @@ const OWNERSHIP = {
 } as const;
 const PAYMENTS = { none: 'none', deposit: 'deposit', full: 'full payment' } as const;
 
+/** The parts of a booking page's design, as the Design section names them. */
+const DESIGN_PARTS: readonly (readonly [keyof NonNullable<CalendarConfig['design']>, string])[] = [
+  ['scheme', 'light or dark'],
+  ['colors', 'colours'],
+  ['font', 'font'],
+  ['textSize', 'text size'],
+  ['corners', 'corners'],
+  ['fields', 'boxes'],
+  ['button', 'button'],
+  ['showLogo', 'logo'],
+  ['showTitle', 'name at the top'],
+  ['matched', 'matched website'],
+];
+const look = (d: CalendarConfig['design']) =>
+  !d ? 'the business’s colour' : d.matched ? `matches ${d.matched.site}` : 'its own look';
+
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const onOff = (v: boolean) => (v ? 'on' : 'off');
 const minutesOrNone = (v: number) => (v === 0 ? 'none' : formatDuration(v));
@@ -275,5 +291,15 @@ export function diffConfigs(a: CalendarConfig, b: CalendarConfig, catalogs?: Nam
     !same(a.automations.workflowIds, b.automations.workflowIds)
   )
     lines.push('Workflows changed');
+
+  // Design
+  const [da, db] = [a.design, b.design];
+  if (!da || !db) change('Design', da, db, look);
+  else {
+    const parts = DESIGN_PARTS.filter(([k]) => !same(da[k], db[k])).map(([, name]) => name);
+    // The parts it doesn't offer (spacing, labels, width) still count, so a save is never lost.
+    if (parts.length) lines.push(`Design: changed the ${parts.join(', ')}`);
+    else if (!same(da, db)) lines.push('Design changed');
+  }
   return lines;
 }

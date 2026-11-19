@@ -1,9 +1,9 @@
 {
   "area": "settings-calendars",
   "title": "Settings: calendars, services, resources, territories and the booking site",
-  "checkedOn": "2026-11-18",
+  "checkedOn": "2026-11-19",
   "files": {
-    "apps/web/src/app/app/w/[workspaceId]/settings/calendars/[calendarId]/page.tsx": "934a5a7804cf",
+    "apps/web/src/app/app/w/[workspaceId]/settings/calendars/[calendarId]/page.tsx": "84acabfce33c",
     "apps/web/src/app/app/w/[workspaceId]/settings/calendars/booking-site/page.tsx": "616f1f3e4d68",
     "apps/web/src/app/app/w/[workspaceId]/settings/calendars/new/page.tsx": "1b37fdd5533a",
     "apps/web/src/app/app/w/[workspaceId]/settings/calendars/page.tsx": "8092237794c5",
@@ -14,13 +14,14 @@
     "apps/web/src/components/calendars/address-input.tsx": "9a72d8346951",
     "apps/web/src/components/calendars/area-map.tsx": "e71af06c083d",
     "apps/web/src/components/calendars/booking-site-form.tsx": "f9c406f07de7",
-    "apps/web/src/components/calendars/builder.tsx": "097539cfb039",
+    "apps/web/src/components/calendars/builder.tsx": "1b65e21d8508",
     "apps/web/src/components/calendars/calendars-list.tsx": "8897d35761c2",
     "apps/web/src/components/calendars/chips.tsx": "e12df0c43d2b",
+    "apps/web/src/components/calendars/design-module.tsx": "ca405a334a21",
     "apps/web/src/components/calendars/embed-dialog.tsx": "be51af03b53d",
     "apps/web/src/components/calendars/history-sheet.tsx": "84f5900a0942",
     "apps/web/src/components/calendars/impact-dialog.tsx": "a4f8fffc6f1b",
-    "apps/web/src/components/calendars/modules.tsx": "72343ad75fd3",
+    "apps/web/src/components/calendars/modules.tsx": "ed0a2228872a",
     "apps/web/src/components/calendars/preset-picker.tsx": "d94ea6b44ddb",
     "apps/web/src/components/calendars/resources-page.tsx": "2be3dc659304",
     "apps/web/src/components/calendars/services-page.tsx": "b24ab458a23f",
@@ -1936,6 +1937,76 @@
       "file": "apps/web/src/app/app/w/[workspaceId]/settings/calendars/booking-site/page.tsx:36",
       "covered": "yes",
       "by": "manage_web_address add/remove; get_settings branded_domain"
+    },
+    {
+      "path": "Calendar → Design → Match my website: site, Match, Matched to X on date, its error",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/design-module.tsx:110",
+      "covered": "yes",
+      "by": "update_calendar_settings design.matchWebsite (read again on Confirm)"
+    },
+    {
+      "path": "Calendar → Design → Colours: Light or Dark",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/design-module.tsx:120",
+      "covered": "yes",
+      "by": "update_calendar_settings design.scheme"
+    },
+    {
+      "path": "Calendar → Design → Colours: Buttons, Words on buttons, Background, Words, Inside the boxes, Box outlines, Mistakes (Automatic or pick)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/design-module.tsx:128",
+      "covered": "yes",
+      "by": "update_calendar_settings design.buttonColor … mistakeColor (null = automatic)"
+    },
+    {
+      "path": "Calendar → Design → Font, Text size",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/design-module.tsx:143",
+      "covered": "yes",
+      "by": "update_calendar_settings design.font, textSize"
+    },
+    {
+      "path": "Calendar → Design → Shape: Corners, Boxes people type in",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/design-module.tsx:176",
+      "covered": "yes",
+      "by": "update_calendar_settings design.corners, boxes"
+    },
+    {
+      "path": "Calendar → Design → Buttons: Style, As wide as the page",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/design-module.tsx:201",
+      "covered": "yes",
+      "by": "update_calendar_settings design.buttonStyle, buttonsFullWidth"
+    },
+    {
+      "path": "Calendar → Design → At the top: The calendar’s name, Your logo on your website (add a logo first)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/design-module.tsx:220",
+      "covered": "yes",
+      "by": "update_calendar_settings design.showName, showLogo; adding a logo is Settings → Workspace (settings_help)"
+    },
+    {
+      "path": "Calendar → Design → Start over from your colour",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/design-module.tsx:244",
+      "covered": "yes",
+      "by": "update_calendar_settings design.reset"
+    },
+    {
+      "path": "Calendar → Design → the design as set now",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/design-module.tsx:89",
+      "covered": "yes",
+      "by": "get_calendar_settings design"
+    },
+    {
+      "path": "Calendar → Design → preview: On your website / On its own page, Computer / Phone",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/design-module.tsx:255",
+      "covered": "no",
+      "by": "a picture only; nothing shows it"
     }
   ],
   "gaps": [

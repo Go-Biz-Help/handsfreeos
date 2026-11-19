@@ -5,6 +5,7 @@ import { BookingFlow } from '@/components/booking/booking-flow';
 import { EmbeddedBooking } from '@/components/booking/embedded';
 import { BookingOff, Byline, PublicFrame } from '@/components/booking/public-shell';
 import { EmbedHeight } from '@/components/forms/embed-height';
+import { FormLookFrame } from '@/components/forms/form-look';
 import { getCalendarPage, getSite, pageData } from '@/lib/api/public-booking';
 import { requestOrigin } from '@/lib/hosting/request-origin';
 import { brandLook } from '@/lib/look';
@@ -30,6 +31,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * and no full-height page, it says how tall it is so /embed/v1/book.js fits the box to it, and it's always light, as
  * a form on a website is. Only the sites the calendar lists may show it (lib/booking/frame.ts). Without it, the page
  * sits under the business's name and phone.
+ *
+ * A calendar with a design (its Design section, the same choices as a form's Design tab) wears it on both: the whole
+ * page on its own, and the box on a website, see-through there unless the design picks a background. Without one,
+ * the business's colour, as before.
  */
 export default async function CalendarBookingPage({ params, searchParams }: Props) {
   const { site, calendar } = await params;
@@ -63,13 +68,57 @@ export default async function CalendarBookingPage({ params, searchParams }: Prop
         linkRef={ref}
       />
     );
-  if (!embedded)
-    return (
-      <PublicFrame business={siteData?.business ?? page.business} footer={<Byline />}>
+  const design = page.calendar.design;
+  const businessColor = page.business.look?.color ?? null;
+  if (!embedded) {
+    const frame = (
+      <PublicFrame
+        business={siteData?.business ?? page.business}
+        footer={<Byline />}
+        designed={!!design}
+      >
         {content}
       </PublicFrame>
     );
+    // The header has the logo already, so the design's own logo isn't shown again here.
+    return design ? (
+      <FormLookFrame design={design} businessColor={businessColor}>
+        {frame}
+      </FormLookFrame>
+    ) : (
+      frame
+    );
+  }
   const look = brandLook(page.business.look?.color);
+  const box = design ? (
+    <FormLookFrame
+      design={design}
+      businessColor={businessColor}
+      logo={page.business.look?.logo ?? null}
+      embedded
+    >
+      <div
+        className="flex flex-col rounded-card bg-[var(--form-surface)] text-text"
+        data-testid="booking-embed"
+      >
+        {content}
+        <footer className="px-4 pb-4 pt-1">
+          <Byline />
+        </footer>
+      </div>
+    </FormLookFrame>
+  ) : (
+    <div
+      className={cn('flex flex-col rounded-card bg-bg text-text', look.className)}
+      style={look.style}
+      data-testid="booking-embed"
+    >
+      {content}
+      <footer className="px-4 pb-4 pt-1">
+        <Byline />
+      </footer>
+    </div>
+  );
   return (
     <>
       {/* Light whatever the visitor's device prefers: a frame in another colour scheme than the site around it gets
@@ -81,18 +130,7 @@ export default async function CalendarBookingPage({ params, searchParams }: Prop
       />
       <style>{'html,body{background:transparent!important;color-scheme:light!important}'}</style>
       <EmbeddedBooking>
-        <EmbedHeight>
-          <div
-            className={cn('flex flex-col rounded-card bg-bg text-text', look.className)}
-            style={look.style}
-            data-testid="booking-embed"
-          >
-            {content}
-            <footer className="px-4 pb-4 pt-1">
-              <Byline />
-            </footer>
-          </div>
-        </EmbedHeight>
+        <EmbedHeight>{box}</EmbedHeight>
       </EmbeddedBooking>
     </>
   );

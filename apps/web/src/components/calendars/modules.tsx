@@ -44,12 +44,14 @@ import { Segmented } from '@/components/ui/segmented';
 import { Stepper } from '@/components/ui/stepper';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import type { FormBrand } from '@/components/forms/design-panel';
 import { CalendarAutomations } from '@/components/workflows/calendar-automations';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { Ok, Pipeline, ResourceItem, ServiceItem, TerritoryItem } from '@/lib/api/types';
 import { teamSentence, type ModuleKey } from '@/lib/calendar/describe';
 import { dateOf, fmtAt, fmtLength, fmtWhen, TIME_OPTIONS } from '@/lib/calendar/time';
 import { useLiveVersion } from '@/lib/realtime/live-provider';
+import { CalendarDesignModule } from './design-module';
 import { WeeklyHoursEditor } from './weekly-hours';
 
 export interface BuilderPerson {
@@ -91,6 +93,8 @@ export interface ModuleProps {
   readonly calendarName?: string;
   /** Settings → Payments, for the Payments module. */
   readonly payments?: BuilderPayments;
+  /** The business's colour, logo and website, which the Design section starts from. */
+  readonly brand?: FormBrand;
 }
 
 const WEEKDAYS_9_TO_5: WeeklyHours = [1, 2, 3, 4, 5].map((day) => ({
@@ -2381,6 +2385,16 @@ export function ModuleForm(props: ModuleProps & { module: ModuleKey }) {
         />
       ) : (
         <SoonModule title="Automations" what="Workflows that run when bookings happen." />
+      );
+    case 'design':
+      return (
+        <CalendarDesignModule
+          workspaceId={props.workspaceId}
+          draft={props.draft}
+          patch={props.patch}
+          brand={props.brand ?? { color: null, logo: null }}
+          calendarName={props.calendarName ?? 'Your calendar'}
+        />
       );
   }
 }

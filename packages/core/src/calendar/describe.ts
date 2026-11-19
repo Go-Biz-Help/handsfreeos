@@ -30,6 +30,7 @@ export const CALENDAR_SECTIONS = [
   { key: 'crm', name: 'CRM' },
   { key: 'payments', name: 'Payments' },
   { key: 'automations', name: 'Automations' },
+  { key: 'design', name: 'Design' },
 ] as const;
 export type CalendarSectionKey = (typeof CALENDAR_SECTIONS)[number]['key'];
 
@@ -55,6 +56,7 @@ const FIELD_MODULE: Record<string, CalendarSectionKey> = {
   crm: 'crm',
   payments: 'payments',
   automations: 'automations',
+  design: 'design',
 };
 
 export function moduleOfField(field: string): CalendarSectionKey | null {
@@ -362,5 +364,11 @@ export function moduleSummary(
     }
     case 'automations':
       return 'Workflows for its appointments';
+    case 'design': {
+      const d = config.design;
+      if (!d) return 'Your business’s colour';
+      if (d.matched) return `Matches ${d.matched.site}`;
+      return 'Your own look';
+    }
   }
 }
