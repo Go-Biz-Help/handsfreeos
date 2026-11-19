@@ -1,5 +1,10 @@
 import type { PlaybookGoal } from '@hfos/core/addons/outreach/playbooks';
 import {
+  CHAT_DEMO,
+  CHAT_QUESTIONS,
+  CHAT_STORY,
+  CHAT_WRAP_AFTER,
+  chatOf,
   LOCKED_RULES,
   NETWORKING_KEYS,
   NETWORKING_ON,
@@ -7,6 +12,7 @@ import {
   opensWithIntro,
   partChanged,
   partShown,
+  PLAYBOOK_CHAT,
   PLAYBOOK_NETWORKING,
   PLAYBOOK_OPENS,
   PLAYBOOK_OPENS_KEYS,
@@ -22,6 +28,7 @@ import {
   typedPart,
   withFirsts,
   withPart,
+  type PlaybookChat,
   type PlaybookNetworking,
   type PlaybookOpens,
   type PlaybookScript,
@@ -37,6 +44,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
+import { Segmented } from '@/components/ui/segmented';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 
@@ -53,23 +61,37 @@ import { Note } from './kit';
 /**
  * What it says, read: how the first message goes, then every part with its words, the first message's versions numbered
  * when there are more. The introduction and its chat show only for a playbook that starts with one (decisions 168 and
- * 173), with what the chat may offer; whether its people are referred on posts (decision 174) before the referral's
- * parts.
+ * 173), with what the chat may offer and how it goes (decision 180); whether its people are referred on posts
+ * (decision 174) before the referral's parts.
  */
 export function scriptWords(details: {
   readonly goal: PlaybookGoal;
   readonly script?: PlaybookScript | undefined;
   readonly opens?: PlaybookOpens | undefined;
   readonly networking?: Partial<PlaybookNetworking> | undefined;
+  readonly chat?: Partial<PlaybookChat> | undefined;
   readonly refer?: boolean | undefined;
 }): string {
   const says = scriptOf(details);
   const intro = opensWithIntro(details);
   const on = networkingOf(details);
   const offers = NETWORKING_KEYS.filter((k) => on[k]).map((k) => PLAYBOOK_NETWORKING[k].label);
+  const chat = chatOf(details);
+  const C = PLAYBOOK_CHAT;
+  const goes = [
+    `${C.wrapAfter.label}: ${C.wrapAfter.option(chat.wrapAfter)}`,
+    `${C.questions.label}: ${C.questions.options[chat.questions].label}`,
+    `${C.story.label}: ${C.story.options[chat.story].label}`,
+    ...(on.demo ? [`${C.demoWhen.label}: ${C.demoWhen.options[chat.demoWhen].label}`] : []),
+  ];
   return [
     `${SW.opensTitle}\n${PLAYBOOK_OPENS[intro ? 'intro' : 'pitch'].label}`,
-    ...(intro ? [`${SW.networkingTitle}\n${offers.length ? offers.join('\n') : 'Nothing'}`] : []),
+    ...(intro
+      ? [
+          `${SW.networkingTitle}\n${offers.length ? offers.join('\n') : 'Nothing'}`,
+          `${C.title}\n${goes.join('\n')}`,
+        ]
+      : []),
     ...SCRIPT_GROUPS.flatMap((group) =>
       group.parts.flatMap((part) => {
         if (!partShown(part, intro)) return [];
@@ -89,6 +111,104 @@ export function scriptWords(details: {
   ].join('\n\n');
 }
 
+/**
+ * How the networking chat goes (decision 180), as the web's builder has it: the most times they write back before it
+ * wraps up, how often it asks and shares the owner's story, and when it offers the demo, each a row of choices.
+ */
+function ChatChoices({
+  chat,
+  onChat,
+  demo,
+}: {
+  chat: PlaybookChat;
+  onChat: (chat: PlaybookChat) => void;
+  /** Whether Offer a demo is on: when to offer it shows only then. */
+  demo: boolean;
+}) {
+  const C = PLAYBOOK_CHAT;
+  const wraps = Array.from(
+    { length: CHAT_WRAP_AFTER.max - CHAT_WRAP_AFTER.min + 1 },
+    (_, i) => CHAT_WRAP_AFTER.min + i,
+  );
+  const row = (key: string, label: string, hint: string, control: React.ReactNode) => (
+    <View key={key} className="gap-1.5 px-1">
+      <Text className="text-[14.5px] font-medium">{label}</Text>
+      {control}
+      <Note>{hint}</Note>
+    </View>
+  );
+  return (
+    <View className="mt-3 gap-3" testID="playbook-chat">
+      <View className="gap-0.5">
+        <Text className="px-1 text-[14.5px] font-semibold">{C.title}</Text>
+        <Note>{C.blurb}</Note>
+      </View>
+      {row(
+        'wrapAfter',
+        C.wrapAfter.label,
+        C.wrapAfter.hint,
+        <Segmented
+          label={C.wrapAfter.label}
+          value={String(chat.wrapAfter)}
+          onChange={(v) => onChat({ ...chat, wrapAfter: Number(v) })}
+          options={wraps.map((n) => ({
+            value: String(n),
+            label: C.wrapAfter.option(n),
+            testID: `playbook-chat-wrap-${n}`,
+          }))}
+        />,
+      )}
+      {row(
+        'questions',
+        C.questions.label,
+        `${C.questions.options[chat.questions].hint}. ${C.questions.hint}`,
+        <Segmented
+          label={C.questions.label}
+          value={chat.questions}
+          onChange={(questions) => onChat({ ...chat, questions })}
+          options={CHAT_QUESTIONS.map((k) => ({
+            value: k,
+            label: C.questions.options[k].label,
+            testID: `playbook-chat-questions-${k}`,
+          }))}
+        />,
+      )}
+      {row(
+        'story',
+        C.story.label,
+        `${C.story.options[chat.story].hint}. ${C.story.hint}`,
+        <Segmented
+          label={C.story.label}
+          value={chat.story}
+          onChange={(story) => onChat({ ...chat, story })}
+          options={CHAT_STORY.map((k) => ({
+            value: k,
+            label: C.story.options[k].label,
+            testID: `playbook-chat-story-${k}`,
+          }))}
+        />,
+      )}
+      {demo
+        ? row(
+            'demoWhen',
+            C.demoWhen.label,
+            `${C.demoWhen.options[chat.demoWhen].hint}. ${C.demoWhen.hint}`,
+            <Segmented
+              label={C.demoWhen.label}
+              value={chat.demoWhen}
+              onChange={(demoWhen) => onChat({ ...chat, demoWhen })}
+              options={CHAT_DEMO.map((k) => ({
+                value: k,
+                label: C.demoWhen.options[k].label,
+                testID: `playbook-chat-demo-${k}`,
+              }))}
+            />,
+          )
+        : null}
+    </View>
+  );
+}
+
 export function ScriptEditor({
   goal,
   script,
@@ -97,6 +217,8 @@ export function ScriptEditor({
   onOpens,
   networking,
   onNetworking,
+  chat,
+  onChat,
   refer,
   onRefer,
   firstsHelp,
@@ -111,6 +233,9 @@ export function ScriptEditor({
   /** What the networking chat after an introduction may offer (decision 173); left out, everything. */
   networking?: Partial<PlaybookNetworking> | undefined;
   onNetworking: (networking: PlaybookNetworking) => void;
+  /** How that chat goes (decision 180); left out, as it starts. */
+  chat?: Partial<PlaybookChat> | undefined;
+  onChat: (chat: PlaybookChat) => void;
   /** Whether its people are referred on posts asking for a recommendation (decision 174); left out, they are. */
   refer?: boolean | undefined;
   onRefer: (refer: boolean) => void;
@@ -148,6 +273,7 @@ export function ScriptEditor({
                     />
                   </View>
                 ))}
+                <ChatChoices chat={chatOf({ chat })} onChat={onChat} demo={offers.demo} />
               </View>
             ) : null}
             {group.key === 'refer' ? (

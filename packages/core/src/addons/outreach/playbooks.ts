@@ -9,10 +9,12 @@ import { z } from 'zod';
 import { PLATFORM_KEYS, PLATFORMS, type Platform, WORKING_PLATFORMS } from './networks';
 import { loosened } from './loose';
 import {
+  CHAT_START,
   FullScriptOut,
   openerAsFirst,
   NETWORKING_ON,
   PLAYBOOK_OPENS_KEYS,
+  PlaybookChat,
   PlaybookNetworking,
   PlaybookScript,
   SCRIPT_LIMITS,
@@ -431,6 +433,12 @@ export const PlaybookDetails = z
      */
     networking: PlaybookNetworking.optional(),
     /**
+     * How that chat goes (decision 180, ./script.ts `PLAYBOOK_CHAT`): the most times they write back before it wraps
+     * up, how often it asks and shares the owner's story, and when it offers a demo. Left out of a save, it keeps
+     * what's saved; a playbook saved before it goes as the chat did with decision 176 (`CHAT_START`).
+     */
+    chat: PlaybookChat.optional(),
+    /**
      * Whether its people may be referred on posts asking for a recommendation (decision 174, ./script.ts
      * `PLAYBOOK_REFER`). Left out of a save, it keeps what's saved; a playbook saved before it refers.
      */
@@ -545,6 +553,7 @@ export const blankPlaybook = (): PlaybookDetails => ({
   script: {},
   opens: 'pitch',
   networking: { ...NETWORKING_ON },
+  chat: { ...CHAT_START },
   refer: true,
   tone: null,
   samples: [],
@@ -1036,6 +1045,10 @@ export const PLAYBOOK_OPENS_PART_KEYS = ['opens'] as const;
  */
 export const PLAYBOOK_NETWORKING_KEYS = ['networking'] as const;
 /**
+ * How that chat goes (decision 180). No new data version: a playbook saved before has none, and goes as before.
+ */
+export const PLAYBOOK_CHAT_KEYS = ['chat'] as const;
+/**
  * Whether its people may be referred on posts (decision 174). No new data version: a playbook saved before has none,
  * and refers.
  */
@@ -1053,6 +1066,7 @@ export const PLAYBOOK_KEPT_KEYS = [
   ...PLAYBOOK_SCRIPT_KEYS,
   ...PLAYBOOK_OPENS_PART_KEYS,
   ...PLAYBOOK_NETWORKING_KEYS,
+  ...PLAYBOOK_CHAT_KEYS,
   ...PLAYBOOK_REFER_KEYS,
 ] as const;
 

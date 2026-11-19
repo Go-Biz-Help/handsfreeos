@@ -11,7 +11,8 @@
  *
  * A playbook that starts with an introduction (decisions 168 and 173) has a networking chat's parts too: the nudge after
  * it, the offers of a demo and a networking call, the line about sending people their way, and the ask for a time on a
- * networking call. Each offer goes only while its switch is on (`PLAYBOOK_NETWORKING`).
+ * networking call. Each offer goes only while its switch is on (`PLAYBOOK_NETWORKING`), and how the chat goes, as keen
+ * as they are, is the playbook's too (`PLAYBOOK_CHAT`, decision 180).
  *
  * Every playbook has a referral's parts too (decision 174): the comment that names someone the owner has talked with
  * under a post asking for a recommendation, and the heads-up to them with its link, while Refer them on posts is on
@@ -94,12 +95,12 @@ export const SCRIPT_INFO: Readonly<
   },
   demoOffer: {
     label: 'Offering a demo',
-    when: 'Once in a chat, right after a quick answer, when they ask about what you do, your offer or how it works. Only while Offer a demo when they ask is on.',
+    when: 'Once in a chat, right after a quick answer, when they ask about what you do, your offer or how it works, or also when they name a problem you fix if How the chat goes says so. Only while Offer a demo is on.',
     says: 'message',
   },
   callOffer: {
     label: 'Offering a networking call',
-    when: 'Once in a chat, to wrap it up after they’ve written back twice without asking about what you do, with your own calendar’s link. Only while Offer a networking call is on.',
+    when: 'Once in a chat, with your own calendar’s link, by the reply How the chat goes says: to wrap it up when they only answer your questions, or as the next step when they’re chatting back. Only while Offer a networking call is on.',
     says: 'message',
   },
   sendPeople: {
@@ -566,12 +567,12 @@ export function firstMessagesOf(d: {
  */
 export const PLAYBOOK_NETWORKING = {
   demo: {
-    label: 'Offer a demo when they ask',
-    hint: 'Once, after a quick answer, when they ask about what you do or how it works.',
+    label: 'Offer a demo',
+    hint: 'Once, after a quick answer, when they ask about what you do or how it works. Or also when they name a problem you fix, under How the chat goes.',
   },
   call: {
     label: 'Offer a networking call',
-    hint: 'Once, to wrap up the chat after they’ve written back twice, with a link to your own calendar, not your demo’s.',
+    hint: 'Once, when it wraps up the chat, with a link to your own calendar, not your demo’s.',
   },
   sendPeople: {
     label: 'Offer to send people their way',
@@ -602,6 +603,101 @@ export function networkingOf(
   if (!opensWithIntro(d)) return { demo: false, call: false, sendPeople: false };
   return { ...NETWORKING_ON, ...(d?.networking ?? {}) };
 }
+
+/**
+ * How the networking chat after an introduction goes (decision 180, the owner, 18 Nov 2026: "make it more dynamic
+ * based on the interest in the conversation of the person we are talking to but the intent is not to drag it out and
+ * get to the point in the end which is the meeting or meetup. but all those options are good"): by which of their
+ * replies it offers the call, how often it asks them something, how often it shares the owner's story, and when it
+ * offers a demo. How keen they are decides the rest (./today.ts `networkingReplyTask`; the owner, 19 Nov 2026: "if the
+ * lead is not reengaging the conversation by asking me questions ... then yeah 2 but if the person is having a
+ * conversation that shows interest we don't need to necessarily wrap it up but try to lead it to a meeting"): only
+ * answering, it wraps up by that reply, sooner when they're short with the owner; chatting back, it keeps going and
+ * leads to the call by then. Each starts as the chat went before it (decision 176), and a playbook saved before it
+ * reads so.
+ */
+export const CHAT_QUESTIONS = ['rarely', 'sometimes', 'often'] as const;
+export type ChatQuestions = (typeof CHAT_QUESTIONS)[number];
+export const CHAT_STORY = ['often', 'fits', 'never'] as const;
+export type ChatStory = (typeof CHAT_STORY)[number];
+export const CHAT_DEMO = ['asked', 'problem'] as const;
+export type ChatDemo = (typeof CHAT_DEMO)[number];
+/** By which of their replies it offers the call: their 1st, 2nd or 3rd. */
+export const CHAT_WRAP_AFTER = { min: 1, max: 3 } as const;
+
+/** Its words, on the web's and the phone's playbook editors. */
+export const PLAYBOOK_CHAT = {
+  title: 'How the chat goes',
+  blurb:
+    'It follows how keen they are and never drags it out. When they only answer your questions, it offers the call and wraps up. When they ask you things back, it keeps chatting and leads to the call.',
+  wrapAfter: {
+    label: 'Offer the call by',
+    hint: 'When they only answer, it wraps up then too, or sooner if they go quiet. When they ask you things back, it keeps chatting.',
+    option: (n: number) => `${n === 1 ? '1st' : n === 2 ? '2nd' : `${n}rd`} reply`,
+  },
+  questions: {
+    label: 'Questions',
+    hint: 'How often it asks them something. It never asks when it wraps up.',
+    options: {
+      rarely: { label: 'Rarely', hint: 'Only when the chat would stall' },
+      sometimes: { label: 'Sometimes', hint: 'Every other reply at most' },
+      often: { label: 'Often', hint: 'Most replies' },
+    },
+  },
+  story: {
+    label: 'Your story',
+    hint: 'How often it shares a line from Your story, in Settings → Main offer → For your posts and messages.',
+    options: {
+      often: { label: 'Often', hint: 'Most replies' },
+      fits: { label: 'When it fits', hint: 'When it connects to what they said' },
+      never: { label: 'Never', hint: 'Keeps it about them' },
+    },
+  },
+  demoWhen: {
+    label: 'When to offer the demo',
+    hint: 'While Offer a demo is on.',
+    options: {
+      asked: { label: 'When they ask', hint: 'About what you do or how it works' },
+      problem: { label: 'Also on a problem', hint: 'When they name a problem you fix' },
+    },
+  },
+} as const;
+
+/**
+ * As it's kept: each choice left out reads as how it starts (`chatOf`), so a save that gives one choice changes only
+ * that one (./ops/playbooks.ts).
+ */
+export const PlaybookChat = z.object({
+  wrapAfter: z
+    .int()
+    .min(CHAT_WRAP_AFTER.min, { error: 'Offer the call by their 1st, 2nd or 3rd reply.' })
+    .max(CHAT_WRAP_AFTER.max, { error: 'Offer the call by their 1st, 2nd or 3rd reply.' })
+    .optional(),
+  questions: z.enum(CHAT_QUESTIONS).optional(),
+  story: z.enum(CHAT_STORY).optional(),
+  demoWhen: z.enum(CHAT_DEMO).optional(),
+});
+export type PlaybookChat = Required<z.output<typeof PlaybookChat>>;
+/** How it starts, and how a playbook saved before it reads: as the chat went with decision 176. */
+export const CHAT_START: PlaybookChat = {
+  wrapAfter: 2,
+  questions: 'rarely',
+  story: 'fits',
+  demoWhen: 'asked',
+};
+
+/** How a playbook's networking chat goes: its own, the starting way for the rest. */
+export const chatOf = (
+  d: { readonly chat?: Partial<PlaybookChat> | null | undefined } | null,
+): PlaybookChat => {
+  const own = d?.chat ?? {};
+  return {
+    wrapAfter: own.wrapAfter ?? CHAT_START.wrapAfter,
+    questions: own.questions ?? CHAT_START.questions,
+    story: own.story ?? CHAT_START.story,
+    demoWhen: own.demoWhen ?? CHAT_START.demoWhen,
+  };
+};
 
 /**
  * Referring people the owner has talked with on posts asking for a recommendation (decision 174, the owner's 6a to 9a):

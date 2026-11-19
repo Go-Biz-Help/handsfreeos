@@ -4759,8 +4759,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       should be keeping track of the area people are in and service if they are a local business. Also we should have
       a setting to focus on groups in our local area. this way we could also ask if they want to do a networking
       meeting in person this means we need to add our location and a radius for local meetings"). The answers: 1a, 2a,
-      3 as offered. The first of four parts; the calendars and meetups, the chat's length and the AI settings page,
-      and tagging referrals come next (see Not yet).
+      3 as offered. The first of four parts; the calendars and meetups (decisions 178 and 179), how the chat goes
+      (decision 180), and tagging referrals come next (see Not yet).
       - **What they do and where** (1a, `local.ts`): their line of work ("roofing"), the town they work in with its
         state ("Austin, TX"), and whom they serve (**Local**, **Nationwide** or **Online**). The AI says it from their
         page and the chat as it writes to them (an opener, a reconnect, a reply, a pitch: `asksTheirWork`) or checks
@@ -4852,6 +4852,37 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         `booking/drives.ts`, `geo/driving.ts`, `geo/places.ts` and `http/booking.ts`; the web's `day-start.tsx`,
         `modules.tsx` and `booking-flow.tsx`. No extension change. The server's Google key needs the **Places API
         (New)** turned on for Find a spot (docs/operations.md); without it, the other two spots are offered.
+
+180.  **How the networking chat goes: it follows how keen they are** (Chris, 18 Nov 2026: "make it more dynamic based
+      on the interest in the conversation of the person we are talking to but the intent is not to drag it out and
+      get to the point in the end which is the meeting or meetup. but all those options are good"; 19 Nov: "1a", and
+      "if the lead is not reengaging the conversation by asking me questions or something like that and it's only
+      just them responding to the inquiries we give then yeah 2 but if the person is having a conversation that shows
+      interest we don't need to necessarily wrap it up but try to lead it to a meeting"). Part 3 of local networking,
+      after decisions 177 to 179. It changes decision 176's fixed wrap-up after two replies:
+      - **Only answering** (they reply to what the owner asked, and ask nothing back): it wraps up by the reply the
+        playbook says, in decision 176's one message that asks nothing (the call offer, then the line about sending
+        people their way), and at once when they're short with the owner (a word or two, or only signing off).
+      - **Chatting back** (they ask the owner things, or bring up things of their own): it never wraps up. It keeps
+        the chat going toward a meeting and offers the call (a call or coffee near the owner, decision 177) by that
+        same reply, sooner when they say they'd like to talk or meet, as the next step with no sign-off; the line
+        about sending people their way waits until the chat winds down. Once the call's offered it never comes again.
+        The draft is told how many times they've asked the owner something (`networkingStand`'s `theyAsked`), and the
+        AI reads the rest from the chat.
+      - **How the chat goes, in each playbook** (1a; Playbooks → What it says → In the chat after it, under the
+        switches, web and phone; `details.chat`, `PLAYBOOK_CHAT`, `chatOf`): **Offer the call by** (their 1st, 2nd or
+        3rd reply; 2 to start), **Questions** (Rarely: only when the chat would stall, as decision 176; Sometimes:
+        every other reply at most; Often: most replies, even right after the owner asked; never in the wrap-up),
+        **Your story** (Often, When it fits as decision 176, or Never) and, while Offer a demo is on, **When to offer
+        the demo** (When they ask, as decision 176, or also when they name a problem the business fixes). Each starts
+        as decision 176 had it, and a playbook saved before reads so. A save that gives some of the choices changes
+        only those (`outreach.playbook.save` `changes.chat`; the Assistant's `outreach_save_playbook`).
+      - **The demo switch reads Offer a demo** now, since it may also go on a problem; the call's hint no longer says
+        "after they've written back twice".
+      - **How it's built** (no migration, no extension change, no `RULES_VERSION` change: messages already drafted
+        stay as they were): `script.ts` (`PlaybookChat`), `playbooks.ts`, `today.ts` (`networkingReplyTask`,
+        `networkingStand`) and `ops/playbooks.ts` in Social Outreach; the web's `playbook-builder.tsx` and the phone's
+        `playbook-script.tsx` and `playbook.tsx`.
 
 ## Rules worth knowing before changing anything
 
@@ -5727,8 +5758,8 @@ commenter's comment, the AI's check of Facebook's group members, 3 screens of a 
 Alignable, the business's found checks a day, results by hashtag, phrase and kind of business, and tidying away finds
 never checked after two weeks came with decision 116, the comment Like and Alignable's likers from guessed markup too.
 
-Local networking (decisions 177 to 179 are the first two of four parts, from the owner's picks of 18 Nov 2026) still
-to come: a chat whose length follows their interest, and a page of settings for how the AI networks (part 3); and tagging the people the owner has talked with on recent posts in their area that fit, a short ask after two
+Local networking (decisions 177 to 180 are the first three of four parts, from the owner's picks of 18 Nov 2026) still
+to come: tagging the people the owner has talked with on recent posts in their area that fit, a short ask after two
 referrals once the chat has been quiet for a few days, the About you interview, a prep note before each networking
 call and a thank-you after, a weekly count of 1-on-1s, and local Facebook events (part 4). Today's ordering is
 the only place near people go first; the Pipeline and the lists don't sort by distance yet.
