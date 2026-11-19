@@ -51214,6 +51214,15 @@ export interface operations {
                             audience: string | null;
                             avoid: string[];
                             businessKinds?: string[];
+                            chat?: {
+                                /** @enum {string} */
+                                demoWhen?: "asked" | "problem";
+                                /** @enum {string} */
+                                questions?: "rarely" | "sometimes" | "often";
+                                /** @enum {string} */
+                                story?: "often" | "fits" | "never";
+                                wrapAfter?: number;
+                            };
                             disclaimer: string | null;
                             facebookSearches?: string[];
                             /** @enum {string} */
@@ -51363,6 +51372,15 @@ export interface operations {
                         audience?: string | null;
                         avoid?: string[];
                         businessKinds?: string[];
+                        chat?: {
+                            /** @enum {string} */
+                            demoWhen?: "asked" | "problem";
+                            /** @enum {string} */
+                            questions?: "rarely" | "sometimes" | "often";
+                            /** @enum {string} */
+                            story?: "often" | "fits" | "never";
+                            wrapAfter?: number;
+                        };
                         disclaimer?: string | null;
                         facebookSearches?: string[];
                         /** @enum {string} */
@@ -51463,6 +51481,15 @@ export interface operations {
                         audience: string | null;
                         avoid: string[];
                         businessKinds?: string[];
+                        chat?: {
+                            /** @enum {string} */
+                            demoWhen?: "asked" | "problem";
+                            /** @enum {string} */
+                            questions?: "rarely" | "sometimes" | "often";
+                            /** @enum {string} */
+                            story?: "often" | "fits" | "never";
+                            wrapAfter?: number;
+                        };
                         disclaimer: string | null;
                         facebookSearches?: string[];
                         /** @enum {string} */
@@ -51585,6 +51612,15 @@ export interface operations {
                             audience: string | null;
                             avoid: string[];
                             businessKinds?: string[];
+                            chat?: {
+                                /** @enum {string} */
+                                demoWhen?: "asked" | "problem";
+                                /** @enum {string} */
+                                questions?: "rarely" | "sometimes" | "often";
+                                /** @enum {string} */
+                                story?: "often" | "fits" | "never";
+                                wrapAfter?: number;
+                            };
                             disclaimer: string | null;
                             facebookSearches?: string[];
                             /** @enum {string} */
@@ -91642,6 +91678,15 @@ export interface operations {
                                 audience: string | null;
                                 avoid: string[];
                                 businessKinds?: string[];
+                                chat?: {
+                                    /** @enum {string} */
+                                    demoWhen?: "asked" | "problem";
+                                    /** @enum {string} */
+                                    questions?: "rarely" | "sometimes" | "often";
+                                    /** @enum {string} */
+                                    story?: "often" | "fits" | "never";
+                                    wrapAfter?: number;
+                                };
                                 disclaimer: string | null;
                                 facebookSearches?: string[];
                                 /** @enum {string} */

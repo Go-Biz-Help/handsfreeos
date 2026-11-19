@@ -76,12 +76,15 @@ import {
 import {
   asHow,
   asMessage,
+  CHAT_START,
+  chatOf,
   FILL_BLANKS,
   FOLLOW_SCRIPT,
   hasBlanks,
   NETWORKING_ON,
   opensWithIntro,
   playbookSays,
+  type PlaybookChat,
   type PlaybookNetworking,
   scriptOf,
   startingScript,
@@ -838,6 +841,7 @@ export type DraftPlaybook = Pick<
       | 'script'
       | 'opens'
       | 'networking'
+      | 'chat'
     >
   > & {
     readonly name: string;
@@ -918,22 +922,37 @@ export function introTask(intro: string, fresh: boolean, two = false): string {
 
 /**
  * Where a networking chat stands (decision 176): how many times they've written back, counting a few texts in a row as
- * one, and whether the owner's last message asked them something.
+ * one, and whether the owner's last message asked them something; and how many of those times they asked the owner
+ * something back (decision 180), a sign they're chatting back and not only answering.
  */
 export interface NetworkingStand {
   readonly wroteBack: number;
   readonly ownerAsked: boolean;
+  readonly theyAsked: number;
 }
 
-/** They've written back this many times, and the chat wraps up (decision 176, the owner's 2a). */
-export const NETWORKING_WRAP_AFTER = 2;
+/**
+ * They've written back this many times, and the chat wraps up (decision 176, the owner's 2a): how a playbook's chat
+ * starts, and the most it goes before decision 180's How the chat goes (./script.ts `PlaybookChat`) changes it.
+ */
+export const NETWORKING_WRAP_AFTER = CHAT_START.wrapAfter;
 
 /** Where a networking chat stands, from its messages. */
 export function networkingStand(recent: readonly DownloadMessage[]): NetworkingStand {
   let wroteBack = 0;
+  let theyAsked = 0;
   let mine = true;
+  let asking = false;
   for (const m of recent) {
-    if (!m.fromMe && mine) wroteBack++;
+    if (!m.fromMe && mine) {
+      wroteBack++;
+      asking = false;
+    }
+    // A few texts in a row asking count once.
+    if (!m.fromMe && !asking && m.text.includes('?')) {
+      theyAsked++;
+      asking = true;
+    }
     mine = m.fromMe;
   }
   // The owner's last message may have gone as a few texts: any of them asking counts.
@@ -941,7 +960,38 @@ export function networkingStand(recent: readonly DownloadMessage[]): NetworkingS
   while (i >= 0 && !recent[i]!.fromMe) i--;
   let ownerAsked = false;
   for (; i >= 0 && recent[i]!.fromMe; i--) if (recent[i]!.text.includes('?')) ownerAsked = true;
-  return { wroteBack, ownerAsked };
+  return { wroteBack, ownerAsked, theyAsked };
+}
+
+/** What they say that asks about the business: a demo is offered after a quick answer to it. */
+const ASKED_ABOUT =
+  'they ask about the business (what it does, what it offers, how it works, the price)';
+/** What they say that names a problem: a demo is offered on it too when How the chat goes says so (decision 180). */
+const NAMED_PROBLEM = 'they name a problem the business fixes';
+
+/** How often a reply asks them something (decision 180's Questions; `rarely` is decision 176's way). */
+function chatQuestion(questions: PlaybookChat['questions'], ownerAsked: boolean): string {
+  const easy = 'one easy question about them, on what they just said';
+  if (questions === 'often')
+    return `End the reply with ${easy}, unless it wraps the chat up: most replies ask one.`;
+  if (ownerAsked)
+    return 'The owner’s last message asked them something, so this reply asks nothing.';
+  return questions === 'sometimes'
+    ? `The owner’s last message asked nothing, so this reply may end with ${easy}, when it fits and doesn’t wrap the chat up.`
+    : `Ask a question only when the chat would stall without one, ${easy}: most replies ask none.`;
+}
+
+/** How often a reply shares the owner's story (decision 180's Your story; `fits` is decision 176's way). */
+function chatStory(story: PlaybookChat['story']): string {
+  const react =
+    'React to what they actually said, so they can tell the owner read it, never a line that could go to anyone (“That’s awesome!”, “Love that!”).';
+  if (story === 'never')
+    return `${react} Keep the reply about them: never share the owner’s own story or what the business believes.`;
+  const share =
+    'share it in a sentence, from the business’s story or what it believes under <content_lists>: that the owner gets it, and why. Like: they say they just like solving people’s problems, and the owner says they get that, it’s why they started their own business too, then a line from the story of why. Only what the story or the offer says: never make up anything of the owner’s.';
+  return story === 'often'
+    ? `${react} Then, in most replies, find something of the owner’s own that connects to it and ${share}`
+    : `${react} Then, when something of the owner’s own connects to it, ${share}`;
 }
 
 /**
@@ -957,40 +1007,82 @@ export function networkingStand(recent: readonly DownloadMessage[]): NetworkingS
  * be sure to mention you"): the networking call with `callLink`, the person's own calendar, then the line about sending
  * people their way, or a warm sign-off. Each offer only while its switch is on. Opens as every reply does, which the
  * worker's stand-in model reads.
+ *
+ * How the chat goes is the playbook's (decision 180, ./script.ts `PlaybookChat`): how often it asks and shares the
+ * story, when it offers a demo, and by which of their replies it offers the call. How keen they are decides the rest
+ * (the owner, 18 Nov 2026: "the intent is not to drag it out and get to the point in the end which is the meeting or
+ * meetup"; 19 Nov: "if the lead is not reengaging the conversation by asking me questions ... and it's only just them
+ * responding to the inquiries we give then yeah 2 but if the person is having a conversation that shows interest we
+ * don't need to necessarily wrap it up but try to lead it to a meeting"): only answering, it wraps up by that reply, and
+ * at once when they're short with the owner; chatting back, it never wraps up but leads to the call by then, and signs
+ * off only once the chat winds down.
  */
 export function networkingReplyTask(
   says: FullScript,
   on: PlaybookNetworking,
-  stand: NetworkingStand = { wroteBack: 1, ownerAsked: false },
+  stand: NetworkingStand = { wroteBack: 1, ownerAsked: false, theyAsked: 0 },
   callLink: string | null = null,
   /** They work inside the owner's radius (decision 177): the call offer is a call or coffee (the owner's 4a). */
   local = false,
+  /** How the chat goes (decision 180): the starting way, decision 176's, when it isn't given. */
+  chat: PlaybookChat = CHAT_START,
 ): string {
-  const asked =
-    'they ask about the business (what it does, what it offers, how it works, the price)';
-  const wrap = [
+  // What puts the demo first, ahead of the wrap-up: a question about the business, and a problem it fixes when How the
+  // chat goes says so.
+  const demoOn =
+    on.demo && chat.demoWhen === 'problem' ? `${ASKED_ABOUT}, or ${NAMED_PROBLEM}` : ASKED_ABOUT;
+  // Its offers, said out once and named after (decision 180): each once in the whole chat, only while its switch is on.
+  const offers = [
     on.call
-      ? `the networking call offer, once in the whole chat, unless the chat shows the owner already offered it or they passed on it. ${asMessage('the networking call offer', says.callOffer)}${local ? ` ${LOCAL_COFFEE}` : ''} ${callLink ? `The owner’s own calendar link for [calendar link], exactly as written: ${quoteData(callLink)}. Never the playbook’s link for it.` : 'There’s no calendar link to give, so leave [calendar link] and the words that give it out.'}`
+      ? `The call offer, once in the whole chat, unless the chat shows the owner already offered it or they passed on it. ${asMessage('the call offer', says.callOffer)}${local ? ` ${LOCAL_COFFEE}` : ''} ${callLink ? `The owner’s own calendar link for [calendar link], exactly as written: ${quoteData(callLink)}. Never the playbook’s link for it.` : 'There’s no calendar link to give, so leave [calendar link] and the words that give it out.'}`
       : null,
     on.sendPeople
-      ? `${on.call ? 'Then, in the same message, ' : ''}the line about sending people their way, once in the whole chat, unless the chat shows the owner already said it. ${asMessage('it', says.sendPeople)}`
+      ? `The line about sending people their way, once in the whole chat, unless the chat shows the owner already said it. ${asMessage('it', says.sendPeople)}`
       : null,
   ].filter(Boolean);
+  const wrap = [
+    on.call ? 'the call offer' : null,
+    on.sendPeople ? 'the line about sending people their way' : null,
+  ].filter(Boolean);
   // The wrap-up: one message, the offers in it said once in the whole chat; once they've been, only a sign-off.
-  const wrapUp = `wrap the chat up in one message that asks nothing: ${wrap.length ? `${wrap.join(' ')} That’s the sign-off. When the chat shows the owner already said ${wrap.length > 1 ? 'them' : 'it'}, just ` : ''}a short, warm sign-off, with no offer and no link.`;
+  const wrapUp = `wrap the chat up in one message that asks nothing: ${wrap.length ? `${wrap.join(', then ')}, as the sign-off. When the chat shows the owner already said ${wrap.length > 1 ? 'them' : 'it'}, just ` : ''}a short, warm sign-off, with no offer and no link.`;
+  const most = chat.wrapAfter;
+  const times = (n: number) => `${n} ${n === 1 ? 'time' : 'times'}`;
+  const by = stand.wroteBack >= most;
+  // Chatting back (decision 180): it never wraps up, and leads to the call, which only the call's switch offers; the
+  // line about sending people their way waits for the sign-off.
+  const leadOn = on.call
+    ? 'lead to a meeting in this reply: react to what they said, then the call offer. Don’t sign off, and no line about sending people their way yet: that waits until the chat winds down.'
+    : null;
+  const interest = [
+    offers.length ? `Its offers: ${offers.join(' ')}` : null,
+    `Follow how keen they are, and never drag the chat out. They’re chatting back when they ask the owner things or bring up things of their own; they’re only answering when they just reply to what the owner asked.${stand.theyAsked ? ` They’ve asked the owner something ${times(stand.theyAsked)} so far.` : ''}`,
+    `When they’re short with the owner (a word or two, or only signing off: thanks, you too, a thumbs up), ${wrapUp}`,
+    by
+      ? `When they’re only answering: they’ve written back ${times(stand.wroteBack)}, so unless ${demoOn}, ${wrapUp}`
+      : `When they’re only answering, wrap the chat up once they’ve written back ${times(most)}: nothing of the wrap-up before that.`,
+    leadOn
+      ? by
+        ? `When they’re chatting back, don’t wrap up: unless ${demoOn}, ${leadOn}`
+        : `When they’re chatting back, don’t wrap up: keep it going toward a meeting. When they say they’d like to talk${local ? ' or meet' : ''}, ${leadOn} Otherwise, it comes by the time they’ve written back ${times(most)}.`
+      : 'When they’re chatting back, keep it going, a line or two, and wrap up only when it winds down.',
+    leadOn
+      ? `When the chat shows the owner already offered the call, never offer it again: keep the reply short and warm, and when the chat winds down, ${wrapUp}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
   return [
     'They wrote last. Read the whole chat first, not only their last message, and write the owner’s reply to where it is now.',
     'They wrote back after the owner’s introduction, so this is a networking chat: a short one between two business owners, not a sales chat. Keep the reply to a line or two. Never pitch and never push.',
-    'React to what they actually said, so they can tell the owner read it, never a line that could go to anyone (“That’s awesome!”, “Love that!”). Then, when something of the owner’s own connects to it, share it in a sentence, from the business’s story or what it believes under <content_lists>: that the owner gets it, and why. Like: they say they just like solving people’s problems, and the owner says they get that, it’s why they started their own business too, then a line from the story of why. Only what the story or the offer says: never make up anything of the owner’s.',
-    stand.ownerAsked
-      ? 'The owner’s last message asked them something, so this reply asks nothing.'
-      : 'Ask a question only when the chat would stall without one, one easy question about them: most replies ask none.',
+    chatStory(chat.story),
+    chatQuestion(chat.questions, stand.ownerAsked),
     on.demo
-      ? `When ${asked}: answer in a sentence or two from the offer and <content_lists>, then offer a demo, once in the whole chat, unless the chat shows the owner already offered one. ${asMessage('the demo offer', says.demoOffer)} Never offer a demo when they haven’t asked, even when they name a problem the business fixes.`
-      : `When ${asked}: answer in a sentence or two from the offer and <content_lists>. Never offer a demo.`,
-    stand.wroteBack >= NETWORKING_WRAP_AFTER
-      ? `They’ve written back ${stand.wroteBack} times, so unless ${asked}, ${wrapUp}`
-      : `When their last message only signs off (thanks, you too, a thumbs up), ${wrapUp}${wrap.length ? ' Otherwise, nothing of the wrap-up yet: no call and no line about sending people their way.' : ''}`,
+      ? chat.demoWhen === 'problem'
+        ? `When ${ASKED_ABOUT}, or ${NAMED_PROBLEM}: answer in a sentence or two from the offer and <content_lists> (for a problem, that the business helps with it), then offer a demo, once in the whole chat, unless the chat shows the owner already offered one. ${asMessage('the demo offer', says.demoOffer)}`
+        : `When ${ASKED_ABOUT}: answer in a sentence or two from the offer and <content_lists>, then offer a demo, once in the whole chat, unless the chat shows the owner already offered one. ${asMessage('the demo offer', says.demoOffer)} Never offer a demo when they haven’t asked, even when they name a problem the business fixes.`
+      : `When ${ASKED_ABOUT}: answer in a sentence or two from the offer and <content_lists>. Never offer a demo.`,
+    interest,
     `When they said not now: ${playbookSays(says.later)} When they said no: ${playbookSays(says.no)}`,
   ]
     .filter(Boolean)
@@ -1035,10 +1127,12 @@ function taskFor(
   callLink: string | null = null,
   /** They work inside the owner's radius (decision 177). */
   local = false,
+  /** How the networking chat goes (decision 180). */
+  chat: PlaybookChat = CHAT_START,
 ): string {
   // The networking chat after an introduction (decision 173): a reply about them, and its one nudge.
   if (kind === 'reply' && step === 'intro' && networking)
-    return networkingReplyTask(says, networking, stand ?? undefined, callLink, local);
+    return networkingReplyTask(says, networking, stand ?? undefined, callLink, local, chat);
   if (kind === 'follow_up' && step === 'intro')
     return `The owner introduced themselves and they haven’t written back. Write the owner’s one nudge. ${asHow('the nudge', says.nudge)} It’s the only one: never say you’ll check back, and never repeat the introduction.`;
   if (kind === 'pitch' && call)
@@ -1545,6 +1639,7 @@ export function todayDraftPrompt(input: {
                 networkingStand(input.recent),
                 input.callLink ?? null,
                 input.local ?? false,
+                chatOf(p),
               ),
               platform,
               !!input.post?.group,

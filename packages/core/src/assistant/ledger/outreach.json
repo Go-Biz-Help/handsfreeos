@@ -34,9 +34,9 @@
     "apps/mobile/src/addons/outreach/partners.tsx": "5fe0683e908d",
     "apps/mobile/src/addons/outreach/person-menu.tsx": "1a37fc2ef322",
     "apps/mobile/src/addons/outreach/pipeline.tsx": "0e8ba9125d19",
-    "apps/mobile/src/addons/outreach/playbook-script.tsx": "c8a6693b55ad",
+    "apps/mobile/src/addons/outreach/playbook-script.tsx": "c03e2d9b2f59",
     "apps/mobile/src/addons/outreach/playbook-test.tsx": "d508cf5f3f76",
-    "apps/mobile/src/addons/outreach/playbook.tsx": "9c90e01fad8a",
+    "apps/mobile/src/addons/outreach/playbook.tsx": "c3c332997dea",
     "apps/mobile/src/addons/outreach/playbooks.tsx": "1af36aa24064",
     "apps/mobile/src/addons/outreach/post-quote.tsx": "1fb64117de21",
     "apps/mobile/src/addons/outreach/posted.tsx": "4007346d12e7",
@@ -99,7 +99,7 @@
     "apps/web/src/addons/outreach/person-menu.tsx": "64e84258b057",
     "apps/web/src/addons/outreach/person-panel.tsx": "12eb4039a5b3",
     "apps/web/src/addons/outreach/pipeline-view.tsx": "e1d6f4c59064",
-    "apps/web/src/addons/outreach/playbook-builder.tsx": "84f0c8d0b62b",
+    "apps/web/src/addons/outreach/playbook-builder.tsx": "0fd1598da194",
     "apps/web/src/addons/outreach/playbook-test.tsx": "24d6b30fe7c6",
     "apps/web/src/addons/outreach/playbooks-page.tsx": "c4ecc22101e2",
     "apps/web/src/addons/outreach/post-quote.tsx": "0d00a6705d36",
@@ -3238,11 +3238,18 @@
       "by": "outreach_save_playbook changes.opens and changes.script.intro; outreach_playbooks details.opens and says.intro"
     },
     {
-      "path": "Playbooks → builder → What it says → The networking chat (with Introduction): In the chat after it switches (Offer a demo when they ask, Offer a networking call, Offer to send people their way) and the chat's parts (the nudge, the demo offer, the networking call offer, sending people their way, the yes to a call)",
+      "path": "Playbooks → builder → What it says → The networking chat (with Introduction): In the chat after it switches (Offer a demo, Offer a networking call, Offer to send people their way) and the chat's parts (the nudge, the demo offer, the networking call offer, sending people their way, the yes to a call)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/playbook-builder.tsx:1657",
+      "file": "apps/web/src/addons/outreach/playbook-builder.tsx:1795",
       "covered": "yes",
       "by": "outreach_save_playbook changes.networking and changes.script.nudge, demoOffer, callOffer, sendPeople and callYes; outreach_playbooks details.networking and says"
+    },
+    {
+      "path": "Playbooks → builder → What it says → The networking chat (with Introduction) → How the chat goes: Offer the call by (1st, 2nd or 3rd reply), Questions (Rarely, Sometimes, Often), Your story (Often, When it fits, Never), When to offer the demo (When they ask, Also on a problem; only while Offer a demo is on)",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/playbook-builder.tsx:1629",
+      "covered": "yes",
+      "by": "outreach_save_playbook changes.chat (wrapAfter, questions, story, demoWhen; only the choices given change); outreach_playbooks details.chat"
     },
     {
       "path": "Playbooks → builder → What it says → Referring people you’ve talked with: Refer them on posts switch, and its parts (the comment on the post, the heads-up to them)",

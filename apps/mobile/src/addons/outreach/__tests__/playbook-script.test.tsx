@@ -176,7 +176,7 @@ describe('What it says, on the phone', () => {
   it('has the networking chat’s switches and words only with an introduction (decision 173)', async () => {
     expect(sectionWords(PLAYBOOK.details, 'script')).not.toContain('In the chat after it');
     expect(sectionWords({ ...PLAYBOOK.details, opens: 'intro' }, 'script')).toContain(
-      'In the chat after it\nOffer a demo when they ask',
+      'In the chat after it\nOffer a demo',
     );
     expect(
       sectionWords(
@@ -206,6 +206,48 @@ describe('What it says, on the phone', () => {
     await fireEvent.press(screen.getByTestId('playbook-save'));
     await waitFor(() => expect(onSave).toHaveBeenCalled());
     expect(saved(onSave).networking).toEqual({ demo: false, call: true, sendPeople: true });
+  });
+
+  it('sets how the chat goes, as it starts until changed (decision 180)', async () => {
+    const intro = { ...PLAYBOOK.details, opens: 'intro' as const };
+    expect(sectionWords(intro, 'script')).toContain(
+      'How the chat goes\nOffer the call by: 2nd reply\nQuestions: Rarely\nYour story: When it fits\nWhen to offer the demo: When they ask',
+    );
+    expect(
+      sectionWords(
+        {
+          ...intro,
+          networking: { demo: false, call: true, sendPeople: true },
+          chat: { wrapAfter: 3, questions: 'often' },
+        },
+        'script',
+      ),
+    ).toContain(
+      'How the chat goes\nOffer the call by: 3rd reply\nQuestions: Often\nYour story: When it fits',
+    );
+    expect(sectionWords(PLAYBOOK.details, 'script')).not.toContain('How the chat goes');
+    const { onSave, el } = body();
+    await render(el);
+    await fireEvent.press(screen.getByTestId('playbook-edit-script'));
+    expect(screen.queryByTestId('playbook-chat')).toBeNull();
+    await fireEvent.press(screen.getByTestId('playbook-opens-intro'));
+    expect(screen.getByTestId('playbook-chat-wrap-2').props.accessibilityState).toMatchObject({
+      selected: true,
+    });
+    await fireEvent.press(screen.getByTestId('playbook-chat-wrap-1'));
+    await fireEvent.press(screen.getByTestId('playbook-chat-story-never'));
+    await fireEvent.press(screen.getByTestId('playbook-chat-demo-problem'));
+    // When to offer the demo shows only while Offer a demo is on.
+    await fireEvent(screen.getByTestId('playbook-networking-demo'), 'checkedChange', false);
+    expect(screen.queryByTestId('playbook-chat-demo-problem')).toBeNull();
+    await fireEvent.press(screen.getByTestId('playbook-save'));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(saved(onSave).chat).toEqual({
+      wrapAfter: 1,
+      questions: 'rarely',
+      story: 'never',
+      demoWhen: 'problem',
+    });
   });
 
   it('refers its people on posts unless turned off (decision 174)', async () => {

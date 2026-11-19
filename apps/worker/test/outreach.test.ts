@@ -76,6 +76,8 @@ describe('Social Outreach’s data versions 2 to 9', () => {
       opens: 'pitch',
       // What the networking chat after an introduction may offer (decision 173): everything, to start.
       networking: { demo: true, call: true, sendPeople: true },
+      // How that chat goes (decision 180): as it starts.
+      chat: { wrapAfter: 2, questions: 'rarely', story: 'fits', demoWhen: 'asked' },
       // Refer them on posts (decision 174): on, to start.
       refer: true,
     });

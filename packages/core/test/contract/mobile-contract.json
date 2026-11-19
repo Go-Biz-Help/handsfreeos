@@ -10683,6 +10683,28 @@
                   }
                 }
               },
+              "chat": {
+                "type": "object",
+                "properties": {
+                  "wrapAfter": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 3
+                  },
+                  "questions": {
+                    "type": "string",
+                    "enum": ["rarely", "sometimes", "often"]
+                  },
+                  "story": {
+                    "type": "string",
+                    "enum": ["often", "fits", "never"]
+                  },
+                  "demoWhen": {
+                    "type": "string",
+                    "enum": ["asked", "problem"]
+                  }
+                }
+              },
               "refer": {
                 "type": "boolean"
               },
@@ -11319,6 +11341,28 @@
                   "sendPeople": {
                     "default": true,
                     "type": "boolean"
+                  }
+                }
+              },
+              "chat": {
+                "type": "object",
+                "properties": {
+                  "wrapAfter": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 3
+                  },
+                  "questions": {
+                    "type": "string",
+                    "enum": ["rarely", "sometimes", "often"]
+                  },
+                  "story": {
+                    "type": "string",
+                    "enum": ["often", "fits", "never"]
+                  },
+                  "demoWhen": {
+                    "type": "string",
+                    "enum": ["asked", "problem"]
                   }
                 }
               },

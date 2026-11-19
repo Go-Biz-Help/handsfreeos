@@ -391,7 +391,7 @@ describe('where you are, and what they do and where, saved', () => {
 describe('a call or coffee for locals (decision 177, the owner’s 4a)', () => {
   it('offers coffee only to someone who works near the owner, and never names a place', () => {
     const says = startingScript('demo');
-    const wrap = { wroteBack: 2, ownerAsked: false };
+    const wrap = { wroteBack: 2, ownerAsked: false, theyAsked: 0 };
     expect(
       networkingReplyTask(says, NETWORKING_ON, wrap, 'https://x.test/book/a/b', true),
     ).toContain(LOCAL_COFFEE);

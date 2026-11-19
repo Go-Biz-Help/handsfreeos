@@ -50,12 +50,18 @@ import {
 } from '@hfos/core/addons/outreach/playbooks';
 import { hashtagLetters, hashtagOf } from '@hfos/core/addons/outreach/posts';
 import {
+  CHAT_DEMO,
+  CHAT_QUESTIONS,
+  CHAT_STORY,
+  CHAT_WRAP_AFTER,
+  chatOf,
   LOCKED_RULES,
   NETWORKING_KEYS,
   NETWORKING_ON,
   partChanged,
   partShown,
   partsChanged,
+  PLAYBOOK_CHAT,
   PLAYBOOK_NETWORKING,
   PLAYBOOK_OPENS,
   PLAYBOOK_OPENS_KEYS,
@@ -72,6 +78,7 @@ import {
   typedPart,
   withFirsts,
   withPart,
+  type PlaybookChat,
   type PlaybookNetworking,
   type PlaybookOpens,
   type ScriptDraft,
@@ -121,6 +128,7 @@ import { Button, ButtonLink, buttonClassName } from '@/components/ui/button';
 import { Field, FieldError, Hint, Label } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
 import { RadioCard } from '@/components/ui/radio-card';
+import { Segmented } from '@/components/ui/segmented';
 import { Stepper } from '@/components/ui/stepper';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
@@ -176,6 +184,8 @@ interface Draft {
   opens: PlaybookOpens;
   /** What the networking chat after an introduction may offer (decision 173). */
   networking: PlaybookNetworking;
+  /** How that chat goes (decision 180). */
+  chat: PlaybookChat;
   /** Whether its people may be referred on posts asking for a recommendation (decision 174). */
   refer: boolean;
   questions: PlaybookQuestion[];
@@ -216,6 +226,7 @@ const fromDetails = (name: string, d: PlaybookDetails): Draft => ({
   script: scriptDraftOf(d.script),
   opens: d.opens ?? 'pitch',
   networking: { ...NETWORKING_ON, ...(d.networking ?? {}) },
+  chat: chatOf(d),
   refer: refersOf(d),
   questions: d.questions,
   avoid: d.avoid,
@@ -327,6 +338,7 @@ const toDetails = (d: Draft, sent: readonly FindPart[] = FIND_PARTS): PlaybookDe
   script: scriptToSave(d.goal, d.script),
   opens: d.opens,
   networking: d.networking,
+  chat: d.chat,
   refer: d.refer,
   // The styles and openers from before decision 164 are its first message's versions now.
   openerStyles: [],
@@ -1426,6 +1438,8 @@ export function PlaybookBuilder({
           onOpens={(opens) => set('opens', opens)}
           networking={draft.networking}
           onNetworking={(networking) => set('networking', networking)}
+          chat={draft.chat}
+          onChat={(chat) => set('chat', chat)}
           refer={draft.refer}
           onRefer={(refer) => set('refer', refer)}
           issueAt={(path) => issueIn(`script.${path}`)}
@@ -1609,6 +1623,109 @@ export function PlaybookBuilder({
 // ---------- what it says ----------
 
 /**
+ * How the networking chat goes (decision 180): the most times they write back before it wraps up, how often it asks and
+ * shares your story, and when it offers the demo. Within those, it follows how keen they are.
+ */
+function ChatChoices({
+  chat,
+  onChat,
+  demo,
+}: {
+  chat: PlaybookChat;
+  onChat: (chat: PlaybookChat) => void;
+  /** Whether Offer a demo is on: when to offer it shows only then. */
+  demo: boolean;
+}) {
+  const C = PLAYBOOK_CHAT;
+  const wraps = Array.from(
+    { length: CHAT_WRAP_AFTER.max - CHAT_WRAP_AFTER.min + 1 },
+    (_, i) => CHAT_WRAP_AFTER.min + i,
+  );
+  const row = (key: string, label: string, hint: string, control: ReactNode) => (
+    <div
+      key={key}
+      className="flex flex-col gap-2 p-3.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
+    >
+      <div className="min-w-0">
+        <div className="text-[14px] font-medium">{label}</div>
+        <div className="text-[13px] text-text-2">{hint}</div>
+      </div>
+      <div className="shrink-0">{control}</div>
+    </div>
+  );
+  return (
+    <div className="mt-5" data-testid="playbook-chat">
+      <p className="mb-0.5 text-[13.5px] font-medium">{C.title}</p>
+      <p className="mb-2 text-[12.5px] text-text-3">{C.blurb}</p>
+      <div className="divide-y divide-border rounded-card border border-border bg-card">
+        {row(
+          'wrapAfter',
+          C.wrapAfter.label,
+          C.wrapAfter.hint,
+          <Segmented
+            ariaLabel={C.wrapAfter.label}
+            value={String(chat.wrapAfter)}
+            onChange={(v) => onChat({ ...chat, wrapAfter: Number(v) })}
+            options={wraps.map((n) => ({
+              value: String(n),
+              label: C.wrapAfter.option(n),
+              testId: `playbook-chat-wrap-${n}`,
+            }))}
+          />,
+        )}
+        {row(
+          'questions',
+          C.questions.label,
+          `${C.questions.options[chat.questions].hint}. ${C.questions.hint}`,
+          <Segmented
+            ariaLabel={C.questions.label}
+            value={chat.questions}
+            onChange={(questions) => onChat({ ...chat, questions })}
+            options={CHAT_QUESTIONS.map((k) => ({
+              value: k,
+              label: C.questions.options[k].label,
+              testId: `playbook-chat-questions-${k}`,
+            }))}
+          />,
+        )}
+        {row(
+          'story',
+          C.story.label,
+          `${C.story.options[chat.story].hint}. ${C.story.hint}`,
+          <Segmented
+            ariaLabel={C.story.label}
+            value={chat.story}
+            onChange={(story) => onChat({ ...chat, story })}
+            options={CHAT_STORY.map((k) => ({
+              value: k,
+              label: C.story.options[k].label,
+              testId: `playbook-chat-story-${k}`,
+            }))}
+          />,
+        )}
+        {demo
+          ? row(
+              'demoWhen',
+              C.demoWhen.label,
+              `${C.demoWhen.options[chat.demoWhen].hint}. ${C.demoWhen.hint}`,
+              <Segmented
+                ariaLabel={C.demoWhen.label}
+                value={chat.demoWhen}
+                onChange={(demoWhen) => onChat({ ...chat, demoWhen })}
+                options={CHAT_DEMO.map((k) => ({
+                  value: k,
+                  label: C.demoWhen.options[k].label,
+                  testId: `playbook-chat-demo-${k}`,
+                }))}
+              />,
+            )
+          : null}
+      </div>
+    </div>
+  );
+}
+
+/**
  * What it says (decision 164): the playbook's own words for every message, by where in a chat each goes. The first
  * message has up to three versions that take turns. A part left as it came follows the starting words for the
  * playbook's goal; one changed says so, with a way back. Under them, what the words in brackets become, and the rules
@@ -1622,6 +1739,8 @@ function ScriptStep({
   onOpens,
   networking,
   onNetworking,
+  chat,
+  onChat,
   refer,
   onRefer,
   issueAt,
@@ -1637,6 +1756,9 @@ function ScriptStep({
   /** What the networking chat after an introduction may offer (decision 173). */
   networking: PlaybookNetworking;
   onNetworking: (networking: PlaybookNetworking) => void;
+  /** How that chat goes (decision 180). */
+  chat: PlaybookChat;
+  onChat: (chat: PlaybookChat) => void;
   /** Whether its people may be referred on posts (decision 174). */
   refer: boolean;
   onRefer: (refer: boolean) => void;
@@ -1686,6 +1808,7 @@ function ScriptStep({
                   </div>
                 ))}
               </div>
+              <ChatChoices chat={chat} onChat={onChat} demo={networking.demo} />
             </div>
           ) : null}
           {g.key === 'refer' ? (
