@@ -43,12 +43,16 @@ import { PLATFORMS, type Platform } from '../playbooks';
 import { fileChats, profiles, sends } from '../tables';
 import { inWorkspace, keptProfile, once, sourceFor, tagIdsFor } from './common';
 import { keepReply, tellReplies } from './alerts';
+import { byHandCluesOf, takeHands } from './in-hands';
+import { byHandAt } from '../in-hands';
 import { tally } from './tallies';
 import { noteAnswer } from './conversation';
 import { wantLead } from './leads';
 import { noteChatRead } from './stages';
 
 const DAY = 86_400_000;
+/** A message as two reads of a chat are told apart: whose, when and what. */
+const saidKey = (m: DownloadMessage) => `${m.fromMe ? 1 : 0}|${m.at}|${m.text}`;
 /** Facebook's own start: no message is older. */
 const FIRST_DAY = Date.UTC(2004, 0, 1);
 
@@ -346,7 +350,7 @@ export const chatsCollect = defineAddonCommand(outreachAddon, {
   output: ChatsCollectOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
-  emits: ['outreach.chats.collected', 'outreach.reply.seen'],
+  emits: ['outreach.chats.collected', 'outreach.reply.seen', 'outreach.hands.taken'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
@@ -466,6 +470,29 @@ export const chatsCollect = defineAddonCommand(outreachAddon, {
                     : eq(sends.chatId, had.id),
                 ),
               );
+        }
+        // A message of the person's that they wrote themselves, new since the chat was last read (decision 181): them in
+        // the person's hands, unless HandsFreeOS drafted it or the extension sent them something then or since.
+        const writer = profile?.id ?? had?.profileId ?? null;
+        if (writer) {
+          const seen = new Set((had?.recent ?? []).map(saidKey));
+          const fresh = (m: DownloadMessage) => !seen.has(saidKey(m));
+          if (recent.some((m) => m.fromMe && fresh(m))) {
+            const byHand = byHandAt(recent, fresh, await byHandCluesOf(ctx, writer, c.name, now));
+            const [p] =
+              byHand === null
+                ? []
+                : await ctx.tx
+                    .select({
+                      id: profiles.id,
+                      personId: profiles.personId,
+                      platform: profiles.platform,
+                    })
+                    .from(profiles)
+                    .where(and(eq(profiles.workspaceId, ws), eq(profiles.id, writer)));
+            if (p && byHand !== null)
+              await takeHands(ctx, me, p, { how: 'wrote', at: new Date(byHand) });
+          }
         }
         // Their message last, lately, in a chat with someone the person reached (decision 150, answer 3a): a reply, as
         // the extension's sightings are, so their phone hears and their runner drafts it next.

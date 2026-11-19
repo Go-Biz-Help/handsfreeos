@@ -254,7 +254,14 @@ describe('replies, openers and demos in a business', () => {
       u,
       ws,
       'outreach.touch.save',
-      { kind: 'message', profile: fb(username), name, ...(threadKey ? { threadKey } : {}) },
+      // The extension's own: one the person typed would leave them in the person's hands (decision 181).
+      {
+        kind: 'message',
+        profile: fb(username),
+        name,
+        ...(threadKey ? { threadKey } : {}),
+        auto: true,
+      },
       new Date(at),
     );
   const events = async (type: string) =>

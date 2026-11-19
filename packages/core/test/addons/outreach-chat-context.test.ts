@@ -17,7 +17,7 @@ import {
   todayDraftPrompt,
   todayDraftSystem,
 } from '../../src/addons/outreach/today';
-import { outreachBusiness, runAs } from './outreach-fixture';
+import { backToTheAi, outreachBusiness, runAs } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 const MIN = 60_000;
@@ -125,10 +125,12 @@ describe('on the person’s list and in their drafts', () => {
   let owner: TestUser;
   let ws: string;
 
+  // Each read, then back to the AI: what's tried here is where the chat is (decision 134), not whose hands they're in
+  // after the person's own words in it (decision 181, test/addons/outreach-in-hands.test.ts).
   const collect = (name: string, username: string, thread: string, messages: unknown[]) =>
     runAs(owner, ws, 'outreach.chats.collect', {
       chats: [{ name, thread: { id: thread, encrypted: false }, profile: fb(username), messages }],
-    });
+    }).then(() => backToTheAi(owner, ws));
   const chatOf = async (name: string) =>
     (
       await rows<{ id: string; profile_id: string }>(
@@ -258,7 +260,14 @@ describe('on the person’s list and in their drafts', () => {
       owner,
       ws,
       'outreach.touch.save',
-      { kind: 'message', profile: fb('remy.fox.7'), name: 'Remy Fox', threadKey: '2000459' },
+      // The extension's own message.
+      {
+        kind: 'message',
+        profile: fb('remy.fox.7'),
+        name: 'Remy Fox',
+        threadKey: '2000459',
+        auto: true,
+      },
       new Date(Date.now() - 10 * MIN),
     );
     const seen = await runAs(owner, ws, 'outreach.replies.note', {

@@ -35,7 +35,7 @@ import {
   SEND_POST_MOST,
   replyNeedsYou,
 } from '../../src/addons/outreach/sends';
-import { computerOn, outreachBusiness, refused, runAs } from './outreach-fixture';
+import { backToTheAi, computerOn, outreachBusiness, refused, runAs } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 const DAY = 86_400_000;
@@ -590,7 +590,7 @@ describe('messages on their own', () => {
             ],
           },
         ],
-      });
+      }).then(() => backToTheAi(member, ws)); // "How’s business?" was the AI's (decision 181).
     const chatOf = async (name: string) => {
       const [c] = await rows<{ id: string; profile_id: string }>(
         admin(),

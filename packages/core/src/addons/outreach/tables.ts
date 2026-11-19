@@ -250,6 +250,8 @@ export const profiles = addonOutreach.table(
     areaHow: text('area_how').$type<AreaHow>(),
     areaAt: ts('area_at'),
     areaBy: userRef('area_by'),
+    /** When the person last copied one of the AI's drafts for them from Today to send themselves (decision 181). */
+    copiedAt: ts('copied_at'),
     savedBy: userRef('saved_by'),
     lastSeenBy: userRef('last_seen_by'),
     lastSeenAt: ts('last_seen_at').notNull().defaultNow(),
@@ -683,6 +685,41 @@ export const referrals = addonOutreach.table(
       columns: [t.workspaceId, t.postId],
       foreignColumns: [posts.workspaceId, posts.id],
     }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * In your hands (decision 181, ./in-hands.ts): someone a person on the team wrote to themselves, or took over. The AI
+ * sends them no message till someone gives them back (`backAt`); a row given back stays, so a message read again later
+ * that was written before then never takes them again.
+ */
+export const hands = addonOutreach.table(
+  'hands',
+  {
+    profileId: uuid('profile_id').primaryKey(),
+    workspaceId: workspaceRef(),
+    userId: userRef('user_id'),
+    how: text('how').notNull().$type<'wrote' | 'took_over'>(),
+    /** The network they wrote on; null for Take over. */
+    place: text('place'),
+    since: ts('since').notNull(),
+    /** Their latest message by hand. */
+    lastAt: ts('last_at').notNull(),
+    /** When the person last pressed Keep it mine on the ask. */
+    keptAt: ts('kept_at'),
+    /** When their phone last heard the ask. */
+    askedAt: ts('asked_at'),
+    backAt: ts('back_at'),
+    backBy: userRef('back_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.profileId),
     foreignKey({
       columns: [t.workspaceId, t.profileId],
       foreignColumns: [profiles.workspaceId, profiles.id],

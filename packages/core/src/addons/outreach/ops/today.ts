@@ -134,6 +134,7 @@ import { retrySince } from './needs';
 import { readinessFor } from './readiness';
 import { groupFitOf } from './group-checks';
 import { sendsToday } from './sends';
+import { heldAmong } from './in-hands';
 import { postParts } from '../sends';
 import { requestsPauseOf } from './request-pause';
 import { slowsNow, startOfToday, warningOf } from './tidy';
@@ -2102,6 +2103,13 @@ export async function todayFor(
     if (step === null || (i.postId !== null && replyPosts.has(i.postId))) return true;
     return takesStep(playbooks, step);
   };
+  // Someone in a person's hands gets no message from the AI (decision 181): likes, comments and the rest still go.
+  const inHands = await heldAmong(
+    ctx,
+    items.filter(isMessage).flatMap((i) => (i.profileId ? [i.profileId] : [])),
+  );
+  const notHeld = (i: TodayItem) =>
+    !(isMessage(i) && i.profileId !== null && inHands.has(i.profileId));
   const listedItems = [
     ...items.filter((i) => i.asking),
     ...items.filter((i) => !i.asking).sort(byKind),
@@ -2110,6 +2118,7 @@ export async function todayFor(
       (i) =>
         passes(i) &&
         onStep(i) &&
+        notHeld(i) &&
         !drafted.off(i.profileId, i.kind, underAPost(i.kind) ? i.postId : null) &&
         !commentOpenElsewhere(i),
     )
@@ -2140,12 +2149,17 @@ export async function todayFor(
       left: partnerRoom(limits, listedItems),
     })
   ).filter((i) => !drafted.off(i.profileId, i.kind));
+  const partnersHeld = await heldAmong(
+    ctx,
+    partnerItems.filter(isMessage).flatMap((i) => (i.profileId ? [i.profileId] : [])),
+  );
   const partnersOkd = gate ? await okdAmong(ctx, me, partnerItems) : null;
   const partnersPass = partnerItems.filter(
     (i) =>
-      partnersOkd === null ||
-      !waitsForPeopleOk(i.kind) ||
-      (i.profileId !== null && partnersOkd.has(i.profileId)),
+      !(isMessage(i) && i.profileId !== null && partnersHeld.has(i.profileId)) &&
+      (partnersOkd === null ||
+        !waitsForPeopleOk(i.kind) ||
+        (i.profileId !== null && partnersOkd.has(i.profileId))),
   );
   const partnerRecent = await recentOf(ctx, me, partnersPass.filter(isMessage));
   const partnersListed = partnersPass.map((i) => {

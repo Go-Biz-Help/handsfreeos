@@ -390,7 +390,7 @@ import {
   conversationPickUp,
   conversationTakeOver,
 } from './conversation-handling';
-import { personHandBack, personTakeOver } from './person-hands';
+import { personHandBack, personNoteByHand, personTakeOver } from './person-hands';
 import { indeedApplicantReceive, intakeSubmit } from './intake';
 import {
   intakeSourceArchive,
@@ -1062,6 +1062,7 @@ export const commands: readonly CommandDef[] = [
   conversationHandToAi,
   conversationPickUp,
   personTakeOver,
+  personNoteByHand,
   personHandBack,
   aiTeammateCreate,
   aiTeammateSaveConfig,

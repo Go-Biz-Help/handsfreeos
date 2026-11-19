@@ -44,7 +44,7 @@ export default async function WorkspaceLayout({
 }) {
   const { workspaceId } = await params;
   // Recent searches are the signed-in person's own, even while they view the app as a teammate.
-  const { api, signedInAs } = await apiServer();
+  const { api, signedInAs, userId } = await apiServer();
   const [me, { current, viewingAs, teammateView, staleView }, platform, workspace] =
     await Promise.all([
       getMe(),
@@ -79,6 +79,7 @@ export default async function WorkspaceLayout({
         videoCalls={workspace?.workspace.videoCalls ?? false}
         staffPermissions={platform?.staff?.permissions ?? []}
         timeZone={current.timezone}
+        userId={userId}
       >
         <UnreadProvider workspaceId={workspaceId}>
           {/* The urgent count on Home, in the sidebar and the phone's bottom bar. */}

@@ -26,10 +26,12 @@ import { PLATFORM_KEYS, type Platform } from './networks';
 import { OWNER_WORDS, TeamOwner } from './owners';
 import { PARTNER_STAGE_KEYS } from './partners';
 import { DontPitch, NeverContact } from './saves';
+import { HANDS_OUTREACH_WORDS, HandsPerson } from './in-hands';
 import { OUTREACH_WORDS } from './words';
 
 const P = OUTREACH_WORDS.person;
 const H = P.hints;
+const HW = HANDS_OUTREACH_WORDS;
 
 /**
  * The messages a client never gets, and Mark as client skips while they wait for an OK or are OK'd and not sent,
@@ -180,6 +182,11 @@ export const ProfileMarksOutput = z.object({
    * where. Left out by builds from before it.
    */
   theirWork: TheirWorkShown.optional(),
+  /**
+   * In someone's hands (decision 181, ./in-hands.ts): whose, how and when, for Give back to the AI; null when the AI
+   * looks after them. Left out by builds from before it.
+   */
+  inHands: HandsPerson.nullable().optional(),
 });
 export type ProfileMarksOutput = z.output<typeof ProfileMarksOutput>;
 
@@ -219,6 +226,8 @@ export interface PersonMenuInput {
   readonly online: boolean;
   /** The row has its own Don't pitch and Never contact switches (Friends, Chats): the menu leaves them out. */
   readonly ownSwitches?: boolean;
+  /** The person's own id: whose hands someone is in says "You" for theirs. */
+  readonly me?: string | null;
 }
 
 export type PersonMenuKey =
@@ -238,6 +247,9 @@ export type PersonMenuKey =
   | 'partner-hint'
   | 'later'
   | 'not-later'
+  | 'take-over'
+  | 'give-back'
+  | 'hands-line'
   | 'dont-pitch'
   | 'not-dont-pitch'
   | 'dont-pitch-line'
@@ -278,7 +290,7 @@ export interface PersonMenuItem {
  * moves; In Contacts or Add to Contacts; Mark as client, Not a client after all, or why they're a client; Demo booked
  * or Not a demo after all; Potential partner (with why the AI thinks so, when it does) or Not a partner after all
  * (decision 130); Later or Take off Later; who reached them first, and for an owner or admin each teammate to give them
- * to (decision 107); Don't pitch, Take off Don't pitch, or who put them on; Never contact, Take off Never contact, or
+ * to (decision 107); whose hands they're in and Give back to the AI, or Take over (decision 181); Don't pitch, Take off Don't pitch, or who put them on; Never contact, Take off Never contact, or
  * who put them on. A partner has no Client, nor Demo booked unless the person marked them; without `contactsWrite` there's no Add to
  * Contacts or Client to press; a row with its own switches has no Don't pitch or Never contact. The marks' toggles wait
  * for `marks`, and everything but the Open items waits for signal.
@@ -441,6 +453,15 @@ export function personMenuItems(input: PersonMenuInput): PersonMenuItem[] {
         owner: t.userId,
       }),
     );
+
+  // 8b: In your hands (decision 181): whose hands they're in and Give back to the AI, or Take over, beside the lists.
+  // Shown once their marks come, since only those say which; someone on Never contact gets no message anyway.
+  const hands = marks?.inHands ?? null;
+  if (hands) {
+    items.push(line('hands-line', HW.line(hands, input.me ?? null), 'person-hands-line'));
+    items.push(press('give-back', HW.giveBack, 'person-hands', HW.giveBackHint));
+  } else if (marks && !marks.neverContact)
+    items.push(press('take-over', HW.takeOver, 'person-hands', HW.takeOverHint));
 
   // 9 and 10: the lists, unless the row has its own switches.
   if (!input.ownSwitches) {

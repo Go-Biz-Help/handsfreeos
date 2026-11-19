@@ -8508,7 +8508,7 @@ export interface paths {
         put?: never;
         /**
          * Bring in one-to-one chats the extension read in Messenger in the person’s browser, each with its latest few messages and when they were sent, for the AI to read later. They join the chats from the person’s Facebook download, one per person. Adds nobody to Contacts itself.
-         * @description Risk level 1. Requires outreach.use. Emits outreach.chats.collected, outreach.reply.seen.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.chats.collected, outreach.reply.seen, outreach.hands.taken.
          */
         post: operations["command_outreach_chats_collect"];
         delete?: never;
@@ -9131,6 +9131,66 @@ export interface paths {
          * @description Risk level 1. Requires outreach.use. Emits outreach.groups.saved.
          */
         post: operations["command_outreach_groups_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.hands.give_back": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give people in someone’s hands back to the AI (Give back to the AI, in the menu on their name, on In your hands, or on the ask on Needs you): it messages them again, starting with anything they’re waiting on, and gives back their customer in Contacts too. Pass profileIds, or all (with mine for only your own).
+         * @description Risk level 1. Requires outreach.use. Emits outreach.hands.given_back.
+         */
+        post: operations["command_outreach_hands_give_back"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.hands.keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep someone in your hands (Keep it mine, on the ask on Needs you): the ask goes until they write again or the AI would follow up again.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.hands.taken.
+         */
+        post: operations["command_outreach_hands_keep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.hands.take": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take someone over yourself (Take over, in the menu on their name): the AI sends them no messages, here or as a customer in Contacts, until someone gives them back. Likes and comments still go. Its messages to them waiting for an OK are skipped.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.hands.taken.
+         */
+        post: operations["command_outreach_hands_take"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10208,7 +10268,7 @@ export interface paths {
         put?: never;
         /**
          * Note a step the person took on a social network themselves, as the extension saw it: a friend request, a like, a comment, a message or a recommendation on Alignable, to whom and from which group. Adds nobody to Contacts.
-         * @description Risk level 1. Requires outreach.use. Emits outreach.touch.saved. Can wait on a phone with no signal.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.touch.saved, outreach.hands.taken. Can wait on a phone with no signal.
          */
         post: operations["command_outreach_touch_save"];
         delete?: never;
@@ -10691,6 +10751,26 @@ export interface paths {
          * @description Risk level 3. Requires records.archive. Emits person.merged.
          */
         post: operations["command_person_merge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/person.note_by_hand": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Note that someone on the team wrote to a customer themselves on a social network HandsFreeOS only hears of: the customer comes into their hands, so the AI teammate, its follow-ups, funnels and AI calls leave them alone everywhere until someone gives them back.
+         * @description Risk level 1. Requires inbox.use. Emits person.taken_over, conversation.taken_over.
+         */
+        post: operations["command_person_note_by_hand"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22951,6 +23031,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_groups_to_check"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.hands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who’s in someone’s hands (Social Outreach → People → In your hands): people someone on the team wrote to themselves, or took over, whom the AI sends no messages till someone gives them back; whose hands, how, when, and whether an ask waits on Needs you. Newest first.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_hands"];
         delete?: never;
         options?: never;
         head?: never;
@@ -49671,6 +49771,109 @@ export interface operations {
             };
         };
     };
+    command_outreach_hands_give_back: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    all?: boolean;
+                    /** @default false */
+                    mine?: boolean;
+                    /** @default [] */
+                    profileIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        handedBack: number;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_hands_keep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        keptAt: string;
+                        /** Format: uuid */
+                        profileId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_hands_take: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        already: boolean;
+                        /** Format: uuid */
+                        profileId: string;
+                        skipped: number;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_helpful_ask: {
         parameters: {
             query?: never;
@@ -54490,6 +54693,42 @@ export interface operations {
                         moved: {
                             [key: string]: number;
                         };
+                        /** Format: uuid */
+                        personId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_person_note_by_hand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    at?: string;
+                    /** Format: uuid */
+                    personId: string;
+                    place: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        fresh: boolean;
                         /** Format: uuid */
                         personId: string;
                     };
@@ -90721,6 +90960,65 @@ export interface operations {
             };
         };
     };
+    query_outreach_hands: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 100 */
+                    limit?: number;
+                    /** @default false */
+                    mine?: boolean;
+                    /** Format: uuid */
+                    profileId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        people: {
+                            ask: ("reply" | "follow_up") | null;
+                            /** @enum {string} */
+                            how: "wrote" | "called" | "took_over";
+                            inContacts: boolean;
+                            /** Format: date-time */
+                            lastAt: string;
+                            name: string;
+                            personId: string | null;
+                            place: string | null;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
+                            /** Format: uuid */
+                            profileId: string;
+                            /** Format: date-time */
+                            since: string;
+                            threadKey: string | null;
+                            url: string;
+                            user: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                        }[];
+                        total: number;
+                    };
+                };
+            };
+        };
+    };
     query_outreach_helpful: {
         parameters: {
             query?: never;
@@ -92079,6 +92377,30 @@ export interface operations {
                             at: string | null;
                             by: string | null;
                             tagged: boolean;
+                        } | null;
+                        inHands?: {
+                            ask: ("reply" | "follow_up") | null;
+                            /** @enum {string} */
+                            how: "wrote" | "called" | "took_over";
+                            inContacts: boolean;
+                            /** Format: date-time */
+                            lastAt: string;
+                            name: string;
+                            personId: string | null;
+                            place: string | null;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
+                            /** Format: uuid */
+                            profileId: string;
+                            /** Format: date-time */
+                            since: string;
+                            threadKey: string | null;
+                            url: string;
+                            user: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
                         } | null;
                         intro?: string[];
                         journey?: {
@@ -93898,6 +94220,22 @@ export interface operations {
                     "application/json": {
                         commentHolds: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[];
                         count: number;
+                        /** @default [] */
+                        hands: {
+                            /** Format: date-time */
+                            at: string;
+                            name: string;
+                            personId: string | null;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
+                            /** Format: uuid */
+                            profileId: string;
+                            theirs: string | null;
+                            threadKey: string | null;
+                            url: string;
+                            /** @enum {string} */
+                            why: "reply" | "follow_up";
+                        }[];
                         hours: {
                             days: number[];
                             end: number;

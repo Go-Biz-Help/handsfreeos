@@ -240,6 +240,10 @@ const ONLINE_COMMANDS = [
   // Give back to the AI.
   'person.take_over',
   'person.hand_back',
+  // Social Outreach's In your hands (decision 181): Take over and Give back in the person menu, Keep it mine on the ask.
+  'outreach.hands.take',
+  'outreach.hands.give_back',
+  'outreach.hands.keep',
 ];
 /**
  * Commands only the browser extension sends, which can wait in it as long as the browser is offline (Social
@@ -332,6 +336,7 @@ const QUERIES = [
   'outreach.lookup',
   // Where someone stands as their person menu opens (decision 91): in Contacts, a client, on Don't pitch.
   'outreach.profile.marks',
+  'outreach.hands',
   // Whether the person has set Social Outreach up: until then the phone says to do it on a computer (decision 45).
   'outreach.setup',
   // The Pipeline screen: everyone the person reached, by where they stand (decision 47).

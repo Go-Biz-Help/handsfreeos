@@ -8863,6 +8863,7 @@ When someone on the team reaches a customer themselves, the AI leaves that custo
 - **Giving back.** The row goes, and each of their conversations a person was handling goes to the teammate where it answers that channel, else to nobody. One the teammate handed to a person (**Needs a person**) still waits for them.
 - **Merges.** Merging two customers keeps the kept customer's row, or moves the merged one's to them.
 - **The first day.** Migration `20261027029800` looked back 30 days: a customer whose last message or call from the business was a person's went into that person's hands.
+- **Social Outreach too.** With the add-on on, a message a person typed themselves on Facebook, Instagram, LinkedIn, Alignable, Threads or X (seen by the browser extension) puts that profile in their hands, and its customer here too; the AI's outreach messages to them stop until someone gives them back. Its own list is **Social Outreach → People → In your hands**, and **Take over** sits in the menu on a person's name. Giving a customer back here gives their profiles back there, and the other way round. See decision 181 in `docs/outreach.md`; migration `20261027029900` looked back 30 days the same way.
 
 ### What else it can do for a customer (M18)
 

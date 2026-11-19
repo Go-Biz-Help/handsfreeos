@@ -13,7 +13,7 @@ import { workspaceMemberships } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
-import { outreachBusiness, refused, runAs, runWith } from './outreach-fixture';
+import { backToTheAi, outreachBusiness, refused, runAs, runWith } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 const DAY = 86_400_000;
@@ -72,6 +72,8 @@ async function chats(
         : [{ fromMe: false, text: 'Do you do demos?', at: daysAgo(1) }],
     })),
   });
+  // "Happy to show you" was the AI's, not typed by the person (decision 181).
+  await backToTheAi(owner, ws);
   await rows(
     admin(),
     sql`update addon_outreach.file_chats set read_state = 'read', prospect = true

@@ -376,6 +376,14 @@ import {
   DayInput,
   DayOutput,
 } from '@hfos/core/addons/outreach/live';
+import {
+  HandsGiveBackInput,
+  HandsGiveBackOutput,
+  HandsKeepInput,
+  HandsKeepOutput,
+  HandsTakeInput,
+  HandsTakeOutput,
+} from '@hfos/core/addons/outreach/in-hands';
 import { OwnerMoveInput, OwnerMoveOutput } from '@hfos/core/addons/outreach/owners';
 import {
   PartnerMarkInput,
@@ -785,6 +793,9 @@ export const PHONE_COMMANDS = {
   'outreach.referral.skip': command(ONLINE, ReferralSkipInput, ReferralChangeOutput),
   // Later, or Take off Later, from the person menu on a name (decision 100): with signal, as Mark as client is.
   'outreach.later.set': command(ONLINE, LaterSetInput, LaterSetOutput),
+  'outreach.hands.take': command(ONLINE, HandsTakeInput, HandsTakeOutput),
+  'outreach.hands.give_back': command(ONLINE, HandsGiveBackInput, HandsGiveBackOutput),
+  'outreach.hands.keep': command(ONLINE, HandsKeepInput, HandsKeepOutput),
   // Settings → Instagram's accounts like yours (decision 110): added or removed by an owner or admin, with signal.
   'outreach.like_yours.add': command(ONLINE, LikeYoursAddInput, LikeYoursChangeOutput),
   'outreach.like_yours.remove': command(ONLINE, LikeYoursRemoveInput, LikeYoursChangeOutput),

@@ -23,6 +23,23 @@ export const PersonTakeOverOutput = z.object({
   draftsCancelled: z.number().int(),
 });
 
+/** A message someone on the team wrote to a customer themselves where HandsFreeOS only hears of it: an add-on's network. */
+export const PersonNoteByHandInput = z.object({
+  workspaceId: z.uuid(),
+  personId: z.uuid(),
+  /** Where: the network, as the add-on names it ("facebook"). */
+  place: z.string().regex(/^[a-z_]{1,40}$/),
+  /** When it was written. */
+  at: z.iso.datetime().optional(),
+});
+export type PersonNoteByHandInput = z.input<typeof PersonNoteByHandInput>;
+
+export const PersonNoteByHandOutput = z.object({
+  personId: z.uuid(),
+  /** They've just come into someone's hands. */
+  fresh: z.boolean(),
+});
+
 export const PersonHandBackInput = z.object({
   workspaceId: z.uuid(),
   /** The customers to give back. */

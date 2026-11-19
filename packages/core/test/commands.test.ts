@@ -454,6 +454,7 @@ describe('registry', () => {
       'conversation.hand_to_ai',
       'conversation.pick_up',
       'person.take_over',
+      'person.note_by_hand',
       'person.hand_back',
       'ai_teammate.create',
       'ai_teammate.save_config',

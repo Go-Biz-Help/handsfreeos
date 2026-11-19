@@ -38,7 +38,7 @@ import {
   openChatWords,
   openPageWords,
 } from '@hfos/core/addons/outreach/network-words';
-import { answersRequests, networkOfLink } from '@hfos/core/addons/outreach/networks';
+import { answersRequests, networkOfLink, PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import { COMMENT_HOLD_WORDS } from '@hfos/core/addons/outreach/sends';
 import {
   approveAllCount,
@@ -67,6 +67,7 @@ import {
   type WaitingKind,
 } from '@hfos/core/addons/outreach/waiting-words';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
+import { HANDS_OUTREACH_WORDS as HW, type HandsAsk } from '@hfos/core/addons/outreach/in-hands';
 import { Check, CheckCheck, Copy, ExternalLink, RotateCcw, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -143,6 +144,7 @@ export function NeedsYou({
           <p className="text-[13px] text-text-2" data-testid="waiting-count">
             {waitingWords(waiting.count)}
           </p>
+          <HandsAsks workspaceId={workspaceId} asks={waiting.hands ?? []} />
           {WAITING_KIND_KEYS.map((kind) => (
             <Group key={kind} workspaceId={workspaceId} kind={kind} waiting={waiting} />
           ))}
@@ -160,6 +162,94 @@ export function NeedsYou({
       {/* Once nothing on Autopilot's list waits, it's one line here, at the bottom (decision 160). */}
       <AutopilotList workspaceId={workspaceId} autopilot={autopilot} place="bottom" />
     </section>
+  );
+}
+
+/**
+ * The asks about people in the person's hands (decision 181): they wrote back an hour of working hours ago, or the AI
+ * would have followed up by now. Let the AI take it gives them back; Keep it mine keeps them till the next time.
+ */
+function HandsAsks({ workspaceId, asks }: { workspaceId: string; asks: readonly HandsAsk[] }) {
+  const { busy, act } = useAct();
+  if (!asks.length) return null;
+  const letAi = (a: HandsAsk) =>
+    void act(
+      `let-${a.profileId}`,
+      async () =>
+        unwrap(
+          await apiBrowser().POST('/v1/commands/outreach.hands.give_back', {
+            body: { workspaceId, profileIds: [a.profileId], all: false, mine: false },
+          }),
+        ),
+      HW.gaveBack(1),
+    );
+  const keep = (a: HandsAsk) =>
+    void act(
+      `keep-${a.profileId}`,
+      async () =>
+        unwrap(
+          await apiBrowser().POST('/v1/commands/outreach.hands.keep', {
+            body: { workspaceId, profileId: a.profileId },
+          }),
+        ),
+      HW.kept(a.name),
+    );
+  return (
+    <Card className="p-0" data-testid="waiting-hands">
+      <div className="px-5 pt-4">
+        <h3 className="text-[15px] font-semibold">
+          {HW.asksTitle} <span className="text-text-3">· {asks.length.toLocaleString()}</span>
+        </h3>
+      </div>
+      <ul className="divide-y divide-border">
+        {asks.map((a) => (
+          <li key={a.profileId} className="space-y-2 px-5 py-3.5" data-testid="waiting-hands-ask">
+            <p className="text-[14px] font-medium">
+              <PersonName
+                workspaceId={workspaceId}
+                who={{
+                  profileId: a.profileId,
+                  name: a.name,
+                  platform: a.platform,
+                  url: a.url,
+                  threadKey: a.threadKey,
+                  personId: a.personId,
+                }}
+              />{' '}
+              <span className="text-text-3">· {PLATFORMS[a.platform]}</span>
+            </p>
+            <p className="text-[13.5px]">{HW.askTitle(a.why, a.name)}</p>
+            {a.theirs ? (
+              <p className="rounded-control bg-card-2 px-3 py-2 text-[13px] text-text-2">
+                “{a.theirs}”
+              </p>
+            ) : null}
+            <p className="text-[12.5px] text-text-2">{HW.askBody(a.why)}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                onClick={() => letAi(a)}
+                loading={busy === `let-${a.profileId}`}
+                disabled={busy !== null}
+                data-testid="waiting-hands-let-ai"
+              >
+                {HW.letAi}
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => keep(a)}
+                loading={busy === `keep-${a.profileId}`}
+                disabled={busy !== null}
+                data-testid="waiting-hands-keep"
+              >
+                {HW.keepMine}
+              </Button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }
 

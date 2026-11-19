@@ -103,6 +103,8 @@ describe('the person menu', () => {
       'demo',
       'potential-partner',
       'later',
+      // In your hands (decision 181), beside the lists.
+      'take-over',
       'dont-pitch',
       'never-contact',
     ]);

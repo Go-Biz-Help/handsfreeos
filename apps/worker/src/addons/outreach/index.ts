@@ -100,6 +100,7 @@ import {
   autopilotReminderJob,
   autopilotSaved,
 } from './autopilot';
+import { handedBack, HANDS_ASK_JOB, handsAskJob, handsReplySeen, handsTaken } from './hands';
 import { armWeekly, WEEKLY_JOB, weeklyJob } from './weekly';
 import { scheduleWordsWrite, WRITE_WORDS_JOB, wordsWanted, writeWordsJob } from './words';
 
@@ -196,7 +197,11 @@ export const outreachAddonWorker: AddonWorkerModule = {
     'outreach.group.looked': groupLooked,
     // A helpful post asked for is written by the AI (./helpful.ts, decision 50).
     'outreach.helpful.asked': helpfulAsked,
-    'outreach.reply.seen': andWeekly(replySeen),
+    // And of those in someone's hands, the ask (./hands.ts, decision 181).
+    'outreach.reply.seen': both(andWeekly(replySeen), handsReplySeen),
+    // Someone in a person's hands, kept, or given back in Contacts (./hands.ts, decision 181).
+    'outreach.hands.taken': handsTaken,
+    'person.handed_back': handedBack,
     // A reply handed over pushes at once (./alerts.ts); any other message that waits for the person's OK, and a
     // step the extension needs them for, push as they chose: bundled or one for each (./waiting.ts).
     'outreach.send.queued': both(handOver, sendWaits),
@@ -282,6 +287,7 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [AUTOPILOT_LIST_JOB]: autopilotListJob,
     [AUTOPILOT_REMINDER_JOB]: autopilotReminderJob,
     [SUM_COMMENT_RESEARCH_JOB]: sumCommentResearchJob,
+    [HANDS_ASK_JOB]: handsAskJob,
   },
   // AI help on a playbook's parts, from the builder (./assist.ts), drafts for Today (./today.ts), and answers to a
   // group's questions when the extension asks to join it (./groups.ts), and which post to like (./likes.ts).

@@ -253,6 +253,13 @@ export async function runWith(
   }).then((r) => r.output);
 }
 
+/**
+ * Everyone in someone's hands in `ws` given back to the AI (decision 181), as `u`: for a test whose made-up chats end
+ * with the person's own words, which the AI would have sent in the story it tells.
+ */
+export const backToTheAi = (u: TestUser, ws: string): Promise<Any> =>
+  runAs(u, ws, 'outreach.hands.give_back', { all: true });
+
 /** A refusal's rule (or its code), or "went through". */
 export const refused = (p: Promise<unknown>) =>
   p.then(

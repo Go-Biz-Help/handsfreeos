@@ -13,6 +13,8 @@ import { giveBackToAi, takeIntoHands } from '../messaging/hands';
 import {
   PersonHandBackInput,
   PersonHandBackOutput,
+  PersonNoteByHandInput,
+  PersonNoteByHandOutput,
   PersonTakeOverInput,
   PersonTakeOverOutput,
 } from '../schemas/hands';
@@ -48,6 +50,37 @@ export const personTakeOver = defineCommand({
       place: null,
     });
     return { personId: person.id, already: !fresh, draftsCancelled };
+  },
+});
+
+/**
+ * A message someone wrote to a customer themselves on an add-on's network (Social Outreach's chats, decision 181): they
+ * come into that person's hands, as a reply typed in the Inbox puts them. The add-on runs it as the person, or the
+ * worker as the system (nobody's hands, as for a reply typed in Facebook's own inbox).
+ */
+export const personNoteByHand = defineCommand({
+  name: 'person.note_by_hand',
+  description:
+    'Note that someone on the team wrote to a customer themselves on a social network HandsFreeOS only hears of: the customer comes into their hands, so the AI teammate, its follow-ups, funnels and AI calls leave them alone everywhere until someone gives them back.',
+  risk: 1,
+  input: PersonNoteByHandInput,
+  output: PersonNoteByHandOutput,
+  permission: 'inbox.use',
+  actors: ['human', 'system'],
+  scope: inWorkspace,
+  emits: ['person.taken_over', 'conversation.taken_over'],
+  async handler(ctx, input) {
+    const me = ctx.actor.type === 'human' ? ctx.actor.userId : null;
+    const person = await requirePerson(ctx.tx, input.workspaceId, input.personId);
+    if (person.mergedIntoId) return { personId: person.id, fresh: false };
+    const { fresh } = await takeIntoHands(ctx, {
+      personId: person.id,
+      userId: me,
+      how: 'wrote',
+      place: input.place,
+      ...(input.at ? { at: new Date(input.at) } : {}),
+    });
+    return { personId: person.id, fresh };
   },
 });
 

@@ -13,6 +13,7 @@ import { REQUEST_ANSWER_KEYS } from './checks';
 import { FIT_LEVEL_KEYS } from './fit';
 import { FRIEND_ANSWER_KEYS } from './limits';
 import { PLATFORM_KEYS } from './networks';
+import { HandsAsk } from './in-hands';
 import { Send } from './sends';
 import {
   NEED_CLEARS,
@@ -107,6 +108,11 @@ export const WaitingOutput = z.object({
   kinds: z.object({ ask: kind, reply: kind, message: kind, need: kind, request: kind }),
   /** In the list's order (`WAITING_KIND_KEYS`): empty when only the counts were asked for. */
   items: z.array(WaitingItem),
+  /**
+   * The asks about people in the person's hands (decision 181, ./in-hands.ts): they wrote back, or the AI would have
+   * followed up. Counted in `count`; empty when only the counts were asked for, and left out by builds from before it.
+   */
+  hands: z.array(HandsAsk).default([]),
   /** Their training wheels, for Approve all's words. */
   wheels: WheelsState,
   /**
