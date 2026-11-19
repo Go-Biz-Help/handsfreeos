@@ -114,6 +114,18 @@ function byActions(root: Element): Element[] {
   return boxes;
 }
 
+/**
+ * Whether a part of the page holds a post's own controls: its Like, its "Actions for this post" menu, its comment
+ * button or the box to write a comment in. A dialog that does is a post opened over the page (./warnings.ts).
+ */
+export function holdsPost(element: Element): boolean {
+  if (element.querySelector(LIKE_HOOK)) return true;
+  return [...element.querySelectorAll('[aria-label]')].some((e) => {
+    const label = clean(e.getAttribute('aria-label'));
+    return ACTIONS.test(label) || POST_END.test(label) || LIKE.test(label);
+  });
+}
+
 /** The box of the post something on the page is in, when it's in one: a button, a comment, the box to comment in. */
 export function postAround(element: Element, root: Element): Element | null {
   return postBoxes(root).find((box) => box !== element && box.contains(element)) ?? null;
