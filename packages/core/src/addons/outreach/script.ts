@@ -94,17 +94,17 @@ export const SCRIPT_INFO: Readonly<
   },
   demoOffer: {
     label: 'Offering a demo',
-    when: 'Once in a chat, when they mention a problem you fix. Only while Offer a demo when it fits is on.',
+    when: 'Once in a chat, right after a quick answer, when they ask about what you do, your offer or how it works. Only while Offer a demo when they ask is on.',
     says: 'message',
   },
   callOffer: {
     label: 'Offering a networking call',
-    when: 'Once in a chat, when a demo doesn’t fit or they pass on it, once you’ve gone back and forth a bit. Only while Offer a networking call is on.',
+    when: 'Once in a chat, to wrap it up after they’ve written back twice without asking about what you do, with your own calendar’s link. Only while Offer a networking call is on.',
     says: 'message',
   },
   sendPeople: {
     label: 'Sending people their way',
-    when: 'Once in a chat, after they say what they do and where. Only while Offer to send people their way is on.',
+    when: 'Once in a chat, in the message that wraps it up, right after the networking call offer. Only while Offer to send people their way is on.',
     says: 'message',
   },
   callYes: {
@@ -237,6 +237,7 @@ export const SCRIPT_BLANKS = [
   { blank: '[what your offer is]', fills: 'What your main offer is, in a few words' },
   { blank: '[open times]', fills: 'Open times on your booking page, when it’s one of yours' },
   { blank: '[booking link]', fills: 'Your booking link' },
+  { blank: '[calendar link]', fills: 'Your own calendar’s booking link, for a networking call' },
   { blank: '[your first name]', fills: 'Your first name, from your HandsFreeOS account' },
   { blank: '[your business name]', fills: 'Your business’s name' },
   {
@@ -363,16 +364,21 @@ export const STARTING_INTRO =
   'Hey [first name], thanks for connecting! I’m [your first name] with [your business name]. We help [their kind of business] businesses get [what your offer gets them] with [what your offer is]. [a question about them]';
 
 /**
- * The networking chat's offers (decision 173, the owner's words, 16 Nov 2026): a demo "no pressure i just like people
- * to see whats out there for them", a networking call "where i can learn a bit more about them", and "if I know of
- * anyone in their area (or if they are nationwide) that needs what they do i'll make sure to mention them".
+ * The networking chat's offers (decision 173, the owner's words, 16 Nov 2026): a networking call "where i can learn a
+ * bit more about them", and "if I know of anyone in their area (or if they are nationwide) that needs what they do i'll
+ * make sure to mention them". The demo is offered only when they ask about the business (decision 176, the owner, 18
+ * Nov 2026: "give a quick response to answer then say I’d love to show you a demo if you have a bit of time in the
+ * next week or so"), and the chat wraps up with the call and the line about sending people their way in one message
+ * (the owner, 18 Nov 2026: "if they ever want to network and see how we can support each other or refer each other
+ * then let’s jump on a call and then send the Chris’s calendar and then say if i see anyone online looking for your
+ * services in your area I’ll be sure to mention you").
  */
 export const STARTING_DEMO_OFFER =
-  'Would you be open to a quick demo sometime? No pressure, I just like people to see what’s out there for them.';
+  'I’d love to show you a demo if you have a bit of time in the next week or so.';
 export const STARTING_CALL_OFFER =
-  'Would you be up for a quick networking call sometime? I’d love to learn a bit more about you and what you do.';
+  'If you ever want to network and see how we can support each other or refer each other, let’s jump on a call. Here’s my calendar: [calendar link]';
 export const STARTING_SEND_PEOPLE =
-  'If I come across anyone in [their area] who needs [what they do], I’ll send them your way.';
+  'If I see anyone online looking for [what they do] in [their area], I’ll be sure to mention you.';
 
 /**
  * A referral (decision 174, the owner, 16 Nov 2026: "we need to build the skill of referring these people on relevant
@@ -406,7 +412,7 @@ export function startingScript(goal: PlaybookGoal): FullScript {
     reconnect:
       'A short, warm catch-up first: greet them by first name, say it’s been a while and that you hope they and their work are doing well, picking up something real from their page or your last chat. Ask nothing in it. Then, right after it, your first message’s question, starting “I was wondering if I could” in place of “Hey [first name], if I could”.',
     yes: `Let’s schedule a time ${ASK[goal]} so you can see what it’s about. If you don’t like it, no pressure. I have [open times], how’s that sound? Or grab any time that works for you here: [booking link]`,
-    question: `Answer what they asked in a sentence or two, honestly, from your main offer, your For your content lists and what your business knows. Then say why a quick ${meet} helps: they see what it’s about for themselves. Never give them a reason to skip the ${meet}.`,
+    question: `Answer what they asked in a sentence or two, honestly, from your main offer, your For your posts and messages lists and what your business knows. Then say why a quick ${meet} helps: they see what it’s about for themselves. Never give them a reason to skip the ${meet}.`,
     later: 'Say no problem, and that you’ll check back in a few weeks. Nothing else.',
     no: 'Thank them kindly and leave it there. No question and no pitch.',
     followUp: `A short nudge, one or two lines, that never repeats an earlier message. After your first message: ask your question again lightly, in new words. After you asked for the ${meet}: ask if one of the times works, or offer new ones. Never ask how they are or how business is going.`,
@@ -560,16 +566,16 @@ export function firstMessagesOf(d: {
  */
 export const PLAYBOOK_NETWORKING = {
   demo: {
-    label: 'Offer a demo when it fits',
-    hint: 'Once, when they mention a problem you fix. No pressure.',
+    label: 'Offer a demo when they ask',
+    hint: 'Once, after a quick answer, when they ask about what you do or how it works.',
   },
   call: {
     label: 'Offer a networking call',
-    hint: 'Once, when a demo doesn’t fit or they pass on it. It books on your own calendar, not your demo’s.',
+    hint: 'Once, to wrap up the chat after they’ve written back twice, with a link to your own calendar, not your demo’s.',
   },
   sendPeople: {
     label: 'Offer to send people their way',
-    hint: 'Once, after they say what they do and where.',
+    hint: 'Once, in the same message that wraps up the chat.',
   },
 } as const;
 export type NetworkingSwitch = keyof typeof PLAYBOOK_NETWORKING;
@@ -727,7 +733,7 @@ export const FILL_BLANKS = [
   '[first name] is the first word of their name when it reads as a person’s first name; when it doesn’t (a business’s page, initials), leave the name out and keep the greeting (“Hey,”).',
   '[their kind of business] is the kind of business they run, from the facts or their pages, in a word or two, as they’d say it (roofing, real estate, photography); when they run more than one, the one the offer fits best. When those don’t show it, say “your business”, and when they work for someone else, put it as their line of work (“as a realtor”). Never guess it from the playbook. When they don’t run a business and the offer is for people, leave “for your … business” out and fit the words to them.',
   '[what your offer gets them] is what the offer really does for them, in a few plain words, never more than the offer says. [what your offer is] names the offer the way the offer does, in a few plain words (“my easy to use CRM software”, “my roof inspections”), never by its brand name.',
-  '[open times] are the times under <times>, said the way a person texts them; with none given, leave out the words that offer them and keep the rest. [booking link] is the link you’re given, exactly as written; with none, leave its words out.',
+  '[open times] are the times under <times>, said the way a person texts them; with none given, leave out the words that offer them and keep the rest. [booking link] is the link you’re given, exactly as written; with none, leave its words out. [calendar link] is the owner’s own calendar link when the task gives one, exactly as written; with none, leave it and the words that give it out (“Here’s my calendar:”).',
   '[your first name] is the first word of the name under <owner_name>; with none given, leave it and the words that give it out (“I’m with …”). [your business name] is the business’s name under <business>, written the way people say it.',
   '[a question about them] is one short, friendly question about them as a person, picked from something specific on their pages, in the facts or in the chat: a trip, a milestone, a hobby, a post, how long they’ve been at it, how they got started. People like talking about themselves, so make it about them and easy to answer, never a yes-or-no question, and never about what the offer does. Only when nothing specific stands out, ask how they got into their line of work.',
   '[what they do] is what they do, the way they’d say it (“roofing”, “real estate”). [their area] is the town or area they work in, from their pages or the chat; when they work nationwide or online, say “anywhere” in place of “in [their area]”.',
@@ -757,7 +763,7 @@ export const LOCKED_RULES: readonly string[] = [
   'Gives your price, and your guarantee, only when they ask.',
   'Never pitches someone who said no or not now. They get a kind word, and nothing more unless they write.',
   'Never makes up anything about the person, your results or your business.',
-  'Never says or hints that you share someone’s heritage, culture, faith, family or life story unless About you says so. Otherwise it stays warm and playful, as a friendly outsider.',
+  'Never says or hints that you share someone’s heritage, culture, faith, family or life story unless About you, or Your story in your main offer, says so. Otherwise it stays warm and playful, as a friendly outsider.',
   'A comment says something real about the post, in the plain words people type. With nothing real to say, it leaves no comment.',
   'Never says a message was written by AI.',
   'A comment offers to show them only when the post asks for someone who does what you do, and never carries a link.',

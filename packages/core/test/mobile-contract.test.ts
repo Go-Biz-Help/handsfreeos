@@ -189,7 +189,7 @@ const ONLINE_COMMANDS = [
   'ai_teammate.answer_feedback',
   'teammate_lesson.dismiss',
   // Settings → Main offer (HANDSFREEOS_MAIN_OFFER_PHONE_IMPLEMENTATION_PLAN.md): a part edited, the direction, and
-  // going live; and a list for content saved (docs/main-offer.md, "For your content", pick 6b).
+  // going live; and a list for content saved (docs/main-offer.md, "For your posts and messages", pick 6b).
   'main_offer.save_draft',
   'main_offer.save_direction',
   'main_offer.publish',

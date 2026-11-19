@@ -112,7 +112,7 @@ import {
   askStructured,
 } from '../../ai/ask';
 import type { AddonScopeContext, AddonWorkerAction } from '../types';
-import { opensWithIntro } from '@hfos/core/addons/outreach/script';
+import { networkingOf, opensWithIntro } from '@hfos/core/addons/outreach/script';
 import { introTexts, VOICE_DEFAULTS } from '@hfos/core/addons/outreach/voice';
 import { groupNamesIn, namesAGroup, withoutGroupLines } from '@hfos/core/addons/outreach/no-groups';
 import { businessKnows } from './knows';
@@ -335,8 +335,8 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
             where v.workspace_id = ${ws} and v.version = coalesce(${conversation?.offer_version ?? null}::int,
               (select live_version from app.main_offers where workspace_id = ${ws}))`,
       );
-      // The offer's lists for content (docs/main-offer.md, "For your content"): what a reply answers from, beside the
-      // offer (decision 164). They aren't versioned: the lists as they are now.
+      // The offer's lists for content (docs/main-offer.md, "For your posts and messages"): what a reply answers from,
+      // beside the offer (decision 164). They aren't versioned: the lists as they are now.
       const [content] = await rows<{ lists: unknown }>(
         tx,
         sql`select lists from app.main_offers where workspace_id = ${ws}`,
@@ -517,6 +517,15 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     const onCall =
       !client && found.conversation?.call === true && found.conversation.step === 'link';
     const link = onCall ? await callLink() : demoLinkFor;
+    // A reply in the networking chat after an introduction (decision 176): the call it wraps up with goes on the person's
+    // own calendar too, with its link right there.
+    const wrapLink =
+      input.kind === 'reply' &&
+      !client &&
+      found.conversation?.step === 'intro' &&
+      networkingOf(playbook?.details ?? null).call
+        ? await callLink()
+        : null;
     // The short video (decision 66): this playbook's, else the first in use with one, as Today picks it.
     const videoLink = client
       ? null
@@ -625,6 +634,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         offer,
         lists: found.lists,
         conversation,
+        callLink: wrapLink,
         post: found.engaged
           ? {
               text: `Your post: ${found.engaged.body ?? ''}\n\nTheir comment: ${found.engaged.comment}`,

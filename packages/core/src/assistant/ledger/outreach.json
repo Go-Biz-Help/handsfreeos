@@ -3220,7 +3220,7 @@
       "by": "outreach_save_playbook changes.opens and changes.script.intro; outreach_playbooks details.opens and says.intro"
     },
     {
-      "path": "Playbooks → builder → What it says → The networking chat (with Introduction): In the chat after it switches (Offer a demo when it fits, Offer a networking call, Offer to send people their way) and the chat's parts (the nudge, the demo offer, the networking call offer, sending people their way, the yes to a call)",
+      "path": "Playbooks → builder → What it says → The networking chat (with Introduction): In the chat after it switches (Offer a demo when they ask, Offer a networking call, Offer to send people their way) and the chat's parts (the nudge, the demo offer, the networking call offer, sending people their way, the yes to a call)",
       "kind": "do",
       "file": "apps/web/src/addons/outreach/playbook-builder.tsx:1657",
       "covered": "yes",

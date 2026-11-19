@@ -1,7 +1,7 @@
 /**
  * What AI Social Media Content Creator's AI knows about the business (docs/socialcontent.md): its profile's brief, the
  * short answers in its knowledge base, and its main offer live now with its lists for content (docs/main-offer.md,
- * "For your content"), quoted as data. Its own copy: add-ons never share code.
+ * "For your posts and messages"), quoted as data. Its own copy: add-ons never share code.
  *
  * Until the main offer is live, the AI writes no posts and no ideas, as Social Outreach writes no messages (the
  * owner's pick 7b, 11 Nov 2026): `requireLiveOffer` refuses, and the calendar waits for `main_offer.published`.

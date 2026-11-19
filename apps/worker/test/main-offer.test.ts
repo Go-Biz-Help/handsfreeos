@@ -354,7 +354,7 @@ describe('a try of the whole offer', () => {
   });
 });
 
-describe('the lists for content (docs/main-offer.md, "For your content")', () => {
+describe('the lists for content (docs/main-offer.md, "For your posts and messages")', () => {
   it('is for people who build the offer', async () => {
     const asked = model.requests.length;
     const res = await post('/v1/main-offer/lists', memberToken, { mode: 'gaps' });

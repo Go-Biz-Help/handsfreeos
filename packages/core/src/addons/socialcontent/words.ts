@@ -320,7 +320,7 @@ export const SOCIALCONTENT_WORDS = {
    */
   offer: {
     notLive:
-      'Your main offer isn’t live yet, so the AI doesn’t write posts or ideas. Put it live in Settings → Main offer, and fill in For your content there too: every post is written from them.',
+      'Your main offer isn’t live yet, so the AI doesn’t write posts or ideas. Put it live in Settings → Main offer, and fill in For your posts and messages there too: every post is written from them.',
     open: 'Open Main offer',
   },
   needsReader:
@@ -435,7 +435,7 @@ export const SOCIALCONTENT_WORDS = {
   ideas: {
     title: 'Ideas',
     intro:
-      'Ideas for your own posts, from the Playbook and what HandsFreeOS knows about your business. Each is a tip, a customer problem, a story or your offer, about a line from your lists in Main offer → For your content. Write the post from one, and it goes on your Calendar. Saved ideas are written first when the calendar fills, and 10 more come on their own whenever fewer than 5 wait.',
+      'Ideas for your own posts, from the Playbook and what HandsFreeOS knows about your business. Each is a tip, a customer problem, a story or your offer, about a line from your lists in Main offer → For your posts and messages. Write the post from one, and it goes on your Calendar. Saved ideas are written first when the calendar fills, and 10 more come on their own whenever fewer than 5 wait.',
     none: 'No ideas yet. Get ideas once there’s a Playbook.',
     get: 'Get ideas',
     getting: 'Thinking…',
@@ -573,7 +573,7 @@ export const SOCIALCONTENT_WORDS = {
       settings: 'Open Settings',
       niches: 'See niches',
       'main-offer': 'Open Main offer',
-      'main-offer-lists': 'Open For your content',
+      'main-offer-lists': 'Open For your posts and messages',
     } as const,
   },
   activity: {

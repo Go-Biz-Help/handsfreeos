@@ -71,8 +71,11 @@ export const SEND_STATE_KEYS = Object.keys(SEND_STATES) as [SendState, ...SendSt
  *    says something real about its post in the words people type (decision 165, ./about-owner.ts, ./comment-says.ts).
  * 4. An introduction asks a question about them, as a text of its own right after it when the person sends a few
  *    (decision 175, ./today.ts `introTask`, ./voice.ts `introTexts`).
+ * 5. A networking chat's reply is short, reacts to what they said with the business's story, asks a question only when
+ *    the chat would stall, offers a demo only when they ask about the business, and wraps up after they've written back
+ *    twice (decision 176, ./today.ts `networkingReplyTask`).
  */
-export const RULES_VERSION = 4;
+export const RULES_VERSION = 5;
 
 /** Why one drafted under older rules can't be OK'd (`RULES_VERSION`), and what happens to it. */
 export const SEND_REWRITTEN =

@@ -114,7 +114,7 @@ describe('what the AI knows of the owner', () => {
   it('is one of the playbook’s locked rules, in plain words', () => {
     const rules = LOCKED_RULES.join('\n');
     expect(rules).toMatch(/Never says or hints that you share someone’s heritage/);
-    expect(rules).toMatch(/unless About you says so/);
+    expect(rules).toMatch(/unless About you, or Your story in your main offer, says so/);
     expect(rules).toMatch(/A comment says something real about the post/);
     for (const rule of LOCKED_RULES) expect(rule).not.toMatch(/'|—|decision|_/);
   });

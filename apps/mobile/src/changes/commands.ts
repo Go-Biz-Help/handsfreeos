@@ -713,7 +713,7 @@ export const PHONE_COMMANDS = {
     MainOfferSaveDirectionOutput,
   ),
   'main_offer.save_draft': command(ONLINE, MainOfferSaveDraftInput, MainOfferSaveDraftOutput),
-  // For your content (the owner's pick 6b): one list saved whole, online as the rest of the offer is.
+  // For your posts and messages (the owner's pick 6b): one list saved whole, online as the rest of the offer is.
   'main_offer.save_list': command(ONLINE, MainOfferSaveListInput, MainOfferSaveListOutput),
   // A partner's page and a customer's Partner card (the partners plan, stage 2d): online, since each is for the
   // partner as HandsFreeOS has them now, and promises the business's money.

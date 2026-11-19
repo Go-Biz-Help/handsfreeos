@@ -154,7 +154,7 @@ at 06:34 UTC. Creator research stays on Instagram.
 | 29. Niches                         | **It ticks the business's own niche and the 2 closest**; the rest wait for a person.                                                                                                             |
 | 30. Which creators                 | **The best 10 on each network**: the closest match (the AI reads their bio and recent posts), 5,000+ followers, posted in the last 30 days, and the best likes and comments for their followers. |
 | 31. Keeping the list fresh         | **Once a month it swaps out creators who stopped posting or rarely stand out**, never ones a person ticked or added.                                                                             |
-| 32. When it starts writing         | **Once the Playbook is written, or after 3 days anyway, and only once the main offer is live and its For your content lists are filled.**                                                        |
+| 32. When it starts writing         | **Once the Playbook is written, or after 3 days anyway, and only once the main offer is live and its For your posts and messages lists are filled.**                                             |
 | 33. The OK                         | **Posts still wait for an OK**, as now (decision 15).                                                                                                                                            |
 
 ### The parts
@@ -182,7 +182,7 @@ whole graphics and a check on every picture (decision 40).
 
 | Question                        | Answer                                                                                                                                                                                                |
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 34. What each post is about     | **Its own line from the main offer's For your content lists**, the lists taking turns, the line used longest ago first; the AI sees the business's last 20 posts and never repeats a hook.            |
+| 34. What each post is about     | **Its own line from the main offer's For your posts and messages lists**, the lists taking turns, the line used longest ago first; the AI sees the business's last 20 posts and never repeats a hook. |
 | 35. Ideas                       | **10 more on their own whenever fewer than 5 wait**, each planned as a kind and a line before the AI writes it.                                                                                       |
 | 36. The weekly mix              | **Of every 10 posts, about 4 tips, 2 customer problems, 2 stories and 2 about the offer**, never the same kind twice in a row.                                                                        |
 | 37. The drafts from before      | **Written again** with the variety, on the same days and times, unless a person touched them.                                                                                                         |

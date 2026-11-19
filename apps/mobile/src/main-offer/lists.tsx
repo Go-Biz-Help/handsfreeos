@@ -46,10 +46,10 @@ import { useLiveAnswer } from '@/lib/live-answer';
 import { MAIN_OFFER_MANAGE, mainOfferCalls, offerAiError, type MainOfferCalls } from './calls';
 
 /**
- * The lists for content on the phone (docs/main-offer.md, "For your content"; the owner's pick 6b, 11 Nov 2026: the
- * phone changes them too, with the AI's help). The same lists and buttons as the web's card: each list opens to its
- * lines, with Write it for me, Improve a line, Examples, and What's missing across them all. Every change saves at
- * once and needs signal; nothing is kept on the phone. Owners and admins change them; everyone sees them.
+ * The lists for content on the phone (docs/main-offer.md, "For your posts and messages"; the owner's pick 6b, 11 Nov
+ * 2026: the phone changes them too, with the AI's help). The same lists and buttons as the web's card: each list opens
+ * to its lines, with Write it for me, Improve a line, Examples, and What's missing across them all. Every change saves
+ * at once and needs signal; nothing is kept on the phone. Owners and admins change them; everyone sees them.
  */
 export function ContentListsScreen() {
   const { business } = useBusiness();

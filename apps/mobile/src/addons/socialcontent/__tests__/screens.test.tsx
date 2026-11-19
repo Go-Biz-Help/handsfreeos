@@ -194,7 +194,7 @@ describe('Creators', () => {
       /Picking the best 10\s*Instagram 4 of 10\. More after the next search\./,
     );
     expect(screen.getByTestId('socialcontent-setup-write')).toHaveTextContent(
-      /For your content in Settings → Main offer: 8 of 11 lists filled/,
+      /For your posts and messages in Settings → Main offer: 8 of 11 lists filled/,
     );
     await fireEvent.press(screen.getByTestId('socialcontent-setup-fix-write'));
     expect(actions.openFix).toHaveBeenCalledWith('main-offer-lists');
