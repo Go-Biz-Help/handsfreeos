@@ -29,13 +29,18 @@ import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
 
-import { Note, useOutreachContext } from './kit';
+import { Note } from './kit';
 import { Choice, Tick } from './settings-bits';
 import { ChangeRow, RowsCard } from './settings-hands-off';
 
 /** Settings → You: the person's own town, how far is local, and the local focus switch. Each person's own. */
-export function LocationPart() {
-  const { workspaceId, online } = useOutreachContext();
+export function LocationPart({
+  workspaceId,
+  online,
+}: {
+  readonly workspaceId: string;
+  readonly online: boolean;
+}) {
   const [shown, setShown] = React.useState<LocationShown | null>(null);
   const [problem, setProblem] = React.useState<string | null>(null);
   const [area, setArea] = React.useState('');
@@ -143,8 +148,13 @@ export function LocationPart() {
 }
 
 /** Settings → You: the Networking calendar a networking call books on, and the Lead calendar a demo books on. */
-export function MyCalendarsPart() {
-  const { workspaceId, online } = useOutreachContext();
+export function MyCalendarsPart({
+  workspaceId,
+  online,
+}: {
+  readonly workspaceId: string;
+  readonly online: boolean;
+}) {
   const [shown, setShown] = React.useState<MyCalendarsShown | null>(null);
   const [problem, setProblem] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
