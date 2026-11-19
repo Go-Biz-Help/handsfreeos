@@ -390,6 +390,25 @@ describe('the booking page', () => {
     expect(await sites(`/public/book/${site}/${hidden.slug}/embed`)).toEqual([]);
   });
 
+  it('hands the booking page the calendar’s design, and none for one never designed', async () => {
+    const plain = await makeCalendar('Plain look');
+    const page = (slug: string) =>
+      get(`/public/book/${site}/${slug}`).then(
+        (res) => (res.json() as { calendar: { design: unknown } }).calendar.design,
+      );
+    expect(await page(plain.slug)).toBeNull();
+    const designed = await makeCalendar('Our own look', {
+      design: { colors: { button: '#0F766E' }, font: 'Lora', corners: 'round', showTitle: false },
+    });
+    expect(await page(designed.slug)).toMatchObject({
+      colors: { button: '#0f766e', background: null },
+      font: 'Lora',
+      corners: 'round',
+      showTitle: false,
+      showLogo: false,
+    });
+  });
+
   it('answers a filled honeypot with a plain 400 and saves nothing', async () => {
     const cal = await makeCalendar('Honeypot');
     const { slots } = await openTimes(cal.slug);

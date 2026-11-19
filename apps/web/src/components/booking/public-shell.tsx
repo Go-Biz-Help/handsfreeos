@@ -71,6 +71,7 @@ export function PublicFrame({
   business,
   byline,
   footer,
+  designed = false,
   children,
 }: {
   business: PublicBusiness | null;
@@ -78,9 +79,13 @@ export function PublicFrame({
   byline?: string;
   /** The bottom line drawn some other way, in place of `byline`. */
   footer?: ReactNode;
+  /** Inside a design of its own (a calendar's Design section), which already has the colours: none set here. */
+  designed?: boolean;
   children: ReactNode;
 }) {
-  const look = brandLook(business?.look?.color);
+  const look = designed
+    ? { className: undefined, style: undefined }
+    : brandLook(business?.look?.color);
   return (
     <div
       className={cn('flex min-h-dvh flex-col bg-bg text-text', look.className)}

@@ -47,6 +47,7 @@ import {
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import { jobText } from '../booking/job-texts';
+import { siteAddress, websiteDesign } from '../http/website-style';
 import {
   atLabel,
   clockLabel,
@@ -72,6 +73,7 @@ import {
   visitsDone,
   type DecidedImpact,
   type SettingsConfirmTool,
+  type SettingsDeps,
 } from './tools-settings-calendar';
 
 type Args = Record<string, unknown>;
@@ -948,6 +950,7 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
               : { depositDollars: (deposit.amountCents ?? 0) / 100 },
           accountId: c.payments.connectionId,
         },
+        design: designView(c.design, tz),
         // Things to check, as the builder lists them: what each blocks, and the fixes it offers (apply_fix).
         needsFixing: calendar.issues.map((i) => ({
           issue: i.code,
@@ -2259,6 +2262,35 @@ const pipelinesOf = (db: Db, ctx: ToolContext) =>
     .then((p) => p.pipelines)
     .catch(() => null);
 
+/** The booking page's design in update_calendar_settings' words: automatic where nothing is picked. */
+function designView(d: CalendarConfig['design'], tz: string) {
+  if (!d)
+    return 'the business’s own colour and HandsFreeOS’s look: nothing set in the Design section';
+  const colour = (v: string | null) => v ?? 'automatic';
+  return {
+    scheme: d.scheme,
+    buttonColor: d.colors.button ?? 'automatic (the business’s colour)',
+    buttonTextColor: colour(d.colors.buttonText),
+    backgroundColor:
+      d.colors.background ?? 'automatic (white, and see-through on the business’s website)',
+    textColor: colour(d.colors.text),
+    boxColor: colour(d.colors.field),
+    boxOutlineColor: colour(d.colors.fieldBorder),
+    mistakeColor: colour(d.colors.error),
+    font: d.font ?? 'Hanken Grotesk (HandsFreeOS’s own)',
+    textSize: d.textSize,
+    corners: d.corners,
+    boxes: d.fields,
+    buttonStyle: d.button.style,
+    buttonsFullWidth: d.button.fullWidth,
+    showName: d.showTitle,
+    showLogo: d.showLogo,
+    ...(d.matched
+      ? { matchedTo: d.matched.site, matchedOn: atLabel(Date.parse(d.matched.at), tz) }
+      : {}),
+  };
+}
+
 type Section = Record<string, unknown> | undefined;
 const section = (args: Args, key: string) => args[key] as Section;
 /** Keeps a patch section only when something in it is set. */
@@ -2276,6 +2308,7 @@ async function settingsPatch(
   ctx: ToolContext,
   args: Args,
   config: CalendarConfig,
+  deps?: SettingsDeps,
 ): Promise<ConfigPatch> {
   const patch: Record<string, unknown> = {};
   const team = section(args, 'team');
@@ -2515,7 +2548,62 @@ async function settingsPatch(
       connectionId: pay['accountId'],
     });
   }
+  const look = section(args, 'design');
+  if (look) patch['design'] = look['reset'] === true ? null : await designPatch(look, deps);
   return defined(patch) as ConfigPatch;
+}
+
+/**
+ * The Design section's choices as a patch on the calendar's design. Match my website's reading comes first and what
+ * else was given goes on top; it's read again when the change is saved, as pressing Match then Save would.
+ */
+async function designPatch(look: Record<string, unknown>, deps?: SettingsDeps) {
+  const site = str(look['matchWebsite']);
+  let matched: Record<string, unknown> = {};
+  if (site) {
+    const services = deps?.services;
+    if (!services)
+      throw HfosError.rule(
+        'website_unreadable',
+        503,
+        'Websites can’t be read from here just now. Use Match my website in the calendar’s Design section instead.',
+      );
+    const read = await websiteDesign(
+      { fetchUrl: services.fetchUrl, log: services.log },
+      siteAddress(site),
+      'the calendar’s Design section',
+    );
+    matched = read.design as Record<string, unknown>;
+  }
+  const part = (key: string) => (matched[key] ?? {}) as Record<string, unknown>;
+  return some({
+    ...matched,
+    ...defined({
+      scheme: look['scheme'],
+      font: look['font'],
+      textSize: look['textSize'],
+      corners: look['corners'],
+      fields: look['boxes'],
+      showTitle: look['showName'],
+      showLogo: look['showLogo'],
+    }),
+    colors: some({
+      ...part('colors'),
+      ...defined({
+        button: look['buttonColor'],
+        buttonText: look['buttonTextColor'],
+        background: look['backgroundColor'],
+        text: look['textColor'],
+        field: look['boxColor'],
+        fieldBorder: look['boxOutlineColor'],
+        error: look['mistakeColor'],
+      }),
+    }),
+    button: some({
+      ...part('button'),
+      ...defined({ style: look['buttonStyle'], fullWidth: look['buttonsFullWidth'] }),
+    }),
+  });
 }
 
 /** The patch applied; a new deposit replaces the old one whole rather than merging into it. */
@@ -2572,6 +2660,7 @@ async function saveSettings(
   db: Db,
   ctx: ToolContext,
   args: Args,
+  deps?: SettingsDeps,
 ): Promise<{
   out: SaveOut;
   impacts: DecidedImpact[];
@@ -2601,7 +2690,7 @@ async function saveSettings(
   const patch =
     args['action'] === 'apply_fix'
       ? (fixOf(args, calendar).patch as ConfigPatch)
-      : await settingsPatch(db, ctx, args, calendar.config);
+      : await settingsPatch(db, ctx, args, calendar.config, deps);
   if (!Object.keys(patch).length)
     throw nothingChanges(`${calendar.name} already has those settings.`);
   const draft = draftOf(calendar.config, patch);
@@ -2669,7 +2758,7 @@ function settingsWarnings(before: CalendarConfig, after: CalendarConfig | null):
 }
 
 const updateCalendarSettings: SettingsConfirmTool = {
-  async prepare(db, ctx, args, toolCallId) {
+  async prepare(db, ctx, args, toolCallId, deps) {
     const { calendar: current } = await calendarOf(db, ctx, args['calendarId']);
     const restoring = args['action'] === 'restore';
     const fixing = args['action'] === 'apply_fix';
@@ -2681,7 +2770,7 @@ const updateCalendarSettings: SettingsConfirmTool = {
         : `Change ${current.name}?`;
     let dry: Awaited<ReturnType<typeof saveSettings>>;
     try {
-      dry = await dryRun(db, (tx) => saveSettings(tx, ctx, args));
+      dry = await dryRun(db, (tx) => saveSettings(tx, ctx, args, deps));
     } catch (e) {
       // An active calendar can't be saved with settings that stop it booking: the builder refuses too.
       const blocking = blockingIssues(e);
@@ -2690,7 +2779,9 @@ const updateCalendarSettings: SettingsConfirmTool = {
         ? null
         : draftOf(
             current.config,
-            fix ? (fix.patch as ConfigPatch) : await settingsPatch(db, ctx, args, current.config),
+            fix
+              ? (fix.patch as ConfigPatch)
+              : await settingsPatch(db, ctx, args, current.config, deps),
           );
       const diff = draft ? diffConfigs(current.config, draft) : [];
       return {
@@ -2743,8 +2834,8 @@ const updateCalendarSettings: SettingsConfirmTool = {
     };
   },
 
-  async commit(db, ctx, args) {
-    const { out, calendar } = await saveSettings(db, ctx, args);
+  async commit(db, ctx, args, extra) {
+    const { out, calendar } = await saveSettings(db, ctx, args, extra);
     const restoring = args['action'] === 'restore';
     return {
       outcome: [

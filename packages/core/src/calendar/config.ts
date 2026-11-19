@@ -9,6 +9,7 @@
 import { z } from 'zod';
 import { isClock, isLocalDate, parseClock } from './engine/zoned';
 import { POLL_AI_MODES } from '../meetings/polls';
+import { FormDesign } from '../forms/design';
 
 export const CALENDAR_CONFIG_VERSION = 1;
 
@@ -404,6 +405,11 @@ export const CalendarConfig = z.object({
   crm: Crm.prefault({}),
   payments: Payments.prefault({}),
   automations: Automations.prefault({}),
+  /**
+   * How the booking page looks, on its own page and on the business's website: the builder's Design section, the
+   * same choices as a form's Design tab. Null: the business's own colour and HandsFreeOS's look, as before.
+   */
+  design: FormDesign.nullable().default(null),
 });
 export type CalendarConfig = z.infer<typeof CalendarConfig>;
 export type CalendarConfigInput = z.input<typeof CalendarConfig>;
