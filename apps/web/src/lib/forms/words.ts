@@ -22,6 +22,7 @@ import {
   Hash,
   Heading,
   ListChecks,
+  ListOrdered,
   MapPin,
   MousePointerClick,
   PenLine,
@@ -58,6 +59,7 @@ export const QUESTION_ICONS: Readonly<Record<QuestionType, LucideIcon>> = {
   video: Film,
   booking: CalendarCheck,
   button: MousePointerClick,
+  quantities: ListOrdered,
 };
 
 export { QUESTION_LABELS, FORM_MODE_LABELS };
@@ -105,7 +107,7 @@ export const QUESTION_MENU: readonly { group: string; types: readonly QuestionMe
     group: 'Details',
     types: ['first_name', 'last_name', 'email', 'phone', 'address', 'date', 'time'],
   },
-  { group: 'Numbers', types: ['number', 'money', 'rating', 'scale'] },
+  { group: 'Numbers', types: ['number', 'money', 'quantities', 'rating', 'scale'] },
   { group: 'Other', types: ['content', 'video', 'booking', 'file', 'signature', 'payment'] },
 ];
 

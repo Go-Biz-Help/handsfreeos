@@ -193,6 +193,7 @@ export const Question = z.discriminatedUnion('type', [
   question('video'),
   question('booking'),
   question('button'),
+  question('quantities'),
 ]);
 export type Question = z.infer<typeof Question>;
 export type QuestionInput = z.input<typeof Question>;
@@ -435,10 +436,20 @@ export function findPage(
   return definition.pages.find((p) => p.id === pageId) ?? null;
 }
 
-/** Every choice's `value`, by choice id, for the calculations. */
+/**
+ * Every choice's `value`, by choice id, for the calculations; and each row of a "How many of each" that has prices,
+ * by its id (a row without one is worth 0), so a calculation that reads it gets what the order comes to. A question
+ * with no prices at all is left out, and counts how many in all.
+ */
 export function choiceValues(definition: Pick<FormDefinition, 'pages'>): Record<string, number> {
   const out: Record<string, number> = {};
   for (const question of allQuestions(definition)) {
+    if (question.type === 'quantities') {
+      const rows = question.config.choices;
+      if (rows.some((row) => row.price !== null))
+        for (const row of rows) out[row.id] = row.price ?? 0;
+      continue;
+    }
     if (!CHOICE_TYPES.has(question.type)) continue;
     const config = question.config as { choices?: { id: string; value: number | null }[] };
     for (const choice of config.choices ?? [])
@@ -583,6 +594,15 @@ export function formProblems(definition: FormDefinition): string[] {
       problems.push(`“${question.title}” charges a calculation that isn’t there.`);
     if (amount.kind === 'question' && !known.has(amount.questionId!))
       problems.push(`“${question.title}” charges an answer that isn’t there.`);
+  }
+
+  for (const question of questions) {
+    if (question.type !== 'quantities') continue;
+    const { minTotal, maxTotal } = question.config;
+    if (minTotal !== null && maxTotal !== null && minTotal > maxTotal)
+      problems.push(
+        `“${question.title}” asks for at least ${minTotal} and at most ${maxTotal} in all. Make the least no more than the most.`,
+      );
   }
 
   for (const question of questions) {

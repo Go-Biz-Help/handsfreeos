@@ -37,6 +37,7 @@ import {
   type AnswerValue,
 } from './questions';
 import { isBookingAnswer } from './booking';
+import { cleanQuantities, quantitiesProblem, quantitiesWords } from './quantities';
 import { watchFirstWords } from './video';
 
 /** A page with only the questions that are showing. */
@@ -196,6 +197,11 @@ export function answerProblem(question: Question, value: AnswerValue): string | 
   // One box to check: one that must be answered must be checked, so a No (the phone's switch, a chat) won't do.
   if (isSingleCheckbox(question) && question.required && value !== true && value !== 'yes')
     return CHECK_THIS_BOX;
+  // How many of each: a row typed back to 0 is still a row they touched, so its shape is checked before it's empty.
+  if (question.type === 'quantities' && value !== null && typeof value === 'object') {
+    const problem = quantitiesProblem(question, value);
+    if (problem) return problem;
+  }
   if (answerIsEmpty(value)) return question.required ? ANSWER_THIS_ONE : null;
   const config = question.config as Record<string, unknown>;
 
@@ -297,6 +303,8 @@ export function answerProblem(question: Question, value: AnswerValue): string | 
     case 'button':
       // A live poll's button: pressing it is the answer.
       return value === true ? null : 'Press the button.';
+    case 'quantities':
+      return quantitiesProblem(question, value);
     default:
       return null;
   }
@@ -408,6 +416,8 @@ export interface RecordedAnswer {
   readonly value: AnswerValue;
   /** For a pick-one or pick-any, what the choices they picked were called. */
   readonly labels: readonly string[];
+  /** The answer in words when the value alone can't say it ("Adult M × 5, Adult L × 3 · 8 shirts · $96"). */
+  readonly words?: string | null;
 }
 
 export function recordAnswers(
@@ -417,6 +427,19 @@ export function recordAnswers(
 ): RecordedAnswer[] {
   const state = formState(definition, answers, fill);
   return state.questions.filter(asked).map((question) => {
+    if (question.type === 'quantities') {
+      // Only the rows they ordered, as whole numbers; nothing ordered is no answer.
+      const counts = cleanQuantities(question, state.answers[question.id] ?? null);
+      const empty = Object.keys(counts).length === 0;
+      return {
+        questionId: question.id,
+        title: question.title,
+        type: question.type,
+        value: empty ? null : counts,
+        labels: [],
+        words: empty ? null : quantitiesWords(question, counts),
+      };
+    }
     const value = state.answers[question.id] ?? null;
     const labels: string[] = [];
     if (CHOICE_TYPES.has(question.type)) {

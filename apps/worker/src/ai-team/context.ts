@@ -16,6 +16,7 @@ import {
   chatVerified,
   LeadQualification,
   parseStoredForm,
+  quantitiesWords,
   loadActiveAddons,
   loadCalendar,
   localDateOf,
@@ -671,7 +672,12 @@ async function cameInWithOf(tx: Tx, leadId: string): Promise<string | null> {
       for (const question of allQuestions(parseStoredForm(form.definition))) {
         const choices =
           (question.config as { choices?: { id: string; label: string }[] }).choices ?? [];
-        const text = answerText(form.answers?.[question.id], choices).trim();
+        // How many of each reads as its rows' words, never their ids.
+        const text = (
+          question.type === 'quantities'
+            ? (quantitiesWords(question, form.answers?.[question.id]) ?? '')
+            : answerText(form.answers?.[question.id], choices)
+        ).trim();
         // Their contact details are already on the record: only what they asked for helps.
         if (
           text &&

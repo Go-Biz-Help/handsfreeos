@@ -2189,7 +2189,7 @@ export const assistantTools = [
   define({
     name: 'fill_in_form',
     description:
-      'Fill in a published form for a customer and send it, as the phone’s Fill it in does: for answers they gave in person or on the phone. Sending it does everything their own answers would: it adds or matches the customer and fills in their details, opens the lead or task the form asks for and starts its workflows, so it waits for the person’s OK. answers are by question id from get_form; a choice can be its id or its words, checkboxes a list, yes or no true or false. A file, a signature, a payment, a video or a time to book can’t be filled in for them. The OK to text and OK to call boxes stay unticked: a yes has to come from the customer themselves.',
+      'Fill in a published form for a customer and send it, as the phone’s Fill it in does: for answers they gave in person or on the phone. Sending it does everything their own answers would: it adds or matches the customer and fills in their details, opens the lead or task the form asks for and starts its workflows, so it waits for the person’s OK. answers are by question id from get_form; a choice can be its id or its words, checkboxes a list, yes or no true or false, and a How many of each an object of how many for each row, by the row’s id or its words ({"Adult M": 5, "Adult L": 3}). A file, a signature, a payment, a video or a time to book can’t be filled in for them. The OK to text and OK to call boxes stay unticked: a yes has to come from the customer themselves.',
     input: z.object({
       formId: uuid,
       answers: z
