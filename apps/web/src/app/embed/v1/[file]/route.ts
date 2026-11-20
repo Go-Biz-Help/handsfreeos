@@ -24,7 +24,8 @@ function script(body: string, status: number, cache: string): Response {
  * GET /embed/v1/<key>.js: the loader a business pastes on its site (lib/chat/loader.ts), kept for 5 minutes by
  * browsers and by the CDN. Vercel's CDN keeps a function's answer only when Cache-Control has s-maxage, and strips
  * it before the browser sees it, so browsers get `public, max-age=300`. An unknown key (or one replaced by "New key")
- * gets a 404, and a paused widget an empty script, so the button doesn't show; both are kept for a minute. proxy.ts
+ * gets a 404, and a paused widget a script that shows nothing (it only loads the texting registration's browser check
+ * when the address asks for it), so the button doesn't show; both are kept for a minute. proxy.ts
  * leaves /embed alone: no session work for signed-out visitors, and no cookie to stop the CDN keeping it.
  */
 export async function GET(request: NextRequest, ctx: { params: Promise<{ file: string }> }) {
@@ -50,8 +51,16 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ file: s
     return script('/* HandsFreeOS: this chat isn’t available. */\n', 404, MINUTE);
   if (found.state === 'unreachable')
     return script('/* HandsFreeOS: the chat couldn’t load this time. */\n', 503, 'no-store');
+  // A paused chat shows nothing, but still loads the texting registration's browser check when the address carries
+  // its code: a chat hidden until texting is approved is paused through exactly the review the check is for (Full
+  // Spectrum's, 2026-11-20).
   if (found.config.paused && !preview)
-    return script('/* HandsFreeOS: this chat is paused. */\n', 200, MINUTE);
+    return script(
+      '/* HandsFreeOS: this chat is paused. */\n' +
+        `/hfos-check=/.test(location.hash)&&document.head.append(Object.assign(document.createElement("script"),{src:${JSON.stringify(`${request.nextUrl.origin}/embed/v1/site-check.js`)}}));\n`,
+      200,
+      MINUTE,
+    );
   const { look, business } = found.config;
   return script(
     loaderScript({
