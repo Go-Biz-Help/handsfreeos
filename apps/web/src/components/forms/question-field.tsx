@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { AddressField } from './address-field';
 import { BookingPicker } from './booking-picker';
+import { FileField } from './file-field';
 import { useFormLook } from './form-look';
 import { QuantitiesField } from './quantities-field';
 import { VideoPlayer } from './video-player';
@@ -311,12 +312,7 @@ function Answer({
         </div>
       );
     case 'file':
-      return (
-        <p className="rounded-card border border-dashed border-border px-3 py-5 text-center text-[13px] text-text-3">
-          Uploads are coming shortly. For now, tell us in the box above and we’ll ask for photos by
-          text.
-        </p>
-      );
+      return <FileField question={question} value={value} onChange={onChange} inputId={id} />;
     case 'payment':
       return (
         <p className="rounded-card border border-dashed border-border px-3 py-5 text-center text-[13px] text-text-3">

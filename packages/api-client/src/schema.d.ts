@@ -4988,7 +4988,7 @@ export interface paths {
         put?: never;
         /**
          * Delete one response: a test of your own, or a customer asking to be forgotten. The answers go with it.
-         * @description Risk level 2. Requires forms.manage. Emits form.response_deleted.
+         * @description Risk level 2. Requires forms.manage. Emits form.response_deleted, file.deleted.
          */
         post: operations["command_form_response_delete"];
         delete?: never;
@@ -5008,7 +5008,7 @@ export interface paths {
         put?: never;
         /**
          * Fill in a form for a customer yourself and send it, in one go. Works with no signal; the phone keeps it until there is some.
-         * @description Risk level 2. Requires records.write. Emits form.submitted, person.created, person.updated, appointment.booked, lead.created, task.created, invoice.created, workflow.enrol_requested. Can wait on a phone with no signal.
+         * @description Risk level 2. Requires records.write. Emits form.submitted, person.created, person.updated, appointment.booked, lead.created, task.created, invoice.created, workflow.enrol_requested, file.received, file.deleted. Can wait on a phone with no signal.
          */
         post: operations["command_form_response_record"];
         delete?: never;
@@ -82801,6 +82801,15 @@ export interface operations {
                         calculations: {
                             [key: string]: number;
                         };
+                        files: {
+                            bucket: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            mimeType: string | null;
+                            name: string;
+                            objectPath: string;
+                            sizeBytes: number | null;
+                        }[];
                         response: {
                             completedAt: string | null;
                             /** Format: uuid */

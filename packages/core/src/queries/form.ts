@@ -15,6 +15,8 @@ import { defineQuery } from '../kernel/define';
 import { decodeCursor, page } from '../kernel/pagination';
 import { allQuestions, type FormDefinition, type FormMode } from '../forms/definition';
 import { formIssues, loadForm, loadFormCatalogs, parseStoredForm } from '../forms/load';
+import type { AnswerFile } from '../forms/questions';
+import { isAnswerFiles } from '../forms/uploads';
 import { jsonEqual } from '../workflows/json';
 import {
   FormCatalogsInput,
@@ -385,6 +387,25 @@ export const formResponseGet = defineQuery({
               from app.people where id = ${response.personId}`,
         )
       : [];
+    // The files they sent (file questions): on the customer now, or on the form. Row security says which they see.
+    const fileIds = answers
+      .filter((a) => a.question_type === 'file' && isAnswerFiles(a.value))
+      .flatMap((a) => (a.value as readonly AnswerFile[]).map((f) => f.fileId));
+    const sentFiles = fileIds.length
+      ? await rows<{
+          id: string;
+          name: string;
+          size_bytes: number | string | null;
+          mime_type: string | null;
+          bucket: string;
+          object_path: string;
+        }>(
+          ctx.tx,
+          sql`select id, name, size_bytes, mime_type, bucket, object_path from app.files
+              where workspace_id = ${input.workspaceId} and id = any(${uuidArray(fileIds)})
+                and status = 'ready' and deleted_at is null`,
+        )
+      : [];
     return {
       response: {
         responseId: response.id,
@@ -410,6 +431,14 @@ export const formResponseGet = defineQuery({
         labels: a.choice_labels ?? [],
       })),
       calculations: (response.calculations ?? {}) as Record<string, number>,
+      files: sentFiles.map((f) => ({
+        fileId: f.id,
+        name: f.name,
+        sizeBytes: f.size_bytes === null ? null : Number(f.size_bytes),
+        mimeType: f.mime_type,
+        bucket: f.bucket,
+        objectPath: f.object_path,
+      })),
     };
   },
 });

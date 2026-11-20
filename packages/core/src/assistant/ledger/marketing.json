@@ -32,12 +32,13 @@
     "apps/web/src/components/chat-widget/chat-showcase.tsx": "ca141aed1861",
     "apps/web/src/components/chat-widget/chat-window.tsx": "96ea0e00ee8e",
     "apps/web/src/components/crm/tag-picker.tsx": "74b0055a510a",
-    "apps/web/src/components/forms/booking-picker.tsx": "0b81d8526d1a",
+    "apps/web/src/components/forms/booking-picker.tsx": "ab0798d78741",
     "apps/web/src/components/forms/chips.tsx": "9f46c43f3308",
     "apps/web/src/components/forms/design-panel.tsx": "d43d1c96a7f3",
     "apps/web/src/components/forms/editor-state.ts": "46b32473f0ab",
     "apps/web/src/components/forms/editor.tsx": "1a53390c2def",
     "apps/web/src/components/forms/embed-height.tsx": "bafe88e2662d",
+    "apps/web/src/components/forms/file-field.tsx": "28b1f2394118",
     "apps/web/src/components/forms/form-list.tsx": "56e0517bcfd4",
     "apps/web/src/components/forms/form-look.tsx": "228d675dd64c",
     "apps/web/src/components/forms/name-header.tsx": "490c11e1f3ab",
@@ -48,14 +49,14 @@
     "apps/web/src/components/forms/poll-leads.tsx": "2f01977a2b51",
     "apps/web/src/components/forms/poll-slides.tsx": "9a3e003f5c23",
     "apps/web/src/components/forms/preview.tsx": "1cf76a16916f",
-    "apps/web/src/components/forms/public-form.tsx": "74581f9d1c48",
+    "apps/web/src/components/forms/public-form.tsx": "e542de786abd",
     "apps/web/src/components/forms/quantities-field.tsx": "526b0d724c85",
     "apps/web/src/components/forms/quantities-settings.tsx": "d787fa98812f",
-    "apps/web/src/components/forms/question-field.tsx": "35f58a7b5769",
+    "apps/web/src/components/forms/question-field.tsx": "2e6905b08154",
     "apps/web/src/components/forms/question-list.tsx": "0574a7ce3a88",
     "apps/web/src/components/forms/question-settings.tsx": "fcce8ce168dc",
     "apps/web/src/components/forms/required-text.tsx": "0cb90deec1e4",
-    "apps/web/src/components/forms/responses.tsx": "b5b52bf7900a",
+    "apps/web/src/components/forms/responses.tsx": "651721b8f244",
     "apps/web/src/components/forms/results.tsx": "051baab9f435",
     "apps/web/src/components/forms/share.tsx": "2bfbad5c8d8f",
     "apps/web/src/components/forms/steps.tsx": "45030e8f6bdb",
@@ -1772,42 +1773,49 @@
     {
       "path": "Forms → a form → Results → One at a time → each response: name or anonymous, when or Not finished, score, passed",
       "kind": "see",
-      "file": "apps/web/src/components/forms/responses.tsx:97",
+      "file": "apps/web/src/components/forms/responses.tsx:143",
       "covered": "yes",
       "by": "list_form_responses passed"
     },
     {
       "path": "Forms → a form → Results → One at a time → Nobody has answered yet",
       "kind": "see",
-      "file": "apps/web/src/components/forms/responses.tsx:120",
+      "file": "apps/web/src/components/forms/responses.tsx:166",
       "covered": "yes",
       "by": "list_form_responses"
     },
     {
       "path": "Forms → a form → Results → The answers sheet: who (opens the customer), when",
       "kind": "see",
-      "file": "apps/web/src/components/forms/responses.tsx:134",
+      "file": "apps/web/src/components/forms/responses.tsx:180",
       "covered": "yes",
       "by": "list_form_responses who, personId, when"
     },
     {
       "path": "Forms → a form → Results → The answers sheet: each question and what they answered",
       "kind": "see",
-      "file": "apps/web/src/components/forms/responses.tsx:152",
+      "file": "apps/web/src/components/forms/responses.tsx:198",
       "covered": "yes",
       "by": "get_form_response answers"
     },
     {
+      "path": "Forms → a form → Results → The answers sheet: the files they sent, each one opens (or says it was deleted)",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/responses.tsx:204",
+      "covered": "partly",
+      "by": "get_form_response names the files; opening one is on the screen, or in the customer’s Files"
+    },
+    {
       "path": "Forms → a form → Results → The answers sheet: Worked out",
       "kind": "see",
-      "file": "apps/web/src/components/forms/responses.tsx:165",
+      "file": "apps/web/src/components/forms/responses.tsx:215",
       "covered": "yes",
       "by": "get_form_response workedOut"
     },
     {
       "path": "Forms → a form → Results → The answers sheet: Delete this response",
       "kind": "do",
-      "file": "apps/web/src/components/forms/responses.tsx:176",
+      "file": "apps/web/src/components/forms/responses.tsx:226",
       "covered": "never",
       "by": "NEVER_FOR_THE_ASSISTANT form_response.delete: their answers go for good, skipping the Deleted bin, so deleting them stays the person’s"
     },
@@ -1891,28 +1899,28 @@
     {
       "path": "Public form (/f/<site>/<form>) → heading, intro, questions, progress, Back / Next, Send",
       "kind": "do",
-      "file": "apps/web/src/components/forms/public-form.tsx:428",
+      "file": "apps/web/src/components/forms/public-form.tsx:451",
       "covered": "person",
       "by": "the customer’s own signed-out page; send_form sends them the link"
     },
     {
       "path": "Public form → boxes: agree to texts (with policy and terms), offers, calls",
       "kind": "do",
-      "file": "apps/web/src/components/forms/public-form.tsx:346",
+      "file": "apps/web/src/components/forms/public-form.tsx:369",
       "covered": "person",
       "by": "the customer’s own yes; record_consent won’t record a yes to texts"
     },
     {
       "path": "Public form → after sending: headline, words, You scored N%, a button",
       "kind": "see",
-      "file": "apps/web/src/components/forms/public-form.tsx:304",
+      "file": "apps/web/src/components/forms/public-form.tsx:327",
       "covered": "person",
       "by": "the customer’s own signed-out page"
     },
     {
       "path": "Public form → are-you-a-person check failed, or something went wrong",
       "kind": "see",
-      "file": "apps/web/src/components/forms/public-form.tsx:407",
+      "file": "apps/web/src/components/forms/public-form.tsx:430",
       "covered": "person",
       "by": "the customer’s own signed-out page"
     },
@@ -1924,9 +1932,16 @@
       "by": "the customer’s own signed-out page; fill_in_form takes the counts for answers given in person"
     },
     {
+      "path": "Public form → a file question: Add files (or Add photos), what it takes, each file’s progress and picture, take one back",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/file-field.tsx:140",
+      "covered": "person",
+      "by": "the customer’s own signed-out page; the files are copied onto the customer when it’s sent"
+    },
+    {
       "path": "Public form → a time to book (open times, or none)",
       "kind": "do",
-      "file": "apps/web/src/components/forms/booking-picker.tsx:23",
+      "file": "apps/web/src/components/forms/booking-picker.tsx:36",
       "covered": "person",
       "by": "the customer’s own signed-out page"
     },
