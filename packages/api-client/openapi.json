@@ -41661,7 +41661,7 @@
     "/v1/commands/payment_connection.connect": {
       "post": {
         "operationId": "command_payment_connection_connect",
-        "summary": "Start connecting a Stripe or Square account to be paid into. Returns a one-time state; the browser signs in at the provider through the worker. A business can have several accounts connected at once.",
+        "summary": "Start connecting a Stripe, Square or PayPal account to be paid into. Returns a one-time state; the browser signs in at the provider through the worker. A business can have several accounts connected at once. PayPal takes one-time payments only (invoices, pay links and deposits), never plans.",
         "tags": [
           "commands"
         ],
@@ -41682,7 +41682,8 @@
                     "type": "string",
                     "enum": [
                       "stripe",
-                      "square"
+                      "square",
+                      "paypal"
                     ]
                   },
                   "environment": {

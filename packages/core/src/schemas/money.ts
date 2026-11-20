@@ -55,12 +55,25 @@ export const MONEY_ORIGINS = [
 ] as const;
 export type MoneyOrigin = (typeof MONEY_ORIGINS)[number];
 
-/** All five: the two that ship in M9, and the three that follow on the same seam. */
+/** All five: the two that ship in M9, PayPal (20 Nov 2026), and the two that follow on the same seam. */
 export const PAYMENT_PROVIDERS = ['stripe', 'square', 'paypal', 'nmi', 'authorize_net'] as const;
 export type PaymentProvider = (typeof PAYMENT_PROVIDERS)[number];
 
-/** The two that can be connected today; the rest need a credential paste that isn't built yet. */
-export const CONNECTABLE_PROVIDERS = ['stripe', 'square'] as const;
+/**
+ * The three that can be connected today, each with its own sign-in; the other two need a credential paste that
+ * isn't built yet. PayPal takes one-time payments only (the PayPal plan, pick 4a).
+ */
+export const CONNECTABLE_PROVIDERS = ['stripe', 'square', 'paypal'] as const;
+export type ConnectableProvider = (typeof CONNECTABLE_PROVIDERS)[number];
+
+/** How each provider is written for a person. */
+export const PAYMENT_PROVIDER_NAMES: Readonly<Record<PaymentProvider, string>> = {
+  stripe: 'Stripe',
+  square: 'Square',
+  paypal: 'PayPal',
+  nmi: 'NMI',
+  authorize_net: 'Authorize.net',
+};
 
 export const PAYMENT_ENVIRONMENTS = ['live', 'test'] as const;
 export type PaymentEnvironment = (typeof PAYMENT_ENVIRONMENTS)[number];

@@ -43,6 +43,11 @@ const inWorkspace = (i: { workspaceId: string }) => ({
 
 /** How long a payment sign-in state stays good, as mailboxes and calendars use. */
 const STATE_TTL_MS = 10 * 60_000;
+/**
+ * PayPal's sign-up can mean making a PayPal business account first (their details, their bank), which takes
+ * longer than ten minutes, so its state lasts an hour.
+ */
+const PAYPAL_STATE_TTL_MS = 60 * 60_000;
 /** A connection that hasn't ended: the unique index per account counts these. */
 export const LIVE_CONNECTION_STATUSES = ['pending', 'active', 'reauth_required', 'error'] as const;
 /** Plans that are still the provider's business, so disconnecting leaves them unmanaged. */
@@ -263,7 +268,7 @@ const stateOut = (c: LoadedPaymentConnection, changed: boolean) => ({
 export const paymentConnectionConnect = defineCommand({
   name: 'payment_connection.connect',
   description:
-    'Start connecting a Stripe or Square account to be paid into. Returns a one-time state; the browser signs in at the provider through the worker. A business can have several accounts connected at once.',
+    'Start connecting a Stripe, Square or PayPal account to be paid into. Returns a one-time state; the browser signs in at the provider through the worker. A business can have several accounts connected at once. PayPal takes one-time payments only (invoices, pay links and deposits), never plans.',
   risk: 2,
   input: PaymentConnectionConnectInput,
   output: PaymentConnectionConnectOutput,
@@ -285,7 +290,9 @@ export const paymentConnectionConnect = defineCommand({
         status: 'pending',
         label: input.label ?? null,
         oauthStateHash: sha256Hex(state),
-        oauthStateExpiresAt: new Date(Date.now() + STATE_TTL_MS),
+        oauthStateExpiresAt: new Date(
+          Date.now() + (input.provider === 'paypal' ? PAYPAL_STATE_TTL_MS : STATE_TTL_MS),
+        ),
         createdBy: me,
       })
       .returning({ id: paymentConnections.id });
@@ -539,7 +546,7 @@ async function promoteDefault(
 export const paymentConnectionActivate = defineCommand({
   name: 'payment_connection.activate',
   description:
-    'Worker: the business signed in at Stripe or Square and the account is connected. Reconnecting an account the business already had disconnects the old row first, and the first account in an environment becomes its default.',
+    'Worker: the business signed in at Stripe, Square or PayPal and the account is connected. Reconnecting an account the business already had disconnects the old row first, and the first account in an environment becomes its default.',
   risk: 1,
   input: PaymentConnectionActivateInput,
   output: PaymentConnectionStateOutput,
@@ -750,7 +757,7 @@ export const paymentConnectionFail = defineCommand({
 export const paymentConnectionRevoked = defineCommand({
   name: 'payment_connection.revoked',
   description:
-    'Worker: the provider ended the connection — Square revoked it, Stripe deauthorized it, or it failed too often. The tokens go, plans still billing there are marked unmanaged, and payments already on their way still settle.',
+    'Worker: the provider ended the connection — Square revoked it, Stripe deauthorized it, PayPal’s permission was taken back, or it failed too often. The tokens go, plans still billing there are marked unmanaged, and payments already on their way still settle.',
   risk: 1,
   input: PaymentConnectionRevokedInput,
   output: PaymentConnectionStateOutput,

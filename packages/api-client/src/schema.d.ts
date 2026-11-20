@@ -10487,7 +10487,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Start connecting a Stripe or Square account to be paid into. Returns a one-time state; the browser signs in at the provider through the worker. A business can have several accounts connected at once.
+         * Start connecting a Stripe, Square or PayPal account to be paid into. Returns a one-time state; the browser signs in at the provider through the worker. A business can have several accounts connected at once. PayPal takes one-time payments only (invoices, pay links and deposits), never plans.
          * @description Risk level 2. Requires money.manage. Emits payment_connection.connect_started.
          */
         post: operations["command_payment_connection_connect"];
@@ -54219,7 +54219,7 @@ export interface operations {
                     environment?: "live" | "test";
                     label?: string | null;
                     /** @enum {string} */
-                    provider: "stripe" | "square";
+                    provider: "stripe" | "square" | "paypal";
                     /** Format: uuid */
                     workspaceId: string;
                 };

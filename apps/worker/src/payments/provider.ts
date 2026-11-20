@@ -1,6 +1,6 @@
 /**
- * The accounts businesses take money into (Stripe and Square today; PayPal, NMI and Authorize.net on the same
- * seam later) behind one interface, so the sign-in routes, the customer's pay page, the webhook routes and the
+ * The accounts businesses take money into (Stripe, Square and PayPal; NMI and Authorize.net on the same seam
+ * later) behind one interface, so the sign-in routes, the customer's pay page, the webhook routes and the
  * jobs never name a provider. Hand-rolled `fetch`, no vendor SDK on the server, like every other provider here.
  *
  * Two things are deliberately not hidden:
@@ -13,16 +13,17 @@
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-/** The two that ship in M9. The database's enum has five; the other three arrive on this same seam. */
-export type PaymentProviderName = 'stripe' | 'square';
+/** The two that shipped in M9, and PayPal (20 Nov 2026). The database's enum has five; the other two follow here. */
+export type PaymentProviderName = 'stripe' | 'square' | 'paypal';
 
 export const PAYMENT_NAME: Record<PaymentProviderName, string> = {
   stripe: 'Stripe',
   square: 'Square',
+  paypal: 'PayPal',
 };
 
 export const isPaymentProvider = (p: string): p is PaymentProviderName =>
-  p === 'stripe' || p === 'square';
+  p === 'stripe' || p === 'square' || p === 'paypal';
 
 /** Live money, or the test account a business connects so the first real payment isn't a client's. */
 export type PaymentEnvironment = 'live' | 'test';
@@ -30,7 +31,10 @@ export type PaymentEnvironment = 'live' | 'test';
 /** What the customer pays with. Cash and cheques never reach a provider. */
 export type PaymentMethodKind = 'card' | 'ach';
 
-/** Stripe confirms in the browser; Square tokenises there and we charge from here. */
+/**
+ * Stripe confirms in the browser; Square tokenises there and we charge from here. PayPal is `client_confirm` too:
+ * its buttons approve the order in the browser, and we capture it from here.
+ */
 export type PaymentFlow = 'client_confirm' | 'server_charge';
 
 /**
@@ -328,8 +332,17 @@ export interface PaymentProvider {
   readonly publishableKey: string;
 
   // ---------- connecting ----------
-  authorizeUrl(input: { state: string; redirectUri: string }): string;
-  exchangeCode(input: { code: string; redirectUri: string }): Promise<PaymentTokens>;
+  /** PayPal has to ask its API for the sign-up link, so this may be a promise. */
+  authorizeUrl(input: { state: string; redirectUri: string }): string | Promise<string>;
+  /**
+   * `stateHash` is the sign-in's state, hashed as it is kept on the row. PayPal's sign-up has no code to trade:
+   * it is found again by the tracking id we gave it, which is that hash.
+   */
+  exchangeCode(input: {
+    code: string;
+    redirectUri: string;
+    stateHash?: string;
+  }): Promise<PaymentTokens>;
   /** Square's token lasts 30 days. Stripe's never expires, so this is a no-op there. */
   refreshTokens(tokens: PaymentTokens): Promise<PaymentTokens>;
   /** The account's name and what it can do, read at activation. */
@@ -419,8 +432,11 @@ export interface PaymentProvider {
      * refused — and a provider refused for days turns the endpoint off (Stripe did, 2026-10-08).
      */
     readonly configured: boolean;
-    /** True only when the bytes really came from the provider, within its time window. */
-    verify(input: WebhookInput): boolean;
+    /**
+     * True only when the bytes really came from the provider, within its time window. PayPal signs with a
+     * certificate it serves, so its answer may be a promise.
+     */
+    verify(input: WebhookInput): boolean | Promise<boolean>;
     /** The event, or null when the body isn't one we understand. */
     parse(rawBody: string): PaymentEvent | null;
   };
@@ -676,9 +692,9 @@ export interface PlatformPayments {
 export class PlatformUnsupportedError extends Error {
   constructor(readonly provider: PaymentProviderName) {
     super(
-      provider === 'square'
-        ? 'Square can only take money for your own customers, so HandsFreeOS cannot bill a card through it. Connect Stripe to keep your balance topped up.'
-        : `HandsFreeOS cannot bill a card through ${provider}.`,
+      provider === 'stripe'
+        ? 'HandsFreeOS cannot bill a card through Stripe.'
+        : `${PAYMENT_NAME[provider]} can only take money for your own customers, so HandsFreeOS cannot bill a card through it. Connect Stripe to keep your balance topped up.`,
     );
     this.name = 'PlatformUnsupportedError';
   }
@@ -759,6 +775,18 @@ export const centsOf = (value: unknown): number | null => {
   const n = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(n) && Number.isSafeInteger(n) ? n : null;
 };
+
+/** PayPal writes money as a decimal string ("12.34"); we count cents. Never through a float. */
+export function centsOfDecimal(value: unknown): number | null {
+  const m = /^(-?)(\d{1,12})(?:\.(\d{1,2}))?$/.exec(typeof value === 'string' ? value.trim() : '');
+  if (!m) return null;
+  const cents = Number(m[2]) * 100 + Number((m[3] ?? '0').padEnd(2, '0'));
+  return m[1] ? -cents : cents;
+}
+
+/** Cents as PayPal writes them: whole dollars, a point, and two digits. */
+export const decimalOfCents = (cents: number): string =>
+  `${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, '0')}`;
 
 /** An ISO time from whatever the provider sent (seconds, milliseconds or a string). */
 export function isoOf(value: unknown): string | null {
@@ -844,6 +872,11 @@ export function declineWording(code: string | null): string {
     case 'processing_error':
     case 'TEMPORARY_ERROR':
       return 'The card company couldn’t answer just now. Try again in a minute.';
+    // PayPal's: the card or bank behind their PayPal (or Venmo) said no, or PayPal itself did.
+    case 'INSTRUMENT_DECLINED':
+    case 'TRANSACTION_REFUSED':
+    case 'PAYER_CANNOT_PAY':
+      return 'PayPal declined that payment. Try another card or bank in PayPal, or another way to pay.';
     default:
       return 'That card was declined. Try another card, or ask your bank why.';
   }

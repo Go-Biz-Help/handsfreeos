@@ -84,7 +84,11 @@ import {
 } from '../money/links';
 import { publicLookOf } from '../look/public';
 import { publicOrigin } from '../hosting/origin';
-import { paymentKindOf, WEBHOOK_MAX_BYTES } from '../money/webhook-events';
+import {
+  paymentKindOf,
+  WEBHOOK_MAX_BYTES,
+  WEBHOOK_SIGNATURE_HEADERS,
+} from '../money/webhook-events';
 import {
   accountFor,
   paymentConnectionUsable,
@@ -1415,15 +1419,14 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
       (_req, body, done) => done(null, body),
     );
 
-    for (const name of ['stripe', 'square'] as const)
+    for (const name of ['stripe', 'square', 'paypal'] as const)
       hooks.post(`/webhooks/${name}`, { bodyLimit: WEBHOOK_MAX_BYTES }, async (req, reply) => {
         const provider = deps.payments.providers[name];
         const rawBody = typeof req.body === 'string' ? req.body : '';
         const url = `${deps.publicUrl}${req.url}`;
-        const headers: Record<string, string | undefined> = {
-          'stripe-signature': header(req, 'stripe-signature'),
-          'x-square-hmacsha256-signature': header(req, 'x-square-hmacsha256-signature'),
-        };
+        const headers: Record<string, string | undefined> = Object.fromEntries(
+          WEBHOOK_SIGNATURE_HEADERS.map((h) => [h, header(req, h)]),
+        );
         // Not a forgery: with no secret to check against nothing can pass, and the log and the provider's own
         // delivery page say which setting is missing. "Invalid signature" hid that from Stripe for nine days.
         if (provider?.configured && !provider.webhooks.configured) {
@@ -1439,7 +1442,7 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
             );
         }
         // The provider's own scheme, over the exact bytes and the URL they were signed against.
-        if (!provider?.configured || !provider.webhooks.verify({ rawBody, headers, url })) {
+        if (!provider?.configured || !(await provider.webhooks.verify({ rawBody, headers, url }))) {
           deps.log.warn({ provider: name }, 'rejected an unsigned or mis-signed payment webhook');
           return reply.code(403).type('text/plain').send('Invalid signature');
         }
