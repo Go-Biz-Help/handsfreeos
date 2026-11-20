@@ -117,7 +117,7 @@ describe('checking the people found by topic', () => {
     );
   });
 
-  // Decision 182 (20 Nov 2026): LinkedIn showed its security check 2 minutes after 42 profiles read 15 to 30 seconds apart.
+  // Decision 184 (20 Nov 2026): LinkedIn showed its security check 2 minutes after 42 profiles read 15 to 30 seconds apart.
   it('goes a minute or two apart on LinkedIn, a few at a time, and says more come later while today has room', async () => {
     paused.length = 0;
     const sent: HfosAsk[] = [];

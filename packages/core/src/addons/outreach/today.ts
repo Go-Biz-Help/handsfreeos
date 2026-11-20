@@ -82,13 +82,17 @@ import {
   FOLLOW_SCRIPT,
   hasBlanks,
   NETWORKING_ON,
-  opensWithIntro,
+  OPEN_WAY_KEYS,
+  OPEN_WAYS,
+  type OpenWay,
   playbookSays,
   type PlaybookChat,
   type PlaybookNetworking,
   scriptOf,
   startingScript,
   type FullScript,
+  waysOf,
+  wayWords,
 } from './script';
 import { listsText, type MainOfferLists, type OfferList } from '../../main-offer/lists';
 import { NO_GROUPS, noGroupsAgain } from './no-groups';
@@ -105,7 +109,7 @@ import {
   type PostLookKind,
 } from './comment-says';
 import { commentGuideBlock } from './comment-research';
-import { DraftOpener, type Opener } from './openers';
+import { DraftOpener, type Opener, wayOfKind } from './openers';
 import { WarningState } from './tidy';
 import { TodayGoal } from './goal';
 import { inNetworkWords, NETWORKS, type Platform } from './networks';
@@ -355,13 +359,15 @@ export const TodayItem = z.object({
   requests: z.boolean().optional(),
   /**
    * For a warm-up while they decide on the person's request (decision 161, ./keep-warm.ts): a visit to their page that
-   * likes up to `likes` of their newest posts, and no request after it, as their warm-up runs till `until`. Left out
-   * for a warm-up before a request, and by servers from before it.
+   * likes up to `likes` of their newest posts, and no request after it, as their warm-up runs till `until`. `hi` for a
+   * visit before the first message to a friend who accepted fast or was one already (decision 183, the owner's 4b),
+   * till Say hi comes at `until`. Left out for a warm-up before a request, and by servers from before it.
    */
   keepWarm: z
     .object({
       likes: z.number().int().min(1).max(VISIT_LIKES.most),
       until: z.iso.datetime(),
+      hi: z.boolean().optional(),
     })
     .optional(),
   /**
@@ -840,6 +846,7 @@ export type DraftPlaybook = Pick<
       | 'goal'
       | 'script'
       | 'opens'
+      | 'ways'
       | 'networking'
       | 'chat'
     >
@@ -907,8 +914,13 @@ export interface DraftConversation {
  * the question last.
  */
 export function introTask(intro: string, fresh: boolean, two = false): string {
+  return `They and the owner haven’t talked yet, so this is the owner’s first message to them: an introduction, not a pitch. ${introHow(intro, fresh, two)}`;
+}
+
+/** How an introduction goes, as its task says it, and as the choice of ways says it when it's one of them. */
+function introHow(intro: string, fresh: boolean, two: boolean): string {
   return [
-    `They and the owner haven’t talked yet, so this is the owner’s first message to them: an introduction, not a pitch. ${asMessage('the introduction', intro, true)}`,
+    asMessage('the introduction', intro, true),
     fresh
       ? 'They just connected with the owner: they accepted the owner’s request, the owner accepted theirs, or they followed the owner.'
       : 'They’ve been connected with the owner a while without ever talking: in place of thanking them for connecting, say a friendly hello, and keep the rest.',
@@ -918,6 +930,88 @@ export function introTask(intro: string, fresh: boolean, two = false): string {
       : 'It’s one message, with the question last.',
     'Never say how the offer works or the price in it, and no link or web address unless the playbook’s words have one.',
   ].join(' ');
+}
+
+/** What a first message any other way keeps to (decision 183), whatever its words: as the first message's question does. */
+const WAY_KEEPS =
+  'It’s one message, with one question at most. Never say how the offer works or the price in it, never promise more info, and no link or web address.';
+
+/** A way to start a chat that the first message may go (decision 183): its name and its words. */
+export interface WayChoice {
+  readonly way: OpenWay;
+  /** Its words: the first message's version whose turn it is for the pitch, else the way's part. */
+  readonly text: string;
+}
+
+/** How a first message goes one way, as the task says it. */
+function wayHow(c: WayChoice, fresh: boolean, two: boolean): string {
+  if (c.way === 'pitch') return `${asMessage('the first message', c.text, true)} ${FIRST_KEEPS}`;
+  if (c.way === 'intro') return introHow(c.text, fresh, two);
+  const how = asHow(`a ${OPEN_WAYS[c.way].label.toLowerCase()} first message`, c.text);
+  return `${how} ${WAY_KEEPS}${OPEN_WAYS[c.way].flow === 'chat' ? ' It starts a chat: no pitch, and no ask for a call or a demo.' : ''}`;
+}
+
+/**
+ * The way a first message falls back on when none fits the person (the owner's default, decision 183): the pitch or the
+ * introduction when ticked, else the way that needs the least from them.
+ */
+const FALLBACK_ORDER: readonly OpenWay[] = [
+  'pitch',
+  'intro',
+  'opinion',
+  'sharedGround',
+  'valueFirst',
+  'socialProof',
+  'permission',
+  'problemCheck',
+  'compliment',
+  'trigger',
+];
+export const fallbackWay = (ways: readonly OpenWay[]): OpenWay =>
+  FALLBACK_ORDER.find((w) => ways.includes(w)) ?? ways[0] ?? 'pitch';
+
+/**
+ * A first message the playbook lets go more than one way (decision 183, the owner, 20 Nov 2026: "the ai would select one
+ * based on the contacts profile, posts, platform, business"): the ways, the ones used least first, and how to pick, then
+ * the AI writes every draft the one way and says which (`way`, `wayWhy`). A way that needs something about them the AI
+ * doesn't have isn't one to pick; the network leans it (the owner's 5a); none fitting, the fallback.
+ */
+export function openerTask(
+  choices: readonly WayChoice[],
+  o: { readonly fresh: boolean; readonly two: boolean; readonly platform: Platform },
+): string {
+  const name = NETWORKS[o.platform].name;
+  const lean = choices.filter((c) =>
+    (OPEN_WAYS[c.way].bestOn as readonly string[]).includes(o.platform),
+  );
+  const fallback = fallbackWay(choices.map((c) => c.way));
+  return [
+    `They and the owner haven’t talked yet, so this is the owner’s first message to them. The owner’s playbook lets it start the chat any of the ways below. First pick the one way that fits this person best, from what you know of them: their pages, their posts, the facts, their kind of business, and the network it goes on (${name}). Then write every draft that way, and only that way.`,
+    'How to pick: a way that needs something you don’t have about them doesn’t fit, so skip it. A trigger event needs news they posted themselves in the last month; a compliment, a real post or piece of their work to praise; shared ground, something you both truly share; a problem check, a problem their page really shows, and someone who runs a business.',
+    lean.length
+      ? `On ${name}, ${lean.map((c) => OPEN_WAYS[c.way].label).join(' and ')} tend to work best: lean toward ${lean.length > 1 ? 'them' : 'it'} when ${lean.length > 1 ? 'they fit' : 'it fits'}.`
+      : null,
+    `When a few fit as well, take the one listed first. When none fits, use ${OPEN_WAYS[fallback].label} (${fallback}).`,
+    ...choices.map(
+      (c, i) => `Way ${i + 1}, ${c.way} (${OPEN_WAYS[c.way].label}): ${wayHow(c, o.fresh, o.two)}`,
+    ),
+    WAY_ASK,
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+/** What the AI says of the way it picked (decision 183): for the Test console, and for Results' counts. */
+export const WAY_ASK =
+  'Also say which way you used under way, by its name as given above (like compliment), and why it fits them, in a few plain words, under wayWhy (like “They just posted a kitchen they finished”).';
+
+/**
+ * A first message that goes one way: the first message's question, the introduction, or one of the other ways
+ * (decision 183) when it's the only one ticked or usable.
+ */
+function oneWayTask(c: WayChoice, fresh: boolean, two: boolean): string {
+  if (c.way === 'intro') return introTask(c.text, fresh, two);
+  return `They and the owner haven’t talked yet, so this is the owner’s first message to them. ${wayHow(c, fresh, two)}`;
 }
 
 /**
@@ -1074,7 +1168,7 @@ export function networkingReplyTask(
     .join(' ');
   return [
     'They wrote last. Read the whole chat first, not only their last message, and write the owner’s reply to where it is now.',
-    'They wrote back after the owner’s introduction, so this is a networking chat: a short one between two business owners, not a sales chat. Keep the reply to a line or two. Never pitch and never push.',
+    'They wrote back after the owner’s first message started a chat (an introduction, or another way that starts one), so this is a networking chat: a short one between two business owners, not a sales chat. Keep the reply to a line or two. Never pitch and never push.',
     chatStory(chat.story),
     chatQuestion(chat.questions, stand.ownerAsked),
     on.demo
@@ -1134,7 +1228,7 @@ function taskFor(
   if (kind === 'reply' && step === 'intro' && networking)
     return networkingReplyTask(says, networking, stand ?? undefined, callLink, local, chat);
   if (kind === 'follow_up' && step === 'intro')
-    return `The owner introduced themselves and they haven’t written back. Write the owner’s one nudge. ${asHow('the nudge', says.nudge)} It’s the only one: never say you’ll check back, and never repeat the introduction.`;
+    return `The owner wrote first to start a chat with them (an introduction, or another way that starts a chat) and they haven’t written back. Write the owner’s one nudge. ${asHow('the nudge', says.nudge)} It’s the only one: never say you’ll check back, and never repeat the first message.`;
   if (kind === 'pitch' && call)
     return `They said yes to a networking call with the owner: a chance to get to know each other, not a demo. Write the message that asks to set up a time to talk. Answer where the chat left off first, in a line, when it needs it. ${asMessage('the ask', says.callYes)} Never a pitch, a plan, numbers or results.`;
   switch (kind) {
@@ -1155,7 +1249,7 @@ function taskFor(
       return `The owner wrote last and they haven’t answered. Write the owner’s follow-up, fitted to where they stopped. ${asHow('a follow-up', says.followUp)} Never repeat an earlier message.`;
     case 'check_in':
       // After an introduction (decision 168) nothing asked them anything: no follow-ups went.
-      return `${step === 'intro' ? 'The owner introduced themselves a while ago and they haven’t written since.' : 'They haven’t answered the owner’s follow-ups.'} Write the owner’s check-in. ${asHow('the check-in', says.checkIn)}`;
+      return `${step === 'intro' ? 'The owner wrote first to start a chat with them a while ago and they haven’t written since.' : 'They haven’t answered the owner’s follow-ups.'} Write the owner’s check-in. ${asHow('the check-in', says.checkIn)}`;
     case 'reply':
       return [
         'They wrote last. Read the whole chat first, not only their last message, and write the owner’s reply to where it is now.',
@@ -1208,6 +1302,13 @@ const IN_COMMON = /\[something you have in common\]/i;
  */
 export const requestsTask = (first: string): string =>
   `The owner followed them a few days ago and they haven’t followed back, so this message lands in their message Requests, where Instagram passes only one text till they accept it. Write that one first message as one text, never split into texts. ${asMessage('the first message', first, true)} Never say how the offer works or the price in it, and no link, no video and no web address, whatever the playbook’s words have.${IN_COMMON.test(first) ? ' To keep it short, leave out [something you have in common] and its line.' : ''}`;
+
+/**
+ * A first message to someone's Requests that may go another way than the question or the introduction (decision 183):
+ * the same one short text with no link, around the way's own task.
+ */
+export const requestsTaskFor = (opening: string): string =>
+  `The owner followed them a few days ago and they haven’t followed back, so this message lands in their message Requests, where Instagram passes only one text till they accept it. Write that one first message as one text, never split into texts, and never say how the offer works or the price in it: no link, no video and no web address, whatever the playbook’s words have. ${opening}${IN_COMMON.test(opening) ? ' To keep it short, leave out [something you have in common] and its line.' : ''}`;
 
 /** What a message to their Requests may be at most: one short text. */
 export const REQUESTS_MESSAGE_MOST = 300;
@@ -1516,6 +1617,17 @@ export function todayDraftPrompt(input: {
    */
   readonly opener?: Opener | null;
   /**
+   * For a first message: the ways it may go, the ones used least first (decision 183, ./openers.ts `openerChoices`),
+   * those missing what they need left out. More than one, the AI picks (`openerTask`). Left out, the playbook's ways,
+   * with `opener`'s words for its own.
+   */
+  readonly ways?: readonly WayChoice[] | null;
+  /**
+   * For the ask after a yes: the way the first message started the chat (decision 183), when it offered them something
+   * to say yes to: their yes to Value first's free thing gets it, and to Permission ask's video gets one, before the ask.
+   */
+  readonly opened?: OpenWay | null;
+  /**
    * The main offer's lists for content (docs/main-offer.md, "For your posts and messages"), for the kinds that answer
    * from them (`LIST_KINDS`, decision 164). Left out, none.
    */
@@ -1602,31 +1714,48 @@ export function todayDraftPrompt(input: {
   // message. One to someone who turned the offer down only catches up.
   const catchUp = input.kind === 'reconnect' && declined !== null;
   const twoTexts = input.kind === 'reconnect' && !catchUp;
-  // An introduction's question about them goes as its own text right after it when the person sends a few (decision
-  // 175); to their Requests it's one text.
-  const introTwo = input.kind === 'opener' && opensWithIntro(p) && !requests && voice.split;
-  // What the playbook says for this message (decision 164, ./script.ts), and the first message's version whose turn
-  // it is.
+  // What the playbook says for this message (decision 164, ./script.ts).
   const says = draftScript(p);
-  // A playbook that starts with an introduction (decision 168): its first message is the introduction. Reconnect and
-  // the follow-ups still speak of the first message's question.
-  const intro = input.kind === 'opener' && opensWithIntro(p);
-  const first = (!intro && input.opener?.text.trim()) || says.first[0]!;
-  const introWords = (intro && input.opener?.text.trim()) || says.intro;
+  // The ways a first message may go (decision 183): given, or the playbook's, the pitch with the version whose turn it
+  // is (decisions 23 and 164). One way, it goes that way; more, the AI picks (`openerTask`).
+  const choices: readonly WayChoice[] =
+    input.kind !== 'opener'
+      ? []
+      : input.ways?.length
+        ? input.ways
+        : waysOf(p).map((way) => ({
+            way,
+            text:
+              (input.opener && wayOfKind(input.opener.kind) === way && input.opener.text.trim()) ||
+              wayWords(says, way)[0]!,
+          }));
+  const only = choices.length === 1 ? choices[0]! : null;
+  // An introduction's question about them goes as its own text right after it when the person sends a few (decision
+  // 175); to their Requests it's one text. Among other ways, its own words say so.
+  const introOn = choices.some((c) => c.way === 'intro');
+  const introTwo = only?.way === 'intro' && !requests && voice.split;
+  const splitIntro = introOn && !requests && voice.split;
+  // Reconnect and the follow-ups still speak of the first message's question: the pitch's version whose turn it is.
+  const pitched = choices.find((c) => c.way === 'pitch')?.text;
+  const first = pitched || says.first[0]!;
   const platform = input.platform ?? 'facebook';
+  const fresh = input.fresh ?? true;
+  const opening =
+    input.kind !== 'opener'
+      ? null
+      : only
+        ? oneWayTask(only, fresh, splitIntro)
+        : openerTask(choices, { fresh, two: splitIntro, platform });
   const task = requests
-    ? requestsTask(intro ? introWords : first)
+    ? only && (only.way === 'pitch' || only.way === 'intro')
+      ? requestsTask(only.text)
+      : requestsTaskFor(opening ?? first)
     : catchUp
       ? inNetworkWords(RECONNECT_CATCH_UP, platform)
       : warm
         ? warmCommentTask(says.warmUp, input.post?.shown?.kind ?? null)
-        : intro
-          ? taskOn(
-              input.kind,
-              introTask(introWords, input.fresh ?? true, introTwo),
-              platform,
-              false,
-            )
+        : opening
+          ? taskOn(input.kind, opening, platform, false)
           : taskOn(
               input.kind,
               taskFor(
@@ -1635,7 +1764,7 @@ export function todayDraftPrompt(input: {
                 first,
                 input.conversation?.step ?? null,
                 input.conversation?.call === true,
-                // The networking chat's switches (decision 173), for a conversation an introduction started.
+                // The networking chat's switches (decision 173), for a conversation a way that starts a chat started.
                 input.conversation?.step === 'intro'
                   ? { ...NETWORKING_ON, ...(p?.networking ?? {}) }
                   : null,
@@ -1733,6 +1862,25 @@ export function todayDraftPrompt(input: {
       : input.kind === 'check_in'
         ? 'There’s nothing useful to send yet: just check in, warmly, with no ask.'
         : null;
+  // What the ways that offer something have to offer (decision 183): Value first's free thing and Permission ask's
+  // videos, named in the first message with no link, and given once they say yes to them.
+  const offersIn = (way: OpenWay) => choices.some((c) => c.way === way);
+  const freeThing =
+    offersIn('valueFirst') && p?.usefulWhat
+      ? `Your free thing, for Value first (Something useful to send): ${quoteData(p.usefulWhat)}. Name it, never its link: that goes once they say yes.`
+      : null;
+  const library = (input.videos?.videos ?? []).filter((v) => !input.videos!.sent.includes(v.link));
+  const videosToOffer =
+    offersIn('permission') && library.length
+      ? `<videos_to_offer>\n${quoteData(library.map((v) => `- ${v.name}: ${v.about}`).join('\n'))}\n</videos_to_offer>\n\nUnder <videos_to_offer> are the owner’s videos, for Permission ask: ask if you can send one that fits them, by what it shows, never its link: that goes once they say yes.`
+      : null;
+  // Their yes was to what the first message offered (decision 183): it comes first, then the ask for a time.
+  const giveFirst =
+    input.kind === 'pitch' && input.opened === 'valueFirst' && p?.usefulWhat
+      ? `The owner’s first message offered them ${quoteData(p.usefulWhat)}, free. When their yes is to that, give it first, in a line${p.usefulLink ? `, with its link exactly as written: ${quoteData(p.usefulLink)}` : ''}, then the ask.`
+      : input.kind === 'pitch' && input.opened === 'permission'
+        ? 'The owner’s first message asked if they could send a quick video. When their yes is to that, send the one video under <videos> that fits them best first, with its link, then the ask.'
+        : null;
   return [
     `<business>${quoteData(input.business)}</business>`,
     // The owner's name, for an introduction's [your first name] (decision 168).
@@ -1774,7 +1922,8 @@ export function todayDraftPrompt(input: {
     input.kind === 'follow_up' && c?.step === 'video'
       ? 'The owner’s last step was a short video: ask if they got to watch it.'
       : null,
-    ...(LIST_KINDS.has(input.kind) && !warm && !declined
+    // Value first's tip comes from the lists too (decision 183).
+    ...((LIST_KINDS.has(input.kind) || offersIn('valueFirst')) && !warm && !declined
       ? draftListsLines(input.lists, !isMessageKind(input.kind))
       : []),
     input.kind === 'comment' && !warm && input.post?.asking !== undefined
@@ -1788,6 +1937,9 @@ export function todayDraftPrompt(input: {
     where,
     declined ? declinedLine(declined.why) : null,
     useful,
+    freeThing,
+    videosToOffer,
+    giveFirst,
     ...times,
     (input.kind === 'pitch' || input.kind === 'rebook') && p?.link
       ? `Put this link in every draft, exactly as written: ${quoteData(p.link)}`
@@ -1801,8 +1953,10 @@ export function todayDraftPrompt(input: {
     input.kind === 'video' && p?.videoLink
       ? `Put this video link in every draft, exactly as written: ${quoteData(p.videoLink)}`
       : null,
-    // One of the business's videos, where it fits (decision 154, answer 2a).
-    ...(videoFits(input.kind, c?.step, { declined: declined !== null, requests })
+    // One of the business's videos, where it fits (decision 154, answer 2a), and after a yes to Permission ask's offer
+    // of one (decision 183).
+    ...(videoFits(input.kind, c?.step, { declined: declined !== null, requests }) ||
+    (input.kind === 'pitch' && input.opened === 'permission' && !declined)
       ? videoLines(input.videos)
       : []),
     // The playbook's words are the message for a first message, Reconnect and the ask after a yes (decision 164): what
@@ -1880,6 +2034,7 @@ export const ANSWER_AFTER_INTRO_ASK =
 const DRAFT_ANSWERS = [...ANSWER_KEYS, 'none'] as const;
 const DRAFT_TOOK = [...TOOK_KEYS, 'none'] as const;
 const DRAFT_REACH = [...REACH_KEYS, ''] as const;
+const DRAFT_WAYS = [...OPEN_WAY_KEYS, ''] as const;
 
 export const TodayDraftAnswer = z.object({
   drafts: z.array(z.string()).max(10),
@@ -1907,6 +2062,12 @@ export const TodayDraftAnswer = z.object({
   work: z.string().catch('').default(''),
   area: z.string().catch('').default(''),
   reach: z.enum(DRAFT_REACH).catch('').default(''),
+  /**
+   * For a first message that may go more than one way (decision 183, `WAY_ASK`): the way it went, and why it fits them,
+   * else empty.
+   */
+  way: z.enum(DRAFT_WAYS).catch('').default(''),
+  wayWhy: z.string().catch('').default(''),
 });
 export type TodayDraftAnswer = z.output<typeof TodayDraftAnswer>;
 
@@ -1933,6 +2094,8 @@ export const TODAY_DRAFT_SCHEMA: Record<string, unknown> = {
     'work',
     'area',
     'reach',
+    'way',
+    'wayWhy',
   ],
   properties: {
     drafts: { type: 'array', items: { type: 'string' } },
@@ -1946,8 +2109,27 @@ export const TODAY_DRAFT_SCHEMA: Record<string, unknown> = {
     work: { type: 'string' },
     area: { type: 'string' },
     reach: { type: 'string', enum: [...DRAFT_REACH] },
+    way: { type: 'string', enum: [...DRAFT_WAYS] },
+    wayWhy: { type: 'string' },
   },
 };
+
+/**
+ * The way a first message went (decision 183): the AI's word on it when it may go more than one way, and one of them;
+ * else the one way it could, or the fallback.
+ */
+export function wayOf(
+  answer: Pick<TodayDraftAnswer, 'way'>,
+  choices: readonly Pick<WayChoice, 'way'>[],
+): OpenWay | null {
+  if (!choices.length) return null;
+  const said = choices.find((c) => c.way === answer.way);
+  return said
+    ? said.way
+    : choices.length === 1
+      ? choices[0]!.way
+      : fallbackWay(choices.map((c) => c.way));
+}
 
 /**
  * Their answer as the AI read it, for a reply with a chat to read: null when it couldn't tell. In the networking chat

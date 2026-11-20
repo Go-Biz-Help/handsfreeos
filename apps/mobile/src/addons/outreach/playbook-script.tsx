@@ -9,13 +9,11 @@ import {
   NETWORKING_KEYS,
   NETWORKING_ON,
   networkingOf,
-  opensWithIntro,
+  OPEN_WAYS,
   partChanged,
   partShown,
   PLAYBOOK_CHAT,
   PLAYBOOK_NETWORKING,
-  PLAYBOOK_OPENS,
-  PLAYBOOK_OPENS_KEYS,
   PLAYBOOK_REFER,
   refersOf,
   SCRIPT_BLANKS,
@@ -24,21 +22,27 @@ import {
   SCRIPT_LIMITS,
   SCRIPT_WORDS as SW,
   scriptOf,
+  startsChats,
   typedFirsts,
   typedPart,
+  wayRows,
+  waysOf,
+  WAYS_WORDS,
   withFirsts,
   withPart,
+  withWay,
+  type OpenWay,
   type PlaybookChat,
   type PlaybookNetworking,
   type PlaybookOpens,
   type PlaybookScript,
   type ScriptDraft,
+  type WayHas,
 } from '@hfos/core/addons/outreach/script';
 import * as React from 'react';
 import { View } from 'react-native';
 
-import { Check, Lock, Plus, RotateCcw, Trash } from '@/components/icons';
-import { List, ListRow } from '@/components/shell/list';
+import { Lock, Plus, RotateCcw, Trash } from '@/components/icons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -59,21 +63,24 @@ import { Note } from './kit';
  */
 
 /**
- * What it says, read: how the first message goes, then every part with its words, the first message's versions numbered
- * when there are more. The introduction and its chat show only for a playbook that starts with one (decisions 168 and
- * 173), with what the chat may offer and how it goes (decision 180); whether its people are referred on posts
- * (decision 174) before the referral's parts.
+ * What it says, read: the ways it may start a chat (decision 183), then every part with its words, the first message's
+ * versions numbered when there are more. A way's words show only while it's ticked, and the networking chat only while a
+ * way that starts a chat is (decisions 173 and 183), with what the chat may offer and how it goes (decision 180);
+ * whether its people are referred on posts (decision 174) before the referral's parts.
  */
 export function scriptWords(details: {
   readonly goal: PlaybookGoal;
   readonly script?: PlaybookScript | undefined;
   readonly opens?: PlaybookOpens | undefined;
+  readonly ways?: readonly OpenWay[] | undefined;
   readonly networking?: Partial<PlaybookNetworking> | undefined;
   readonly chat?: Partial<PlaybookChat> | undefined;
   readonly refer?: boolean | undefined;
 }): string {
   const says = scriptOf(details);
-  const intro = opensWithIntro(details);
+  const ways = waysOf(details);
+  const intro = startsChats(details);
+  const noPitch = !ways.includes('pitch');
   const on = networkingOf(details);
   const offers = NETWORKING_KEYS.filter((k) => on[k]).map((k) => PLAYBOOK_NETWORKING[k].label);
   const chat = chatOf(details);
@@ -85,7 +92,7 @@ export function scriptWords(details: {
     ...(on.demo ? [`${C.demoWhen.label}: ${C.demoWhen.options[chat.demoWhen].label}`] : []),
   ];
   return [
-    `${SW.opensTitle}\n${PLAYBOOK_OPENS[intro ? 'intro' : 'pitch'].label}`,
+    `${WAYS_WORDS.title}\n${ways.length ? ways.map((w) => OPEN_WAYS[w].label).join('\n') : WAYS_WORDS.none}`,
     ...(intro
       ? [
           `${SW.networkingTitle}\n${offers.length ? offers.join('\n') : 'Nothing'}`,
@@ -94,7 +101,7 @@ export function scriptWords(details: {
       : []),
     ...SCRIPT_GROUPS.flatMap((group) =>
       group.parts.flatMap((part) => {
-        if (!partShown(part, intro)) return [];
+        if (!partShown(part, ways)) return [];
         if (part === 'referComment' && !refersOf(details)) return [`${PLAYBOOK_REFER.label}\nOff`];
         if (part === 'referNote' && !refersOf(details)) return [];
         const words =
@@ -104,7 +111,7 @@ export function scriptWords(details: {
               : says.first[0]
             : says[part];
         return [
-          `${part === 'first' && intro ? SW.pitchInIntro : SCRIPT_INFO[part].label}\n${words}`,
+          `${part === 'first' && noPitch ? SW.pitchInIntro : SCRIPT_INFO[part].label}\n${words}`,
         ];
       }),
     ),
@@ -213,8 +220,11 @@ export function ScriptEditor({
   goal,
   script,
   onChange,
-  opens,
-  onOpens,
+  ways,
+  onWays,
+  has,
+  warmUp,
+  onWarmUp,
   networking,
   onNetworking,
   chat,
@@ -227,9 +237,14 @@ export function ScriptEditor({
   /** The playbook's own words as typed. */
   script: ScriptDraft;
   onChange: (script: ScriptDraft) => void;
-  /** How the first message goes (decision 168). */
-  opens: PlaybookOpens;
-  onOpens: (opens: PlaybookOpens) => void;
+  /** The ways it may start a chat (decision 183): the AI picks one for each person. */
+  ways: readonly OpenWay[];
+  onWays: (ways: OpenWay[]) => void;
+  /** What the business has given that some ways need (the owner's 6a). */
+  has: WayHas;
+  /** The Warm up step (decision 161), beside the ways (the owner's 4b). */
+  warmUp: boolean;
+  onWarmUp: (on: boolean) => void;
   /** What the networking chat after an introduction may offer (decision 173); left out, everything. */
   networking?: Partial<PlaybookNetworking> | undefined;
   onNetworking: (networking: PlaybookNetworking) => void;
@@ -243,12 +258,13 @@ export function ScriptEditor({
   firstsHelp?: React.ReactNode;
 }) {
   const firsts = typedFirsts(goal, script);
-  const intro = opens === 'intro';
+  // Direct pitch isn't ticked: the first message's words are only Reconnect's question.
+  const noPitch = !ways.includes('pitch');
   const offers: PlaybookNetworking = { ...NETWORKING_ON, ...(networking ?? {}) };
   return (
     <View className="gap-4" testID="playbook-script">
       <Note>{SW.blurb}</Note>
-      {SCRIPT_GROUPS.filter((group) => group.parts.some((part) => partShown(part, intro))).map(
+      {SCRIPT_GROUPS.filter((group) => group.parts.some((part) => partShown(part, ways))).map(
         (group) => (
           <View key={group.key} className="gap-2">
             <Text className="px-1 text-[13px] font-semibold text-text-2">{group.title}</Text>
@@ -292,33 +308,62 @@ export function ScriptEditor({
               </View>
             ) : null}
             {group.key === 'start' ? (
-              <View className="gap-1.5" testID="playbook-opens">
-                <Text className="px-1 text-[14.5px] font-semibold">{SW.opensTitle}</Text>
-                <Note>{SW.opensBlurb}</Note>
-                <List>
-                  {PLAYBOOK_OPENS_KEYS.map((k) => (
-                    <ListRow
-                      key={k}
-                      label={PLAYBOOK_OPENS[k].label}
-                      detail={PLAYBOOK_OPENS[k].hint}
-                      end={
-                        opens === k ? <Icon as={Check} className="size-5 text-accent" /> : undefined
-                      }
-                      chevron={false}
-                      onPress={() => onOpens(k)}
-                      testID={`playbook-opens-${k}`}
+              // The ways it may start a chat (decision 183): tick the ones the AI may use. None ticked, it starts none.
+              <View className="gap-1.5" testID="playbook-ways">
+                <Text className="px-1 text-[14.5px] font-semibold">{WAYS_WORDS.title}</Text>
+                <Note>{`${WAYS_WORDS.blurb} ${WAYS_WORDS.picked(ways.length)}.`}</Note>
+                {wayRows(ways, has).map((row) => (
+                  <View
+                    key={row.way}
+                    className="flex-row items-center gap-3 px-1"
+                    testID={`playbook-way-${row.way}`}
+                  >
+                    <View className="flex-1 gap-0.5">
+                      <Text className="text-[14.5px] font-medium">{row.label}</Text>
+                      <Note>{[row.hint, row.flow, ...row.tags].join(' ')}</Note>
+                      {row.missing ? (
+                        <Text
+                          className="text-[13px] text-warning-text"
+                          testID={`playbook-way-${row.way}-missing`}
+                        >
+                          {row.missing}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Switch
+                      label={row.label}
+                      checked={row.on}
+                      onCheckedChange={(on) => onWays(withWay(ways, row.way, on))}
+                      testID={`playbook-way-${row.way}-tick`}
                     />
-                  ))}
-                </List>
+                  </View>
+                ))}
+                {ways.length ? null : (
+                  <Text className="px-1 text-[13.5px] text-danger" testID="playbook-ways-none">
+                    {WAYS_WORDS.none}
+                  </Text>
+                )}
+                <View className="mt-2 flex-row items-center gap-3 px-1">
+                  <View className="flex-1">
+                    <Text className="text-[14.5px] font-medium">{WAYS_WORDS.warmUp}</Text>
+                    <Note>{WAYS_WORDS.warmUpHint}</Note>
+                  </View>
+                  <Switch
+                    label={WAYS_WORDS.warmUp}
+                    checked={warmUp}
+                    onCheckedChange={onWarmUp}
+                    testID="playbook-ways-warm-up"
+                  />
+                </View>
               </View>
             ) : null}
             {group.parts.map((part) => {
-              // The introduction and its chat's words show only for a playbook that starts with one (decisions 168 and
-              // 173).
-              if (!partShown(part, intro)) return null;
+              // A way's words show only while it's ticked, and the networking chat's only while a way that starts a chat
+              // is (decision 183).
+              if (!partShown(part, ways)) return null;
               const info = SCRIPT_INFO[part];
               const changed = partChanged(goal, script, part);
-              const label = part === 'first' && intro ? SW.pitchInIntro : info.label;
+              const label = part === 'first' && noPitch ? SW.pitchInIntro : info.label;
               return (
                 <Card key={part} className="gap-2 px-3 py-3" testID={`playbook-script-${part}`}>
                   <View className="flex-row flex-wrap items-center gap-2">
@@ -329,7 +374,7 @@ export function ScriptEditor({
                       </Badge>
                     ) : null}
                   </View>
-                  <Note>{`${SW.when}: ${part === 'first' && intro ? SW.pitchInIntroWhen : info.when}`}</Note>
+                  <Note>{`${SW.when}: ${part === 'first' && noPitch ? SW.pitchInIntroWhen : info.when}`}</Note>
                   {part === 'first' ? (
                     <>
                       {firsts.map((m, i) => (

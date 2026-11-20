@@ -13,6 +13,7 @@ import {
   FullScriptOut,
   openerAsFirst,
   NETWORKING_ON,
+  OPEN_WAY_KEYS,
   PLAYBOOK_OPENS_KEYS,
   PlaybookChat,
   PlaybookNetworking,
@@ -427,6 +428,17 @@ export const PlaybookDetails = z
      */
     opens: z.enum(PLAYBOOK_OPENS_KEYS).optional(),
     /**
+     * The ways it may start a chat with someone new (decision 183, ./script.ts `OPEN_WAYS`): for each person the AI picks
+     * the one that fits best. Left out of a save, it keeps what's saved; a playbook saved before it goes the way `opens`
+     * says (`waysOf`). A new one starts with none ticked, and its editors won't carry on until one is (`waysIssue`):
+     * the owner, 20 Nov 2026, "they all start unticked and have to choose which ones they want to move forward".
+     */
+    ways: z
+      .array(z.enum(OPEN_WAY_KEYS))
+      .max(OPEN_WAY_KEYS.length)
+      .refine(distinct, 'Each way once.')
+      .optional(),
+    /**
      * What the networking chat after an introduction may offer (decision 173, ./script.ts `PLAYBOOK_NETWORKING`): a
      * demo, a networking call, sending people their way. Left out of a save, it keeps what's saved; a playbook saved
      * before it has every one on. Nothing for a playbook that pitches.
@@ -515,7 +527,10 @@ export const PlaybookDetails = z
   });
 export type PlaybookDetails = z.output<typeof PlaybookDetails>;
 
-/** A playbook with nothing filled in but Facebook. */
+/**
+ * A playbook with nothing filled in but Facebook. Its ways to start a chat aren't said, as one saved before them: a new
+ * one is given none ticked where it's made (`NEW_PLAYBOOK_WAYS`), so the person picks them (decision 183).
+ */
 export const blankPlaybook = (): PlaybookDetails => ({
   goal: 'demo',
   offer: null,
@@ -1040,6 +1055,33 @@ export const PLAYBOOK_SCRIPT_KEYS = ['script'] as const;
  */
 export const PLAYBOOK_OPENS_PART_KEYS = ['opens'] as const;
 /**
+ * The ways it may start a chat (decision 183). No new data version: a playbook saved before has none, and goes the way
+ * `opens` says (./script.ts `waysOf`).
+ */
+export const PLAYBOOK_WAYS_KEYS = ['ways'] as const;
+/**
+ * A new playbook's ways to start a chat, wherever it's made (the builder, the phone, the Assistant): none ticked, so it
+ * starts no chat till the person picks (decision 183, the owner, 20 Nov 2026: "they all start unticked and have to
+ * choose which ones they want to move forward").
+ */
+export const NEW_PLAYBOOK_WAYS: readonly never[] = [];
+
+/**
+ * How a playbook saves on the web's and the phone's editors (the owner, 20 Nov 2026: "the playbook should auto save as
+ * changes are made"): a saved one saves each change once it has no problem; a new one on the web is kept in the browser
+ * as it's written, and made (and starts working) at the end of its steps, so a half-made one never runs.
+ */
+export const PLAYBOOK_SAVE_WORDS = {
+  autosaves: 'Changes save as you make them.',
+  saving: 'Saving…',
+  saved: 'Saved',
+  fix: 'Fix what’s marked in red and it saves.',
+  kept: 'Kept in this browser as you go. It starts working once you press Make the playbook at the end.',
+  pickedUp: 'Picked up where you left off.',
+  startOver: 'Start over',
+  done: 'Done',
+} as const;
+/**
  * What the networking chat after an introduction may offer (decision 173). No new data version: a playbook saved
  * before has none, and has every switch on.
  */
@@ -1065,6 +1107,7 @@ export const PLAYBOOK_KEPT_KEYS = [
   ...PLAYBOOK_THREADS_X_KEYS,
   ...PLAYBOOK_SCRIPT_KEYS,
   ...PLAYBOOK_OPENS_PART_KEYS,
+  ...PLAYBOOK_WAYS_KEYS,
   ...PLAYBOOK_NETWORKING_KEYS,
   ...PLAYBOOK_CHAT_KEYS,
   ...PLAYBOOK_REFER_KEYS,
@@ -1150,17 +1193,19 @@ export function paceOf(pace: unknown): Pace {
  * LinkedIn phrases the AI wrote were about who the playbook is for, so a list it wrote that the person hasn't emptied
  * is let go, to be written again around the playbook's topic (decision 141; one the person emptied stays empty);
  * before decision 164, no words of its own for what it says, so it follows the starting ones, with its own openers as
- * its first messages. Anything else passes through for the schema to judge.
+ * its first messages. Before decision 183 it ticked no ways: it's left so, and goes the one way `opens` says
+ * (./script.ts `waysOf`). Anything else passes through for the schema to judge.
  */
 export function upgradePlaybookDetails(stored: unknown): unknown {
   if (typeof stored !== 'object' || stored === null || Array.isArray(stored)) return stored;
   const d = stored as Record<string, unknown>;
   const old = Array.isArray(d['questions']) && d['questions'].some((q) => typeof q === 'string');
-  const beforeKeys = PLAYBOOK_KEPT_KEYS.some((k) => d[k] === undefined);
+  const blank = blankPlaybook();
+  // A part a blank playbook leaves out too (its ways to start a chat) needs nothing filled in.
+  const beforeKeys = PLAYBOOK_KEPT_KEYS.some((k) => d[k] === undefined && blank[k] !== undefined);
   const pace = d['pace'] as Record<string, unknown> | undefined;
   const before4 = pace === undefined || pace['followUps'] === undefined;
   if (!old && !before4 && !beforeKeys) return stored;
-  const blank = blankPlaybook();
   const platforms = Array.isArray(d['platforms']) ? (d['platforms'] as unknown[]) : null;
   const before7 = d['onItsNetworks'] === undefined && d['goal'] !== PARTNER_GOAL && !!platforms;
   // Before 9: the AI's lists on who the playbook is for go, to be written again around its topic (decision 141).

@@ -15,7 +15,7 @@ import { readThem, type ReadThem, type Who } from './checks';
 import { paced, pause, valueOf, type Job, type JobEnd } from './job';
 import { searchedLine, searchFacebook, searchPartners, type PartnerSearch } from './partner-search';
 
-/** Between people, the pace the checks go at on that network: LinkedIn's slower (decision 182). */
+/** Between people, the pace the checks go at on that network: LinkedIn's slower (decision 184). */
 const paceOf = (platform: Platform) => {
   const [least, most] = checkPaceOf(platform);
   return [least * 1000, most * 1000] as const;

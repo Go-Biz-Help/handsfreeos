@@ -2001,9 +2001,12 @@ function scriptedTodayDraft(message: string) {
         .replace(/ ?\[a question about them\]/g, ' QUESTION'),
       first ?? '',
     ).replace(/ ?QUESTION$/, `${ask}How did you get started?`);
+    // Given a few ways to start the chat (decision 183), the stand-in takes the one listed first, whose words come first.
+    const way = /\bWay 1, (\w+) \(/.exec(message)?.[1];
     return {
       simple: false,
       answer: 'none',
+      ...(way ? { way, wayWhy: 'It was listed first' } : {}),
       drafts: [
         says,
         /^Hey\b/.test(says) ? says.replace(/^Hey\b/, 'Hi') : `Hey! ${says}`,

@@ -11083,6 +11083,11 @@ the same way it refuses removing a business's last owner.
   a good one there improves every draft after it.
 - **Businesses** is the directory: who signed up, who works there, when they last did anything. Their actual
   data — customers, messages, money — is not readable from here.
+  **Last active**, **Active this week** and **gone quiet** count only what the business's own people did
+  themselves (`private.member_last_active`, `20261027030300_admin_last_active_members.sql`). HandsFreeOS's own
+  jobs (the morning attention digest), the AI teammate, workflows, customers in their portal and staff working in
+  the business never count, and opening the app without doing anything writes nothing to count. A business
+  nobody there has done anything in shows **never** and sorts last under Most active.
   Clicking a business opens its **quick look** over the list (`20261027009700_business_quick_look.sql`): what needs
   a look and why, its numbers, 30 days of activity, its plan and balance, what its customers paid it, what is set up
   and connected, its people and tickets. ← and → step to the next business; **Full page** opens the page that

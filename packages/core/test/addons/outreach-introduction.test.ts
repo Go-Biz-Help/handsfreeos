@@ -31,7 +31,7 @@ import {
 import {
   FILL_BLANKS,
   firstMessagesOf,
-  opensWithIntro,
+  waysOf,
   PLAYBOOK_OPENS,
   PLAYBOOK_OPENS_KEYS,
   playbookSays,
@@ -71,23 +71,30 @@ describe('a playbook that starts with an introduction', () => {
     expect(PLAYBOOK_OPENS.intro.label).toBe('Introduction');
     // A new playbook pitches, as every playbook did before; one saved before the choice reads as a pitch too.
     expect(blankPlaybook().opens).toBe('pitch');
-    expect(opensWithIntro(crm)).toBe(false);
-    expect(opensWithIntro(intro)).toBe(true);
-    expect(opensWithIntro(null)).toBe(false);
+    expect(waysOf(crm)).toEqual(['pitch']);
+    expect(waysOf(intro)).toEqual(['intro']);
+    expect(waysOf(null)).toEqual(['pitch']);
     expect(PLAYBOOK_KEPT_KEYS).toContain('opens');
     expect(PlaybookDetails.parse({ ...intro, name: undefined }).opens).toBe('intro');
     expect(() => PlaybookDetails.parse({ ...crm, opens: 'hello' })).toThrow();
   });
 
   it('sends the introduction in place of the first message’s versions, and Results counts it apart', () => {
-    expect(firstMessagesOf(crm)).toEqual(scriptOf(crm).first);
-    expect(firstMessagesOf(intro)).toEqual([STARTING_INTRO]);
+    expect(firstMessagesOf(crm)).toEqual(
+      scriptOf(crm).first.map((text) => ({ way: 'pitch', text })),
+    );
+    expect(firstMessagesOf(intro)).toEqual([{ way: 'intro', text: STARTING_INTRO }]);
     const own = {
       ...intro,
       script: { intro: 'Hi [first name], thanks for the add! I’m [your first name].' },
     };
     expect(firstMessagesOf(own)).toEqual([
-      'Hi [first name], thanks for the add! I’m [your first name].',
+      { way: 'intro', text: 'Hi [first name], thanks for the add! I’m [your first name].' },
+    ]);
+    // Both ticked: the pitch's versions and the introduction, for the AI to pick between (decision 183).
+    expect(firstMessagesOf({ ...crm, ways: ['pitch', 'intro'] }).map((f) => f.way)).toEqual([
+      ...scriptOf(crm).first.map(() => 'pitch'),
+      'intro',
     ]);
     expect(openersOf(intro)).toEqual([{ kind: 'intro', text: STARTING_INTRO }]);
     expect(openersOf(crm).every((o) => o.kind !== 'intro')).toBe(true);
@@ -111,7 +118,8 @@ describe('the Test console with an introduction', () => {
       kind: 'opener',
       state: { step: 'intro', sent: pace.followUps - 1, answer: null, stopped: false },
     });
-    expect(testLabel('opener', { version: 0, versions: 1, intro: true })).toBe('Introduction');
+    expect(testLabel('opener', { version: 0, versions: 1, way: 'intro' })).toBe('Introduction');
+    expect(testLabel('opener', { way: 'compliment' })).toBe('First message: Compliment first');
     const gap = pace.followUpGaps.at(-1)!;
     expect(testNext(start.state, pace)).toBe(
       `If they stay quiet, one friendly nudge goes ${gap} day${gap === 1 ? '' : 's'} later, then a check-in once a month.`,
@@ -294,6 +302,6 @@ describe('what the AI is told for an introduction', () => {
       recent: [],
       conversation: { step: 'intro', sent: pace.followUps, followUps: pace.followUps },
     });
-    expect(checkIn).toContain('introduced themselves a while ago');
+    expect(checkIn).toContain('wrote first to start a chat with them a while ago');
   });
 });

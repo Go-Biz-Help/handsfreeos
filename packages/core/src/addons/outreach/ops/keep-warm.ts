@@ -25,10 +25,11 @@ export interface LikedPost {
 const STORY_TEXT = 'Their story';
 
 /**
- * A like the extension made on its own on a post of someone deciding on the person's request, in their warm-up: the
- * first a visit liked is kept for one comment under it (`posts.warm_up`), on Today as any good post is, at most one a
- * visit (none kept for them in the last `WARM_POST_GAP_HOURS`). A story, a like with no post's link or
- * words, or one past their warm-up keeps none.
+ * A like the extension made on its own on a post of someone deciding on the person's request, in their warm-up, or of
+ * a friend not greeted yet, warming up before the first message (decision 183, the owner's 4b): the first a visit liked
+ * is kept for one comment under it (`posts.warm_up`), on Today as any good post is, at most one a visit (none kept for
+ * them in the last `WARM_POST_GAP_HOURS`). A story, a like with no post's link or words, or one past their warm-up keeps
+ * none.
  */
 export async function keepWarmPost(
   ctx: CommandContext,
@@ -49,9 +50,14 @@ export async function keepWarmPost(
       ${warmPostWhy(like.platform)}, ${at.toISOString()}::timestamptz, true, ${at.toISOString()}::timestamptz
     where exists (select 1 from addon_outreach.friends f
         where f.workspace_id = ${ws} and f.user_id = ${me} and f.profile_id = ${profileId}
-          and f.state = 'request_sent'
-          and greatest(f.since, f.warm_up_from) + make_interval(weeks => ${weeks})
-            > ${at.toISOString()}::timestamptz)
+          and ((f.state = 'request_sent'
+            and greatest(f.since, f.warm_up_from) + make_interval(weeks => ${weeks})
+              > ${at.toISOString()}::timestamptz)
+          or (f.state = 'friends'
+            and not exists (select 1 from addon_outreach.touches t
+              where t.profile_id = f.profile_id and t.kind = 'message')
+            and not exists (select 1 from addon_outreach.file_chats c
+              where c.profile_id = f.profile_id and c.user_id = ${me}))))
       and not exists (select 1 from addon_outreach.posts po
         where po.workspace_id = ${ws} and po.user_id = ${me} and po.profile_id = ${profileId}
           and po.warm_up and po.seen_at >= ${since}::timestamptz)

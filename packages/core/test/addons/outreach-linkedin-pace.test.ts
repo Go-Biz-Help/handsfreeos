@@ -1,5 +1,5 @@
 /**
- * LinkedIn's profiles read, slower (decision 182, the owner, 20 Nov 2026): never more than its 40 a day, even on a day
+ * LinkedIn's profiles read, slower (decision 184, the owner, 20 Nov 2026): never more than its 40 a day, even on a day
  * the goal needs more good fits, a minute or two apart, a few at a time. LinkedIn showed its security check 2 minutes
  * after 42 profiles read 15 to 30 seconds apart, on a day of 98 (19 Nov 2026). The other networks keep their way.
  */

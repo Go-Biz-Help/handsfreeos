@@ -34,6 +34,7 @@ import {
 } from './conversation';
 import { messagesOn, NETWORKS, PLATFORM_KEYS } from './networks';
 import { PLAYBOOK_LIMITS, type Pace } from './playbooks';
+import { OPEN_WAY_KEYS, OPEN_WAYS, type OpenWay } from './script';
 import { quoteData } from '../../knowledge/prompt';
 import { PLAIN_WRITING } from './voice';
 
@@ -289,6 +290,9 @@ export const PlaybookTestOutput = z.object({
   about: z.string().nullable().default(null),
   /** A comment: whether the person has said anything of themselves in About you (Settings → Account). */
   aboutYou: z.boolean().default(false),
+  /** A first message: the way it started the chat (decision 183), and why the AI picked it for them. */
+  way: z.enum(OPEN_WAY_KEYS).nullable().default(null),
+  why: z.string().nullable().default(null),
 });
 export type PlaybookTestOutput = z.output<typeof PlaybookTestOutput>;
 
@@ -431,8 +435,8 @@ export function testLabel(
     readonly versions?: number;
     readonly followUp?: number;
     readonly followUps?: number;
-    /** The playbook starts with an introduction (decision 168). */
-    readonly intro?: boolean;
+    /** The way a first message started the chat (decisions 168 and 183). Left out, the pitch. */
+    readonly way?: OpenWay | null;
     /** Where the chat was: a follow-up after an introduction is its one nudge (decision 173). */
     readonly step?: TestState['step'];
     /** The ask for a time is for a networking call (decision 173). */
@@ -443,7 +447,8 @@ export function testLabel(
   if (kind === 'pitch' && o.call) return 'They said yes to a call: your ask for a time';
   switch (kind) {
     case 'opener':
-      if (o.intro) return 'Introduction';
+      if (o.way === 'intro') return 'Introduction';
+      if (o.way && o.way !== 'pitch') return `First message: ${OPEN_WAYS[o.way].label}`;
       return o.versions && o.versions > 1
         ? `First message, version ${(o.version ?? 0) + 1} of ${o.versions}`
         : 'First message';
@@ -579,6 +584,9 @@ export function testAdds(
       ...(out.unanswered
         ? [{ kind: 'note' as const, text: TEST_WORDS.unanswered(out.unanswered) }]
         : []),
+      ...(out.message && out.way && out.why
+        ? [{ kind: 'note' as const, text: TEST_WORDS.picked(OPEN_WAYS[out.way].label, out.why) }]
+        : []),
       ...(out.note ? [{ kind: 'note' as const, text: out.note }] : []),
       { kind: 'next' as const, text: out.next },
     ],
@@ -639,6 +647,11 @@ export const TEST_WORDS = {
   hideOthers: 'Hide the others',
   played: '(played by the AI)',
   versionN: (n: number) => `Version ${n}`,
+  /** Why the AI picked the way a first message went (decision 183). */
+  picked: (way: string, why: string) => `It picked ${way}: ${why.trim().replace(/[.!]?$/, '.')}`,
+  /** A playbook with no way ticked starts no chats (decision 183). */
+  noWays:
+    'This playbook has no way ticked to start a chat, so no first message goes. Tick one under What it says.',
   whoPlays: 'Who the AI plays',
   /** Try a comment (decision 165). */
   comment: {

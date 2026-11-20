@@ -187,7 +187,13 @@ describe('drafts for Today', () => {
       // The playbook's first message, fitted to Dana. The repeat and the one with “free trial” are dropped.
       drafts: firsts('Dana'),
       // The playbook's first message: it has one version, so there are no turns to take.
-      opener: { playbookId: expect.any(String), kind: 'own', text: CRM_FIRST_MESSAGE },
+      opener: {
+        playbookId: expect.any(String),
+        kind: 'own',
+        text: CRM_FIRST_MESSAGE,
+        // The ways it could go (decision 183): only the pitch, so the AI wasn't asked to pick.
+        ways: ['pitch'],
+      },
       simple: false,
       unanswered: null,
       meeting: null,
@@ -229,7 +235,7 @@ describe('drafts for Today', () => {
       kind: 'opener',
       answer: null,
       drafts: ['Hey Dana, do you run your own business?', 'Hi Dana, do you run your own business?'],
-      opener: { playbookId: playbook!.id, kind: 'own', text: second },
+      opener: { playbookId: playbook!.id, kind: 'own', text: second, ways: ['pitch'] },
       simple: false,
       unanswered: null,
       meeting: null,
@@ -239,6 +245,7 @@ describe('drafts for Today', () => {
       playbookId: playbook!.id,
       kind: 'own',
       text: CRM_FIRST_MESSAGE,
+      ways: ['pitch'],
     });
     await testDbs()
       .admin.db.update(playbooks)

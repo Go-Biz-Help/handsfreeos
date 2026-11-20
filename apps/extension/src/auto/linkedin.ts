@@ -624,7 +624,7 @@ async function visit(item: TodayListItem, businessId: string, likes: number): Pr
   if (!theirs.ok) throw new Error(theirs.error);
   const picks = visitPicks(theirs.posts, likes, neverLike);
   if (!picks.length) {
-    const line = visitLine(item.name, PLATFORM, 0);
+    const line = visitLine(item.name, PLATFORM, 0, item.keepWarm?.hi === true);
     await missed(item, businessId, line);
     return { done: true, line };
   }
@@ -665,7 +665,7 @@ async function visit(item: TodayListItem, businessId: string, likes: number): Pr
     );
     liked++;
   }
-  return { done: true, line: visitLine(item.name, PLATFORM, liked) };
+  return { done: true, line: visitLine(item.name, PLATFORM, liked, item.keepWarm?.hi === true) };
 }
 
 /** Where you stand with them, in words: for a step passed over. */
@@ -1202,12 +1202,12 @@ const reporting = (job: Job, kind: LinkedInDaily): Job => ({
 });
 
 /**
- * How many profiles LinkedIn's checks read in one go (decision 182): a few at a time, each next few 35 to 60 minutes
+ * How many profiles LinkedIn's checks read in one go (decision 184): a few at a time, each next few 35 to 60 minutes
  * later (`again`, plan.ts `afterDaily`), so the day's 40 spread through the day.
  */
 const LINKEDIN_BATCH = checksBatchOf(PLATFORM) ?? CHECKS_PER_DAY;
 
-/** The words a day's last line adds while LinkedIn's checks wait for their next few (decision 182). */
+/** The words a day's last line adds while LinkedIn's checks wait for their next few (decision 184). */
 export const LINKEDIN_AGAIN_WORDS = 'It reads more profiles later today, a few at a time.';
 
 /** Does one of LinkedIn's once-a-day jobs. */

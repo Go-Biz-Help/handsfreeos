@@ -10,7 +10,7 @@
  * checks it's theirs, reads it as that network's checks read people (the network's `read`), and sends those lines for
  * the AI's found check (`outreach.check.look`, which HandsFreeOS marks `found`). Only a good check puts them on Today.
  * Nothing is pressed. It goes at a person's pace, 15 to 30 seconds between people (a minute or two on LinkedIn, a few at
- * a time: its runner asks for a batch, and the rest of the day's room comes back `again`, decision 182), and stops for
+ * a time: its runner asks for a batch, and the rest of the day's room comes back `again`, decision 184), and stops for
  * the day on any warning. Each network's runner calls it as `jobs/partners.ts`'s `checkPartners` is called, with its
  * own reader.
  */

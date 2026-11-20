@@ -1137,7 +1137,7 @@ whatever the day needed (the owner's report of 29 Oct 2026: 12 first messages in
 From 0.114.0 (docs/outreach.md, decision 126):
 
 - **Checks a batch at a time.** While a network needs more good fits, HandsFreeOS lets it check up to that network's
-  most (150 a day on Facebook, 60 on Instagram and Alignable; LinkedIn stays at its 40, decision 182). The once-a-day
+  most (150 a day on Facebook, 60 on Instagram and Alignable; LinkedIn stays at its 40, decision 184). The once-a-day
   checks take their usual
   batch, and when HandsFreeOS gave all it asked for and today has room for more, the job ends with `again`: it isn't done
   for the day, and the next batch goes 35 to 60 minutes later (`afterDaily`, `againAt` in the runner's state,
@@ -1274,12 +1274,14 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
-### LinkedIn reads 40 profiles a day at most, a minute or two apart (0.147.15)
+<<<<<<< HEAD
+
+### LinkedIn reads 40 profiles a day at most, a minute or two apart (0.148.1)
 
 The owner asked why LinkedIn showed its security check on 19 Nov 2026. That day the extension read 98 LinkedIn
 profiles (97 the day before), and the check came 2 minutes after it read 42 people found, 15 to 30 seconds apart: on a
 day short of good fits, decision 126 let LinkedIn's checks go to 150. The owner picked "40 a day, and slower"
-(docs/outreach.md, decision 182):
+(docs/outreach.md, decision 184):
 
 - **40 a day at most** (`checksMost: 40` in LinkedIn's kit), even on a day short of good fits. The checks of
   connections, the people found and the partners share them, as before.
@@ -1292,24 +1294,36 @@ day short of good fits, decision 126 let LinkedIn's checks go to 150. The owner 
 
 Likes, comments, invitations and messages keep their own limits.
 
-### LinkedIn's security check that came late, and a hashtag search still loading (0.147.15)
+### LinkedIn's security check that came late, and a hashtag search still loading (0.148.1)
 
 Two of the owner's problem reports of 19 Nov 2026 (0.147.11):
 
 - **LinkedIn's security check.** Three warm-ups in 40 minutes said "LinkedIn showed a different page" and were handed
   over, each with LinkedIn's security check (/checkpoint/challenge/…) in the window by the time it was outlined. The
   step had read the page before LinkedIn went on to its check, so the check's warning never stopped LinkedIn for the
-  day, and the next step met it again. From 0.147.15 a step that didn't go reads the page once more after a moment
+  day, and the next step met it again. From 0.148.1 a step that didn't go reads the page once more after a moment
   (`warnedLate` in `src/auto/linkedin.ts`): a LinkedIn warning there stops LinkedIn for the day, noted as LinkedIn's,
   as one read in time does, and the step isn't handed over.
 - **A hashtag's search still loading.** A hashtag's page, which Instagram sends to a search
   (/explore/search/keyword/?q=%23…), showed nothing but Instagram's loading mark when it was read, and was noted as
   "No posts on the page." (also on 1 and 3 Nov). Its list ended at once, as the page had nowhere to scroll. From
-  0.147.15 a page whose main part shows only the loading mark has more to come (`scrollDialog` in
+  0.148.1 a page whose main part shows only the loading mark has more to come (`scrollDialog` in
   `src/networks/instagram/browse.ts`), so it's read again after the list's pause, up to its usual screens.
 
 The third report that day, "Nobody read in the post’s Likes box.", isn't changed: the box showed only the person
 themselves, who liked the post, with Instagram's line about two more it didn't list.
+=======
+
+### Warm-up visits before the first message (0.148.0)
+
+A playbook now ticks the ways it may start a chat, and the AI picks one for each person (decision 183 in
+`docs/outreach.md`). With Warm up on, someone who accepts fast, or was a friend already, gets a few days of visits
+before Say hi, as someone deciding on a request does: Today lists a `warm_up` with `keepWarm.hi`, and the extension
+visits their page and likes 1 or 2 of their newest posts. From 0.148.0 the activity line says "before your first
+message" for those, not "while they decide on your request" (`visitLine` in core's `keep-warm.ts`). An older build does
+the same visits with the old line.
+
+> > > > > > > origin/main
 
 ### A song on a post read as a Facebook warning (0.147.14)
 

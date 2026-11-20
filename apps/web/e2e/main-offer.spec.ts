@@ -190,8 +190,15 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await expect(playbook.getByTestId('playbook-useful-link')).toHaveValue(
     'https://summit.test/checklist',
   );
-  // On past who, leave alone, where, the steps and what it says (decision 164), to the short video.
-  for (let i = 0; i < 6; i++) await playbook.getByTestId('playbook-next').click();
+  // On past who, leave alone, where and the steps, to what it says (decision 164). No way to start a chat is ticked
+  // on a new playbook, so it waits for one (decision 183); with the free checklist given, Value first has what it
+  // needs. Then on to the short video.
+  for (let i = 0; i < 5; i++) await playbook.getByTestId('playbook-next').click();
+  await expect(playbook.getByTestId('playbook-next')).toBeDisabled();
+  await expect(playbook.getByTestId('playbook-way-valueFirst-missing')).toHaveCount(0);
+  await playbook.getByTestId('playbook-way-pitch-tick').check();
+  await playbook.getByTestId('playbook-way-valueFirst-tick').check();
+  await playbook.getByTestId('playbook-next').click();
 
   // The short video: the AI writes its script from the offer and the niche, and one part is written again. The video
   // itself goes in the video library (decision 154), which the step points to where its link was.

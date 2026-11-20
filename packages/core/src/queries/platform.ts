@@ -98,13 +98,14 @@ export const platformBusinessList = defineQuery({
     // Only the orders by sign-up page, because they are the only ones that cannot change under the reader's feet.
     const pages = input.sort === 'newest' || input.sort === 'attention';
     if (input.cursor && pages) conditions.push(lt(workspaces.createdAt, new Date(input.cursor)));
+    // A business whose people have never done anything has no last active: the quietest of all, never the busiest.
     const order =
       input.sort === 'name'
         ? [asc(workspaces.name)]
         : input.sort === 'busiest'
-          ? [desc(lastActive)]
+          ? [dsql`${lastActive} desc nulls last`, desc(workspaces.createdAt)]
           : input.sort === 'quietest'
-            ? [asc(lastActive)]
+            ? [dsql`${lastActive} asc nulls first`, desc(workspaces.createdAt)]
             : [desc(workspaces.createdAt)];
     const list = await ctx.tx
       .select({
@@ -203,10 +204,10 @@ export const platformBusinessGet = defineQuery({
         fullName: users.fullName,
         email: dsql<string>`${users.email}::text`,
         role: workspaceMemberships.role,
-        lastActiveAt: dsql<string | null>`(
-          select max(e.created_at)::text from app.events e
-          where e.workspace_id = ${input.workspaceId} and e.actor_id = ${users.id}
-        )`,
+        // Staff read none of a business's events under the ordinary rules: the function checks the permission.
+        lastActiveAt: dsql<
+          string | null
+        >`private.admin_person_last_active(${input.workspaceId}, ${users.id})::text`,
       })
       .from(workspaceMemberships)
       .innerJoin(users, eq(users.id, workspaceMemberships.userId))

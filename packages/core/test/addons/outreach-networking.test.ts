@@ -19,7 +19,7 @@ import {
 import {
   CHAT_START,
   chatOf,
-  INTRO_PARTS,
+  CHAT_PARTS,
   NETWORKING_KEYS,
   NETWORKING_ON,
   networkingOf,
@@ -62,7 +62,7 @@ describe('the networking chat’s words and switches', () => {
     expect(says.sendPeople).toBe(STARTING_SEND_PEOPLE);
     expect(STARTING_SEND_PEOPLE).toContain('[their area]');
     expect(says.callYes).toContain('[booking link]');
-    expect(SCRIPT_INFO.nudge.label).toBe('Nudge after the introduction');
+    expect(SCRIPT_INFO.nudge.label).toBe('Nudge after the first message');
     expect(SCRIPT_GROUPS.find((g) => g.key === 'networking')?.parts).toEqual([
       'nudge',
       'demoOffer',
@@ -73,11 +73,15 @@ describe('the networking chat’s words and switches', () => {
     expect(SCRIPT_BLANKS.map((b) => b.blank)).toEqual(
       expect.arrayContaining(['[a question about them]', '[their area]', '[what they do]']),
     );
-    for (const part of INTRO_PARTS) {
-      expect(partShown(part, true)).toBe(true);
-      expect(partShown(part, false)).toBe(false);
+    for (const part of CHAT_PARTS) {
+      expect(partShown(part, ['intro'])).toBe(true);
+      expect(partShown(part, ['compliment'])).toBe(true);
+      expect(partShown(part, ['pitch'])).toBe(false);
     }
-    expect(partShown('first', false)).toBe(true);
+    expect(partShown('intro', ['intro'])).toBe(true);
+    expect(partShown('intro', ['compliment'])).toBe(false);
+    expect(partShown('first', ['intro'])).toBe(true);
+    expect(partShown('first', [])).toBe(true);
   });
 
   it('has every switch on to start, kept when a save leaves them out, and none for a playbook that pitches', () => {

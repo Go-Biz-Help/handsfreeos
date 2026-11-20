@@ -127,6 +127,9 @@ describe('a playbook’s Test console', () => {
       state: { step: 'first', sent: 0, answer: null, stopped: false, call: false },
       about: null,
       aboutYou: false,
+      // It could only go the pitch's way, so there's no why to say (decision 183).
+      way: 'pitch',
+      why: null,
     });
     // A member tests it too: it reads, and changes nothing.
     expect((await ask(member, { playbookId, person: sam, move: 'start' })).statusCode).toBe(200);
@@ -155,6 +158,27 @@ describe('a playbook’s Test console', () => {
     const x = await move({ person: { ...sam, platform: 'x' }, move: 'start' });
     expect(x).toMatchObject({ kind: null, message: null, state: TEST_START });
     expect(x.note).toMatch(/On X it only comments on posts for now/);
+  });
+
+  it('picks one of the ways it ticks, says which and why, and starts none with none ticked (decision 183)', async () => {
+    const details = { ...crm.details, ways: ['compliment', 'opinion'] };
+    const out = await move({ playbookId: null, name: 'Not saved yet', details, move: 'start' });
+    expect(out).toMatchObject({
+      kind: 'opener',
+      label: 'First message: Compliment first',
+      way: 'compliment',
+      why: 'It was listed first',
+      // A way that starts a chat gets one nudge, as an introduction does.
+      state: { step: 'intro' },
+    });
+    expect(out.message).toBeTruthy();
+    const none = await move({
+      playbookId: null,
+      name: 'Not saved yet',
+      details: { ...crm.details, ways: [] },
+      move: 'start',
+    });
+    expect(none).toMatchObject({ message: null, note: TEST_WORDS.noWays, way: null });
   });
 
   it('follows up when they go quiet, reads their reply, and asks for a time after a yes', async () => {
