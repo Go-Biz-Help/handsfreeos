@@ -298,7 +298,9 @@ export function PlaybookScreen({ playbookId }: { playbookId: string }) {
       ? async () => {
           const [settings, list] = await Promise.all([
             api
-              .POST('/v1/queries/addon.settings', { body: { workspaceId: ws, addonId: 'outreach' } })
+              .POST('/v1/queries/addon.settings', {
+                body: { workspaceId: ws, addonId: 'outreach' },
+              })
               .then((r) => r.data ?? null)
               .catch(() => null),
             api
@@ -306,10 +308,8 @@ export function PlaybookScreen({ playbookId }: { playbookId: string }) {
               .then((r) => r.data ?? null)
               .catch(() => null),
           ]);
-          return libraryOf(
-            outreachSettings(settings?.settings).videos,
-            list?.playbooks ?? [],
-          ).length;
+          return libraryOf(outreachSettings(settings?.settings).videos, list?.playbooks ?? [])
+            .length;
         }
       : null,
     `playbook-videos:${ws}`,
@@ -668,7 +668,11 @@ function SectionSheet({
           </Text>
         ) : (
           <Text className="text-[13px] text-text-3" testID="playbook-save-status">
-            {state === 'saving' ? SAVE.saving : state === 'saved' && !unsaved ? SAVE.saved : SAVE.autosaves}
+            {state === 'saving'
+              ? SAVE.saving
+              : state === 'saved' && !unsaved
+                ? SAVE.saved
+                : SAVE.autosaves}
           </Text>
         )}
         <Button loading={busy} onPress={() => void done()} testID="playbook-save">

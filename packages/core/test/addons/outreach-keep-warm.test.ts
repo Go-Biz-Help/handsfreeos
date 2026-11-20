@@ -17,6 +17,7 @@ import {
   visitLine,
   visitPicks,
   visitWhy,
+  WARM_BEFORE_HI_DAYS,
   warmPostWhy,
   warmUpEnds,
 } from '../../src/addons/outreach/keep-warm';
@@ -336,6 +337,37 @@ describe('warm-ups on Instagram while they decide on following back', () => {
     expect(due.length).toBeLessThan(names.length);
     // The same all day, however often the list is read.
     expect((await visits()).map((v) => v.name).filter((n) => n.startsWith('Spread '))).toEqual(due);
+  });
+
+  it('warms up someone who followed back fast before the first message, then says hi (decision 183, the owner’s 4b)', async () => {
+    await follow('back.fast', 'Back Fast', ago(1));
+    await runAs(owner, ws, 'outreach.friends.save', {
+      platform: 'instagram',
+      list: 'friends',
+      people: [{ profile: account('back.fast'), name: 'Back Fast', mutualFriends: null }],
+    });
+    const items = async () =>
+      ((await runAs(owner, ws, 'outreach.today', { platform: 'instagram' })).items as TodayItem[])
+        .filter((i) => i.name === 'Back Fast')
+        .map((i) => ({ kind: i.kind, hi: i.keepWarm?.hi ?? null }));
+    // No like yet: a visit, and no Say hi.
+    expect(await items()).toEqual([{ kind: 'warm_up', hi: true }]);
+    const [visit] = (await visits()).filter((v) => v.name === 'Back Fast');
+    expect(visit!.why[0]).toBe('Warming up before your first message');
+    // Liked today: no other visit today, and still no Say hi; the post liked is on Today for its one comment.
+    await like('back.fast', 'Back Fast', 'fast1');
+    expect(await items()).toEqual([{ kind: 'comment', hi: null }]);
+    // The first like, the post kept for its one comment, as for someone deciding.
+    expect((await warmPosts('back.fast')).map((p) => p.url)).toEqual([`${IG}/p/fast1/`]);
+    // Three days on from the first like: Say hi.
+    await rows(
+      admin(),
+      sql`update addon_outreach.touches set at = now() - make_interval(days => ${WARM_BEFORE_HI_DAYS})
+          where profile_id = ${await profileOf('back.fast')} and kind = 'like'`,
+    );
+    const kinds = (await items()).map((i) => i.kind);
+    expect(kinds).toContain('opener');
+    expect(kinds).not.toContain('warm_up');
   });
 
   it('marks no warm-up ended for a request Cancel all withdrew sooner', async () => {

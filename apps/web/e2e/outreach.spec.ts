@@ -158,6 +158,16 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   await expect(builder.getByTestId('playbook-script-first-0')).toHaveValue(
     /^Hey \[first name\], if I could get you \[what your offer gets them\]/,
   );
+  // Ways to start a chat (decision 183): none ticked on a new playbook, and it won't carry on till one is. A way that
+  // needs something not given yet says where to add it.
+  await expect(builder.getByTestId('playbook-ways-count')).toHaveText('0 ways ticked');
+  await expect(next).toBeDisabled();
+  await expect(builder.getByTestId('playbook-way-socialProof-missing')).toContainText(
+    'Needs a real result',
+  );
+  await builder.getByTestId('playbook-way-pitch-tick').check();
+  await expect(builder.getByTestId('playbook-ways-count')).toHaveText('1 way ticked');
+  await expect(next).toBeEnabled();
   await builder.getByTestId('playbook-script-first-add').click();
   // An empty version stops the step until it's written or taken out.
   await expect(next).toBeDisabled();
@@ -225,6 +235,11 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   await expect(builder.getByTestId('review-script')).toContainText(
     '2 first messages taking turns. 1 part in your own words, the rest in the starting words.',
   );
+  await expect(builder.getByTestId('playbook-summary-ways')).toHaveText(
+    'Ways to start a chat: Direct pitch',
+  );
+  // A new one is kept in this browser as it's written, and made at the end.
+  await expect(builder.getByTestId('playbook-kept-here')).toContainText('Kept in this browser');
   await builder.getByTestId('playbook-save').click();
   await expect(page.getByText('Office orders is ready.')).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/a/outreach/playbooks$`));
@@ -244,8 +259,10 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   await builder.getByTestId('playbook-next').click();
   await expect(builder.getByTestId('playbook-step-review')).toBeVisible();
   await expect(script).toContainText('“Yes”, then make the offer');
+  // A saved one saves each change as it's made (the owner's autosave): Done only goes back.
+  await expect(builder.getByTestId('playbook-save-status')).toHaveText('Saved');
+  await expect(builder.getByTestId('playbook-save')).toHaveText('Done');
   await builder.getByTestId('playbook-save').click();
-  await expect(page.getByText('Office orders is saved.')).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/a/outreach/playbooks$`));
 
   // A template comes with what it says (its own first messages, decision 164) and its conversation, where answers
@@ -257,6 +274,10 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   await expect(builder.getByTestId('playbook-script-first-2')).toHaveValue(
     'Hey [first name], if I could show you what your home is worth today, would you be interested?',
   );
+  // A template's ways start unticked too.
+  await expect(builder.getByTestId('playbook-next')).toBeDisabled();
+  await builder.getByTestId('playbook-way-pitch-tick').check();
+  await builder.getByTestId('playbook-way-compliment-tick').check();
   for (let i = 0; i < 3; i++) await builder.getByTestId('playbook-next').click();
   await expect(builder.getByTestId('question-1-text')).toHaveValue(
     'Are you thinking about buying, selling, or both?',

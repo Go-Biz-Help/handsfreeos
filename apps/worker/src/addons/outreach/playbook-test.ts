@@ -186,7 +186,9 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
       found.offer && parts?.success ? draftOfferOf(found.offer.version, parts.data) : null;
     // The business's videos (decision 154): its library, or this playbook's short video until it's saved.
     const library =
-      found.library === undefined ? [] : libraryOf(found.library, [{ name: playbookName, details }]);
+      found.library === undefined
+        ? []
+        : libraryOf(found.library, [{ name: playbookName, details }]);
     // The ways the first message may go (decision 183), as a real one picks from them: those with what they need, and
     // the pitch with the version picked here in place of the one whose turn it is.
     const pitches = firstMessagesOf(details).filter((f) => f.way === 'pitch');
@@ -413,7 +415,8 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
           }),
           way: made.drafts.length ? way : null,
           // Why, when it had a few to pick from.
-          why: made.drafts.length && way && ways.length > 1 ? made.value.wayWhy.trim() || null : null,
+          why:
+            made.drafts.length && way && ways.length > 1 ? made.value.wayWhy.trim() || null : null,
         };
       }
 

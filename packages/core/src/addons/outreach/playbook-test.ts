@@ -650,7 +650,8 @@ export const TEST_WORDS = {
   /** Why the AI picked the way a first message went (decision 183). */
   picked: (way: string, why: string) => `It picked ${way}: ${why.trim().replace(/[.!]?$/, '.')}`,
   /** A playbook with no way ticked starts no chats (decision 183). */
-  noWays: 'This playbook has no way ticked to start a chat, so no first message goes. Tick one under What it says.',
+  noWays:
+    'This playbook has no way ticked to start a chat, so no first message goes. Tick one under What it says.',
   whoPlays: 'Who the AI plays',
   /** Try a comment (decision 165). */
   comment: {

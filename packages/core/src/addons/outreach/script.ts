@@ -481,9 +481,7 @@ export const STARTING_REFER_NOTE =
  * found on their page; its example in quotes is kept close to. None carries a link: what it offers goes once they say
  * yes.
  */
-export const STARTING_WAYS: Readonly<
-  Record<Exclude<OpenWayPart, 'first' | 'intro'>, string>
-> = {
+export const STARTING_WAYS: Readonly<Record<Exclude<OpenWayPart, 'first' | 'intro'>, string>> = {
   valueFirst:
     'Open with something free and useful for them, picked from what their page shows they’re working on: one quick tip from your main offer and its lists, or your free thing from Something useful to send. Like: “Hey [first name], saw you’re [what they’re working on]. Here’s a quick tip that helps with that: [the tip]. I also have [your free thing] if you want it. Want me to send it over?” No link in it, and one question, at the end.',
   trigger:
@@ -810,9 +808,8 @@ export function waysOf(
 export const hasWays = (d: Parameters<typeof waysOf>[0]): boolean => waysOf(d).length > 0;
 
 /** Whether a playbook may start a chat one of the ways that start a chat: its networking chat's parts apply. */
-export const startsChats = (
-  d: Parameters<typeof waysOf>[0],
-): boolean => waysOf(d).some(startsAChat);
+export const startsChats = (d: Parameters<typeof waysOf>[0]): boolean =>
+  waysOf(d).some(startsAChat);
 
 /**
  * Whether every way a playbook may start a chat starts one, so nobody is pitched: Say hi then takes everyone who
@@ -893,7 +890,8 @@ export const WAYS_WORDS = {
   bestOn: (networks: readonly string[]) => `Works well on ${networks.join(' and ')}`,
   needs: {
     proof: 'Needs a real result. Add one under Proof for this niche, in the Niche step.',
-    useful: 'Needs something free to send. Add it under Something useful to send, in the Offer step.',
+    useful:
+      'Needs something free to send. Add it under Something useful to send, in the Offer step.',
     video: 'Needs a video. Add one in the Short video step, or in Settings → Videos.',
   } satisfies Record<WayNeed, string>,
   /** Beside the list: the warm-up switch, the playbook's Warm up step (decision 161, and the owner's 4b). */
@@ -910,7 +908,8 @@ export const WAYS_WORDS = {
 export function waysLine(d: Parameters<typeof firstMessagesOf>[0]): string {
   const ways = waysOf(d);
   const firsts = firstMessagesOf(d);
-  if (!ways.length) return 'No way to start a chat is ticked yet, so it starts none. Tick one under What it says.';
+  if (!ways.length)
+    return 'No way to start a chat is ticked yet, so it starts none. Tick one under What it says.';
   if (ways.length > 1)
     return `Picks one of ${ways.length} ways to start a chat for each person: ${ways.map((w) => OPEN_WAYS[w].label).join(', ')}.`;
   const way = ways[0]!;

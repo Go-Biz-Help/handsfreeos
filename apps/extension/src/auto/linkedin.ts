@@ -618,7 +618,7 @@ async function visit(item: TodayListItem, businessId: string, likes: number): Pr
   if (!theirs.ok) throw new Error(theirs.error);
   const picks = visitPicks(theirs.posts, likes, neverLike);
   if (!picks.length) {
-    const line = visitLine(item.name, PLATFORM, 0);
+    const line = visitLine(item.name, PLATFORM, 0, item.keepWarm?.hi === true);
     await missed(item, businessId, line);
     return { done: true, line };
   }
@@ -659,7 +659,7 @@ async function visit(item: TodayListItem, businessId: string, likes: number): Pr
     );
     liked++;
   }
-  return { done: true, line: visitLine(item.name, PLATFORM, liked) };
+  return { done: true, line: visitLine(item.name, PLATFORM, liked, item.keepWarm?.hi === true) };
 }
 
 /** Where you stand with them, in words: for a step passed over. */

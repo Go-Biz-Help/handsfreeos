@@ -1,7 +1,7 @@
 {
   "area": "outreach",
   "title": "The Social Outreach add-on: every page",
-  "checkedOn": "2026-11-18",
+  "checkedOn": "2026-11-20",
   "files": {
     "apps/mobile/src/addons/outreach/actions.ts": "9d1266692122",
     "apps/mobile/src/addons/outreach/ai-help.tsx": "715ac076ab3b",
@@ -34,10 +34,10 @@
     "apps/mobile/src/addons/outreach/partners.tsx": "5fe0683e908d",
     "apps/mobile/src/addons/outreach/person-menu.tsx": "1a37fc2ef322",
     "apps/mobile/src/addons/outreach/pipeline.tsx": "0e8ba9125d19",
-    "apps/mobile/src/addons/outreach/playbook-script.tsx": "c03e2d9b2f59",
+    "apps/mobile/src/addons/outreach/playbook-script.tsx": "5f77dad1be4f",
     "apps/mobile/src/addons/outreach/playbook-test.tsx": "d508cf5f3f76",
-    "apps/mobile/src/addons/outreach/playbook.tsx": "c3c332997dea",
-    "apps/mobile/src/addons/outreach/playbooks.tsx": "1af36aa24064",
+    "apps/mobile/src/addons/outreach/playbook.tsx": "acf6ca058d28",
+    "apps/mobile/src/addons/outreach/playbooks.tsx": "771cfae65162",
     "apps/mobile/src/addons/outreach/post-quote.tsx": "1fb64117de21",
     "apps/mobile/src/addons/outreach/posted.tsx": "4007346d12e7",
     "apps/mobile/src/addons/outreach/profile-whole.tsx": "48b345076f5e",
@@ -99,9 +99,9 @@
     "apps/web/src/addons/outreach/person-menu.tsx": "64e84258b057",
     "apps/web/src/addons/outreach/person-panel.tsx": "12eb4039a5b3",
     "apps/web/src/addons/outreach/pipeline-view.tsx": "e1d6f4c59064",
-    "apps/web/src/addons/outreach/playbook-builder.tsx": "0fd1598da194",
+    "apps/web/src/addons/outreach/playbook-builder.tsx": "3697d7ab634c",
     "apps/web/src/addons/outreach/playbook-test.tsx": "24d6b30fe7c6",
-    "apps/web/src/addons/outreach/playbooks-page.tsx": "c4ecc22101e2",
+    "apps/web/src/addons/outreach/playbooks-page.tsx": "f2b65fbff057",
     "apps/web/src/addons/outreach/post-quote.tsx": "0d00a6705d36",
     "apps/web/src/addons/outreach/pre-day-list.tsx": "dd582568db6f",
     "apps/web/src/addons/outreach/profile-whole.tsx": "8949c6c61c1c",
@@ -3231,11 +3231,11 @@
       "by": "outreach_save_playbook changes.script.first; outreach_improve_playbook_part (firsts)"
     },
     {
-      "path": "Playbooks → builder → What it says: How the first message goes (Pitch or Introduction); with Introduction, the Introduction part's words and the first message's versions shown as Your pitch",
+      "path": "Playbooks → builder → What it says: Ways to start a chat (tick any of the 10, none to start, N ways ticked, what follows each, Best for businesses, Works well on, what a way needs and where to add it, Tick at least one way); each ticked way's own words; the first message's versions shown as Your pitch while Direct pitch isn't ticked; Warm up first switch",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/playbook-builder.tsx:1640",
+      "file": "apps/web/src/addons/outreach/playbook-builder.tsx:1817",
       "covered": "yes",
-      "by": "outreach_save_playbook changes.opens and changes.script.intro; outreach_playbooks details.opens and says.intro"
+      "by": "outreach_save_playbook changes.ways, changes.steps (engage) and changes.script (intro, valueFirst, trigger, compliment, opinion, socialProof, permission, sharedGround, problemCheck); outreach_playbooks details.ways and says"
     },
     {
       "path": "Playbooks → builder → What it says → The networking chat (with Introduction): In the chat after it switches (Offer a demo, Offer a networking call, Offer to send people their way) and the chat's parts (the nudge, the demo offer, the networking call offer, sending people their way, the yes to a call)",
@@ -3287,7 +3287,7 @@
       "by": "outreach_test_playbook person, version, move start"
     },
     {
-      "path": "Playbooks → Test it → the chat: each message that would go and what it is, the AI's other drafts, what was read in their reply, notes (open times, what Knowledge can't answer), what happens next",
+      "path": "Playbooks → Test it → the chat: each message that would go and what it is, the AI's other drafts, what was read in their reply, notes (the way it picked to start the chat and why, open times, what Knowledge can't answer), what happens next",
       "kind": "see",
       "file": "apps/web/src/addons/outreach/playbook-test.tsx:271",
       "covered": "yes",
@@ -3350,11 +3350,11 @@
       "by": "navigation"
     },
     {
-      "path": "Playbooks → builder → Make the playbook / Save changes",
+      "path": "Playbooks → builder → Make the playbook / Done; a saved playbook saves itself: Changes save as you make them, Saving…, Saved, Fix what’s marked in red and it saves, or the refusal; a new one: Kept in this browser as you go, Picked up where you left off, Start over",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/playbook-builder.tsx:1487",
+      "file": "apps/web/src/addons/outreach/playbook-builder.tsx:1762",
       "covered": "yes",
-      "by": "outreach_save_playbook"
+      "by": "outreach_save_playbook (each change goes as its own save)"
     },
     {
       "path": "Settings → every part: title, about, Saving… / Saved / couldn't save (autosaves)",
@@ -4015,11 +4015,11 @@
       "by": "outreach_playbooks says and rules; outreach_save_playbook changes.script, a part at a time"
     },
     {
-      "path": "Phone → a playbook → What it says: How the first message goes (Pitch or Introduction), and the Introduction part with it",
+      "path": "Phone → a playbook → What it says: Ways to start a chat (a switch for each of the 10, what follows each, what a way needs, Tick at least one way), each ticked way's own words, Warm up first switch; the sheet saves as it's changed (Saving…, Saved), Done",
       "kind": "do",
-      "file": "apps/mobile/src/addons/outreach/playbook-script.tsx:99",
+      "file": "apps/mobile/src/addons/outreach/playbook-script.tsx:312",
       "covered": "yes",
-      "by": "outreach_save_playbook changes.opens and changes.script.intro; outreach_playbooks details.opens and says.intro"
+      "by": "outreach_save_playbook changes.ways, changes.steps (engage) and changes.script; outreach_playbooks details.ways and says"
     },
     {
       "path": "Phone → a playbook → What it says → The networking chat (with Introduction): In the chat after it switches and the chat's parts (the nudge, the demo offer, the networking call offer, sending people their way, the yes to a call)",

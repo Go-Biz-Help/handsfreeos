@@ -80,14 +80,21 @@ describe('a playbook that starts with an introduction', () => {
   });
 
   it('sends the introduction in place of the first message’s versions, and Results counts it apart', () => {
-    expect(firstMessagesOf(crm)).toEqual(scriptOf(crm).first);
-    expect(firstMessagesOf(intro)).toEqual([STARTING_INTRO]);
+    expect(firstMessagesOf(crm)).toEqual(
+      scriptOf(crm).first.map((text) => ({ way: 'pitch', text })),
+    );
+    expect(firstMessagesOf(intro)).toEqual([{ way: 'intro', text: STARTING_INTRO }]);
     const own = {
       ...intro,
       script: { intro: 'Hi [first name], thanks for the add! I’m [your first name].' },
     };
     expect(firstMessagesOf(own)).toEqual([
-      'Hi [first name], thanks for the add! I’m [your first name].',
+      { way: 'intro', text: 'Hi [first name], thanks for the add! I’m [your first name].' },
+    ]);
+    // Both ticked: the pitch's versions and the introduction, for the AI to pick between (decision 183).
+    expect(firstMessagesOf({ ...crm, ways: ['pitch', 'intro'] }).map((f) => f.way)).toEqual([
+      ...scriptOf(crm).first.map(() => 'pitch'),
+      'intro',
     ]);
     expect(openersOf(intro)).toEqual([{ kind: 'intro', text: STARTING_INTRO }]);
     expect(openersOf(crm).every((o) => o.kind !== 'intro')).toBe(true);

@@ -503,7 +503,7 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
     const picks = visitPicks(theirs.posts, item.keepWarm.likes, neverLike);
     if (!picks.length) {
       // Nothing new to like: HandsFreeOS hears it, and it counts as the visit.
-      const line = visitLine(item.name, facebook.platform, 0);
+      const line = visitLine(item.name, facebook.platform, 0, item.keepWarm?.hi === true);
       await missed(line);
       return { done: true, line };
     }
@@ -541,7 +541,10 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
       });
       liked++;
     }
-    return { done: true, line: visitLine(item.name, facebook.platform, liked) };
+    return {
+      done: true,
+      line: visitLine(item.name, facebook.platform, liked, item.keepWarm?.hi === true),
+    };
   }
   if (!theirs.posts.length) {
     const line = `No post of ${item.name}’s to like: ${after.without}`;

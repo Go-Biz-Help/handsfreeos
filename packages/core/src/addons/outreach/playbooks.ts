@@ -1055,8 +1055,8 @@ export const PLAYBOOK_SCRIPT_KEYS = ['script'] as const;
  */
 export const PLAYBOOK_OPENS_PART_KEYS = ['opens'] as const;
 /**
- * The ways it may start a chat (decision 183). No new data version: a playbook saved before has none, and reads as the
- * way `opens` says (`upgradePlaybookDetails`).
+ * The ways it may start a chat (decision 183). No new data version: a playbook saved before has none, and goes the way
+ * `opens` says (./script.ts `waysOf`).
  */
 export const PLAYBOOK_WAYS_KEYS = ['ways'] as const;
 /**
@@ -1193,18 +1193,19 @@ export function paceOf(pace: unknown): Pace {
  * LinkedIn phrases the AI wrote were about who the playbook is for, so a list it wrote that the person hasn't emptied
  * is let go, to be written again around the playbook's topic (decision 141; one the person emptied stays empty);
  * before decision 164, no words of its own for what it says, so it follows the starting ones, with its own openers as
- * its first messages; before decision 183, no ways ticked, so it has the one `opens` says. Anything else passes through
- * for the schema to judge.
+ * its first messages. Before decision 183 it ticked no ways: it's left so, and goes the one way `opens` says
+ * (./script.ts `waysOf`). Anything else passes through for the schema to judge.
  */
 export function upgradePlaybookDetails(stored: unknown): unknown {
   if (typeof stored !== 'object' || stored === null || Array.isArray(stored)) return stored;
   const d = stored as Record<string, unknown>;
   const old = Array.isArray(d['questions']) && d['questions'].some((q) => typeof q === 'string');
-  const beforeKeys = PLAYBOOK_KEPT_KEYS.some((k) => d[k] === undefined);
+  const blank = blankPlaybook();
+  // A part a blank playbook leaves out too (its ways to start a chat) needs nothing filled in.
+  const beforeKeys = PLAYBOOK_KEPT_KEYS.some((k) => d[k] === undefined && blank[k] !== undefined);
   const pace = d['pace'] as Record<string, unknown> | undefined;
   const before4 = pace === undefined || pace['followUps'] === undefined;
   if (!old && !before4 && !beforeKeys) return stored;
-  const blank = blankPlaybook();
   const platforms = Array.isArray(d['platforms']) ? (d['platforms'] as unknown[]) : null;
   const before7 = d['onItsNetworks'] === undefined && d['goal'] !== PARTNER_GOAL && !!platforms;
   // Before 9: the AI's lists on who the playbook is for go, to be written again around its topic (decision 141).
@@ -1229,8 +1230,6 @@ export function upgradePlaybookDetails(stored: unknown): unknown {
     ...Object.fromEntries(PLAYBOOK_KEPT_KEYS.map((k) => [k, blank[k]])),
     ...d,
     ...(firsts.length ? { script: { first: firsts } } : {}),
-    // Before decision 183: the one way it chose then, the first message's question or an introduction.
-    ...(d['ways'] === undefined ? { ways: [d['opens'] === 'intro' ? 'intro' : 'pitch'] } : {}),
     ...(before7
       ? {
           platforms: PLATFORM_KEYS.filter(

@@ -1272,6 +1272,15 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Warm-up visits before the first message (0.148.0)
+
+A playbook now ticks the ways it may start a chat, and the AI picks one for each person (decision 183 in
+`docs/outreach.md`). With Warm up on, someone who accepts fast, or was a friend already, gets a few days of visits
+before Say hi, as someone deciding on a request does: Today lists a `warm_up` with `keepWarm.hi`, and the extension
+visits their page and likes 1 or 2 of their newest posts. From 0.148.0 the activity line says "before your first
+message" for those, not "while they decide on your request" (`visitLine` in core's `keep-warm.ts`). An older build does
+the same visits with the old line.
+
 ### A song on a post read as a Facebook warning (0.147.14)
 
 On 18 Nov 2026 (0.147.11) the extension liked a friend's post and stopped on Facebook for the day, with "Facebook warned

@@ -93534,6 +93534,7 @@ export interface operations {
                             demoBooked: boolean;
                             demoLink: string | null;
                             keepWarm?: {
+                                hi?: boolean;
                                 likes: number;
                                 /** Format: date-time */
                                 until: string;
@@ -93615,6 +93616,7 @@ export interface operations {
                             demoBooked: boolean;
                             demoLink: string | null;
                             keepWarm?: {
+                                hi?: boolean;
                                 likes: number;
                                 /** Format: date-time */
                                 until: string;

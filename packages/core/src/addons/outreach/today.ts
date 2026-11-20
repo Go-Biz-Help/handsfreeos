@@ -359,13 +359,15 @@ export const TodayItem = z.object({
   requests: z.boolean().optional(),
   /**
    * For a warm-up while they decide on the person's request (decision 161, ./keep-warm.ts): a visit to their page that
-   * likes up to `likes` of their newest posts, and no request after it, as their warm-up runs till `until`. Left out
-   * for a warm-up before a request, and by servers from before it.
+   * likes up to `likes` of their newest posts, and no request after it, as their warm-up runs till `until`. `hi` for a
+   * visit before the first message to a friend who accepted fast or was one already (decision 183, the owner's 4b),
+   * till Say hi comes at `until`. Left out for a warm-up before a request, and by servers from before it.
    */
   keepWarm: z
     .object({
       likes: z.number().int().min(1).max(VISIT_LIKES.most),
       until: z.iso.datetime(),
+      hi: z.boolean().optional(),
     })
     .optional(),
   /**
@@ -2122,7 +2124,11 @@ export function wayOf(
 ): OpenWay | null {
   if (!choices.length) return null;
   const said = choices.find((c) => c.way === answer.way);
-  return said ? said.way : choices.length === 1 ? choices[0]!.way : fallbackWay(choices.map((c) => c.way));
+  return said
+    ? said.way
+    : choices.length === 1
+      ? choices[0]!.way
+      : fallbackWay(choices.map((c) => c.way));
 }
 
 /**

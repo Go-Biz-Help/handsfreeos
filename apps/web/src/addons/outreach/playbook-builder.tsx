@@ -913,7 +913,9 @@ export function PlaybookBuilder({
   const unsaved = !!playbook && bodyKey !== lastSaved.current;
 
   // ---- A new playbook is kept in the browser as it's written, and made at the end of its steps ----
-  const localKey = playbook ? null : `hfos:outreach:new-playbook:${workspaceId}:${template ?? 'blank'}`;
+  const localKey = playbook
+    ? null
+    : `hfos:outreach:new-playbook:${workspaceId}:${template ?? 'blank'}`;
   const [pickedUp, setPickedUp] = useState(false);
   const restored = useRef(false);
   useEffect(() => {
@@ -927,7 +929,8 @@ export function PlaybookBuilder({
   }, [localKey, start]);
   useEffect(() => {
     if (!localKey || !restored.current || saved) return;
-    if (JSON.stringify(draft) === JSON.stringify(start) && at === 0) return writeLocal(localKey, null);
+    if (JSON.stringify(draft) === JSON.stringify(start) && at === 0)
+      return writeLocal(localKey, null);
     writeLocal(localKey, { draft, at });
   }, [at, draft, localKey, saved, start]);
   const startOver = () => {
@@ -2764,7 +2767,9 @@ function SaveLine({
   unsaved,
   ready,
 }: {
-  state: { readonly state: 'idle' | 'saving' | 'saved' } | { readonly state: 'failed'; readonly words: string };
+  state:
+    | { readonly state: 'idle' | 'saving' | 'saved' }
+    | { readonly state: 'failed'; readonly words: string };
   unsaved: boolean;
   ready: boolean;
 }) {
