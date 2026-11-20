@@ -218,7 +218,7 @@ describe('picking a way for someone', () => {
     const two = [{ way: 'opinion' as const }, { way: 'compliment' as const }];
     expect(wayOf({ way: 'compliment' }, two)).toBe('compliment');
     expect(wayOf({ way: 'trigger' }, two)).toBe('opinion');
-    expect(wayOf({ way: null }, [{ way: 'trigger' }])).toBe('trigger');
+    expect(wayOf({ way: '' }, [{ way: 'trigger' }])).toBe('trigger');
     expect(wayOf({ way: 'pitch' }, [])).toBeNull();
   });
 
