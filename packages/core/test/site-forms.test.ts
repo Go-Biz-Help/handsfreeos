@@ -212,19 +212,36 @@ describe('the forms a reviewer would hold against the registration', () => {
     );
   });
 
-  it('says when it couldn’t look at every page, and asks HandsFreeOS to look when a robot check stopped it', () => {
+  it('says when it couldn’t look at every page, and names the pages a robot check stopped it on', () => {
     const [check] = checkSiteForms(
       scan(home, {
         opened: 40,
         cut: true,
-        blocked: [{ url: `${SITE}/pricing`, who: 'your website’s security (SiteGround)' }],
+        blocked: [
+          { url: `${SITE}/pricing`, who: 'your website’s security (SiteGround)', by: 'SiteGround' },
+        ],
       }),
       { named: [SITE], useCase: 'customer_care' },
     );
     expect(check).toMatchObject({ id: 'site_forms', ok: false, severity: 'warning' });
     expect(check?.detail).toContain('stopped after 40 pages');
     expect(check?.detail).toContain('SiteGround');
-    expect(check?.detail).toContain('Ask HandsFreeOS to check it');
+    expect(check?.detail).toContain('Finish the check on my site');
+    expect(check?.blocked).toEqual([{ url: `${SITE}/pricing`, by: 'SiteGround' }]);
+  });
+
+  it('keeps the pages it couldn’t look at beside the forms it found to fix, so neither is missed', () => {
+    const checks = checkSiteForms(
+      scan([...home, ...found(`${SITE}/instant-quote`, HIGHLEVEL)], {
+        blocked: [
+          { url: `${SITE}/pricing`, who: 'your website’s security (SiteGround)', by: 'SiteGround' },
+        ],
+      }),
+      { named: [SITE], useCase: 'customer_care' },
+    );
+    expect(checks.map((c) => c.id)).toEqual(['site_form_0', 'site_forms']);
+    expect(checks[1]).toMatchObject({ ok: false, label: 'Pages we couldn’t look at' });
+    expect(checks[1]?.blocked).toEqual([{ url: `${SITE}/pricing`, by: 'SiteGround' }]);
   });
 
   it('says nothing when the site didn’t open: the website’s own row says so', () => {

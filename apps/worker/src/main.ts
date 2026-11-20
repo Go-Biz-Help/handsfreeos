@@ -86,6 +86,7 @@ const app = await buildHttpServer({
       ? createTokenVerifier({ jwksUrl: env.jwksUrl, jwtIssuer: env.jwtIssuer })
       : null,
   webOrigins: env.webOrigins,
+  siteReaderIps: env.siteReaderIps,
   booking: {
     botCheck,
     limitFactor: env.bookingRateLimitFactor,

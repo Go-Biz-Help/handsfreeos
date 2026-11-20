@@ -125,6 +125,8 @@ const SECRET_TABLES = [
   'review_connections',
   // Round six: a safety contact's link to a missed check-out, kept only as its token's hash. No phone needs it.
   'safety_escalations',
+  // 20261027030500: a texting registration's browser check keeps only its one-time code's hash. No phone needs it.
+  'site_checks',
   'telephony_accounts',
   // A Twilio account a business connected to bring its numbers in: its auth token or API key secret, sealed.
   'twilio_connections',

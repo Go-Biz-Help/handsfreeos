@@ -31,6 +31,8 @@ export interface HttpDeps extends WorkerServices {
   readonly httpDb: Db;
   readonly verifyToken: TokenVerifier | null;
   readonly webOrigins: readonly string[];
+  /** The fixed addresses websites see our reads come from (env SITE_READER_IPS); empty until allocated. */
+  readonly siteReaderIps?: readonly string[];
   /** The Assistant, when a model is configured (null: the panel says it isn't set up). */
   readonly assistant?: AssistantServices | null;
   /** The public booking page's bot check and per-address limits (default: no bot check, production limits). */

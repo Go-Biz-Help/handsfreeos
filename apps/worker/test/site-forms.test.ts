@@ -117,7 +117,7 @@ describe('going through a whole website for forms', () => {
     });
     const scan = await scanSiteForms({ fetchUrl }, SITE);
     expect(scan.blocked).toEqual([
-      { url: `${SITE}/about`, who: 'your website’s security (SiteGround)' },
+      { url: `${SITE}/about`, who: 'your website’s security (SiteGround)', by: 'SiteGround' },
     ]);
     expect(scan.opened).toBe(3);
   });

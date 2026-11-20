@@ -17,6 +17,9 @@
 # VERCEL_TOKEN, VERCEL_PROJECT_ID and (on a team account) VERCEL_TEAM_ID turn on branded domains — a business's
 # own web address on the pages its customers see. Without them SITE_HOST is `off` and the feature is simply not
 # offered, which is deliberate: see docs/operations.md, "A business's own web address".
+# SITE_READER_IPS lists the worker's fixed outgoing addresses (`fly ips allocate-egress`), so the texting
+# registration can tell a business how to let HandsFreeOS past its website's security: see docs/operations.md,
+# "When the website's security stops the checks".
 # Save WORKER_ENCRYPTION_KEY in the password manager before setting it: without it sealed tokens can't be opened.
 
 app = "handsfreeos-worker"
