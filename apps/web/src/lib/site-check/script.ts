@@ -10,11 +10,11 @@
  * - asks the worker which pages to read first (`/public/site-check/<code>`), then reads them, the site's sitemaps and
  *   the pages they link to, on this site only (its own address: the person's visit is the one the host already let
  *   in), a few at a time, up to the plan's `most`;
- * - sends each page to the worker, trimmed to what the checks read (core's `trimPageHtml`, written again here in
- *   plain JavaScript), a few at a time, and says when it's done.
+ * - sends each page to the worker, trimmed to what the checks read (core's `trimPageHtml`, whose source this carries),
+ *   a few at a time, and says when it's done.
  * It reads nothing the person couldn't open themselves, keeps nothing in the browser, and never reads another site.
  */
-import { SITE_CHECK_HASH, SITE_CHECK_LIMITS } from '@hfos/core';
+import { SITE_CHECK_HASH, SITE_CHECK_LIMITS, trimPageHtml } from '@hfos/core';
 
 const json = (v: unknown) => JSON.stringify(v);
 
@@ -45,17 +45,9 @@ export const siteCheckScript = (o: {
   (document.body || document.documentElement).appendChild(host);
   say('Checking your site for your texting registration. Keep this tab open.');
 
-  function trim(html) {
-    return html
-      .replace(/<!--[\\s\\S]*?-->/g, '')
-      .replace(/<style\\b[^>]*>[\\s\\S]*?<\\/style>/gi, '<style></style>')
-      .replace(/<svg\\b[^>]*>[\\s\\S]*?<\\/svg>/gi, '<svg></svg>')
-      .replace(/<script\\b([^>]*)>([\\s\\S]*?)<\\/script>/gi, function (whole, attrs, body) {
-        return body.length > 4000 ? '<script' + attrs + '></' + 'script>' : whole;
-      })
-      .replace(/data:[a-z]+\\/[a-z0-9.+-]+;base64,[A-Za-z0-9+\\/=]{200,}/gi, 'data:,')
-      .slice(0, CHARS);
-  }
+  // Core's own trimPageHtml, carried here as its source: one way to trim a page, here and in the worker.
+  var trimPage = ${trimPageHtml.toString()};
+  function trim(html) { return trimPage(html, CHARS); }
 
   function failed(answer) {
     return (answer && answer.error && answer.error.message) || 'The check stopped. Go back to HandsFreeOS and try again.';

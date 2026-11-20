@@ -9,6 +9,7 @@ import { robotCheck, robotCheckAllow, SITE_READER_AGENT } from '../src/websites/
 import {
   onSiteHost,
   screenshotRefusal,
+  SITE_CHECK_LIMITS,
   siteHost,
   sitePageKey,
   trimPageHtml,
@@ -53,6 +54,37 @@ describe('a page trimmed to what the checks read', () => {
     expect(trimmed).not.toContain('a comment');
     // The form reads the same afterwards.
     expect(formsOn(trimmed)).toEqual(formsOn(html));
+  });
+
+  it('ends a script where a browser does, so a long one never swallows the form after it', () => {
+    const html = `<script>${'x=1;'.repeat(2000)}</script >
+      <form><label>Mobile <input type="tel" name="phone"></label></form>
+      <SCRIPT type="text/javascript">${'y=2;'.repeat(2000)}</SCRIPT foo>
+      <svg viewBox="0 0 1 1"/><p>Text us at 555-0100</p>`;
+    const trimmed = trimPageHtml(html);
+    expect(formsOn(trimmed)).toEqual(formsOn(html));
+    expect(trimmed).toContain('Text us at 555-0100');
+    expect(trimmed).not.toContain('x=1;');
+    expect(trimmed).not.toContain('y=2;');
+  });
+
+  it('stays quick on a page built to be slow', () => {
+    for (const bad of ['<!--', '<script>', '</', '<style ', '<svg', 'data:a/b;base64,']) {
+      const html = bad.repeat(200_000);
+      const at = Date.now();
+      trimPageHtml(html);
+      expect(Date.now() - at).toBeLessThan(1000);
+    }
+  });
+
+  it('keeps no more than the limit, and works the same from its own source (site-check.js carries it)', () => {
+    expect(trimPageHtml('a'.repeat(SITE_CHECK_LIMITS.pageChars + 10))).toHaveLength(
+      SITE_CHECK_LIMITS.pageChars,
+    );
+    const fromSource = new Function(`return (${trimPageHtml.toString()})`)() as typeof trimPageHtml;
+    const page = `<!-- c --><style>a{}</style><script>${'z'.repeat(5000)}</script><p>Hi</p><!-- open`;
+    expect(fromSource(page, 1000)).toBe(trimPageHtml(page, 1000));
+    expect(trimPageHtml(page)).toBe('<style></style><script></script><p>Hi</p>');
   });
 
   it('still shows a robot check as one', () => {

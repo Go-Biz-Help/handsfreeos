@@ -82,17 +82,78 @@ export function onSiteHost(host: string, site: string): boolean {
  * addresses (the chat's code is found by its `src`) all stay. Style sheets, pictures drawn in the page, comments,
  * long inline scripts and long `data:` addresses go. `site-check.js` does the same before sending, and the worker
  * again on arrival, since what a browser sends can't be trusted to be small.
+ *
+ * One pass from left to right, so a page built to be slow can't make it slow (no pattern that backtracks), and end
+ * tags are found the way a browser finds them (`</script >`, `</SCRIPT foo>`), so a long script never swallows the
+ * form after it. Self-contained on purpose: `site-check.js` carries this very function as its source, so it may use
+ * nothing from outside itself.
  */
-export function trimPageHtml(html: string): string {
-  return html
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '<style></style>')
-    .replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, '<svg></svg>')
-    .replace(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi, (whole, attrs: string, body: string) =>
-      body.length > 4000 ? `<script${attrs}></script>` : whole,
-    )
-    .replace(/data:[a-z]+\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]{200,}/gi, 'data:,')
-    .slice(0, SITE_CHECK_LIMITS.pageChars);
+export function trimPageHtml(html: string, max = 300000): string {
+  const parts: string[] = [];
+  let size = 0;
+  const push = (piece: string) => {
+    const kept = piece.replace(/data:[a-z]+\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]{200,}/gi, 'data:,');
+    parts.push(kept);
+    size += kept.length;
+  };
+  const nameChar = (c: string) => /[A-Za-z0-9:-]/.test(c);
+  // Where `</name` starts, followed by a space, `/` or `>` (or the end): the tag that ends a style, svg or script.
+  const closing = (name: string, from: number) => {
+    let at = from;
+    for (;;) {
+      at = html.indexOf('</', at);
+      if (at < 0) return -1;
+      const after = at + 2 + name.length;
+      if (html.slice(at + 2, after).toLowerCase() === name && !nameChar(html.charAt(after)))
+        return at;
+      at += 2;
+    }
+  };
+  const n = html.length;
+  let i = 0;
+  while (i < n && size < max) {
+    const lt = html.indexOf('<', i);
+    if (lt < 0) {
+      push(html.slice(i));
+      break;
+    }
+    if (lt > i) push(html.slice(i, lt));
+    i = lt;
+    if (html.startsWith('<!--', i)) {
+      const end = html.indexOf('-->', i + 4);
+      i = end < 0 ? n : end + 3;
+      continue;
+    }
+    const head = html.slice(i + 1, i + 8).toLowerCase();
+    let name = '';
+    for (const tag of ['script', 'style', 'svg']) {
+      if (head.startsWith(tag) && !nameChar(head.charAt(tag.length))) name = tag;
+    }
+    if (!name) {
+      push('<');
+      i += 1;
+      continue;
+    }
+    const gt = html.indexOf('>', i);
+    if (gt < 0) {
+      push(html.slice(i));
+      break;
+    }
+    const open = html.slice(i, gt + 1);
+    // A picture drawn in the page can close itself (<svg … />); a script or style can't, in a browser.
+    if (name === 'svg' && html.charAt(gt - 1) === '/') {
+      push(open);
+      i = gt + 1;
+      continue;
+    }
+    const close = closing(name, gt + 1);
+    const closeGt = close < 0 ? -1 : html.indexOf('>', close);
+    const end = closeGt < 0 ? n : closeGt + 1;
+    const body = close < 0 ? html.slice(gt + 1) : html.slice(gt + 1, close);
+    push(name === 'script' && body.length <= 4000 ? html.slice(i, end) : `${open}</${name}>`);
+    i = end;
+  }
+  return parts.join('').slice(0, max);
 }
 
 // ---------- what the browser hands over ----------
