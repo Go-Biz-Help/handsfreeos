@@ -1,5 +1,5 @@
 -- =============================================================================
--- 20261027030700 · How a payment was made is the provider's first answer.
+-- 20261027031100 · How a payment was made is the provider's first answer.
 --
 -- A payment row is written before the provider is asked (0047: the row and its
 -- idempotency key are what stop a double-clicked button charging twice), with
