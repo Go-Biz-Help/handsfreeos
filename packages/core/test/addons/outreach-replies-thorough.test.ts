@@ -43,7 +43,14 @@ describe('every reply, in a business', () => {
       owner,
       ws,
       'outreach.touch.save',
-      { kind, profile: fb(username), name, ...(threadKey ? { threadKey } : {}) },
+      // The extension's own message: one the person typed would leave them in the person's hands (decision 182).
+      {
+        kind,
+        profile: fb(username),
+        name,
+        ...(threadKey ? { threadKey } : {}),
+        auto: kind === 'message',
+      },
       new Date(Date.now() - msAgo),
     );
   const seen = (s: Record<string, unknown>, looking = false) =>

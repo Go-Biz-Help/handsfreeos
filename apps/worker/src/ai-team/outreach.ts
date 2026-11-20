@@ -48,6 +48,8 @@ async function someoneHas(tx: Tx, workspaceId: string, personId: string): Promis
           where c.workspace_id = ${workspaceId} and c.person_id = ${personId}
             and (c.handled_by <> 'none' or c.assignee_user_id is not null
               or (c.awaiting_reply_since is not null and c.last_inbound_at > now() - interval '1 day')))
+          -- Someone on the team has them (core's messaging/hands.ts), wherever.
+          or exists (select 1 from app.people_in_hands h where h.person_id = ${personId})
         as busy`,
   );
   return !!r?.busy;

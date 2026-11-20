@@ -18,6 +18,7 @@
  * - **Potential partner** (`outreach.partner.potential`, decision 130), onto the person's Partners list with partner
  *   messages, under why the AI thinks so when it does, or **Not a partner after all**;
  * - **Later**, off the person's own Today for 2 weeks, or **Take off Later** (`outreach.later.set`, decision 100);
+ * - **Take over** or **Give back to the AI** (`outreach.hands.take`, `outreach.hands.give_back`, decision 182);
  * - who reached them first, and for an owner or admin **Give them to {teammate}** (`outreach.owner.move`, decision
  *   107);
  * - **Don't pitch** and **Never contact**, or taking them off, or who put them on: left out where the row has its own
@@ -42,6 +43,7 @@ import {
   type PersonMenuKey,
   type ProfileMarksOutput,
 } from '@hfos/core/addons/outreach/person-menu';
+import { HANDS_OUTREACH_WORDS } from '@hfos/core/addons/outreach/in-hands';
 import { OWNER_WORDS } from '@hfos/core/addons/outreach/owners';
 import { STAGES } from '@hfos/core/addons/outreach/stages';
 import { OUTREACH_WORDS } from '@hfos/core/addons/outreach/words';
@@ -51,6 +53,7 @@ import {
   CalendarCheck,
   ChevronRight,
   Handshake,
+  Hand,
   Clock,
   ExternalLink,
   Loader2,
@@ -65,7 +68,7 @@ import {
 import Link from 'next/link';
 import { useCallback, useRef, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
-import { useCan } from '@/components/shell/workspace-shell';
+import { useCan, useWorkspaceShell } from '@/components/shell/workspace-shell';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Tooltip, TooltipProvider } from '@/components/ui/tooltip';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
@@ -117,6 +120,9 @@ const ICONS: Partial<Record<PersonMenuKey, LucideIcon>> = {
   'partner-hint': Handshake,
   later: Clock,
   'not-later': Clock,
+  'take-over': Hand,
+  'give-back': Hand,
+  'hands-line': Hand,
   'dont-pitch': Ban,
   'not-dont-pitch': Ban,
   'dont-pitch-line': Ban,
@@ -208,6 +214,7 @@ function NameMenu({
   truncate: boolean;
 }) {
   const contactsWrite = useCan('records.write');
+  const { userId } = useWorkspaceShell();
   const online = useOnline();
   const [marks, setMarks] = useState<ProfileMarksOutput | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
@@ -244,6 +251,7 @@ function NameMenu({
     marks,
     moves: moves.map((m) => ({ key: m.key, label: m.label, danger: m.danger })),
     contactsWrite,
+    me: userId || null,
     online,
     ownSwitches,
   });
@@ -348,6 +356,24 @@ function NameMenu({
       );
       toast.success(laterSetWords(name, out));
     });
+  // In your hands (decision 182): Take over holds the AI back from messaging them; Give back lets it pick up again.
+  const hands = (take: boolean) =>
+    void act(
+      'hands',
+      async () =>
+        take
+          ? unwrap(
+              await apiBrowser().POST('/v1/commands/outreach.hands.take', {
+                body: { workspaceId, profileId },
+              }),
+            )
+          : unwrap(
+              await apiBrowser().POST('/v1/commands/outreach.hands.give_back', {
+                body: { workspaceId, profileIds: [profileId], all: false, mine: false },
+              }),
+            ),
+      take ? HANDS_OUTREACH_WORDS.tookOver(name) : HANDS_OUTREACH_WORDS.gaveBack(1),
+    );
   const list = (change: { dontPitch: boolean } | { neverContact: boolean }, done: string) =>
     void act(
       'list',
@@ -381,6 +407,8 @@ function NameMenu({
     'not-partner': () => potential(false),
     later: () => later(true),
     'not-later': () => later(false),
+    'take-over': () => hands(true),
+    'give-back': () => hands(false),
     'dont-pitch': () => list({ dontPitch: true }, P.dontPitchDone(name)),
     'not-dont-pitch': () => list({ dontPitch: false }, P.dontPitchOff(name)),
     'never-contact': () => list({ neverContact: true }, P.neverContactDone(name)),

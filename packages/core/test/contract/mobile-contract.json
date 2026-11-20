@@ -9815,6 +9815,70 @@
         "required": ["workspaceId", "on"]
       }
     },
+    "outreach.hands.give_back": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileIds": {
+            "default": [],
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "all": {
+            "default": false,
+            "type": "boolean"
+          },
+          "mine": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.hands.keep": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "profileId"]
+      }
+    },
+    "outreach.hands.take": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "profileId"]
+      }
+    },
     "outreach.helpful.ask": {
       "offline": "online",
       "input": {
@@ -12448,8 +12512,55 @@
         "required": ["workspaceId"]
       }
     },
+    "person.hand_back": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personIds": {
+            "default": [],
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "all": {
+            "default": false,
+            "type": "boolean"
+          },
+          "mine": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
     "person.restore": {
       "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "personId"]
+      }
+    },
+    "person.take_over": {
+      "offline": "online",
       "input": {
         "type": "object",
         "properties": {
@@ -18315,6 +18426,32 @@
         "required": ["workspaceId"]
       }
     },
+    "outreach.hands": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mine": {
+            "default": false,
+            "type": "boolean"
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "limit": {
+            "default": 100,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
     "outreach.helpful": {
       "input": {
         "type": "object",
@@ -18664,6 +18801,32 @@
           "workspaceId": {
             "type": "string",
             "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "person.in_hands": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mine": {
+            "default": false,
+            "type": "boolean"
+          },
+          "limit": {
+            "default": 100,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
           }
         },
         "required": ["workspaceId"]

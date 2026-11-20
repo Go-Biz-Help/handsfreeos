@@ -1606,8 +1606,10 @@ describe('handing conversations between the teammate and people', () => {
     });
     expect((await draftRow(d1)).status).toBe('cancelled');
     const back = await runFull(conversationHandToAi, ref, a.member);
+    // Taking over put the customer in the member's hands; handing back gives the whole customer back (In your hands).
     expect((await eventsOf(back.eventIds)).map((e) => e.type)).toEqual([
       'conversation.handed_to_ai',
+      'person.handed_back',
     ]);
     expect(await conv(dot.conversationId)).toMatchObject({
       handledBy: 'ai',

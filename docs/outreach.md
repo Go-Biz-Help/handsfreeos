@@ -4913,7 +4913,48 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **How it's built** (no migration, no extension change): `script.ts`, `today.ts` and `sends.ts` in Social
         Outreach.
 
-182.  **Ways to start a chat: you tick them, the AI picks one for each person** (Chris, 20 Nov 2026: "i want to allow
+182.  **In your hands: the AI holds off someone the person wrote to themselves** (Chris, 19 Nov 2026: "the social
+      outreach needs to recognize when the user sent a manual message last and so the ai should hold off, if it feels
+      it needs to respond to something or follow up then it should ask the user if they want to give ai the reigns for
+      this contact again. there should also be a list of contacts that are im the users hands because they last
+      contacted them and then give them the option to relinquish control, also should be able to take manual control
+      from anyone with an option next to the don't pitch and don't contact option", and the same for texts and email
+      in core; their picks, all "a", and "manual corrections or adjustments i make for the ai to send" stay the AI's).
+      Core's half is `app.people_in_hands` (migration 030900, "In your hands" in `docs/operations.md`); this is
+      Social Outreach's:
+      - **Who's in someone's hands** (`addon_outreach.hands`, one row a profile; or their customer in core's
+        `app.people_in_hands`, whatever the row says). A message the person typed themselves puts them there, on any
+        network, sent through the extension or outside it: a Send the extension saw them press (`outreach.touch.save`,
+        not `auto`), or their newest message in a chat the extension read (`outreach.chats.collect`, `byHandAt`). Never
+        a message HandsFreeOS drafted, OK'd, edited or copied: one that says what a draft for them said (all of it, a
+        paragraph, since a long one goes as a bubble each, or 12 letters or more of it), one the extension sent within
+        15 minutes of it or after it, a step handed to them to send (a need carrying a draft), or one copied from
+        Today in the 2 hours before it (`profiles.copied_at`). A picture alone, a group's member count, or a line
+        headed with their own name count for nobody. **Take over**, in the person menu beside Don't pitch and Never
+        contact (web and phone), puts anyone there by hand. A customer in Contacts goes into the same hands there
+        (`person.note_by_hand`, `person.take_over`).
+      - **What stops**: every message from the AI to them. Today drops their message items, `outreach.send.queue`
+        refuses (rule `outreach_in_your_hands`), a single OK is refused and Approve all skips them, and the AI's
+        messages waiting for them are skipped as they go into hands. Likes and comments go on, and so do automations.
+      - **The ask** (Needs you, web and phone; `outreach.waiting`'s `hands`): when they write back and an hour of the
+        person's working hours goes by unanswered, or when the AI would have followed up (the gap its follow-ups were
+        keeping, from the person's last message), "Dana Reyes wrote back" or "Follow up with Dana Reyes?", with **Let
+        the AI take it** (gives them back) and **Keep it mine** (`outreach.hands.keep`: the ask goes until they write
+        again or the next follow-up is due). Their phone hears it once (`outreach.hands_ask`, the worker's
+        `./hands.ts`), opening Needs you.
+      - **They stay in those hands until given back**: People → **In your hands** (web and phone; Everyone's or
+        Only mine) says whose hands, how and when, with **Give back to the AI** and **Give all back** (the list
+        shown); the person menu says the same with Give back. Given back here, their customer is given back in
+        Contacts; given back in Contacts, every profile of theirs here is too (`person.handed_back`,
+        `outreach.hands.release`). A row given back stays, so a message read later that was written before never
+        takes them again.
+      - **How it's built**: migration 031000 (the table, `profiles.copied_at`, and a look back over the last 30 days
+        of chats and Sends, which took a handful of people on the live database), `in-hands.ts` and `ops/in-hands.ts`, the
+        checks in `ops/activity.ts`, `ops/chats.ts`, `ops/sends.ts`, `ops/today.ts` and `ops/waiting.ts`; the web's
+        `hands-view.tsx`, the phone's `hands.tsx`, both person menus and both Needs you. No extension change: a reply
+        the person types in the network's own app is caught when the extension next reads that chat.
+
+183.  **Ways to start a chat: you tick them, the AI picks one for each person** (Chris, 20 Nov 2026: "i want to allow
       the user to select which methods they want the ai to be able to use either or all and the ai would select one
       based on the contacts profile, posts, platform, business, etc"; then "1a 2a 3a 4b 5a 6a 7a(but no they all start
       unticked and have to choose which ones they want to move forward)", and "also the playbook should auto save as
@@ -4967,7 +5008,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         `playbooks-page.tsx` and the builder's `load.ts`; the phone's `playbook.tsx`, `playbook-script.tsx` and
         `playbooks.tsx`; the extension's runners (0.148.0).
 
-183.  **LinkedIn reads 40 profiles a day at most, a minute or two apart, a few at a time** (Chris, 19 Nov 2026: "it
+184.  **LinkedIn reads 40 profiles a day at most, a minute or two apart, a few at a time** (Chris, 19 Nov 2026: "it
       seems like linked in is suspecting suspicious behavior. what do you think the cause is?", then picked "40 a day,
       and slower" on 20 Nov). LinkedIn showed its security check (`/checkpoint/challenge/`) 2 minutes after the
       extension read 42 profiles of people found, 15 to 30 seconds apart, on a day of 98 profiles read (97 the day
@@ -5808,6 +5849,11 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   `mayClear`, `mayPress`) and the tab's (`HelperHands`) both hold it; widen `HELPER_BUTTONS` only with the owner's
   OK, and never for a message, a comment, a removal or a like. Its view never holds what a person wrote or the
   name of the person the step is for.
+- **Someone in a person's hands gets no message from the AI** (decision 182): a profile with an `addon_outreach.hands`
+  row not given back, or whose customer is in core's `app.people_in_hands`. Anything new that drafts, queues or OKs a
+  message checks `heldAmong` or `notHeldNow` (`ops/in-hands.ts`); likes and comments don't. What counts as typed by
+  hand is `byHandAt` and `theAisLately`: widen what counts as the AI's freely, but never count an AI draft the person
+  OK'd, edited or copied as theirs.
 - **No real people in the repo.** Tests and fixtures use made-up names; the extension's readers are tuned from
   outlines, never saved pages (apps/extension/README.md).
 

@@ -169,7 +169,7 @@ export async function clearNeeds(
     readonly postUrl?: string | null;
   },
   at: Date,
-): Promise<void> {
+): Promise<number> {
   const ws = ctx.scope.workspaceId!;
   const [post] = to.postUrl
     ? await ctx.tx
@@ -177,7 +177,7 @@ export async function clearNeeds(
         .from(posts)
         .where(and(eq(posts.workspaceId, ws), eq(posts.userId, me), eq(posts.url, to.postUrl)))
     : [];
-  await ctx.tx
+  const cleared = await ctx.tx
     .update(needs)
     .set({ state: 'done', clearedAt: at, updatedAt: new Date() })
     .where(
@@ -196,7 +196,10 @@ export async function clearNeeds(
           ),
         ),
       ),
-    );
+    )
+    .returning({ sendId: needs.sendId });
+  // How many it handed over were the AI's drafts to send (a message that didn't go): what the person sent is those.
+  return cleared.filter((n) => n.sendId !== null).length;
 }
 
 /**

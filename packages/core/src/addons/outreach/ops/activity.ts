@@ -51,6 +51,8 @@ import {
 } from './common';
 import { limitsFor } from './automation';
 import { clearNeeds } from './needs';
+import { takeHands } from './in-hands';
+import { HANDS_COPIED_MS, HANDS_NEAR_SEND_MS } from '../in-hands';
 import { keepWarmPost } from './keep-warm';
 import { claimGroup, claimProfile } from './owners';
 import { notePartnerWarmed } from './partners';
@@ -230,6 +232,30 @@ async function messageStep(
   return saved ? 'follow_up' : 'first_message';
 }
 
+/**
+ * Whether a message the person sent someone at `at` was one of the AI's: a draft for them they copied from Today in the
+ * two hours before, or one OK'd or sent for them within a quarter of an hour of it.
+ */
+async function theAisLately(ctx: CommandContext, profile: Profile, at: Date): Promise<boolean> {
+  if (
+    profile.copiedAt &&
+    at.getTime() - profile.copiedAt.getTime() <= HANDS_COPIED_MS &&
+    profile.copiedAt <= at
+  )
+    return true;
+  const near = (ms: number) => new Date(at.getTime() + ms).toISOString();
+  const [found] = await rows<{ yes: boolean }>(
+    ctx.tx,
+    sql`select true as yes from addon_outreach.sends s
+        where s.workspace_id = ${ctx.scope.workspaceId!} and s.profile_id = ${profile.id} and s.post_id is null
+          and coalesce(s.done_at, s.approved_at) between ${near(-HANDS_NEAR_SEND_MS)}::timestamptz
+            and ${near(HANDS_NEAR_SEND_MS)}::timestamptz
+          and s.state in ('approved', 'sent', 'failed')
+        limit 1`,
+  );
+  return !!found;
+}
+
 /** The steps the extension hands over that each step noted takes care of. */
 const NEED_FOR: Readonly<Record<TouchKind, readonly NeedStep[]>> = {
   friend_request: ['friend_request'],
@@ -250,7 +276,7 @@ export const touchSave = defineAddonCommand(outreachAddon, {
   scope: inWorkspace,
   // Taken already on Facebook: noted whenever it arrives, however long the browser was offline.
   offline: 'anytime',
-  emits: ['outreach.touch.saved'],
+  emits: ['outreach.touch.saved', 'outreach.hands.taken'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const at = changeMoment(ctx.meta);
@@ -355,7 +381,7 @@ export const touchSave = defineAddonCommand(outreachAddon, {
       if (input.kind === 'like' || input.kind === 'comment')
         await notePartnerWarmed(ctx, me, profile.id, at);
       // A step the extension handed to the person, taken now: it's done (Waiting for you).
-      await clearNeeds(
+      const handedDrafts = await clearNeeds(
         ctx,
         me,
         {
@@ -365,6 +391,15 @@ export const touchSave = defineAddonCommand(outreachAddon, {
         },
         at,
       );
+      // A message they sent themselves puts them in the person's hands (decision 182): never one of the AI's drafts
+      // the extension handed them to send, nor one they copied from Today or OK'd just now.
+      if (
+        input.kind === 'message' &&
+        !input.auto &&
+        !handedDrafts &&
+        !(await theAisLately(ctx, profile, at))
+      )
+        await takeHands(ctx, me, profile, { how: 'wrote', at });
       await ctx.emit({
         type: 'outreach.touch.saved',
         entityType: 'outreach_profile',

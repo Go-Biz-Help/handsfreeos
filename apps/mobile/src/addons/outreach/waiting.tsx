@@ -25,6 +25,7 @@ import {
   type PhoneWaiting,
 } from '@hfos/core/addons/outreach/views/waiting';
 import type { WaitingOutput } from '@hfos/core/addons/outreach/waiting';
+import { HANDS_OUTREACH_WORDS as HW, type HandsAsk } from '@hfos/core/addons/outreach/in-hands';
 import { AUTOPILOT_WORDS, type AutopilotOutput } from '@hfos/core/addons/outreach/autopilot';
 import {
   approveAllTakesComments,
@@ -55,7 +56,7 @@ import * as React from 'react';
 import { View } from 'react-native';
 
 import { staffCan, useKeptStaff } from '@/admin/staff';
-import { ChangeError } from '@/changes';
+import { change, ChangeError } from '@/changes';
 import { Check, CheckCheck, ExternalLink, Pencil, RotateCcw, Trash, X } from '@/components/icons';
 import { useBusinessIfAny } from '@/components/shell/business-context';
 import { useKeyboardHeight } from '@/components/shell/keyboard';
@@ -125,6 +126,8 @@ type Request = Extract<WaitingOutput['items'][number], { kind: 'request' }>['req
  */
 export interface WaitingFromServer {
   readonly asks: readonly Asked[];
+  /** The asks about people in the person's hands (decision 182): left out by answers from before it. */
+  readonly hands?: readonly HandsAsk[];
   readonly needs: readonly Need[];
   readonly requests: readonly Request[];
   readonly kinds: Pick<WaitingOutput['kinds'], 'ask' | 'need' | 'request'>;
@@ -178,6 +181,7 @@ export function serverPart(answer: WaitingOutput): WaitingFromServer {
       ),
     ),
     asks: answer.items.flatMap((i) => (i.kind === 'ask' ? [i.ask] : [])),
+    hands: answer.hands ?? [],
     needs: answer.items.flatMap((i) => (i.kind === 'need' ? [i.need] : [])),
     requests: answer.items.flatMap((i) => (i.kind === 'request' ? [i.request] : [])),
     kinds: { ask: answer.kinds.ask, need: answer.kinds.need, request: answer.kinds.request },
@@ -367,6 +371,23 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
         failed(e);
       }
     },
+    // In your hands (decision 182): give them back, or keep them till the next time. With signal only.
+    onHands: async (ask, letAi) => {
+      try {
+        if (letAi)
+          await change('outreach.hands.give_back', {
+            workspaceId: ws,
+            profileIds: [ask.profileId],
+            all: false,
+            mine: false,
+          });
+        else await change('outreach.hands.keep', { workspaceId: ws, profileId: ask.profileId });
+        toast.show(letAi ? HW.gaveBack(1) : HW.kept(ask.name));
+        answer.reload();
+      } catch (e) {
+        failed(e);
+      }
+    },
     // How the phone hears of it is on General.
     onSettings: () => openSettingsPart(ws, 'general'),
     askActions,
@@ -396,6 +417,7 @@ export function WaitingBody({
   unsure = null,
   autopilot = null,
   onAutopilot,
+  onHands,
 }: {
   phone: PhoneWaiting;
   server: WaitingFromServer | null;
@@ -421,6 +443,8 @@ export function WaitingBody({
   /** Autopilot's day's list (decision 151), first while anyone waits, else a line at the bottom (decision 160): null while it's off, or with no word from HandsFreeOS. */
   autopilot?: AutopilotOutput | null;
   onAutopilot?: AutopilotAnswerOf;
+  /** Let the AI take it, or Keep it mine, on an ask about someone in the person's hands (decision 182). */
+  onHands?: (ask: HandsAsk, letAi: boolean) => void;
 }) {
   const [changing, setChanging] = React.useState<PhoneSend | null>(null);
   const all = approveAllFromPhone(phone);
@@ -432,7 +456,12 @@ export function WaitingBody({
   const count =
     phone.kinds.reply.count +
     phone.kinds.message.count +
-    (server ? server.kinds.ask.count + server.kinds.need.count + server.kinds.request.count : 0);
+    (server
+      ? server.kinds.ask.count +
+        server.kinds.need.count +
+        server.kinds.request.count +
+        (server.hands?.length ?? 0)
+      : 0);
   const sendRow = (send: PhoneSend) => (
     <SendCard
       key={send.sendId}
@@ -480,6 +509,18 @@ export function WaitingBody({
             />
           ))}
         </Group>
+      ) : null}
+
+      {server?.hands?.length && onHands ? (
+        <View className="gap-2" testID="waiting-hands">
+          <Text className="px-1 text-[15px] font-semibold">
+            {HW.asksTitle}{' '}
+            <Text className="text-text-3">· {server.hands.length.toLocaleString('en-US')}</Text>
+          </Text>
+          {server.hands.map((ask) => (
+            <HandsAskCard key={ask.profileId} ask={ask} online={online} onHands={onHands} />
+          ))}
+        </View>
       ) : null}
 
       {phone.replies.length ? (
@@ -646,6 +687,61 @@ export function WaitingBody({
         }}
       />
     </Screen>
+  );
+}
+
+/** An ask about someone in the person's hands (decision 182): what happened, and the two answers. */
+function HandsAskCard({
+  ask,
+  online,
+  onHands,
+}: {
+  ask: HandsAsk;
+  online: boolean;
+  onHands: (ask: HandsAsk, letAi: boolean) => void;
+}) {
+  return (
+    <Card className="gap-2.5 px-4 py-3.5" testID="waiting-hands-ask">
+      <View className="flex-row flex-wrap items-center gap-2">
+        <PersonName
+          who={{
+            profileId: ask.profileId,
+            name: ask.name,
+            url: ask.url,
+            platform: ask.platform,
+            threadKey: ask.threadKey,
+            personId: ask.personId,
+          }}
+        />
+        <NetworkName platform={ask.platform} />
+      </View>
+      <Text className="text-[14px]">{HW.askTitle(ask.why, ask.name)}</Text>
+      {ask.theirs ? (
+        <Text className="rounded-control bg-card-2 px-3 py-2 text-[13px] text-text-2">
+          “{ask.theirs}”
+        </Text>
+      ) : null}
+      <Note>{HW.askBody(ask.why)}</Note>
+      <View className="flex-row flex-wrap gap-2">
+        <Button
+          size="md"
+          disabled={!online}
+          onPress={() => onHands(ask, true)}
+          testID="waiting-hands-let-ai"
+        >
+          {HW.letAi}
+        </Button>
+        <Button
+          size="md"
+          variant="secondary"
+          disabled={!online}
+          onPress={() => onHands(ask, false)}
+          testID="waiting-hands-keep"
+        >
+          {HW.keepMine}
+        </Button>
+      </View>
+    </Card>
   );
 }
 

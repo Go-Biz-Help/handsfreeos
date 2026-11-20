@@ -168,7 +168,7 @@ export function KindTile({
 type Chip = AttentionRecordItem['reasons'][number];
 
 const GOOD = new Set(['qualified', 'ready_to_book', 'repeat_customer', 'came_in_today']);
-const AI = new Set(['auto_replied', 'handed_off', 'draft', 'approval']);
+const AI = new Set(['auto_replied', 'handed_off', 'in_hands', 'draft', 'approval']);
 /** Chips that count time: waiting, since the last contact, overdue, until the start. */
 export const TIME_CODES: ReadonlySet<string> = new Set([
   'waiting',

@@ -21,6 +21,7 @@ import {
   messageReceive,
   messageSend,
   messageUpdateStatus,
+  personHandBack,
   phoneNumberBuy,
   registrationFingerprint,
   registrationRecordCheck,
@@ -433,7 +434,8 @@ export async function seedMessaging(
     until: new Date(Date.now() + 20 * HOUR * MINUTE).toISOString(),
   });
 
-  // A. Brooks: thanks for the thermostat; answered and closed.
+  // A. Brooks: thanks for the thermostat; answered and closed. Priya's own text put her in Priya's hands, and with
+  // nothing more to say Priya gives her back to the AI, so Ava answers her website chat later (In your hands).
   const a1 = await text(abrooks.phone, 'Thanks for fixing the thermostat so fast!', ago(4 * DAY));
   await reply(
     ws.priya,
@@ -441,6 +443,7 @@ export async function seedMessaging(
     'Anytime! Call us if it acts up again.',
     ago(4 * DAY - 15),
   );
+  await human(ws.priya, personHandBack, { workspaceId, personIds: [abrooks.id] });
 
   // The worker sends everything queued; the fake carrier and Mailpit report nothing back, so mark them.
   await settle(d);

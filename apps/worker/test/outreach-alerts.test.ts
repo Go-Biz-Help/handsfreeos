@@ -232,7 +232,8 @@ describe('phone alerts', () => {
         owner,
         ws,
         'outreach.touch.save',
-        { kind: 'message', profile: fb(username), name, threadKey },
+        // The extension's own message: one typed by hand would put them in the person's hands (decision 182).
+        { kind: 'message', profile: fb(username), name, threadKey, auto: true },
         new Date(at),
       );
     await message('dana.reyes.12', 'Dana Reyes', '2001', Date.now() - 10 * MIN);

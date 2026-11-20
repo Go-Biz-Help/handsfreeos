@@ -15,14 +15,15 @@
     "apps/mobile/src/addons/outreach/countries.tsx": "2f03fcedf70c",
     "apps/mobile/src/addons/outreach/country-setting.tsx": "7d3f0edcc4a3",
     "apps/mobile/src/addons/outreach/find.tsx": "b26b6980e71f",
-    "apps/mobile/src/addons/outreach/frame.tsx": "c07aca9c6b55",
+    "apps/mobile/src/addons/outreach/frame.tsx": "c021610d6bb8",
     "apps/mobile/src/addons/outreach/friends.tsx": "0baef8d179a7",
     "apps/mobile/src/addons/outreach/goal-note.tsx": "4175ff5462c4",
     "apps/mobile/src/addons/outreach/group-page.tsx": "8d39529ff667",
     "apps/mobile/src/addons/outreach/groups.tsx": "fecbf5a6ef5b",
+    "apps/mobile/src/addons/outreach/hands.tsx": "f00a09725cd2",
     "apps/mobile/src/addons/outreach/home.tsx": "0a19980803e9",
     "apps/mobile/src/addons/outreach/hub.tsx": "c2834d2f20c3",
-    "apps/mobile/src/addons/outreach/kit.tsx": "0674b20046bb",
+    "apps/mobile/src/addons/outreach/kit.tsx": "233ecbb6272c",
     "apps/mobile/src/addons/outreach/like-yours.tsx": "90036aef3364",
     "apps/mobile/src/addons/outreach/live.tsx": "65dc89b2fc2f",
     "apps/mobile/src/addons/outreach/local.tsx": "71ffe1edacd5",
@@ -30,9 +31,9 @@
     "apps/mobile/src/addons/outreach/networks.tsx": "40a6f31b8c0e",
     "apps/mobile/src/addons/outreach/never-contact.tsx": "6f976e49cde7",
     "apps/mobile/src/addons/outreach/numbers.tsx": "5a75b8a0893a",
-    "apps/mobile/src/addons/outreach/page.tsx": "e3ec8eda2723",
+    "apps/mobile/src/addons/outreach/page.tsx": "d42c6a8f2d3d",
     "apps/mobile/src/addons/outreach/partners.tsx": "5fe0683e908d",
-    "apps/mobile/src/addons/outreach/person-menu.tsx": "1a37fc2ef322",
+    "apps/mobile/src/addons/outreach/person-menu.tsx": "761d18d74433",
     "apps/mobile/src/addons/outreach/pipeline.tsx": "0e8ba9125d19",
     "apps/mobile/src/addons/outreach/playbook-script.tsx": "5f77dad1be4f",
     "apps/mobile/src/addons/outreach/playbook-test.tsx": "d508cf5f3f76",
@@ -55,7 +56,7 @@
     "apps/mobile/src/addons/outreach/ticker.tsx": "3ac4c69f8f42",
     "apps/mobile/src/addons/outreach/today.tsx": "33d312fbbb11",
     "apps/mobile/src/addons/outreach/video-library.tsx": "44d9f03cf97f",
-    "apps/mobile/src/addons/outreach/waiting.tsx": "a46827c2596a",
+    "apps/mobile/src/addons/outreach/waiting.tsx": "b6772eb1c110",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/outreach/_layout.tsx": "182d0b21e1d1",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/outreach/index.tsx": "483afe3b9643",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/outreach/playbooks/[playbookId].tsx": "4bab1b31713e",
@@ -83,8 +84,9 @@
     "apps/web/src/addons/outreach/goal-note.tsx": "da548e1f7a36",
     "apps/web/src/addons/outreach/group-page.tsx": "e9e6a23888ab",
     "apps/web/src/addons/outreach/groups-view.tsx": "4a2b658eb365",
+    "apps/web/src/addons/outreach/hands-view.tsx": "06268f235921",
     "apps/web/src/addons/outreach/helpful-card.tsx": "df3b34602d3e",
-    "apps/web/src/addons/outreach/home.tsx": "26916e143085",
+    "apps/web/src/addons/outreach/home.tsx": "ab9146fe2eee",
     "apps/web/src/addons/outreach/install-pictures.tsx": "d328a02984f0",
     "apps/web/src/addons/outreach/like-yours.tsx": "8168753d9e13",
     "apps/web/src/addons/outreach/live-view.tsx": "08145c749e82",
@@ -96,7 +98,7 @@
     "apps/web/src/addons/outreach/offer-panel.tsx": "9a4c91de27e6",
     "apps/web/src/addons/outreach/opener-results.tsx": "d8c1b233c8ac",
     "apps/web/src/addons/outreach/partners-view.tsx": "d5e52c20bf34",
-    "apps/web/src/addons/outreach/person-menu.tsx": "64e84258b057",
+    "apps/web/src/addons/outreach/person-menu.tsx": "e8135d982fea",
     "apps/web/src/addons/outreach/person-panel.tsx": "12eb4039a5b3",
     "apps/web/src/addons/outreach/pipeline-view.tsx": "e1d6f4c59064",
     "apps/web/src/addons/outreach/playbook-builder.tsx": "3697d7ab634c",
@@ -126,7 +128,7 @@
     "apps/web/src/addons/outreach/touched-posts.tsx": "a25e60b0a355",
     "apps/web/src/addons/outreach/tracking-view.tsx": "6894838d24e1",
     "apps/web/src/addons/outreach/video-library.tsx": "de0fb2af8146",
-    "apps/web/src/addons/outreach/waiting-view.tsx": "89818e549fef",
+    "apps/web/src/addons/outreach/waiting-view.tsx": "56fd9f2da6a2",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/find/groups/page.tsx": "35561e380367",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/find/page.tsx": "9ef9941ecbc7",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/groups/page.tsx": "9620ac32b2ec",
@@ -134,6 +136,7 @@
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/page.tsx": "63dc6be262e5",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/people/chats/page.tsx": "9f29255a2970",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/people/friends/page.tsx": "acc900642ff1",
+    "apps/web/src/app/app/w/[workspaceId]/a/outreach/people/hands/page.tsx": "dfa8eed40a1d",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/people/page.tsx": "77e39bcdd905",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/people/partners/page.tsx": "b03e9a4cf48e",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/people/skipped/page.tsx": "85b394e6f638",
@@ -145,9 +148,9 @@
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/settings/[part]/page.tsx": "cb082e95ac39",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/settings/page.tsx": "e0247a8457c3",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/setup/page.tsx": "3b4de50baa1d",
-    "apps/web/src/app/app/w/[workspaceId]/a/outreach/show.tsx": "1d733617458b",
+    "apps/web/src/app/app/w/[workspaceId]/a/outreach/show.tsx": "f89d78fee015",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/today/page.tsx": "652469b89773",
-    "packages/core/src/addons/outreach/manifest.ts": "7159a88c44fd"
+    "packages/core/src/addons/outreach/manifest.ts": "5126578898cf"
   },
   "items": [
     {
@@ -277,11 +280,67 @@
       "by": "outreach_asks computer version; why worked out on the screen, else said on refusal"
     },
     {
-      "path": "People → which people: In play, Good fits, Talking, Friends, Requests, Sent, Chats, Partners, Clients, Left alone, each with its count",
+      "path": "People → which people: In play, Good fits, Talking, In your hands, Friends, Requests, Sent, Chats, Partners, Clients, Left alone, each with its count (In your hands has none)",
       "kind": "do",
       "file": "apps/web/src/addons/outreach/home.tsx:589",
       "covered": "yes",
-      "by": "outreach_pipeline view+counts; outreach_friends view+counts; outreach_chats; outreach_partners"
+      "by": "outreach_pipeline view+counts; outreach_friends view+counts; outreach_chats; outreach_partners; outreach_in_your_hands"
+    },
+    {
+      "path": "Person menu → In your hands: whose hands and since when; Give back to the AI (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/person-menu.tsx:360",
+      "covered": "yes",
+      "by": "outreach_person_marks inHands; outreach_give_back profileIds"
+    },
+    {
+      "path": "Person menu → Take over, beside Don't pitch and Never contact (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/person-menu.tsx:360",
+      "covered": "yes",
+      "by": "outreach_take_over"
+    },
+    {
+      "path": "People → In your hands → what it is; Only mine or Everyone’s (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/hands-view.tsx:72",
+      "covered": "yes",
+      "by": "outreach_in_your_hands mine; its description"
+    },
+    {
+      "path": "People → In your hands → each: name (person menu), network, Asks to hand back, whose hands and when (web, phone)",
+      "kind": "see",
+      "file": "apps/web/src/addons/outreach/hands-view.tsx:105",
+      "covered": "yes",
+      "by": "outreach_in_your_hands people[] user, how, place, lastAt, ask"
+    },
+    {
+      "path": "People → In your hands → Give back to the AI; Give all back (the list shown) (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/hands-view.tsx:49",
+      "covered": "yes",
+      "by": "outreach_give_back profileIds, or all with mine"
+    },
+    {
+      "path": "People → In your hands → nobody, couldn’t load, Showing the latest N of M (web, phone)",
+      "kind": "see",
+      "file": "apps/web/src/addons/outreach/hands-view.tsx:95",
+      "covered": "yes",
+      "by": "outreach_in_your_hands total"
+    },
+    {
+      "path": "Needs you → In your hands: who wrote back, or would get a follow-up; Let the AI take it, Keep it mine (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:172",
+      "covered": "yes",
+      "by": "outreach_waiting hands[] why, theirs; outreach_give_back; outreach_keep_it_mine"
+    },
+    {
+      "path": "Needs you → OK on a message to someone in your hands: refused, with how to give them back",
+      "kind": "see",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:147",
+      "covered": "yes",
+      "by": "outreach_approve_messages refuses (rule outreach_in_your_hands), Approve all skips them"
     },
     {
       "path": "People → Left alone → Don't pitch, Never contact, Not a fit, Keep, Skipped for country, with counts, and what the lists are",

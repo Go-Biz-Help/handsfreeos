@@ -17,7 +17,7 @@ import { NETWORKS } from '../../src/addons/outreach/networks';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { startingScript } from '../../src/addons/outreach/script';
 import { checkedDrafts, todayDraftPrompt } from '../../src/addons/outreach/today';
-import { checkedAs, computerOn, outreachBusiness, runAs } from './outreach-fixture';
+import { backToTheAi, checkedAs, computerOn, outreachBusiness, runAs } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 const DAY = 86_400_000;
@@ -168,6 +168,8 @@ describe('the list for today', () => {
         },
       ],
     });
+    // "Happy to show you" was the AI's, not typed by the person (decision 182).
+    await backToTheAi(owner, ws);
     await rows(
       admin(),
       sql`update addon_outreach.file_chats set read_state = 'read', prospect = true,

@@ -80,6 +80,7 @@ export const SCREEN_READS = [
   'partner.payout_get',
   'partner.payouts',
   'payment.list',
+  'person.in_hands',
   'portal_access.get',
   'record_hold.list',
   'registration.get_draft',

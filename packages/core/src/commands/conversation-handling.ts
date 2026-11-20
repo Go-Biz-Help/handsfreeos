@@ -15,6 +15,7 @@ import { aiEmployeeOf, requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import { cancelPendingReplyDraft, takeOver } from '../messaging/handling';
+import { giveBackToAi, inHands, takeIntoHands } from '../messaging/hands';
 import { isWorkspaceUser, loadConversation } from '../messaging/store';
 import {
   ConversationHandOffInput,
@@ -209,6 +210,13 @@ export const conversationPickUp = defineCommand({
         'Someone is handling this conversation, or it’s assigned to someone, so the AI teammate leaves it to them.',
       );
     if (conv.handledBy !== 'none' || conv.assigneeUserId) throw taken();
+    // Someone on the team has the customer (messaging/hands.ts): it leaves them to that person.
+    if (await inHands(ctx.tx, conv.personId))
+      throw HfosError.rule(
+        'conversation_taken',
+        409,
+        'Someone on your team has this customer in their hands, so the AI teammate leaves them alone. Give them back to the AI on their page first.',
+      );
     const [row] = await ctx.tx
       .update(conversations)
       .set({
@@ -245,20 +253,28 @@ export const conversationPickUp = defineCommand({
 export const conversationTakeOver = defineCommand({
   name: 'conversation.take_over',
   description:
-    'Take a conversation from the AI teammate (or from “Needs a person”): the teammate stays quiet until someone hands it back, and its pending reply is dropped.',
+    'Take a conversation from the AI teammate (or from “Needs a person”): the customer is in your hands everywhere, the teammate stays quiet with them until someone hands them back, and its pending reply is dropped.',
   risk: 1,
   input: ConversationRefInput,
   output: ConversationTakeOverOutput,
   permission: 'inbox.use',
   scope: inWorkspace,
-  emits: ['conversation.taken_over'],
+  emits: ['conversation.taken_over', 'person.taken_over'],
   offline: 'anytime',
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const conv = await loadConversation(ctx, input.conversationId);
-    if (conv.handledBy === 'person' && conv.takenOverBy === me && !conv.needsPersonSince)
-      return { conversationId: conv.id, draftCancelled: false };
-    const { draftId } = await takeOver(ctx, conv, 'button');
+    const mine = conv.handledBy === 'person' && conv.takenOverBy === me && !conv.needsPersonSince;
+    const { draftId } = mine ? { draftId: null } : await takeOver(ctx, conv, 'button');
+    // The customer comes with it, everywhere (messaging/hands.ts).
+    if (conv.personId && conv.privateTo === null)
+      await takeIntoHands(ctx, {
+        personId: conv.personId,
+        userId: me,
+        how: 'took_over',
+        place: null,
+        exceptConversationId: conv.id,
+      });
     return { conversationId: conv.id, draftCancelled: draftId !== null };
   },
 });
@@ -266,13 +282,13 @@ export const conversationTakeOver = defineCommand({
 export const conversationHandToAi = defineCommand({
   name: 'conversation.hand_to_ai',
   description:
-    'Hand a conversation back to the AI teammate. It answers what’s waiting and whatever the customer writes next.',
+    'Hand a conversation back to the AI teammate. It answers what’s waiting and whatever the customer writes next, and the customer is out of your hands everywhere.',
   risk: 1,
   input: ConversationRefInput,
   output: ConversationHandToAiOutput,
   permission: 'inbox.use',
   scope: inWorkspace,
-  emits: ['conversation.handed_to_ai'],
+  emits: ['conversation.handed_to_ai', 'person.handed_back'],
   // A person hands a conversation back; a workflow step ("Hand to the AI teammate") hands one over, and the
   // kernel puts its run's loop guard (_workflow) on the event, which the worker passes on to the teammate.
   actors: ['human', 'workflow'],
@@ -310,6 +326,9 @@ export const conversationHandToAi = defineCommand({
       before: { handledBy: conv.handledBy },
       after: { handledBy: 'ai', teammate: teammate.name },
     });
+    // The customer goes back with it, everywhere (messaging/hands.ts).
+    if (conv.personId && ctx.actor.type === 'human')
+      await giveBackToAi(ctx, conv.personId, { exceptConversationId: conv.id });
     return { conversationId: conv.id, teammateId: teammate.id };
   },
 });

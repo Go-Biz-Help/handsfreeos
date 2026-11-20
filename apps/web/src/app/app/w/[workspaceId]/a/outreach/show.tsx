@@ -54,7 +54,7 @@ export async function showOutreach(
   const sp = await searchParams;
   const remembered = (await cookies()).get(netCookie(workspaceId))?.value ?? null;
   const shown = readOutreachAddress(view, sp, { part, remembered });
-  const { api } = await apiServer();
+  const { api, userId } = await apiServer();
   const workspace = api
     .POST('/v1/queries/workspace.get', { body: { workspaceId } })
     .then(unwrapPage);
@@ -334,6 +334,18 @@ export async function showOutreach(
         businessName={got.workspace.name}
         canManage={got.workspace.permissions.includes('outreach.manage')}
         shown={{ view: 'find', week, groups, playbooks, asks, net: shown.net }}
+      />
+    );
+  }
+  if (shown.view === 'hands') {
+    // In your hands (decision 182): the list loads itself.
+    const got = await workspace;
+    return (
+      <OutreachHome
+        workspaceId={workspaceId}
+        businessName={got.workspace.name}
+        canManage={got.workspace.permissions.includes('outreach.manage')}
+        shown={{ view: 'hands', mine: shown.mine, me: userId ?? null }}
       />
     );
   }

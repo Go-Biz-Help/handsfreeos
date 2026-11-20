@@ -63,7 +63,8 @@ import { automationOf, everyoneAutomation } from './automation';
 import { contactable, inWorkspace, neverDeleted, type Ctx } from './common';
 import { playbooksInUse } from './friends';
 import { openNeed, retrySince } from './needs';
-import { commentHoldOf, draftedNow, listed, mine, sendsAgain } from './sends';
+import { commentHoldOf, draftedNow, listed, mine, notHeldNow, sendsAgain } from './sends';
+import { handsAsks } from './in-hands';
 import { notNever, requestFit, type RequestAnswered } from './today';
 
 const DAY = 86_400_000;
@@ -387,12 +388,14 @@ export const waiting = defineAddonQuery(outreachAddon, {
       automationOf(ctx, me, now),
       workspaceTimezone(ctx.tx, ctx.scope.workspaceId!),
     ]);
+    // Someone in the person's hands who wrote back, or whom the AI would have followed up (decision 182): the ask.
+    const handsAsked = await handsAsks(ctx, me, now, auto.settings.hours, timezone);
     const counted = kinds.get(me)!;
     const items: WaitingItem[] = [];
     const commentHolds: Platform[] = [];
     if (input.items) {
       const [waitingSends, needed, asked] = await Promise.all([
-        listed(ctx, and(mine(ctx, me), eq(sends.state, 'waiting'), draftedNow)),
+        listed(ctx, and(mine(ctx, me), eq(sends.state, 'waiting'), draftedNow, notHeldNow)),
         neededOf(ctx, me, now),
         asksNeedingYou(ctx, [me], now, me),
       ]);
@@ -412,9 +415,10 @@ export const waiting = defineAddonQuery(outreachAddon, {
         items.push({ kind: 'request', at: request.since, request });
     }
     return {
-      count: waitingCount(counted),
+      count: waitingCount(counted) + handsAsked.length,
       kinds: counted,
       items,
+      hands: input.items ? handsAsked : [],
       wheels: auto.wheels,
       commentHolds,
       pushes: auto.settings.pushes,

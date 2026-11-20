@@ -24,6 +24,12 @@ import {
 /** A hand-off waits this many open-hours minutes (the worker's hand-off alert uses the same). */
 export const HANDOFF_OPEN_MINUTES = 15;
 
+/**
+ * A customer in someone's hands (messaging/hands.ts) waits this many open-hours minutes for them to answer before the
+ * card asks whether to let the AI take it (the owner's pick, 19 Nov 2026: an hour, in working hours).
+ */
+export const IN_HANDS_OPEN_MINUTES = 60;
+
 export interface CustomerWaitingFacts {
   readonly business: BusinessFacts;
   readonly conversation: {
@@ -37,6 +43,8 @@ export interface CustomerWaitingFacts {
     readonly takenOverBy: string | null;
     /** A hand-off nobody picked up for hours, and the owners have been told (Automations). */
     readonly escalated?: boolean;
+    /** Its customer is in someone's hands: the AI holds off until they let it take over. */
+    readonly inHands?: boolean;
   };
   /** The business's reply threshold in minutes (`unansweredReminderMinutes`); 0 turns the alert off. */
   readonly replyThresholdMinutes: number;
@@ -53,6 +61,9 @@ function assess(f: CustomerWaitingFacts, settings: AttentionSettings, now: numbe
   const since = ms(waitingSince);
   const threshold = Math.max(0, f.replyThresholdMinutes);
   const handoffAt = handedOff ? ms(c.needsPersonSince!) : null;
+  // In someone's hands, a message of theirs waits an hour of open time first, so a chat going back and forth isn't
+  // interrupted; then it asks whether to let the AI answer.
+  const inHands = !handedOff && c.inHands === true;
   const due =
     handoffAt !== null
       ? addOpenTime(
@@ -61,7 +72,14 @@ function assess(f: CustomerWaitingFacts, settings: AttentionSettings, now: numbe
           handoffAt,
           HANDOFF_OPEN_MINUTES * MINUTE,
         )
-      : since + threshold * MINUTE;
+      : inHands
+        ? addOpenTime(
+            f.business.openHours,
+            f.business.timeZone,
+            since,
+            IN_HANDS_OPEN_MINUTES * MINUTE,
+          )
+        : since + threshold * MINUTE;
   if (now < due) return { wakeAt: due };
   const value = leadValue(f.lead, f.business, settings);
   return detection({
@@ -71,7 +89,7 @@ function assess(f: CustomerWaitingFacts, settings: AttentionSettings, now: numbe
       handoff: handoffAt !== null ? stamp(handoffAt) : null,
     }),
     since,
-    urgentFrom: handoffAt !== null || threshold > 0 ? due : null,
+    urgentFrom: handoffAt !== null || inHands || threshold > 0 ? due : null,
     dueAt: due,
     value,
     probability: 0.45,
@@ -87,6 +105,7 @@ function assess(f: CustomerWaitingFacts, settings: AttentionSettings, now: numbe
             ),
           ]
         : []),
+      ...(inHands ? [chip('in_hands', 'in your hands · the AI is waiting')] : []),
     ],
     assignee: c.assigneeUserId,
     recheckAt: null,

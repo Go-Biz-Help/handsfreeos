@@ -5143,6 +5143,26 @@ export const dayStarts = app.table(
   (t) => [primaryKey({ columns: [t.workspaceId, t.userId] })],
 );
 
+/**
+ * In your hands (20261027030900): a customer a person on the team has taken on, by writing or calling them
+ * themselves or with Take over. The AI holds off them everywhere until someone gives them back.
+ */
+export const peopleInHands = app.table('people_in_hands', {
+  personId: uuid('person_id')
+    .primaryKey()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  workspaceId: workspaceRef(),
+  /** Whose hands: null for someone outside HandsFreeOS, and once they leave the business. */
+  userId: userRef('user_id'),
+  /** wrote, called, took_over. */
+  how: text('how').notNull(),
+  /** A channel, 'call', or a network an add-on names; null for Take over. */
+  place: text('place'),
+  since: ts('since').notNull().defaultNow(),
+  lastAt: ts('last_at').notNull().defaultNow(),
+  ...timestamps(),
+});
+
 // ---------- Milestone 11: moving a business here from another CRM (0064-0066) ----------
 export const migrationSource = app.enum('migration_source', [
   'gohighlevel',
