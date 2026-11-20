@@ -145,10 +145,16 @@ export function PersonDialog({
   /** An address and name to start with (adding someone who emailed as a customer). */
   defaultEmail?: string;
   defaultName?: string;
-  /** With their name as saved, for a screen that goes on to use them (New appointment picks them). */
-  onSaved?: (personId: string, name: string) => void;
   /**
-   * Choosing the person who already has the number or email, instead of adding someone new: New appointment books
+   * With their name, email and number as saved, for a screen that goes on to use them (a contact picker picks them).
+   */
+  onSaved?: (
+    personId: string,
+    name: string,
+    details?: { readonly email: string | null; readonly phone: string | null },
+  ) => void;
+  /**
+   * Choosing the person who already has the number or email, instead of adding someone new: a contact picker picks
    * them. Left out, the warning offers to open them.
    */
   onChooseMatch?: (match: Match) => void;
@@ -309,7 +315,7 @@ export function PersonDialog({
         );
         toast.success('Saved.');
         onOpenChange(false);
-        onSaved?.(initial.id, nameOf(fields));
+        onSaved?.(initial.id, nameOf(fields), { email: fields.email, phone: fields.phone });
         router.refresh();
       } else {
         const out = unwrap(
@@ -319,7 +325,8 @@ export function PersonDialog({
         );
         toast.success(`${nameOf(fields)} added.`);
         onOpenChange(false);
-        if (onSaved) onSaved(out.personId, nameOf(fields));
+        if (onSaved)
+          onSaved(out.personId, nameOf(fields), { email: fields.email, phone: fields.phone });
         else router.push(`/app/w/${workspaceId}/customers/people/${out.personId}`);
         router.refresh();
       }
@@ -340,6 +347,9 @@ export function PersonDialog({
 
   function submit(e: FormEvent) {
     e.preventDefault();
+    // Opened from a contact picker inside another form (an invoice, a job): React passes a submit up through the
+    // portal to that form too, which mustn't save just because this one did.
+    e.stopPropagation();
     void save(false);
   }
 

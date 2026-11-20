@@ -53,7 +53,38 @@ front.jpg" and "Business card back.jpg". On the phone, tapping one opens it over
 - Job title and website have no box on a person, so they lead the contact's note; the website also goes on a company
   added for them.
 
+## Adding someone new from any contact search
+
+The owner's ask of 20 November 2026: "need to be able to add/create a contact anywhere a contact can be filled in for
+example calendar appointments, invoices, and anywhere else".
+
+Every contact search offers **Add “Dana Smith” as a new contact** under what it found, and says "No one matches “Dana
+Smith”." first when it found nobody. What was typed starts the new contact in the right box (`contactFromSearch` in
+`packages/core/src/crm/new-contact.ts`): a number in Phone, an email in Email, a name as the name. Once added, they're
+the one picked, and the rest of the screen is as it was.
+
+- **On the web**, the three pickers share one piece (`useNewContact` in `apps/web/src/components/crm/new-contact.tsx`),
+  which opens **Add a person** over the screen. A number or email someone already has offers **Choose them** instead.
+  - `CustomerPicker`: New appointment, a class's attendee, a job's customer, a work order's or crew's subcontractor.
+  - `PersonPicker`: an invoice or estimate, a payment plan, a document's Who it's for, signers and copies, the
+    contractor estimate builder, the Sales Coach's Zoom panel.
+  - `RecordPicker`: New lead, a Real Estate deal's people and Start a deal, New message.
+- **On the phone**, the New contact form (`apps/mobile/src/components/customers/new-contact-form.tsx`) opens in place of
+  the search: New appointment, and a document's Who it's for, customer signers and customer copies. A document is
+  filled in from HandsFreeOS straight away, so there the new contact is sent at once and picked only once it's there;
+  with no signal it stays on the phone and the form says so.
+
+Left out on purpose (`addNew={false}`): merging two records, Link to an existing contact (the inbox's own **Add
+contact** fills in the number or email), claiming an email in Settings → Email (its own **Add as a new person** does the
+same), and the test tools (workflow tests, the AI teammate's Test as), so testing never adds real contacts. Only someone
+who may add contacts (`records.write`) is offered it.
+
 ## Rules worth knowing before changing anything
+
+- **Every contact picker offers Add new contact.** A new picker uses `useNewContact` (web) or `NewContactForm` (phone),
+  never its own copy, so the words and the duplicate check stay the same everywhere.
+- **Add a person never submits the form around it.** It opens from inside other forms (New lead, an invoice), and React
+  passes a submit up through the portal, so `PersonDialog` stops its own submit there.
 
 - **Nothing is saved before the person checks the form.** The AI fills boxes; it never adds anyone on its own.
 - **The back fills only empty boxes** (`fillCardForm`). Never let a later side overwrite what's there.

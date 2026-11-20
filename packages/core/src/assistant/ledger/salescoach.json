@@ -1,7 +1,7 @@
 {
   "area": "salescoach",
   "title": "The AI Sales Coach add-on and any add-on page drawn by the generic add-on route",
-  "checkedOn": "2026-11-12",
+  "checkedOn": "2026-11-20",
   "files": {
     "apps/mobile/src/addons/gate.tsx": "7be28a0fe47e",
     "apps/mobile/src/addons/salescoach/call-card.tsx": "72ed05fc772a",
@@ -21,7 +21,7 @@
     "apps/web/src/addons/salescoach/zoom-panel.tsx": "9e4ed51950d7",
     "apps/web/src/app/app/w/[workspaceId]/a/[addonId]/[[...path]]/page.tsx": "fd2cbf1adffc",
     "apps/web/src/components/addons/unavailable.tsx": "e52287367cb9",
-    "apps/web/src/components/money/person-picker.tsx": "8aeb51e81ba0"
+    "apps/web/src/components/money/person-picker.tsx": "0e44e715d4c1"
   },
   "items": [
     {
@@ -986,16 +986,16 @@
     {
       "path": "Zoom panel → customer search: 'Type a name, phone or email'",
       "kind": "do",
-      "file": "apps/web/src/components/money/person-picker.tsx:89",
+      "file": "apps/web/src/components/money/person-picker.tsx:99",
       "covered": "yes",
       "by": "search_customers"
     },
     {
-      "path": "Zoom panel → customer search: each name, email or phone; 'Nobody matches. Add them from Contacts first.'",
+      "path": "Zoom panel → customer search: each name, email or phone; ‘No one matches “…”.’; Add “…” as a new contact",
       "kind": "see",
-      "file": "apps/web/src/components/money/person-picker.tsx:122",
+      "file": "apps/web/src/components/money/person-picker.tsx:113",
       "covered": "yes",
-      "by": "search_customers"
+      "by": "search_customers; create_customer"
     },
     {
       "path": "Zoom panel → pick a customer / Coach without a customer",

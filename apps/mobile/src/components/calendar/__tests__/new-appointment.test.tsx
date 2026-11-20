@@ -130,10 +130,13 @@ beforeEach(() => {
 describe('a search that finds nobody', () => {
   it('adds them as a new contact, and the visit is theirs once they are', async () => {
     await sheet();
-    // Somebody on file: no offer to add anyone.
+    // Somebody on file: still offered under them, since it may be a different Mike, but nobody is said to be missing.
     await fireEvent.changeText(screen.getByTestId('new-appointment-customer-search'), 'Mike');
     expect(screen.getByTestId(`new-appointment-customer-${MIKE_ID}`)).toBeTruthy();
     expect(screen.queryByTestId('new-appointment-nobody')).toBeNull();
+    expect(screen.getByTestId('new-appointment-add-contact')).toHaveTextContent(
+      'Add “Mike” as a new contact',
+    );
 
     await fireEvent.changeText(screen.getByTestId('new-appointment-customer-search'), 'Dana Smith');
     expect(screen.getByTestId('new-appointment-nobody')).toHaveTextContent(
@@ -253,5 +256,6 @@ describe('a search that finds nobody', () => {
     await sheet(meWith({ role: 'member', permissions: ['calendar.read'] }));
     await fireEvent.changeText(screen.getByTestId('new-appointment-customer-search'), 'Dana Smith');
     expect(screen.queryByTestId('new-appointment-nobody')).toBeNull();
+    expect(screen.queryByTestId('new-appointment-add-contact')).toBeNull();
   });
 });

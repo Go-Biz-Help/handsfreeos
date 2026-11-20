@@ -14,7 +14,7 @@
     "apps/web/src/components/settings/a2p-wizard.tsx": "16a231581336",
     "apps/web/src/components/settings/chat-install.tsx": "5a08b1500b10",
     "apps/web/src/components/settings/chat-look-parts.tsx": "f7a53fa395ae",
-    "apps/web/src/components/settings/email-page.tsx": "fdb005694b23",
+    "apps/web/src/components/settings/email-page.tsx": "930d23a33c0e",
     "apps/web/src/components/settings/facebook-instagram-page.tsx": "8674fc1c6cbc",
     "apps/web/src/components/settings/inbox-visibility-card.tsx": "e7ce1e333cd7",
     "apps/web/src/components/settings/lead-intake-page.tsx": "f7affad2e1dd",

@@ -1,4 +1,4 @@
-import { DOCUMENT_SCREEN_WORDS as W, PHONE_HAND_BACK } from '@hfos/core';
+import { DOCUMENT_SCREEN_WORDS as W, NEW_CONTACT_WORDS, PHONE_HAND_BACK } from '@hfos/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import * as Sharing from 'expo-sharing';
@@ -6,8 +6,11 @@ import * as WebBrowser from 'expo-web-browser';
 import * as React from 'react';
 import { Share } from 'react-native';
 
+import { changes } from '@/changes';
+import type { OutboxRow } from '@/changes/outbox';
 import { BusinessProvider } from '@/components/shell/business-context';
 import { toast } from '@/components/ui/toast';
+import { addCustomer } from '@/customers/add-customer';
 import { api } from '@/lib/api';
 import { lockIfEnabled } from '@/lib/app-start';
 import type { Business, Me } from '@/lib/businesses';
@@ -28,8 +31,8 @@ import { SendBody } from '../send';
  * Documents on the phone (docs/documents.md, part 3): the list of what's been sent, filtered by where each one is; a
  * document's page, where the team reminds, voids with a reason, sends a corrected one again, sends a signer their
  * link, hands the phone over with Sign now (the app locks again after) and shares the signed copy; the Send screen,
- * which starts from HandsFreeOS and sends what the web's would; and a customer's documents on their page. It all
- * needs signal, so the API and the worker stand in.
+ * which starts from HandsFreeOS and sends what the web's would, with someone new added as a contact from its search;
+ * and a customer's documents on their page. It all needs signal, so the API and the worker stand in.
  */
 
 jest.mock('expo-router', () => ({
@@ -42,6 +45,7 @@ jest.mock('@/components/shell/status-strip', () => ({ StatusStrip: () => null })
 jest.mock('@/lib/open-web', () => ({ openWeb: jest.fn(async () => true) }));
 jest.mock('@/lib/app-start', () => ({ lockIfEnabled: jest.fn(async () => undefined) }));
 jest.mock('@/lib/worker', () => ({ workerPost: jest.fn() }));
+jest.mock('@/customers/add-customer', () => ({ addCustomer: jest.fn() }));
 jest.mock('@/inbox/storage', () => ({
   signedUrl: jest.fn(async () => 'https://storage.test/signed.pdf?token=t'),
 }));
@@ -624,6 +628,110 @@ describe('sending one', () => {
     await fireEvent.press(screen.getByTestId('signer-us-pick'));
     await fireEvent.press(screen.getByTestId('send-team-option'));
     expect(screen.getByTestId('signer-us')).toHaveTextContent(/Dale Ramsey/);
+  });
+});
+
+describe('someone new', () => {
+  const JO = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+  const send = (permissions = SENDS) =>
+    wrap(
+      <SendBody
+        workspaceId={LONE_STAR}
+        templates={[TEMPLATE_ROW]}
+        members={[{ id: DALE, fullName: 'Dale Ramsey' }]}
+        initialTemplate={null}
+        initialAbout={null}
+        fromDocumentId={null}
+      />,
+      permissions,
+    );
+
+  beforeEach(() => {
+    jest
+      .mocked(addCustomer)
+      .mockReset()
+      .mockResolvedValue({ kind: 'added', id: JO, name: 'Jo Park', changeId: 'change-jo' });
+  });
+
+  it('adds them as a new contact from the search, and starts from HandsFreeOS once they’re there', async () => {
+    answers = { '/v1/queries/document.prefill': PREFILL };
+    const now = jest.spyOn(changes, 'sendQueuedNow').mockResolvedValue(null);
+    await send();
+    // Someone on file still gets the offer under them: it may be a different Dana.
+    await fireEvent.changeText(screen.getByTestId('send-about-search'), 'dana');
+    expect(screen.getAllByTestId('send-about-search-option')).toHaveLength(1);
+    expect(screen.getByTestId('send-about-search-add-contact')).toHaveTextContent(
+      NEW_CONTACT_WORDS.add('dana'),
+    );
+
+    await fireEvent.changeText(screen.getByTestId('send-about-search'), 'Jo Park');
+    expect(screen.getByTestId('send-about-search-nobody')).toHaveTextContent(
+      'No one matches “Jo Park”.Add “Jo Park” as a new contact',
+    );
+    await fireEvent.press(screen.getByTestId('send-about-search-add-contact'));
+    expect(screen.getByTestId('new-contact-name')).toHaveProp('value', 'Jo Park');
+    expect(screen.getByTestId('new-contact')).toHaveTextContent(
+      new RegExp(NEW_CONTACT_WORDS.hintAny),
+    );
+    await fireEvent.changeText(screen.getByTestId('new-contact-email'), 'Jo@ParkPlumbing.com');
+    await fireEvent.press(screen.getByTestId('new-contact-save'));
+
+    await waitFor(() =>
+      expect(sent('/v1/queries/document.prefill')).toEqual([
+        { workspaceId: LONE_STAR, templateId: TEMPLATE, about: { personId: JO } },
+      ]),
+    );
+    expect(addCustomer).toHaveBeenCalledWith(
+      LONE_STAR,
+      expect.objectContaining({
+        firstName: 'Jo',
+        lastName: 'Park',
+        phone: null,
+        email: 'jo@parkplumbing.com',
+      }),
+      'Jo Park',
+      { anyway: false },
+    );
+    // Sent straight away, since the document is filled in from HandsFreeOS.
+    expect(now).toHaveBeenCalledWith('change-jo');
+    expect(screen.getByTestId('send-about')).toHaveTextContent(/Jo Park/);
+  });
+
+  it('keeps them on this phone, and says so, when they can’t reach HandsFreeOS yet', async () => {
+    jest
+      .spyOn(changes, 'sendQueuedNow')
+      .mockResolvedValue({ state: 'retry', reason: null } as unknown as OutboxRow);
+    await send();
+    await fireEvent.changeText(screen.getByTestId('send-about-search'), 'Jo Park');
+    await fireEvent.press(screen.getByTestId('send-about-search-add-contact'));
+    await fireEvent.press(screen.getByTestId('new-contact-save'));
+    expect(await screen.findByTestId('new-contact-problem')).toHaveTextContent(
+      NEW_CONTACT_WORDS.notThereYet('Jo Park'),
+    );
+    expect(sent('/v1/queries/document.prefill')).toHaveLength(0);
+  });
+
+  it('picks the customer who already has the email instead, when that’s who it is', async () => {
+    jest.mocked(addCustomer).mockResolvedValue({ kind: 'already', id: DANA, name: 'Dana Smith' });
+    answers = { '/v1/queries/document.prefill': PREFILL };
+    await send();
+    await fireEvent.changeText(screen.getByTestId('send-about-search'), 'D Smith');
+    await fireEvent.press(screen.getByTestId('send-about-search-add-contact'));
+    await fireEvent.changeText(screen.getByTestId('new-contact-email'), 'dana@smithroofing.com');
+    await fireEvent.press(screen.getByTestId('new-contact-save'));
+    await fireEvent.press(await screen.findByTestId('new-contact-choose'));
+    await waitFor(() =>
+      expect(sent('/v1/queries/document.prefill')).toEqual([
+        { workspaceId: LONE_STAR, templateId: TEMPLATE, about: { personId: DANA } },
+      ]),
+    );
+  });
+
+  it('isn’t offered to someone who can’t add contacts', async () => {
+    await send(['records.read', 'documents.send']);
+    await fireEvent.changeText(screen.getByTestId('send-about-search'), 'Jo Park');
+    expect(screen.queryByTestId('send-about-search-add-contact')).toBeNull();
+    expect(screen.getByText(W.phone.nobody('Jo Park'))).toBeTruthy();
   });
 });
 

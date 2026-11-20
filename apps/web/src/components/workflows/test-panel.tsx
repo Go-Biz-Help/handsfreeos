@@ -196,6 +196,7 @@ export function TestPanel({
         {picking ? (
           <CustomerPicker
             workspaceId={workspaceId}
+            addNew={false}
             value={null}
             onChange={(c) => {
               if (c) void pick(c.id);
