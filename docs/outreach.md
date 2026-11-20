@@ -4884,7 +4884,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         `networkingStand`) and `ops/playbooks.ts` in Social Outreach; the web's `playbook-builder.tsx` and the phone's
         `playbook-script.tsx` and `playbook.tsx`.
 
-181.  **In your hands: the AI holds off someone the person wrote to themselves** (Chris, 19 Nov 2026: "the social
+182.  **In your hands: the AI holds off someone the person wrote to themselves** (Chris, 19 Nov 2026: "the social
       outreach needs to recognize when the user sent a manual message last and so the ai should hold off, if it feels
       it needs to respond to something or follow up then it should ask the user if they want to give ai the reigns for
       this contact again. there should also be a list of contacts that are im the users hands because they last
@@ -5738,7 +5738,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   `mayClear`, `mayPress`) and the tab's (`HelperHands`) both hold it; widen `HELPER_BUTTONS` only with the owner's
   OK, and never for a message, a comment, a removal or a like. Its view never holds what a person wrote or the
   name of the person the step is for.
-- **Someone in a person's hands gets no message from the AI** (decision 181): a profile with an `addon_outreach.hands`
+- **Someone in a person's hands gets no message from the AI** (decision 182): a profile with an `addon_outreach.hands`
   row not given back, or whose customer is in core's `app.people_in_hands`. Anything new that drafts, queues or OKs a
   message checks `heldAmong` or `notHeldNow` (`ops/in-hands.ts`); likes and comments don't. What counts as typed by
   hand is `byHandAt` and `theAisLately`: widen what counts as the AI's freely, but never count an AI draft the person

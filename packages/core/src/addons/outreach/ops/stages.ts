@@ -323,7 +323,7 @@ export const stageMark = defineAddonCommand(outreachAddon, {
         break;
       case 'pitched':
         await keepMarks(ctx, me, profile.id, { pitchedAt: at });
-        // The link the AI drafted, copied to send: read in the chat later, it stays the AI's (decision 181).
+        // The link the AI drafted, copied to send: read in the chat later, it stays the AI's (decision 182).
         await ctx.tx.update(profiles).set({ copiedAt: at }).where(eq(profiles.id, profile.id));
         // The link went (a draft copied, or marked): follow-ups come after it, as they would after one sent.
         await noteSent(ctx, me, {

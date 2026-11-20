@@ -391,7 +391,7 @@ export const touchSave = defineAddonCommand(outreachAddon, {
         },
         at,
       );
-      // A message they sent themselves puts them in the person's hands (decision 181): never one of the AI's drafts
+      // A message they sent themselves puts them in the person's hands (decision 182): never one of the AI's drafts
       // the extension handed them to send, nor one they copied from Today or OK'd just now.
       if (
         input.kind === 'message' &&

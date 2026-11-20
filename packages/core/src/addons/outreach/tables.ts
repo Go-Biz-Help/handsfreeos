@@ -250,7 +250,7 @@ export const profiles = addonOutreach.table(
     areaHow: text('area_how').$type<AreaHow>(),
     areaAt: ts('area_at'),
     areaBy: userRef('area_by'),
-    /** When the person last copied one of the AI's drafts for them from Today to send themselves (decision 181). */
+    /** When the person last copied one of the AI's drafts for them from Today to send themselves (decision 182). */
     copiedAt: ts('copied_at'),
     savedBy: userRef('saved_by'),
     lastSeenBy: userRef('last_seen_by'),
@@ -693,7 +693,7 @@ export const referrals = addonOutreach.table(
 );
 
 /**
- * In your hands (decision 181, ./in-hands.ts): someone a person on the team wrote to themselves, or took over. The AI
+ * In your hands (decision 182, ./in-hands.ts): someone a person on the team wrote to themselves, or took over. The AI
  * sends them no message till someone gives them back (`backAt`); a row given back stays, so a message read again later
  * that was written before then never takes them again.
  */

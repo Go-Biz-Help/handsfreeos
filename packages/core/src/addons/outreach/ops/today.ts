@@ -2103,7 +2103,7 @@ export async function todayFor(
     if (step === null || (i.postId !== null && replyPosts.has(i.postId))) return true;
     return takesStep(playbooks, step);
   };
-  // Someone in a person's hands gets no message from the AI (decision 181): likes, comments and the rest still go.
+  // Someone in a person's hands gets no message from the AI (decision 182): likes, comments and the rest still go.
   const inHands = await heldAmong(
     ctx,
     items.filter(isMessage).flatMap((i) => (i.profileId ? [i.profileId] : [])),

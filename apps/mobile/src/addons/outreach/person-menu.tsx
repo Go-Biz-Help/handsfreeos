@@ -69,7 +69,7 @@ import { TheirWork } from './local';
  * does, or **Not a partner after all**; **Later**, off the person's own Today for 2 weeks, or **Take off Later**
  * (`outreach.later.set`, decision 100); who reached them first, and for an owner or admin **Give them to {teammate}** (`outreach.owner.move`,
  * decision 107); **Take over**, or whose hands they're in and **Give back to the AI** (`outreach.hands.take`,
- * `outreach.hands.give_back`, decision 181); **Don’t pitch** and **Never contact**, or taking them off, or who put them
+ * `outreach.hands.give_back`, decision 182); **Don’t pitch** and **Never contact**, or taking them off, or who put them
  * on.
  *
  * Where they stand is asked as the menu opens (`outreach.profile.marks`), with signal: until it comes, its switches

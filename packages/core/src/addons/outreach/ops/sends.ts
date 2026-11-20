@@ -154,7 +154,7 @@ export const draftedNow = gte(sends.rulesVersion, RULES_VERSION);
 
 /**
  * A send that may go: a comment or a reply in a group, or a message to someone nobody has in their hands (decision
- * 181). One to someone held is skipped as they're taken; this keeps one from before (their customer taken in Contacts)
+ * 182). One to someone held is skipped as they're taken; this keeps one from before (their customer taken in Contacts)
  * off every list and OK.
  */
 export const notHeldNow = sql`(${sends.kind} not in (${sql.join(
@@ -464,7 +464,7 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
         409,
         `${reachedBy.name} reached ${profile.name} first, so no message goes to them from you. Only your replies to them do. To work with them yourself, ask an owner of this business to give them to you from the menu on their name in Social Outreach.`,
       );
-    // Someone in a person's hands (decision 181) gets no message from the AI, not even a reply: a comment still goes.
+    // Someone in a person's hands (decision 182) gets no message from the AI, not even a reply: a comment still goes.
     if (heldOffKind(input.kind) && (await heldAmong(ctx, [profile.id])).has(profile.id))
       throw heldRefusal(profile.name);
     // A comment needs its post: a good one of theirs, kept for the person, on a network whose comments wait at first; a
@@ -653,7 +653,7 @@ export const sendApprove = defineAddonCommand(outreachAddon, {
     // decisions 27 and 42): only one named alone, without `partial`, is OK'd. Approve all, named (the phone's, any
     // build) or not, passes over them, so no client can OK them in bulk.
     const alone = named?.size === 1 && !input.partial;
-    // Someone in a person's hands gets no message from the AI (decision 181): one OK'd alone says so; Approve all passes
+    // Someone in a person's hands gets no message from the AI (decision 182): one OK'd alone says so; Approve all passes
     // over them.
     if (alone) {
       const [held] = await rows<{ name: string }>(

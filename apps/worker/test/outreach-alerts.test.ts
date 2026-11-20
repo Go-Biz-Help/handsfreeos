@@ -232,7 +232,7 @@ describe('phone alerts', () => {
         owner,
         ws,
         'outreach.touch.save',
-        // The extension's own message: one typed by hand would put them in the person's hands (decision 181).
+        // The extension's own message: one typed by hand would put them in the person's hands (decision 182).
         { kind: 'message', profile: fb(username), name, threadKey, auto: true },
         new Date(at),
       );

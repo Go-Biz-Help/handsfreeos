@@ -113,7 +113,7 @@ describe('after a demo booked through the link', () => {
         kind: 'message',
         profile: { id: null, username: 'quinn.h', url: 'https://www.facebook.com/quinn.h' },
         name: 'Quinn Harper',
-        // The extension's: one the person typed would leave Quinn in their hands (decision 181).
+        // The extension's: one the person typed would leave Quinn in their hands (decision 182).
         auto: true,
       },
       new Date(Date.now() - 4 * DAY),

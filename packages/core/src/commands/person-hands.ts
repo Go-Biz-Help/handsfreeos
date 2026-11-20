@@ -54,7 +54,7 @@ export const personTakeOver = defineCommand({
 });
 
 /**
- * A message someone wrote to a customer themselves on an add-on's network (Social Outreach's chats, decision 181): they
+ * A message someone wrote to a customer themselves on an add-on's network (Social Outreach's chats, decision 182): they
  * come into that person's hands, as a reply typed in the Inbox puts them. The add-on runs it as the person, or the
  * worker as the system (nobody's hands, as for a reply typed in Facebook's own inbox).
  */

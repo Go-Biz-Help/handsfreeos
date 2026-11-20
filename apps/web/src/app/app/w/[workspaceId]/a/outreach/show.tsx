@@ -338,7 +338,7 @@ export async function showOutreach(
     );
   }
   if (shown.view === 'hands') {
-    // In your hands (decision 181): the list loads itself.
+    // In your hands (decision 182): the list loads itself.
     const got = await workspace;
     return (
       <OutreachHome

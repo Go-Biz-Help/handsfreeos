@@ -72,7 +72,7 @@ async function chats(
         : [{ fromMe: false, text: 'Do you do demos?', at: daysAgo(1) }],
     })),
   });
-  // "Happy to show you" was the AI's, not typed by the person (decision 181).
+  // "Happy to show you" was the AI's, not typed by the person (decision 182).
   await backToTheAi(owner, ws);
   await rows(
     admin(),

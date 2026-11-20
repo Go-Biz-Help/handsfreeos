@@ -494,7 +494,7 @@ describe('each network’s own lists, asks and Today', () => {
       dana,
       ws,
       'outreach.touch.save',
-      // The extension's own: one the person typed would leave Sam in their hands (decision 181).
+      // The extension's own: one the person typed would leave Sam in their hands (decision 182).
       { platform: 'linkedin', kind: 'message', profile: sam, name: 'Sam Lee', auto: true },
       new Date(Date.now() - HOUR),
     );

@@ -166,7 +166,7 @@ export function NeedsYou({
 }
 
 /**
- * The asks about people in the person's hands (decision 181): they wrote back an hour of working hours ago, or the AI
+ * The asks about people in the person's hands (decision 182): they wrote back an hour of working hours ago, or the AI
  * would have followed up by now. Let the AI take it gives them back; Keep it mine keeps them till the next time.
  */
 function HandsAsks({ workspaceId, asks }: { workspaceId: string; asks: readonly HandsAsk[] }) {

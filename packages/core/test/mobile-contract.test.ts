@@ -240,7 +240,7 @@ const ONLINE_COMMANDS = [
   // Give back to the AI.
   'person.take_over',
   'person.hand_back',
-  // Social Outreach's In your hands (decision 181): Take over and Give back in the person menu, Keep it mine on the ask.
+  // Social Outreach's In your hands (decision 182): Take over and Give back in the person menu, Keep it mine on the ask.
   'outreach.hands.take',
   'outreach.hands.give_back',
   'outreach.hands.keep',

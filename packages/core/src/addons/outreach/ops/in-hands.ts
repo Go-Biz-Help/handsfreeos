@@ -1,5 +1,5 @@
 /**
- * In your hands on Social Outreach (../in-hands.ts, docs/outreach.md decision 181): who's held, putting someone there
+ * In your hands on Social Outreach (../in-hands.ts, docs/outreach.md decision 182): who's held, putting someone there
  * and giving them back, the ask on Needs you, and the list. A profile is held by its own row here, or by its customer
  * in core's app.people_in_hands; putting one in hands here puts its customer in the same person's hands in core
  * (`person.note_by_hand`, `person.take_over`), and giving one back gives the customer back (`person.hand_back`), each
