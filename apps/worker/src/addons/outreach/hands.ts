@@ -1,5 +1,5 @@
 /**
- * In your hands in the worker (docs/outreach.md, decision 182; core's ./in-hands.ts):
+ * In your hands in the worker (docs/outreach.md, decision 185; core's ./in-hands.ts):
  *
  * - **The ask's push** (`outreach.hands_ask`, one job a profile): someone taken into a person's hands, kept with Keep
  *   it mine (`outreach.hands.taken`), or who wrote back (`outreach.reply.seen`) has their ask looked at. Whether it's

@@ -273,7 +273,7 @@ describe('Today on Instagram', () => {
       owner,
       ws,
       'outreach.touch.save',
-      // The extension's own (decision 182: one the person typed would leave them in the person's hands).
+      // The extension's own (decision 185: one the person typed would leave them in the person's hands).
       { platform: 'instagram', kind: 'message', profile: account(username), name, auto: true },
       at,
     );

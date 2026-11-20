@@ -4906,14 +4906,14 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **How it's built** (no migration, no extension change): `script.ts`, `today.ts` and `sends.ts` in Social
         Outreach.
 
-182.  **In your hands: the AI holds off someone the person wrote to themselves** (Chris, 19 Nov 2026: "the social
+185.  **In your hands: the AI holds off someone the person wrote to themselves** (Chris, 19 Nov 2026: "the social
       outreach needs to recognize when the user sent a manual message last and so the ai should hold off, if it feels
       it needs to respond to something or follow up then it should ask the user if they want to give ai the reigns for
       this contact again. there should also be a list of contacts that are im the users hands because they last
       contacted them and then give them the option to relinquish control, also should be able to take manual control
       from anyone with an option next to the don't pitch and don't contact option", and the same for texts and email
       in core; their picks, all "a", and "manual corrections or adjustments i make for the ai to send" stay the AI's).
-      Core's half is `app.people_in_hands` (migration 029800, "In your hands" in `docs/operations.md`); this is
+      Core's half is `app.people_in_hands` (migration 030900, "In your hands" in `docs/operations.md`); this is
       Social Outreach's:
       - **Who's in someone's hands** (`addon_outreach.hands`, one row a profile; or their customer in core's
         `app.people_in_hands`, whatever the row says). A message the person typed themselves puts them there, on any
@@ -4941,7 +4941,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         Contacts; given back in Contacts, every profile of theirs here is too (`person.handed_back`,
         `outreach.hands.release`). A row given back stays, so a message read later that was written before never
         takes them again.
-      - **How it's built**: migration 029900 (the table, `profiles.copied_at`, and a look back over the last 30 days
+      - **How it's built**: migration 031000 (the table, `profiles.copied_at`, and a look back over the last 30 days
         of chats and Sends, which took a handful of people on the live database), `in-hands.ts` and `ops/in-hands.ts`, the
         checks in `ops/activity.ts`, `ops/chats.ts`, `ops/sends.ts`, `ops/today.ts` and `ops/waiting.ts`; the web's
         `hands-view.tsx`, the phone's `hands.tsx`, both person menus and both Needs you. No extension change: a reply
@@ -5763,7 +5763,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   `mayClear`, `mayPress`) and the tab's (`HelperHands`) both hold it; widen `HELPER_BUTTONS` only with the owner's
   OK, and never for a message, a comment, a removal or a like. Its view never holds what a person wrote or the
   name of the person the step is for.
-- **Someone in a person's hands gets no message from the AI** (decision 182): a profile with an `addon_outreach.hands`
+- **Someone in a person's hands gets no message from the AI** (decision 185): a profile with an `addon_outreach.hands`
   row not given back, or whose customer is in core's `app.people_in_hands`. Anything new that drafts, queues or OKs a
   message checks `heldAmong` or `notHeldNow` (`ops/in-hands.ts`); likes and comments don't. What counts as typed by
   hand is `byHandAt` and `theAisLately`: widen what counts as the AI's freely, but never count an AI draft the person

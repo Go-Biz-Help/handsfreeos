@@ -43,7 +43,7 @@ describe('every reply, in a business', () => {
       owner,
       ws,
       'outreach.touch.save',
-      // The extension's own message: one the person typed would leave them in the person's hands (decision 182).
+      // The extension's own message: one the person typed would leave them in the person's hands (decision 185).
       {
         kind,
         profile: fb(username),

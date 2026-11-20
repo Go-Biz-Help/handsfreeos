@@ -126,7 +126,7 @@ describe('on the person’s list and in their drafts', () => {
   let ws: string;
 
   // Each read, then back to the AI: what's tried here is where the chat is (decision 134), not whose hands they're in
-  // after the person's own words in it (decision 182, test/addons/outreach-in-hands.test.ts).
+  // after the person's own words in it (decision 185, test/addons/outreach-in-hands.test.ts).
   const collect = (name: string, username: string, thread: string, messages: unknown[]) =>
     runAs(owner, ws, 'outreach.chats.collect', {
       chats: [{ name, thread: { id: thread, encrypted: false }, profile: fb(username), messages }],

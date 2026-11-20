@@ -388,7 +388,7 @@ export const waiting = defineAddonQuery(outreachAddon, {
       automationOf(ctx, me, now),
       workspaceTimezone(ctx.tx, ctx.scope.workspaceId!),
     ]);
-    // Someone in the person's hands who wrote back, or whom the AI would have followed up (decision 182): the ask.
+    // Someone in the person's hands who wrote back, or whom the AI would have followed up (decision 185): the ask.
     const handsAsked = await handsAsks(ctx, me, now, auto.settings.hours, timezone);
     const counted = kinds.get(me)!;
     const items: WaitingItem[] = [];

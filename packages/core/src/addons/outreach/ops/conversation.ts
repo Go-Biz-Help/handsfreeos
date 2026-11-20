@@ -398,7 +398,7 @@ export const conversationNote = defineAddonCommand(outreachAddon, {
     if (!profile)
       throw HfosError.notFound('That person isn’t kept here anymore. Reload your list.');
     const at = changeMoment(ctx.meta);
-    // The AI's draft, copied to send: read in the chat later, it stays the AI's (decision 182).
+    // The AI's draft, copied to send: read in the chat later, it stays the AI's (decision 185).
     await ctx.tx.update(profiles).set({ copiedAt: at }).where(eq(profiles.id, profile.id));
     // A partner's moves them along the Partners list, never a customer conversation (decision 81).
     if (input.kind.startsWith('partner_')) {

@@ -197,9 +197,9 @@ export const outreachAddonWorker: AddonWorkerModule = {
     'outreach.group.looked': groupLooked,
     // A helpful post asked for is written by the AI (./helpful.ts, decision 50).
     'outreach.helpful.asked': helpfulAsked,
-    // And of those in someone's hands, the ask (./hands.ts, decision 182).
+    // And of those in someone's hands, the ask (./hands.ts, decision 185).
     'outreach.reply.seen': both(andWeekly(replySeen), handsReplySeen),
-    // Someone in a person's hands, kept, or given back in Contacts (./hands.ts, decision 182).
+    // Someone in a person's hands, kept, or given back in Contacts (./hands.ts, decision 185).
     'outreach.hands.taken': handsTaken,
     'person.handed_back': handedBack,
     // A reply handed over pushes at once (./alerts.ts); any other message that waits for the person's OK, and a

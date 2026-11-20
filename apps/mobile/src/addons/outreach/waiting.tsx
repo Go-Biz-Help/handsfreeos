@@ -126,7 +126,7 @@ type Request = Extract<WaitingOutput['items'][number], { kind: 'request' }>['req
  */
 export interface WaitingFromServer {
   readonly asks: readonly Asked[];
-  /** The asks about people in the person's hands (decision 182): left out by answers from before it. */
+  /** The asks about people in the person's hands (decision 185): left out by answers from before it. */
   readonly hands?: readonly HandsAsk[];
   readonly needs: readonly Need[];
   readonly requests: readonly Request[];
@@ -371,7 +371,7 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
         failed(e);
       }
     },
-    // In your hands (decision 182): give them back, or keep them till the next time. With signal only.
+    // In your hands (decision 185): give them back, or keep them till the next time. With signal only.
     onHands: async (ask, letAi) => {
       try {
         if (letAi)
@@ -443,7 +443,7 @@ export function WaitingBody({
   /** Autopilot's day's list (decision 151), first while anyone waits, else a line at the bottom (decision 160): null while it's off, or with no word from HandsFreeOS. */
   autopilot?: AutopilotOutput | null;
   onAutopilot?: AutopilotAnswerOf;
-  /** Let the AI take it, or Keep it mine, on an ask about someone in the person's hands (decision 182). */
+  /** Let the AI take it, or Keep it mine, on an ask about someone in the person's hands (decision 185). */
   onHands?: (ask: HandsAsk, letAi: boolean) => void;
 }) {
   const [changing, setChanging] = React.useState<PhoneSend | null>(null);
@@ -690,7 +690,7 @@ export function WaitingBody({
   );
 }
 
-/** An ask about someone in the person's hands (decision 182): what happened, and the two answers. */
+/** An ask about someone in the person's hands (decision 185): what happened, and the two answers. */
 function HandsAskCard({
   ask,
   online,

@@ -5095,7 +5095,7 @@ export const dayStarts = app.table(
 );
 
 /**
- * In your hands (20261027029800): a customer a person on the team has taken on, by writing or calling them
+ * In your hands (20261027030900): a customer a person on the team has taken on, by writing or calling them
  * themselves or with Take over. The AI holds off them everywhere until someone gives them back.
  */
 export const peopleInHands = app.table('people_in_hands', {

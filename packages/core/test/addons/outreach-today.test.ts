@@ -168,7 +168,7 @@ describe('the list for today', () => {
         },
       ],
     });
-    // "Happy to show you" was the AI's, not typed by the person (decision 182).
+    // "Happy to show you" was the AI's, not typed by the person (decision 185).
     await backToTheAi(owner, ws);
     await rows(
       admin(),

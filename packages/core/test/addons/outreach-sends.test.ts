@@ -590,7 +590,7 @@ describe('messages on their own', () => {
             ],
           },
         ],
-      }).then(() => backToTheAi(member, ws)); // "How’s business?" was the AI's (decision 182).
+      }).then(() => backToTheAi(member, ws)); // "How’s business?" was the AI's (decision 185).
     const chatOf = async (name: string) => {
       const [c] = await rows<{ id: string; profile_id: string }>(
         admin(),

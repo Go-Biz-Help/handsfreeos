@@ -18,7 +18,7 @@
  * - **Potential partner** (`outreach.partner.potential`, decision 130), onto the person's Partners list with partner
  *   messages, under why the AI thinks so when it does, or **Not a partner after all**;
  * - **Later**, off the person's own Today for 2 weeks, or **Take off Later** (`outreach.later.set`, decision 100);
- * - **Take over** or **Give back to the AI** (`outreach.hands.take`, `outreach.hands.give_back`, decision 182);
+ * - **Take over** or **Give back to the AI** (`outreach.hands.take`, `outreach.hands.give_back`, decision 185);
  * - who reached them first, and for an owner or admin **Give them to {teammate}** (`outreach.owner.move`, decision
  *   107);
  * - **Don't pitch** and **Never contact**, or taking them off, or who put them on: left out where the row has its own
@@ -356,7 +356,7 @@ function NameMenu({
       );
       toast.success(laterSetWords(name, out));
     });
-  // In your hands (decision 182): Take over holds the AI back from messaging them; Give back lets it pick up again.
+  // In your hands (decision 185): Take over holds the AI back from messaging them; Give back lets it pick up again.
   const hands = (take: boolean) =>
     void act(
       'hands',

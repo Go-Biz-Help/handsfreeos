@@ -1,4 +1,4 @@
--- Social Outreach: In your hands (docs/outreach.md, decision 182; core's side is 20261027029800).
+-- Social Outreach: In your hands (docs/outreach.md, decision 185; core's side is 20261027030900).
 --
 -- The owner, 19 Nov 2026: "the social outreach needs to recognize when the user sent a manual message last and so the
 -- ai should hold off, if it feels it needs to respond to something or follow up then it should ask the user if they
@@ -114,7 +114,7 @@ select l.profile_id, l.workspace_id, l.user_id, 'wrote', l.platform, l.at, l.at
       where f.profile_id = l.profile_id and f.last_at between l.at - interval '2 hours' and l.at + interval '15 minutes')
 on conflict (profile_id) do nothing;
 
--- Those on a customer are in that person's hands in core too, as a message typed today puts them (core's 029800 does
+-- Those on a customer are in that person's hands in core too, as a message typed today puts them (core's 030900 does
 -- the rest for a customer reached in HandsFreeOS).
 with held as (
   select distinct on (p.person_id) p.person_id, h.workspace_id, h.user_id, h.place, h.since, h.last_at

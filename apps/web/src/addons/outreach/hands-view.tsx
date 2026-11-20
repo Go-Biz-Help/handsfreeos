@@ -1,6 +1,6 @@
 'use client';
 /**
- * People's In your hands (docs/outreach.md, decision 182; core's ./in-hands.ts): everyone someone on the team wrote
+ * People's In your hands (docs/outreach.md, decision 185; core's ./in-hands.ts): everyone someone on the team wrote
  * to themselves, or took over, whom the AI sends no messages till someone gives them back. Each row says whose hands
  * and when, with Give back to the AI; Give all back takes the whole list, or only the person's own with Only mine.
  */

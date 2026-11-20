@@ -196,7 +196,7 @@ describe('The person menu on the phone', () => {
       'person-demo-mark',
       'person-partner',
       'person-later',
-      // Take over (decision 182), beside the lists.
+      // Take over (decision 185), beside the lists.
       'person-hands',
       'person-dont-pitch',
       'person-never-contact',

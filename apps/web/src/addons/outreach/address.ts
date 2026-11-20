@@ -10,7 +10,7 @@
  *   (`/people`, `?show=ready`… for one stage, else the board), their friends (`/people/friends`, `?show=fits`,
  *   `requests`, `sent`, `keep`, `dont_pitch` or `never_contact`), their chats (`/people/chats`, `?show=tagged`, `read`
  *   or `waiting`, and a tag `?tag=`), their Partners list (`/people/partners`, `?show=asked`… for one stage, else
- *   everyone), those in someone's hands (`/people/hands`, `?mine=1` for the person's own, decision 182), and those the
+ *   everyone), those in someone's hands (`/people/hands`, `?mine=1` for the person's own, decision 185), and those the
  *   country setting skips (`/people/skipped`).
  * - **Find people** (`/find`): a card for each way new people are found, and the groups (`/find/groups`, `?show=maybe`,
  *   `skip` or `all`, else Work these), with a group's own page (`?group=` its id, decision 103): who was found there

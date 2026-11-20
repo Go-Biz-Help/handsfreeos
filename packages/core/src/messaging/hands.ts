@@ -1,5 +1,5 @@
 /**
- * In your hands (20261027029800; the owner, 19 Nov 2026, "all your picks"): a customer someone on the team is
+ * In your hands (20261027030900; the owner, 19 Nov 2026, "all your picks"): a customer someone on the team is
  * talking to themselves. A message a person sends them (in HandsFreeOS, from their own mailbox, or typed in Facebook's
  * or Instagram's own inbox), a call a person makes, or Take over puts them in that person's hands, and the AI holds
  * off them everywhere: each of their conversations is a person's, and the AI teammate, its follow-ups, funnels and

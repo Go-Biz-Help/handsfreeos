@@ -43,7 +43,7 @@ export type OutreachTab =
   | 'chats'
   | 'never_contact'
   | 'partners'
-  // People → In your hands (decision 182).
+  // People → In your hands (decision 185).
   | 'hands'
   | 'results'
   | 'playbooks'

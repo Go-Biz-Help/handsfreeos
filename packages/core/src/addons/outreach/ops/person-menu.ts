@@ -318,7 +318,7 @@ export const profileMarks = defineAddonQuery(outreachAddon, {
         },
         await localOf(ctx, me),
       ),
-      // In someone's hands (decision 182): whose, for Give back to the AI.
+      // In someone's hands (decision 185): whose, for Give back to the AI.
       inHands: (await handsPeople(ctx, me, { profileId: profile.id, limit: 1 })).people[0] ?? null,
     };
   },
