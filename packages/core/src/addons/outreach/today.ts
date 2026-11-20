@@ -1198,13 +1198,16 @@ export const firstStepFact = (kind: DraftKind, step: string | null | undefined):
 export const RECONNECT_CATCH_UP =
   'They’ve chatted with the owner before, but neither has written in over a month. Write a short, warm message that picks things up again from what their pages say or what the chat was about, and asks how they are or how their work is going. Don’t pitch.';
 
+/** The introduction's line on what the owner and they have in common (decision 181, ./script.ts `STARTING_INTRO`). */
+const IN_COMMON = /\[something you have in common\]/i;
+
 /**
  * A first message on a follow network (Instagram's) to someone who hasn't followed the owner back (`TodayItem.requests`):
  * it lands in their Requests, which passes only one text till they accept it. So it's the same short question as any
  * first message (decision 137), as one text, with no link, no video and no price.
  */
 export const requestsTask = (first: string): string =>
-  `The owner followed them a few days ago and they haven’t followed back, so this message lands in their message Requests, where Instagram passes only one text till they accept it. Write that one first message as one text, never split into texts. ${asMessage('the first message', first, true)} Never say how the offer works or the price in it, and no link, no video and no web address, whatever the playbook’s words have.`;
+  `The owner followed them a few days ago and they haven’t followed back, so this message lands in their message Requests, where Instagram passes only one text till they accept it. Write that one first message as one text, never split into texts. ${asMessage('the first message', first, true)} Never say how the offer works or the price in it, and no link, no video and no web address, whatever the playbook’s words have.${IN_COMMON.test(first) ? ' To keep it short, leave out [something you have in common] and its line.' : ''}`;
 
 /** What a message to their Requests may be at most: one short text. */
 export const REQUESTS_MESSAGE_MOST = 300;

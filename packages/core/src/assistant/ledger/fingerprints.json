@@ -575,7 +575,7 @@
   "apps/web/src/addons/outreach/person-menu.tsx": "861b8c9a836f",
   "apps/web/src/addons/outreach/person-panel.tsx": "12eb4039a5b3",
   "apps/web/src/addons/outreach/pipeline-view.tsx": "e1d6f4c59064",
-  "apps/web/src/addons/outreach/playbook-builder.tsx": "0fd1598da194",
+  "apps/web/src/addons/outreach/playbook-builder.tsx": "005174edef16",
   "apps/web/src/addons/outreach/playbook-test.tsx": "24d6b30fe7c6",
   "apps/web/src/addons/outreach/playbooks-page.tsx": "c0aeee0bd02b",
   "apps/web/src/addons/outreach/post-quote.tsx": "0d00a6705d36",
