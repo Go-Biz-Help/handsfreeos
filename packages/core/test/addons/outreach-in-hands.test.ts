@@ -1,5 +1,5 @@
 /**
- * Social Outreach: In your hands (docs/outreach.md, decision 185; core's side is test/in-hands.test.ts).
+ * Social Outreach: In your hands (docs/outreach.md, decision 182; core's side is test/in-hands.test.ts).
  * - A message the person typed themselves puts that person in their hands: noted by the extension, or read in a chat.
  *   One HandsFreeOS drafted (the whole of it, a paragraph, or enough of it), one the extension sent then, or a line
  *   the reader took from the page, never does.

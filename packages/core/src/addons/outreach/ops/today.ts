@@ -51,6 +51,7 @@ import {
   type FollowUpNext,
 } from '../conversation';
 import { paceOf, takesStep, type Platform } from '../playbooks';
+import { hasWays } from '../script';
 import {
   leftToday,
   RECOMMEND_PER_DAY,
@@ -128,7 +129,16 @@ import { goalFacts } from './goal';
 import { fewAhead, goalTries, goalWhy } from '../goal';
 import { foundByTopicSince, workingBuild } from './live';
 import { visitsDue } from './keep-warm';
-import { keepWarmOn, VISIT_LIKES, visitLikes, visitWhy, warmUpEnds } from '../keep-warm';
+import {
+  keepWarmOn,
+  VISIT_GAP_DAYS,
+  VISIT_LIKES,
+  visitLikes,
+  visitWhy,
+  WARM_BEFORE_HI_DAYS,
+  warmBeforeHiWhy,
+  warmUpEnds,
+} from '../keep-warm';
 import { playbooksInUse } from './friends';
 import { retrySince } from './needs';
 import { readinessFor } from './readiness';
@@ -1249,11 +1259,23 @@ export async function todayFor(
   // a conversation had. Each waits the playbook's days after becoming friends, the good fits before the maybes.
   // While every playbook in use here starts with an introduction (decision 168, the owner's 3b), everyone who
   // connected with the person lately is greeted too, a check or not, unless a check found them not a fit.
+  //
+  // A few days of warm-up first (decision 183, the owner's 4b): while the person's warm-ups are on, a playbook here
+  // warms up and their computer does visits, someone who accepted fast, or was a friend already, waits for Say hi till
+  // their first like is `WARM_BEFORE_HI_DAYS` old, or a visit found nothing to like. Meanwhile a visit every few days at
+  // random likes 1 or 2 of their newest posts, as for someone deciding on a request, with the day's likes left.
   const openersLeft = leftToday(limits, 'opener');
   if (openersLeft) {
     const intro = introsOnly(playbooks);
     const connected = intro ? connectedToMe(me) : sql`false`;
     const fresh = sql`((${acceptedMine(me)} or ${connected}) and f.since >= ${ago(TODAY_WINDOW_DAYS.opener)}::timestamptz)`;
+    const warmFirst =
+      settings.warmUp && takesStep(playbooks, 'engage') && keepWarmOn(await workingBuild(ctx, me));
+    const firstLike = sql`(select min(t.at) from addon_outreach.touches t
+        where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like')`;
+    const warmedUp = warmFirst
+      ? sql`(p.warm_up_missed_at is not null or coalesce(${firstLike} <= ${ago(WARM_BEFORE_HI_DAYS)}::timestamptz, false))`
+      : sql`true`;
     const accepted = await rows<{
       id: string;
       name: string;
@@ -1281,9 +1303,68 @@ export async function todayFor(
             left join addon_outreach.playbooks pb on pb.id = ch.playbook_id
             where f.workspace_id = ${ws} and f.since <= ${ago(pace.messageAfterDays)}::timestamptz
               and ${sayHiReady(me, ago(TODAY_WINDOW_DAYS.opener), reach, intro)}
+              and ${warmedUp}
             order by ${fresh} desc, (ch.verdict = 'good') desc nulls last, f.since desc, p.id
             limit ${openersLeft}`,
     );
+    // Those still warming up before it: a visit when it's due, the last one a random 1 to 3 days back (`visitsDue`'s
+    // gap), with what's left of the day's likes.
+    const likesTaken = items.reduce(
+      (n, i) => n + (i.kind === 'warm_up' ? (i.keepWarm?.likes ?? 1) : 0),
+      0,
+    );
+    const hiLikes = warmFirst ? Math.max(0, likeRoom - likesTaken) : 0;
+    const span = VISIT_GAP_DAYS.most - VISIT_GAP_DAYS.least + 1;
+    const warming =
+      hiLikes >= VISIT_LIKES.least
+        ? await rows<{
+            id: string;
+            name: string;
+            url: string;
+            first_like: Date | string | null;
+            playbook_name: string | null;
+          }>(
+            ctx.tx,
+            sql`select p.id, p.name, p.url, ${firstLike} as first_like, pb.name as playbook_name
+                from addon_outreach.friends f
+                join addon_outreach.profiles p on p.id = f.profile_id
+                left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
+                left join addon_outreach.playbooks pb on pb.id = ch.playbook_id
+                cross join lateral (select (select max(t.at) from addon_outreach.touches t
+                    where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like') as visited) lv
+                where f.workspace_id = ${ws}
+                  and ${sayHiReady(me, ago(TODAY_WINDOW_DAYS.opener), reach, intro)}
+                  and not ${warmedUp}
+                  and (lv.visited is null
+                    or lv.visited < ${todayStart.toISOString()}::timestamptz - make_interval(days =>
+                      ${VISIT_GAP_DAYS.least - 1}::int
+                        + mod(abs(hashtext(p.id::text || ':' || (lv.visited at time zone 'UTC')::date::text)::bigint),
+                          ${span}::bigint)::int))
+                order by ${fresh} desc, (ch.verdict = 'good') desc nulls last, f.since desc, p.id
+                limit ${Math.floor(hiLikes / VISIT_LIKES.least)}`,
+          )
+        : [];
+    let hiLeft = hiLikes;
+    for (const w of warming) {
+      const likes = Math.min(visitLikes(w.id, todayStart.toISOString().slice(0, 10)), hiLeft);
+      if (likes < VISIT_LIKES.least) break;
+      hiLeft -= likes;
+      const hiFrom = new Date(
+        (w.first_like === null ? now : new Date(w.first_like).getTime()) +
+          WARM_BEFORE_HI_DAYS * DAY,
+      );
+      items.push(
+        item({
+          kind: 'warm_up',
+          name: w.name,
+          profileId: w.id,
+          profileUrl: w.url,
+          why: warmBeforeHiWhy(hiFrom),
+          playbookName: w.playbook_name,
+          keepWarm: { likes, until: hiFrom.toISOString(), hi: true },
+        }),
+      );
+    }
     for (const p of accepted) {
       const when = dayWords(p.since, now);
       const how = p.mine
@@ -2101,9 +2182,13 @@ export async function todayFor(
   const onStep = (i: TodayItem) => {
     const step = stepOfItem(i);
     if (step === null || (i.postId !== null && replyPosts.has(i.postId))) return true;
+    // A first message goes only from a playbook with a way ticked to start a chat (decision 183): a new one starts with
+    // none, and starts no chat till one is.
+    if (i.kind === 'opener' && playbooks.length)
+      return playbooks.some((p) => p.details.steps.includes('message') && hasWays(p.details));
     return takesStep(playbooks, step);
   };
-  // Someone in a person's hands gets no message from the AI (decision 185): likes, comments and the rest still go.
+  // Someone in a person's hands gets no message from the AI (decision 182): likes, comments and the rest still go.
   const inHands = await heldAmong(
     ctx,
     items.filter(isMessage).flatMap((i) => (i.profileId ? [i.profileId] : [])),

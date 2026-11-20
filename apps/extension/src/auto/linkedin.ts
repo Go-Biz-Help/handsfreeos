@@ -39,7 +39,7 @@ import { visitLine, visitPicks } from '@hfos/core/addons/outreach/keep-warm';
 import { businessDay } from '@hfos/core/addons/outreach/automation';
 import type { MessageKind } from '@hfos/core/addons/outreach/automation';
 import { ASK_FIRST_WORDS } from '@hfos/core/addons/outreach/asks';
-import { CHECKS_PER_DAY } from '@hfos/core/addons/outreach/checks';
+import { CHECKS_PER_DAY, checksBatchOf } from '@hfos/core/addons/outreach/checks';
 import {
   fallbackLikePick,
   LIKE_POSTS_READ,
@@ -62,7 +62,14 @@ import { answer, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
 import { chatMemory, LINKEDIN_MESSAGING, readChats } from '../jobs/chats';
 import { NO_RESEARCH, researchRuns } from '../jobs/comment-research';
-import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
+import {
+  pause as settle,
+  valueOf,
+  warnedLine,
+  type Hfos,
+  type Job,
+  type JobEnd,
+} from '../jobs/job';
 import { readLinkedInComments } from '../jobs/linkedin/comment-research';
 import { reporter } from '../jobs/report';
 import { checkConnections, isThem, readThemOnLinkedIn } from '../jobs/linkedin/checks';
@@ -107,7 +114,6 @@ import {
 } from './lists';
 import {
   afterDaily,
-  AGAIN_WORDS,
   ANSWERING,
   answersAnyTime,
   freshState,
@@ -618,7 +624,7 @@ async function visit(item: TodayListItem, businessId: string, likes: number): Pr
   if (!theirs.ok) throw new Error(theirs.error);
   const picks = visitPicks(theirs.posts, likes, neverLike);
   if (!picks.length) {
-    const line = visitLine(item.name, PLATFORM, 0);
+    const line = visitLine(item.name, PLATFORM, 0, item.keepWarm?.hi === true);
     await missed(item, businessId, line);
     return { done: true, line };
   }
@@ -659,7 +665,7 @@ async function visit(item: TodayListItem, businessId: string, likes: number): Pr
     );
     liked++;
   }
-  return { done: true, line: visitLine(item.name, PLATFORM, liked) };
+  return { done: true, line: visitLine(item.name, PLATFORM, liked, item.keepWarm?.hi === true) };
 }
 
 /** Where you stand with them, in words: for a step passed over. */
@@ -1076,8 +1082,32 @@ async function sendMessage(
   return { done: true, line: partly ?? `Sent ${item.name} a message` };
 }
 
-/** Does a piece of work: a step on the list, a draft, or a send. */
-export function doWork(work: Work, businessId: string, split: boolean): Promise<Outcome> {
+/**
+ * A LinkedIn warning that came after a step's own read, on a page LinkedIn moved to once it had drawn: its security
+ * check (/checkpoint/challenge/…), from the owner's problem reports of 19 Nov 2026 (0.147.11), where a warm-up read
+ * their profile's address before LinkedIn went on to its check, said "LinkedIn showed a different page", and the next
+ * two steps were handed over the same way. The page is read again once it has settled: its warning stops LinkedIn for
+ * the day, as one read in time does. Null with none, or with no window open.
+ */
+async function warnedLate(businessId: string): Promise<{ readonly stop: string } | null> {
+  if (tab.tabId === null) return null;
+  await settle(SETTLE_MS);
+  const page = await read().catch(() => null);
+  const stop = page ? await warnedOn(page, businessId) : null;
+  return stop ? { stop } : null;
+}
+
+/**
+ * Does a piece of work: a step on the list, a draft, or a send. One that didn't go, on a page that shows a LinkedIn
+ * warning by then, stops for the day instead (`warnedLate`).
+ */
+export async function doWork(work: Work, businessId: string, split: boolean): Promise<Outcome> {
+  const outcome = await workDone(work, businessId, split);
+  if ('stop' in outcome || outcome.done || outcome.skip) return outcome;
+  return (await warnedLate(businessId)) ?? outcome;
+}
+
+function workDone(work: Work, businessId: string, split: boolean): Promise<Outcome> {
   if (work.do === 'draft') return draftMessage(work.item, businessId);
   if (work.do === 'send') return sendMessage(work.item, businessId, split);
   switch (work.item.kind) {
@@ -1171,6 +1201,15 @@ const reporting = (job: Job, kind: LinkedInDaily): Job => ({
     }),
 });
 
+/**
+ * How many profiles LinkedIn's checks read in one go (decision 184): a few at a time, each next few 35 to 60 minutes
+ * later (`again`, plan.ts `afterDaily`), so the day's 40 spread through the day.
+ */
+const LINKEDIN_BATCH = checksBatchOf(PLATFORM) ?? CHECKS_PER_DAY;
+
+/** The words a day's last line adds while LinkedIn's checks wait for their next few (decision 184). */
+export const LINKEDIN_AGAIN_WORDS = 'It reads more profiles later today, a few at a time.';
+
 /** Does one of LinkedIn's once-a-day jobs. */
 export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<JobEnd> {
   switch (kind) {
@@ -1181,7 +1220,7 @@ export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<J
     case 'tidy':
       return withdrawOnItsOwn(job);
     case 'checks':
-      return checkConnections(job, CHECKS_PER_DAY);
+      return checkConnections(job, LINKEDIN_BATCH);
     case 'partners':
       return checkPartners(job, PARTNER_CHECKS_PER_DAY, {
         platform: PLATFORM,
@@ -1215,7 +1254,7 @@ export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<J
       // A post it couldn't read, or whose box of who reacted didn't open or read nobody, is noted with its outline.
       return readPostPeople(reporting(job, kind));
     case 'found_checks':
-      return checkFound(job, { platform: PLATFORM, read: readThemOnLinkedIn });
+      return checkFound(job, { platform: PLATFORM, read: readThemOnLinkedIn }, LINKEDIN_BATCH);
     case 'comment_research':
       return readLinkedInComments(job);
     case 'profile':
@@ -1461,7 +1500,7 @@ async function go(): Promise<void> {
           : state.tried.length
             ? `Done for today on ${NAME}. It looks again within the hour for anything new.`
             : `Nothing on your ${NAME} list for it to do yet.`
-      }${again !== null ? ` ${AGAIN_WORDS}` : ''}`,
+      }${again !== null ? ` ${LINKEDIN_AGAIN_WORDS}` : ''}`,
     );
     return goAt(
       Math.min(

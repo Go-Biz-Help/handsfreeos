@@ -46241,10 +46241,11 @@ export interface operations {
                                 /** @default null */
                                 opener: {
                                     /** @enum {string} */
-                                    kind: "style" | "own" | "intro";
+                                    kind: "style" | "own" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck";
                                     /** Format: uuid */
                                     playbookId: string;
                                     text: string;
+                                    ways?: ("pitch" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck")[];
                                 } | null;
                                 /** @default false */
                                 queued: boolean;
@@ -46317,10 +46318,11 @@ export interface operations {
                                 /** @default null */
                                 opener: {
                                     /** @enum {string} */
-                                    kind: "style" | "own" | "intro";
+                                    kind: "style" | "own" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck";
                                     /** Format: uuid */
                                     playbookId: string;
                                     text: string;
+                                    ways?: ("pitch" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck")[];
                                 } | null;
                                 /** @default false */
                                 queued: boolean;
@@ -46364,10 +46366,11 @@ export interface operations {
                         /** @default null */
                         opener?: {
                             /** @enum {string} */
-                            kind: "style" | "own" | "intro";
+                            kind: "style" | "own" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck";
                             /** Format: uuid */
                             playbookId: string;
                             text: string;
+                            ways?: ("pitch" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck")[];
                         } | null;
                         /** @default false */
                         queued?: boolean;
@@ -46579,10 +46582,11 @@ export interface operations {
                                 /** @default null */
                                 opener: {
                                     /** @enum {string} */
-                                    kind: "style" | "own" | "intro";
+                                    kind: "style" | "own" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck";
                                     /** Format: uuid */
                                     playbookId: string;
                                     text: string;
+                                    ways?: ("pitch" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck")[];
                                 } | null;
                                 /** @default false */
                                 queued: boolean;
@@ -46694,10 +46698,11 @@ export interface operations {
                                 /** @default null */
                                 opener: {
                                     /** @enum {string} */
-                                    kind: "style" | "own" | "intro";
+                                    kind: "style" | "own" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck";
                                     /** Format: uuid */
                                     playbookId: string;
                                     text: string;
+                                    ways?: ("pitch" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck")[];
                                 } | null;
                                 /** @default false */
                                 queued: boolean;
@@ -51213,10 +51218,11 @@ export interface operations {
                 "application/json": {
                     opener: {
                         /** @enum {string} */
-                        kind: "style" | "own" | "intro";
+                        kind: "style" | "own" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck";
                         /** Format: uuid */
                         playbookId: string;
                         text: string;
+                        ways?: ("pitch" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck")[];
                     };
                     /** Format: uuid */
                     profileId: string;
@@ -51539,6 +51545,7 @@ export interface operations {
                                 callYes?: string;
                                 checkIn?: string;
                                 comment?: string;
+                                compliment?: string;
                                 demoOffer?: string;
                                 first?: string[];
                                 followUp?: string;
@@ -51549,13 +51556,20 @@ export interface operations {
                                 newJob?: string;
                                 no?: string;
                                 nudge?: string;
+                                opinion?: string;
+                                permission?: string;
                                 postReply?: string;
+                                problemCheck?: string;
                                 question?: string;
                                 reconnect?: string;
                                 referComment?: string;
                                 referNote?: string;
                                 reminder?: string;
                                 sendPeople?: string;
+                                sharedGround?: string;
+                                socialProof?: string;
+                                trigger?: string;
+                                valueFirst?: string;
                                 warmUp?: string;
                                 yes?: string;
                             };
@@ -51579,6 +51593,7 @@ export interface operations {
                                 }[];
                                 version: number | null;
                             } | null;
+                            ways?: ("pitch" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck")[];
                             wordsWritten?: ("facebook" | "instagram" | "linkedin" | "alignable" | "threads" | "x")[];
                             worksOnline?: boolean | null;
                             xSearches?: string[];
@@ -51592,6 +51607,7 @@ export interface operations {
                             callYes: string;
                             checkIn: string;
                             comment: string;
+                            compliment: string;
                             demoOffer: string;
                             first: string[];
                             followUp: string;
@@ -51602,13 +51618,20 @@ export interface operations {
                             newJob: string;
                             no: string;
                             nudge: string;
+                            opinion: string;
+                            permission: string;
                             postReply: string;
+                            problemCheck: string;
                             question: string;
                             reconnect: string;
                             referComment: string;
                             referNote: string;
                             reminder: string;
                             sendPeople: string;
+                            sharedGround: string;
+                            socialProof: string;
+                            trigger: string;
+                            valueFirst: string;
                             warmUp: string;
                             yes: string;
                         };
@@ -51695,6 +51718,7 @@ export interface operations {
                             callYes?: string;
                             checkIn?: string;
                             comment?: string;
+                            compliment?: string;
                             demoOffer?: string;
                             first?: string[];
                             followUp?: string;
@@ -51705,13 +51729,20 @@ export interface operations {
                             newJob?: string;
                             no?: string;
                             nudge?: string;
+                            opinion?: string;
+                            permission?: string;
                             postReply?: string;
+                            problemCheck?: string;
                             question?: string;
                             reconnect?: string;
                             referComment?: string;
                             referNote?: string;
                             reminder?: string;
                             sendPeople?: string;
+                            sharedGround?: string;
+                            socialProof?: string;
+                            trigger?: string;
+                            valueFirst?: string;
                             warmUp?: string;
                             yes?: string;
                         };
@@ -51735,6 +51766,7 @@ export interface operations {
                             }[];
                             version: number | null;
                         } | null;
+                        ways?: ("pitch" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck")[];
                         wordsWritten?: ("facebook" | "instagram" | "linkedin" | "alignable" | "threads" | "x")[];
                         worksOnline?: boolean | null;
                         xSearches?: string[];
@@ -51806,6 +51838,7 @@ export interface operations {
                             callYes?: string;
                             checkIn?: string;
                             comment?: string;
+                            compliment?: string;
                             demoOffer?: string;
                             first?: string[];
                             followUp?: string;
@@ -51816,13 +51849,20 @@ export interface operations {
                             newJob?: string;
                             no?: string;
                             nudge?: string;
+                            opinion?: string;
+                            permission?: string;
                             postReply?: string;
+                            problemCheck?: string;
                             question?: string;
                             reconnect?: string;
                             referComment?: string;
                             referNote?: string;
                             reminder?: string;
                             sendPeople?: string;
+                            sharedGround?: string;
+                            socialProof?: string;
+                            trigger?: string;
+                            valueFirst?: string;
                             warmUp?: string;
                             yes?: string;
                         };
@@ -51846,6 +51886,7 @@ export interface operations {
                             }[];
                             version: number | null;
                         } | null;
+                        ways?: ("pitch" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck")[];
                         wordsWritten?: ("facebook" | "instagram" | "linkedin" | "alignable" | "threads" | "x")[];
                         worksOnline?: boolean | null;
                         xSearches?: string[];
@@ -51937,6 +51978,7 @@ export interface operations {
                                 callYes?: string;
                                 checkIn?: string;
                                 comment?: string;
+                                compliment?: string;
                                 demoOffer?: string;
                                 first?: string[];
                                 followUp?: string;
@@ -51947,13 +51989,20 @@ export interface operations {
                                 newJob?: string;
                                 no?: string;
                                 nudge?: string;
+                                opinion?: string;
+                                permission?: string;
                                 postReply?: string;
+                                problemCheck?: string;
                                 question?: string;
                                 reconnect?: string;
                                 referComment?: string;
                                 referNote?: string;
                                 reminder?: string;
                                 sendPeople?: string;
+                                sharedGround?: string;
+                                socialProof?: string;
+                                trigger?: string;
+                                valueFirst?: string;
                                 warmUp?: string;
                                 yes?: string;
                             };
@@ -51977,6 +52026,7 @@ export interface operations {
                                 }[];
                                 version: number | null;
                             } | null;
+                            ways?: ("pitch" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck")[];
                             wordsWritten?: ("facebook" | "instagram" | "linkedin" | "alignable" | "threads" | "x")[];
                             worksOnline?: boolean | null;
                             xSearches?: string[];
@@ -51990,6 +52040,7 @@ export interface operations {
                             callYes: string;
                             checkIn: string;
                             comment: string;
+                            compliment: string;
                             demoOffer: string;
                             first: string[];
                             followUp: string;
@@ -52000,13 +52051,20 @@ export interface operations {
                             newJob: string;
                             no: string;
                             nudge: string;
+                            opinion: string;
+                            permission: string;
                             postReply: string;
+                            problemCheck: string;
                             question: string;
                             reconnect: string;
                             referComment: string;
                             referNote: string;
                             reminder: string;
                             sendPeople: string;
+                            sharedGround: string;
+                            socialProof: string;
+                            trigger: string;
+                            valueFirst: string;
                             warmUp: string;
                             yes: string;
                         };
@@ -53363,10 +53421,11 @@ export interface operations {
                     /** @default null */
                     opener?: {
                         /** @enum {string} */
-                        kind: "style" | "own" | "intro";
+                        kind: "style" | "own" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck";
                         /** Format: uuid */
                         playbookId: string;
                         text: string;
+                        ways?: ("pitch" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck")[];
                     } | null;
                     /** @default null */
                     postId?: string | null;
@@ -53402,10 +53461,11 @@ export interface operations {
                         needsYou: string | null;
                         opener: {
                             /** @enum {string} */
-                            kind: "style" | "own" | "intro";
+                            kind: "style" | "own" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck";
                             /** Format: uuid */
                             playbookId: string;
                             text: string;
+                            ways?: ("pitch" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck")[];
                         } | null;
                         post: string | null;
                         postId: string | null;
@@ -88911,10 +88971,11 @@ export interface operations {
                                 /** @default null */
                                 opener: {
                                     /** @enum {string} */
-                                    kind: "style" | "own" | "intro";
+                                    kind: "style" | "own" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck";
                                     /** Format: uuid */
                                     playbookId: string;
                                     text: string;
+                                    ways?: ("pitch" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck")[];
                                 } | null;
                                 /** @default false */
                                 queued: boolean;
@@ -91785,7 +91846,7 @@ export interface operations {
                                 current: boolean;
                                 demos: number;
                                 /** @enum {string} */
-                                kind: "style" | "own" | "intro";
+                                kind: "style" | "own" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck";
                                 replies: number;
                                 sent: number;
                                 text: string;
@@ -92168,6 +92229,7 @@ export interface operations {
                                     callYes?: string;
                                     checkIn?: string;
                                     comment?: string;
+                                    compliment?: string;
                                     demoOffer?: string;
                                     first?: string[];
                                     followUp?: string;
@@ -92178,13 +92240,20 @@ export interface operations {
                                     newJob?: string;
                                     no?: string;
                                     nudge?: string;
+                                    opinion?: string;
+                                    permission?: string;
                                     postReply?: string;
+                                    problemCheck?: string;
                                     question?: string;
                                     reconnect?: string;
                                     referComment?: string;
                                     referNote?: string;
                                     reminder?: string;
                                     sendPeople?: string;
+                                    sharedGround?: string;
+                                    socialProof?: string;
+                                    trigger?: string;
+                                    valueFirst?: string;
                                     warmUp?: string;
                                     yes?: string;
                                 };
@@ -92208,6 +92277,7 @@ export interface operations {
                                     }[];
                                     version: number | null;
                                 } | null;
+                                ways?: ("pitch" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck")[];
                                 wordsWritten?: ("facebook" | "instagram" | "linkedin" | "alignable" | "threads" | "x")[];
                                 worksOnline?: boolean | null;
                                 xSearches?: string[];
@@ -92221,6 +92291,7 @@ export interface operations {
                                 callYes: string;
                                 checkIn: string;
                                 comment: string;
+                                compliment: string;
                                 demoOffer: string;
                                 first: string[];
                                 followUp: string;
@@ -92231,13 +92302,20 @@ export interface operations {
                                 newJob: string;
                                 no: string;
                                 nudge: string;
+                                opinion: string;
+                                permission: string;
                                 postReply: string;
+                                problemCheck: string;
                                 question: string;
                                 reconnect: string;
                                 referComment: string;
                                 referNote: string;
                                 reminder: string;
                                 sendPeople: string;
+                                sharedGround: string;
+                                socialProof: string;
+                                trigger: string;
+                                valueFirst: string;
                                 warmUp: string;
                                 yes: string;
                             };
@@ -93543,10 +93621,11 @@ export interface operations {
                             needsYou: string | null;
                             opener: {
                                 /** @enum {string} */
-                                kind: "style" | "own" | "intro";
+                                kind: "style" | "own" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck";
                                 /** Format: uuid */
                                 playbookId: string;
                                 text: string;
+                                ways?: ("pitch" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck")[];
                             } | null;
                             post: string | null;
                             postId: string | null;
@@ -93907,6 +93986,7 @@ export interface operations {
                             demoBooked: boolean;
                             demoLink: string | null;
                             keepWarm?: {
+                                hi?: boolean;
                                 likes: number;
                                 /** Format: date-time */
                                 until: string;
@@ -93988,6 +94068,7 @@ export interface operations {
                             demoBooked: boolean;
                             demoLink: string | null;
                             keepWarm?: {
+                                hi?: boolean;
                                 likes: number;
                                 /** Format: date-time */
                                 until: string;
@@ -94269,10 +94350,11 @@ export interface operations {
                                     /** @default null */
                                     opener: {
                                         /** @enum {string} */
-                                        kind: "style" | "own" | "intro";
+                                        kind: "style" | "own" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck";
                                         /** Format: uuid */
                                         playbookId: string;
                                         text: string;
+                                        ways?: ("pitch" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck")[];
                                     } | null;
                                     /** @default false */
                                     queued: boolean;
@@ -94308,10 +94390,11 @@ export interface operations {
                                 needsYou: string | null;
                                 opener: {
                                     /** @enum {string} */
-                                    kind: "style" | "own" | "intro";
+                                    kind: "style" | "own" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck";
                                     /** Format: uuid */
                                     playbookId: string;
                                     text: string;
+                                    ways?: ("pitch" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck")[];
                                 } | null;
                                 post: string | null;
                                 postId: string | null;
@@ -94351,10 +94434,11 @@ export interface operations {
                                 needsYou: string | null;
                                 opener: {
                                     /** @enum {string} */
-                                    kind: "style" | "own" | "intro";
+                                    kind: "style" | "own" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck";
                                     /** Format: uuid */
                                     playbookId: string;
                                     text: string;
+                                    ways?: ("pitch" | "intro" | "valueFirst" | "trigger" | "compliment" | "opinion" | "socialProof" | "permission" | "sharedGround" | "problemCheck")[];
                                 } | null;
                                 post: string | null;
                                 postId: string | null;

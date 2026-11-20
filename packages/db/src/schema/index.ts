@@ -1221,6 +1221,53 @@ export const registrationReviews = app.table('registration_reviews', {
 });
 
 /**
+ * "Finish the check on my site" (20261027030500): a one-time code that opens the business's site in the person's
+ * browser, where our own chat or form code reads the site's pages for the texting registration's checks. Only the
+ * code's sha-256 is kept; it works for half an hour, for `site` only.
+ */
+export const siteChecks = app.table('site_checks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id')
+    .notNull()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull().unique(),
+  /** The site's host without www (core's siteHost). */
+  site: text('site').notNull(),
+  startUrl: text('start_url').notNull(),
+  /** The pages the registration names, read first. */
+  urls: jsonb('urls').$type<string[]>().notNull().default([]),
+  requestedBy: userRef('requested_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  expiresAt: ts('expires_at').notNull(),
+  pages: integer('pages').notNull().default(0),
+  finishedAt: ts('finished_at'),
+});
+
+/**
+ * A business's page read some other way than by our server (20261027030500): in the person's browser on a site check
+ * ('browser', used for half an hour), or written down from their screenshot ('screenshot', used for a month). Keyed by
+ * core's sitePageKey.
+ */
+export const sitePages = app.table(
+  'site_pages',
+  {
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    key: text('key').notNull(),
+    source: text('source').$type<'browser' | 'screenshot'>().notNull(),
+    url: text('url').notNull(),
+    finalUrl: text('final_url'),
+    status: integer('status'),
+    html: text('html').notNull(),
+    checkId: uuid('check_id').references(() => siteChecks.id, { onDelete: 'cascade' }),
+    readBy: userRef('read_by'),
+    readAt: ts('read_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.key, t.source] })],
+);
+
+/**
  * Milestone 17: moving a number a business already owns to us (0080).
  *
  * Deliberately **not** `app.port_state` and **not** `app.migration_port_requests` — that pair belongs to the
@@ -3133,6 +3180,8 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'documents',
   // The AI reading a business card scanned on the phone (20261027028700).
   'business_card',
+  // The AI writing down a screenshot of a page a texting registration's check couldn't open (20261027030500).
+  'site_screenshot',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
   'faq',

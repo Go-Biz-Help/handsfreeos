@@ -212,7 +212,7 @@ export const outreachAddon = defineAddon({
     // A comment research started or read has the worker sum it up when its days end or it's full (decision 166,
     // ./comment-research.ts).
     // A referral found pushes to the person who read its post (decision 174, ./referrals.ts).
-    // Someone coming into a person's hands, and a reply seen, arm the ask about them (decision 185, ./hands.ts); a
+    // Someone coming into a person's hands, and a reply seen, arm the ask about them (decision 182, ./hands.ts); a
     // customer given back to the AI in Contacts is given back here too.
     consumes: [
       'outreach.download.saved',

@@ -195,6 +195,9 @@ describe('registry', () => {
       'registration.update_status',
       // 2026-11-05: all green, or checked by HandsFreeOS first.
       'registration.record_check',
+      'registration.site_check_start',
+      'registration.site_check_save_pages',
+      'registration.save_site_screenshot',
       'registration.request_review',
       'registration.review.approve',
       'registration.review.send_back',

@@ -8,6 +8,9 @@
  * iframe by the window it came from, and only believed from the address that iframe loads. A snippet pasted before
  * this existed keeps its fixed height.
  *
+ * When the address ends in `#hfos-check=<code>` (HandsFreeOS's "Finish the check on my site" opened it), it also loads
+ * the texting registration's browser check, /embed/v1/site-check.js (lib/site-check/script.ts).
+ *
  * Some site builders put pasted code in a frame of their own (GoDaddy's HTML section: an `srcdoc` frame on the site's
  * own address), sized once when the page loads, before the form has said how tall it is. Inside one of those, the
  * script grows that frame too, or the form would be cut off at the builder's first guess.
@@ -25,6 +28,13 @@ export const FRAME_TOP_MESSAGE = 'hfos:frame-top';
 export const formEmbedScript =
   (): string => `/* HandsFreeOS forms and calendars: each one's box grows to fit it. */
 (function () {
+  // The texting registration's browser check, only when the address carries its code (lib/site-check/script.ts).
+  var me = document.currentScript;
+  if (location.hash.indexOf('#hfos-check=') === 0 && me && me.src && !window.__hfosSiteCheck) {
+    var check = document.createElement('script');
+    check.src = new URL('/embed/v1/site-check.js', me.src).href;
+    (document.head || document.documentElement).appendChild(check);
+  }
   if (window.__hfosFormHeights) return;
   window.__hfosFormHeights = true;
   window.addEventListener('message', function (e) {

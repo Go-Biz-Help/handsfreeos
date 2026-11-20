@@ -1384,6 +1384,8 @@ describe('A playbook on the phone', () => {
         details: expect.objectContaining({ signs: ['Owner', 'Runs a Page'] }),
       }),
       'signs',
+      // Saved as it's changed, with no toast for each save (the owner's autosave).
+      true,
     );
     expect(await screen.findByText('Keep it under 300 characters.')).toBeTruthy();
   });

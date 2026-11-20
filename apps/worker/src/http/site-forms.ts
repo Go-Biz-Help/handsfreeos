@@ -68,7 +68,15 @@ export async function scanSiteForms(
       const html = /^(image|video|audio|font)\/|application\/(pdf|octet-stream|zip)/.test(type)
         ? ''
         : res.body;
-      return { url, status: res.status, html, finalUrl: res.finalUrl, headers: res.headers };
+      const source = (res as { source?: 'browser' | 'screenshot' }).source ?? null;
+      return {
+        url,
+        status: res.status,
+        html,
+        finalUrl: res.finalUrl,
+        headers: res.headers,
+        source,
+      };
     } catch (err) {
       return {
         url,
@@ -93,26 +101,28 @@ export async function scanSiteForms(
   enqueue(await sitemapPages(open, start, site, limits.sitemaps, late));
 
   const forms: SiteForm[] = [];
-  const blocked: { url: string; who: string }[] = [];
+  const blocked: { url: string; who: string; by: string | null }[] = [];
   const framesSeen = new Set<string>();
   /** Each framed form's forms that count, and where it ended up, by the address it was framed with. */
   const framed = new Map<string, ReturnType<typeof formsOn>>();
   const finals = new Map<string, string>();
   let opened = 0;
   let cut = false;
+  const via = new Set<'browser' | 'screenshot'>();
 
   const read = async (url: string) => {
     const page = await open(url);
     const shown = page.finalUrl ?? page.url;
     const check = robotCheck(page);
     if (check) {
-      blocked.push({ url: shown, who: robotCheckWho(check) });
+      blocked.push({ url: shown, who: robotCheckWho(check), by: check.by });
       return;
     }
     if (page.status === null || page.status >= 400 || !page.html) return;
     // Redirected off the site (a link to a booking service, say): that page isn't the business's to fix.
     if (!onSite(new URL(shown).host, site)) return;
     opened++;
+    if (page.source) via.add(page.source);
     for (const form of formsOn(page.html))
       if (formCounts(form)) forms.push({ ...form, page: shown, framedUrl: null });
     enqueue(pageLinks(page.html, shown));
@@ -151,7 +161,7 @@ export async function scanSiteForms(
   pages++;
   await read(queue.shift()!);
   await Promise.all(Array.from({ length: limits.concurrency }, worker));
-  return { opened, cut, forms, blocked };
+  return { opened, cut, forms, blocked, via: [...via] };
 }
 
 /** The pages the site's sitemaps list, on the site, through a sitemap index one level down. */

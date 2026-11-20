@@ -34,6 +34,8 @@ const world = vi.hoisted(() => ({
   /** The page each address opens, and what its buttons do. */
   pages: (_url: string): { html: string; at?: string } | null => null,
   behave: (_doc: Document, _url: string): void => undefined,
+  /** What Instagram draws on the page on its own once it's been read this many times: a page that came late. */
+  moves: null as { reads: number; html: string } | null,
   opened: [] as string[],
   noted: [] as { note: unknown; platform: unknown }[],
   needs: [] as unknown[],
@@ -132,6 +134,7 @@ vi.mock('../src/tab', async () => {
     WorkTab: class {
       private doc: Document | null = null;
       private at = '';
+      private reads = 0;
       get tabId() {
         return this.doc ? 9 : null;
       }
@@ -153,10 +156,16 @@ vi.mock('../src/tab', async () => {
         this.doc = new Dom(`<!doctype html><html><body>${page.html}</body></html>`, {
           url: this.at,
         }).window.document;
+        this.reads = 0;
         world.behave(this.doc, url);
         return 9;
       }
       async ask(message: { readonly type: string }) {
+        const moves = world.moves;
+        if (message.type === 'hfos-read' && moves && this.doc && this.reads++ >= moves.reads) {
+          this.doc.body.innerHTML = moves.html;
+          world.moves = null;
+        }
         const doc = this.doc;
         if (!doc) return { ok: false, error: 'The Instagram tab was closed.' };
         if (message.type === 'hfos-read') return { ok: true, result: kit.readPage(doc, this.at) };
@@ -441,6 +450,7 @@ beforeEach(() => {
   world.hfos = {};
   world.pages = () => null;
   world.behave = () => undefined;
+  world.moves = null;
   world.choices = { on: true, sending: 'steps', collect: false, warmUp: true };
   world.away = true;
   world.hours = notToday();
@@ -2479,6 +2489,41 @@ describe('Instagram’s growing (part 15)', () => {
         .filter((a) => a.type === 'hfos-save-posts')
         .map((a) => (a.input as { posts: { name: string }[] }).posts.map((p) => p.name)),
     ).toEqual([['quinn.plumbing']]);
+    expect(end.line).toContain('Looked at 1 hashtag on Instagram and read 1 post');
+  });
+
+  it('waits for a hashtag’s search that shows only Instagram’s loading mark, and reads its posts once they’re drawn', async () => {
+    // The owner's problem reports of 1, 3 and 19 Nov 2026: the search drew nothing but its loading mark when it was
+    // read, and was noted as a page with no posts.
+    world.pages = (url) =>
+      ({
+        [`${IG}/explore/tags/austinplumbing/`]: {
+          html: `${MENU}<section><main role="main"><div role="progressbar"><svg role="img" aria-label="Loading..."></svg></div></main></section>`,
+          at: `${IG}/explore/search/keyword/?q=%23austinplumbing`,
+        },
+        [`${IG}/p/C7aaaaaaa/`]: {
+          html: foundPostHtml('quinn.plumbing', 'Plumbing in Austin all week', null),
+        },
+      })[url] ?? null;
+    world.moves = {
+      reads: 1,
+      html: `${MENU}<section><main role="main"><div><div><span dir="auto">#austinplumbing</span></div>
+        ${grid(['C7aaaaaaa'])}</div></main></section>`,
+    };
+    world.hfos['hfos-post-words'] = () => ({
+      words: ['plumbing'],
+      tags: ['austinplumbing'],
+      places: ['Austin'],
+    });
+    world.hfos['hfos-save-posts'] = (ask) => ({
+      groupId: null,
+      posts: [],
+      checking: (ask['input'] as { posts: unknown[] }).posts.length,
+    });
+    const report = vi.fn(async (_note?: ReportNote) => undefined);
+    const end = await runInstagramDaily('posts', { ...job(), report });
+    expect(report).not.toHaveBeenCalled();
+    expect(world.opened).toEqual([`${IG}/explore/tags/austinplumbing/`, `${IG}/p/C7aaaaaaa/`]);
     expect(end.line).toContain('Looked at 1 hashtag on Instagram and read 1 post');
   });
 

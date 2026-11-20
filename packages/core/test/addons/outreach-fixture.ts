@@ -254,7 +254,7 @@ export async function runWith(
 }
 
 /**
- * Everyone in someone's hands in `ws` given back to the AI (decision 185), as `u`: for a test whose made-up chats end
+ * Everyone in someone's hands in `ws` given back to the AI (decision 182), as `u`: for a test whose made-up chats end
  * with the person's own words, which the AI would have sent in the story it tells.
  */
 export const backToTheAi = (u: TestUser, ws: string): Promise<Any> =>

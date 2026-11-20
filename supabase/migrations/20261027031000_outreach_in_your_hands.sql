@@ -1,4 +1,4 @@
--- Social Outreach: In your hands (docs/outreach.md, decision 185; core's side is 20261027030900).
+-- Social Outreach: In your hands (docs/outreach.md, decision 182; core's side is 20261027030900).
 --
 -- The owner, 19 Nov 2026: "the social outreach needs to recognize when the user sent a manual message last and so the
 -- ai should hold off, if it feels it needs to respond to something or follow up then it should ask the user if they

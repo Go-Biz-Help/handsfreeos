@@ -109,7 +109,7 @@ export const WaitingOutput = z.object({
   /** In the list's order (`WAITING_KIND_KEYS`): empty when only the counts were asked for. */
   items: z.array(WaitingItem),
   /**
-   * The asks about people in the person's hands (decision 185, ./in-hands.ts): they wrote back, or the AI would have
+   * The asks about people in the person's hands (decision 182, ./in-hands.ts): they wrote back, or the AI would have
    * followed up. Counted in `count`; empty when only the counts were asked for, and left out by builds from before it.
    */
   hands: z.array(HandsAsk).default([]),

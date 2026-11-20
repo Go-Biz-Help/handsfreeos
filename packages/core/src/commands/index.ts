@@ -118,6 +118,11 @@ import {
   phoneUpdateSettings,
 } from './phone';
 import {
+  registrationSaveSiteScreenshot,
+  registrationSiteCheckSavePages,
+  registrationSiteCheckStart,
+} from './site-check';
+import {
   registrationEmailWebPerson,
   registrationRecordCheck,
   registrationRequestReview,
@@ -599,6 +604,9 @@ export {
   registrationSaveDraft,
   registrationUpdateStatus,
   registrationRecordCheck,
+  registrationSiteCheckStart,
+  registrationSiteCheckSavePages,
+  registrationSaveSiteScreenshot,
   registrationRequestReview,
   registrationReviewApprove,
   registrationReviewSendBack,
@@ -852,6 +860,9 @@ export const commands: readonly CommandDef[] = [
   registrationSaveDraft,
   registrationUpdateStatus,
   registrationRecordCheck,
+  registrationSiteCheckStart,
+  registrationSiteCheckSavePages,
+  registrationSaveSiteScreenshot,
   registrationRequestReview,
   registrationReviewApprove,
   registrationReviewSendBack,

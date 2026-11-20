@@ -210,18 +210,28 @@ const badOutput = (e: AiOutputError): AiAskError =>
     cause: e,
   });
 
+/** How long `askedTwice` waits before asking a busy AI service once more. */
+export const BUSY_WAIT_MS = 3_000;
+
 /**
  * A structured ask, asked once more when its answer came back unusable. The AI service sometimes answers with nothing
  * at all, no words written (about 1 call in 25 on 9 Nov 2026, behind the owner's problem reports of "The AI couldn’t
  * write that just now"), and asked again it often writes one. When it doesn't, the second try goes to the backup
  * (`backupWhenDeclined`; the owner's pick, 13 Nov 2026, after 3 drafts in a day and about 8% of profile checks came back
  * empty twice). Social Outreach's drafts and profile checks ask this way.
+ *
+ * A busy AI service (`provider_error`, `retryable`: Claude, and the backup behind it, overloaded or out of reach) is
+ * asked once more too, after BUSY_WAIT_MS: on 19 Nov 2026 five Facebook drafts in an evening failed that way among
+ * about 380 AI answers that came back, each one a problem report and a draft that never came.
  */
 export async function askedTwice<T>(ask: (last: boolean) => Promise<T>): Promise<T> {
   try {
     return await ask(false);
   } catch (e) {
-    if (!(e instanceof AiAskError) || e.code !== 'bad_output') throw e;
+    if (!(e instanceof AiAskError)) throw e;
+    const busy = e.code === 'provider_error' && e.retryable;
+    if (!busy && e.code !== 'bad_output') throw e;
+    if (busy) await new Promise((done) => setTimeout(done, BUSY_WAIT_MS));
     return ask(true);
   }
 }

@@ -77,7 +77,8 @@ became.
 - **Good fits among friends and chats** (decision 46, `checks.ts`, `ops/checks.ts`, the worker's `checks.ts`, the
   extension's `src/jobs/checks.ts`): the Friends tab's **Check my friends** (an ask, `checks`), and the once-a-day
   jobs after Read my chats, have the person's computer read the next of their friends and the people they've chatted
-  with, about 40 a day (`CHECKS_PER_DAY`, halved for a week after a warning), every 15 to 30 seconds, in a window of
+  with, about 40 a day (`CHECKS_PER_DAY`, halved for a week after a warning), every 15 to 30 seconds (a minute or two
+  on LinkedIn, 10 at a time, decision 184), in a window of
   its own: HandsFreeOS says who's next (`outreach.checks.next`: friends whose chat the AI read as a likely prospect,
   then friends with any chat, others they've chatted with, friends found in a group, then the rest, the most mutual
   friends first; never anyone on Don't pitch or tagged Friend or family), the extension opens each profile, checks
@@ -429,9 +430,15 @@ became.
   guide made of it goes in every business's warm-up comments on Instagram once staff press Use it. From decision 172
   both are on every network: one Start reads all six, each with its own guide for its warm-up and topic comments.
 - **An introduction in place of the pitch** (decision 168, `script.ts`, `ops/checks.ts`): a playbook can start with
-  an introduction (What it says → How the first message goes): thanks for connecting, who the person is and what the
-  business offers, and a question about them from their page (decision 173), as a second text right after it when
-  the person sends a few (decision 175). It goes to everyone who connects.
+  an introduction: thanks for connecting, who the person is and what the business offers, and a question about them
+  from their page (decision 173), as a second text right after it when the person sends a few (decision 175). It goes
+  to everyone who connects while every way a playbook there may start with starts a chat.
+- **Ways to start a chat** (decision 183, `script.ts` `OPEN_WAYS`, `today.ts` `openerTask`): each playbook ticks the
+  ways it may start a chat (What it says → Ways to start a chat), none to start, and for each person the AI picks the
+  one that fits their pages, posts, network and business best: Direct pitch, Introduction, Value first, Trigger event,
+  Compliment first, Ask for their opinion, Social proof, Permission ask, Shared ground or Problem check. Ways that ask
+  about the offer go on as the pitch does; ways that start a chat, as an introduction does. Playbooks save themselves
+  as they're changed.
 - **The networking chat after it** (decisions 173 and 176, `script.ts` `PLAYBOOK_NETWORKING`, `today.ts`
   `networkingReplyTask`): short replies that react to what they said and share the owner's story from the main offer;
   a question only when the chat would stall; one nudge if they stay quiet, then a check-in once a month; a demo offered
@@ -4906,7 +4913,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **How it's built** (no migration, no extension change): `script.ts`, `today.ts` and `sends.ts` in Social
         Outreach.
 
-185.  **In your hands: the AI holds off someone the person wrote to themselves** (Chris, 19 Nov 2026: "the social
+182.  **In your hands: the AI holds off someone the person wrote to themselves** (Chris, 19 Nov 2026: "the social
       outreach needs to recognize when the user sent a manual message last and so the ai should hold off, if it feels
       it needs to respond to something or follow up then it should ask the user if they want to give ai the reigns for
       this contact again. there should also be a list of contacts that are im the users hands because they last
@@ -4947,6 +4954,78 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         `hands-view.tsx`, the phone's `hands.tsx`, both person menus and both Needs you. No extension change: a reply
         the person types in the network's own app is caught when the extension next reads that chat.
 
+183.  **Ways to start a chat: you tick them, the AI picks one for each person** (Chris, 20 Nov 2026: "i want to allow
+      the user to select which methods they want the ai to be able to use either or all and the ai would select one
+      based on the contacts profile, posts, platform, business, etc"; then "1a 2a 3a 4b 5a 6a 7a(but no they all start
+      unticked and have to choose which ones they want to move forward)", and "also the playbook should auto save as
+      changes are made"). It takes the place of decision 168's choice between Pitch and Introduction:
+      - **The ten ways** (`OPEN_WAYS` in `script.ts`): Direct pitch (the first message's versions, decision 164),
+        Introduction (decisions 168 and 181), Value first, Trigger event, Compliment first, Ask for their opinion,
+        Social proof, Permission ask, Shared ground and Problem check. Each has its own words under What it says →
+        Starting a chat (a script part by its name, starting from the owner's examples), shown only while it's ticked.
+      - **Ticked in each playbook** (1a; `details.ways`, Playbooks → What it says → Ways to start a chat, web and
+        phone). A new playbook starts with **none ticked** (7a as the owner changed it), and the web's builder won't
+        carry on past What it says until one is; a playbook with none starts no chats (`hasWays`: Today lists no first
+        message from it, and a draft prefers a playbook with one). A playbook saved before keeps the one way it had
+        (`waysOf`: its `opens`), so the owner's CRM demos has Introduction only until more are ticked. `opens` is still
+        saved (`opensFor`) for phones built before, and a save from one of those changes only a one-way playbook.
+      - **What follows each** (2a; `flow`): the ways that ask about the offer (Direct pitch, Value first, Social proof,
+        Permission ask, Problem check) go as the pitch does: a yes gets the ask for a time, quiet gets follow-ups. The
+        ways that start a chat (Introduction, Trigger event, Compliment first, Ask for their opinion, Shared ground) go
+        as an introduction does: one nudge, the networking chat (decisions 173 to 180), then the call or a demo
+        (`kindStartsAChat`; `noteSent`'s `intro`). Say hi greets everyone who connects only while every playbook there
+        starts chats only those ways (`chatsOnly`, decision 168's 3b).
+      - **How the AI picks** (5a; `openerTask` in `today.ts`): it gets the ways that can go, least used first, and picks
+        the one that fits the person's pages, posts, facts, kind of business and network: LinkedIn leans to Problem
+        check and Social proof, Facebook and Instagram to Compliment first, Shared ground and Value first, with no
+        setting. A way needing something it doesn't have about them doesn't fit (a trigger needs news they posted in
+        the last month, never health, a loss or money trouble; a problem check, a problem their page really shows).
+        When a few fit, it takes the first; when none fits, Direct pitch or Introduction, whichever is ticked. It says
+        which way (`way`) and why (`wayWhy`); the Test console shows both ("It picked Compliment first: …").
+      - **What a way needs** (6a; `needs`, `wayMissing`): Social proof a real result (the playbook's Proof for this niche
+        or the main offer's), Value first something free to send (Something useful to send), Permission ask a video
+        (the Short video or the video library). The list says what's missing and where to add it, and the AI skips a
+        way missing it. A first message still has no link: the free thing or the video goes after their yes
+        (`opened` on the ask after a yes).
+      - **Shared ground never names a group** (3a): decision 157 stands. It uses a town, a school, a line of work or
+        mutual friends.
+      - **Warm up first** (4b; `WARM_BEFORE_HI_DAYS`, `warmBeforeHiWhy`, `keepWarm.hi`): the playbook's Warm up step is
+        a switch beside the list. While it's on, someone who accepted fast, or was a friend already, waits for Say hi
+        till their first like is 3 days old, or a visit found nothing to like, and gets visits as someone deciding on a
+        request does (decision 161), with the day's likes left. A visit's first like keeps a post for one comment, as
+        for a request. Extension 0.148.0 says "before your first message" in its activity line.
+      - **Results counts each way** (`opener_uses.kind` takes each way's name; migration
+        `20261027030100_outreach_open_ways.sql`). A first message waiting for an OK is written again only when the
+        playbook's ticks change (`DraftOpener.ways`, `dropOtherOpening`), not all at once.
+      - **Playbooks save themselves.** On the web, a saved playbook saves each change once it has nothing marked to
+        fix (a short pause after typing), with Saving… and Saved under the steps; the last step's button is Done. A
+        new playbook is kept in the browser as it's written (Picked up where you left off, with Start over) and made
+        only with Make the playbook at the end, so a half-made one never runs. On the phone, each part's sheet saves
+        as it's changed, and Done or closing it saves what's waiting (`PLAYBOOK_SAVE_WORDS`).
+      - **How it's built**: `script.ts`, `playbooks.ts`, `openers.ts`, `today.ts`, `keep-warm.ts`, `playbook-test.ts`
+        and `ops/` (`playbooks.ts`, `today.ts`, `sends.ts`, `conversation.ts`, `checks.ts`, `keep-warm.ts`) in Social
+        Outreach; the worker's `today.ts`, `playbook-test.ts` and `samples.ts`; the web's `playbook-builder.tsx`,
+        `playbooks-page.tsx` and the builder's `load.ts`; the phone's `playbook.tsx`, `playbook-script.tsx` and
+        `playbooks.tsx`; the extension's runners (0.148.0).
+
+184.  **LinkedIn reads 40 profiles a day at most, a minute or two apart, a few at a time** (Chris, 19 Nov 2026: "it
+      seems like linked in is suspecting suspicious behavior. what do you think the cause is?", then picked "40 a day,
+      and slower" on 20 Nov). LinkedIn showed its security check (`/checkpoint/challenge/`) 2 minutes after the
+      extension read 42 profiles of people found, 15 to 30 seconds apart, on a day of 98 profiles read (97 the day
+      before): on a day the goal needed more good fits, decision 126 let LinkedIn's checks go to 150. It signed the
+      account out afterwards. Builds on decisions 46, 92 and 126:
+      - **Never more than its 40 a day** (`checksMost: 40` in LinkedIn's kit): the checks of connections, the people
+        found and the partners share them as before (`foundShareReads`), and a day short of good fits reads no more
+        there (`perDayFor` in `ops/checks.ts` has no "more" for a network whose most is its day's). The other networks
+        keep theirs.
+      - **A minute or two between profiles** (`checkPaceOf` in `checks.ts`: 60 to 120 seconds, never the same twice),
+        for its checks, its people found and its partners. The other networks keep their 15 to 30 seconds.
+      - **A few at a time** (`checksBatchOf`: 10): the checks of connections and the people found each read 10, and
+        while today has room the job ends with `again`, so the next 10 go 35 to 60 minutes later (`afterDaily`) and
+        the day's 40 spread through it. The day's last line says more profiles come later.
+      - **Not changed:** likes, comments, invitations and messages keep their own daily limits, and a warning still
+        halves everything for a week. Extension 0.148.1, no migration.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -4986,8 +5065,15 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   change is a rule in code, and each of those is in `LOCKED_RULES` for the editors to show. Never put how a message
   reads only in a prompt.
 - **An introduction never gets the follow-ups** (decisions 168 and 173, `introSent`, `checkInsOnly`): a conversation
-  on step `intro` gets one nudge after the introduction, then check-ins only, after a reply too. Say hi widens to
-  everyone who connected only while every playbook in use on the network starts with one (`introsOnly`).
+  on step `intro` gets one nudge after the introduction, then check-ins only, after a reply too. So does one that any
+  way that starts a chat started (decision 183, `kindStartsAChat`). Say hi widens to everyone who connected only while
+  every playbook in use on the network starts chats only those ways (`introsOnly`, `chatsOnly`).
+- **A playbook starts chats only the ways it ticks** (decision 183, `waysOf`, `hasWays`): a new one starts with none
+  and starts no chat till one is ticked; one saved before has the one way it had. The AI picks among the ticked ways
+  that have what they need (`wayMissing`) and falls back on Direct pitch or Introduction. A first message never has a
+  link whatever the way: Value first's free thing and Permission ask's video go after their yes.
+- **A new playbook on the web is made only at the end of its steps** (decision 183): it's kept in the browser till
+  then, so a half-made one never runs. A saved one saves each change only once nothing is marked to fix.
 - **An introduction always asks a question about them, as its own text** (decisions 173 and 175, `introTask`,
   `introTexts`): the question goes as a second text right after it when the person sends a few, and never in a
   first message to someone's Requests. Don't let a playbook's own words drop it.
@@ -5763,7 +5849,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   `mayClear`, `mayPress`) and the tab's (`HelperHands`) both hold it; widen `HELPER_BUTTONS` only with the owner's
   OK, and never for a message, a comment, a removal or a like. Its view never holds what a person wrote or the
   name of the person the step is for.
-- **Someone in a person's hands gets no message from the AI** (decision 185): a profile with an `addon_outreach.hands`
+- **Someone in a person's hands gets no message from the AI** (decision 182): a profile with an `addon_outreach.hands`
   row not given back, or whose customer is in core's `app.people_in_hands`. Anything new that drafts, queues or OKs a
   message checks `heldAmong` or `notHeldNow` (`ops/in-hands.ts`); likes and comments don't. What counts as typed by
   hand is `byHandAt` and `theAisLately`: widen what counts as the AI's freely, but never count an AI draft the person

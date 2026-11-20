@@ -183,7 +183,7 @@ export const ProfileMarksOutput = z.object({
    */
   theirWork: TheirWorkShown.optional(),
   /**
-   * In someone's hands (decision 185, ./in-hands.ts): whose, how and when, for Give back to the AI; null when the AI
+   * In someone's hands (decision 182, ./in-hands.ts): whose, how and when, for Give back to the AI; null when the AI
    * looks after them. Left out by builds from before it.
    */
   inHands: HandsPerson.nullable().optional(),
@@ -290,7 +290,7 @@ export interface PersonMenuItem {
  * moves; In Contacts or Add to Contacts; Mark as client, Not a client after all, or why they're a client; Demo booked
  * or Not a demo after all; Potential partner (with why the AI thinks so, when it does) or Not a partner after all
  * (decision 130); Later or Take off Later; who reached them first, and for an owner or admin each teammate to give them
- * to (decision 107); whose hands they're in and Give back to the AI, or Take over (decision 185); Don't pitch, Take off Don't pitch, or who put them on; Never contact, Take off Never contact, or
+ * to (decision 107); whose hands they're in and Give back to the AI, or Take over (decision 182); Don't pitch, Take off Don't pitch, or who put them on; Never contact, Take off Never contact, or
  * who put them on. A partner has no Client, nor Demo booked unless the person marked them; without `contactsWrite` there's no Add to
  * Contacts or Client to press; a row with its own switches has no Don't pitch or Never contact. The marks' toggles wait
  * for `marks`, and everything but the Open items waits for signal.
@@ -454,7 +454,7 @@ export function personMenuItems(input: PersonMenuInput): PersonMenuItem[] {
       }),
     );
 
-  // 8b: In your hands (decision 185): whose hands they're in and Give back to the AI, or Take over, beside the lists.
+  // 8b: In your hands (decision 182): whose hands they're in and Give back to the AI, or Take over, beside the lists.
   // Shown once their marks come, since only those say which; someone on Never contact gets no message anyway.
   const hands = marks?.inHands ?? null;
   if (hands) {

@@ -767,9 +767,9 @@ async function visit(item: TodayListItem, businessId: string, likes: number): Pr
   }
   if (!liked) {
     await missed(item, businessId);
-    return { done: true, line: visitLine(item.name, PLATFORM, 0) };
+    return { done: true, line: visitLine(item.name, PLATFORM, 0, item.keepWarm?.hi === true) };
   }
-  return { done: true, line: visitLine(item.name, PLATFORM, liked) };
+  return { done: true, line: visitLine(item.name, PLATFORM, liked, item.keepWarm?.hi === true) };
 }
 
 /** A follow, with their account's own Follow (or Follow Back), then their account read again to see it went. */

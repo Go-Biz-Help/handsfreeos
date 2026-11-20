@@ -254,7 +254,7 @@ describe('replies, openers and demos in a business', () => {
       u,
       ws,
       'outreach.touch.save',
-      // The extension's own: one the person typed would leave them in the person's hands (decision 185).
+      // The extension's own: one the person typed would leave them in the person's hands (decision 182).
       {
         kind: 'message',
         profile: fb(username),

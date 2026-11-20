@@ -94,6 +94,7 @@ import {
   snippetOf,
   snippetSrc,
 } from './chat-install';
+import { SiteCheckHelp } from './site-check-help';
 import {
   HideChatSwitch,
   WebPersonButton,
@@ -1332,6 +1333,8 @@ export function A2pWizard({
    * (2026-11-05), held by `registration.submit` too.
    */
   const [found, setFound] = useState<string[] | null>(null);
+  /** The fixed addresses our reads come from, for letting HandsFreeOS in at the host (empty until set up). */
+  const [readerIps, setReaderIps] = useState<string[]>([]);
   // The business's latest ask for HandsFreeOS to check it, and the note it's writing for the next one.
   const [review, setReview] = useState<ReviewInfo | null>(null);
   const [note, setNote] = useState('');
@@ -1542,6 +1545,7 @@ export function A2pWizard({
       });
       setChecks(got.checks);
       setFound(got.notGreen);
+      setReaderIps(got.readerIps ?? []);
     } catch (err) {
       toast.error(errorMessage(err));
       setChecks(null);
@@ -1926,6 +1930,18 @@ export function A2pWizard({
           checks={checks}
           checking={checking}
           onRecheck={() => void runPreflight()}
+          readerIps={readerIps}
+          siteCheck={{
+            // Our chat or form code reads the site: the page with our form on it, or the website the chat is on.
+            start: form.optInPath === 'own_site' ? optInUrl : null,
+            urls: [
+              withScheme(form.website),
+              policyUrl,
+              termsUrl,
+              form.optInPath === 'in_person' ? proofUrl : optInUrl,
+              ...otherWays.map((w) => w.url),
+            ].filter((u): u is string => !!u),
+          }}
           left={left}
           confirmations={confirmations}
           confirmed={form.confirmed}
@@ -2607,6 +2623,8 @@ function ReviewStep({
   checks,
   checking,
   onRecheck,
+  readerIps,
+  siteCheck,
   left,
   confirmations,
   confirmed,
@@ -2626,6 +2644,10 @@ function ReviewStep({
   checks: readonly PreflightCheck[] | null;
   checking: boolean;
   onRecheck: () => void;
+  /** The fixed addresses our reads come from (empty until set up), for letting HandsFreeOS in at the host. */
+  readerIps: readonly string[];
+  /** For "Finish the check on my site": the page to open (with our code on it), and the pages to read first. */
+  siteCheck: { readonly start: string | null; readonly urls: readonly string[] };
   /** Everything that isn't green yet (the worker's list and the unticked ticks), or null before it has looked. */
   left: readonly string[] | null;
   /** The ticks only the business can give, and which are ticked. */
@@ -2723,6 +2745,13 @@ function ReviewStep({
             <div className="min-w-0">
               <p className="text-[13.5px] font-medium">{check.label}</p>
               <p className="text-[13px] leading-relaxed text-text-2">{check.detail}</p>
+              {check.via ? (
+                <p className="text-[12.5px] text-text-3" data-testid="registration-check-via">
+                  {check.via === 'browser'
+                    ? 'Read in your own browser, on your site.'
+                    : 'Read from your screenshot.'}
+                </p>
+              ) : null}
               {check.url ? (
                 <a
                   className="text-[13px] underline text-text-3 [overflow-wrap:anywhere]"
@@ -2736,6 +2765,19 @@ function ReviewStep({
             </div>
           </div>
         ))}
+        {checks ? (
+          <div className="mt-2">
+            <SiteCheckHelp
+              workspaceId={workspaceId}
+              website={withScheme(form.website)}
+              start={siteCheck.start}
+              urls={siteCheck.urls}
+              checks={checks}
+              readerIps={readerIps}
+              onRecheck={onRecheck}
+            />
+          </div>
+        ) : null}
         {!checking && !checks ? (
           <p className="text-[13px] text-text-2">
             We could not look just now. Press &ldquo;Check again&rdquo; — the registration will not

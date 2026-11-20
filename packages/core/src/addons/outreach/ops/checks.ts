@@ -55,7 +55,7 @@ import { outreachAddon } from '../manifest';
 import { noteTheirWork } from './local';
 import { partnerReadsPerDay } from '../partners';
 import type { PlaybookDetails } from '../playbooks';
-import { opensWithIntro } from '../script';
+import { chatsOnly } from '../script';
 import { requestsHeldOn, TODAY_WINDOW_DAYS } from '../today';
 import type { ProfileRef } from '../saves';
 import { checks, finds, profiles } from '../tables';
@@ -151,10 +151,11 @@ const notMarkedMisfit = (me: string) => sql`not exists (select 1 from addon_outr
 
 /**
  * Whether Say hi takes everyone who connected lately on a network (decision 168, the owner's 3b): only while every
- * playbook in use there starts with an introduction, so nobody a check never found fit is pitched by another one.
+ * playbook in use there starts chats only ways that start one (an introduction and the like, decision 183), so nobody
+ * a check never found fit is pitched by another way or playbook.
  */
 export const introsOnly = (inUse: readonly { readonly details: PlaybookDetails }[]): boolean =>
-  inUse.length > 0 && inUse.every((p) => opensWithIntro(p.details));
+  inUse.length > 0 && inUse.every((p) => chatsOnly(p.details));
 
 /**
  * A friend of the person's they've never talked to, for Say hi's first message (decisions 65 and 155): no message to
@@ -472,11 +473,13 @@ export async function perDayFor(
   const warning = await warningOf(ctx, me, platform, todayStart, now);
   const warned = slowsNow(warning, now);
   const read = await readToday(ctx, me, platform, todayStart);
-  // More on a day the goal needs more good fits (decision 126), half that while the person is new there.
-  const more = needsMore ?? (await moreToday(ctx, me, platform, now, warning));
+  const kit = NETWORKS[platform];
+  // More on a day the goal needs more good fits (decision 126), half that while the person is new there; never on a
+  // network whose most is its day's (LinkedIn's 40, decision 184), where being new there halves nothing either.
+  const grows = kit.checksMost > Math.min(CHECKS_PER_DAY, kit.checksPerDay);
+  const more = grows && (needsMore ?? (await moreToday(ctx, me, platform, now, warning)));
   const slowerMore = more && (warned || (await automationOf(ctx, me, now, platform)).slower);
   const reads = readsPerDay(platform, warned || slowerMore, more);
-  const kit = NETWORKS[platform];
   const shared = kit.foundShareReads;
   const used = read.checks + read.partners + (shared ? read.found : 0);
   const left = Math.max(0, reads - used);

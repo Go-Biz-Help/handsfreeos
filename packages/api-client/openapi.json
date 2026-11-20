@@ -91624,6 +91624,46 @@
                             "minLength": 1,
                             "maxLength": 800
                           },
+                          "valueFirst": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "trigger": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "compliment": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "opinion": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "socialProof": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "permission": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "sharedGround": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "problemCheck": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
                           "nudge": {
                             "type": "string",
                             "minLength": 1,
@@ -91742,6 +91782,25 @@
                           "pitch",
                           "intro"
                         ]
+                      },
+                      "ways": {
+                        "maxItems": 10,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "pitch",
+                            "intro",
+                            "valueFirst",
+                            "trigger",
+                            "compliment",
+                            "opinion",
+                            "socialProof",
+                            "permission",
+                            "sharedGround",
+                            "problemCheck"
+                          ]
+                        }
                       },
                       "networking": {
                         "type": "object",
@@ -92360,6 +92419,46 @@
                             "minLength": 1,
                             "maxLength": 800
                           },
+                          "valueFirst": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "trigger": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "compliment": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "opinion": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "socialProof": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "permission": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "sharedGround": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "problemCheck": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
                           "nudge": {
                             "type": "string",
                             "minLength": 1,
@@ -92478,6 +92577,25 @@
                           "pitch",
                           "intro"
                         ]
+                      },
+                      "ways": {
+                        "maxItems": 10,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "pitch",
+                            "intro",
+                            "valueFirst",
+                            "trigger",
+                            "compliment",
+                            "opinion",
+                            "socialProof",
+                            "permission",
+                            "sharedGround",
+                            "problemCheck"
+                          ]
+                        }
                       },
                       "networking": {
                         "type": "object",
@@ -93109,6 +93227,46 @@
                               "minLength": 1,
                               "maxLength": 800
                             },
+                            "valueFirst": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "trigger": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "compliment": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "opinion": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "socialProof": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "permission": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "sharedGround": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "problemCheck": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
                             "nudge": {
                               "type": "string",
                               "minLength": 1,
@@ -93228,6 +93386,25 @@
                             "pitch",
                             "intro"
                           ]
+                        },
+                        "ways": {
+                          "maxItems": 10,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "pitch",
+                              "intro",
+                              "valueFirst",
+                              "trigger",
+                              "compliment",
+                              "opinion",
+                              "socialProof",
+                              "permission",
+                              "sharedGround",
+                              "problemCheck"
+                            ]
+                          }
                         },
                         "networking": {
                           "type": "object",
@@ -93469,6 +93646,30 @@
                         "intro": {
                           "type": "string"
                         },
+                        "valueFirst": {
+                          "type": "string"
+                        },
+                        "trigger": {
+                          "type": "string"
+                        },
+                        "compliment": {
+                          "type": "string"
+                        },
+                        "opinion": {
+                          "type": "string"
+                        },
+                        "socialProof": {
+                          "type": "string"
+                        },
+                        "permission": {
+                          "type": "string"
+                        },
+                        "sharedGround": {
+                          "type": "string"
+                        },
+                        "problemCheck": {
+                          "type": "string"
+                        },
                         "nudge": {
                           "type": "string"
                         },
@@ -93539,6 +93740,14 @@
                       "required": [
                         "first",
                         "intro",
+                        "valueFirst",
+                        "trigger",
+                        "compliment",
+                        "opinion",
+                        "socialProof",
+                        "permission",
+                        "sharedGround",
+                        "problemCheck",
                         "nudge",
                         "demoOffer",
                         "callOffer",
@@ -94068,6 +94277,46 @@
                               "minLength": 1,
                               "maxLength": 800
                             },
+                            "valueFirst": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "trigger": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "compliment": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "opinion": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "socialProof": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "permission": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "sharedGround": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
+                            "problemCheck": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
                             "nudge": {
                               "type": "string",
                               "minLength": 1,
@@ -94187,6 +94436,25 @@
                             "pitch",
                             "intro"
                           ]
+                        },
+                        "ways": {
+                          "maxItems": 10,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "pitch",
+                              "intro",
+                              "valueFirst",
+                              "trigger",
+                              "compliment",
+                              "opinion",
+                              "socialProof",
+                              "permission",
+                              "sharedGround",
+                              "problemCheck"
+                            ]
+                          }
                         },
                         "networking": {
                           "type": "object",
@@ -94428,6 +94696,30 @@
                         "intro": {
                           "type": "string"
                         },
+                        "valueFirst": {
+                          "type": "string"
+                        },
+                        "trigger": {
+                          "type": "string"
+                        },
+                        "compliment": {
+                          "type": "string"
+                        },
+                        "opinion": {
+                          "type": "string"
+                        },
+                        "socialProof": {
+                          "type": "string"
+                        },
+                        "permission": {
+                          "type": "string"
+                        },
+                        "sharedGround": {
+                          "type": "string"
+                        },
+                        "problemCheck": {
+                          "type": "string"
+                        },
                         "nudge": {
                           "type": "string"
                         },
@@ -94498,6 +94790,14 @@
                       "required": [
                         "first",
                         "intro",
+                        "valueFirst",
+                        "trigger",
+                        "compliment",
+                        "opinion",
+                        "socialProof",
+                        "permission",
+                        "sharedGround",
+                        "problemCheck",
                         "nudge",
                         "demoOffer",
                         "callOffer",
@@ -97469,13 +97769,40 @@
                         "enum": [
                           "style",
                           "own",
-                          "intro"
+                          "intro",
+                          "valueFirst",
+                          "trigger",
+                          "compliment",
+                          "opinion",
+                          "socialProof",
+                          "permission",
+                          "sharedGround",
+                          "problemCheck"
                         ]
                       },
                       "text": {
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 600
+                      },
+                      "ways": {
+                        "maxItems": 10,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "pitch",
+                            "intro",
+                            "valueFirst",
+                            "trigger",
+                            "compliment",
+                            "opinion",
+                            "socialProof",
+                            "permission",
+                            "sharedGround",
+                            "problemCheck"
+                          ]
+                        }
                       }
                     },
                     "required": [
@@ -101061,13 +101388,40 @@
                             "enum": [
                               "style",
                               "own",
-                              "intro"
+                              "intro",
+                              "valueFirst",
+                              "trigger",
+                              "compliment",
+                              "opinion",
+                              "socialProof",
+                              "permission",
+                              "sharedGround",
+                              "problemCheck"
                             ]
                           },
                           "text": {
                             "type": "string",
                             "minLength": 1,
                             "maxLength": 600
+                          },
+                          "ways": {
+                            "maxItems": 10,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "pitch",
+                                "intro",
+                                "valueFirst",
+                                "trigger",
+                                "compliment",
+                                "opinion",
+                                "socialProof",
+                                "permission",
+                                "sharedGround",
+                                "problemCheck"
+                              ]
+                            }
                           }
                         },
                         "required": [
@@ -101222,13 +101576,40 @@
                               "enum": [
                                 "style",
                                 "own",
-                                "intro"
+                                "intro",
+                                "valueFirst",
+                                "trigger",
+                                "compliment",
+                                "opinion",
+                                "socialProof",
+                                "permission",
+                                "sharedGround",
+                                "problemCheck"
                               ]
                             },
                             "text": {
                               "type": "string",
                               "minLength": 1,
                               "maxLength": 600
+                            },
+                            "ways": {
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "pitch",
+                                  "intro",
+                                  "valueFirst",
+                                  "trigger",
+                                  "compliment",
+                                  "opinion",
+                                  "socialProof",
+                                  "permission",
+                                  "sharedGround",
+                                  "problemCheck"
+                                ]
+                              }
                             }
                           },
                           "required": [
@@ -104285,13 +104666,40 @@
                                           "enum": [
                                             "style",
                                             "own",
-                                            "intro"
+                                            "intro",
+                                            "valueFirst",
+                                            "trigger",
+                                            "compliment",
+                                            "opinion",
+                                            "socialProof",
+                                            "permission",
+                                            "sharedGround",
+                                            "problemCheck"
                                           ]
                                         },
                                         "text": {
                                           "type": "string",
                                           "minLength": 1,
                                           "maxLength": 600
+                                        },
+                                        "ways": {
+                                          "maxItems": 10,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "enum": [
+                                              "pitch",
+                                              "intro",
+                                              "valueFirst",
+                                              "trigger",
+                                              "compliment",
+                                              "opinion",
+                                              "socialProof",
+                                              "permission",
+                                              "sharedGround",
+                                              "problemCheck"
+                                            ]
+                                          }
                                         }
                                       },
                                       "required": [
@@ -105639,13 +106047,40 @@
                                     "enum": [
                                       "style",
                                       "own",
-                                      "intro"
+                                      "intro",
+                                      "valueFirst",
+                                      "trigger",
+                                      "compliment",
+                                      "opinion",
+                                      "socialProof",
+                                      "permission",
+                                      "sharedGround",
+                                      "problemCheck"
                                     ]
                                   },
                                   "text": {
                                     "type": "string",
                                     "minLength": 1,
                                     "maxLength": 600
+                                  },
+                                  "ways": {
+                                    "maxItems": 10,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "enum": [
+                                        "pitch",
+                                        "intro",
+                                        "valueFirst",
+                                        "trigger",
+                                        "compliment",
+                                        "opinion",
+                                        "socialProof",
+                                        "permission",
+                                        "sharedGround",
+                                        "problemCheck"
+                                      ]
+                                    }
                                   }
                                 },
                                 "required": [
@@ -105933,13 +106368,40 @@
                                           "enum": [
                                             "style",
                                             "own",
-                                            "intro"
+                                            "intro",
+                                            "valueFirst",
+                                            "trigger",
+                                            "compliment",
+                                            "opinion",
+                                            "socialProof",
+                                            "permission",
+                                            "sharedGround",
+                                            "problemCheck"
                                           ]
                                         },
                                         "text": {
                                           "type": "string",
                                           "minLength": 1,
                                           "maxLength": 600
+                                        },
+                                        "ways": {
+                                          "maxItems": 10,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "enum": [
+                                              "pitch",
+                                              "intro",
+                                              "valueFirst",
+                                              "trigger",
+                                              "compliment",
+                                              "opinion",
+                                              "socialProof",
+                                              "permission",
+                                              "sharedGround",
+                                              "problemCheck"
+                                            ]
+                                          }
                                         }
                                       },
                                       "required": [
@@ -106267,13 +106729,40 @@
                                           "enum": [
                                             "style",
                                             "own",
-                                            "intro"
+                                            "intro",
+                                            "valueFirst",
+                                            "trigger",
+                                            "compliment",
+                                            "opinion",
+                                            "socialProof",
+                                            "permission",
+                                            "sharedGround",
+                                            "problemCheck"
                                           ]
                                         },
                                         "text": {
                                           "type": "string",
                                           "minLength": 1,
                                           "maxLength": 600
+                                        },
+                                        "ways": {
+                                          "maxItems": 10,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "enum": [
+                                              "pitch",
+                                              "intro",
+                                              "valueFirst",
+                                              "trigger",
+                                              "compliment",
+                                              "opinion",
+                                              "socialProof",
+                                              "permission",
+                                              "sharedGround",
+                                              "problemCheck"
+                                            ]
+                                          }
                                         }
                                       },
                                       "required": [
@@ -106597,13 +107086,40 @@
                                           "enum": [
                                             "style",
                                             "own",
-                                            "intro"
+                                            "intro",
+                                            "valueFirst",
+                                            "trigger",
+                                            "compliment",
+                                            "opinion",
+                                            "socialProof",
+                                            "permission",
+                                            "sharedGround",
+                                            "problemCheck"
                                           ]
                                         },
                                         "text": {
                                           "type": "string",
                                           "minLength": 1,
                                           "maxLength": 600
+                                        },
+                                        "ways": {
+                                          "maxItems": 10,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "enum": [
+                                              "pitch",
+                                              "intro",
+                                              "valueFirst",
+                                              "trigger",
+                                              "compliment",
+                                              "opinion",
+                                              "socialProof",
+                                              "permission",
+                                              "sharedGround",
+                                              "problemCheck"
+                                            ]
+                                          }
                                         }
                                       },
                                       "required": [
@@ -236123,6 +236639,46 @@
                                     "minLength": 1,
                                     "maxLength": 800
                                   },
+                                  "valueFirst": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "trigger": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "compliment": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "opinion": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "socialProof": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "permission": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "sharedGround": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
+                                  "problemCheck": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
                                   "nudge": {
                                     "type": "string",
                                     "minLength": 1,
@@ -236242,6 +236798,25 @@
                                   "pitch",
                                   "intro"
                                 ]
+                              },
+                              "ways": {
+                                "maxItems": 10,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "enum": [
+                                    "pitch",
+                                    "intro",
+                                    "valueFirst",
+                                    "trigger",
+                                    "compliment",
+                                    "opinion",
+                                    "socialProof",
+                                    "permission",
+                                    "sharedGround",
+                                    "problemCheck"
+                                  ]
+                                }
                               },
                               "networking": {
                                 "type": "object",
@@ -236483,6 +237058,30 @@
                               "intro": {
                                 "type": "string"
                               },
+                              "valueFirst": {
+                                "type": "string"
+                              },
+                              "trigger": {
+                                "type": "string"
+                              },
+                              "compliment": {
+                                "type": "string"
+                              },
+                              "opinion": {
+                                "type": "string"
+                              },
+                              "socialProof": {
+                                "type": "string"
+                              },
+                              "permission": {
+                                "type": "string"
+                              },
+                              "sharedGround": {
+                                "type": "string"
+                              },
+                              "problemCheck": {
+                                "type": "string"
+                              },
                               "nudge": {
                                 "type": "string"
                               },
@@ -236553,6 +237152,14 @@
                             "required": [
                               "first",
                               "intro",
+                              "valueFirst",
+                              "trigger",
+                              "compliment",
+                              "opinion",
+                              "socialProof",
+                              "permission",
+                              "sharedGround",
+                              "problemCheck",
                               "nudge",
                               "demoOffer",
                               "callOffer",
@@ -240160,6 +240767,9 @@
                                 "type": "string",
                                 "format": "date-time",
                                 "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              "hi": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -240492,6 +241102,9 @@
                                 "type": "string",
                                 "format": "date-time",
                                 "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              "hi": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -242165,7 +242778,15 @@
                                   "enum": [
                                     "style",
                                     "own",
-                                    "intro"
+                                    "intro",
+                                    "valueFirst",
+                                    "trigger",
+                                    "compliment",
+                                    "opinion",
+                                    "socialProof",
+                                    "permission",
+                                    "sharedGround",
+                                    "problemCheck"
                                   ]
                                 },
                                 "text": {
@@ -244669,13 +245290,40 @@
                                     "enum": [
                                       "style",
                                       "own",
-                                      "intro"
+                                      "intro",
+                                      "valueFirst",
+                                      "trigger",
+                                      "compliment",
+                                      "opinion",
+                                      "socialProof",
+                                      "permission",
+                                      "sharedGround",
+                                      "problemCheck"
                                     ]
                                   },
                                   "text": {
                                     "type": "string",
                                     "minLength": 1,
                                     "maxLength": 600
+                                  },
+                                  "ways": {
+                                    "maxItems": 10,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "enum": [
+                                        "pitch",
+                                        "intro",
+                                        "valueFirst",
+                                        "trigger",
+                                        "compliment",
+                                        "opinion",
+                                        "socialProof",
+                                        "permission",
+                                        "sharedGround",
+                                        "problemCheck"
+                                      ]
+                                    }
                                   }
                                 },
                                 "required": [
@@ -246965,13 +247613,40 @@
                                                     "enum": [
                                                       "style",
                                                       "own",
-                                                      "intro"
+                                                      "intro",
+                                                      "valueFirst",
+                                                      "trigger",
+                                                      "compliment",
+                                                      "opinion",
+                                                      "socialProof",
+                                                      "permission",
+                                                      "sharedGround",
+                                                      "problemCheck"
                                                     ]
                                                   },
                                                   "text": {
                                                     "type": "string",
                                                     "minLength": 1,
                                                     "maxLength": 600
+                                                  },
+                                                  "ways": {
+                                                    "maxItems": 10,
+                                                    "type": "array",
+                                                    "items": {
+                                                      "type": "string",
+                                                      "enum": [
+                                                        "pitch",
+                                                        "intro",
+                                                        "valueFirst",
+                                                        "trigger",
+                                                        "compliment",
+                                                        "opinion",
+                                                        "socialProof",
+                                                        "permission",
+                                                        "sharedGround",
+                                                        "problemCheck"
+                                                      ]
+                                                    }
                                                   }
                                                 },
                                                 "required": [
@@ -247213,13 +247888,40 @@
                                             "enum": [
                                               "style",
                                               "own",
-                                              "intro"
+                                              "intro",
+                                              "valueFirst",
+                                              "trigger",
+                                              "compliment",
+                                              "opinion",
+                                              "socialProof",
+                                              "permission",
+                                              "sharedGround",
+                                              "problemCheck"
                                             ]
                                           },
                                           "text": {
                                             "type": "string",
                                             "minLength": 1,
                                             "maxLength": 600
+                                          },
+                                          "ways": {
+                                            "maxItems": 10,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string",
+                                              "enum": [
+                                                "pitch",
+                                                "intro",
+                                                "valueFirst",
+                                                "trigger",
+                                                "compliment",
+                                                "opinion",
+                                                "socialProof",
+                                                "permission",
+                                                "sharedGround",
+                                                "problemCheck"
+                                              ]
+                                            }
                                           }
                                         },
                                         "required": [
@@ -247447,13 +248149,40 @@
                                             "enum": [
                                               "style",
                                               "own",
-                                              "intro"
+                                              "intro",
+                                              "valueFirst",
+                                              "trigger",
+                                              "compliment",
+                                              "opinion",
+                                              "socialProof",
+                                              "permission",
+                                              "sharedGround",
+                                              "problemCheck"
                                             ]
                                           },
                                           "text": {
                                             "type": "string",
                                             "minLength": 1,
                                             "maxLength": 600
+                                          },
+                                          "ways": {
+                                            "maxItems": 10,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string",
+                                              "enum": [
+                                                "pitch",
+                                                "intro",
+                                                "valueFirst",
+                                                "trigger",
+                                                "compliment",
+                                                "opinion",
+                                                "socialProof",
+                                                "permission",
+                                                "sharedGround",
+                                                "problemCheck"
+                                              ]
+                                            }
                                           }
                                         },
                                         "required": [
@@ -248319,13 +249048,40 @@
                                             "enum": [
                                               "style",
                                               "own",
-                                              "intro"
+                                              "intro",
+                                              "valueFirst",
+                                              "trigger",
+                                              "compliment",
+                                              "opinion",
+                                              "socialProof",
+                                              "permission",
+                                              "sharedGround",
+                                              "problemCheck"
                                             ]
                                           },
                                           "text": {
                                             "type": "string",
                                             "minLength": 1,
                                             "maxLength": 600
+                                          },
+                                          "ways": {
+                                            "maxItems": 10,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string",
+                                              "enum": [
+                                                "pitch",
+                                                "intro",
+                                                "valueFirst",
+                                                "trigger",
+                                                "compliment",
+                                                "opinion",
+                                                "socialProof",
+                                                "permission",
+                                                "sharedGround",
+                                                "problemCheck"
+                                              ]
+                                            }
                                           }
                                         },
                                         "required": [

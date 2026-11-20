@@ -197,7 +197,7 @@ export type OutreachShown =
       readonly net: Platform | null;
     }
   | {
-      /** In your hands (decision 185), which loads itself: everyone's, or only the person's own. */
+      /** In your hands (decision 182), which loads itself: everyone's, or only the person's own. */
       readonly view: 'hands';
       readonly mine: boolean;
       /** The person's own id, so their own rows say "You". */

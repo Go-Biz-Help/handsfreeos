@@ -95,6 +95,8 @@ const answer = (over: Partial<PlaybookTestOutput> = {}): PlaybookTestOutput => (
   state: { ...TEST_START, step: 'first' },
   about: null,
   aboutYou: false,
+  way: null,
+  why: null,
   ...over,
 });
 
@@ -116,7 +118,7 @@ describe('What it says, on the phone', () => {
 
   it('saves only the parts that differ, and goes back to the starting words', async () => {
     const { onSave, el } = body();
-    await render(el);
+    const view = await render(el);
     await fireEvent.press(screen.getByTestId('playbook-edit-script'));
     const yes = screen.getByTestId('playbook-script-words-yes');
     expect(yes.props.value).toBe(startingScript('demo').yes);
@@ -137,7 +139,9 @@ describe('What it says, on the phone', () => {
       yes: 'Great! When’s a good time this week for a quick demo?',
     });
     // Back to the starting words: the part is left out again, and follows them.
+    await view.rerender(body({ playbook: { ...PLAYBOOK, details: saved(onSave) }, onSave }).el);
     await fireEvent.press(screen.getByTestId('playbook-edit-script'));
+    await fireEvent.press(screen.getByTestId('playbook-script-starting-yes'));
     await fireEvent.changeText(screen.getByTestId('playbook-script-words-no'), 'OK, bye.');
     await fireEvent.press(screen.getByTestId('playbook-script-starting-no'));
     expect(screen.getByTestId('playbook-script-words-no').props.value).toBe(
@@ -145,44 +149,84 @@ describe('What it says, on the phone', () => {
     );
     await fireEvent.press(screen.getByTestId('playbook-save'));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
-    expect(saved(onSave).script).toEqual({});
+    expect(saved(onSave).script).toEqual({
+      first: [STARTING_FIRST_MESSAGE, 'Hey [first name], open to more roofing jobs this month?'],
+    });
   });
 
-  it('starts with an introduction in place of the pitch once picked (decision 168)', async () => {
-    expect(sectionWords(PLAYBOOK.details, 'script')).toContain('How the first message goes\nPitch');
-    expect(sectionWords(PLAYBOOK.details, 'script')).not.toContain(STARTING_INTRO);
-    expect(sectionWords({ ...PLAYBOOK.details, opens: 'intro' }, 'script')).toContain(
-      `How the first message goes\nIntroduction`,
+  it('starts chats only the ways it ticks, an introduction among them (decisions 168, 183)', async () => {
+    expect(sectionWords(PLAYBOOK.details, 'script')).toContain(
+      'Ways to start a chat\nDirect pitch',
     );
-    expect(sectionWords({ ...PLAYBOOK.details, opens: 'intro' }, 'script')).toContain(
-      `Introduction\n${STARTING_INTRO}`,
+    expect(sectionWords(PLAYBOOK.details, 'script')).not.toContain(STARTING_INTRO);
+    const intro = { ...PLAYBOOK.details, ways: ['intro' as const] };
+    expect(sectionWords(intro, 'script')).toContain('Ways to start a chat\nIntroduction');
+    expect(sectionWords(intro, 'script')).toContain(`Introduction\n${STARTING_INTRO}`);
+    expect(sectionWords({ ...PLAYBOOK.details, ways: [] }, 'script')).toContain(
+      'Ways to start a chat\nTick at least one way to start a chat.',
     );
     const { onSave, el } = body();
-    await render(el);
+    const view = await render(el);
     await fireEvent.press(screen.getByTestId('playbook-edit-script'));
     expect(screen.queryByTestId('playbook-script-intro')).toBeNull();
-    await fireEvent.press(screen.getByTestId('playbook-opens-intro'));
+    expect(screen.getByTestId('playbook-way-pitch-tick').props.accessibilityState).toMatchObject({
+      checked: true,
+    });
+    await fireEvent(screen.getByTestId('playbook-way-intro-tick'), 'checkedChange', true);
     expect(screen.getByTestId('playbook-script-words-intro').props.value).toBe(STARTING_INTRO);
-    // The pitch stays, for Reconnect.
+    await fireEvent.press(screen.getByTestId('playbook-save'));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(saved(onSave).ways).toEqual(['pitch', 'intro']);
+    expect(saved(onSave).script).toEqual({});
+    // Only the introduction: the pitch stays, for Reconnect, and old phones read it as an intro.
+    await view.rerender(body({ playbook: { ...PLAYBOOK, details: saved(onSave) }, onSave }).el);
+    await fireEvent.press(screen.getByTestId('playbook-edit-script'));
+    await fireEvent(screen.getByTestId('playbook-way-pitch-tick'), 'checkedChange', false);
     expect(
       within(screen.getByTestId('playbook-script-first')).getByText('Your pitch'),
     ).toBeTruthy();
     await fireEvent.press(screen.getByTestId('playbook-save'));
-    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
+    expect(saved(onSave).ways).toEqual(['intro']);
     expect(saved(onSave).opens).toBe('intro');
-    expect(saved(onSave).script).toEqual({});
+  });
+
+  it('saves as it’s changed, and holds the save while no way is ticked (the owner’s autosave)', async () => {
+    const { onSave, el } = body();
+    await render(el);
+    await fireEvent.press(screen.getByTestId('playbook-edit-script'));
+    expect(screen.getByTestId('playbook-save-status')).toHaveTextContent(
+      'Changes save as you make them.',
+    );
+    await fireEvent.changeText(
+      screen.getByTestId('playbook-script-words-yes'),
+      'Great! When suits you?',
+    );
+    // No Done: a short pause saves it.
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1), { timeout: 3000 });
+    expect(saved(onSave).script).toEqual({ yes: 'Great! When suits you?' });
+    expect(await screen.findByText('Saved')).toBeTruthy();
+    // No way ticked: nothing saves, and Done says why and stays open.
+    await fireEvent(screen.getByTestId('playbook-way-pitch-tick'), 'checkedChange', false);
+    expect(screen.getByTestId('playbook-ways-none')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('playbook-save'));
+    expect(await screen.findByTestId('playbook-problem')).toHaveTextContent(
+      'Tick at least one way to start a chat.',
+    );
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('playbook-sheet')).toBeTruthy();
   });
 
   it('has the networking chat’s switches and words only with an introduction (decision 173)', async () => {
     expect(sectionWords(PLAYBOOK.details, 'script')).not.toContain('In the chat after it');
-    expect(sectionWords({ ...PLAYBOOK.details, opens: 'intro' }, 'script')).toContain(
+    expect(sectionWords({ ...PLAYBOOK.details, ways: ['intro'] }, 'script')).toContain(
       'In the chat after it\nOffer a demo',
     );
     expect(
       sectionWords(
         {
           ...PLAYBOOK.details,
-          opens: 'intro',
+          ways: ['intro'],
           networking: { demo: false, call: false, sendPeople: false },
         },
         'script',
@@ -193,7 +237,7 @@ describe('What it says, on the phone', () => {
     await fireEvent.press(screen.getByTestId('playbook-edit-script'));
     expect(screen.queryByTestId('playbook-networking')).toBeNull();
     expect(screen.queryByTestId('playbook-script-nudge')).toBeNull();
-    await fireEvent.press(screen.getByTestId('playbook-opens-intro'));
+    await fireEvent(screen.getByTestId('playbook-way-intro-tick'), 'checkedChange', true);
     expect(screen.getByTestId('playbook-script-words-nudge')).toBeTruthy();
     expect(screen.getByTestId('playbook-script-words-callOffer').props.value).toBe(
       startingScript('demo').callOffer,
@@ -209,7 +253,7 @@ describe('What it says, on the phone', () => {
   });
 
   it('sets how the chat goes, as it starts until changed (decision 180)', async () => {
-    const intro = { ...PLAYBOOK.details, opens: 'intro' as const };
+    const intro = { ...PLAYBOOK.details, ways: ['intro' as const] };
     expect(sectionWords(intro, 'script')).toContain(
       'How the chat goes\nOffer the call by: 2nd reply\nQuestions: Rarely\nYour story: When it fits\nWhen to offer the demo: When they ask',
     );
@@ -230,7 +274,7 @@ describe('What it says, on the phone', () => {
     await render(el);
     await fireEvent.press(screen.getByTestId('playbook-edit-script'));
     expect(screen.queryByTestId('playbook-chat')).toBeNull();
-    await fireEvent.press(screen.getByTestId('playbook-opens-intro'));
+    await fireEvent(screen.getByTestId('playbook-way-intro-tick'), 'checkedChange', true);
     expect(screen.getByTestId('playbook-chat-wrap-2').props.accessibilityState).toMatchObject({
       selected: true,
     });

@@ -1,5 +1,5 @@
 /**
- * In your hands, on Social Outreach (docs/outreach.md, decision 185; core's side is messaging/hands.ts): someone a
+ * In your hands, on Social Outreach (docs/outreach.md, decision 182; core's side is messaging/hands.ts): someone a
  * person on the team wrote to themselves, or took over from the menu on their name, is theirs. The AI sends them no
  * message of any kind until someone gives them back: Today leaves their messages off, and a draft for them can't be
  * queued or OK'd. Likes and comments still go, and so does everything else on their way.

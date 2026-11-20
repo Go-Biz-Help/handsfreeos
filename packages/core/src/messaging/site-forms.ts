@@ -19,7 +19,14 @@
  * Split like `preflight.ts`: the worker fetches (`apps/worker/src/http/site-forms.ts`), this reads and judges, so all
  * of it can be tested without a network.
  */
-import { boxRequired, plainText, tagAttr, withoutScripts, type PreflightCheck } from './preflight';
+import {
+  boxRequired,
+  plainText,
+  ROBOT_CHECK_NEXT,
+  tagAttr,
+  withoutScripts,
+  type PreflightCheck,
+} from './preflight';
 
 /** One box on a form that asks to send texts. */
 export interface TextingBox {
@@ -61,8 +68,17 @@ export interface SiteScan {
   readonly cut: boolean;
   /** Every form that counts (`formCounts`), on every page it was found on. */
   readonly forms: readonly SiteForm[];
-  /** Pages that showed a robot check instead of themselves, and who showed it (`robotCheckWho`). */
-  readonly blocked: readonly { readonly url: string; readonly who: string }[];
+  /**
+   * Pages that showed a robot check instead of themselves: who showed it, in a sentence's words (`robotCheckWho`) and
+   * by name (`RobotCheck.by`, for the steps that let HandsFreeOS in).
+   */
+  readonly blocked: readonly {
+    readonly url: string;
+    readonly who: string;
+    readonly by?: string | null;
+  }[];
+  /** Where pages came from when not our own read: the business's browser, or its screenshots (`site-pages.ts`). */
+  readonly via?: readonly ('browser' | 'screenshot')[];
 }
 
 // ---------- reading a page ----------
@@ -313,29 +329,28 @@ export function checkSiteForms(
   const blocked = scan.blocked.length
     ? `${scan.blocked.length === 1 ? 'One page' : `${scan.blocked.length} pages`} showed us a robot check from ${scan.blocked[0]!.who} instead of ${scan.blocked.length === 1 ? 'itself' : 'themselves'}, so we couldn’t look for forms there.`
     : '';
+  const blockedPages = scan.blocked.map((b) => ({ url: b.url, by: b.by ?? null }));
   const cut = scan.cut
     ? ` We stopped after ${scan.opened} pages, so pages further in weren’t looked at.`
     : '';
 
   if (!rows.length) {
-    const left = blocked
-      ? ' Press “Ask HandsFreeOS to check it” below and we’ll look ourselves.'
-      : '';
     return [
       {
         id: 'site_forms',
         label: 'No other forms on your site',
         severity: 'warning',
         ok: !blocked,
-        detail: `We opened ${scan.opened === 1 ? 'one page' : `${scan.opened} pages`} of your site. Every form that asks for a phone number is one your registration names, and every box to agree to texts is optional.${cut}${blocked ? ` ${blocked}${left}` : ''}`,
+        detail: `We opened ${scan.opened === 1 ? 'one page' : `${scan.opened} pages`} of your site. Every form that asks for a phone number is one your registration names, and every box to agree to texts is optional.${cut}${blocked ? ` ${blocked} ${ROBOT_CHECK_NEXT}` : ''}`,
         url: null,
+        ...(blockedPages.length ? { blocked: blockedPages } : {}),
       },
     ];
   }
 
   const shown = rows.slice(0, MAX_ROWS);
   const more = rows.length - shown.length;
-  return shown.map((row, i) => ({
+  const formRows: PreflightCheck[] = shown.map((row, i) => ({
     id: `site_form_${i}` as const,
     label: `A form on ${shortAddress(row.pages[0]!)}`,
     severity: 'blocker' as const,
@@ -348,6 +363,20 @@ export function checkSiteForms(
       (i === shown.length - 1 ? cut : ''),
     url: row.pages[0]!,
   }));
+  // Forms to fix, and pages we couldn't look at: both are said, or a fixed site could still hide one behind the check.
+  if (!blocked) return formRows;
+  return [
+    ...formRows,
+    {
+      id: 'site_forms',
+      label: 'Pages we couldn’t look at',
+      severity: 'warning',
+      ok: false,
+      detail: `${blocked} ${ROBOT_CHECK_NEXT}`,
+      url: null,
+      blocked: blockedPages,
+    },
+  ];
 }
 
 /** "/a", "/a and /b", or "/a, /b and 3 more pages". */

@@ -1,5 +1,5 @@
 /**
- * In your hands on the phone's People tab (`?view=hands`, docs/outreach.md decision 185), as the web's: everyone
+ * In your hands on the phone's People tab (`?view=hands`, docs/outreach.md decision 182), as the web's: everyone
  * someone on the team wrote to themselves, or took over, whom the AI sends no messages till someone gives them back.
  * Each row says whose hands and when, with Give back to the AI; Give all back takes the list shown, everyone's or only
  * the person's own. It needs signal. The words are core's (`HANDS_OUTREACH_WORDS`).

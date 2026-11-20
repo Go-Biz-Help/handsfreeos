@@ -33,6 +33,7 @@ import {
 } from '../conversation';
 import { outreachAddon } from '../manifest';
 import { PARTNER_GOAL, paceOf, type Pace } from '../playbooks';
+import { kindStartsAChat } from '../openers';
 import { followUps, openerUses, playbooks, profiles, stages } from '../tables';
 import { EVER } from './activity';
 import { inWorkspace, type Ctx } from './common';
@@ -108,9 +109,9 @@ async function kept(ctx: Ctx, me: string, profileId: string) {
  * no, goes on with a conversation the person stopped (`outreach.conversation.stop`). Reconnect asks the first
  * message's question after its catch-up (decision 152), so it starts a conversation at the first step for someone in
  * none yet, unless they turned the offer down, when it only caught up; a demo's reminder, another time after a no-show
- * and a birthday or new-job note leave it be. A playbook's introduction in place of the first message (decision 168)
- * starts it at `intro`, with one nudge to come and then check-ins (decision 173), and a reply there waits for the
- * check-in.
+ * and a birthday or new-job note leave it be. A playbook's introduction in place of the first message (decision 168),
+ * or any other way that starts a chat (decision 183), starts it at `intro`, with one nudge to come and then check-ins
+ * (decision 173), and a reply there waits for the check-in.
  */
 export async function noteSent(
   ctx: Ctx,
@@ -121,8 +122,9 @@ export async function noteSent(
     readonly at: Date;
     readonly offerVersion: number | null;
     /**
-     * For a first message: whether it was the playbook's introduction (decision 168), as its draft's opener says. Left
-     * out, the first message noted for them says (`opener_uses`).
+     * For a first message: whether it started a chat (the playbook's introduction, decision 168, or another way that
+     * starts one, decision 183), as its draft's opener says. Left out, the first message noted for them says
+     * (`opener_uses`).
      */
     readonly intro?: boolean;
   },
@@ -244,7 +246,10 @@ export async function noteSent(
   }
 }
 
-/** Whether the first message noted for them was the playbook's introduction (decision 168, ./sends.ts `noteOpener`). */
+/**
+ * Whether the first message noted for them started a chat (./sends.ts `noteOpener`): the playbook's introduction
+ * (decision 168), or another way that starts one (decision 183).
+ */
 async function introducedTo(ctx: Ctx, me: string, profileId: string): Promise<boolean> {
   const [use] = await ctx.tx
     .select({ kind: openerUses.kind })
@@ -256,7 +261,7 @@ async function introducedTo(ctx: Ctx, me: string, profileId: string): Promise<bo
         eq(openerUses.profileId, profileId),
       ),
     );
-  return use?.kind === 'intro';
+  return use ? kindStartsAChat(use.kind) : false;
 }
 
 /**
@@ -398,7 +403,7 @@ export const conversationNote = defineAddonCommand(outreachAddon, {
     if (!profile)
       throw HfosError.notFound('That person isn’t kept here anymore. Reload your list.');
     const at = changeMoment(ctx.meta);
-    // The AI's draft, copied to send: read in the chat later, it stays the AI's (decision 185).
+    // The AI's draft, copied to send: read in the chat later, it stays the AI's (decision 182).
     await ctx.tx.update(profiles).set({ copiedAt: at }).where(eq(profiles.id, profile.id));
     // A partner's moves them along the Partners list, never a customer conversation (decision 81).
     if (input.kind.startsWith('partner_')) {

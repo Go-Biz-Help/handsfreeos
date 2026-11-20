@@ -471,7 +471,7 @@ export const chatsCollect = defineAddonCommand(outreachAddon, {
                 ),
               );
         }
-        // A message of the person's that they wrote themselves, new since the chat was last read (decision 185): them in
+        // A message of the person's that they wrote themselves, new since the chat was last read (decision 182): them in
         // the person's hands, unless HandsFreeOS drafted it or the extension sent them something then or since.
         const writer = profile?.id ?? had?.profileId ?? null;
         if (writer) {
