@@ -84,3 +84,71 @@ export const robotCheckWhy = (check: RobotCheck): string =>
   `${capitalize(robotCheckWho(check))} does this to keep bots out. People opening the page in a browser get past it.`;
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/**
+ * How our reader names itself to every website (the worker's `user-agent`), for the words that ask a host to let it
+ * in. The worker's safe fetch sends exactly this.
+ */
+export const SITE_READER_AGENT = 'HandsFreeOS/1.0 (+https://handsfreeos.com)';
+
+/** Letting HandsFreeOS in: what the business does at its host, and a message to send when the host has to do it. */
+export interface RobotCheckAllow {
+  /** Where to go and what to change, in a sentence or three. */
+  readonly steps: string;
+  /** Words to copy into a message to the host's support, when only they can change it. */
+  readonly message: string | null;
+}
+
+/**
+ * Letting our reader past a site's security for good (owner, 2026-11-20): the worker reads from fixed addresses
+ * (`SITE_READER_IPS` on the worker, `fly ips allocate-egress`), and the business, whose site it is, allows them. That
+ * is the site owner's own choice in the site's own settings, not a way round them. Null without the addresses: there
+ * is nothing to allow yet, and the browser check or a screenshot does instead.
+ *
+ * SiteGround has no switch for its robot check (2026-11-20: its Site Tools list only blocks), so its support adds the
+ * address. Cloudflare's free Bot Fight Mode ignores rules too, so its steps say to finish the check in the browser.
+ */
+export function robotCheckAllow(
+  by: string | null,
+  site: { readonly host: string; readonly ips: readonly string[] },
+): RobotCheckAllow | null {
+  const ips = site.ips.filter(Boolean);
+  if (!ips.length) return null;
+  const list = ips.join(', ');
+  const message = `Hi, please let HandsFreeOS read my website ${site.host}. It’s the software I use for my business, and it reads my own pages to check them for my texting registration. It reads from ${ips.length === 1 ? 'this address' : 'these addresses'}: ${list}, and names itself “${SITE_READER_AGENT}”. Please allow ${ips.length === 1 ? 'it' : 'them'} through the robot check (the captcha). Thank you!`;
+  switch (by) {
+    case 'SiteGround':
+      return {
+        steps:
+          'SiteGround has no switch for its robot check, so its support adds HandsFreeOS for you. In Site Tools, open Help and start a chat, then paste the message below. It usually takes a few minutes.',
+        message,
+      };
+    case 'Cloudflare':
+      return {
+        steps: `In Cloudflare, open ${site.host}, then Security → WAF → Custom rules → Create rule. Pick “IP Source Address”, “is in”, and add ${list}. Under “Then take action”, pick Skip, tick every box, and Deploy. Cloudflare’s free Bot Fight Mode ignores rules like this one: if it’s on, finish the check on your site instead.`,
+        message: null,
+      };
+    case 'Sucuri':
+      return {
+        steps: `In your Sucuri dashboard, open the firewall for ${site.host}, then Access Control → Allowlist IP, and add ${list}.`,
+        message: null,
+      };
+    case 'Wordfence':
+      return {
+        steps: `In WordPress, open Wordfence → All Options → Advanced Firewall Options, add ${list} to “Allowlisted IP addresses that bypass all rules”, and Save.`,
+        message: null,
+      };
+    case 'Imunify360':
+      return {
+        steps:
+          'Imunify360 is run by your hosting company. Send them the message below and they’ll add HandsFreeOS to its allow list.',
+        message,
+      };
+    default:
+      return {
+        steps:
+          'Send the message below to whoever looks after your website’s security, usually your hosting company.',
+        message,
+      };
+  }
+}

@@ -1,7 +1,9 @@
 import type { NextRequest } from 'next/server';
 import { loaderScript } from '@/lib/chat/loader';
 import { lookupChat } from '@/lib/chat/lookup';
+import { publicEnv } from '@/lib/env';
 import { formEmbedScript } from '@/lib/forms/embed-script';
+import { siteCheckScript } from '@/lib/site-check/script';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** A 404 or a paused widget's empty script: a minute in browsers and on the CDN. */
@@ -31,6 +33,14 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ file: s
   // calendar's embed (core's bookingEmbedSnippet) loads the same script by a name of its own.
   if (file === 'form.js' || file === 'book.js')
     return script(formEmbedScript(), 200, 'public, max-age=86400, s-maxage=86400');
+  // The texting registration's browser check (lib/site-check/script.ts), loaded by the two scripts above only when the
+  // address carries a check's code: the same for everyone, so kept for 5 minutes.
+  if (file === 'site-check.js')
+    return script(
+      siteCheckScript({ worker: publicEnv.workerUrl }),
+      200,
+      'public, max-age=300, s-maxage=300',
+    );
   const key = /^(wk_[A-Za-z0-9]{20})\.js$/.exec(file)?.[1];
   // The preview page (/chat-preview) loads the same script for a signed-in manager: never kept by shared caches.
   const asked = request.nextUrl.searchParams.get('preview');

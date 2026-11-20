@@ -1,7 +1,7 @@
 {
   "area": "settings-channels",
   "title": "Settings: texting, email, website chat, Facebook and Instagram, templates and lead intake",
-  "checkedOn": "2026-11-12",
+  "checkedOn": "2026-11-20",
   "files": {
     "apps/web/src/app/app/oauth/finish/page.tsx": "32b5c89b1bb7",
     "apps/web/src/app/app/w/[workspaceId]/settings/email/page.tsx": "7a7280639dbc",
@@ -11,7 +11,7 @@
     "apps/web/src/app/app/w/[workspaceId]/settings/texting/page.tsx": "b242e42c3f74",
     "apps/web/src/app/app/w/[workspaceId]/settings/website-chat/page.tsx": "1c86737b9add",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
-    "apps/web/src/components/settings/a2p-wizard.tsx": "b64bdf2c7d19",
+    "apps/web/src/components/settings/a2p-wizard.tsx": "16a231581336",
     "apps/web/src/components/settings/chat-install.tsx": "5a08b1500b10",
     "apps/web/src/components/settings/chat-look-parts.tsx": "f7a53fa395ae",
     "apps/web/src/components/settings/email-page.tsx": "fdb005694b23",
@@ -25,6 +25,7 @@
     "apps/web/src/components/settings/port-step.tsx": "ef0d80282285",
     "apps/web/src/components/settings/rcs-card.tsx": "2ca7ca3b9b22",
     "apps/web/src/components/settings/release-number-dialog.tsx": "7bb8208fedb8",
+    "apps/web/src/components/settings/site-check-help.tsx": "5a3069cc8238",
     "apps/web/src/components/settings/templates-editor.tsx": "331baf537fed",
     "apps/web/src/components/settings/test-text-dialog.tsx": "7bce9b29ee3c",
     "apps/web/src/components/settings/texting-page.tsx": "a6b98cdfc4fc",
@@ -1041,6 +1042,41 @@
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:2630",
       "covered": "no",
       "by": "worker registrationPreflight has no tool"
+    },
+    {
+      "path": "Texting → Registration → Review → checks list: Read in your own browser / Read from your screenshot",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2749",
+      "covered": "no",
+      "by": "worker registrationPreflight has no tool"
+    },
+    {
+      "path": "Texting → Registration → Review → Your website’s security stopped our check (pages named)",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/site-check-help.tsx:62",
+      "covered": "no",
+      "by": "worker registrationPreflight has no tool"
+    },
+    {
+      "path": "Texting → Registration → Review → Finish the check on my site (opens the site, reads pages in the person’s browser)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/site-check-help.tsx:230",
+      "covered": "person",
+      "by": "runs in the person’s own browser on their own site, which the Assistant can’t open"
+    },
+    {
+      "path": "Texting → Registration → Review → Let HandsFreeOS in: each host’s steps, Copy message",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/site-check-help.tsx:85",
+      "covered": "person",
+      "by": "a change at the website’s host, or a message to its support, only the business can make"
+    },
+    {
+      "path": "Texting → Registration → Review → Add a screenshot (each page still stopped)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/site-check-help.tsx:335",
+      "covered": "person",
+      "by": "needs a screenshot the person takes of their own site"
     },
     {
       "path": "Texting → Registration → Review → confirmation boxes",

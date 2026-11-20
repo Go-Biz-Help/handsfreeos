@@ -116,7 +116,9 @@ describe('the privacy policy', () => {
     expect(check.ok).toBe(false);
     expect(check.severity).toBe('blocker');
     expect(check.detail).toMatch(/robot check .*\(SiteGround\)/);
-    expect(check.detail).toMatch(/Ask HandsFreeOS to check it/);
+    // The ways past, offered under the rows (owner, 2026-11-20), for the page it names.
+    expect(check.detail).toMatch(/Finish the check on my site/);
+    expect(check.blocked).toEqual([{ url: 'https://lonestarhvac.test', by: 'SiteGround' }]);
     expect(check.detail).not.toMatch(/never mentions/);
   });
 

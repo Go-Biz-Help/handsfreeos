@@ -39,6 +39,22 @@ export interface PreflightCheck {
   readonly detail: string;
   /** The address that was actually opened, when one was. */
   readonly url?: string | null;
+  /**
+   * The pages that showed a robot check instead of themselves (`robotCheck`), so this row couldn't look at them: the
+   * last step offers the ways past for each (owner, 2026-11-20).
+   */
+  readonly blocked?: readonly BlockedPage[];
+  /**
+   * Where the page this row read came from, when it wasn't our own server's read: the person's browser on their site
+   * (the browser check), or the screenshot they added. Said beside the row, for them and for HandsFreeOS.
+   */
+  readonly via?: 'browser' | 'screenshot';
+}
+
+/** A page that showed a robot check instead of itself, and whose check it was (`RobotCheck.by`). */
+export interface BlockedPage {
+  readonly url: string;
+  readonly by: string | null;
 }
 
 /** What the worker managed to get for one address. */
@@ -59,6 +75,11 @@ export interface FetchedPage {
    * `html` is then that form's, and `url` stays the page's, since that is the address the carrier is given.
    */
   readonly framedUrl?: string | null;
+  /**
+   * Where the page came from when it wasn't our server's own read: the person's browser on their own site (the
+   * browser check) or their screenshot, written out as a page (`site-pages.ts`).
+   */
+  readonly source?: 'browser' | 'screenshot' | null;
 }
 
 // ---------- reading a page ----------
@@ -348,13 +369,26 @@ const unreachable = (page: FetchedPage, what: string): string =>
 /**
  * What a check says when the page showed us a robot check instead of itself (`robotCheck`): nothing about the page
  * is known, so it is neither passed nor failed on its words. A reviewer in a browser gets past the check, so the
- * business isn't told to change anything; HandsFreeOS looks at the page for it instead.
+ * business isn't told to change anything on the page. The row names the page in `blocked`, and the last step offers
+ * the ways past (owner, 2026-11-20): finish the check on the site in the person's own browser, let HandsFreeOS in at
+ * the host, or a screenshot of the page.
  */
-function robotChecked(page: FetchedPage, what: string): string | null {
+function robotChecked(
+  page: FetchedPage,
+  what: string,
+): { readonly detail: string; readonly blocked: readonly BlockedPage[] } | null {
   const check = robotCheck(page);
   if (!check) return null;
-  return `${page.finalUrl ?? page.url} showed us a robot check from ${robotCheckWho(check)} instead of ${what}, so we couldn’t check it. A reviewer opening it in a browser gets past the check. Press “Ask HandsFreeOS to check it” below and we’ll look at it ourselves.`;
+  const url = page.finalUrl ?? page.url;
+  return {
+    detail: `${url} showed us a robot check from ${robotCheckWho(check)} instead of ${what}, so we couldn’t check it. A reviewer opening it in a browser gets past the check. ${ROBOT_CHECK_NEXT}`,
+    blocked: [{ url, by: check.by }],
+  };
 }
+
+/** What a row about a page behind a robot check says to do: the ways past it, under the rows. */
+export const ROBOT_CHECK_NEXT =
+  'Press “Finish the check on my site” below, let HandsFreeOS in, or add a screenshot of the page.';
 
 /**
  * Did the business's own website load, is there something on it, and is it this business's?
@@ -385,7 +419,7 @@ export function checkWebsite(
     };
   // Before the status: some checks answer 403 or 503, which would otherwise read as a broken page.
   const blocked = robotChecked(page, 'your website');
-  if (blocked) return { ...base, ok: false, detail: blocked, url: page.finalUrl ?? page.url };
+  if (blocked) return { ...base, ok: false, ...blocked, url: page.finalUrl ?? page.url };
   if (page.status === null || page.status >= 400)
     return {
       ...base,
@@ -448,7 +482,7 @@ export function checkPolicy(page: FetchedPage | null): PreflightCheck {
       url: null,
     };
   const blocked = robotChecked(page, 'your privacy policy');
-  if (blocked) return { ...base, ok: false, detail: blocked, url: page.finalUrl ?? page.url };
+  if (blocked) return { ...base, ok: false, ...blocked, url: page.finalUrl ?? page.url };
   if (page.status === null || page.status >= 400)
     return {
       ...base,
@@ -543,7 +577,7 @@ export function checkTerms(page: FetchedPage | null): PreflightCheck {
       ...base,
       severity: 'warning',
       ok: false,
-      detail: blocked,
+      ...blocked,
       url: page.finalUrl ?? page.url,
     };
   if (page.status === null || page.status >= 400)
@@ -663,7 +697,7 @@ export function checkOptInSurface(
     };
   const url = page.finalUrl ?? page.url;
   const blocked = robotChecked(page, 'the page with your tick box');
-  if (blocked) return { ...base, ok: false, detail: blocked, url };
+  if (blocked) return { ...base, ok: false, ...blocked, url };
   if (page.status === null || page.status >= 400)
     return {
       ...base,
@@ -851,9 +885,12 @@ export function checkChatOnSite(
     ...base,
     ok: false,
     detail: blocked
-      ? `${site ?? 'Your website'} showed us a robot check from ${robotCheckWho(blocked)}, so we couldn’t look for the chat’s code. Open your site in a browser and click the chat button once, and we’ll see it there.`
+      ? `${site ?? 'Your website'} showed us a robot check from ${robotCheckWho(blocked)}, so we couldn’t look for the chat’s code. Press “Finish the check on my site” below, or open your site in a browser and click the chat button once, and we’ll see it there.`
       : `We couldn’t find the chat on ${site ?? 'your website'}. Paste the code from “How customers agree” into your site’s footer and publish, then open your site and click the chat button once.`,
     url,
+    ...(blocked && website
+      ? { blocked: [{ url: website.finalUrl ?? website.url, by: blocked.by }] }
+      : {}),
   };
 }
 
