@@ -89,11 +89,7 @@ import {
   WEBHOOK_MAX_BYTES,
   WEBHOOK_SIGNATURE_HEADERS,
 } from '../money/webhook-events';
-import {
-  accountFor,
-  paymentConnectionUsable,
-  WEBHOOK_SECRET_SETTING,
-} from '../payments/index';
+import { accountFor, paymentConnectionUsable, WEBHOOK_SECRET_SETTING } from '../payments/index';
 import {
   declineWording,
   isPaymentProvider,
