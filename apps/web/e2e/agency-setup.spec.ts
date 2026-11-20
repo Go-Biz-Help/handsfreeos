@@ -45,7 +45,7 @@ test('an agency sees each client business’s setup, and does a step for them', 
   const sheet = page.getByTestId('setup-sheet');
   await expect(sheet.getByTestId('setup-step-number')).toHaveAttribute('data-state', 'todo');
   await expect(sheet.getByTestId('setup-step-payments')).toContainText(
-    'The owner signs in to Stripe or Square',
+    'The owner signs in to Stripe, Square or PayPal',
   );
   await expect(sheet.getByTestId('setup-do-payments')).toHaveCount(0);
   // Nobody owns it but the agency, so there's nobody to remind.

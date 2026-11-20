@@ -87,6 +87,8 @@ export interface PaymentCapabilities {
   readonly needsInfo: boolean;
   /** When the provider says it starts refusing, in unix seconds, where it named a date. */
   readonly needsInfoBy: number | null;
+  /** What the provider is waiting on, in a sentence for the account card, where it says which thing it is. */
+  readonly needsInfoWhat?: string;
 }
 
 /** Nothing works until the provider says the account is ready. */

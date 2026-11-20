@@ -1256,7 +1256,7 @@ export const assistantTools = [
   define({
     name: 'update_money_settings',
     description:
-      'Change how the business gets paid (Settings → Payments): sales tax, when invoices are due, your address on documents, the notes at the bottom of estimates and invoices, how long an estimate is good for, the deposit an estimate asks for, whether bank transfer is offered, and the reminders that chase an unpaid invoice or an unanswered estimate. Read it with get_settings (area payments) first and pass only what changes. Numbering is update_numbering_and_ways_to_pay; payout accounts are manage_payment_account.',
+      'Change how the business gets paid (Settings → Payments): sales tax, when invoices are due, your address on documents, the notes at the bottom of estimates and invoices, how long an estimate is good for, the deposit an estimate asks for, whether bank transfer is offered, whether PayPal’s Venmo and Pay Later buttons show (only with PayPal connected), and the reminders that chase an unpaid invoice or an unanswered estimate. Read it with get_settings (area payments) first and pass only what changes. Numbering is update_numbering_and_ways_to_pay; payout accounts are manage_payment_account.',
     input: z.object({
       taxRatePercent: z.number().min(0).max(20).optional().describe('Like 8.25; 0 for none'),
       taxName: text(40).optional().describe('What it is called on a document: Sales tax, GST'),
@@ -1292,6 +1292,14 @@ export const assistantTools = [
       depositPercent: z.number().min(0).max(100).optional().describe('Like 25'),
       depositDollars: dollars.optional(),
       offerBankTransfer: z.boolean().optional().describe('Card is always on'),
+      offerVenmo: z
+        .boolean()
+        .optional()
+        .describe('The Venmo button beside the PayPal button; only shows with PayPal connected'),
+      offerPayLater: z
+        .boolean()
+        .optional()
+        .describe('PayPal’s Pay Later button; only shows with PayPal connected'),
       remindBeforeDueDays: z
         .array(z.int().min(1).max(90))
         .max(3)

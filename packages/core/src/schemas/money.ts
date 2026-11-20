@@ -65,6 +65,8 @@ export type PaymentProvider = (typeof PAYMENT_PROVIDERS)[number];
  */
 export const CONNECTABLE_PROVIDERS = ['stripe', 'square', 'paypal'] as const;
 export type ConnectableProvider = (typeof CONNECTABLE_PROVIDERS)[number];
+export const isConnectableProvider = (value: unknown): value is ConnectableProvider =>
+  (CONNECTABLE_PROVIDERS as readonly unknown[]).includes(value);
 
 /** How each provider is written for a person. */
 export const PAYMENT_PROVIDER_NAMES: Readonly<Record<PaymentProvider, string>> = {
@@ -73,6 +75,13 @@ export const PAYMENT_PROVIDER_NAMES: Readonly<Record<PaymentProvider, string>> =
   paypal: 'PayPal',
   nmi: 'NMI',
   authorize_net: 'Authorize.net',
+};
+
+/** Each connectable provider's own dashboard, where a business fixes what only it can (Settings → Payments). */
+export const PAYMENT_PROVIDER_DASHBOARDS: Readonly<Record<ConnectableProvider, string>> = {
+  stripe: 'https://dashboard.stripe.com/',
+  square: 'https://squareup.com/dashboard/',
+  paypal: 'https://www.paypal.com/myaccount/summary',
 };
 
 export const PAYMENT_ENVIRONMENTS = ['live', 'test'] as const;

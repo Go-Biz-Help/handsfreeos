@@ -4,7 +4,10 @@
  * Deliberately not a client module: the pages are Server Components, and a value imported across the
  * `'use client'` boundary arrives as a reference rather than the array or function itself.
  */
-import { PAYMENT_METHOD_LABELS } from '@hfos/core';
+import {
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_PROVIDER_LABELS as PAYMENT_PROVIDER_NAMES,
+} from '@hfos/core';
 import type {
   EstimateListBody,
   InvoiceListBody,
@@ -53,8 +56,7 @@ export function readFilters(
 export function accountLabel(
   c: Pick<PaymentConnectionRow, 'provider' | 'label' | 'displayName' | 'environment'>,
 ): string {
-  const provider =
-    c.provider === 'stripe' ? 'Stripe' : c.provider === 'square' ? 'Square' : c.provider;
+  const provider = PAYMENT_PROVIDER_NAMES[c.provider] ?? c.provider;
   const name = c.label ?? c.displayName;
   return `${name ? `${provider} · ${name}` : provider}${c.environment === 'live' ? '' : ' (test)'}`;
 }

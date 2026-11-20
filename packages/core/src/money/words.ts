@@ -108,6 +108,11 @@ export const PAYMENTS_PAGE_WORDS = {
   squareRenews: 'Square signs you out every 30 days. HandsFreeOS renews it each week.',
   bankTransfer:
     'About 1% of the payment, capped at $5, and it takes 1 to 3 business days. It shows first because it costs you the least.',
+  payPal:
+    'Customers pay with their PayPal account or a card through PayPal. Shown whenever a PayPal account is connected.',
+  venmo: 'A Venmo button beside the PayPal button, for customers in the US who use Venmo.',
+  payLater:
+    'PayPal’s Pay Later button: the customer pays PayPal back in parts, and you get the whole amount at once.',
   noSurcharge:
     'Nothing is ever added to what the customer owes for paying by card. Surcharging is banned in four states and needs 30 days’ notice to your bank, so HandsFreeOS doesn’t do it.',
   numbering: 'Numbers run in order, per business. A voided number is kept and never used again.',

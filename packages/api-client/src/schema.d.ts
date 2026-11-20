@@ -44419,6 +44419,8 @@ export interface operations {
                                 prefix?: string;
                             };
                         };
+                        /** @default true */
+                        payLater?: boolean;
                         /** @default {} */
                         reminders?: {
                             /**
@@ -44454,6 +44456,8 @@ export interface operations {
                          * @enum {string}
                          */
                         terms?: "due_on_receipt" | "net_7" | "net_14" | "net_30";
+                        /** @default true */
+                        venmo?: boolean;
                     };
                     /** Format: uuid */
                     workspaceId: string;
@@ -44513,6 +44517,8 @@ export interface operations {
                                     prefix: string;
                                 };
                             };
+                            /** @default true */
+                            payLater: boolean;
                             reminders: {
                                 /**
                                  * @default [
@@ -44546,6 +44552,8 @@ export interface operations {
                              * @enum {string}
                              */
                             terms: "due_on_receipt" | "net_7" | "net_14" | "net_30";
+                            /** @default true */
+                            venmo: boolean;
                         };
                         /** Format: uuid */
                         workspaceId: string;
@@ -45340,7 +45348,7 @@ export interface operations {
                          * @default later
                          * @enum {string}
                          */
-                        payWith?: "stripe" | "square" | "later";
+                        payWith?: "stripe" | "square" | "paypal" | "later";
                         /** @default  */
                         reviewLink?: string;
                         /**
@@ -45686,7 +45694,7 @@ export interface operations {
                          * @default later
                          * @enum {string}
                          */
-                        payWith?: "stripe" | "square" | "later";
+                        payWith?: "stripe" | "square" | "paypal" | "later";
                         /** @default  */
                         reviewLink?: string;
                         /**
@@ -87225,6 +87233,8 @@ export interface operations {
                                     prefix: string;
                                 };
                             };
+                            /** @default true */
+                            payLater: boolean;
                             reminders: {
                                 /**
                                  * @default [
@@ -87258,6 +87268,8 @@ export interface operations {
                              * @enum {string}
                              */
                             terms: "due_on_receipt" | "net_7" | "net_14" | "net_30";
+                            /** @default true */
+                            venmo: boolean;
                         };
                     };
                 };
@@ -87814,7 +87826,7 @@ export interface operations {
                              * @default later
                              * @enum {string}
                              */
-                            payWith: "stripe" | "square" | "later";
+                            payWith: "stripe" | "square" | "paypal" | "later";
                             /** @default  */
                             reviewLink: string;
                             /**
@@ -88136,7 +88148,7 @@ export interface operations {
                              * @default later
                              * @enum {string}
                              */
-                            payWith: "stripe" | "square" | "later";
+                            payWith: "stripe" | "square" | "paypal" | "later";
                             /** @default  */
                             reviewLink: string;
                             /**
@@ -88418,7 +88430,7 @@ export interface operations {
                                 broken: boolean;
                                 checking: boolean;
                                 needsInfo: boolean;
-                                provider: ("stripe" | "square") | null;
+                                provider: ("stripe" | "square" | "paypal") | null;
                             };
                             phones: number;
                             priceList: {

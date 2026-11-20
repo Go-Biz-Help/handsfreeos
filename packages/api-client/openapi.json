@@ -50825,6 +50825,14 @@
                         "default": true,
                         "type": "boolean"
                       },
+                      "venmo": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "payLater": {
+                        "default": true,
+                        "type": "boolean"
+                      },
                       "reminders": {
                         "default": {},
                         "type": "object",
@@ -51071,6 +51079,14 @@
                           "default": true,
                           "type": "boolean"
                         },
+                        "venmo": {
+                          "default": true,
+                          "type": "boolean"
+                        },
+                        "payLater": {
+                          "default": true,
+                          "type": "boolean"
+                        },
                         "reminders": {
                           "type": "object",
                           "properties": {
@@ -51136,6 +51152,8 @@
                         "estimateGoodForDays",
                         "deposit",
                         "bankTransfer",
+                        "venmo",
+                        "payLater",
                         "reminders"
                       ],
                       "additionalProperties": false
@@ -69156,6 +69174,7 @@
                         "enum": [
                           "stripe",
                           "square",
+                          "paypal",
                           "later"
                         ]
                       },
@@ -70171,6 +70190,7 @@
                         "enum": [
                           "stripe",
                           "square",
+                          "paypal",
                           "later"
                         ]
                       },
@@ -199981,6 +200001,14 @@
                           "default": true,
                           "type": "boolean"
                         },
+                        "venmo": {
+                          "default": true,
+                          "type": "boolean"
+                        },
+                        "payLater": {
+                          "default": true,
+                          "type": "boolean"
+                        },
                         "reminders": {
                           "type": "object",
                           "properties": {
@@ -200046,6 +200074,8 @@
                         "estimateGoodForDays",
                         "deposit",
                         "bankTransfer",
+                        "venmo",
+                        "payLater",
                         "reminders"
                       ],
                       "additionalProperties": false
@@ -214312,7 +214342,8 @@
                                   "type": "string",
                                   "enum": [
                                     "stripe",
-                                    "square"
+                                    "square",
+                                    "paypal"
                                   ]
                                 },
                                 {
@@ -215230,6 +215261,7 @@
                           "enum": [
                             "stripe",
                             "square",
+                            "paypal",
                             "later"
                           ]
                         },
@@ -215951,6 +215983,7 @@
                           "enum": [
                             "stripe",
                             "square",
+                            "paypal",
                             "later"
                           ]
                         },

@@ -481,6 +481,11 @@ export function createPayPalPayments(opts: {
       // A restricted account, or an email never confirmed: PayPal holds their money until they fix it there.
       needsInfo: !receivable || !confirmed,
       needsInfoBy: null,
+      ...(!confirmed
+        ? { needsInfoWhat: 'PayPal needs you to confirm your email address with them.' }
+        : !receivable
+          ? { needsInfoWhat: 'PayPal has limited your account, so it can’t take payments yet.' }
+          : {}),
     };
   }
 
