@@ -317,6 +317,7 @@ export async function recordDepositPayment(
     receivedAt?: string | null;
     cardBrand?: string | null;
     cardLast4?: string | null;
+    method?: PaymentMethodKind | null;
   },
 ): Promise<{ paymentId: string } | null> {
   try {
@@ -349,6 +350,8 @@ async function writePayment(
     receivedAt?: string | null;
     cardBrand?: string | null;
     cardLast4?: string | null;
+    /** How they actually paid, when the provider said: Stripe's box offers every way the business takes. */
+    method?: PaymentMethodKind | null;
   },
 ): Promise<{ paymentId: string }> {
   const { output } = await executeCommand(
@@ -358,7 +361,7 @@ async function writePayment(
       workspaceId: scope.workspaceId,
       invoiceId: ctx.invoiceId,
       amountCents: ctx.amountCents,
-      method: ctx.method,
+      method: over.method ?? ctx.method,
       provider: ctx.account.session.provider,
       connectionId: ctx.account.connection.id,
       idempotencyKey: ctx.idempotencyKey,

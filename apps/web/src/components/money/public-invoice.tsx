@@ -12,10 +12,11 @@
  *   retry, a doubled tap or a refreshed return page is answered with the payment it already made.
  *
  * Paying runs the worker's two phases (see `apps/worker/src/http/money.ts`). Phase one prepares and hands back
- * whatever the provider needs the browser to do: with the stand-in, and with any provider that serves its own
- * page, that is a `hostedUrl` to send the customer to. The provider sends them back here with the intent it
- * confirmed, or the token it minted from the card, and phase two names it — so what the page shows is the
- * provider's answer, never its own guess. **A decline is a 200 with plain words**, not an error.
+ * whatever the provider needs the browser to do. With Stripe and Square that is their own fields, shown right
+ * here (`provider-fields.tsx`); with the stand-in, and any provider that serves its own page, it is a `hostedUrl`
+ * to send the customer to, which sends them back here. Either way phase two names the intent the browser
+ * confirmed, or the token minted from the card — so what the page shows is the provider's answer, never its own
+ * guess. **A decline is a 200 with plain words**, not an error.
  */
 import {
   dueWording,
@@ -26,12 +27,14 @@ import {
 } from '@hfos/core';
 import {
   Landmark,
+  ChevronLeft,
   CircleAlert,
   CircleCheck,
   CircleSlash,
   CreditCard,
   Hourglass,
   Link2Off,
+  Lock,
   Undo2,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -48,6 +51,13 @@ import {
   type RecordedPay,
 } from '@/lib/api/public-money';
 import { cn } from '@/lib/utils';
+import {
+  canShowProviderFields,
+  ProviderFields,
+  type ProviderAnswer,
+  type ProviderFieldsHandle,
+  type ProviderSession,
+} from './provider-fields';
 import { joinParts, momentLong, momentShort, viewerZone } from './public-format';
 import {
   callPhrase,
@@ -154,18 +164,18 @@ const forgetPress = (token: string): void => {
   }
 };
 
-/** What the provider sent the customer back with: an intent it confirmed, a card token, or nothing. */
-type Returned =
-  | { kind: 'confirmed'; providerPaymentId: string }
-  | { kind: 'tokenised'; sourceToken: string; method: PayMethod }
-  | { kind: 'cancelled' }
-  | null;
+/**
+ * What the provider sent the customer back with: an intent it confirmed, a card token, nothing (they gave up),
+ * or a refusal (Stripe's `redirect_status=failed`, when the bank's own check said no).
+ */
+type Returned = ProviderAnswer | { kind: 'cancelled' } | { kind: 'refused' } | null;
 
 function readReturn(search: string): Returned {
   const q = new URLSearchParams(search);
   const payment = q.get('payment');
   const sourceToken = q.get('token');
   if (payment === 'cancelled') return { kind: 'cancelled' };
+  if (q.get('redirect_status') === 'failed') return { kind: 'refused' };
   if (payment) return { kind: 'confirmed', providerPaymentId: payment };
   if (sourceToken)
     return { kind: 'tokenised', sourceToken, method: q.get('method') === 'ach' ? 'ach' : 'card' };
@@ -181,6 +191,10 @@ export function PublicInvoice({ token }: { token: string }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [website, setWebsite] = useState('');
+  /** Phase one's answer while the provider's own fields are on the page, and whether they can be typed in. */
+  const [fields, setFields] = useState<ProviderSession | null>(null);
+  const [fieldsReady, setFieldsReady] = useState(false);
+  const fieldsRef = useRef<ProviderFieldsHandle>(null);
   const opened = useRef(false);
   const returned = useRef(false);
   /**
@@ -191,7 +205,7 @@ export function PublicInvoice({ token }: { token: string }) {
   const [handoff] = useState<Returned>(() =>
     typeof window === 'undefined' ? null : readReturn(window.location.search),
   );
-  const finishing = !!handoff && handoff.kind !== 'cancelled';
+  const finishing = !!handoff && handoff.kind !== 'cancelled' && handoff.kind !== 'refused';
 
   const show = useCallback((next: PublicInvoiceView) => {
     setView(next);
@@ -239,36 +253,58 @@ export function PublicInvoice({ token }: { token: string }) {
    * Back from the provider. The address carries what it did; phase two names that to the worker, which reads
    * the answer back from the provider rather than trusting anything in this page.
    */
+  /**
+   * Phase two: name what the provider did, from its fields on this page or from the address it sent the customer
+   * back to. The worker reads the answer back from the provider rather than trusting anything in this page.
+   */
+  const finish = useCallback(
+    (back: ProviderAnswer) => {
+      const press = recallPress(token);
+      setBusy(true);
+      return payInvoice(token, {
+        clientId: press?.clientId ?? newClientId(),
+        ...(back.kind === 'confirmed'
+          ? { providerPaymentId: back.providerPaymentId }
+          : { sourceToken: back.sourceToken, method: back.method }),
+        website: '',
+      })
+        .then((answer) => {
+          forgetPress(token);
+          setFields(null);
+          if (answer.stage === 'recorded') {
+            setOutcome(answer.payment);
+            // Taken nowhere yet: a bank that wants one more step (Stripe emails how), or a box left unfinished.
+            if (answer.payment.status === 'requires_payment')
+              setNotice(
+                'That payment isn’t finished yet, so nothing was charged. If your bank asked for one more step, finish it there, or try again.',
+              );
+          }
+          show(answer.invoice);
+          window.scrollTo({ top: 0 });
+        })
+        .catch((e: unknown) => void failedPay(e))
+        .finally(() => setBusy(false));
+    },
+    [token, show, failedPay],
+  );
+
   useEffect(() => {
     if (returned.current) return;
     returned.current = true;
     const back = handoff;
     if (!back) return;
     window.history.replaceState(null, '', window.location.pathname);
-    if (back.kind === 'cancelled') {
+    if (back.kind === 'cancelled' || back.kind === 'refused') {
       forgetPress(token);
-      setNotice('Payment cancelled — nothing was charged.');
+      setNotice(
+        back.kind === 'refused'
+          ? 'That payment didn’t go through, so nothing was charged. Try again, or pick another way to pay.'
+          : 'Payment cancelled — nothing was charged.',
+      );
       return;
     }
-    const press = recallPress(token);
-    const clientId = press?.clientId ?? newClientId();
-    setBusy(true);
-    void payInvoice(token, {
-      clientId,
-      ...(back.kind === 'confirmed'
-        ? { providerPaymentId: back.providerPaymentId }
-        : { sourceToken: back.sourceToken, method: back.method }),
-      website: '',
-    })
-      .then((answer) => {
-        forgetPress(token);
-        if (answer.stage === 'recorded') setOutcome(answer.payment);
-        show(answer.invoice);
-        window.scrollTo({ top: 0 });
-      })
-      .catch((e: unknown) => void failedPay(e))
-      .finally(() => setBusy(false));
-  }, [token, show, failedPay, handoff]);
+    void finish(back);
+  }, [token, finish, handoff]);
 
   /** Phase one: ask for a session and go wherever the provider collects the money. */
   async function pay() {
@@ -298,6 +334,26 @@ export function PublicInvoice({ token }: { token: string }) {
         window.location.assign(answer.payment.hostedUrl);
         return;
       }
+      const session: ProviderSession = {
+        provider: answer.payment.provider ?? answer.invoice.pay.session?.provider ?? '',
+        flow: answer.payment.flow,
+        publishableKey: answer.payment.publishableKey,
+        accountId: answer.payment.accountId,
+        locationId: answer.payment.locationId,
+        clientSecret: answer.payment.clientSecret,
+        providerPaymentId: answer.payment.providerPaymentId,
+        amountCents: answer.payment.amountCents,
+        method: answer.payment.method,
+        returnUrl: answer.payment.returnUrl,
+      };
+      if (canShowProviderFields(session)) {
+        // The provider's own fields, right here; the press is kept for phase two.
+        show(answer.invoice);
+        setFieldsReady(false);
+        setFields(session);
+        setBusy(false);
+        return;
+      }
       // Nowhere to send them and no fields of the provider's to show: say so plainly and leave Pay pressable.
       forgetPress(token);
       show(answer.invoice);
@@ -312,6 +368,30 @@ export function PublicInvoice({ token }: { token: string }) {
       await failedPay(e);
       setBusy(false);
     }
+  }
+
+  /** The footer's Pay, once the fields are filled in: confirm or tokenise there, then phase two. */
+  async function confirmFields() {
+    if (busy || !fields || !fieldsRef.current) return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    setOutcome(null);
+    const answer = await fieldsRef.current.submit();
+    if (!answer) {
+      setBusy(false);
+      return;
+    }
+    await finish(answer);
+  }
+
+  /** Back to the ways to pay, maybe with the other one picked. Nothing was taken: the press is dropped. */
+  function leaveFields(next: PayMethod | null) {
+    forgetPress(token);
+    setFields(null);
+    setFieldsReady(false);
+    setError(null);
+    if (next) setMethod(next);
   }
 
   if (failure?.kind === 'stale')
@@ -434,7 +514,24 @@ export function PublicInvoice({ token }: { token: string }) {
       business={business}
       testId="invoice-page"
       footer={
-        canPay ? (
+        canPay && fields ? (
+          <>
+            <Button
+              size="lg"
+              className="w-full"
+              loading={busy}
+              disabled={!fieldsReady}
+              onClick={() => void confirmFields()}
+              data-testid="pay-confirm"
+            >
+              <Lock size={17} aria-hidden />
+              {`Pay ${money(fields.amountCents)}`}
+            </Button>
+            <p className="text-center text-xs text-text-3">
+              One press, one payment. Pressing twice can’t charge you twice.
+            </p>
+          </>
+        ) : canPay ? (
           <>
             <Button
               size="lg"
@@ -561,6 +658,34 @@ export function PublicInvoice({ token }: { token: string }) {
               <TotalRow label="Reference" value={invoice.number} testId="receipt-reference" />
             ) : null}
           </Card>
+        ) : payBlock.canPay && owedNow > 0 && fields ? (
+          <div className="flex flex-col gap-2.5" data-testid="pay-fields" data-print="hide">
+            <h2 className="text-[15px] font-semibold">
+              {fields.method === 'ach' ? 'Pay by bank transfer' : 'Pay by card'}
+            </h2>
+            {(() => {
+              const other = payBlock.methods.find((m) => m !== fields.method) ?? null;
+              return (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="self-start"
+                  disabled={busy}
+                  onClick={() => leaveFields(other)}
+                  data-testid="pay-fields-back"
+                >
+                  <ChevronLeft size={16} aria-hidden />
+                  {other ? `${METHODS[other].label} instead` : 'Back'}
+                </Button>
+              );
+            })()}
+            <ProviderFields
+              ref={fieldsRef}
+              session={fields}
+              businessName={business.name}
+              onReady={setFieldsReady}
+            />
+          </div>
         ) : payBlock.canPay && owedNow > 0 ? (
           <div className="flex flex-col gap-2.5" data-testid="pay-methods" data-print="hide">
             <h2 className="text-[15px] font-semibold">How would you like to pay?</h2>

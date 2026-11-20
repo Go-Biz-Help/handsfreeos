@@ -1665,6 +1665,8 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
               status: 'requires_payment' as const,
               amountCents: ctx.amountCents,
               method: ctx.method,
+              /** Whose fields the page shows: Stripe's payment box or Square's card field. */
+              provider: ctx.account.session.provider,
               flow: session.flow,
               publishableKey: session.publishableKey,
               accountId: session.accountId,
@@ -1768,6 +1770,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
           providerStatus: result.providerStatus,
           cardBrand: result.cardBrand,
           cardLast4: result.cardLast4,
+          method: result.method ?? null,
         });
 
         try {
@@ -1781,13 +1784,14 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             receivedAt: done.payment.receivedAt,
             cardBrand: done.payment.cardBrand ?? result.cardBrand,
             cardLast4: done.payment.cardLast4 ?? result.cardLast4,
+            method: done.payment.method ?? result.method ?? null,
           });
           return {
             stage: 'recorded' as const,
             payment: {
               status: done.payment.status,
               amountCents: ctx.amountCents,
-              method: ctx.method,
+              method: done.payment.method ?? result.method ?? ctx.method,
               failureCode: null,
               failureMessage: null,
             },

@@ -1180,6 +1180,36 @@ describe('an invoice', () => {
     expect(list.payments).toHaveLength(1);
   });
 
+  it('keeps how the provider says they paid, but only its first answer', async () => {
+    const sent = await sentInvoice();
+    const key = `idem-${randomUUID()}`;
+    const providerPaymentId = `pi_${randomUUID().slice(0, 12)}`;
+    const base = {
+      workspaceId: w.wsId,
+      invoiceId: sent.invoiceId,
+      amountCents: 100_000,
+      provider: 'stripe' as const,
+      providerPaymentId,
+      idempotencyKey: key,
+    };
+    // Written before Stripe was asked, with Card picked on our page.
+    await sys(invoiceRecordPayment, { ...base, method: 'card', status: 'requires_payment' });
+    // Stripe's box offered their bank too, and that is how they paid.
+    const answered = await sys(invoiceRecordPayment, {
+      ...base,
+      method: 'ach',
+      status: 'processing',
+    });
+    const way = async () =>
+      (await ask(paymentList, { workspaceId: w.wsId, invoiceId: sent.invoiceId }, w.owner))
+        .payments[0]!.method;
+    expect(answered.changed).toBe(true);
+    expect(await way()).toBe('ach');
+    // Once the provider has answered, nothing later changes the way it was paid.
+    await sys(invoiceRecordPayment, { ...base, method: 'card', status: 'succeeded' });
+    expect(await way()).toBe('ach');
+  });
+
   it('is never overdue while a payment is on its way', async () => {
     const sent = await sentInvoice();
     await rows(
