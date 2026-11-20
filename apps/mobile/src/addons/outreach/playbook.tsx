@@ -16,7 +16,8 @@ import {
   type VideoScript,
   type VideoScriptInput,
 } from '@hfos/core/addons/outreach/video';
-import { VIDEO_LIBRARY_WORDS as VL } from '@hfos/core/addons/outreach/video-library';
+import { outreachSettings } from '@hfos/core/addons/outreach/chat-read';
+import { libraryOf, VIDEO_LIBRARY_WORDS as VL } from '@hfos/core/addons/outreach/video-library';
 import {
   findWordsHint,
   OUTREACH_WORDS as W,
@@ -33,6 +34,7 @@ import {
   PLAYBOOK_GOAL_KEYS,
   PLAYBOOK_LIMITS,
   PLAYBOOK_GOALS,
+  PLAYBOOK_SAVE_WORDS as SAVE,
   PLAYBOOK_STEP_KEYS,
   PLAYBOOK_STEPS,
   STEPS_HINT,
@@ -43,11 +45,14 @@ import {
   type WordsPlatform,
 } from '@hfos/core/addons/outreach/playbooks';
 import {
-  firstMessagesOf,
+  opensFor,
+  pitchVersionsOf,
   SCRIPT_LIMITS,
   SCRIPT_WORDS as SW,
   scriptToSave,
   typedFirsts,
+  waysIssue,
+  waysOf,
   withFirsts,
 } from '@hfos/core/addons/outreach/script';
 import * as React from 'react';
@@ -116,7 +121,9 @@ export const SECTION_FIELDS: Readonly<
   // What it says (decision 164): its own words for every message, saved as only the parts that differ; how the first
   // message goes (decision 168); what the networking chat after an introduction may offer (decision 173) and how it
   // goes (decision 180); and whether its people are referred on posts (decision 174).
-  script: ['script', 'opens', 'networking', 'chat', 'refer'],
+  // The ways it may start a chat (decision 183) take the place of how the first message goes, with the Warm up step
+  // beside them (the owner's 4b).
+  script: ['script', 'ways', 'opens', 'steps', 'networking', 'chat', 'refer'],
   // The short video (decision 69): its link, and its script, written by the AI and changed as the business likes.
   video: ['videoLink', 'videoScript'],
   tone: ['tone'],
@@ -269,14 +276,43 @@ export function PlaybookScreen({ playbookId }: { playbookId: string }) {
     `playbook:${ws}:${playbookId}`,
     W.rows.playbooks,
   );
-  // The live main offer's version, as the web's builder has it: a script written for another one says so.
+  // The live main offer's version, as the web's builder has it: a script written for another one says so. And whether
+  // it has a real result, which Social proof needs (decision 183).
   const offer = useOutreachAnswer(
     ctx.manages
-      ? async () =>
-          unwrap(await api.POST('/v1/queries/main_offer.get', { body: { workspaceId: ws } })).live
-            ?.version ?? null
+      ? async () => {
+          const live = unwrap(
+            await api.POST('/v1/queries/main_offer.get', { body: { workspaceId: ws } }),
+          ).live;
+          const parts = live?.parts as { proof?: readonly unknown[] } | undefined;
+          return { version: live?.version ?? null, proof: !!parts?.proof?.length };
+        }
       : null,
     `playbook-offer:${ws}`,
+    W.rows.playbooks,
+  );
+  // How many videos the library has (decision 154), or the playbooks' short videos till it's saved: Permission ask
+  // needs one (decision 183). Not had, none.
+  const videos = useOutreachAnswer(
+    ctx.manages
+      ? async () => {
+          const [settings, list] = await Promise.all([
+            api
+              .POST('/v1/queries/addon.settings', { body: { workspaceId: ws, addonId: 'outreach' } })
+              .then((r) => r.data ?? null)
+              .catch(() => null),
+            api
+              .POST('/v1/queries/outreach.playbook.list', { body: { workspaceId: ws } })
+              .then((r) => r.data ?? null)
+              .catch(() => null),
+          ]);
+          return libraryOf(
+            outreachSettings(settings?.settings).videos,
+            list?.playbooks ?? [],
+          ).length;
+        }
+      : null,
+    `playbook-videos:${ws}`,
     W.rows.playbooks,
   );
   return (
@@ -300,14 +336,15 @@ export function PlaybookScreen({ playbookId }: { playbookId: string }) {
           input,
         })
       }
-      liveVersion={offer.data ?? null}
+      liveVersion={offer.data?.version ?? null}
+      has={{ offerProof: offer.data?.proof ?? false, videos: videos.data ?? 0 }}
       onTest={(input) =>
         workerPost('/v1/addons/outreach/actions/outreach.playbook.test', {
           workspaceId: ws,
           input,
         })
       }
-      onSave={async (loaded, draft, section) => {
+      onSave={async (loaded, draft, section, quiet) => {
         try {
           // What's there now: someone may have changed it on the web meanwhile.
           const fresh = (await loadPlaybook(ws, playbookId)) ?? loaded;
@@ -320,7 +357,9 @@ export function PlaybookScreen({ playbookId }: { playbookId: string }) {
           });
           if (!input.success) return input.error.issues[0]?.message ?? W.tryAgain;
           await change('outreach.playbook.save', input.data);
-          toast.show(fresh.updatedAt !== loaded.updatedAt ? W.changedSince : W.savedForEveryone);
+          // Saved as it's changed (the owner, 20 Nov 2026), it says so in the sheet, not in a toast each time.
+          if (!quiet)
+            toast.show(fresh.updatedAt !== loaded.updatedAt ? W.changedSince : W.savedForEveryone);
           answer.reload();
           return null;
         } catch (e) {
@@ -354,6 +393,7 @@ export function PlaybookBody({
   onScript,
   onTest,
   liveVersion = null,
+  has = null,
 }: {
   playbook: Playbook | null;
   /** The first answer is on its way. */
@@ -364,12 +404,8 @@ export function PlaybookBody({
   onRetry: () => void;
   /** Back to the list of playbooks. */
   onPlaybooks?: () => void;
-  /** Saves one part: null when it's saved, else what's wrong. */
-  onSave: (
-    loaded: Playbook,
-    draft: Pick<Playbook, 'name' | 'details'>,
-    section: Section,
-  ) => Promise<string | null>;
+  /** Saves one part: null when it's saved, else what's wrong. `quiet` as it saves itself, with no toast. */
+  onSave: SaveSection;
   onArchive: (archived: boolean) => void;
   /** Asks the AI for help on a part (./ai-help.tsx). Without it, the sheet has none and says it's on the web. */
   onAssist?: AskAssist;
@@ -379,6 +415,8 @@ export function PlaybookBody({
   liveVersion?: number | null;
   /** Asks the worker for a move of the Test console (./playbook-test.tsx). Without it, there's no Test it. */
   onTest?: AskTest;
+  /** What some ways to start a chat need that isn't in the playbook (decision 183). */
+  has?: WaysExtra | null;
 }) {
   const [editing, setEditing] = React.useState<Section | null>(null);
   const [testing, setTesting] = React.useState(false);
@@ -474,12 +512,13 @@ export function PlaybookBody({
         onAssist={onAssist}
         onScript={onScript}
         liveVersion={liveVersion}
+        has={has}
       />
       {onTest ? (
         <PlaybookTestSheet
           playbookId={playbook.id}
           name={playbook.name}
-          versions={firstMessagesOf(playbook.details).length}
+          versions={Math.max(pitchVersionsOf(playbook.details), 1)}
           platforms={playbook.details.platforms}
           open={testing}
           onClose={() => setTesting(false)}
@@ -490,13 +529,36 @@ export function PlaybookBody({
   );
 }
 
-/** What the AI does in the sheet: help on a part, and the short video's script. */
+/** What some ways to start a chat need from outside the playbook (decision 183): the main offer's results, the videos. */
+export interface WaysExtra {
+  readonly offerProof: boolean;
+  readonly videos: number;
+}
+
+/** Saves one part: null when it's saved, else what's wrong. `quiet` as it saves itself, with no toast. */
+export type SaveSection = (
+  loaded: Playbook,
+  draft: Pick<Playbook, 'name' | 'details'>,
+  section: Section,
+  quiet?: boolean,
+) => Promise<string | null>;
+
+/** What the AI does in the sheet: help on a part, and the short video's script. And what some ways need. */
 interface SheetAi {
   onAssist?: AskAssist;
   onScript?: (input: VideoScriptInput) => Promise<VideoScript>;
   liveVersion: number | null;
+  has?: WaysExtra | null;
 }
 
+/** How long a part waits after a change before it saves it, so typing saves once it stops. */
+const SAVE_PAUSE_MS = 900;
+
+/**
+ * A part being changed, in a sheet that saves each change as it's made (the owner, 20 Nov 2026: "the playbook should
+ * auto save as changes are made"), once typing stops; Done, or closing it, saves what's waiting. A part with no way to
+ * start a chat ticked (decision 183) waits until one is.
+ */
 function SectionSheet({
   playbook,
   section,
@@ -507,39 +569,95 @@ function SectionSheet({
   playbook: Playbook;
   section: Section | null;
   onClose: () => void;
-  onSave: (
-    loaded: Playbook,
-    draft: Pick<Playbook, 'name' | 'details'>,
-    section: Section,
-  ) => Promise<string | null>;
+  onSave: SaveSection;
 } & SheetAi) {
   const [draft, setDraft] = React.useState<Pick<Playbook, 'name' | 'details'>>(playbook);
   const [problem, setProblem] = React.useState<string | null>(null);
+  const [state, setState] = React.useState<'idle' | 'saving' | 'saved'>('idle');
   const [busy, setBusy] = React.useState(false);
   const keyboard = useKeyboardHeight();
+  /** What was saved last, as the sheet holds it: the playbook as it opened, then each save. */
+  const lastSaved = React.useRef('');
+  const opened = React.useRef<Section | null>(null);
+  // Opening a part starts from the playbook as it is. Saving it draws the playbook again, which leaves the sheet as is.
   React.useEffect(() => {
-    if (section) {
-      setDraft({ name: playbook.name, details: playbook.details });
+    if (section && opened.current !== section) {
+      const start = { name: playbook.name, details: playbook.details };
+      setDraft(start);
+      lastSaved.current = JSON.stringify(start);
       setProblem(null);
+      setState('idle');
     }
+    opened.current = section;
   }, [section, playbook]);
   const set = (part: Partial<PlaybookDetails>) =>
     setDraft((d) => ({ ...d, details: { ...d.details, ...part } }));
-  const save = async () => {
-    if (!section) return;
+  const draftKey = React.useMemo(() => JSON.stringify(draft), [draft]);
+  // No way to start a chat ticked: it won't save till one is (decision 183).
+  const hold = section === 'script' ? waysIssue(waysOf(draft.details)) : null;
+  const latest = React.useRef({ draft, draftKey, section, playbook, hold });
+  React.useEffect(() => {
+    latest.current = { draft, draftKey, section, playbook, hold };
+  });
+  const running = React.useRef<Promise<boolean> | null>(null);
+  const said = React.useRef<string | null>(null);
+  /** Saves what's in the sheet now, one save at a time: true once nothing is left to save. */
+  const push = React.useCallback(async (): Promise<boolean> => {
+    while (running.current) await running.current;
+    const now = latest.current;
+    if (!now.section || now.draftKey === lastSaved.current) return true;
+    if (now.hold) {
+      said.current = now.hold;
+      setProblem(now.hold);
+      return false;
+    }
+    const run = (async () => {
+      setState('saving');
+      const wrong = await onSave(now.playbook, now.draft, now.section!, true);
+      said.current = wrong;
+      setProblem(wrong);
+      if (wrong) {
+        setState('idle');
+        return false;
+      }
+      lastSaved.current = now.draftKey;
+      setState('saved');
+      return true;
+    })();
+    running.current = run;
+    try {
+      return await run;
+    } finally {
+      running.current = null;
+    }
+  }, [onSave]);
+  React.useEffect(() => {
+    if (!section || draftKey === lastSaved.current || hold) return;
+    const wait = setTimeout(() => void push(), SAVE_PAUSE_MS);
+    return () => clearTimeout(wait);
+  }, [draftKey, hold, push, section]);
+  /** Done: saves what's waiting, and closes once it's saved. */
+  const done = async () => {
     setBusy(true);
-    const wrong = await onSave(playbook, draft, section);
+    const ok = await push();
     setBusy(false);
-    if (wrong) setProblem(wrong);
-    else onClose();
+    if (ok) onClose();
+  };
+  /** Closed by a drag or Back: what's waiting still saves, and a refusal says so. */
+  const close = () => {
+    onClose();
+    void push().then((ok) => {
+      if (!ok) toast.error(said.current ?? W.tryAgain);
+    });
   };
   const title = section
     ? section === 'name'
       ? W.name
       : playbookSectionTitle(section, playbook.details)
     : undefined;
+  const unsaved = draftKey !== lastSaved.current;
   return (
-    <Sheet open={section !== null} onClose={onClose} title={title} scroll testID="playbook-sheet">
+    <Sheet open={section !== null} onClose={close} title={title} scroll testID="playbook-sheet">
       <View style={keyboard ? { paddingBottom: keyboard } : undefined} className="gap-3">
         {section ? (
           <SectionEditor section={section} draft={draft} set={set} setDraft={setDraft} {...ai} />
@@ -548,9 +666,13 @@ function SectionSheet({
           <Text className="text-[13.5px] text-danger" testID="playbook-problem">
             {problem}
           </Text>
-        ) : null}
-        <Button loading={busy} onPress={() => void save()} testID="playbook-save">
-          {W.save}
+        ) : (
+          <Text className="text-[13px] text-text-3" testID="playbook-save-status">
+            {state === 'saving' ? SAVE.saving : state === 'saved' && !unsaved ? SAVE.saved : SAVE.autosaves}
+          </Text>
+        )}
+        <Button loading={busy} onPress={() => void done()} testID="playbook-save">
+          {SAVE.done}
         </Button>
       </View>
     </Sheet>
@@ -640,6 +762,7 @@ function SectionEditor({
   onAssist,
   onScript,
   liveVersion,
+  has,
 }: {
   section: Section;
   draft: Pick<Playbook, 'name' | 'details'>;
@@ -873,8 +996,19 @@ function SectionEditor({
           goal={d.goal}
           script={script}
           onChange={(next) => set({ script: next })}
-          opens={d.opens ?? 'pitch'}
-          onOpens={(opens) => set({ opens })}
+          ways={waysOf(d)}
+          onWays={(ways) => set({ ways, opens: opensFor(ways) })}
+          has={{
+            proof: !!d.proof?.length || !!has?.offerProof,
+            useful: !!d.usefulWhat?.trim(),
+            video: !!d.videoLink?.trim() || (has?.videos ?? 0) > 0,
+          }}
+          warmUp={d.steps.includes('engage')}
+          onWarmUp={(on) =>
+            set({
+              steps: PLAYBOOK_STEP_KEYS.filter((k) => (k === 'engage' ? on : d.steps.includes(k))),
+            })
+          }
           networking={d.networking}
           onNetworking={(networking) => set({ networking })}
           chat={d.chat}

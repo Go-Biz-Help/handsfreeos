@@ -51,6 +51,7 @@ import {
   type FollowUpNext,
 } from '../conversation';
 import { paceOf, takesStep, type Platform } from '../playbooks';
+import { hasWays } from '../script';
 import {
   leftToday,
   RECOMMEND_PER_DAY,
@@ -2100,6 +2101,10 @@ export async function todayFor(
   const onStep = (i: TodayItem) => {
     const step = stepOfItem(i);
     if (step === null || (i.postId !== null && replyPosts.has(i.postId))) return true;
+    // A first message goes only from a playbook with a way ticked to start a chat (decision 183): a new one starts with
+    // none, and starts no chat till one is.
+    if (i.kind === 'opener' && playbooks.length)
+      return playbooks.some((p) => p.details.steps.includes('message') && hasWays(p.details));
     return takesStep(playbooks, step);
   };
   const listedItems = [

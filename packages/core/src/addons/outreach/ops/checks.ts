@@ -55,7 +55,7 @@ import { outreachAddon } from '../manifest';
 import { noteTheirWork } from './local';
 import { partnerReadsPerDay } from '../partners';
 import type { PlaybookDetails } from '../playbooks';
-import { opensWithIntro } from '../script';
+import { chatsOnly } from '../script';
 import { requestsHeldOn, TODAY_WINDOW_DAYS } from '../today';
 import type { ProfileRef } from '../saves';
 import { checks, finds, profiles } from '../tables';
@@ -151,10 +151,11 @@ const notMarkedMisfit = (me: string) => sql`not exists (select 1 from addon_outr
 
 /**
  * Whether Say hi takes everyone who connected lately on a network (decision 168, the owner's 3b): only while every
- * playbook in use there starts with an introduction, so nobody a check never found fit is pitched by another one.
+ * playbook in use there starts chats only ways that start one (an introduction and the like, decision 183), so nobody
+ * a check never found fit is pitched by another way or playbook.
  */
 export const introsOnly = (inUse: readonly { readonly details: PlaybookDetails }[]): boolean =>
-  inUse.length > 0 && inUse.every((p) => opensWithIntro(p.details));
+  inUse.length > 0 && inUse.every((p) => chatsOnly(p.details));
 
 /**
  * A friend of the person's they've never talked to, for Say hi's first message (decisions 65 and 155): no message to

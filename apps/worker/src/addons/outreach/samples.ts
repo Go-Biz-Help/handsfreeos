@@ -43,7 +43,7 @@ import {
   upgradePlaybookDetails,
 } from '@hfos/core/addons/outreach/playbooks';
 import { noteOf } from '@hfos/core/addons/outreach/profile-parts';
-import { opensWithIntro, scriptOf } from '@hfos/core/addons/outreach/script';
+import { chatsOnly, firstMessagesOf, scriptOf } from '@hfos/core/addons/outreach/script';
 import type { ReadinessOutput } from '@hfos/core/addons/outreach/readiness';
 import { draftOfferOf } from '@hfos/core/addons/outreach/today';
 import { voiceLines } from '@hfos/core/addons/outreach/voice';
@@ -125,8 +125,10 @@ async function samplesFrom(ctx: Ctx, asked: { playbookId: string | null } | 'sam
   const d = playbook.details;
   // No video message: a yes gets the demo ask next, and videos come from the library (decision 154, 3a).
   const hasVideo = false;
-  // A playbook that starts with an introduction (decision 168) sends it as its first message, and no follow-ups.
-  const intro = opensWithIntro(d);
+  // A playbook whose every way starts a chat (decisions 168 and 183) sends no follow-ups.
+  const intro = chatsOnly(d);
+  // Its first messages: the words of each way it may start with (decision 183), the pitch's versions among them.
+  const firsts = firstMessagesOf(d).map((f) => f.text);
   const paced = paceOf(d.pace);
   const followUps = intro ? 0 : paced.followUps;
   const followUpGaps = intro ? [] : paced.followUpGaps;
@@ -144,7 +146,7 @@ async function samplesFrom(ctx: Ctx, asked: { playbookId: string | null } | 'sam
       usefulWhat: d.usefulWhat ?? null,
       hasVideo,
       // What the playbook says for each message (decision 164): the samples show it in the person's voice.
-      script: intro ? { ...scriptOf(d), first: [scriptOf(d).intro] } : scriptOf(d),
+      script: { ...scriptOf(d), first: firsts.length ? firsts : scriptOf(d).first },
     },
     offer,
     followUps,

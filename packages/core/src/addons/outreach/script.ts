@@ -14,6 +14,9 @@
  * networking call. Each offer goes only while its switch is on (`PLAYBOOK_NETWORKING`), and how the chat goes, as keen
  * as they are, is the playbook's too (`PLAYBOOK_CHAT`, decision 180).
  *
+ * A playbook may start a chat more than one way (decision 183, `OPEN_WAYS`): the first message's question, the
+ * introduction, and eight more, each with its own part; for each person the AI picks the one that fits best.
+ *
  * Every playbook has a referral's parts too (decision 174): the comment that names someone the owner has talked with
  * under a post asking for a recommendation, and the heads-up to them with its link, while Refer them on posts is on
  * (`PLAYBOOK_REFER`).
@@ -22,12 +25,21 @@
  * and the phone's editors, the Test console and the server read it.
  */
 import { z } from 'zod';
+import { PLATFORMS } from './networks';
 import type { PlaybookGoal } from './playbooks';
 
 /** The parts, in the order a conversation meets them. */
 export const SCRIPT_PARTS = [
   'first',
   'intro',
+  'valueFirst',
+  'trigger',
+  'compliment',
+  'opinion',
+  'socialProof',
+  'permission',
+  'sharedGround',
+  'problemCheck',
   'nudge',
   'demoOffer',
   'callOffer',
@@ -88,9 +100,49 @@ export const SCRIPT_INFO: Readonly<
     when: 'In place of the first message, when the playbook starts with an introduction: once they accept your request, you accept theirs, or they follow you, after the days you set under Steps and pace. Its question about them, to get them talking, goes right after it as a second message when you send messages as a few texts.',
     says: 'message',
   },
+  valueFirst: {
+    label: 'Value first',
+    when: 'In place of the first message, when the AI picks Value first for someone: it opens with a quick tip, or offers your free thing.',
+    says: 'how',
+  },
+  trigger: {
+    label: 'Trigger event',
+    when: 'In place of the first message, when the AI picks Trigger event for someone: something they posted about lately, like a move, a new location or a new job.',
+    says: 'how',
+  },
+  compliment: {
+    label: 'Compliment first',
+    when: 'In place of the first message, when the AI picks Compliment first for someone: something real it likes on their page.',
+    says: 'how',
+  },
+  opinion: {
+    label: 'Ask for their opinion',
+    when: 'In place of the first message, when the AI picks Ask for their opinion for someone.',
+    says: 'how',
+  },
+  socialProof: {
+    label: 'Social proof',
+    when: 'In place of the first message, when the AI picks Social proof for someone: a real result from your playbook or main offer.',
+    says: 'how',
+  },
+  permission: {
+    label: 'Permission ask',
+    when: 'In place of the first message, when the AI picks Permission ask for someone. Their yes gets the video, then your ask for a time.',
+    says: 'how',
+  },
+  sharedGround: {
+    label: 'Shared ground',
+    when: 'In place of the first message, when the AI picks Shared ground for someone: something true you have in common.',
+    says: 'how',
+  },
+  problemCheck: {
+    label: 'Problem check',
+    when: 'In place of the first message, when the AI picks Problem check for someone: a problem their page shows that your offer fixes.',
+    says: 'how',
+  },
   nudge: {
-    label: 'Nudge after the introduction',
-    when: 'Once, a couple of days after your introduction, when they haven’t written. After it, only a friendly check-in once a month.',
+    label: 'Nudge after the first message',
+    when: 'Once, a couple of days after a first message that starts a chat (an introduction, a compliment and the like), when they haven’t written. After it, only a friendly check-in once a month.',
     says: 'how',
   },
   demoOffer: {
@@ -202,7 +254,23 @@ export const SCRIPT_GROUPS: readonly {
   readonly title: string;
   readonly parts: readonly ScriptPart[];
 }[] = [
-  { key: 'start', title: 'Starting a chat', parts: ['first', 'intro', 'reconnect'] },
+  {
+    key: 'start',
+    title: 'Starting a chat',
+    parts: [
+      'first',
+      'intro',
+      'valueFirst',
+      'trigger',
+      'compliment',
+      'opinion',
+      'socialProof',
+      'permission',
+      'sharedGround',
+      'problemCheck',
+      'reconnect',
+    ],
+  },
   {
     key: 'networking',
     title: 'The networking chat',
@@ -279,6 +347,14 @@ export const PlaybookScript = z.object({
     .refine(once, 'Each first message once.')
     .optional(),
   intro: part,
+  valueFirst: part,
+  trigger: part,
+  compliment: part,
+  opinion: part,
+  socialProof: part,
+  permission: part,
+  sharedGround: part,
+  problemCheck: part,
   nudge: part,
   demoOffer: part,
   callOffer: part,
@@ -399,6 +475,34 @@ export const STARTING_REFER_NOTE =
   'Hey [first name], someone was just asking for [what they need], so I mentioned you. Here’s the post if you want to jump in: [post link]';
 
 /**
+ * How each other way to start a chat goes (decision 183, the owner, 20 Nov 2026: "allow the user to select which methods
+ * they want the ai to be able to use either or all and the ai would select one based on the contacts profile, posts,
+ * platform, business"), from the owner's own examples. Each says how the message goes, so the AI fits it to what it
+ * found on their page; its example in quotes is kept close to. None carries a link: what it offers goes once they say
+ * yes.
+ */
+export const STARTING_WAYS: Readonly<
+  Record<Exclude<OpenWayPart, 'first' | 'intro'>, string>
+> = {
+  valueFirst:
+    'Open with something free and useful for them, picked from what their page shows they’re working on: one quick tip from your main offer and its lists, or your free thing from Something useful to send. Like: “Hey [first name], saw you’re [what they’re working on]. Here’s a quick tip that helps with that: [the tip]. I also have [your free thing] if you want it. Want me to send it over?” No link in it, and one question, at the end.',
+  trigger:
+    'Mention something that just happened to them, from what they posted in the last month: a new location, hiring, a launch, a move, a new job, an engagement, a new baby, or a post asking for recommendations. Congratulate them or say something kind about it, then ask one easy question about it. Like: “Hey [first name], congrats on the new location! How’s the first week going?” Only news they posted themselves. Never health, a loss or money trouble. No pitch.',
+  compliment:
+    'Say one real, specific thing you like about a post of theirs, their work or their page, then ask one easy question about it. Like: “Hey [first name], that kitchen you posted came out so clean. How long did that one take?” Never praise that would fit anyone. No pitch.',
+  opinion:
+    'Ask for their quick take on what you’re working on for people like them, so your offer comes up on its own. Like: “Hey [first name], I’m working on [what your offer is] for [their kind of business] businesses and would love your quick take. What’s the hardest part of [the problem it fixes] for you?” No pitch.',
+  socialProof:
+    'Share one real result you got for someone like them, from your playbook’s proof or your main offer’s results, then ask if they’d like to see how. Like: “Hey [first name], I just helped a [business like theirs] get [the result]. Want to see how?” Only a result you were given: never make one up.',
+  permission:
+    'Ask if you can send them a quick video that shows what your offer gets them, so they say a small yes first. Like: “Hey [first name], mind if I send you a quick video showing how [their kind of business] businesses get [what your offer gets them]?” No link in it.',
+  sharedGround:
+    'Open with one true thing you have in common: your town or area, a school, your line of work, or mutual friends. Then ask one easy question. Like: “Hey [first name], always great to meet another business owner here in [their area]! How long have you been at it?” Never a group you’re both in, and never a guess.',
+  problemCheck:
+    'Point out, kindly, one problem their page shows that your offer fixes: no website or booking link, no posts in months, or no reviews. Then offer a quick idea to fix it. Like: “Hey [first name], I noticed there’s no way to book with you from your page. Want a quick idea that could help you get more bookings?” Only what their page shows: never call them out, and never guess.',
+};
+
+/**
  * The words a playbook starts with, by its goal: the owner's latest way. The first message asks one straight question
  * that says how the business can help (decision 152); Reconnect catches up, then asks it (decisions 152 and 155); a
  * yes gets the ask for a time, with open times and the link (decisions 149 and 153); follow-ups ask again and never
@@ -410,6 +514,7 @@ export function startingScript(goal: PlaybookGoal): FullScript {
   return {
     first: [STARTING_FIRST_MESSAGE],
     intro: STARTING_INTRO,
+    ...STARTING_WAYS,
     nudge:
       'One short, friendly line: pick up your question about them lightly, in new words, or ask another easy one about them from their page. No pitch and no ask for a call, and never “just following up” or “bumping this”.',
     demoOffer: STARTING_DEMO_OFFER,
@@ -526,6 +631,9 @@ export function openerAsFirst(opener: string): string | null {
 // ---- How a playbook's first message goes (decision 168) ----
 
 /**
+ * Before decision 183, the one way a playbook started a chat; still saved beside its ways (`opensFor`) for a phone built
+ * before them, and read for a playbook saved before them (`waysOf`).
+ *
  * How a playbook starts a chat with someone who just connected (decision 168, the owner's 1a): the first message's
  * question (`pitch`, decisions 152 and 164), or an introduction in its place (`intro`): thanks for connecting, who the
  * owner is and what the business offers, and a question about them (decision 173), as a text of its own right after it
@@ -549,23 +657,316 @@ export const PLAYBOOK_OPENS_KEYS = Object.keys(PLAYBOOK_OPENS) as [
   ...PlaybookOpens[],
 ];
 
-/** Whether a playbook starts a chat with an introduction rather than the first message's question. */
-export const opensWithIntro = (
-  d: { readonly opens?: PlaybookOpens | null | undefined } | null,
-): boolean => d?.opens === 'intro';
+// ---- The ways to start a chat (decision 183) ----
 
 /**
- * The messages a playbook's first drafts take turns with: the first message's versions, or its introduction alone for a
- * playbook that starts with one (decision 168).
+ * The ways a playbook may start a chat with someone new (decision 183, the owner, 20 Nov 2026: "allow the user to
+ * select which methods they want the ai to be able to use either or all and the ai would select one based on the
+ * contacts profile, posts, platform, business"). The playbook ticks the ones it may use (`details.ways`), and for each
+ * person the AI picks the one that fits best (./today.ts `openerTask`).
+ *
+ * - `flow` is what follows it (the owner's 2a): `ask` ways ask about the offer, so they go as the pitch does (a yes gets
+ *   the ask for a time, quiet gets follow-ups); `chat` ways start a chat, so they go as an introduction does (one nudge,
+ *   a short networking chat, then the call or a demo, decisions 173 to 180).
+ * - `needs` is what the business must have given for it, or the AI never picks it (the owner's 6a): a real result
+ *   (`proof`), something free to send (`useful`), or a video (`video`).
+ * - `bestOn` is the networks it tends to suit (the owner's 5a): the AI leans on it, with no setting.
+ * - `fits` says whom it suits: businesses (`b2b`), or anyone (`both`).
+ */
+export const OPEN_WAYS = {
+  pitch: {
+    label: 'Direct pitch',
+    hint: 'Asks straight out if they’d be interested.',
+    flow: 'ask',
+    part: 'first',
+    needs: null,
+    bestOn: [],
+    fits: 'both',
+  },
+  intro: {
+    label: 'Introduction',
+    hint: 'Thanks them for connecting, says what you have in common, who you are and what you offer, then asks about them.',
+    flow: 'chat',
+    part: 'intro',
+    needs: null,
+    bestOn: [],
+    fits: 'both',
+  },
+  valueFirst: {
+    label: 'Value first',
+    hint: 'Opens with something free and useful: a quick tip, or your free thing.',
+    flow: 'ask',
+    part: 'valueFirst',
+    needs: 'useful',
+    bestOn: ['facebook', 'instagram'],
+    fits: 'both',
+  },
+  trigger: {
+    label: 'Trigger event',
+    hint: 'Mentions something that just happened to them, like a new location, a move or a new job.',
+    flow: 'chat',
+    part: 'trigger',
+    needs: null,
+    bestOn: [],
+    fits: 'both',
+  },
+  compliment: {
+    label: 'Compliment first',
+    hint: 'Says one real thing it likes about their post or work, then asks a question.',
+    flow: 'chat',
+    part: 'compliment',
+    needs: null,
+    bestOn: ['facebook', 'instagram'],
+    fits: 'both',
+  },
+  opinion: {
+    label: 'Ask for their opinion',
+    hint: 'Asks their quick take on what you’re working on. People like to give it.',
+    flow: 'chat',
+    part: 'opinion',
+    needs: null,
+    bestOn: [],
+    fits: 'both',
+  },
+  socialProof: {
+    label: 'Social proof',
+    hint: 'Shares a real result you got for someone like them, and asks if they want to see how.',
+    flow: 'ask',
+    part: 'socialProof',
+    needs: 'proof',
+    bestOn: ['linkedin'],
+    fits: 'both',
+  },
+  permission: {
+    label: 'Permission ask',
+    hint: 'Asks if it can send a quick video. A small yes first, then the video.',
+    flow: 'ask',
+    part: 'permission',
+    needs: 'video',
+    bestOn: [],
+    fits: 'both',
+  },
+  sharedGround: {
+    label: 'Shared ground',
+    hint: 'Opens with what you have in common: your town, a school, your line of work or mutual friends. Never a group.',
+    flow: 'chat',
+    part: 'sharedGround',
+    needs: null,
+    bestOn: ['facebook', 'instagram'],
+    fits: 'both',
+  },
+  problemCheck: {
+    label: 'Problem check',
+    hint: 'Points out a problem their page shows, like no booking link, and offers a quick idea to fix it.',
+    flow: 'ask',
+    part: 'problemCheck',
+    needs: null,
+    bestOn: ['linkedin'],
+    fits: 'b2b',
+  },
+} as const satisfies Record<
+  string,
+  {
+    readonly label: string;
+    readonly hint: string;
+    readonly flow: 'ask' | 'chat';
+    readonly part: ScriptPart;
+    readonly needs: 'proof' | 'useful' | 'video' | null;
+    readonly bestOn: readonly ('facebook' | 'instagram' | 'linkedin')[];
+    readonly fits: 'both' | 'b2b';
+  }
+>;
+export type OpenWay = keyof typeof OPEN_WAYS;
+export const OPEN_WAY_KEYS = Object.keys(OPEN_WAYS) as [OpenWay, ...OpenWay[]];
+export const isOpenWay = (v: unknown): v is OpenWay =>
+  typeof v === 'string' && (OPEN_WAY_KEYS as readonly string[]).includes(v);
+/** The script parts the ways are written in. */
+export type OpenWayPart = (typeof OPEN_WAYS)[OpenWay]['part'];
+export type WayNeed = NonNullable<(typeof OPEN_WAYS)[OpenWay]['needs']>;
+
+/** Whether a way starts a chat (an introduction's networking chat follows) rather than asking about the offer. */
+export const startsAChat = (way: OpenWay): boolean => OPEN_WAYS[way].flow === 'chat';
+
+/**
+ * The ways a playbook may start a chat, in the list's order: its ticks, none for a new one not ticked yet (it starts no
+ * chat till one is: the owner, 20 Nov 2026, "they all start unticked and have to choose which ones they want to move
+ * forward"), or for one saved before them the way it chose then (decision 168: the first message's question, or an
+ * introduction).
+ */
+export function waysOf(
+  d: {
+    readonly ways?: readonly OpenWay[] | null | undefined;
+    readonly opens?: PlaybookOpens | null | undefined;
+  } | null,
+): OpenWay[] {
+  if (Array.isArray(d?.ways)) {
+    const ticked = d.ways.filter(isOpenWay);
+    return OPEN_WAY_KEYS.filter((w) => ticked.includes(w));
+  }
+  return [d?.opens === 'intro' ? 'intro' : 'pitch'];
+}
+
+/** Whether a playbook has a way ticked to start a chat with: one with none sends no first messages. */
+export const hasWays = (d: Parameters<typeof waysOf>[0]): boolean => waysOf(d).length > 0;
+
+/** Whether a playbook may start a chat one of the ways that start a chat: its networking chat's parts apply. */
+export const startsChats = (
+  d: Parameters<typeof waysOf>[0],
+): boolean => waysOf(d).some(startsAChat);
+
+/**
+ * Whether every way a playbook may start a chat starts one, so nobody is pitched: Say hi then takes everyone who
+ * connects (decision 168's 3b), not only the people a check found fit.
+ */
+export const chatsOnly = (d: Parameters<typeof waysOf>[0]): boolean => {
+  const ways = waysOf(d);
+  return ways.length > 0 && ways.every(startsAChat);
+};
+
+/**
+ * What the playbook's `opens` reads as for the ways ticked, for a phone built before them (decision 168): an
+ * introduction when every way starts a chat, else the pitch.
+ */
+export const opensFor = (ways: readonly OpenWay[]): PlaybookOpens =>
+  ways.length && ways.every(startsAChat) ? 'intro' : 'pitch';
+
+/**
+ * The first message's words for a way: the first message's versions for the pitch, the introduction, or the way's own
+ * part.
+ */
+export function wayWords(says: FullScript, way: OpenWay): readonly string[] {
+  const part = OPEN_WAYS[way].part;
+  return part === 'first' ? says.first : [says[part]];
+}
+
+/**
+ * The messages a playbook's first drafts can go with, way by way: the first message's versions for the pitch, the
+ * introduction, and each other way's words.
  */
 export function firstMessagesOf(d: {
   readonly goal: PlaybookGoal;
   readonly script?: PlaybookScript | undefined;
   readonly opens?: PlaybookOpens | null | undefined;
-}): readonly string[] {
+  readonly ways?: readonly OpenWay[] | null | undefined;
+}): readonly { readonly way: OpenWay; readonly text: string }[] {
   const says = scriptOf(d);
-  return opensWithIntro(d) ? [says.intro] : says.first;
+  return waysOf(d).flatMap((way) => wayWords(says, way).map((text) => ({ way, text })));
 }
+
+/**
+ * How many versions of the first message take turns while the pitch is ticked, for the Test console's picker; none
+ * while it isn't.
+ */
+export const pitchVersionsOf = (d: Parameters<typeof firstMessagesOf>[0]): number =>
+  firstMessagesOf(d).filter((f) => f.way === 'pitch').length;
+
+/**
+ * What a way needs that the business hasn't given (the owner's 6a): a real result, something free to send, or a video.
+ * The AI never picks a way with something missing.
+ */
+export function wayMissing(
+  way: OpenWay,
+  has: { readonly proof: boolean; readonly useful: boolean; readonly video: boolean },
+): WayNeed | null {
+  const need = OPEN_WAYS[way].needs;
+  return need && !has[need] ? need : null;
+}
+
+/**
+ * What's wrong with the ways a playbook ticks (decision 183): none. A new playbook starts with none, and the editors
+ * won't carry on until one is; saved like that (as it saves itself), it starts no chats.
+ */
+export const waysIssue = (ways: readonly OpenWay[] | null | undefined): string | null =>
+  ways && ways.length === 0 ? WAYS_WORDS.none : null;
+
+/** The ways' words on the web's and the phone's playbook editors. */
+export const WAYS_WORDS = {
+  title: 'Ways to start a chat',
+  blurb:
+    'Tick the ones the AI may use. For each person, it picks the one that fits their page, posts, network and business best.',
+  none: 'Tick at least one way to start a chat.',
+  flow: {
+    ask: 'Asks about your offer. A yes gets your ask for a time, and quiet gets follow-ups.',
+    chat: 'Starts a chat. Then one nudge if they’re quiet, and a short chat that leads to a call or a demo.',
+  },
+  b2b: 'Best for businesses',
+  bestOn: (networks: readonly string[]) => `Works well on ${networks.join(' and ')}`,
+  needs: {
+    proof: 'Needs a real result. Add one under Proof for this niche, in the Niche step.',
+    useful: 'Needs something free to send. Add it under Something useful to send, in the Offer step.',
+    video: 'Needs a video. Add one in the Short video step, or in Settings → Videos.',
+  } satisfies Record<WayNeed, string>,
+  /** Beside the list: the warm-up switch, the playbook's Warm up step (decision 161, and the owner's 4b). */
+  warmUp: 'Warm up first',
+  warmUpHint:
+    'Likes 1 or 2 of their posts and leaves one comment every few days while they decide on your request. Someone who accepts fast, or was already a friend, gets a few days of it before the first message.',
+  picked: (n: number) => (n === 1 ? '1 way ticked' : `${n} ways ticked`),
+} as const;
+
+/**
+ * How a playbook starts a chat, in a line for its card on the web and the phone (decision 183): the one way's words, or
+ * the ways the AI picks from.
+ */
+export function waysLine(d: Parameters<typeof firstMessagesOf>[0]): string {
+  const ways = waysOf(d);
+  const firsts = firstMessagesOf(d);
+  if (!ways.length) return 'No way to start a chat is ticked yet, so it starts none. Tick one under What it says.';
+  if (ways.length > 1)
+    return `Picks one of ${ways.length} ways to start a chat for each person: ${ways.map((w) => OPEN_WAYS[w].label).join(', ')}.`;
+  const way = ways[0]!;
+  const first = firsts[0]?.text.trim() ?? '';
+  if (way === 'pitch')
+    return firsts.length > 1
+      ? `Starts with one of ${firsts.length} first messages, like “${first}”`
+      : `Starts with “${first}”`;
+  if (way === 'intro') return `Starts with an introduction: “${first}”`;
+  return `Starts with ${OPEN_WAYS[way].label}: ${first}`;
+}
+
+/** What the business has given that some ways need (the owner's 6a): a real result, something free to send, a video. */
+export interface WayHas {
+  readonly proof: boolean;
+  readonly useful: boolean;
+  readonly video: boolean;
+}
+
+/** One row of the ways list on the web's and the phone's playbook editors. */
+export interface WayRow {
+  readonly way: OpenWay;
+  readonly label: string;
+  readonly hint: string;
+  /** What follows it: the pitch's way or the networking chat's (the owner's 2a). */
+  readonly flow: string;
+  /** Short notes: whom it suits best, and the networks it tends to suit (the owner's 5a). */
+  readonly tags: readonly string[];
+  /** What it needs that isn't there yet, and where to add it: the AI skips it till then. */
+  readonly missing: string | null;
+  readonly on: boolean;
+}
+
+/** The ways list as the editors draw it, in its order, ticked or not. */
+export function wayRows(ticked: readonly OpenWay[], has: WayHas): WayRow[] {
+  return OPEN_WAY_KEYS.map((way) => {
+    const w = OPEN_WAYS[way];
+    const need = wayMissing(way, has);
+    return {
+      way,
+      label: w.label,
+      hint: w.hint,
+      flow: WAYS_WORDS.flow[w.flow],
+      tags: [
+        ...(w.fits === 'b2b' ? [WAYS_WORDS.b2b] : []),
+        ...(w.bestOn.length ? [WAYS_WORDS.bestOn(w.bestOn.map((n) => PLATFORMS[n]))] : []),
+      ],
+      missing: need ? WAYS_WORDS.needs[need] : null,
+      on: ticked.includes(way),
+    };
+  });
+}
+
+/** The ways ticked once one is ticked or unticked, in the list's order. */
+export const withWay = (ticked: readonly OpenWay[], way: OpenWay, on: boolean): OpenWay[] =>
+  OPEN_WAY_KEYS.filter((w) => (w === way ? on : ticked.includes(w)));
 
 /**
  * What the networking chat after an introduction may offer (decision 173, the owner: "these should be options in the
@@ -604,10 +1005,11 @@ export const NETWORKING_ON: PlaybookNetworking = { demo: true, call: true, sendP
 export function networkingOf(
   d: {
     readonly opens?: PlaybookOpens | null | undefined;
+    readonly ways?: readonly OpenWay[] | null | undefined;
     readonly networking?: Partial<PlaybookNetworking> | null | undefined;
   } | null,
 ): PlaybookNetworking {
-  if (!opensWithIntro(d)) return { demo: false, call: false, sendPeople: false };
+  if (!startsChats(d)) return { demo: false, call: false, sendPeople: false };
   return { ...NETWORKING_ON, ...(d?.networking ?? {}) };
 }
 
@@ -720,18 +1122,27 @@ export const PLAYBOOK_REFER = {
 export const refersOf = (d: { readonly refer?: boolean | null | undefined } | null): boolean =>
   d?.refer !== false;
 
-/** The parts only a playbook that starts with an introduction has: the editors show them only then. */
-export const INTRO_PARTS: readonly ScriptPart[] = [
-  'intro',
+/** The networking chat's parts: a playbook has them only while a way it may start with starts a chat. */
+export const CHAT_PARTS: readonly ScriptPart[] = [
   'nudge',
   'demoOffer',
   'callOffer',
   'sendPeople',
   'callYes',
 ];
-/** Whether an editor shows a part, for a playbook that starts with an introduction (`intro`) or pitches. */
-export const partShown = (part: ScriptPart, intro: boolean): boolean =>
-  intro || !INTRO_PARTS.includes(part);
+/** The ways' own parts but the first message's, which Reconnect asks after its catch-up whatever is ticked. */
+const WAY_PARTS: ReadonlyMap<ScriptPart, OpenWay> = new Map(
+  OPEN_WAY_KEYS.filter((w) => OPEN_WAYS[w].part !== 'first').map((w) => [OPEN_WAYS[w].part, w]),
+);
+/**
+ * Whether an editor shows a part for the ways ticked (decision 183): a way's own words only while it's ticked, the
+ * networking chat's only while a way that starts a chat is, and every other part always.
+ */
+export function partShown(part: ScriptPart, ways: readonly OpenWay[]): boolean {
+  const way = WAY_PARTS.get(part);
+  if (way) return ways.includes(way);
+  return !CHAT_PARTS.includes(part) || ways.some(startsAChat);
+}
 
 // ---- The editors' state (the web's and the phone's) ----
 
@@ -898,11 +1309,11 @@ export const SCRIPT_WORDS = {
   test: 'Test it',
   opensTitle: 'How the first message goes',
   opensBlurb: 'Pick what goes once someone connects with you.',
-  /** The first message's label when the playbook starts with an introduction: Reconnect still asks it. */
+  /** The first message's label when Direct pitch isn't ticked: Reconnect still asks it. */
   pitchInIntro: 'Your pitch',
   pitchInIntroWhen:
-    'Reconnect asks this after its catch-up. With an introduction, nobody new gets it as a first message.',
-  /** The networking chat's switches (decision 173), under the introduction. */
+    'Reconnect asks this after its catch-up. While Direct pitch isn’t ticked, nobody new gets it as a first message.',
+  /** The networking chat's switches (decision 173), for the ways that start a chat. */
   networkingTitle: 'In the chat after it',
   networkingBlurb:
     'The chat stays about them. Pick what it may offer, each once, when it fits. Turn one off and it never comes up.',

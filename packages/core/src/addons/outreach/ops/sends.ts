@@ -18,7 +18,7 @@ import { AUTOPILOT_WORDS, waitsForPeopleOk } from '../autopilot';
 import { underAPost, type PostSendKind, type SendKind } from '../automation';
 import { chatUrlOn } from '../network-words';
 import { FOLLOW_PLATFORMS, NETWORKS, PLATFORMS, type Platform } from '../networks';
-import type { DraftOpener } from '../openers';
+import { type DraftOpener, kindStartsAChat } from '../openers';
 import {
   changed,
   COMMENT_NEEDS_YOU,
@@ -331,16 +331,23 @@ async function dropNotFollowing(ctx: CommandContext, me: string, at: Date): Prom
 }
 
 /**
- * First messages drafted the other way from how their playbook starts a chat now (decision 168, the owner's 5a): a
- * question when it starts with an introduction, or an introduction when it's back to the question, as the draft's
- * opener says. The person's own still waiting for an OK go, and one OK'd is skipped, so Today lists them again and the
- * next draft is the way the playbook says now. Run as each draft is queued, as `dropStaleCatchUps` is.
+ * First messages drafted under other ways than their playbook ticks now (decisions 168 and 183, the owner's 5a then):
+ * the ways it had ticked when it was drafted (the draft's opener's `ways`), or for one drafted before them its own way
+ * alone, differ from the ways it ticks now (its `ways`, or for one saved before them the way `opens` says). The
+ * person's own still waiting for an OK go, and one OK'd is skipped, so Today lists them again and the next draft picks
+ * from the ways the playbook has now. Run as each draft is queued, as `dropStaleCatchUps` is.
  */
 async function dropOtherOpening(ctx: CommandContext, me: string, at: Date): Promise<void> {
+  // The way a first message's opener kind went: the business's own messages and old AI styles were the pitch.
+  const wayOfKind = sql`case when (s.opener ->> 'kind') in ('own', 'style') then 'pitch'
+      else s.opener ->> 'kind' end`;
+  const drafted = sql`coalesce(s.opener -> 'ways', jsonb_build_array(${wayOfKind}))`;
+  const ticked = sql`coalesce(pb.details -> 'ways',
+      jsonb_build_array(case when pb.details ->> 'opens' = 'intro' then 'intro' else 'pitch' end))`;
   const other = sql`s.workspace_id = ${ctx.scope.workspaceId!} and s.user_id = ${me} and s.kind = 'opener'
     and s.opener is not null and exists (select 1 from addon_outreach.playbooks pb
       where pb.workspace_id = s.workspace_id and pb.id::text = s.opener ->> 'playbookId'
-        and ((s.opener ->> 'kind') = 'intro') <> (coalesce(pb.details ->> 'opens', 'pitch') = 'intro'))`;
+        and not (${drafted} @> ${ticked} and ${ticked} @> ${drafted}))`;
   await rows(
     ctx.tx,
     sql`delete from addon_outreach.sends s where ${other} and s.state = 'waiting'`,
@@ -854,8 +861,11 @@ export const sendDone = defineAddonCommand(outreachAddon, {
         kind: row.kind,
         at,
         offerVersion: row.offerVersion,
-        // The playbook's introduction in place of the first message (decision 168): check-ins follow, not follow-ups.
-        ...(row.kind === 'opener' ? { intro: row.opener?.kind === 'intro' } : {}),
+        // A first message that started a chat (the introduction, decision 168, or another way that starts one, decision
+        // 183): check-ins follow, not follow-ups.
+        ...(row.kind === 'opener'
+          ? { intro: row.opener ? kindStartsAChat(row.opener.kind) : false }
+          : {}),
       });
     // One that didn't go is the person's to send: it waits in Waiting for you with its words.
     if (!input.sent) {
