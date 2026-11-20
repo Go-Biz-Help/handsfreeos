@@ -368,6 +368,15 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 689,
     said: 'A hashtag’s search showed nothing but Instagram’s loading mark when it was read, and its list ended at once as the page had nowhere to scroll. While the page’s main part shows only the loading mark, it’s read again after the list’s pause now.',
   },
+  {
+    area: 'facebook',
+    job: 'draft',
+    note: 'The AI is busy right now',
+    // The worker's fix, not the extension's: by when it went live, as for a tool without versions.
+    before: '2026-11-20T02:00:00Z',
+    pr: 689,
+    said: 'Now and then Claude, and the backup AI behind it, were both overloaded or out of reach for a draft (5 on the evening of 19 Nov among about 380 answers), and the draft failed at once. A busy AI is asked once more after 3 seconds now, as an empty answer already was.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */

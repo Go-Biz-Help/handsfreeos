@@ -42,7 +42,7 @@ import {
   CRM_FIRST_MESSAGE,
   PLAYBOOK_TEMPLATES,
 } from '../../../packages/core/src/addons/outreach/playbooks';
-import { FallbackProvider, type AiProvider, type AiRoute } from '@hfos/ai';
+import { AiProviderError, FallbackProvider, type AiProvider, type AiRoute } from '@hfos/ai';
 import { scriptedAi } from '../src/ai/scripted';
 import { buildHttpServer } from '../src/http/server';
 import { testServices } from './helpers';
@@ -73,11 +73,17 @@ const firsts = (name: string) => [`Hey ${name}, ${SAYS}`, `Hi ${name}, ${SAYS}`]
 
 /** Drafts the model answers next with nothing at all, no words written, as the AI service sometimes does. */
 let blanks = 0;
+/** Drafts the AI service turns away next as overloaded (529), the way Claude and the backup sometimes both do. */
+let busy = 0;
 const scripted = scriptedAi();
 const blanking: AiProvider = {
   id: 'blanking',
   model: scripted.model,
   stream: (request, options) => {
+    if (busy > 0 && String(request.system).startsWith('You write short')) {
+      busy -= 1;
+      return Promise.reject(new AiProviderError('Overloaded', 'overloaded', true, 529));
+    }
     if (blanks > 0 && String(request.system).startsWith('You write short')) {
       blanks -= 1;
       return Promise.resolve({
@@ -878,6 +884,22 @@ describe('what the business knows (decision 122)', () => {
       });
     expect((await said('Are you open on Saturday?')).unanswered).toBeNull();
     expect((await said('Do you come out to Dallas?')).unanswered).toBe('do you come out to dallas');
+  });
+});
+
+describe('when the AI service is busy', () => {
+  // On 19 Nov 2026 five Facebook drafts in an evening came back "The AI is busy right now. Try again in a minute."
+  it('asks once more after a few seconds, and says it’s busy only when it still is', async () => {
+    busy = 1;
+    const res = await draft(owner, { kind: 'reply', chatId });
+    expect(res.statusCode).toBe(200);
+    expect(busy).toBe(0);
+    expect(res.json().drafts.length).toBeGreaterThan(0);
+    busy = 2;
+    const failed = await draft(owner, { kind: 'reply', chatId });
+    expect(busy).toBe(0);
+    expect(failed.statusCode).toBe(503);
+    expect(failed.json().error.rule).toBe('ai_busy');
   });
 });
 

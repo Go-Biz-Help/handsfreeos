@@ -322,7 +322,8 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
       const messages = [{ role: 'user' as const, content: ask.content }];
       const usage = { source: 'addon' as const, addonId: ctx.manifest.id };
       // A request check answers what to do with the request too (decision 136).
-      // An unusable answer is asked for once more, and the backup answers one Claude declines twice (`askedTwice`).
+      // An unusable answer is asked for once more, and the backup answers one Claude declines twice; a busy AI is asked
+      // once more after a few seconds (`askedTwice`).
       const { value } = await askedTwice((last) =>
         'request' in ask
           ? askStructured(ctx, ctx.scope, {
