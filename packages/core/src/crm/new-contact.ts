@@ -1,12 +1,14 @@
 /**
- * A new contact started from a customer search that found nobody: New appointment's Customer, on the web and the
- * phone. Typing a name nobody has offers "Add “Dana Smith” as a new contact", and the form opens with what was typed
- * already in it, where it belongs: a number in Phone, an email in Email, a name as the name. Once added, they're the
- * customer the visit is for, so booking someone new takes one detour instead of a trip to Contacts and back.
+ * A new contact started from a contact search, wherever a contact is picked: New appointment's Customer, an invoice
+ * or estimate's Who it's for, a document's signers, a deal's people, a job's customer, a new message, on the web and
+ * the phone. Every search offers "Add “Dana Smith” as a new contact" under what it found (and says so when it found
+ * nobody), and the form opens with what was typed already in it, where it belongs: a number in Phone, an email in
+ * Email, a name as the name. Once added, they're the one picked, so someone new takes one detour instead of a trip to
+ * Contacts and back. A person who can't add contacts (`records.write`) sees the search alone.
  *
  * The web opens its Add a person form for this. The phone has no such form, and an iPhone shows one sheet at a time,
- * so its New appointment sheet asks for the name, number and email itself and checks them here first, the way the
- * server will: what it adds with no signal must not be refused hours later for a number that was mistyped.
+ * so its pickers ask for the name, number and email in place and check them here first, the way the server will:
+ * what it adds with no signal must not be refused hours later for a number that was mistyped.
  *
  * Browser-safe: words and small pure helpers only.
  */
@@ -20,10 +22,10 @@ import { normalizePhone } from './phone';
 export const NEW_CONTACT_WORDS = {
   /** Under a search that found nobody. */
   nobody: (typed: string) => `No one matches “${typed}”.`,
-  /** The button under it, which starts the contact with what was typed. */
+  /** The button under what was found (or under `nobody`), which starts the contact with what was typed. */
   add: (typed: string) => `Add “${typed}” as a new contact`,
 
-  /** The phone's form, inside the New appointment sheet. */
+  /** The phone's form, in place of the search it was started from. */
   title: 'New contact',
   name: 'Name',
   phone: 'Phone',
@@ -31,13 +33,15 @@ export const NEW_CONTACT_WORDS = {
   namePlaceholder: CONTACT_EDIT_WORDS.namePlaceholder,
   phonePlaceholder: '(713) 555-0100',
   emailPlaceholder: 'mike@example.com',
-  /** Only the name is needed; the rest can wait. */
+  /** Only the name is needed; the rest can wait. New appointment's, where they're told about the visit. */
   hint: 'A name is enough. A number or email lets them hear about the visit.',
+  /** The same, anywhere else: a document to sign goes to their email or phone. */
+  hintAny: 'A name is enough. A number or email lets you reach them.',
   save: 'Add contact',
   cancel: 'Cancel',
   added: CONTACT_EDIT_WORDS.added,
 
-  /** Someone already has the number or email typed: book them, or add the new contact anyway. */
+  /** Someone already has the number or email typed: pick them, or add the new contact anyway. */
   already: (name: string, has: { readonly phone: boolean; readonly email: boolean }) =>
     `${name} already has this ${
       has.phone && has.email ? 'number or email' : has.phone ? 'number' : 'email'
@@ -48,6 +52,12 @@ export const NEW_CONTACT_WORDS = {
   noName: CONTACT_EDIT_WORDS.nameEmpty,
   badPhone: 'Enter a valid phone number, or leave it blank.',
   badEmail: 'Enter a valid email address, or leave it blank.',
+  /**
+   * The phone added them, but a screen that needs them on HandsFreeOS straight away (a document to sign) couldn't
+   * reach it: they're kept on the phone and go with the next signal.
+   */
+  notThereYet: (name: string) =>
+    `${name} is saved on this phone and goes to HandsFreeOS with the next signal. Pick them again then.`,
 } as const;
 
 /** What a new contact starts with: each part as it goes in its box, or empty. */

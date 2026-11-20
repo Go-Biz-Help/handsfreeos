@@ -1,7 +1,7 @@
 {
   "area": "workflows",
   "title": "Workflows, their runs and approvals",
-  "checkedOn": "2026-11-06",
+  "checkedOn": "2026-11-20",
   "files": {
     "apps/web/src/app/app/w/[workspaceId]/workflows/[workflowId]/page.tsx": "d9d745c2843e",
     "apps/web/src/app/app/w/[workspaceId]/workflows/approvals/page.tsx": "c1a799f92ccc",
@@ -50,8 +50,8 @@
     "apps/web/src/components/workflows/runs/runs-list.tsx": "9e9c64d16cdb",
     "apps/web/src/components/workflows/step-list.tsx": "b5f0ecc82a57",
     "apps/web/src/components/workflows/subnav.tsx": "15fe747c7b7d",
-    "apps/web/src/components/workflows/test-panel.tsx": "8b3e038dc5f4",
-    "apps/web/src/components/workflows/variable-field.tsx": "4d2fed286abd",
+    "apps/web/src/components/workflows/test-panel.tsx": "9d48bda36130",
+    "apps/web/src/components/workflows/variable-field.tsx": "2282b4fc14f8",
     "apps/web/src/components/workflows/workflow-list.tsx": "1cce90428c6e",
     "apps/web/src/components/workflows/workflow-stats.tsx": "7daa04ad7355"
   },

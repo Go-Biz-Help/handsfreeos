@@ -1248,6 +1248,7 @@ function ClaimDialog({
           <RecordPicker
             workspaceId={workspaceId}
             id="claim-person"
+            addNew={false}
             value={picked}
             onChange={setPicked}
             autoFocus
