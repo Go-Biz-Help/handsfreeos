@@ -9,10 +9,12 @@
  * again for the rest. The extension opens each one's page in a window of its own,
  * checks it's theirs, reads it as that network's checks read people (the network's `read`), and sends those lines for
  * the AI's found check (`outreach.check.look`, which HandsFreeOS marks `found`). Only a good check puts them on Today.
- * Nothing is pressed. It goes at a person's pace, 15 to 30 seconds between people, and stops for the day on any
- * warning. Each network's runner calls it as `jobs/partners.ts`'s `checkPartners` is called, with its own reader.
+ * Nothing is pressed. It goes at a person's pace, 15 to 30 seconds between people (a minute or two on LinkedIn, a few at
+ * a time: its runner asks for a batch, and the rest of the day's room comes back `again`, decision 182), and stops for
+ * the day on any warning. Each network's runner calls it as `jobs/partners.ts`'s `checkPartners` is called, with its
+ * own reader.
  */
-import { CHECK_PACE_SECONDS } from '@hfos/core/addons/outreach/checks';
+import { checkPaceOf } from '@hfos/core/addons/outreach/checks';
 import { FINDS_NEXT_MOST, FOUND_CHECKS } from '@hfos/core/addons/outreach/finds';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import type { FindsNext } from '../hfos/messages';
@@ -20,8 +22,11 @@ import { counted } from '../words';
 import type { ReadThem, Who } from './checks';
 import { paced, pause, valueOf, type Job, type JobEnd } from './job';
 
-/** Between people, a steady pace like a person's, as the checks of friends go. */
-const PACE_MS = [CHECK_PACE_SECONDS[0] * 1000, CHECK_PACE_SECONDS[1] * 1000] as const;
+/** Between people, a steady pace like a person's, as the checks of friends go on that network (LinkedIn's slower). */
+const paceOf = (platform: Platform) => {
+  const [least, most] = checkPaceOf(platform);
+  return [least * 1000, most * 1000] as const;
+};
 
 /** What a page of someone's is called on each network, for "Instagram didn’t show 2 accounts". */
 const PAGE: Readonly<Record<Platform, string>> = {
@@ -62,7 +67,8 @@ function noneLine(next: FindsNext, platform: Platform): string {
 /**
  * Checks the next people found by topic on a network, up to `most` and today's room there, each read by `on.read`
  * (`readThemOnInstagram`, `readThemOnLinkedIn`, `readThemOnAlignable`). Someone the network didn't show is sent as
- * missing, and tried again in a week.
+ * missing, and tried again in a week. A batch smaller than a day's that filled, with today's room left, comes back
+ * `again` for its next batch later.
  */
 export async function checkFound(
   job: Job,
@@ -70,9 +76,11 @@ export async function checkFound(
   most: number = FOUND_DAY_MOST,
 ): Promise<JobEnd> {
   const name = NETWORKS[on.platform].name;
+  const pace = paceOf(on.platform);
   let sent = 0;
   let missing = 0;
   let asked = 0;
+  let last: FindsNext | null = null;
   // One ask takes up to 40: past it, it asks again for the rest of the day's room, till an ask comes back short.
   for (let left = Math.max(1, most); left > 0;) {
     const ask = Math.max(1, Math.min(left, FINDS_NEXT_MOST));
@@ -87,6 +95,7 @@ export async function checkFound(
       if (!asked) return { line: noneLine(next, on.platform), warned: false };
       break;
     }
+    last = next;
     const before = asked;
     for (const who of next.people) {
       if (job.stopped())
@@ -95,7 +104,7 @@ export async function checkFound(
         job.progress(
           `Checked ${counted(sent, 'person', 'people')} found. Waiting a moment before the next…`,
         );
-        await pause(paced(PACE_MS));
+        await pause(paced(pace));
         if (job.stopped())
           return { line: `Stopped. ${summary(sent, missing, on.platform)}`, warned: false };
       }
@@ -128,5 +137,11 @@ export async function checkFound(
     if (next.people.length < ask) break;
     left -= next.people.length;
   }
-  return { line: `Done. ${summary(sent, missing, on.platform)}`, warned: false };
+  const more =
+    most < FOUND_DAY_MOST && asked >= most && last && last.today + last.people.length < last.perDay;
+  return {
+    line: `Done. ${summary(sent, missing, on.platform)}`,
+    warned: false,
+    ...(more ? { again: true } : {}),
+  };
 }

@@ -71,6 +71,21 @@ export const CHECK_AGAIN_DAYS = 90;
 export const CHECK_RETRY_DAYS = 7;
 /** How fast the extension goes, in seconds between one profile and the next. */
 export const CHECK_PACE_SECONDS = [15, 30] as const;
+/**
+ * LinkedIn's slower way (decision 182, the owner, 20 Nov 2026): a minute or two between profiles, and a few at a time,
+ * each next few 35 to 60 minutes later (the extension's `again`), so its 40 a day spread through the day. LinkedIn
+ * showed its security check 2 minutes after 42 profiles read 15 to 30 seconds apart, on a day of 98 (19 Nov 2026).
+ */
+const PACES: Partial<
+  Record<Platform, { readonly seconds: readonly [number, number]; readonly batch: number }>
+> = {
+  linkedin: { seconds: [60, 120], batch: 10 },
+};
+/** How fast the extension reads profiles on a network, in seconds between one and the next. */
+export const checkPaceOf = (platform: Platform): readonly [number, number] =>
+  PACES[platform]?.seconds ?? CHECK_PACE_SECONDS;
+/** The most profiles it reads there in one go, the rest in later batches; null where a day's go at once. */
+export const checksBatchOf = (platform: Platform): number | null => PACES[platform]?.batch ?? null;
 /** A good fit goes on Today to reconnect with once neither side has written for this long. */
 export const RECONNECT_QUIET_DAYS = 30;
 /** How many why lines are kept, and how long each, what they do, and a first step. */

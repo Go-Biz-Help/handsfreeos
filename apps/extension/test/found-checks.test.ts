@@ -117,6 +117,49 @@ describe('checking the people found by topic', () => {
     );
   });
 
+  // Decision 182 (20 Nov 2026): LinkedIn showed its security check 2 minutes after 42 profiles read 15 to 30 seconds apart.
+  it('goes a minute or two apart on LinkedIn, a few at a time, and says more come later while today has room', async () => {
+    paused.length = 0;
+    const sent: HfosAsk[] = [];
+    const LI = 'https://www.linkedin.com';
+    const ten = Array.from({ length: 10 }, (_, i) => person(`Person ${i}`, `${LI}/in/p-${i}/`));
+    const read = async (): Promise<ReadThem> => lines('Someone');
+    const end = await checkFound(
+      jobWith(hfosWith({ people: ten, today: 0, perDay: 30 }, sent)),
+      { platform: 'linkedin', read },
+      10,
+    );
+    expect(
+      sent
+        .filter((a) => a.type === 'hfos-finds-next')
+        .map((a) => (a.input as { most: number }).most),
+    ).toEqual([10]);
+    expect(looks(sent)).toHaveLength(10);
+    expect(paused).toHaveLength(9);
+    expect(paused.every((ms) => ms >= 60_000 && ms <= 120_000)).toBe(true);
+    expect(end).toMatchObject({ again: true });
+    // The day's last few: nothing comes back later.
+    const last: HfosAsk[] = [];
+    const lastEnd = await checkFound(
+      jobWith(hfosWith({ people: ten, today: 20, perDay: 30 }, last)),
+      { platform: 'linkedin', read },
+      10,
+    );
+    expect(lastEnd.again).toBeUndefined();
+  });
+
+  it('keeps its 15 to 30 seconds and a day’s at once elsewhere', async () => {
+    paused.length = 0;
+    const read = async (): Promise<ReadThem> => lines('Someone');
+    const end = await checkFound(jobWith(hfosWith({ people: [KIM, LEO, ANA] }, [])), {
+      platform: 'instagram',
+      read,
+    });
+    expect(paused).toHaveLength(2);
+    expect(paused.every((ms) => ms >= 15_000 && ms <= 30_000)).toBe(true);
+    expect(end.again).toBeUndefined();
+  });
+
   it('reads each one by the network’s reader and sends the lines for the AI’s found check', async () => {
     paused.length = 0;
     const sent: HfosAsk[] = [];

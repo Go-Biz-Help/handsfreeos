@@ -39,7 +39,7 @@ import { visitLine, visitPicks } from '@hfos/core/addons/outreach/keep-warm';
 import { businessDay } from '@hfos/core/addons/outreach/automation';
 import type { MessageKind } from '@hfos/core/addons/outreach/automation';
 import { ASK_FIRST_WORDS } from '@hfos/core/addons/outreach/asks';
-import { CHECKS_PER_DAY } from '@hfos/core/addons/outreach/checks';
+import { CHECKS_PER_DAY, checksBatchOf } from '@hfos/core/addons/outreach/checks';
 import {
   fallbackLikePick,
   LIKE_POSTS_READ,
@@ -114,7 +114,6 @@ import {
 } from './lists';
 import {
   afterDaily,
-  AGAIN_WORDS,
   ANSWERING,
   answersAnyTime,
   freshState,
@@ -1202,6 +1201,15 @@ const reporting = (job: Job, kind: LinkedInDaily): Job => ({
     }),
 });
 
+/**
+ * How many profiles LinkedIn's checks read in one go (decision 182): a few at a time, each next few 35 to 60 minutes
+ * later (`again`, plan.ts `afterDaily`), so the day's 40 spread through the day.
+ */
+const LINKEDIN_BATCH = checksBatchOf(PLATFORM) ?? CHECKS_PER_DAY;
+
+/** The words a day's last line adds while LinkedIn's checks wait for their next few (decision 182). */
+export const LINKEDIN_AGAIN_WORDS = 'It reads more profiles later today, a few at a time.';
+
 /** Does one of LinkedIn's once-a-day jobs. */
 export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<JobEnd> {
   switch (kind) {
@@ -1212,7 +1220,7 @@ export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<J
     case 'tidy':
       return withdrawOnItsOwn(job);
     case 'checks':
-      return checkConnections(job, CHECKS_PER_DAY);
+      return checkConnections(job, LINKEDIN_BATCH);
     case 'partners':
       return checkPartners(job, PARTNER_CHECKS_PER_DAY, {
         platform: PLATFORM,
@@ -1246,7 +1254,7 @@ export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<J
       // A post it couldn't read, or whose box of who reacted didn't open or read nobody, is noted with its outline.
       return readPostPeople(reporting(job, kind));
     case 'found_checks':
-      return checkFound(job, { platform: PLATFORM, read: readThemOnLinkedIn });
+      return checkFound(job, { platform: PLATFORM, read: readThemOnLinkedIn }, LINKEDIN_BATCH);
     case 'comment_research':
       return readLinkedInComments(job);
     case 'profile':
@@ -1492,7 +1500,7 @@ async function go(): Promise<void> {
           : state.tried.length
             ? `Done for today on ${NAME}. It looks again within the hour for anything new.`
             : `Nothing on your ${NAME} list for it to do yet.`
-      }${again !== null ? ` ${AGAIN_WORDS}` : ''}`,
+      }${again !== null ? ` ${LINKEDIN_AGAIN_WORDS}` : ''}`,
     );
     return goAt(
       Math.min(
