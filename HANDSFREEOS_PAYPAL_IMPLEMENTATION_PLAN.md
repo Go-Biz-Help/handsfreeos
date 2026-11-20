@@ -3,8 +3,10 @@
 The owner (20 Nov 2026): "lets start integrating paypal into the payments options along side stripe and square".
 
 **Where it stands (20 Nov 2026):** the owner picked 1a, 2a, 3a and 4a at 19:19 UTC on 20 Nov (every
-recommendation below). Part 1, the real Stripe and Square fields on the customer's pages, is built in PR #696. The
-PayPal parts follow it.
+recommendation below). Part 1, the real Stripe and Square fields on the customer's pages, is PR #696. Parts 2 to 5 are
+built and tested, and go out as one PR once #696 merges. Connect PayPal stays Coming soon
+(`NEXT_PUBLIC_PAYPAL_ENABLED`, `EXPO_PUBLIC_PAYPAL_ENABLED`) until PayPal approves HandsFreeOS as a partner; the
+setup steps are "Money: PayPal" in `docs/operations.md`.
 
 This is about a **business taking money from its own customers** (invoices, pay links, booking deposits). It has
 nothing to do with how HandsFreeOS bills businesses for their plan.
@@ -36,17 +38,17 @@ The questions in full, with the other options: `/mnt/project-files/paypal/questi
 
 ## How PayPal fits the seam
 
-| Seam (`PaymentProvider`)                      | PayPal                                                                                                                                                                             |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `authorizeUrl`                                | Partner Referrals API (`/v2/customer/partner-referrals`): the business signs in to PayPal and grants us permission.                                                                |
-| `exchangeCode`                                | The return carries `merchantIdInPayPal`; we read the seller's status with `/v1/customer/partners/{partner}/merchant-integrations/{merchant}`.                                      |
-| Calls for the business                        | Our own client id and secret plus a `PayPal-Auth-Assertion` naming the seller, so there's no seller token to keep fresh (like Stripe).                                             |
-| `flow`                                        | `client_confirm`: `prepare` creates the order (`/v2/checkout/orders`), the browser's PayPal button approves it, `confirmFromClient` captures it.                                   |
-| `authorize` / `capture` / `voidAuthorization` | Orders with `intent: AUTHORIZE` for a booking deposit hold.                                                                                                                        |
-| `refund`                                      | `/v2/payments/captures/{id}/refund`.                                                                                                                                               |
-| `fees`                                        | `seller_receivable_breakdown` on the capture: known at once.                                                                                                                       |
-| `webhooks`                                    | One platform webhook; verified with PayPal's `verify-webhook-signature` against `PAYPAL_WEBHOOK_ID`. Capture completed, refunded, reversed, denied, disputes, and consent revoked. |
-| `subscriptions`, saved cards, `platform`      | Refused in plain words (pick 4a), like Square's `platform`.                                                                                                                        |
+| Seam (`PaymentProvider`)                      | PayPal                                                                                                                                                                              |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `authorizeUrl`                                | Partner Referrals API (`/v2/customer/partner-referrals`): the business signs in to PayPal and grants us permission.                                                                 |
+| `exchangeCode`                                | The return carries `merchantIdInPayPal`; we read the seller's status with `/v1/customer/partners/{partner}/merchant-integrations/{merchant}`.                                       |
+| Calls for the business                        | Our own client id and secret plus a `PayPal-Auth-Assertion` naming the seller, so there's no seller token to keep fresh (like Stripe).                                              |
+| `flow`                                        | `client_confirm`: `prepare` creates the order (`/v2/checkout/orders`), the browser's PayPal button approves it, `confirmFromClient` captures it.                                    |
+| `authorize` / `capture` / `voidAuthorization` | Orders with `intent: AUTHORIZE` for a booking deposit hold.                                                                                                                         |
+| `refund`                                      | `/v2/payments/captures/{id}/refund`.                                                                                                                                                |
+| `fees`                                        | `seller_receivable_breakdown` on the capture: known at once.                                                                                                                        |
+| `webhooks`                                    | One platform webhook; each event's signature is checked against PayPal's certificate and `PAYPAL_WEBHOOK_ID`. Captures, holds, disputes, the seller's account, and consent revoked. |
+| `subscriptions`, saved cards, `platform`      | Refused in plain words (pick 4a), like Square's `platform`.                                                                                                                         |
 
 New worker settings: `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_PARTNER_MERCHANT_ID`, `PAYPAL_BN_CODE`,
 `PAYPAL_WEBHOOK_ID`, `PAYPAL_ENVIRONMENT`. The stand-in (`apps/worker/src/payments/fake.ts`) gets a PayPal too, so the
@@ -56,7 +58,7 @@ tests, the seed and local development never need a PayPal account.
 
 1. **Card box for Stripe and Square** (PR #696): Stripe's Payment Element and Square's card field on the invoice page
    and the deposit step, in place of the "couldn't open the payment form" dead end
-   (`apps/web/src/components/money/provider-fields.tsx`). No migration.
+   (`apps/web/src/components/money/provider-fields.tsx`). Migration `20261027030700_payment_method_from_provider.sql`.
    - Stripe's box offers every way the business switched on (we still never name the methods), with the one picked
      on our page first. So the way a payment was made is now the provider's answer: `PaymentResult.method`, and
      `invoice.record_payment` takes it on the provider's first answer only.
@@ -68,6 +70,12 @@ tests, the seed and local development never need a PayPal account.
 3. **Settings and onboarding:** Connect PayPal in Settings → Payments and the onboarding payments step (web and phone),
    the account card, Venmo and Pay Later switches; the Assistant's coverage and ledger items.
 4. **The customer's pages:** PayPal's buttons on the invoice page, pay links and the deposit step; new payment methods
-   `paypal` and `venmo` (migration), shown in Money → Payments and on receipts.
+   `paypal` and `venmo` (migrations `20261027031100` and `20261027031200`), shown in Money → Payments and on receipts.
+   - The buttons sit above the card box ("or" between them), or alone when PayPal is the account the money goes to.
+     They show beside another account only when the PayPal account is open to everyone (`apps/worker/src/payments/payable.ts`).
+   - A deposit is an order with `intent: AUTHORIZE`, captured once the time is confirmed. Venmo and Pay Later are off
+     there (they can't be held), and a PayPal account without the hold permission isn't offered for a deposit. A time
+     that goes while the customer is in PayPal's window asks PayPal for nothing: approving an order holds no money.
+   - Plans refuse a PayPal account (`paypal_one_time_only`).
 5. **Docs:** "Money: PayPal" in `docs/operations.md`, click by click: the partner application, the REST app, the
    webhook and the worker's settings.
