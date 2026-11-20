@@ -1,5 +1,5 @@
 /**
- * Which first messages work (docs/outreach.md, decisions 23 and 164). A playbook's first message has up to three
+ * Which first messages work (docs/outreach.md, decisions 23, 164 and 183). A playbook's first message has up to three
  * versions in the business's own words (`script.first`, ./script.ts). Drafts for a first message take turns with
  * them: each one goes to the version the person has used least (`nextOpener`), and the AI keeps close to its words,
  * fitted to the person. Copying a draft notes which version it was (`outreach.opener.use`), and the results card
@@ -11,19 +11,45 @@
  */
 import { z } from 'zod';
 import { PLAYBOOK_LIMITS, type PlaybookDetails } from './playbooks';
-import { firstMessagesOf, opensWithIntro } from './script';
+import {
+  firstMessagesOf,
+  OPEN_WAY_KEYS,
+  OPEN_WAYS,
+  type OpenWay,
+  startsAChat,
+  wayMissing,
+} from './script';
 
 /**
- * One of the playbook's first messages (`own`), its introduction in their place (`intro`, decision 168), or an AI style
- * from before decision 164, kept for its numbers.
+ * One of the playbook's first messages (`own`), its introduction in their place (`intro`, decision 168), one of the
+ * other ways to start a chat, by its name (decision 183), or an AI style from before decision 164, kept for its numbers.
  */
 export const OPENER_KINDS = {
   style: 'AI style',
   own: 'Your message',
   intro: 'Introduction',
+  valueFirst: OPEN_WAYS.valueFirst.label,
+  trigger: OPEN_WAYS.trigger.label,
+  compliment: OPEN_WAYS.compliment.label,
+  opinion: OPEN_WAYS.opinion.label,
+  socialProof: OPEN_WAYS.socialProof.label,
+  permission: OPEN_WAYS.permission.label,
+  sharedGround: OPEN_WAYS.sharedGround.label,
+  problemCheck: OPEN_WAYS.problemCheck.label,
 } as const;
 export type OpenerKind = keyof typeof OPENER_KINDS;
 export const OPENER_KIND_KEYS = Object.keys(OPENER_KINDS) as [OpenerKind, ...OpenerKind[]];
+
+/** The opener kind a first message started a way goes as: the pitch's versions are the business's own messages. */
+export const kindOfWay = (way: OpenWay): OpenerKind => (way === 'pitch' ? 'own' : way);
+/** The way an opener kind started the chat: the business's own messages and old AI styles were the pitch. */
+export const wayOfKind = (kind: OpenerKind): OpenWay =>
+  kind === 'own' || kind === 'style' ? 'pitch' : kind;
+/**
+ * Whether a first message of this kind started a chat (decision 183's 2a): an introduction's networking chat follows
+ * it, with one nudge and check-ins, never the pitch's follow-ups.
+ */
+export const kindStartsAChat = (kind: OpenerKind): boolean => startsAChat(wayOfKind(kind));
 
 export interface Opener {
   readonly kind: OpenerKind;
@@ -32,13 +58,53 @@ export interface Opener {
 }
 
 /**
- * A playbook's first messages, in its order: the versions drafts take turns with. A playbook that starts with an
- * introduction (decision 168) has that one alone.
+ * A playbook's first messages, in its order: way by way (decision 183), the first message's versions for the pitch,
+ * which drafts take turns with, and the words of each other way it may start with.
  */
-export const openersOf = (d: Pick<PlaybookDetails, 'goal' | 'script' | 'opens'>): Opener[] => {
-  const kind = opensWithIntro(d) ? ('intro' as const) : ('own' as const);
-  return firstMessagesOf(d).map((text) => ({ kind, text }));
-};
+export const openersOf = (
+  d: Pick<PlaybookDetails, 'goal' | 'script' | 'opens' | 'ways'>,
+): Opener[] => firstMessagesOf(d).map(({ way, text }) => ({ kind: kindOfWay(way), text }));
+
+/**
+ * The first messages a draft may pick from, one a way (decision 183): the pitch's version whose turn it is
+ * (`nextOpener`), and each other way's words. The ways used least come first, so when a few fit someone as well,
+ * the AI takes turns with them by taking the first. `usable` leaves out the ways missing what they need.
+ */
+export function openerChoices(
+  openers: readonly Opener[],
+  used: ReadonlyMap<string, number>,
+  usable: (way: OpenWay) => boolean = () => true,
+): { readonly way: OpenWay; readonly opener: Opener; readonly used: number }[] {
+  const byWay = new Map<OpenWay, Opener[]>();
+  for (const o of openers) {
+    const way = wayOfKind(o.kind);
+    byWay.set(way, [...(byWay.get(way) ?? []), o]);
+  }
+  const ways = OPEN_WAY_KEYS.filter((w) => byWay.has(w) && usable(w));
+  return ways
+    .map((way, i) => {
+      const list = byWay.get(way)!;
+      const opener = nextOpener(list, used) ?? list[0]!;
+      const n = list.reduce((sum, o) => sum + (used.get(openerKey(o)) ?? 0), 0);
+      return { way, opener, used: n, i };
+    })
+    .sort((a, b) => a.used - b.used || a.i - b.i)
+    .map(({ way, opener, used: n }) => ({ way, opener, used: n }));
+}
+
+/**
+ * The first messages a draft for someone may go with (decision 183): the playbook's ways less those missing what they
+ * need (the owner's 6a), the ones used least first. When none can go, the pitch's words do, so a first message still
+ * has something to keep close to.
+ */
+export function firstMessageChoices(
+  d: Pick<PlaybookDetails, 'goal' | 'script' | 'opens' | 'ways'>,
+  used: ReadonlyMap<string, number>,
+  has: { readonly proof: boolean; readonly useful: boolean; readonly video: boolean },
+): { readonly way: OpenWay; readonly opener: Opener; readonly used: number }[] {
+  const usable = openerChoices(openersOf(d), used, (way) => wayMissing(way, has) === null);
+  return usable.length ? usable : openerChoices(openersOf({ ...d, ways: ['pitch'] }), used);
+}
 
 /** What an opener is known by in the counts: its kind and its words, whatever the spaces. */
 export const openerKey = (o: Opener) =>
@@ -67,11 +133,16 @@ export function openerShort(text: string, most = 90): string {
   return one.length <= most ? one : `${one.slice(0, most - 1).trimEnd()}…`;
 }
 
-/** The opener a draft was written with, as the drafts come back and as copying one notes it. */
+/**
+ * The opener a draft was written with, as the drafts come back and as copying one notes it. `ways` are the ways the
+ * playbook had ticked when it was drafted (decision 183): a first message still waiting when they change is written
+ * again (./ops/sends.ts `dropOtherOpening`). Left out on one drafted before, its own way alone.
+ */
 export const DraftOpener = z.object({
   playbookId: z.uuid(),
   kind: z.enum(OPENER_KIND_KEYS),
   text: z.string().trim().min(1).max(PLAYBOOK_LIMITS.ownOpeners.line),
+  ways: z.array(z.enum(OPEN_WAY_KEYS)).max(OPEN_WAY_KEYS.length).optional(),
 });
 export type DraftOpener = z.output<typeof DraftOpener>;
 
@@ -151,7 +222,7 @@ export function bestOpenerOf(list: readonly OpenerResult[]): OpenerResult | null
 export const OPENER_RESULT_WORDS = {
   title: 'Which first messages work',
   about: (everyone: boolean) =>
-    `${everyone ? 'Everyone’s first messages' : 'Your first messages'} from Today’s drafts, by the version in your playbook. Drafts take turns with each.`,
+    `${everyone ? 'Everyone’s first messages' : 'Your first messages'} from Today’s drafts, by the way they started the chat and the version in your playbook.`,
   notNow: 'Not in the playbook now',
   best: 'Works best so far',
   replies: (o: OpenerResult) => rateWords(o.replies, o.sent, 'wrote back'),

@@ -500,6 +500,8 @@ describe('the Test console', () => {
       state: { step: 'first', sent: 0, answer: 'question', stopped: false, call: false },
       about: null,
       aboutYou: false,
+      way: null,
+      why: null,
     };
     const added = testAdds(out, 'play');
     expect(added.said).toEqual([

@@ -706,7 +706,7 @@ async function visit(item: TodayListItem, businessId: string, likes: number): Pr
   );
   if (!picks.length) {
     await missed(item, businessId);
-    return { done: true, line: visitLine(item.name, PLATFORM, 0) };
+    return { done: true, line: visitLine(item.name, PLATFORM, 0, item.keepWarm?.hi === true) };
   }
   let liked = 0;
   for (const pick of picks) {
@@ -746,7 +746,7 @@ async function visit(item: TodayListItem, businessId: string, likes: number): Pr
     );
     liked++;
   }
-  return { done: true, line: visitLine(item.name, PLATFORM, liked) };
+  return { done: true, line: visitLine(item.name, PLATFORM, liked, item.keepWarm?.hi === true) };
 }
 
 /**

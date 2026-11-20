@@ -1,6 +1,7 @@
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
   blankPlaybook,
+  NEW_PLAYBOOK_WAYS,
   PLAYBOOK_GOALS,
   PLAYBOOK_TEMPLATE_KEYS,
   PLAYBOOK_TEMPLATES,
@@ -54,7 +55,11 @@ export function PlaybooksScreen() {
           workspaceId: ws,
           name,
           template,
-          details: template ? PLAYBOOK_TEMPLATES[template].details : blankPlaybook(),
+          // A new one starts with no way ticked to start a chat (decision 183): its What it says ticks them.
+          details: {
+            ...(template ? PLAYBOOK_TEMPLATES[template].details : blankPlaybook()),
+            ways: [...NEW_PLAYBOOK_WAYS],
+          },
         });
         if (!input.success) {
           toast.error(input.error.issues[0]?.message ?? W.tryAgain);

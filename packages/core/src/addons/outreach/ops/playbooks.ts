@@ -15,6 +15,7 @@ import { givenOnly } from '../loose';
 import { outreachAddon } from '../manifest';
 import {
   blankPlaybook,
+  NEW_PLAYBOOK_WAYS,
   FIND_WORDS_PARTS,
   forPartners,
   Playbook as PlaybookOut,
@@ -41,9 +42,13 @@ import {
   chatOf,
   type FullScriptOut,
   LOCKED_RULES,
+  type OpenWay,
+  opensFor,
   type PlaybookChat,
+  type PlaybookOpens,
   PlaybookScript,
   scriptOf,
+  waysOf,
   withScriptChanges,
 } from '../script';
 import { playbooks } from '../tables';
@@ -117,9 +122,18 @@ function keptParts(details: PlaybookDetails, stored: unknown): PlaybookDetails {
         ? wasPace.followUpGaps
         : followUpGapsFor(followUps)),
   };
+  // The ways it may start a chat (decision 183): a phone built before them sends only how it starts (`opens`), which
+  // changes the one way a playbook saved with one of those has; one with other ways ticked keeps them.
+  const wasWays = waysOf(was as { ways?: OpenWay[]; opens?: PlaybookOpens });
+  const ways =
+    details.ways ??
+    (details.opens && wasWays.length === 1 && (wasWays[0] === 'pitch' || wasWays[0] === 'intro')
+      ? [details.opens]
+      : (kept['ways'] as OpenWay[] | undefined));
   return {
     ...details,
     ...kept,
+    ...(ways?.length ? { ways: [...ways], opens: opensFor(ways) } : {}),
     wordsWritten: wordsWrittenOf(stored),
     pace: { ...pace, followUpGaps: [...pace.followUpGaps] },
   };
@@ -170,7 +184,7 @@ export const playbookList = defineAddonQuery(outreachAddon, {
   ai: {
     tool: 'outreach_playbooks',
     description:
-      'The business’s playbooks for social outreach (Social Outreach → Playbooks), each whole, the ones in use first, then any archived: one alone with playbookId (a long list reads better a playbook at a time), only those in use with archived false. Each one’s says is What it says in full: the words the AI writes every message from (first: the first message’s versions; intro: the introduction that goes in their place when details.opens is intro, and nudge, demoOffer, callOffer, sendPeople and callYes for the networking chat after it, whose switches are details.networking and how it goes details.chat; referComment and referNote, the comment naming someone the owner has talked with under a post asking for a recommendation and the heads-up to them, while details.refer is on; yes, question, later, no, followUp, checkIn and the rest), the business’s own where it changed them and the starting words where it didn’t. rules are the rules every message keeps whatever a playbook says. And the ready-made ones New playbook starts from (templates: CRM demos and the others, each with its line).',
+      'The business’s playbooks for social outreach (Social Outreach → Playbooks), each whole, the ones in use first, then any archived: one alone with playbookId (a long list reads better a playbook at a time), only those in use with archived false. Each one’s says is What it says in full: the words the AI writes every message from (first: the first message’s versions, for the Direct pitch way; intro: the introduction; valueFirst, trigger, compliment, opinion, socialProof, permission, sharedGround and problemCheck: how each other way to start a chat goes; details.ways are the ways ticked, and the AI picks one of them for each person; nudge, demoOffer, callOffer, sendPeople and callYes for the networking chat after a way that starts a chat, whose switches are details.networking and how it goes details.chat; referComment and referNote, the comment naming someone the owner has talked with under a post asking for a recommendation and the heads-up to them, while details.refer is on; yes, question, later, no, followUp, checkIn and the rest), the business’s own where it changed them and the starting words where it didn’t. rules are the rules every message keeps whatever a playbook says. And the ready-made ones New playbook starts from (templates: CRM demos and the others, each with its line).',
     keywords: ['playbook', 'niche', 'who to reach', 'offer', 'playbook templates'],
   },
   scope: inWorkspace,
@@ -213,11 +227,13 @@ function detailsToSave(
   stored: unknown,
 ): z.output<typeof PlaybookDetailsSchema> {
   if (input.details) return input.details;
+  // A new one starts with no way ticked to start a chat (decision 183): the changes give them.
   const base = input.playbookId
     ? upgradePlaybookDetails(stored)
-    : input.template
-      ? PLAYBOOK_TEMPLATES[input.template].details
-      : blankPlaybook();
+    : {
+        ...(input.template ? PLAYBOOK_TEMPLATES[input.template].details : blankPlaybook()),
+        ways: [...NEW_PLAYBOOK_WAYS],
+      };
   const changes = givenOnly(input.changes);
   const checked = PlaybookDetailsSchema.safeParse({
     ...(base as object),
@@ -270,7 +286,7 @@ export const playbookSave = defineAddonCommand(outreachAddon, {
         ? 'Change this outreach playbook'
         : 'Write a new outreach playbook',
     description:
-      'Write a playbook for social outreach (Social Outreach → Playbooks), or change one: its name, goal and offer, who it’s for, where to look, the steps it takes (a step left out of steps is not done on the networks where no other playbook in use has it), what it says, how it sounds, the tags to use, and its short video (videoLink: a video or playlist link that someone who says yes gets before the booking link). What it says is script: the AI writes every message from these words. script.first is the first message, up to 3 versions that take turns, kept close to and fitted to each person; intro is the introduction that goes in its place when opens is intro; demoOffer, callOffer, sendPeople and callYes are the networking chat’s words after an introduction (offering a demo, offering a networking call, sending people their way, and the ask for a time once they say yes to a call), and nudge says how its one nudge goes; referComment is the comment naming someone the owner has talked with under a post asking for what they do, and referNote the heads-up to them with the post’s link; yes is the message after they say yes; the rest say how a message goes (reconnect, question, later, no, followUp, checkIn, reminder, missed, comment, warmUp, postReply, groupReply, birthday, newJob). opens is how the first message goes: pitch (the first message’s question, then follow-ups) or intro (the introduction: thanks for connecting, who they are and what they offer, and a question about them; then a networking chat about them, one nudge if they stay quiet and a monthly check-in, and everyone who connects gets it while every playbook on that network starts with one). networking says what that chat may offer, each once: demo (a demo, after a quick answer, when they ask about the business), call (to wrap the chat up, a networking call with the link to the person’s own calendar) and sendPeople (in that same message, that the owner will mention them to anyone online looking for what they do in their area), each true or false, all true to start. chat says how that chat goes, following how keen they are: wrapAfter (1, 2 or 3: by which of their replies it offers the call; when they only answer the owner’s questions it wraps up then too, sooner when they go quiet, and when they ask the owner things back it keeps chatting and leads to the call; 2 to start), questions (rarely: only when the chat would stall; sometimes: every other reply at most; often: most replies; rarely to start), story (how often it shares a line of the business’s story: often, fits when it connects, or never; fits to start) and demoWhen (asked: a demo only when they ask about the business; problem: also when they name a problem it fixes; asked to start). refer says whether the playbook’s people may be referred on posts asking for a recommendation (true to start): both the comment and the heads-up wait for the person’s OK on Today. Words in [square brackets] are filled in for each person: [first name], [their kind of business], [what your offer gets them], [what your offer is], [open times], [booking link], [calendar link], [your first name], [your business name], [a question about them], [what they do], [their area], [their name], [what they need], [post link]. Send only the parts of script that change: the rest stay, and a part never changed follows the starting words (outreach_playbooks gives every part’s words under says, and the rules no playbook changes under rules). Try a change with outreach_test_playbook before saving it. To change one, read it with outreach_playbooks (playbookId), then send its id, its name and only the parts that change in changes, by their names there: every part left out stays as it is. A new one can start from a ready-made one (template, from outreach_playbooks’ templates): it starts as that one, with changes laid over it. The booking link (link) is a whole address: for one of the business’s own booking pages, copy that calendar’s booking link from get_settings (area calendars) exactly, never one put together from a name.',
+      'Write a playbook for social outreach (Social Outreach → Playbooks), or change one: its name, goal and offer, who it’s for, where to look, the steps it takes (a step left out of steps is not done on the networks where no other playbook in use has it), what it says, how it sounds, the tags to use, and its short video (videoLink: a video or playlist link that someone who says yes gets before the booking link). What it says is script: the AI writes every message from these words. script.first is the first message, up to 3 versions that take turns, kept close to and fitted to each person; intro is the introduction that goes in its place when opens is intro; demoOffer, callOffer, sendPeople and callYes are the networking chat’s words after an introduction (offering a demo, offering a networking call, sending people their way, and the ask for a time once they say yes to a call), and nudge says how its one nudge goes; referComment is the comment naming someone the owner has talked with under a post asking for what they do, and referNote the heads-up to them with the post’s link; yes is the message after they say yes; the rest say how a message goes (reconnect, question, later, no, followUp, checkIn, reminder, missed, comment, warmUp, postReply, groupReply, birthday, newJob). ways are the ways it may start a chat with someone new, at least one, and for each person the AI picks the one that fits best: pitch (Direct pitch: the first message’s question, then follow-ups), intro (Introduction: thanks for connecting, who they are and what they offer, and a question about them), valueFirst (a quick tip, or the free thing in usefulWhat; needs usefulWhat), trigger (something they just posted about, like a move or a new job), compliment (one real thing about their post or work, then a question), opinion (their quick take on what the owner is working on), socialProof (a real result for someone like them; needs proof), permission (asks to send a quick video; needs a video in the video library), sharedGround (something true they share: town, school, line of work or mutual friends, never a group) and problemCheck (a problem their page shows that the offer fixes). pitch, valueFirst, socialProof, permission and problemCheck ask about the offer, so a yes gets the ask for a time and quiet gets follow-ups; intro, trigger, compliment, opinion and sharedGround start a chat: a networking chat follows, one nudge if they stay quiet and a monthly check-in, and everyone who connects gets one while every playbook on that network starts chats only those ways. A new playbook starts with none ticked, so give ways when writing one. Each way has its own words in script, by the same name (intro and the eight others; pitch’s are script.first). opens is the old one-way choice (pitch or intro), kept for older phones: send ways instead. networking says what that chat may offer, each once: demo (a demo, after a quick answer, when they ask about the business), call (to wrap the chat up, a networking call with the link to the person’s own calendar) and sendPeople (in that same message, that the owner will mention them to anyone online looking for what they do in their area), each true or false, all true to start. chat says how that chat goes, following how keen they are: wrapAfter (1, 2 or 3: by which of their replies it offers the call; when they only answer the owner’s questions it wraps up then too, sooner when they go quiet, and when they ask the owner things back it keeps chatting and leads to the call; 2 to start), questions (rarely: only when the chat would stall; sometimes: every other reply at most; often: most replies; rarely to start), story (how often it shares a line of the business’s story: often, fits when it connects, or never; fits to start) and demoWhen (asked: a demo only when they ask about the business; problem: also when they name a problem it fixes; asked to start). refer says whether the playbook’s people may be referred on posts asking for a recommendation (true to start): both the comment and the heads-up wait for the person’s OK on Today. Words in [square brackets] are filled in for each person: [first name], [their kind of business], [what your offer gets them], [what your offer is], [open times], [booking link], [calendar link], [your first name], [your business name], [a question about them], [what they do], [their area], [their name], [what they need], [post link]. Send only the parts of script that change: the rest stay, and a part never changed follows the starting words (outreach_playbooks gives every part’s words under says, and the rules no playbook changes under rules). Try a change with outreach_test_playbook before saving it. To change one, read it with outreach_playbooks (playbookId), then send its id, its name and only the parts that change in changes, by their names there: every part left out stays as it is. A new one can start from a ready-made one (template, from outreach_playbooks’ templates): it starts as that one, with changes laid over it. The booking link (link) is a whole address: for one of the business’s own booking pages, copy that calendar’s booking link from get_settings (area calendars) exactly, never one put together from a name.',
     autonomy: 'confirm',
     keywords: ['write a playbook', 'change a playbook', 'new playbook', 'start from a template'],
   },

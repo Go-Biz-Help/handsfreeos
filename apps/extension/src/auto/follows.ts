@@ -618,7 +618,7 @@ function followRunner(platform: FollowPlatform): FollowRunner {
       }
     }
     if (!liked) await missed(item, businessId);
-    return { done: true, line: visitLine(item.name, platform, liked) };
+    return { done: true, line: visitLine(item.name, platform, liked, item.keepWarm?.hi === true) };
   }
 
   /** A follow, with their profile's own Follow (or Follow back), then their profile read again to see it went. */

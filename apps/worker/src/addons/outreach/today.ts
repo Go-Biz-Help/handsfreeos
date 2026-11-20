@@ -53,10 +53,10 @@ import { bestFit } from '@hfos/core/addons/outreach/fit';
 import type { DownloadMessage } from '@hfos/core/addons/outreach/download';
 import type { PitchRead } from '@hfos/core/addons/outreach/stages';
 import {
-  nextOpener,
+  firstMessageChoices,
+  kindOfWay,
   openerKey,
-  openersOf,
-  type Opener,
+  wayOfKind,
   type OpenerKind,
 } from '@hfos/core/addons/outreach/openers';
 import { aboutOwnerFor } from '@hfos/core/addons/outreach/ops/about-owner';
@@ -97,6 +97,7 @@ import {
   TodayDraftInput,
   todayDraftPrompt,
   unansweredOf,
+  wayOf,
   withoutStockPraise,
   type CustomerDraftKind,
   type DraftOffer,
@@ -116,7 +117,7 @@ import {
   askStructured,
 } from '../../ai/ask';
 import type { AddonScopeContext, AddonWorkerAction } from '../types';
-import { networkingOf, opensWithIntro } from '@hfos/core/addons/outreach/script';
+import { hasWays, networkingOf, type OpenWay, waysOf } from '@hfos/core/addons/outreach/script';
 import { introTexts, VOICE_DEFAULTS } from '@hfos/core/addons/outreach/voice';
 import { groupNamesIn, namesAGroup, withoutGroupLines } from '@hfos/core/addons/outreach/no-groups';
 import { businessKnows } from './knows';
@@ -486,15 +487,21 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     // The playbooks that run on their network (data version 7), or every one when none does: a draft asked for by hand
     // is written all the same.
     const onIt = kept.filter((p) => runsOn(p.details, found.profile?.platform ?? 'facebook'));
-    const playbooks = onIt.length ? onIt : kept;
+    const near = onIt.length ? onIt : kept;
+    // A first message goes from a playbook with a way ticked to start a chat (decision 183), when one has.
+    const playbooks =
+      input.kind === 'opener' && near.some((p) => hasWays(p.details))
+        ? near.filter((p) => hasWays(p.details))
+        : near;
     const fit = bestFit(playbooks, {
       lines: [...facts, ...input.lookup, ...(found.post ? [found.post.body] : [])],
       mutualFriends: found.profile?.mutual_friends ?? null,
       groupName: found.profile?.group ?? null,
     });
     const playbook = playbooks.find((p) => p.id === fit.playbookId) ?? playbooks[0] ?? null;
-    // A first message takes the next of the playbook's versions in turn (decisions 23 and 164).
-    let opener: Opener | null = null;
+    // A first message picks from the playbook's ways (decision 183), the pitch with the next of its versions in turn
+    // (decisions 23 and 164): how often each was used, counted here, and which can go, below.
+    const counts = new Map<string, number>();
     if (input.kind === 'opener' && playbook) {
       const used = await asWorker(ctx.db, ctx.scope, (tx) =>
         rows<{ kind: OpenerKind; text: string; n: number }>(
@@ -504,10 +511,21 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
               group by kind, text`,
         ),
       );
-      const counts = new Map<string, number>();
       for (const u of used) counts.set(openerKey(u), (counts.get(openerKey(u)) ?? 0) + u.n);
-      opener = nextOpener(openersOf(playbook.details), counts);
     }
+    // The way their first message started the chat (decision 183), for the ask after their yes to what it offered.
+    const whom = input.profileId ?? found.chat?.profile_id ?? found.post?.profile_id ?? null;
+    const opened: OpenWay | null =
+      (input.kind === 'reply' || input.kind === 'pitch') && whom
+        ? await asWorker(ctx.db, ctx.scope, (tx) =>
+            rows<{ kind: OpenerKind }>(
+              tx,
+              sql`select kind from addon_outreach.opener_uses
+                  where workspace_id = ${ws} and user_id = ${ctx.userId} and profile_id = ${whom}
+                  limit 1`,
+            ),
+          ).then((r) => (r[0] ? wayOfKind(r[0].kind) : null))
+        : null;
     // The main offer's words for the conversation: the version they were first pitched with, or the live one.
     const parts = found.offer ? MainOfferParts.safeParse(found.offer.parts) : null;
     const offer: DraftOffer | null =
@@ -519,9 +537,6 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       found.profile !== undefined &&
       NETWORKS[found.profile.platform].follows &&
       found.friendState !== 'friends';
-    // The AI keeps close to the version's words, fitted to them (decision 164, the owner's 1a): none goes out word for
-    // word, so no two people get the very same text.
-    const drafted = opener && playbook ? { playbookId: playbook.id, ...opener } : null;
     // A client in Contacts (decision 91): written to as a client, never pitched.
     const client = found.profile?.client ?? false;
     // The playbook's link, as the person's demo link for them (decision 24).
@@ -568,6 +583,16 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
           ]),
         }
       : null;
+    // The ways the first message may go (decision 183): the playbook's, less those missing what they need (the owner's
+    // 6a), the ones used least first. None can go, the pitch's words do. The AI keeps close to each one's words, fitted to
+    // them (decision 164, the owner's 1a): none goes out word for word.
+    const has = {
+      proof: !!playbook?.details.proof?.length || !!offer?.proof.length,
+      useful: !!playbook?.details.usefulWhat?.trim(),
+      video: library.length > 0 || !!videoLink,
+    };
+    const choices =
+      input.kind === 'opener' && playbook ? firstMessageChoices(playbook.details, counts, has) : [];
     // They told the person no, or not now, before (decision 134): their answer kept for the conversation, their chat
     // read as not interested, or marked not a fit. A chat read since as ready for the offer says they came round.
     const said = found.conversation?.answer;
@@ -679,7 +704,8 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
               }
             : null,
         lookup: toldLookup,
-        opener,
+        ways: choices.map((c) => ({ way: c.way, text: c.opener.text })),
+        opened,
         voice: found.voice,
         lastAt: found.lastAt,
         requests: toRequests,
@@ -793,6 +819,18 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
               drafts: made.drafts,
               booking,
             })
+          : null;
+      // The opener the drafts went with (decision 183): the way the AI picked, and the ways the playbook ticked then.
+      const way = kind === 'opener' ? wayOf(made.value, choices) : null;
+      const chosen = way ? choices.find((c) => c.way === way) : undefined;
+      const drafted =
+        chosen && playbook
+          ? {
+              playbookId: playbook.id,
+              kind: kindOfWay(chosen.way),
+              text: chosen.opener.text,
+              ways: waysOf(playbook.details),
+            }
           : null;
       return {
         kind,
@@ -909,7 +947,12 @@ export async function writeDrafts(
   );
   // A first message is one text (decision 137), as a comment is, but an introduction's question about them goes as
   // its own text right after it when the person sends a few (decision 175).
-  const intro = kind === 'opener' && opensWithIntro(told.playbook) && !toRequests;
+  // The way it went (decision 183): the AI's pick, among the ways it was given or the playbook's.
+  const way =
+    kind === 'opener'
+      ? wayOf(value, told.ways?.length ? told.ways : waysOf(told.playbook).map((w) => ({ way: w })))
+      : null;
+  const intro = way === 'intro' && !toRequests;
   const introTwo = intro && voice.split;
   const checked = checkedDrafts(
     value,

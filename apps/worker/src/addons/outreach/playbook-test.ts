@@ -48,13 +48,21 @@ import {
   PlaybookDetails,
   upgradePlaybookDetails,
 } from '@hfos/core/addons/outreach/playbooks';
-import { firstMessagesOf, networkingOf, opensWithIntro } from '@hfos/core/addons/outreach/script';
+import { firstMessageChoices } from '@hfos/core/addons/outreach/openers';
+import {
+  firstMessagesOf,
+  hasWays,
+  networkingOf,
+  startsAChat,
+} from '@hfos/core/addons/outreach/script';
 import {
   answerOf,
   tookOf,
   draftOfferOf,
   unansweredOf,
+  wayOf,
   type DraftOffer,
+  type WayChoice,
 } from '@hfos/core/addons/outreach/today';
 import { libraryOf, sentLinks, type DraftVideos } from '@hfos/core/addons/outreach/video-library';
 import { HfosError, listsOf, MainOfferParts } from '@hfos/core/server';
@@ -170,16 +178,29 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
     const details = read.data;
     const playbookName = input.name || saved?.name || 'Playbook';
     const pace = paceOf(details.pace);
-    // The first message's versions take turns, or the introduction alone in their place (decision 168).
-    const intro = opensWithIntro(details);
-    const firsts = firstMessagesOf(details);
-    const version = input.version % firsts.length;
     const { person } = input;
     const name = person.name;
     const lines = testPersonLines(person);
     const parts = found.offer ? MainOfferParts.safeParse(found.offer.parts) : null;
     const offer: DraftOffer | null =
       found.offer && parts?.success ? draftOfferOf(found.offer.version, parts.data) : null;
+    // The business's videos (decision 154): its library, or this playbook's short video until it's saved.
+    const library =
+      found.library === undefined
+        ? []
+        : libraryOf(found.library, [{ name: playbookName, details }]);
+    // The ways the first message may go (decision 183), as a real one picks from them: those with what they need, and
+    // the pitch with the version picked here in place of the one whose turn it is.
+    const pitches = firstMessagesOf(details).filter((f) => f.way === 'pitch');
+    const version = pitches.length ? input.version % pitches.length : 0;
+    const ways: WayChoice[] = firstMessageChoices(details, new Map(), {
+      proof: !!details.proof?.length || !!offer?.proof.length,
+      useful: !!details.usefulWhat?.trim(),
+      video: library.length > 0 || !!details.videoLink,
+    }).map((c) => ({
+      way: c.way,
+      text: c.way === 'pitch' ? (pitches[version]?.text ?? c.opener.text) : c.opener.text,
+    }));
 
     const chat: TestMessage[] = [...input.chat];
     try {
@@ -213,11 +234,6 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
       if (theirs) chat.push({ fromMe: false, text: theirs });
 
       const now = Date.now();
-      // The business's videos (decision 154): its library, or this playbook's short video until it's saved.
-      const library =
-        found.library === undefined
-          ? []
-          : libraryOf(found.library, [{ name: playbookName, details }]);
       // Everything a message for them is written from, as Today's drafts build it for someone real.
       const baseFor = async (o: {
         readonly state: TestState;
@@ -275,7 +291,8 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
               : null,
             callLink: wrapLink,
             post: null,
-            opener: { kind: intro ? 'intro' : 'own', text: firsts[version]! },
+            opener: null,
+            ways,
             // Their name for an introduction's [your first name], and whether they just connected (decision 168).
             ownerName: found.ownerName,
             fresh: person.known === 'new',
@@ -326,6 +343,8 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
         state: o.state,
         about: null,
         aboutYou: !!found.aboutOwner,
+        way: null,
+        why: null,
       });
 
       // Try a comment (decision 165): the comment that would wait under a post with these words, written and checked as
@@ -360,8 +379,11 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
       }
 
       if (input.move === 'start' || input.move === 'quiet') {
-        const step = testMove(input.move, input.state, person, pace, intro);
+        const step = testMove(input.move, input.state, person, pace);
         if (!step.kind) return out({ kind: null, note: step.note, state: input.state });
+        // A playbook with no way ticked starts no chats (decision 183).
+        if (step.kind === 'opener' && !hasWays(details))
+          return out({ kind: null, note: TEST_WORDS.noWays, state: input.state });
         const base = await baseFor({
           state: input.state,
           gapDays: step.gapDays,
@@ -369,21 +391,33 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
           times: isTimeKind(step.kind) && input.state.step === 'link',
         });
         const made = await writeDrafts(ctx, base, step.kind);
-        return out({
-          kind: step.kind,
-          drafts: made.drafts,
-          note: step.note,
-          // A message that didn't come moves nothing along.
-          state: made.drafts.length ? step.state : input.state,
-          label: testLabel(step.kind, {
-            version,
-            versions: firsts.length,
-            intro,
-            followUp: step.state.sent,
-            followUps: pace.followUps,
-            step: input.state.step,
+        // The way the AI picked for them (decision 183): one that starts a chat goes on as an introduction does.
+        const way = step.kind === 'opener' ? wayOf(made.value, ways) : null;
+        const state =
+          way && startsAChat(way)
+            ? testMove(input.move, input.state, person, pace, true).state
+            : step.state;
+        return {
+          ...out({
+            kind: step.kind,
+            drafts: made.drafts,
+            note: step.note,
+            // A message that didn't come moves nothing along.
+            state: made.drafts.length ? state : input.state,
+            label: testLabel(step.kind, {
+              version,
+              versions: pitches.length,
+              way,
+              followUp: step.state.sent,
+              followUps: pace.followUps,
+              step: input.state.step,
+            }),
           }),
-        });
+          way: made.drafts.length ? way : null,
+          // Why, when it had a few to pick from.
+          why:
+            made.drafts.length && way && ways.length > 1 ? made.value.wayWhy.trim() || null : null,
+        };
       }
 
       // They wrote: the reply reads their answer, and a yes to the first message gets the ask for a time instead. In the
