@@ -15,6 +15,7 @@ import type {
   PaymentListBody,
   SubscriptionListBody,
 } from '@/lib/api/types';
+import { publicEnv } from '@/lib/env';
 
 /** What a list is filtered by. Everything lives in the address bar, so a filtered list is a link. */
 export interface MoneyFilters {
@@ -142,6 +143,13 @@ export const PAYMENT_METHOD_CHOICES: readonly FilterChoice[] = [
   { value: 'card', label: PAYMENT_METHOD_LABELS.card },
   { value: 'card_outside', label: PAYMENT_METHOD_LABELS.card_outside },
   { value: 'ach', label: PAYMENT_METHOD_LABELS.ach },
+  // Offered once Connect PayPal is open, as on Settings → Payments.
+  ...(publicEnv.payPalEnabled
+    ? [
+        { value: 'paypal', label: PAYMENT_METHOD_LABELS.paypal },
+        { value: 'venmo', label: PAYMENT_METHOD_LABELS.venmo },
+      ]
+    : []),
   { value: 'cash', label: PAYMENT_METHOD_LABELS.cash },
   { value: 'check', label: PAYMENT_METHOD_LABELS.check },
   { value: 'other', label: PAYMENT_METHOD_LABELS.other },

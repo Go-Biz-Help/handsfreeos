@@ -485,3 +485,124 @@ describe('a deposit at booking', () => {
     expect((view.json() as HoldView).pay.session).toMatchObject({ provider: 'stripe' });
   });
 });
+
+/**
+ * PayPal's buttons beside the card box (PayPal plan, part 4). They hold the deposit the way a card is held: an
+ * order made for authorization, approved in PayPal's window, held there, and taken once the time is confirmed.
+ * Connected last, so the tests above see a business with Stripe and Square only.
+ */
+describe('a deposit through PayPal', () => {
+  let paypal: { connectionId: string; accountId: string };
+  type PayPalHold = HoldView & {
+    pay: HoldView['pay'] & {
+      payPal: { merchantId: string; intent: string; venmo: boolean; payLater: boolean } | null;
+    };
+  };
+  type PayPalPrepared = {
+    stage: 'prepared';
+    payment: { provider: string; method: string; providerPaymentId: string; hostedUrl: string };
+  };
+
+  beforeAll(async () => {
+    paypal = await connect(w, 'paypal', `PAYPAL${randomUUID().slice(0, 8).toUpperCase()}`);
+  });
+
+  /** Phase one for PayPal's button, then PayPal's window approving the order. */
+  async function approveOrder(token: string) {
+    const clientId = randomUUID();
+    const first = await post(w, `/public/hold/${token}/pay`, { clientId, method: 'paypal' });
+    expect(first.statusCode, first.body).toBe(200);
+    const prepared = first.json() as PayPalPrepared;
+    expect(prepared.payment).toMatchObject({ provider: 'paypal', method: 'paypal' });
+    expect(prepared.payment.providerPaymentId).toMatch(/^ORDER_/);
+    await payOnStandInPage(w, prepared.payment.hostedUrl, CARD_OK, 'card');
+    return { clientId, order: prepared.payment.providerPaymentId };
+  }
+
+  it('shows PayPal beside the card box, holds the deposit there, and takes it once the time is confirmed', async () => {
+    const cal = await depositCalendar(w, 'Gutter cleaning');
+    const held = (await hold(w, cal.slug, at(13, '09:00'))) as PayPalHold;
+    expect(held.pay.session).toMatchObject({ provider: 'stripe' });
+    // Held, not taken: Venmo and Pay Later can't be held, so they stay off on a deposit.
+    expect(held.pay.payPal).toMatchObject({
+      merchantId: paypal.accountId,
+      intent: 'authorize',
+      venmo: false,
+      payLater: false,
+    });
+
+    const { clientId, order } = await approveOrder(held.holdToken);
+    // Coming back from PayPal names only the order: the row it started on says it was PayPal's.
+    const second = await post(w, `/public/hold/${held.holdToken}/pay`, {
+      clientId,
+      providerPaymentId: order,
+    });
+    expect(second.statusCode, second.body).toBe(200);
+    const paid = second.json() as Recorded;
+    expect(paid.payment.status).toBe('succeeded');
+    expect(paid.hold.state).toBe('booked');
+
+    const invoice = await invoiceOf(held.holdToken);
+    expect(invoice).toMatchObject({ status: 'paid', amount_paid_cents: PRICE / 4 });
+    const [row] = await rows<{
+      provider: string;
+      connection_id: string;
+      status: string;
+      provider_payment_id: string;
+    }>(
+      admin(),
+      sql`select provider::text as provider, connection_id, status::text as status, provider_payment_id
+          from app.payments where invoice_id = ${invoice!.id}`,
+    );
+    expect(row).toMatchObject({
+      provider: 'paypal',
+      connection_id: paypal.connectionId,
+      status: 'succeeded',
+    });
+    // The order became a hold, and the hold a capture.
+    expect(row!.provider_payment_id).toMatch(/^CAPTURE_/);
+    await drain(w);
+  });
+
+  it('asks PayPal to hold nothing when the time goes while they are in its window', async () => {
+    const cal = await depositCalendar(w, 'Window wash');
+    const held = await hold(w, cal.slug, at(14, '09:00'));
+    const invoice = await invoiceOf(held.holdToken);
+    const { clientId, order } = await approveOrder(held.holdToken);
+    await runDue(w, [`deposit-hold:${(await attendeeOf(held.holdToken))!.id}`]);
+
+    const res = await post(w, `/public/hold/${held.holdToken}/pay`, {
+      clientId,
+      providerPaymentId: order,
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    const answer = res.json() as Recorded;
+    expect(answer.state).toBe('gone');
+    expect(answer.payment).toMatchObject({ charged: false, refunded: false, status: 'failed' });
+    expect(await refundsOf(invoice!.id)).toHaveLength(0);
+    expect((await invoiceOf(held.holdToken))?.status).toBe('void');
+  });
+
+  it('leaves PayPal off a deposit when its account can’t hold money', async () => {
+    await admin().execute(
+      sql`update app.payment_connections
+          set capabilities = capabilities || '{"holds": false}'::jsonb
+          where id = ${paypal.connectionId}`,
+    );
+    try {
+      const cal = await depositCalendar(w, 'Chimney sweep');
+      const held = (await hold(w, cal.slug, at(15, '09:00'))) as PayPalHold;
+      expect(held.pay.payPal).toBeNull();
+      expect(held.pay.session).toMatchObject({ provider: 'stripe' });
+      const res = await pay(w, held.holdToken, { method: 'paypal' });
+      expect(res.statusCode).toBe(409);
+      expect(errorOf(res).rule).toBe('payment_unavailable');
+    } finally {
+      await admin().execute(
+        sql`update app.payment_connections
+            set capabilities = capabilities || '{"holds": true}'::jsonb
+            where id = ${paypal.connectionId}`,
+      );
+    }
+  });
+});

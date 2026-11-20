@@ -855,6 +855,8 @@ export function createFakePayments(opts: {
       cardBrand: c.method === 'card' ? c.cardBrand : null,
       cardLast4: c.method === 'card' ? cardLast4(c.instrument) : null,
       chargeRef: chargeRefOf(c),
+      // How it was paid on the stand-in's page, as a real provider answers it (PayPal's card button is a card).
+      method: c.method,
     };
   }
 

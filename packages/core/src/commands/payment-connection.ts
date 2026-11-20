@@ -182,6 +182,7 @@ async function clearDefault(
 export async function usableAccounts(
   ctx: CommandContext,
   userId: string,
+  opts: { readonly plans?: boolean } = {},
 ): Promise<{ id: string; isDefault: boolean }[]> {
   const ws = ctx.scope.workspaceId!;
   const list = await rows<{ id: string; is_default: boolean }>(
@@ -189,6 +190,8 @@ export async function usableAccounts(
     sql`select c.id, c.is_default from app.payment_connections c
         where c.workspace_id = ${ws} and c.status = 'active'
           and private.payment_account_usable(c.workspace_id, c.id, ${userId}::uuid)
+          -- PayPal takes one-time payments only (the PayPal plan, pick 4a): never a plan's account.
+          and (${opts.plans === true} = false or c.provider <> 'paypal')
         order by c.is_default desc, c.created_at, c.id`,
   );
   return list.map((c) => ({ id: c.id, isDefault: c.is_default }));
@@ -203,8 +206,9 @@ export async function usableAccounts(
 export async function accountForPerson(
   ctx: CommandContext,
   userId: string,
+  opts: { readonly plans?: boolean } = {},
 ): Promise<string | null> {
-  const [first] = await usableAccounts(ctx, userId);
+  const [first] = await usableAccounts(ctx, userId, opts);
   if (first) return first.id;
   const [connected] = await ctx.tx
     .select({ id: paymentConnections.id })
@@ -223,6 +227,21 @@ export async function accountForPerson(
       'None of this business’s payment accounts is yours to bill into. Ask an owner to add you to one in Settings → Payments.',
     );
   return null;
+}
+
+/** A plan bills again and again, which PayPal doesn't do here (the PayPal plan, pick 4a). */
+export async function refusePayPalPlan(ctx: CommandContext, connectionId: string): Promise<void> {
+  const [c] = await rows<{ provider: string }>(
+    ctx.tx,
+    sql`select provider::text as provider from app.payment_connections
+        where id = ${connectionId}::uuid and workspace_id = ${ctx.scope.workspaceId!}::uuid`,
+  );
+  if (c?.provider === 'paypal')
+    throw HfosError.rule(
+      'paypal_one_time_only',
+      409,
+      'PayPal takes one-time payments here, so a plan can’t bill through it. Pick your Stripe or Square account for the plan.',
+    );
 }
 
 /**

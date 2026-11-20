@@ -197081,7 +197081,9 @@
                               "cash",
                               "check",
                               "other",
-                              "card_outside"
+                              "card_outside",
+                              "paypal",
+                              "venmo"
                             ]
                           },
                           "provider": {
@@ -197406,7 +197408,7 @@
                     }
                   },
                   "method": {
-                    "maxItems": 6,
+                    "maxItems": 8,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -197416,7 +197418,9 @@
                         "cash",
                         "check",
                         "other",
-                        "card_outside"
+                        "card_outside",
+                        "paypal",
+                        "venmo"
                       ]
                     }
                   },
@@ -197493,7 +197497,9 @@
                               "cash",
                               "check",
                               "other",
-                              "card_outside"
+                              "card_outside",
+                              "paypal",
+                              "venmo"
                             ]
                           },
                           "provider": {

@@ -339,9 +339,13 @@ export function createPayPalPayments(opts: {
     };
   }
 
-  /** How they paid, where PayPal says: its card button is a card; a PayPal or Venmo balance is neither of ours. */
-  function methodOf(order: Json): 'card' | null {
-    return obj(order['payment_source'])['card'] ? 'card' : null;
+  /** How they paid, where PayPal says: its card button is a card, and Venmo and a PayPal account are their own. */
+  function methodOf(order: Json): 'card' | 'paypal' | 'venmo' | null {
+    const source = obj(order['payment_source']);
+    if (source['card']) return 'card';
+    if (source['venmo']) return 'venmo';
+    if (source['paypal']) return 'paypal';
+    return null;
   }
 
   function fromCapture(capture: Json, fallbackAmount: number, order: Json = {}): PaymentResult {
@@ -495,6 +499,7 @@ export function createPayPalPayments(opts: {
     flow: 'client_confirm',
     // Our client id is public: the page loads PayPal's script with it and the seller's merchant id (part 4).
     publishableKey: opts.clientId ?? '',
+    partnerAttributionId: opts.bnCode,
 
     /**
      * PayPal's sign-up is a link its API makes for each attempt. The tracking id is the state's hash, which is

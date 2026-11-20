@@ -4206,6 +4206,8 @@ export const paymentMethod = app.enum('payment_method', [
   'check',
   'other',
   'card_outside',
+  'paypal',
+  'venmo',
 ]);
 export const paymentStatus = app.enum('payment_status', [
   'requires_payment',

@@ -84716,7 +84716,7 @@ export interface operations {
                             /** Format: uuid */
                             invoiceId: string;
                             /** @enum {string} */
-                            method: "card" | "ach" | "cash" | "check" | "other" | "card_outside";
+                            method: "card" | "ach" | "cash" | "check" | "other" | "card_outside" | "paypal" | "venmo";
                             netCents: number | null;
                             note: string | null;
                             paidThrough: string | null;
@@ -95117,7 +95117,7 @@ export interface operations {
                     invoiceId?: string;
                     /** @default 25 */
                     limit?: number;
-                    method?: ("card" | "ach" | "cash" | "check" | "other" | "card_outside")[];
+                    method?: ("card" | "ach" | "cash" | "check" | "other" | "card_outside" | "paypal" | "venmo")[];
                     /** Format: uuid */
                     personId?: string;
                     /** Format: date-time */
@@ -95154,7 +95154,7 @@ export interface operations {
                             invoiceId: string;
                             invoiceNumber: string | null;
                             /** @enum {string} */
-                            method: "card" | "ach" | "cash" | "check" | "other" | "card_outside";
+                            method: "card" | "ach" | "cash" | "check" | "other" | "card_outside" | "paypal" | "venmo";
                             netCents: number | null;
                             note: string | null;
                             paidThrough: string | null;

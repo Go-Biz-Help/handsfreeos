@@ -29,7 +29,11 @@ export const isPaymentProvider = (p: string): p is PaymentProviderName =>
 export type PaymentEnvironment = 'live' | 'test';
 
 /** What the customer pays with. Cash and cheques never reach a provider. */
-export type PaymentMethodKind = 'card' | 'ach';
+/**
+ * How a provider took the money. `paypal` and `venmo` only ever come through a PayPal account: PayPal's card
+ * button is a `card`.
+ */
+export type PaymentMethodKind = 'card' | 'ach' | 'paypal' | 'venmo';
 
 /**
  * Stripe confirms in the browser; Square tokenises there and we charge from here. PayPal is `client_confirm` too:
@@ -330,8 +334,10 @@ export interface PaymentProvider {
   readonly configured: boolean;
   /** Stripe confirms in the browser; Square tokenises there and charges here. */
   readonly flow: PaymentFlow;
-  /** Public, and safe on a customer's page: Stripe's `pk_…`, Square's application id. */
+  /** Public, and safe on a customer's page: Stripe's `pk_…`, Square's application id, PayPal's client id. */
   readonly publishableKey: string;
+  /** PayPal: our partner code (BN code), which its buttons' script names as the partner. Public. */
+  readonly partnerAttributionId?: string | null;
 
   // ---------- connecting ----------
   /** PayPal has to ask its API for the sign-up link, so this may be a promise. */
