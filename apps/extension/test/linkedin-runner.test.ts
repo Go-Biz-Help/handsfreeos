@@ -35,6 +35,8 @@ const world = vi.hoisted(() => ({
   /** The made-up page each address opens, and what LinkedIn does when it's pressed. */
   pages: (_url: string): { fixture: string; at?: string } | null => null,
   behave: (_doc: Document, _url: string): void => undefined,
+  /** Where LinkedIn sends the tab on its own once it's been read this many times: a page that came late. */
+  moves: null as { reads: number; fixture: string; at: string } | null,
   opened: [] as string[],
   noted: [] as { note: unknown; platform: unknown }[],
   needs: [] as unknown[],
@@ -125,6 +127,7 @@ vi.mock('../src/tab', async () => {
     WorkTab: class {
       private doc: Document | null = null;
       private at = '';
+      private reads = 0;
       get tabId() {
         return this.doc ? 9 : null;
       }
@@ -139,15 +142,26 @@ vi.mock('../src/tab', async () => {
         if (!page) throw new Error(`No page for ${url}`);
         this.at = page.at ?? url;
         this.doc = load(page.fixture, this.at);
+        this.reads = 0;
         world.behave(this.doc, url);
         return 9;
+      }
+      private moved() {
+        const moves = world.moves;
+        if (!moves || this.reads++ < moves.reads) return;
+        this.at = moves.at;
+        this.doc = load(moves.fixture, moves.at);
+        world.moves = null;
       }
       async ask(message: Record<string, unknown> & { type: string }) {
         const doc = this.doc;
         if (!doc) return { ok: false, error: 'The LinkedIn tab was closed.' };
         switch (message.type) {
-          case 'hfos-read':
-            return { ok: true, result: readPage(doc, this.at, new Date(), { sideOf: () => null }) };
+          case 'hfos-read': {
+            this.moved();
+            const now = this.doc!;
+            return { ok: true, result: readPage(now, this.at, new Date(), { sideOf: () => null }) };
+          }
           case 'hfos-outline': {
             // As the tab's own (src/content.ts): the page's read, and its outline with what was found.
             const result = readPage(doc, this.at, new Date(), { sideOf: () => null });
@@ -362,6 +376,7 @@ beforeEach(() => {
   world.answers = {};
   world.hfos = {};
   world.behave = () => undefined;
+  world.moves = null;
   world.choices = { on: true, sending: 'steps', collect: false, posting: 'after_ok' };
   world.hours = notToday();
   store.set(NETWORKS_KEY, {
@@ -1214,6 +1229,30 @@ describe('what it does on LinkedIn’s list', () => {
     expect(outcome).toMatchObject({
       stop: expect.stringContaining('The extension stops on LinkedIn for today'),
     });
+    expect(world.asked.find((a) => a.type === 'hfos-warning')?.input).toMatchObject({
+      platform: 'linkedin',
+    });
+    expect(store.get(WARNED_KEY)).toMatchObject({ linkedin: { day: expect.any(String) } });
+  });
+
+  it('stops for the day on LinkedIn’s security check that came after its read, never handing the step over', async () => {
+    // The owner's problem reports of 19 Nov 2026: the page read wasn't their profile, then LinkedIn went on to its
+    // check (/checkpoint/challenge/…), and three warm-ups were handed over in turn as "a different page".
+    world.pages = () => ({ fixture: 'linkedin-profile.html', at: `${LI}/in/someone-else-9/` });
+    world.moves = {
+      reads: 1,
+      fixture: 'linkedin-checkpoint.html',
+      at: `${LI}/checkpoint/challenge/AgMadeUp?ut=made-up`,
+    };
+    const outcome = await doWork(
+      { do: 'step', item: item({ kind: 'warm_up' }) },
+      ME.businessId,
+      false,
+    );
+    expect(outcome).toMatchObject({
+      stop: expect.stringContaining('The extension stops on LinkedIn for today'),
+    });
+    expect(world.opened).toEqual([DANA]);
     expect(world.asked.find((a) => a.type === 'hfos-warning')?.input).toMatchObject({
       platform: 'linkedin',
     });

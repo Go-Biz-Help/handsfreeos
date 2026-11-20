@@ -473,11 +473,13 @@ export async function perDayFor(
   const warning = await warningOf(ctx, me, platform, todayStart, now);
   const warned = slowsNow(warning, now);
   const read = await readToday(ctx, me, platform, todayStart);
-  // More on a day the goal needs more good fits (decision 126), half that while the person is new there.
-  const more = needsMore ?? (await moreToday(ctx, me, platform, now, warning));
+  const kit = NETWORKS[platform];
+  // More on a day the goal needs more good fits (decision 126), half that while the person is new there; never on a
+  // network whose most is its day's (LinkedIn's 40, decision 184), where being new there halves nothing either.
+  const grows = kit.checksMost > Math.min(CHECKS_PER_DAY, kit.checksPerDay);
+  const more = grows && (needsMore ?? (await moreToday(ctx, me, platform, now, warning)));
   const slowerMore = more && (warned || (await automationOf(ctx, me, now, platform)).slower);
   const reads = readsPerDay(platform, warned || slowerMore, more);
-  const kit = NETWORKS[platform];
   const shared = kit.foundShareReads;
   const used = read.checks + read.partners + (shared ? read.found : 0);
   const left = Math.max(0, reads - used);

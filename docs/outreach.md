@@ -77,7 +77,8 @@ became.
 - **Good fits among friends and chats** (decision 46, `checks.ts`, `ops/checks.ts`, the worker's `checks.ts`, the
   extension's `src/jobs/checks.ts`): the Friends tab's **Check my friends** (an ask, `checks`), and the once-a-day
   jobs after Read my chats, have the person's computer read the next of their friends and the people they've chatted
-  with, about 40 a day (`CHECKS_PER_DAY`, halved for a week after a warning), every 15 to 30 seconds, in a window of
+  with, about 40 a day (`CHECKS_PER_DAY`, halved for a week after a warning), every 15 to 30 seconds (a minute or two
+  on LinkedIn, 10 at a time, decision 184), in a window of
   its own: HandsFreeOS says who's next (`outreach.checks.next`: friends whose chat the AI read as a likely prospect,
   then friends with any chat, others they've chatted with, friends found in a group, then the rest, the most mutual
   friends first; never anyone on Don't pitch or tagged Friend or family), the extension opens each profile, checks
@@ -4965,6 +4966,24 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         Outreach; the worker's `today.ts`, `playbook-test.ts` and `samples.ts`; the web's `playbook-builder.tsx`,
         `playbooks-page.tsx` and the builder's `load.ts`; the phone's `playbook.tsx`, `playbook-script.tsx` and
         `playbooks.tsx`; the extension's runners (0.148.0).
+
+183.  **LinkedIn reads 40 profiles a day at most, a minute or two apart, a few at a time** (Chris, 19 Nov 2026: "it
+      seems like linked in is suspecting suspicious behavior. what do you think the cause is?", then picked "40 a day,
+      and slower" on 20 Nov). LinkedIn showed its security check (`/checkpoint/challenge/`) 2 minutes after the
+      extension read 42 profiles of people found, 15 to 30 seconds apart, on a day of 98 profiles read (97 the day
+      before): on a day the goal needed more good fits, decision 126 let LinkedIn's checks go to 150. It signed the
+      account out afterwards. Builds on decisions 46, 92 and 126:
+      - **Never more than its 40 a day** (`checksMost: 40` in LinkedIn's kit): the checks of connections, the people
+        found and the partners share them as before (`foundShareReads`), and a day short of good fits reads no more
+        there (`perDayFor` in `ops/checks.ts` has no "more" for a network whose most is its day's). The other networks
+        keep theirs.
+      - **A minute or two between profiles** (`checkPaceOf` in `checks.ts`: 60 to 120 seconds, never the same twice),
+        for its checks, its people found and its partners. The other networks keep their 15 to 30 seconds.
+      - **A few at a time** (`checksBatchOf`: 10): the checks of connections and the people found each read 10, and
+        while today has room the job ends with `again`, so the next 10 go 35 to 60 minutes later (`afterDaily`) and
+        the day's 40 spread through it. The day's last line says more profiles come later.
+      - **Not changed:** likes, comments, invitations and messages keep their own daily limits, and a warning still
+        halves everything for a week. Extension 0.148.1, no migration.
 
 ## Rules worth knowing before changing anything
 

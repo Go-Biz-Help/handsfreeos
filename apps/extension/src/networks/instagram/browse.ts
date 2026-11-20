@@ -49,10 +49,18 @@ function scrollerIn(box: Element): HTMLElement | null {
 const loadingIn = (box: Element): boolean =>
   box.querySelector('[role="progressbar"], [aria-label^="loading" i]') !== null;
 
+/** The page's main part drawn as nothing but Instagram's loading mark: what it asked for is still on its way. */
+function stillLoading(doc: Document): boolean {
+  const main = doc.querySelector('main, [role="main"]');
+  return !!main && loadingIn(main) && main.querySelector('a[href]') === null;
+}
+
 /**
  * Scrolls the box over the page down most of its height for Instagram to draw more of the list, or to its end (their
  * followers, `toEnd`); with no box, the page itself. Whether there was more to go: none once the list has ended, and
- * so not while Instagram still shows it's drawing more.
+ * so not while Instagram still shows it's drawing more. The page at its end goes on while its main part shows only
+ * Instagram's loading mark: a hashtag's search drew nothing but the mark when it was read, and was noted as having no
+ * posts (the owner's problem reports of 1, 3 and 19 Nov 2026), so it's read again after the list's pause.
  */
 export function scrollDialog(doc: Document, toEnd = false): boolean {
   const box = doc.querySelector('[role="dialog"]');
@@ -68,7 +76,7 @@ export function scrollDialog(doc: Document, toEnd = false): boolean {
   if (box) return false;
   const view = doc.defaultView!;
   const room = doc.documentElement.scrollHeight - view.scrollY - view.innerHeight;
-  if (room <= 4) return false;
+  if (room <= 4) return stillLoading(doc);
   view.scrollBy({ top: Math.max(300, view.innerHeight * SCREEN), behavior: 'smooth' });
   return true;
 }

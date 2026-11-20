@@ -321,7 +321,9 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     dailyLimits: { friend_request: 15, first_message: 15, follow_up: 20, comment: 10, like: 30 },
     weeklyRequests: 80,
     checksPerDay: 40,
-    checksMost: 150,
+    // Never more, even on a day the goal needs more good fits (decision 184, the owner, 20 Nov 2026): LinkedIn showed its
+    // security check on a day of 98 profiles read. A few at a time, a minute or two apart (./checks.ts `checkPaceOf`).
+    checksMost: 40,
     forumAnswersPerDay: null,
     recommends: false,
     hashtags: false,

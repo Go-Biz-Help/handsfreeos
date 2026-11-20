@@ -352,6 +352,31 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 680,
     said: 'The reel’s Comment opened its comments, but their box (“Add a comment…”) is now an input beside Emoji, in no form, and only inputs marked as text boxes were looked for, so one with no type was never found (0.147.11, 18 Nov; the likely cause, as the outline doesn’t show an input’s type). An input with no type counts as a box to write in now. Before that, a reel opened in the reels player, which shows no box till its own Comment opens its comments: the comment goes on the reel the player opened on, while it’s theirs, by pressing its Comment and writing in the box that shows (0.141.1, #643).',
   },
+  {
+    area: 'linkedin',
+    job: 'warm_up',
+    note: 'LinkedIn showed a different page',
+    fixedIn: '0.148.1',
+    pr: 689,
+    said: 'LinkedIn went on to its security check (/checkpoint/challenge/…) after the step had read the page, so the check’s warning was never seen: three warm-ups were handed over in turn, and LinkedIn wasn’t stopped for the day. A step that didn’t go reads the page again after a moment now, and a warning there stops LinkedIn for the day.',
+  },
+  {
+    area: 'instagram',
+    job: 'posts.page',
+    note: 'No posts on the page.',
+    fixedIn: '0.148.1',
+    pr: 689,
+    said: 'A hashtag’s search showed nothing but Instagram’s loading mark when it was read, and its list ended at once as the page had nowhere to scroll. While the page’s main part shows only the loading mark, it’s read again after the list’s pause now.',
+  },
+  {
+    area: 'facebook',
+    job: 'draft',
+    note: 'The AI is busy right now',
+    // The worker's fix, not the extension's: by when it went live, as for a tool without versions.
+    before: '2026-11-20T18:30:00Z',
+    pr: 689,
+    said: 'Now and then Claude, and the backup AI behind it, were both overloaded or out of reach for a draft (5 on the evening of 19 Nov among about 380 answers), and the draft failed at once. A busy AI is asked once more after 3 seconds now, as an empty answer already was.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */
