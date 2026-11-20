@@ -34,7 +34,7 @@ const grid = (
     type: 'quantities',
     title: name,
     ...extra,
-    config: { choices: rows, ...(extra.config ?? {}) },
+    config: { ...(extra.config ?? {}), choices: rows },
   }) as QuestionInput;
 
 const shirts = [row('Adult M', 12), row('Adult L', 12), row('Adult 2XL', 14)];
