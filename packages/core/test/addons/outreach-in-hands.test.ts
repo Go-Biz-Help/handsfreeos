@@ -61,11 +61,21 @@ describe('who wrote a message', () => {
     expect(saysADraft('Running late, call you tomorrow', clues.drafts)).toBe(false);
   });
 
-  it('is nobody’s for a picture alone, a member count, or a line headed with their name', () => {
+  it('is nobody’s for a picture alone, a member count, a line headed with their name, or a row of a chat list', () => {
     expect(notSaidByHand('(a picture, sticker or file)', 'Dana Cole')).toBe(true);
     expect(notSaidByHand('Austin Owners · 12.4K members', 'Dana Cole')).toBe(true);
     expect(notSaidByHand('Dana Cole\nDana: see you then', 'Dana Cole')).toBe(true);
     expect(notSaidByHand('See you then', 'Dana Cole')).toBe(false);
+    // A row of LinkedIn's list of chats, read into someone else's chat: never theirs, never the person's by hand.
+    expect(
+      notSaidByHand(
+        'Jennifer Jones, MHR\nYou: Hey Jennifer, how is it going?\n. Press return to go to the conversation',
+        'Aaron Welch',
+      ),
+    ).toBe(true);
+    expect(notSaidByHand('Amanda Herber\nAmanda: Hi Chris, quick one', 'John Reid')).toBe(true);
+    // Two lines typed by hand stay the person's.
+    expect(notSaidByHand('Hi John\nQuick question: are you free Friday?', 'John Reid')).toBe(false);
   });
 
   it('takes them only when the latest of the person’s is new, theirs, and nothing went after it', () => {

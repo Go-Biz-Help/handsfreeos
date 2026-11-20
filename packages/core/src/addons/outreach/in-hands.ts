@@ -266,15 +266,27 @@ export function saysADraft(text: string, drafts: readonly string[]): boolean {
 
 /**
  * A line the chat reader took from the page rather than from anyone: a picture or sticker alone, a group's member
- * count, or a message headed with their own name (LinkedIn's "Amanda Herber\nAmanda: …", which is theirs).
+ * count, a message headed with their own name (LinkedIn's "Amanda Herber\nAmanda: …", which is theirs), or a row of
+ * LinkedIn's list of chats, whoever's chat it is ("Jennifer Jones, MHR\nYou: Hey Jennifer… Press return to go to…",
+ * read into other people's chats on 17 Nov 2026).
  */
 export function notSaidByHand(text: string, name: string): boolean {
   return (
     text === WORDLESS ||
     !sameWords(text) ||
     /·\s*\d[\d,.]*k?\s+members/i.test(text) ||
-    (name.length > 0 && text.startsWith(`${name}\n`))
+    (name.length > 0 && text.startsWith(`${name}\n`)) ||
+    aChatListRow(text)
   );
+}
+
+/** A row of a list of chats: a name, then "You: …" or "<their first name>: …" under it, or LinkedIn's "Press return". */
+function aChatListRow(text: string): boolean {
+  if (/press return to go to/i.test(text)) return true;
+  const row = /^([^\n]{1,80})\n([^\n:]{1,40}): /.exec(text);
+  if (!row) return false;
+  const first = row[1]!.trim().split(/\s+/)[0] ?? '';
+  return row[2] === 'You' || (first.length > 0 && row[2] === first);
 }
 
 export interface ChatMessageSaid {
