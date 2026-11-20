@@ -10754,6 +10754,11 @@
                     "minLength": 1,
                     "maxLength": 800
                   },
+                  "referAsk": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
                   "birthday": {
                     "type": "string",
                     "minLength": 1,
@@ -11470,6 +11475,11 @@
                     "maxLength": 800
                   },
                   "referNote": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "referAsk": {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 800

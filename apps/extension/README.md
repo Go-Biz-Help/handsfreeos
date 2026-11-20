@@ -1274,7 +1274,25 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
-<<<<<<< HEAD
+### Referrals done for you on Facebook (0.149.0)
+
+The owner's picks of 18 and 20 Nov 2026 (docs/outreach.md, decision 185): under Autopilot, a referral on a Facebook post
+goes without an OK, and one the person OK'd with **Do it for me** on Today goes the same way.
+
+- **One a go, in the working hours** (`referNext` in `src/auto/run.ts`): the runner asks HandsFreeOS for what's due
+  (core's `outreach.referrals.due`) every half hour (`REFER_AGAIN_MS`, `referDue` in `src/auto/plan.ts`) and does the
+  first: a referral, else an ask after two. One done is a step, with a person's pace after it.
+- **The comment tags whom it names** (`writeTaggedComment` and `typeTagging` in `src/networks/facebook/auto.ts`, the
+  tab's `hfos-tag-comment`): the words before their name, then @ and their whole name, and the row of Facebook's list
+  that shows it is picked; then the rest. When no row shows their name, or picking it didn't take, what was typed for
+  the tag is taken back out a character at a time and their name goes as the comment said it (the owner's 1a). Where
+  in the comment their name is comes from core's `mentionParts`.
+- **Noted as a comment** on the post's writer, so it counts toward the day's comments (2a); HandsFreeOS keeps it as
+  posted at once (`more`), so a computer that stops before the heads-up never posts the comment twice.
+- **The heads-up, then** in their chat, typed as an OK'd message is (`typeMessage`, shared with `sendMessage` now), and
+  noted as a message. None when they had one this week.
+- **How it went** goes to HandsFreeOS (`outreach.referral.posted`, `outreach.refer_ask.sent`): what couldn't go waits on
+  Today for the person, with why; a post that doesn't let them comment is put aside.
 
 ### LinkedIn reads 40 profiles a day at most, a minute or two apart (0.148.1)
 
@@ -1312,7 +1330,6 @@ Two of the owner's problem reports of 19 Nov 2026 (0.147.11):
 
 The third report that day, "Nobody read in the post’s Likes box.", isn't changed: the box showed only the person
 themselves, who liked the post, with Instagram's line about two more it didn't list.
-=======
 
 ### Warm-up visits before the first message (0.148.0)
 
@@ -1322,8 +1339,6 @@ before Say hi, as someone deciding on a request does: Today lists a `warm_up` wi
 visits their page and likes 1 or 2 of their newest posts. From 0.148.0 the activity line says "before your first
 message" for those, not "while they decide on your request" (`visitLine` in core's `keep-warm.ts`). An older build does
 the same visits with the old line.
-
-> > > > > > > origin/main
 
 ### A song on a post read as a Facebook warning (0.147.14)
 

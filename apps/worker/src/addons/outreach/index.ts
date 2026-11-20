@@ -53,7 +53,15 @@ import {
   recheckGoodPosts,
 } from './posts';
 import { DRAFT_HELPFUL_JOB, draftHelpfulJob, helpfulAsked } from './helpful';
-import { FIND_REFERRAL_JOB, findReferralJob, referralFound } from './referrals';
+import {
+  FIND_REFERRAL_JOB,
+  findReferralJob,
+  REFER_ASK_JOB,
+  referAskFound,
+  referAskJob,
+  referralDone,
+  referralFound,
+} from './referrals';
 import { LIKE_PICK_ACTION, likePick } from './likes';
 import {
   HELPER_LOOK_ACTION,
@@ -189,6 +197,9 @@ export const outreachAddonWorker: AddonWorkerModule = {
     // A post asking for what the business offers pushes to the person who found it at once (./posts.ts, decision 49).
     'outreach.post.checked': postChecked,
     'outreach.referral.found': referralFound,
+    // Referred twice: the ask that they send people the person's way too, three days on (decision 185).
+    'outreach.referral.done': referralDone,
+    'outreach.refer_ask.found': referAskFound,
     // Someone who said yes to a demo under the person's comment on Threads or X pushes at once (./posts.ts, 163).
     'outreach.comment.replied': commentReplied,
     // Friends and people chatted with, read off their pages, wait for the AI's check of them (./checks.ts).
@@ -261,6 +272,7 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [READ_CHATS_JOB]: readChatsJob,
     [CHECK_POSTS_JOB]: checkPostsJob,
     [FIND_REFERRAL_JOB]: findReferralJob,
+    [REFER_ASK_JOB]: referAskJob,
     [CHECK_PEOPLE_JOB]: checkPeopleJob,
     [CHECK_PARTNERS_JOB]: checkPartnersJob,
     [CHECK_GROUPS_JOB]: checkGroupsJob,

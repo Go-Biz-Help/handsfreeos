@@ -2207,6 +2207,16 @@ function scriptedReferWrite(message: string) {
   };
 }
 
+/** The ask after two (decision 185): the playbook's starting words, filled in plainly. */
+function scriptedReferAsk(message: string) {
+  const name = unquote(/<person>([\s\S]*?)<\/person>/.exec(message)?.[1] ?? 'them').trim();
+  const first = name.split(/\s+/)[0] ?? name;
+  const link = /exactly as written: (\S+)\.$/m.exec(message)?.[1];
+  return {
+    text: `Hey ${first}, I’ve mentioned you a couple of times when people asked for what you do. If you come across someone who could use what I do, I’d love it if you sent them my way.${link ? ` Or if you’re up for a quick call, here’s my calendar: ${unquote(link)}` : ''}`,
+  };
+}
+
 /**
  * Social Outreach's check of someone the person knows (decision 46): a good fit for the first playbook when their pages
  * say "Owner", might fit when they say "Manager", else not.
@@ -2585,6 +2595,7 @@ export const OUTREACH_RULES: readonly ScriptRule[] = [
     when: /Write the comment and the heads-up\.$/,
     json: (message) => scriptedReferWrite(message),
   },
+  { when: /Write the note asking them back\.$/, json: (message) => scriptedReferAsk(message) },
   { when: /Could this person be a customer\?$/, json: (message) => scriptedFitCheck(message) },
   {
     when: /Could this person send the business its customers\?$/,

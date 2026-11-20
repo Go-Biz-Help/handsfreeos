@@ -103,7 +103,7 @@ export function scriptWords(details: {
       group.parts.flatMap((part) => {
         if (!partShown(part, ways)) return [];
         if (part === 'referComment' && !refersOf(details)) return [`${PLAYBOOK_REFER.label}\nOff`];
-        if (part === 'referNote' && !refersOf(details)) return [];
+        if ((part === 'referNote' || part === 'referAsk') && !refersOf(details)) return [];
         const words =
           part === 'first'
             ? says.first.length > 1

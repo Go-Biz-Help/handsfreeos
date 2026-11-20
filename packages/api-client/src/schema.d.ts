@@ -9937,6 +9937,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.refer_ask.answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s answer to a note asking someone they referred twice to send people their way too: approve (Do it for me: their computer sends it on Facebook, as it stands or changed), done (they sent it themselves) or skip (it never comes back). Never sent to someone in a person’s hands.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.refer_ask.answered.
+         */
+        post: operations["command_outreach_refer_ask_answer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.refer_ask.sent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s computer says how an ask after two went: sent, and it’s done; or why not, and it waits on Today for the person to send by hand.
+         * @description Risk level 0. Requires outreach.use. Emits .
+         */
+        post: operations["command_outreach_refer_ask_sent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.referral.approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Do it for me on a referral waiting on Today: the person’s computer posts the comment naming someone they talked with under the post (tagging them, or their name as plain words where Facebook won’t list them) and sends them the heads-up, as it stands or as changed. Only on Facebook, where the post and the person both are, and never a heads-up to someone in a person’s hands.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.referral.approved.
+         */
+        post: operations["command_outreach_referral_approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.referral.done": {
         parameters: {
             query?: never;
@@ -9947,10 +10007,30 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person commented on the post naming someone they talked with, and sent that person the heads-up: the referral is noted as done, with the words they sent when they changed them.
+         * The person commented on the post naming someone they talked with, and sent that person the heads-up when there was one: the referral is noted as done, with the words they sent when they changed them.
          * @description Risk level 1. Requires outreach.use. Emits outreach.referral.done.
          */
         post: operations["command_outreach_referral_done"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.referral.posted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s computer says how a referral it did went: the comment up (tagged or not) and the heads-up sent, and it’s done; or what couldn’t go and why, and it waits on Today for the person to finish by hand; or nothing to do there, and it’s put aside.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.referral.done, outreach.referral.skipped.
+         */
+        post: operations["command_outreach_referral_posted"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9967,7 +10047,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Put a referral aside: nothing is commented or sent, and it doesn’t come back.
+         * Put a referral aside, waiting or about to be done for the person: nothing more is commented or sent, and it doesn’t come back.
          * @description Risk level 0. Requires outreach.use. Emits outreach.referral.skipped.
          */
         post: operations["command_outreach_referral_skip"];
@@ -23527,10 +23607,30 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s referrals waiting for them (Refer someone on Today): posts from the last week asking for a recommendation of what someone they talked with does, each with who, why, the comment naming them and the heads-up to them. Nothing is posted or sent: the person does both, then outreach_referral_done notes it.
+         * The person’s referrals waiting for them or about to be done for them (Refer someone on Today): posts from the last week asking for a recommendation of what someone they talked with does, each with who, why, the comment naming them and the heads-up to them (null when they had one this week), whether their computer can do it for them (forYou: outreach_refer_for_me), whether the comment is up already (posted) and why one came back to them (needs). And the notes asking someone referred twice to send people their way too (asks: outreach_answer_refer_ask). By hand, the person does both, then outreach_referral_done notes it.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_referrals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.referrals.due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The referrals and asks after two the person’s computer does now on Facebook (decision 185): OK’d or under Autopilot, oldest first, as many referrals as the day’s comments leave room for (a referral’s comment counts as one), each with the post, whom it names and their chat. None with Sending off or after a warning today.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_referrals_due"];
         delete?: never;
         options?: never;
         head?: never;
@@ -51562,6 +51662,7 @@ export interface operations {
                                 problemCheck?: string;
                                 question?: string;
                                 reconnect?: string;
+                                referAsk?: string;
                                 referComment?: string;
                                 referNote?: string;
                                 reminder?: string;
@@ -51624,6 +51725,7 @@ export interface operations {
                             problemCheck: string;
                             question: string;
                             reconnect: string;
+                            referAsk: string;
                             referComment: string;
                             referNote: string;
                             reminder: string;
@@ -51735,6 +51837,7 @@ export interface operations {
                             problemCheck?: string;
                             question?: string;
                             reconnect?: string;
+                            referAsk?: string;
                             referComment?: string;
                             referNote?: string;
                             reminder?: string;
@@ -51855,6 +51958,7 @@ export interface operations {
                             problemCheck?: string;
                             question?: string;
                             reconnect?: string;
+                            referAsk?: string;
                             referComment?: string;
                             referNote?: string;
                             reminder?: string;
@@ -51995,6 +52099,7 @@ export interface operations {
                                 problemCheck?: string;
                                 question?: string;
                                 reconnect?: string;
+                                referAsk?: string;
                                 referComment?: string;
                                 referNote?: string;
                                 reminder?: string;
@@ -52057,6 +52162,7 @@ export interface operations {
                             problemCheck: string;
                             question: string;
                             reconnect: string;
+                            referAsk: string;
                             referComment: string;
                             referNote: string;
                             reminder: string;
@@ -53037,6 +53143,116 @@ export interface operations {
             };
         };
     };
+    command_outreach_refer_ask_answer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    answer: "approve" | "done" | "skip";
+                    /** Format: uuid */
+                    askId: string;
+                    text?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        askId: string;
+                        /** @enum {string} */
+                        state: "waiting" | "approved" | "done" | "skipped";
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_refer_ask_sent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    askId: string;
+                    sent: boolean;
+                    /** @default null */
+                    why?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        askId: string;
+                        /** @enum {string} */
+                        state: "waiting" | "approved" | "done" | "skipped";
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_referral_approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    comment?: string;
+                    note?: string;
+                    /** Format: uuid */
+                    referralId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        referralId: string;
+                        /** @enum {string} */
+                        state: "waiting" | "approved" | "done" | "skipped";
+                    };
+                };
+            };
+        };
+    };
     command_outreach_referral_done: {
         parameters: {
             query?: never;
@@ -53067,7 +53283,52 @@ export interface operations {
                         /** Format: uuid */
                         referralId: string;
                         /** @enum {string} */
-                        state: "waiting" | "done" | "skipped";
+                        state: "waiting" | "approved" | "done" | "skipped";
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_referral_posted: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    commented: boolean;
+                    /** @default false */
+                    more?: boolean;
+                    /** @default false */
+                    noted?: boolean;
+                    /** Format: uuid */
+                    referralId: string;
+                    /** @default false */
+                    skip?: boolean;
+                    /** @default false */
+                    tagged?: boolean;
+                    /** @default null */
+                    why?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        referralId: string;
+                        /** @enum {string} */
+                        state: "waiting" | "approved" | "done" | "skipped";
                     };
                 };
             };
@@ -53101,7 +53362,7 @@ export interface operations {
                         /** Format: uuid */
                         referralId: string;
                         /** @enum {string} */
-                        state: "waiting" | "done" | "skipped";
+                        state: "waiting" | "approved" | "done" | "skipped";
                     };
                 };
             };
@@ -92256,6 +92517,7 @@ export interface operations {
                                     problemCheck?: string;
                                     question?: string;
                                     reconnect?: string;
+                                    referAsk?: string;
                                     referComment?: string;
                                     referNote?: string;
                                     reminder?: string;
@@ -92318,6 +92580,7 @@ export interface operations {
                                 problemCheck: string;
                                 question: string;
                                 reconnect: string;
+                                referAsk: string;
                                 referComment: string;
                                 referNote: string;
                                 reminder: string;
@@ -93568,16 +93831,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default [] */
+                        asks: {
+                            /** Format: uuid */
+                            askId: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            forYou: boolean;
+                            name: string;
+                            needs: string | null;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
+                            /** Format: uuid */
+                            profileId: string;
+                            profileUrl: string;
+                            referred: number;
+                            /** @enum {string} */
+                            state: "waiting" | "approved" | "done" | "skipped";
+                            text: string;
+                        }[];
                         referrals: {
                             asks: string | null;
                             comment: string;
                             /** Format: date-time */
                             createdAt: string;
+                            /** @default false */
+                            forYou: boolean;
                             name: string;
-                            note: string;
+                            /** @default null */
+                            needs: string | null;
+                            note: string | null;
                             /** @enum {string} */
                             platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             post: string;
+                            /** @default false */
+                            posted: boolean;
                             /** Format: uuid */
                             postId: string;
                             postUrl: string;
@@ -93588,9 +93876,71 @@ export interface operations {
                             /** Format: uuid */
                             referralId: string;
                             /** @enum {string} */
-                            state: "waiting" | "done" | "skipped";
+                            state: "waiting" | "approved" | "done" | "skipped";
                             why: string | null;
                             writer: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_referrals_due: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        asks: {
+                            /** Format: uuid */
+                            askId: string;
+                            name: string;
+                            platformId: string | null;
+                            /** Format: uuid */
+                            profileId: string;
+                            profileUrl: string;
+                            text: string;
+                            threadKey: string | null;
+                        }[];
+                        referrals: {
+                            comment: string;
+                            name: string;
+                            note: string | null;
+                            platformId: string | null;
+                            posted: boolean;
+                            /** Format: uuid */
+                            postId: string;
+                            postUrl: string;
+                            /** Format: uuid */
+                            profileId: string;
+                            profileUrl: string;
+                            /** Format: uuid */
+                            referralId: string;
+                            threadKey: string | null;
+                            writer: string;
+                            writerUrl: string;
                         }[];
                     };
                 };

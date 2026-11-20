@@ -21,7 +21,13 @@ import type { FormSteps } from './networks/instagram/own-profile';
 import type { NameWrote } from './networks/accounts-center/name';
 import type { Asking } from './networks/accounts-center/pages';
 import type { UsernameWrote } from './networks/accounts-center/username';
-import type { AutoResult, GroupFeedPost, MessageWrote, TheirPost } from './networks/facebook/auto';
+import type {
+  AutoResult,
+  GroupFeedPost,
+  MessageWrote,
+  TagAsk,
+  TheirPost,
+} from './networks/facebook/auto';
 import type { StepAsk, StepResult } from './networks/facebook/fetch';
 import type { Engaged, PostResult } from './networks/facebook/compose';
 import type { JoinStep } from './networks/facebook/join';
@@ -572,6 +578,13 @@ export type UnfollowAnswer =
   | { readonly ok: true; readonly result: 'done' | 'not_found' | 'none' }
   | { readonly ok: false; readonly error: string };
 
+/**
+ * A referral's comment on Facebook (decision 185, from 0.149.0): the name in it typed as a tag, @ and their whole name
+ * picked from Facebook's list, else their name as plain words. Its answer is an `AutoAnswer` that says which
+ * (`tagged`).
+ */
+export type TagCommentAsk = { readonly type: 'hfos-tag-comment'; readonly tag: TagAsk };
+
 export type AutoAnswer =
   | {
       readonly ok: true;
@@ -581,6 +594,8 @@ export type AutoAnswer =
       readonly left?: MessageWrote['left'];
       /** With `none`: who the window their profile's Message opened links to, for the runner to check (Facebook's). */
       readonly linksTo?: MessageWrote['linksTo'];
+      /** A referral's comment (`hfos-tag-comment`): whether Facebook took the tag, else the name went as words. */
+      readonly tagged?: boolean;
     }
   | { readonly ok: false; readonly error: string };
 

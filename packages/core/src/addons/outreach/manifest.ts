@@ -155,6 +155,9 @@ export const outreachAddon = defineAddon({
       'outreach.hands.given_back',
       'outreach.referral.done',
       'outreach.referral.skipped',
+      'outreach.referral.approved',
+      'outreach.refer_ask.found',
+      'outreach.refer_ask.answered',
       'outreach.country.unskipped',
       'outreach.country.decided',
       'outreach.their_work.set',
@@ -211,7 +214,8 @@ export const outreachAddon = defineAddon({
     // (decision 149, ./times.ts).
     // A comment research started or read has the worker sum it up when its days end or it's full (decision 166,
     // ./comment-research.ts).
-    // A referral found pushes to the person who read its post (decision 174, ./referrals.ts).
+    // A referral found pushes to the person who read its post (decision 174, ./referrals.ts); one done arms the ask
+    // after two, and the ask found pushes too (decision 185).
     // Someone coming into a person's hands, and a reply seen, arm the ask about them (decision 182, ./hands.ts); a
     // customer given back to the AI in Contacts is given back here too.
     consumes: [
@@ -249,6 +253,8 @@ export const outreachAddon = defineAddon({
       'outreach.times.check',
       'outreach.comment_research.changed',
       'outreach.referral.found',
+      'outreach.referral.done',
+      'outreach.refer_ask.found',
       'outreach.hands.taken',
       'person.handed_back',
     ],
@@ -275,6 +281,7 @@ export const outreachAddon = defineAddon({
     'outreach.autopilot_reminder',
     'outreach.sum_comment_research',
     'outreach.find_referral',
+    'outreach.refer_ask',
     'outreach.hands_ask',
   ],
   // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
@@ -323,6 +330,7 @@ export const outreachAddon = defineAddon({
     'playbooks',
     'posts',
     'profiles',
+    'refer_asks',
     'referrals',
     'replies',
     'request_pauses',

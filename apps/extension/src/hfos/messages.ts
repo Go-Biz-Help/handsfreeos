@@ -61,6 +61,10 @@ export type GroupsList = Ok<'/v1/queries/outreach.groups'>;
 /** The list for today and its drafts (packages/core/src/addons/outreach/today.ts). */
 export type TodayList = Ok<'/v1/queries/outreach.today'>;
 export type TodayListItem = TodayList['items'][number];
+/** The referrals and asks after two the runner does for the person (decision 185). */
+export type ReferralsDue = Ok<'/v1/queries/outreach.referrals.due'>;
+export type DueReferral = ReferralsDue['referrals'][number];
+export type DueAsk = ReferralsDue['asks'][number];
 export type { TodayDraftInput };
 /** Old requests and friends to unfriend, and each one the extension did (packages/core/src/addons/outreach/tidy.ts). */
 export type Tidy = Ok<'/v1/queries/outreach.friends.tidy'>;

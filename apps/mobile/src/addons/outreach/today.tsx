@@ -33,7 +33,11 @@ import {
   type HelpfulListOutput,
 } from '@hfos/core/addons/outreach/helpful';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
-import { REFER_WORDS as RW, type Referral } from '@hfos/core/addons/outreach/referrals';
+import {
+  REFER_WORDS as RW,
+  type ReferAsk,
+  type Referral,
+} from '@hfos/core/addons/outreach/referrals';
 import { goalTryPlace, type GoalTry } from '@hfos/core/addons/outreach/goal';
 import { PROFILE_PART_WORDS } from '@hfos/core/addons/outreach/profile-parts';
 import { recentBubbles, RECENT_WORDS } from '@hfos/core/addons/outreach/sends';
@@ -160,6 +164,7 @@ export function useTodayProps(
     today: today.data,
     helpful: helpful.data,
     referrals: referrals.data?.referrals ?? null,
+    referAsks: referrals.data?.asks ?? null,
     onReferral: {
       done: (referralId, name) =>
         referralChange(
@@ -170,6 +175,20 @@ export function useTodayProps(
         referralChange(
           () => change('outreach.referral.skip', { workspaceId: ws, referralId }),
           RW.skipSaid,
+        ),
+      forMe: (referralId, name, note) =>
+        referralChange(
+          () => change('outreach.referral.approve', { workspaceId: ws, referralId }),
+          RW.forYouSaid(name, note),
+        ),
+      ask: (askId, name, answer) =>
+        referralChange(
+          () => change('outreach.refer_ask.answer', { workspaceId: ws, askId, answer }),
+          answer === 'approve'
+            ? RW.askForYouSaid(name)
+            : answer === 'done'
+              ? RW.askDoneSaid(name)
+              : RW.askSkipSaid,
         ),
     },
     onHelpful: {
@@ -306,6 +325,7 @@ export function TodayBody({
   helpful = null,
   onHelpful,
   referrals = null,
+  referAsks = null,
   onReferral,
   error,
   wheels,
@@ -330,6 +350,8 @@ export function TodayBody({
   onHelpful?: HelpfulActions;
   /** Referrals waiting for the person on this network (decision 174): none while they load. */
   referrals?: readonly Referral[] | null;
+  /** The asks after two on this network (decision 185): none while they load. */
+  referAsks?: readonly ReferAsk[] | null;
   onReferral?: ReferralActions;
   error: string | null;
   wheels: WheelsListOutput | null;
@@ -444,7 +466,9 @@ export function TodayBody({
       {helpful && onHelpful && helpfulOn(platform) ? (
         <HelpfulPart platform={platform} helpful={helpful} on={onHelpful} />
       ) : null}
-      {referrals && onReferral ? <ReferralsPart referrals={referrals} on={onReferral} /> : null}
+      {referrals && onReferral ? (
+        <ReferralsPart referrals={referrals} asks={referAsks ?? []} on={onReferral} />
+      ) : null}
       {asking.length ? (
         <Part
           title={`${W.asking} · ${asking.length.toLocaleString('en-US')}`}

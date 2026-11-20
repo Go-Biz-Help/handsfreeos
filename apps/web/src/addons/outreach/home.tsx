@@ -26,7 +26,7 @@
  * (`app/w/[workspaceId]/a/outreach/show.tsx`), with what the person asked their computer to do on it (./asks.tsx), and
  * why those wait is said once, under the title.
  */
-import type { Referral } from '@hfos/core/addons/outreach/referrals';
+import type { ReferAsk, Referral } from '@hfos/core/addons/outreach/referrals';
 import type { ActivityPeriod } from '@hfos/core/addons/outreach/activity';
 import type { ChatView } from '@hfos/core/addons/outreach/chat-read';
 import type { FriendView } from '@hfos/core/addons/outreach/friends';
@@ -138,6 +138,8 @@ export type OutreachShown =
       readonly helpful: HelpfulList;
       /** Referrals waiting for the person on the network shown (decision 174); left out, none. */
       readonly referrals?: readonly Referral[];
+      /** The asks after two on the network shown (decision 185); left out, none. */
+      readonly referAsks?: readonly ReferAsk[];
       /** How each person's extension is doing on the network shown, for owners and admins: else null. */
       readonly team: LiveTeam | null;
       readonly asks: Asks;
@@ -821,6 +823,7 @@ export function OutreachHome({
           today={shown.today}
           helpful={shown.helpful}
           referrals={shown.referrals ?? []}
+          referAsks={shown.referAsks ?? []}
           team={shown.team}
           asks={shown.asks}
           waiting={shown.waiting}

@@ -42,7 +42,7 @@
  * like a message, with **OK**, **Change** and **Skip**, and Approve all takes it too, but never an answer to a post
  * asking for what the business offers.
  */
-import type { Referral } from '@hfos/core/addons/outreach/referrals';
+import type { ReferAsk, Referral } from '@hfos/core/addons/outreach/referrals';
 import { freshWords, underAPost, wheelsWords } from '@hfos/core/addons/outreach/automation';
 import { KNOWS_WORDS } from '@hfos/core/addons/outreach/knows';
 import { TIME_WORDS } from '@hfos/core/addons/outreach/meeting-times';
@@ -162,6 +162,7 @@ export function TodayView({
   today,
   helpful,
   referrals = [],
+  referAsks = [],
   team = null,
   asks,
   waiting,
@@ -184,8 +185,10 @@ export function TodayView({
   readiness: Readiness | null;
   /** Today's helpful post, and those up lately (decision 50). */
   helpful: HelpfulList;
-  /** Referrals waiting for the person on this network (decision 174). */
+  /** Referrals waiting for the person on this network (decision 174), or done for them soon (decision 185). */
   referrals?: readonly Referral[];
+  /** The asks after two on this network (decision 185). */
+  referAsks?: readonly ReferAsk[];
   /** How each person's extension is doing on the network shown: for owners and admins, else null. */
   team?: LiveTeam | null;
   /** The look-ups and group members asked of the person's computer from here. */
@@ -358,7 +361,7 @@ export function TodayView({
               asks={asks}
             />
           ) : null}
-          <ReferralCards workspaceId={workspaceId} referrals={referrals} />
+          <ReferralCards workspaceId={workspaceId} referrals={referrals} asks={referAsks} />
           {items.length ? (
             <section aria-labelledby="today-list-title" className="space-y-3">
               <div className="flex flex-wrap items-baseline justify-between gap-3">

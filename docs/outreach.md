@@ -4691,7 +4691,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         with `asks`) and the stand-in model; the web's `referral-card.tsx` and the phone's `referrals.tsx`. The
         Assistant lists them, notes one done and puts one aside (`outreach_referrals`, `outreach_referral_done`,
         `outreach_skip_referral`).
-      - **Next**: the extension posting the comment and sending the heads-up itself, after the person's OK.
+      - **Next**: the extension posting the comment and sending the heads-up itself: decision 185.
 
 175.  **The introduction's question goes as its own message, right after it** (Chris, 17 Nov 2026: "the introduction
       message from the outreach playbook says it should ask a question and I don’t see the question in the messages
@@ -5026,6 +5026,45 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **Not changed:** likes, comments, invitations and messages keep their own daily limits, and a warning still
         halves everything for a week. Extension 0.148.1, no migration.
 
+185.  **Referrals done for you, tagged, with the ask after two** (Chris, 18 Nov 2026, local networking's referral
+      picks: "tag on every recent post in their area that fits, no per-person limit, no OK under Autopilot; heads-up
+      DM at most once a week; after 2 referrals, ask if they'd send people your way too, only after a few quiet days";
+      then part 4's picks on 20 Nov: 1a, 2a, 3a). Builds on decision 174, whose 9a it changes under Autopilot:
+      - **Under Autopilot, no OK** (`referForYou`, `onItsOwn` in `ops/referrals.ts`): a referral on a Facebook post, of
+        someone the person talks with on Facebook, is saved `approved`, and their computer posts the comment and sends
+        the heads-up, with no push. Elsewhere, and without Autopilot, it waits on Today as before, where **Do it for
+        me** (`outreach.referral.approve`) hands it to their computer as the words stand. Never a heads-up to someone in
+        a person's hands (decision 182): that one waits for the person.
+      - **Tagged, or their name as plain words** (1a; the extension's `writeTaggedComment`, core's `mentionParts`): the
+        comment types @ and their whole name where it names them and picks them from Facebook's list; when Facebook
+        lists nobody by that name, their name goes as plain words and the heads-up still sends them the post's link.
+        The comment names them once, by their whole name, so they can be tagged (`REFER_WRITE_SYSTEM`).
+      - **Every recent post that fits, no limit a person** (the 30 days between referrals and the 3 a day are gone):
+        what they do, where, and whom they serve (decision 177) go to the AI with each person, so it sees they work
+        where the post asks. Referral comments count toward the network's daily comments (2a): noted as comments,
+        and `outreach.referrals.due` gives only as many as the day's comments leave room for.
+      - **The heads-up at most once a week** (`REFER_NOTE_EVERY_DAYS`): referred again within the week, it's the
+        comment alone (`note` null), and Today says so.
+      - **The ask after two** (3a; `REFER_ASK_AFTER`, `REFER_ASK_QUIET_DAYS`, the worker's `outreach.refer_ask`, the
+        part **Asking them back**): once someone was referred twice, three days on, and once the chat has been quiet
+        three days (their messages, the person's, a reply seen or a heads-up), the AI writes a short note from the
+        playbook's words asking if they'd send people the person's way too, or have a quick call on their Networking
+        calendar. No pressure, never that they owe anything. Once a person, ever (`refer_asks`). It goes as a referral
+        does: on its own under Autopilot on Facebook, else **Ask them to send people your way** on Today with **Do it
+        for me**, **I sent it** and **Don't ask them** (`outreach.refer_ask.answer`); the phone hears of a waiting one
+        once. Starting words: "Hey [first name], I’ve mentioned you a couple of times when people asked for [what they
+        do]. If you ever come across someone who could use [what your offer is], I’d love it if you sent them my way.
+        Or if you’re up for a quick call to see how we can help each other, here’s my calendar: [calendar link]".
+      - **What couldn't go comes back** (`outreach.referral.posted`, `outreach.refer_ask.sent`): to Today with why
+        (`needs`); a comment that went up stays up and only the heads-up is left. A post that doesn't let them comment
+        is put aside.
+      - **How it's built** (migration 031500: `referrals` gains `approved`, `posted_at`, `tagged`, `noted_at` and
+        `needs`, and `note` may be empty; the table `addon_outreach.refer_asks`, each person's own; extension
+        0.149.0): `referrals.ts`, `ops/referrals.ts` and `script.ts` in core; the worker's `referrals.ts`; the
+        extension's `refer` and `askBack` in `src/auto/run.ts`; the web's `referral-card.tsx` and the phone's
+        `referrals.tsx`. The Assistant does them for the person too (`outreach_refer_for_me`,
+        `outreach_answer_refer_ask`).
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -5091,9 +5130,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   `answerOf`, `tookOf`): a friendly answer to the owner's question about them is no yes, so no ask for a time
   follows it. A call's yes (`follow_ups.call`) puts the ask and what follows it on the person's own calendar, with no
   demo ref, and a time booked from it never counts as a demo.
-- **A referral never goes on its own** (decision 174, 9a): the comment and the heads-up wait on Today for the person,
-  under Autopilot too, and only someone who wrote back at least twice and wasn't marked not a fit, Don't pitch or Never
-  contact is ever referred (`REFER_REPLIES`, `findReferralJob`). A referral is honest that the owner has talked with
+- **A referral goes on its own only under Autopilot on Facebook** (decisions 174 and 185): elsewhere the comment and
+  the heads-up wait on Today for the person, and only someone who wrote back at least twice and wasn't marked not a
+  fit, Don't pitch or Never contact is ever referred (`REFER_REPLIES`, `findReferralJob`). The heads-up goes to
+  someone at most once a week, and the ask after two once ever. A referral is honest that the owner has talked with
   them, never that they've worked with them, and never names the group.
 - **Nothing the AI writes makes up the owner's life** (decision 165, `about-owner.ts`): a prompt that writes as the
   person carries `ABOUT_OWNER_RULE` with their `<about_owner>` (`aboutOwnerFor`, `aboutOwnerBlock`), or
@@ -5916,10 +5956,11 @@ Alignable, the business's found checks a day, results by hashtag, phrase and kin
 never checked after two weeks came with decision 116, the comment Like and Alignable's likers from guessed markup too.
 
 Local networking (decisions 177 to 180 are the first three of four parts, from the owner's picks of 18 Nov 2026) still
-to come: tagging the people the owner has talked with on recent posts in their area that fit, a short ask after two
-referrals once the chat has been quiet for a few days, the About you interview, a prep note before each networking
-call and a thank-you after, a weekly count of 1-on-1s, and local Facebook events (part 4). Today's ordering is
-the only place near people go first; the Pipeline and the lists don't sort by distance yet.
+to come: the About you interview, a prep note before each networking call and a thank-you after, a weekly count of
+1-on-1s, and local Facebook events (part 4; its referrals are decision 185). Referrals are done for the person only on
+Facebook: on the other networks, and for someone the person talks with on another network than the post's, they wait
+on Today. Today's ordering is the only place near people go first; the Pipeline and the lists don't sort by distance
+yet.
 
 Drive times (decision 179) count only on the booking page, a reschedule from the customer's link and the AI's open
 times: a booking the team makes in New appointment, or the Assistant's, isn't checked for the drive. Where your day

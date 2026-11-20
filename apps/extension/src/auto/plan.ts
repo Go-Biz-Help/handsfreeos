@@ -171,6 +171,11 @@ export interface AutoState {
    */
   readonly helpfulAt?: number | null;
   readonly helpfulUp?: boolean;
+  /**
+   * When it next looks for a referral or an ask after two to do for the person (decision 185, from 0.149.0). Missing
+   * in a state kept before: due now.
+   */
+  readonly referAt?: number | null;
   /** What it's doing, or last did, in words for the person, and when. */
   readonly line: string | null;
   readonly lineAt: number | null;
@@ -205,6 +210,7 @@ export function freshState(day: string | null, tabId: number | null = null): Aut
     watchAt: null,
     helpfulAt: null,
     helpfulUp: false,
+    referAt: null,
     line: null,
     lineAt: null,
     nextAt: null,
@@ -320,6 +326,13 @@ export function nextWatch(now: number, random: number): number {
 
 /** How long after a look finds no helpful post written yet it looks again. */
 export const HELPFUL_AGAIN_MS = 30 * 60_000;
+
+/** How long after a look for referrals to do (decision 185) it looks again: a done one counts as a step's gap. */
+export const REFER_AGAIN_MS = 30 * 60_000;
+
+/** Whether to look for a referral or an ask after two to do for the person. */
+export const referDue = (state: Pick<AutoState, 'referAt'>, now: number): boolean =>
+  (state.referAt ?? 0) <= now;
 
 /** Whether to look for today's helpful post to put up on its own: not up yet, and due. */
 export const helpfulDue = (

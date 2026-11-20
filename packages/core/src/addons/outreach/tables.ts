@@ -656,7 +656,9 @@ export const posts = addonOutreach.table(
 /**
  * Someone the person talked with, referred under a post asking for what they do (decision 174, ../referrals.ts): the
  * post, who, why they fit, the comment naming them and the heads-up to them, as the AI wrote them; and where it stands:
- * waiting for the person, done, or put aside. One a post. Each person's own.
+ * waiting for the person, approved (posted for them on Facebook, decision 185), done, or put aside. One a post. Each
+ * person's own. The heads-up is null when they had one this week; `postedAt`, `tagged` and `notedAt` say what their
+ * computer did, and `needs` why one came back to them.
  */
 export const referrals = addonOutreach.table(
   'referrals',
@@ -671,8 +673,12 @@ export const referrals = addonOutreach.table(
     profileId: uuid('profile_id').notNull(),
     why: text('why'),
     comment: text('comment').notNull(),
-    note: text('note').notNull(),
+    note: text('note'),
     state: text('state').notNull().default('waiting').$type<ReferralState>(),
+    postedAt: ts('posted_at'),
+    tagged: boolean('tagged'),
+    notedAt: ts('noted_at'),
+    needs: text('needs'),
     doneAt: ts('done_at'),
     skippedAt: ts('skipped_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
@@ -685,6 +691,40 @@ export const referrals = addonOutreach.table(
       columns: [t.workspaceId, t.postId],
       foreignColumns: [posts.workspaceId, posts.id],
     }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * The note to someone referred twice (decision 185, ../referrals.ts): it asks if they'd send people the person's way
+ * too, or have a call, once the chat has been quiet a few days. One a person, ever. Waiting for the person, approved
+ * (sent for them on Facebook), done, or put aside.
+ */
+export const referAsks = addonOutreach.table(
+  'refer_asks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** Whom it goes to. */
+    profileId: uuid('profile_id').notNull(),
+    text: text('text').notNull(),
+    state: text('state').notNull().default('waiting').$type<ReferralState>(),
+    needs: text('needs'),
+    sentAt: ts('sent_at'),
+    doneAt: ts('done_at'),
+    skippedAt: ts('skipped_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.profileId),
     foreignKey({
       columns: [t.workspaceId, t.profileId],
       foreignColumns: [profiles.workspaceId, profiles.id],
