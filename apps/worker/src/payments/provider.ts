@@ -197,6 +197,12 @@ export interface PaymentResult {
   readonly cardLast4: string | null;
   /** Stripe's charge behind the payment (`ch_…`), which a transfer to a partner is tied to. Not every provider says. */
   readonly chargeRef?: string | null;
+  /**
+   * How the customer actually paid, where the provider says. Stripe's payment box offers every way the business
+   * switched on, so a customer who picked Card on our page can still pay by bank inside it: its answer is the
+   * truth, and ours is only the guess made before they pressed. Null or left out: keep the way they picked.
+   */
+  readonly method?: PaymentMethodKind | null;
 }
 
 export interface RefundInput {

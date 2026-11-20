@@ -34,6 +34,7 @@ import {
   type PaymentCapabilities,
   type PaymentEvent,
   type PaymentFees,
+  type PaymentMethodKind,
   type PaymentProvider,
   type PaymentResult,
   type PaymentState,
@@ -111,6 +112,16 @@ function stateOf(status: string): PaymentState {
     default:
       return 'requires_payment';
   }
+}
+
+/**
+ * How the customer paid, from the charge's own `payment_method_details.type`: a bank account, or a card (Apple Pay,
+ * Google Pay and Link's saved cards all arrive as one). Anything else, or no charge yet, says nothing.
+ */
+function methodOfCharge(type: string | null): PaymentMethodKind | null {
+  if (type === 'us_bank_account') return 'ach';
+  if (type === 'card' || type === 'link') return 'card';
+  return null;
 }
 
 const subscriptionState = (status: string, paused: boolean): SubscriptionState => {
@@ -399,7 +410,8 @@ export function createStripePayments(opts: {
     const charge = obj(i['latest_charge']);
     const balance = obj(charge['balance_transaction']);
     // The card, when it was one: the intent is read back with its charge expanded, which carries these.
-    const card = obj(obj(charge['payment_method_details'])['card']);
+    const details = obj(charge['payment_method_details']);
+    const card = obj(details['card']);
     const state = stateOf(status);
     return {
       providerPaymentId: String(i['id'] ?? ''),
@@ -417,6 +429,7 @@ export function createStripePayments(opts: {
       // A charge made here answers with its charge's id; one read back has it expanded.
       chargeRef:
         typeof i['latest_charge'] === 'string' ? str(i['latest_charge']) : str(charge['id']),
+      method: methodOfCharge(str(details['type'])),
     };
   }
 

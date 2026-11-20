@@ -2,8 +2,9 @@
 
 The owner (20 Nov 2026): "lets start integrating paypal into the payments options along side stripe and square".
 
-**Where it stands (20 Nov 2026):** a plan only. The four picks below wait on the owner's answers; nothing is built
-yet. The picks marked ★ are the recommendation, and the build order assumes them.
+**Where it stands (20 Nov 2026):** the owner picked 1a, 2a, 3a and 4a at 19:19 UTC on 20 Nov (every
+recommendation below). Part 1, the real Stripe and Square fields on the customer's pages, is built in PR #696. The
+PayPal parts follow it.
 
 This is about a **business taking money from its own customers** (invoices, pay links, booking deposits). It has
 nothing to do with how HandsFreeOS bills businesses for their plan.
@@ -22,9 +23,9 @@ nothing to do with how HandsFreeOS bills businesses for their plan.
   open the payment form just now." The live database had one live Stripe connection and no payment ever taken
   through a provider (257 payments, all recorded by hand).
 
-## Picks (waiting on the owner)
+## Decisions (the owner, 20 Nov 2026)
 
-| #   | Question                                | ★ Recommendation                                                                                                                                                |
+| #   | Question                                | Answer (all were the recommendation)                                                                                                                            |
 | --- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | Fix the Stripe and Square card box too? | **Yes, first, in its own PR.** PayPal's buttons go in the same spot on the same pages.                                                                          |
 | 2   | How a business connects PayPal          | **One Connect PayPal button** (PayPal's partner sign-up), like Stripe and Square. Live use needs PayPal to approve HandsFreeOS as a partner; sandbox works now. |
@@ -51,10 +52,17 @@ New worker settings: `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_PARTNER
 `PAYPAL_WEBHOOK_ID`, `PAYPAL_ENVIRONMENT`. The stand-in (`apps/worker/src/payments/fake.ts`) gets a PayPal too, so the
 tests, the seed and local development never need a PayPal account.
 
-## Build order (with the ★ picks)
+## Build order
 
-1. **Card box for Stripe and Square** (own PR): Stripe's Payment Element and Square's Web Payments SDK on the invoice
-   page and the deposit step, in place of the "couldn't open the payment form" dead end. No migration.
+1. **Card box for Stripe and Square** (PR #696): Stripe's Payment Element and Square's card field on the invoice page
+   and the deposit step, in place of the "couldn't open the payment form" dead end
+   (`apps/web/src/components/money/provider-fields.tsx`). No migration.
+   - Stripe's box offers every way the business switched on (we still never name the methods), with the one picked
+     on our page first. So the way a payment was made is now the provider's answer: `PaymentResult.method`, and
+     `invoice.record_payment` takes it on the provider's first answer only.
+   - Square's bank transfer needs Plaid's sign-in on the page, which isn't built. Square doesn't report an
+     `ACH_PROCESSING` capability on locations today, so real Square accounts already offer card alone; if one ever
+     offers a bank transfer, the page says to pay by card instead of showing a dead form.
 2. **PayPal in the worker:** the adapter, its stand-in, the sign-in and its return, webhooks, refunds. Tests beside
    the Stripe and Square ones.
 3. **Settings and onboarding:** Connect PayPal in Settings → Payments and the onboarding payments step (web and phone),

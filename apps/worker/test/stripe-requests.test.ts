@@ -131,6 +131,33 @@ describe('what the customer is offered', () => {
   });
 });
 
+describe('how the customer actually paid', () => {
+  /**
+   * Stripe's payment box offers every way the business takes, so a customer who picked Card on our page can pay
+   * by bank inside it. The intent read back says which, and that answer is what gets kept.
+   */
+  const readBack = (type: string | null) =>
+    stripeWatching({
+      id: 'pi_1',
+      status: type === 'us_bank_account' ? 'processing' : 'succeeded',
+      amount: 12_000,
+      latest_charge: type ? { id: 'ch_1', payment_method_details: { type } } : {},
+    }).provider.confirmFromClient(connected, 'pi_1');
+
+  it('says a bank account was a bank transfer', async () => {
+    expect((await readBack('us_bank_account')).method).toBe('ach');
+  });
+
+  it('says a card was a card, Link and the wallets included', async () => {
+    expect((await readBack('card')).method).toBe('card');
+    expect((await readBack('link')).method).toBe('card');
+  });
+
+  it('says nothing when there is no charge to read yet', async () => {
+    expect((await readBack(null)).method).toBeNull();
+  });
+});
+
 describe('a charge with nobody watching', () => {
   const noRedirects = (body: URLSearchParams) => {
     expect(body.get('automatic_payment_methods[enabled]')).toBe('true');

@@ -839,6 +839,8 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
       receivedAt?: string | null;
       cardBrand?: string | null;
       cardLast4?: string | null;
+      /** How they actually paid, when the provider said: Stripe's box offers every way the business takes. */
+      method?: PaymentMethodKind | null;
     },
   ) {
     const { output } = await executeCommand(
@@ -848,7 +850,7 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
         workspaceId: scope.workspaceId,
         invoiceId: ctx.invoice.id,
         amountCents: ctx.amountCents,
-        method: ctx.method,
+        method: over.method ?? ctx.method,
         provider: ctx.account.session.provider,
         connectionId: ctx.account.connection.id,
         idempotencyKey: ctx.idempotencyKey,
@@ -892,7 +894,7 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
     paymentId,
     status: result.status,
     amountCents: result.amountCents,
-    method: ctx.method,
+    method: result.method ?? ctx.method,
     /** Plain words for a decline; never the provider's own message. */
     failureMessage: result.failureMessage,
     failureCode: result.failureCode,
@@ -1342,6 +1344,8 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
               status: 'requires_payment' as const,
               amountCents: ctx.amountCents,
               method: ctx.method,
+              /** Whose fields the page shows: Stripe's payment box or Square's card field. */
+              provider: ctx.account.session.provider,
               flow: session.flow,
               publishableKey: session.publishableKey,
               accountId: session.accountId,
@@ -1389,6 +1393,7 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
           receivedAt: result.receivedAt,
           cardBrand: result.cardBrand,
           cardLast4: result.cardLast4,
+          method: result.method ?? null,
         });
         return {
           stage: 'recorded' as const,
