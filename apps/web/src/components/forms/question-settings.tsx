@@ -37,6 +37,7 @@ import { cueErrorMessage, writeCues } from '@/lib/forms/poll-cues';
 import { mapsKey } from '@/lib/maps/google';
 import { pollAiErrorMessage, suggestPoints } from '@/lib/forms/poll-leads';
 import { newChoice } from './editor-state';
+import { QuantitiesSettings } from './quantities-settings';
 import { RequiredField, RequiredInput } from './required-text';
 
 const TARGET_KEYS = Object.keys(ANSWER_TARGETS) as AnswerTargetKey[];
@@ -125,6 +126,17 @@ export function QuestionSettings({
           apply={apply}
           readOnly={readOnly}
           quiz={definition.mode === 'quiz'}
+        />
+      ) : null}
+
+      {question.type === 'quantities' ? (
+        <QuantitiesSettings
+          workspaceId={workspaceId}
+          question={question}
+          questionId={questionId}
+          apply={apply}
+          catalogs={catalogs}
+          readOnly={readOnly}
         />
       ) : null}
 

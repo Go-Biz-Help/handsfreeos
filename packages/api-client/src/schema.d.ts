@@ -21207,7 +21207,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What the editor’s pickers offer: the pipelines and their stages, the tags, the live workflows, the fields the business invented, and the team.
+         * What the editor’s pickers offer: the pipelines and their stages, the tags, the live workflows, the fields the business invented, the team, and the price list’s products for a “How many of each” question.
          * @description Requires workspace.read.
          */
         post: operations["query_form_catalogs"];
@@ -82561,6 +82561,16 @@ export interface operations {
                                 id: string;
                                 name: string;
                             }[];
+                        }[];
+                        products: {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "product" | "service" | "fee";
+                            name: string;
+                            priceCents: number;
+                            sku: string | null;
+                            unitLabel: string;
                         }[];
                         tags: {
                             /** Format: uuid */

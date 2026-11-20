@@ -1,7 +1,20 @@
-import { isSingleCheckbox, type AnswerValue, type Question } from '@hfos/core';
+import {
+  isSingleCheckbox,
+  MAX_QUANTITY,
+  money,
+  quantityRowsOf,
+  quantityTotal,
+  quantityTotalWords,
+  quantityWorthCents,
+  rowPriceCents,
+  type AnswerValue,
+  type Question,
+} from '@hfos/core';
+import { Minus, Plus } from 'lucide-react-native';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
+import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
@@ -89,7 +102,9 @@ export function QuestionField({
       </Text>
       {question.help ? <Text className="text-[13px] text-text-3">{question.help}</Text> : null}
 
-      {question.type === 'yes_no' ? (
+      {question.type === 'quantities' ? (
+        <Quantities question={question} value={value} onChange={onChange} />
+      ) : question.type === 'yes_no' ? (
         <View className="flex-row items-center gap-3 py-1">
           <Switch
             label={question.title}
@@ -168,6 +183,97 @@ export function QuestionField({
           {problem}
         </Text>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * How many of each (core's forms/quantities.ts): a row per size, flavour or product with a minus, the count and a
+ * plus, big enough for a thumb at a craft fair's table, and the total under them. Only rows above 0 are kept, so
+ * taking every row back to 0 is no answer again.
+ */
+function Quantities({
+  question,
+  value,
+  onChange,
+}: {
+  question: Question;
+  value: AnswerValue;
+  onChange: (value: AnswerValue) => void;
+}) {
+  const config = question.config as { unit?: string; showPrices?: boolean };
+  const showPrices = config.showPrices !== false;
+  const counts: Record<string, number> =
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? { ...(value as Record<string, number>) }
+      : {};
+  const set = (rowId: string, next: number) => {
+    const out = { ...counts };
+    if (!Number.isFinite(next) || next <= 0) delete out[rowId];
+    else out[rowId] = Math.min(Math.floor(next), MAX_QUANTITY);
+    onChange(Object.keys(out).length ? out : null);
+  };
+  const worth = showPrices ? quantityWorthCents(question, counts) : null;
+  return (
+    <View className="gap-1.5">
+      {quantityRowsOf(question).map((row) => {
+        const count = counts[row.id] ?? 0;
+        const price = showPrices ? rowPriceCents(row) : null;
+        return (
+          <View
+            key={row.id}
+            className={cn(
+              'min-h-12 flex-row items-center gap-2 rounded-menu border px-3 py-1.5',
+              count > 0 ? 'border-accent bg-accent-soft' : 'border-border-strong bg-card',
+            )}
+            testID={`quantity-${question.id}-${row.id}`}
+          >
+            <View className="flex-1">
+              <Text className="text-[15px]">{row.label}</Text>
+              {price !== null ? (
+                <Text className="text-[12px] text-text-3">{money(price)} each</Text>
+              ) : null}
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`One fewer ${row.label}`}
+              disabled={count <= 0}
+              onPress={() => set(row.id, count - 1)}
+              className={cn(
+                'h-10 w-10 items-center justify-center rounded-menu border border-border-strong',
+                count <= 0 && 'opacity-40',
+              )}
+            >
+              <Icon as={Minus} className="size-4 text-text-2" />
+            </Pressable>
+            <Input
+              value={count > 0 ? String(count) : ''}
+              placeholder="0"
+              keyboardType="number-pad"
+              textAlign="center"
+              accessibilityLabel={`How many ${row.label}`}
+              className="h-10 w-14 px-1"
+              onChangeText={(text) => set(row.id, text.trim() === '' ? 0 : Number(text))}
+              testID={`quantity-input-${question.id}-${row.id}`}
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`One more ${row.label}`}
+              disabled={count >= MAX_QUANTITY}
+              onPress={() => set(row.id, count + 1)}
+              className="h-10 w-10 items-center justify-center rounded-menu border border-border-strong"
+            >
+              <Icon as={Plus} className="size-4 text-text-2" />
+            </Pressable>
+          </View>
+        );
+      })}
+      <View className="flex-row justify-between pt-0.5">
+        <Text className="text-[13px] text-text-2">
+          {quantityTotalWords(quantityTotal(counts), config.unit ?? '')}
+        </Text>
+        {worth !== null ? <Text className="text-[13px] font-medium">{money(worth)}</Text> : null}
+      </View>
     </View>
   );
 }

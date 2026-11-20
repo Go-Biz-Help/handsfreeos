@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { AddressField } from './address-field';
 import { BookingPicker } from './booking-picker';
 import { useFormLook } from './form-look';
+import { QuantitiesField } from './quantities-field';
 import { VideoPlayer } from './video-player';
 
 /** The boxes people type in, which can carry their question's words inside them (the design's labels). */
@@ -283,6 +284,8 @@ function Answer({
       );
     case 'address':
       return <AddressField question={question} value={value} onChange={onChange} />;
+    case 'quantities':
+      return <QuantitiesField question={question} value={value} onChange={onChange} inputId={id} />;
     case 'signature':
       return (
         <div>

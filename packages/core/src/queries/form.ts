@@ -8,7 +8,7 @@
  */
 import { and, desc, eq, inArray, ne, sql as dsql } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { formResponses, forms, formVersions } from '@hfos/db/schema';
+import { formResponses, forms, formVersions, products } from '@hfos/db/schema';
 import { userNames, uuidArray } from '../calendar/load';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
@@ -215,13 +215,26 @@ export const formVersionGet = defineQuery({
 export const formCatalogs = defineQuery({
   name: 'form.catalogs',
   description:
-    'What the editor’s pickers offer: the pipelines and their stages, the tags, the live workflows, the fields the business invented, and the team.',
+    'What the editor’s pickers offer: the pipelines and their stages, the tags, the live workflows, the fields the business invented, the team, and the price list’s products for a “How many of each” question.',
   input: FormCatalogsInput,
   output: FormCatalogsOutput,
   permission: 'workspace.read',
   scope: inWorkspace,
   async handler(ctx, input) {
     const catalogs = await loadFormCatalogs(ctx.tx, input.workspaceId);
+    // What's still sold; someone who can't see money (money.read) gets none, as the price list shows them none.
+    const priceList = await ctx.tx
+      .select({
+        id: products.id,
+        name: products.name,
+        sku: products.sku,
+        kind: products.kind,
+        unitPriceCents: products.unitPriceCents,
+        unitLabel: products.unitLabel,
+      })
+      .from(products)
+      .where(and(eq(products.workspaceId, input.workspaceId), dsql`${products.archivedAt} is null`))
+      .orderBy(dsql`lower(${products.name})`);
     const team = await rows<{ user_id: string; name: string }>(
       ctx.tx,
       sql`select wm.user_id, coalesce(nullif(u.full_name, ''), u.email::text) as name
@@ -242,6 +255,14 @@ export const formCatalogs = defineQuery({
         type: f.type,
       })),
       team: team.map((t) => ({ userId: t.user_id, name: t.name })),
+      products: priceList.map((p) => ({
+        id: p.id,
+        name: p.name,
+        sku: p.sku,
+        kind: p.kind,
+        priceCents: Number(p.unitPriceCents),
+        unitLabel: p.unitLabel,
+      })),
     };
   },
 });
@@ -542,6 +563,15 @@ export const formResults = defineQuery({
           where a.form_id = ${row.id}
           group by a.question_id, l.label order by 3 desc`,
     );
+    // How many of each: every order's count for each row, added up, so a T-shirt form shows how many of each size.
+    const rowCounts = await rows<{ question_id: string; row_id: string; count: number }>(
+      ctx.tx,
+      sql`select a.question_id, e.key as row_id, sum(e.value::numeric)::int as count
+          from app.form_answers a, jsonb_each_text(a.value) as e(key, value)
+          where a.form_id = ${row.id} and a.question_type = 'quantities'
+            and jsonb_typeof(a.value) = 'object' and e.value ~ '^[0-9]+$'
+          group by a.question_id, e.key`,
+    );
     const samples = await rows<{ question_id: string; text_value: string }>(
       ctx.tx,
       sql`select question_id, text_value from (
@@ -569,9 +599,21 @@ export const formResults = defineQuery({
           title: q.title,
           type: q.type,
           answered: Number(found?.answered ?? 0),
-          choices: choiceCounts
-            .filter((c) => c.question_id === q.id)
-            .map((c) => ({ label: c.label, count: Number(c.count) })),
+          choices:
+            q.type === 'quantities'
+              ? // A bar per row, in the question's order, counting what was ordered rather than who picked it.
+                q.config.choices
+                  .map((r) => ({
+                    label: r.label,
+                    count: Number(
+                      rowCounts.find((c) => c.question_id === q.id && c.row_id === r.id)?.count ??
+                        0,
+                    ),
+                  }))
+                  .filter((c) => c.count > 0)
+              : choiceCounts
+                  .filter((c) => c.question_id === q.id)
+                  .map((c) => ({ label: c.label, count: Number(c.count) })),
           average:
             found?.average !== null && found?.average !== undefined
               ? Math.round(Number(found.average) * 100) / 100

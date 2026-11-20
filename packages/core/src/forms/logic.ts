@@ -12,7 +12,12 @@
  */
 import { z } from 'zod';
 import { CalculationId, QuestionId } from './ids';
-import { answerIsEmpty, type AnswerValue, type QuestionType } from './questions';
+import {
+  answerIsEmpty,
+  isQuantitiesAnswer,
+  type AnswerValue,
+  type QuestionType,
+} from './questions';
 
 // ---- What a rule can read ----
 
@@ -181,14 +186,16 @@ const same = (a: unknown, b: unknown): boolean => {
 };
 
 /**
- * An answer as a number: a number is itself, a list is how many were picked, yes is 1 and no is 0, and
- * text is the number in it when there is one.
+ * An answer as a number: a number is itself, a list is how many were picked, yes is 1 and no is 0, how many of
+ * each is how many in all, and text is the number in it when there is one.
  */
 export function numericAnswer(value: unknown): number | null {
   if (value === null || value === undefined) return null;
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
   if (typeof value === 'boolean') return value ? 1 : 0;
   if (Array.isArray(value)) return value.length;
+  if (isQuantitiesAnswer(value))
+    return Object.values(value).reduce((sum, n) => sum + (Number.isFinite(n) && n > 0 ? n : 0), 0);
   if (typeof value === 'string') {
     const n = Number(value.replace(/[$,\s]/g, ''));
     return Number.isFinite(n) && value.trim() !== '' ? n : null;
@@ -207,6 +214,13 @@ function readSource(source: LogicSource, facts: LogicFacts): unknown {
     case 'percent':
       return facts.score?.percent ?? null;
   }
+}
+
+/** A pick-any holds the choice; a "How many of each" has some of that row; anything else is that answer. */
+function includes(raw: unknown, value: unknown): boolean {
+  if (Array.isArray(raw)) return raw.some((r) => same(r, value));
+  if (isQuantitiesAnswer(raw)) return typeof value === 'string' && (raw[value] ?? 0) > 0;
+  return same(raw, value);
 }
 
 function check(condition: AnswerCondition, raw: unknown): boolean {
@@ -238,9 +252,9 @@ function check(condition: AnswerCondition, raw: unknown): boolean {
         value.some((v) => (Array.isArray(raw) ? raw.some((r) => same(r, v)) : same(raw, v)))
       );
     case 'includes':
-      return Array.isArray(raw) ? raw.some((r) => same(r, value)) : same(raw, value);
+      return includes(raw, value);
     case 'excludes':
-      return !(Array.isArray(raw) ? raw.some((r) => same(r, value)) : same(raw, value));
+      return !includes(raw, value);
     case 'contains':
       return !empty && text(raw).includes(text(value));
     case 'not_contains':
@@ -311,7 +325,9 @@ export type CalculationInput = z.input<typeof Calculation>;
 
 /**
  * The numeric worth of an answer for arithmetic: a picked choice counts as its `value` (a price), and a
- * pick-any question as its picked choices' values added up. Falls back to the plain number in the answer.
+ * pick-any question as its picked choices' values added up. A "How many of each" whose rows have prices is what
+ * the order comes to (each row's count × its price; a row with no price adds nothing), and one with no prices is
+ * how many in all. Falls back to the plain number in the answer.
  */
 export function answerNumber(
   questionId: string,
@@ -320,6 +336,16 @@ export function answerNumber(
 ): number {
   const raw = answers[questionId] ?? null;
   if (raw === null) return 0;
+  if (isQuantitiesAnswer(raw)) {
+    const rows = Object.entries(raw).filter(([, n]) => Number.isFinite(n) && n > 0);
+    const priced = choiceValues ? rows.filter(([id]) => id in choiceValues) : [];
+    if (priced.length)
+      // Cents, so 3 × $12.10 is $36.30 and not $36.299999.
+      return (
+        priced.reduce((sum, [id, n]) => sum + Math.round(choiceValues![id]! * 100) * n, 0) / 100
+      );
+    return rows.reduce((sum, [, n]) => sum + n, 0);
+  }
   if (choiceValues) {
     if (typeof raw === 'string' && raw in choiceValues) return choiceValues[raw]!;
     if (Array.isArray(raw)) {

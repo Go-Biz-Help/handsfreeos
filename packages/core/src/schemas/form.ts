@@ -387,6 +387,17 @@ export const FormCatalogsOutput = z.object({
     z.object({ id: uuid, entity: z.string(), label: z.string(), type: z.string() }),
   ),
   team: z.array(z.object({ userId: uuid, name: z.string() })),
+  /** The price list's products still sold, for a "How many of each" question's rows. */
+  products: z.array(
+    z.object({
+      id: uuid,
+      name: z.string(),
+      sku: z.string().nullable(),
+      kind: z.enum(['product', 'service', 'fee']),
+      priceCents: z.int(),
+      unitLabel: z.string(),
+    }),
+  ),
   calendars: z.array(
     z.object({
       id: uuid,
