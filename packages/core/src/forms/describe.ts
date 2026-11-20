@@ -32,6 +32,10 @@ export function questionLine(question: Question): string {
     const choices = choicesOf(question);
     bits.push(choices.length === 1 ? '1 choice' : `${choices.length} choices`);
   }
+  if (question.type === 'quantities') {
+    const rows = choicesOf(question);
+    bits.push(rows.length === 1 ? '1 row' : `${rows.length} rows`);
+  }
   if (question.showIf.conditions.length) bits.push('only sometimes');
   if (question.mapTo) bits.push('fills in a field');
   return `${question.title} — ${bits.join(', ')}`;
@@ -109,6 +113,8 @@ const REQUIRED_WORDS = { true: 'required', false: 'optional' } as const;
 export function describeFormOp(op: FormOp, before: FormDefinition): string {
   const title = (questionId: string) =>
     findQuestion(before, questionId)?.question.title ?? 'a question';
+  const rowOrChoice = (questionId: string) =>
+    findQuestion(before, questionId)?.question.type === 'quantities' ? 'a row' : 'a choice';
   switch (op.op) {
     case 'add_question': {
       const question = op.question as { title?: string; type?: string };
@@ -138,9 +144,9 @@ export function describeFormOp(op: FormOp, before: FormDefinition): string {
       return changes.length ? `${name}: ${changes.join(', ')}` : `Changed ${name}`;
     }
     case 'add_choice':
-      return `Added a choice to ${quoted(title(op.questionId))}`;
+      return `Added ${rowOrChoice(op.questionId)} to ${quoted(title(op.questionId))}`;
     case 'delete_choice':
-      return `Removed a choice from ${quoted(title(op.questionId))}`;
+      return `Removed ${rowOrChoice(op.questionId)} from ${quoted(title(op.questionId))}`;
     case 'add_page':
       return 'Added a page';
     case 'delete_page':

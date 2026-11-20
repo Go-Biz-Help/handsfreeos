@@ -33,7 +33,8 @@ several views of one thing rather than several things that drift.
   keeps them from disagreeing.
 - **`describe.ts`** — plain English for a change ("“Your phone”: made it required") and `diffForms`.
 - **`ai-tools.ts`** — the flat tools the builder calls, and the checking that turns them into ops.
-- **`starters.ts`** — nine forms a business can publish as they come.
+- **`starters.ts`** — ten forms a business can publish as they come, the custom order among them.
+- **`quantities.ts`** — a "How many of each" answer: its rows, its total, what it comes to and its words.
 
 ## Rules worth knowing before changing anything
 
@@ -160,6 +161,46 @@ Drafts stay valid, so nothing about publishing changes.
   appear without one of its maps.
 - **Only the street box searches,** so an address that asks for just the town and ZIP has no switch. The phone fills
   an address in with its plain boxes.
+
+## How many of each (orders)
+
+For a business that sells things (2026-11-20, the owner's picks 1a 2a 3a 4a 5a 6b): a T-shirt shop's sizes, a bakery's
+flavors, a crafter's mugs, tumblers, keychains and pins. **How many of each** (`type: 'quantities'`, in the add menu's
+Numbers group) is rows the business names, a number box beside each with a minus and a plus, and the total under them
+("24 shirts"), with what it comes to when the rows have prices. Two columns from five rows, as on a paper order form;
+one on a phone. The **Custom order** starter asks what they'd like (T-shirts, Mugs, Tumblers, Keychains, Pins,
+Something else) and shows a How many of each for each one picked, then colors, pickup or delivery, the date and
+design notes.
+
+- **The rows are `config.choices`** (`QuantityRow`: `label`, `price` in dollars or null, `productId`), so they're
+  added, reworded, reordered and removed with a choice's ops (`add_choice`, `delete_choice`, `update_question` with
+  `config.choices` by id), and the AI builder and the Assistant write them the same way. Settings: `unit` (what the
+  total counts), `minTotal` and `maxTotal` (a 12-shirt minimum), `showPrices`.
+- **The answer is how many of each row by its id** (`QuantitiesAnswer`, `{"c_ab12cd34": 3}`), only rows above 0.
+  Nothing ordered is `{}`, which is no answer, so a required one asks again. Rewording "Adult M" keeps every order
+  already given pointing at it.
+- **Rows from the price list.** **Add from your products…** (and **Add all N**) copies a product's name and price into
+  a row and keeps its `productId` (the editor reads them from `form.catalogs`' `products`; someone without
+  `money.read` sees none). Like an invoice's line, the row keeps its copy, so repricing a product never reprices a live
+  form; when they've drifted apart the row says so and offers **Use that price**.
+
+**What rules here:**
+
+- **In a rule it's how many in all; in a calculation it's what it comes to.** `numericAnswer` reads the total count,
+  so "is at least 24" works; `includes` a row's id is true when they ordered some of it. `answerNumber` (calculations)
+  reads count × price over the rows when any row has a price (a row without one adds nothing), and the count when
+  none do. It's worked out in cents, so 3 × $10.10 is $30.30.
+- **What the order comes to can be the lead's value.** Where the answer goes → **Lead value** (`lead.value` accepts
+  it) puts count × price on the lead (`patchesFromAnswers`).
+- **It's kept in words too.** `recordAnswers` keeps only the rows ordered and their words ("Adult M × 5, Adult 2XL × 2 ·
+  7 shirts · $88", `quantitiesWords`) in `form_answers.text_value`, which the timeline, the phone, the export and the
+  Assistant read; `number_value` is how many in all. **Results** draws a bar per row counting what was ordered, with the
+  total and the usual order's size.
+- **The phone fills it in** with a minus, the count and a plus per row, and the Assistant's `fill_in_form` takes
+  counts by row id or words (`{"Adult M": 5}`, or "Adult M: 5, Adult L: 3"). **The AI teammate doesn't ask one** in a
+  conversation (`NOT_IN_CHAT_TYPES`): a form with one is sent as a link. It reads a sent one in words, never ids.
+- **Checked like any answer, on the page and the server** (`quantitiesProblem`): whole numbers only, up to 10,000 of a
+  row, only rows the question has, and the least and the most in all ("The least is 12 shirts in all. You have 8.").
 
 ## The public page
 

@@ -1,12 +1,13 @@
 {
   "area": "marketing",
   "title": "Campaigns, Reviews, Forms, surveys, quizzes and website chats",
-  "checkedOn": "2026-11-19",
+  "checkedOn": "2026-11-20",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/forms.tsx": "ec0ccb8ac910",
     "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/answers/[responseId].tsx": "ee23933f5989",
     "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/fill.tsx": "4b12a155a165",
     "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/index.tsx": "3763eae06167",
+    "apps/mobile/src/components/forms/question-field.tsx": "59450d2e196b",
     "apps/mobile/src/forms/export-answers.ts": "3f98c2892b3a",
     "apps/mobile/src/forms/qr-image.ts": "335d7b886235",
     "apps/mobile/src/forms/qr.ts": "7b9c6c1d6851",
@@ -34,7 +35,7 @@
     "apps/web/src/components/forms/booking-picker.tsx": "0b81d8526d1a",
     "apps/web/src/components/forms/chips.tsx": "9f46c43f3308",
     "apps/web/src/components/forms/design-panel.tsx": "d43d1c96a7f3",
-    "apps/web/src/components/forms/editor-state.ts": "f0f625bca14e",
+    "apps/web/src/components/forms/editor-state.ts": "46b32473f0ab",
     "apps/web/src/components/forms/editor.tsx": "1a53390c2def",
     "apps/web/src/components/forms/embed-height.tsx": "bafe88e2662d",
     "apps/web/src/components/forms/form-list.tsx": "56e0517bcfd4",
@@ -48,12 +49,14 @@
     "apps/web/src/components/forms/poll-slides.tsx": "9a3e003f5c23",
     "apps/web/src/components/forms/preview.tsx": "1cf76a16916f",
     "apps/web/src/components/forms/public-form.tsx": "74581f9d1c48",
-    "apps/web/src/components/forms/question-field.tsx": "b80ae03048fa",
+    "apps/web/src/components/forms/quantities-field.tsx": "526b0d724c85",
+    "apps/web/src/components/forms/quantities-settings.tsx": "d787fa98812f",
+    "apps/web/src/components/forms/question-field.tsx": "35f58a7b5769",
     "apps/web/src/components/forms/question-list.tsx": "0574a7ce3a88",
-    "apps/web/src/components/forms/question-settings.tsx": "ca7501ee279f",
+    "apps/web/src/components/forms/question-settings.tsx": "fcce8ce168dc",
     "apps/web/src/components/forms/required-text.tsx": "0cb90deec1e4",
     "apps/web/src/components/forms/responses.tsx": "b5b52bf7900a",
-    "apps/web/src/components/forms/results.tsx": "6dac7b5b3c0b",
+    "apps/web/src/components/forms/results.tsx": "051baab9f435",
     "apps/web/src/components/forms/share.tsx": "2bfbad5c8d8f",
     "apps/web/src/components/forms/steps.tsx": "45030e8f6bdb",
     "apps/web/src/components/forms/video-player.tsx": "15b62433f2c1",
@@ -1244,203 +1247,266 @@
     {
       "path": "Forms → a form → a question → what it holds now: the line underneath, choice words, its settings, where it goes",
       "kind": "see",
-      "file": "apps/web/src/components/forms/question-settings.tsx:82",
+      "file": "apps/web/src/components/forms/question-settings.tsx:83",
       "covered": "yes",
       "by": "get_form questions: choices, fillsIn, showsOnlyWhen and settings"
     },
     {
       "path": "Forms → a form → a question → What does it ask?",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:84",
+      "file": "apps/web/src/components/forms/question-settings.tsx:85",
       "covered": "yes",
       "by": "build_form update_question title"
     },
     {
       "path": "Forms → a form → a question → The smaller line underneath",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:94",
+      "file": "apps/web/src/components/forms/question-settings.tsx:95",
       "covered": "yes",
       "by": "build_form update_question help"
     },
     {
       "path": "Forms → a form → a question → Must be answered",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:111",
+      "file": "apps/web/src/components/forms/question-settings.tsx:112",
       "covered": "yes",
       "by": "build_form update_question required"
     },
     {
       "path": "Forms → a form → a question → The choices: change a choice’s words",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:866",
+      "file": "apps/web/src/components/forms/question-settings.tsx:878",
       "covered": "yes",
       "by": "build_form update_question config.choices"
     },
     {
       "path": "Forms → a form → a question → The choices: Right (a quiz)",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:884",
+      "file": "apps/web/src/components/forms/question-settings.tsx:896",
       "covered": "yes",
       "by": "build_form choice points, set_scoring"
     },
     {
       "path": "Forms → a form → a question → The choices: Remove choice (two always stay)",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:911",
+      "file": "apps/web/src/components/forms/question-settings.tsx:923",
       "covered": "yes",
       "by": "build_form update_question config.choices"
     },
     {
       "path": "Forms → a form → a question → The choices: Add a choice",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:935",
+      "file": "apps/web/src/components/forms/question-settings.tsx:947",
       "covered": "yes",
       "by": "build_form update_question config.choices"
     },
     {
       "path": "Forms → a form → a question → How they answer: Yes and No buttons / One box to check",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:309",
+      "file": "apps/web/src/components/forms/question-settings.tsx:321",
       "covered": "yes",
       "by": "build_form json display checkbox"
     },
     {
       "path": "Forms → a form → an address question → Google address search",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:357",
+      "file": "apps/web/src/components/forms/question-settings.tsx:369",
       "covered": "yes",
       "by": "build_form update_question config.search"
     },
     {
+      "path": "Forms → a form → a How many of each question → The rows: a row’s words",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/quantities-settings.tsx:107",
+      "covered": "yes",
+      "by": "build_form update_question config.choices [{id, label}]"
+    },
+    {
+      "path": "Forms → a form → a How many of each question → The rows: a row’s price, or No price",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/quantities-settings.tsx:113",
+      "covered": "yes",
+      "by": "build_form update_question config.choices [{id, price}]"
+    },
+    {
+      "path": "Forms → a form → a How many of each question → The rows: Remove row (one always stays)",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/quantities-settings.tsx:121",
+      "covered": "yes",
+      "by": "build_form update_question config.choices"
+    },
+    {
+      "path": "Forms → a form → a How many of each question → The rows: From your price list, which now says $N: Use that price",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/quantities-settings.tsx:142",
+      "covered": "partly",
+      "by": "build_form update_question config.choices price, with the price from manage_product; it doesn’t see that the two drifted apart"
+    },
+    {
+      "path": "Forms → a form → a How many of each question → The rows: Add a row",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/quantities-settings.tsx:176",
+      "covered": "yes",
+      "by": "build_form add_question quantities with its rows in json choices"
+    },
+    {
+      "path": "Forms → a form → a How many of each question → The rows: Add from your products… / Add all N",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/quantities-settings.tsx:183",
+      "covered": "partly",
+      "by": "build_form add_question quantities with the products’ names and prices; the rows aren’t linked to the products (productId)"
+    },
+    {
+      "path": "Forms → a form → a How many of each question → What it counts",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/quantities-settings.tsx:236",
+      "covered": "yes",
+      "by": "build_form update_question config.unit"
+    },
+    {
+      "path": "Forms → a form → a How many of each question → Least in all, Most in all",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/quantities-settings.tsx:246",
+      "covered": "yes",
+      "by": "build_form update_question config.minTotal, config.maxTotal"
+    },
+    {
+      "path": "Forms → a form → a How many of each question → Show prices",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/quantities-settings.tsx:274",
+      "covered": "yes",
+      "by": "build_form update_question config.showPrices"
+    },
+    {
       "path": "Forms → a form → a question → What it says (words only)",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:141",
+      "file": "apps/web/src/components/forms/question-settings.tsx:153",
       "covered": "yes",
       "by": "build_form config body"
     },
     {
       "path": "Forms → a form → a question → What they are signing",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:197",
+      "file": "apps/web/src/components/forms/question-settings.tsx:209",
       "covered": "yes",
       "by": "build_form config statement"
     },
     {
       "path": "Forms → a form → a question → Least it can be, Most it can be, What it counts",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:210",
+      "file": "apps/web/src/components/forms/question-settings.tsx:222",
       "covered": "yes",
       "by": "build_form config min, max, unit"
     },
     {
       "path": "Forms → a form → a question → Highest, What the low end means, What the high end means",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:251",
+      "file": "apps/web/src/components/forms/question-settings.tsx:263",
       "covered": "yes",
       "by": "build_form config max, minLabel, maxLabel"
     },
     {
       "path": "Forms → a form → a question → The video’s link",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:705",
+      "file": "apps/web/src/components/forms/question-settings.tsx:717",
       "covered": "yes",
       "by": "build_form json url"
     },
     {
       "path": "Forms → a form → a question → Watch before moving on, How much of it",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:727",
+      "file": "apps/web/src/components/forms/question-settings.tsx:739",
       "covered": "yes",
       "by": "build_form json minPercent"
     },
     {
       "path": "Forms → a form → a question → The calendar it books, The service it books, How many days ahead",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:781",
+      "file": "apps/web/src/components/forms/question-settings.tsx:793",
       "covered": "yes",
       "by": "build_form (its builder is given the calendars and their services)"
     },
     {
       "path": "Forms → a form → a question → Where the answer goes (Nowhere, The customer, Fields you invented)",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:960",
+      "file": "apps/web/src/components/forms/question-settings.tsx:972",
       "covered": "yes",
       "by": "build_form mapTo; the builder gets the invented fields"
     },
     {
       "path": "Forms → a live poll → a button → The words on the button",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:614",
+      "file": "apps/web/src/components/forms/question-settings.tsx:626",
       "covered": "yes",
       "by": "build_form button json label"
     },
     {
       "path": "Forms → a live poll → a button → Pressing it: Tell us they’d like to talk, Open a web page, Open the booking page",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:624",
+      "file": "apps/web/src/components/forms/question-settings.tsx:636",
       "covered": "yes",
       "by": "build_form button json action"
     },
     {
       "path": "Forms → a live poll → a button → The web page it opens",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:645",
+      "file": "apps/web/src/components/forms/question-settings.tsx:657",
       "covered": "yes",
       "by": "build_form button json url"
     },
     {
       "path": "Forms → a live poll → a button → The calendar it books on",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:661",
+      "file": "apps/web/src/components/forms/question-settings.tsx:673",
       "covered": "yes",
       "by": "build_form (its builder is given the calendars)"
     },
     {
       "path": "Forms → a live poll → a question → When to ask it",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:401",
+      "file": "apps/web/src/components/forms/question-settings.tsx:413",
       "covered": "yes",
       "by": "build_form update_question live.cues"
     },
     {
       "path": "Forms → a live poll → a question → Write them for me",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:430",
+      "file": "apps/web/src/components/forms/question-settings.tsx:442",
       "covered": "yes",
       "by": "build_form writes the cues"
     },
     {
       "path": "Forms → a live poll → a question → Slide it goes with",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:435",
+      "file": "apps/web/src/components/forms/question-settings.tsx:447",
       "covered": "yes",
       "by": "build_form live.slide"
     },
     {
       "path": "Forms → a live poll → a question → Seconds it stays up",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:460",
+      "file": "apps/web/src/components/forms/question-settings.tsx:472",
       "covered": "yes",
       "by": "build_form live.seconds"
     },
     {
       "path": "Forms → a live poll → a question → Points for each answer",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:556",
+      "file": "apps/web/src/components/forms/question-settings.tsx:568",
       "covered": "yes",
       "by": "build_form live.points"
     },
     {
       "path": "Forms → a live poll → a question → Suggest points",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:588",
+      "file": "apps/web/src/components/forms/question-settings.tsx:600",
       "covered": "yes",
       "by": "build_form, from the person’s words"
     },
     {
       "path": "Forms → a live poll → a question → Show everyone the totals when it closes (or who sees what)",
       "kind": "do",
-      "file": "apps/web/src/components/forms/question-settings.tsx:493",
+      "file": "apps/web/src/components/forms/question-settings.tsx:505",
       "covered": "yes",
       "by": "build_form live.showResults"
     },
@@ -1669,6 +1735,13 @@
       "by": "form_results question, answered"
     },
     {
+      "path": "Forms → a form → Results → a How many of each question: a bar per row, N ordered in all, about N an order",
+      "kind": "see",
+      "file": "apps/web/src/components/forms/results.tsx:174",
+      "covered": "yes",
+      "by": "form_results questions picks (each row and how many were ordered) and average"
+    },
+    {
       "path": "Forms → a form → Results → each question: each choice’s count and share",
       "kind": "see",
       "file": "apps/web/src/components/forms/results.tsx:153",
@@ -1678,21 +1751,21 @@
     {
       "path": "Forms → a form → Results → each question: Average",
       "kind": "see",
-      "file": "apps/web/src/components/forms/results.tsx:174",
+      "file": "apps/web/src/components/forms/results.tsx:187",
       "covered": "yes",
       "by": "form_results average"
     },
     {
       "path": "Forms → a form → Results → each question: the recent written answers",
       "kind": "see",
-      "file": "apps/web/src/components/forms/results.tsx:178",
+      "file": "apps/web/src/components/forms/results.tsx:191",
       "covered": "yes",
       "by": "form_results recentAnswers: every one Results shows, marked as theirs"
     },
     {
       "path": "Forms → a form → Results → Nothing to add up for this one",
       "kind": "see",
-      "file": "apps/web/src/components/forms/results.tsx:189",
+      "file": "apps/web/src/components/forms/results.tsx:202",
       "covered": "yes",
       "by": "form_results"
     },
@@ -1842,6 +1915,13 @@
       "file": "apps/web/src/components/forms/public-form.tsx:407",
       "covered": "person",
       "by": "the customer’s own signed-out page"
+    },
+    {
+      "path": "Public form → How many of each: a box, − and + per row, its price, the total and what it comes to",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/quantities-field.tsx:58",
+      "covered": "person",
+      "by": "the customer’s own signed-out page; fill_in_form takes the counts for answers given in person"
     },
     {
       "path": "Public form → a time to book (open times, or none)",

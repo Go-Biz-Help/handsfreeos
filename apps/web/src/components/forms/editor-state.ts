@@ -172,6 +172,7 @@ const DEFAULT_TITLES: Partial<Record<QuestionType, string>> = {
   video: 'Watch this first',
   booking: 'Pick a time',
   button: 'Ready to take the next step?',
+  quantities: 'How many of each?',
 };
 
 /** A question of that type with the smallest sensible config, ready to drop on a page. */
@@ -224,6 +225,15 @@ function startingConfig(type: QuestionType): Record<string, unknown> {
   if (type === 'signature') return { statement: 'I agree to the work described above.' };
   if (type === 'content') return { body: 'A note for whoever is filling this in.' };
   if (type === 'payment') return { amount: { kind: 'fixed', cents: 5000 }, description: 'Deposit' };
+  // How many of each starts with three rows the business renames: sizes, flavours, or its own products.
+  if (type === 'quantities')
+    return {
+      choices: [
+        { id: newChoiceId(), label: 'Small' },
+        { id: newChoiceId(), label: 'Medium' },
+        { id: newChoiceId(), label: 'Large' },
+      ],
+    };
   return {};
 }
 
