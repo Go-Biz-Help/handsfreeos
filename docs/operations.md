@@ -10091,7 +10091,7 @@ What PayPal does here, as the owner picked it on 2026-11-20:
 
 What you set up here is the **partner** side: HandsFreeOS is a PayPal partner, and that is what lets a business connect with one button (PayPal calls it Partner Referrals). Every value goes on `handsfreeos-worker`. The API refuses to start with any variable starting with `PAYPAL_`, and none goes in Vercel or GitHub except the two on/off switches in PayPal Part 7, which are not secrets.
 
-PayPal needs the migrations `20261027030700_payment_method_from_provider.sql`, `20261027031100_payment_method_paypal_venmo.sql` and `20261027031200_payment_method_paypal_settles.sql`. See "Apply new migrations".
+PayPal needs the migrations `20261027031100_payment_method_from_provider.sql`, `20261027031200_payment_method_paypal_venmo.sql` and `20261027031300_payment_method_paypal_settles.sql`. See "Apply new migrations".
 
 **Until PayPal approves HandsFreeOS as a partner, Connect PayPal says Coming soon** and nobody can press it. Customers see nothing different. Everything below can be set up and tried on PayPal's sandbox while you wait.
 

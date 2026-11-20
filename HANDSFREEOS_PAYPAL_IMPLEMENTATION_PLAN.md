@@ -58,7 +58,7 @@ tests, the seed and local development never need a PayPal account.
 
 1. **Card box for Stripe and Square** (PR #696): Stripe's Payment Element and Square's card field on the invoice page
    and the deposit step, in place of the "couldn't open the payment form" dead end
-   (`apps/web/src/components/money/provider-fields.tsx`). Migration `20261027030700_payment_method_from_provider.sql`.
+   (`apps/web/src/components/money/provider-fields.tsx`). Migration `20261027031100_payment_method_from_provider.sql`.
    - Stripe's box offers every way the business switched on (we still never name the methods), with the one picked
      on our page first. So the way a payment was made is now the provider's answer: `PaymentResult.method`, and
      `invoice.record_payment` takes it on the provider's first answer only.
@@ -70,7 +70,7 @@ tests, the seed and local development never need a PayPal account.
 3. **Settings and onboarding:** Connect PayPal in Settings → Payments and the onboarding payments step (web and phone),
    the account card, Venmo and Pay Later switches; the Assistant's coverage and ledger items.
 4. **The customer's pages:** PayPal's buttons on the invoice page, pay links and the deposit step; new payment methods
-   `paypal` and `venmo` (migrations `20261027031100` and `20261027031200`), shown in Money → Payments and on receipts.
+   `paypal` and `venmo` (migrations `20261027031200` and `20261027031300`), shown in Money → Payments and on receipts.
    - The buttons sit above the card box ("or" between them), or alone when PayPal is the account the money goes to.
      They show beside another account only when the PayPal account is open to everyone (`apps/worker/src/payments/payable.ts`).
    - A deposit is an order with `intent: AUTHORIZE`, captured once the time is confirmed. Venmo and Pay Later are off
