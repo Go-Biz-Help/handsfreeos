@@ -42,7 +42,7 @@
     "apps/web/src/components/money/list-options.ts": "4d1e2f397b76",
     "apps/web/src/components/money/money-input.tsx": "297d3a23947d",
     "apps/web/src/components/money/payments-list.tsx": "842d1f153a67",
-    "apps/web/src/components/money/person-picker.tsx": "8aeb51e81ba0",
+    "apps/web/src/components/money/person-picker.tsx": "0e44e715d4c1",
     "apps/web/src/components/money/plan-editor.tsx": "aa7bbeebe0db",
     "apps/web/src/components/money/plan-page.tsx": "bcf38a673f72",
     "apps/web/src/components/money/plan-start.tsx": "569c1c7f1dc9",
@@ -1322,11 +1322,18 @@
       "by": "personId on a new one only; a saved draft stays with its customer"
     },
     {
-      "path": "Money → draft editor → customer picker: type a name, phone or email; results; ‘Nobody matches. Add them from Contacts first.’",
+      "path": "Money → draft editor → customer picker: type a name, phone or email; results; ‘No one matches “…”.’",
       "kind": "do",
-      "file": "apps/web/src/components/money/person-picker.tsx:89",
+      "file": "apps/web/src/components/money/person-picker.tsx:99",
       "covered": "yes",
       "by": "search_customers → personId"
+    },
+    {
+      "path": "Money → draft editor → customer picker → Add “…” as a new contact (person dialog; the new contact is picked)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/person-picker.tsx:142",
+      "covered": "yes",
+      "by": "create_customer, then the draft’s personId"
     },
     {
       "path": "Money → draft editor → What it is for",

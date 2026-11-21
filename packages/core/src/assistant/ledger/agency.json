@@ -1,7 +1,7 @@
 {
   "area": "agency",
   "title": "The agency side: businesses, AI setups, packs, templates and migrations for an organization",
-  "checkedOn": "2026-11-07",
+  "checkedOn": "2026-11-20",
   "files": {
     "apps/web/src/app/app/org/[orgId]/ai-setups/page.tsx": "7efa22a9b2ba",
     "apps/web/src/app/app/org/[orgId]/businesses/page.tsx": "959e700302ba",
@@ -41,8 +41,8 @@
     "apps/web/src/components/workflows/panels/settings.tsx": "2e13854a6b97",
     "apps/web/src/components/workflows/panels/trigger.tsx": "1fd8396e338d",
     "apps/web/src/components/workflows/step-list.tsx": "b5f0ecc82a57",
-    "apps/web/src/components/workflows/test-panel.tsx": "8b3e038dc5f4",
-    "apps/web/src/components/workflows/variable-field.tsx": "4d2fed286abd",
+    "apps/web/src/components/workflows/test-panel.tsx": "9d48bda36130",
+    "apps/web/src/components/workflows/variable-field.tsx": "2282b4fc14f8",
     "apps/web/src/lib/agency/draft.ts": "784ad42b27a5",
     "apps/web/src/lib/agency/installs.ts": "92a46b90b839",
     "apps/web/src/lib/agency/load.ts": "b56c8ee41263",

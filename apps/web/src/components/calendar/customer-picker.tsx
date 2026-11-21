@@ -1,7 +1,8 @@
 'use client';
 import { NEW_CONTACT_WORDS } from '@hfos/core';
-import { Search, UserPlus, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { AddContactOption, useNewContact } from '@/components/crm/new-contact';
 import { Avatar } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { apiBrowser, unwrap } from '@/lib/api/client';
@@ -14,8 +15,9 @@ export interface PickedCustomer {
 }
 
 /**
- * Search-as-you-type for a person in Contacts (New appointment). With `onAddNew`, a search that finds nobody offers
- * to add what was typed as a new contact.
+ * Search-as-you-type for a person in Contacts (New appointment, a job's customer, a class's attendee). Under what it
+ * finds, and when it finds nobody, it offers to add what was typed as a new contact, who is then the one picked
+ * (`useNewContact`). `addNew={false}` leaves that out where a new contact makes no sense (merging, testing).
  */
 export function CustomerPicker({
   workspaceId,
@@ -24,7 +26,7 @@ export function CustomerPicker({
   id,
   locked,
   exceptId,
-  onAddNew,
+  addNew = true,
 }: {
   workspaceId: string;
   value: PickedCustomer | null;
@@ -34,14 +36,28 @@ export function CustomerPicker({
   locked?: boolean;
   /** Left out of the results: the customer this is picked for (merging one into another). */
   exceptId?: string;
-  /** "Add “Dana Smith” as a new contact", under a search that found nobody; given what was typed. */
-  onAddNew?: (typed: string) => void;
+  /** "Add “Dana Smith” as a new contact" under the results; on unless a new contact makes no sense here. */
+  addNew?: boolean;
 }) {
   const [q, setQ] = useState('');
   const [results, setResults] = useState<PickedCustomer[]>([]);
   /** The search `results` answer, so nobody is said to be missing before the search has come back. */
   const [searched, setSearched] = useState('');
   const [open, setOpen] = useState(false);
+
+  const reset = () => {
+    setQ('');
+    setResults([]);
+    setSearched('');
+  };
+  const adding = useNewContact({
+    workspaceId,
+    enabled: addNew,
+    onAdded: (c) => {
+      reset();
+      onChange({ id: c.id, fullName: c.fullName, detail: c.phone ?? c.email });
+    },
+  });
 
   useEffect(() => {
     const query = q.trim();
@@ -77,32 +93,39 @@ export function CustomerPicker({
 
   if (value)
     return (
-      <div
-        className="flex h-10 min-w-0 items-center gap-2 rounded-control border border-border-strong bg-card px-3 text-[14.5px]"
-        data-testid="appointment-customer"
-      >
-        <Avatar name={value.fullName} seed={value.id} size="sm" />
-        <span className="min-w-0 flex-1 truncate">{value.fullName}</span>
-        {locked ? null : (
-          <button
-            type="button"
-            aria-label="Change customer"
-            className="text-text-3 hover:text-text"
-            onClick={() => {
-              onChange(null);
-              setQ('');
-              setResults([]);
-              setSearched('');
-            }}
-          >
-            <X className="h-4 w-4" strokeWidth={1.5} />
-          </button>
-        )}
-      </div>
+      <>
+        <div
+          className="flex h-10 min-w-0 items-center gap-2 rounded-control border border-border-strong bg-card px-3 text-[14.5px]"
+          data-testid="appointment-customer"
+        >
+          <Avatar name={value.fullName} seed={value.id} size="sm" />
+          <span className="min-w-0 flex-1 truncate">{value.fullName}</span>
+          {locked ? null : (
+            <button
+              type="button"
+              aria-label="Change customer"
+              className="text-text-3 hover:text-text"
+              onClick={() => {
+                onChange(null);
+                reset();
+              }}
+            >
+              <X className="h-4 w-4" strokeWidth={1.5} />
+            </button>
+          )}
+        </div>
+        {adding.dialog}
+      </>
     );
 
   const typed = q.trim();
-  const nobody = !!onAddNew && typed.length >= 2 && searched === typed && !results.length;
+  /** The search for what's typed has come back. */
+  const answered = typed.length >= 2 && searched === typed;
+  const offer = adding.canAdd && answered;
+  const add = () => {
+    setOpen(false);
+    adding.begin(typed);
+  };
 
   return (
     <div className="relative">
@@ -153,31 +176,31 @@ export function CustomerPicker({
               </button>
             </li>
           ))}
+          {offer ? (
+            <li className="mt-1 border-t border-border pt-1">
+              <AddContactOption typed={typed} onAdd={add} />
+            </li>
+          ) : null}
         </ul>
       ) : null}
-      {open && nobody ? (
+      {open && answered && !results.length ? (
         <div
           className="absolute inset-x-0 top-[44px] z-50 rounded-menu border border-border bg-card p-1 shadow-2"
           data-testid="customer-nobody"
         >
-          <p role="status" className="truncate px-2.5 pb-1 pt-1.5 text-[13px] text-text-2">
+          <p
+            role="status"
+            className={cn(
+              'truncate px-2.5 text-[13px] text-text-2',
+              offer ? 'pb-1 pt-1.5' : 'py-1.5',
+            )}
+          >
             {NEW_CONTACT_WORDS.nobody(typed)}
           </p>
-          <button
-            type="button"
-            className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left text-sm font-medium text-accent-text hover:bg-card-2"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => {
-              setOpen(false);
-              onAddNew?.(typed);
-            }}
-            data-testid="customer-add-new"
-          >
-            <UserPlus className="h-4 w-4 flex-none" strokeWidth={1.5} />
-            <span className="min-w-0 flex-1 truncate">{NEW_CONTACT_WORDS.add(typed)}</span>
-          </button>
+          {offer ? <AddContactOption typed={typed} onAdd={add} /> : null}
         </div>
       ) : null}
+      {adding.dialog}
     </div>
   );
 }

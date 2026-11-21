@@ -379,6 +379,7 @@ export function PreviewLabel() {
         <div className="mb-2">
           <CustomerPicker
             workspaceId={workspaceId}
+            addNew={false}
             value={null}
             onChange={(c) => {
               if (c) void pick(c.id);

@@ -15,9 +15,10 @@
     "apps/mobile/src/components/calendar/day-strip.tsx": "67bc148904b9",
     "apps/mobile/src/components/calendar/meeting.tsx": "7e27ce36c5fe",
     "apps/mobile/src/components/calendar/month-grid.tsx": "ba9c859f8c55",
-    "apps/mobile/src/components/calendar/new-appointment.tsx": "5ac5d024710c",
+    "apps/mobile/src/components/calendar/new-appointment.tsx": "97065a044f63",
     "apps/mobile/src/components/calendar/visit-job.tsx": "cf3e380beec3",
     "apps/mobile/src/components/calendar/zone-chips.tsx": "df1b3ae5b12a",
+    "apps/mobile/src/components/customers/new-contact-form.tsx": "b1ce260018e2",
     "apps/mobile/src/components/safety/check-in-sheet.tsx": "e0da61398345",
     "apps/web/src/app/app/w/[workspaceId]/calendar/page.tsx": "6713bd1eb1f4",
     "apps/web/src/app/app/w/[workspaceId]/settings/my-calendar/page.tsx": "c8b1891de1c2",
@@ -39,14 +40,14 @@
     "apps/web/src/components/booking/webinar-door.tsx": "aa74fac075b5",
     "apps/web/src/components/calendar/add-attendee-dialog.tsx": "502e321ab7da",
     "apps/web/src/components/calendar/agenda.tsx": "5a875937bc8b",
-    "apps/web/src/components/calendar/appointment-dialog.tsx": "89b0ad273c7d",
+    "apps/web/src/components/calendar/appointment-dialog.tsx": "203927cbd1b4",
     "apps/web/src/components/calendar/appointment-sheet.tsx": "18d1db33c373",
     "apps/web/src/components/calendar/appt.ts": "762bf72583c0",
     "apps/web/src/components/calendar/calendar-page.tsx": "ec13031132fb",
     "apps/web/src/components/calendar/call-review.tsx": "f69afb7ea4c8",
     "apps/web/src/components/calendar/cancel-dialog.tsx": "05f18f021f01",
     "apps/web/src/components/calendar/config-cache.ts": "8e3ca8370dff",
-    "apps/web/src/components/calendar/customer-picker.tsx": "54cca5817168",
+    "apps/web/src/components/calendar/customer-picker.tsx": "3fb40d1e2435",
     "apps/web/src/components/calendar/job-block.tsx": "60f5d9828e2e",
     "apps/web/src/components/calendar/month-grid.tsx": "4cc9835eca64",
     "apps/web/src/components/calendar/move-dialog.tsx": "6249cf7ee953",
@@ -421,21 +422,21 @@
     {
       "path": "New appointment → Customer → search by name or phone",
       "kind": "do",
-      "file": "apps/web/src/components/calendar/customer-picker.tsx:117",
+      "file": "apps/web/src/components/calendar/customer-picker.tsx:136",
       "covered": "yes",
       "by": "search_customers; book_appointment personId"
     },
     {
       "path": "New appointment → Customer → results, Change customer",
       "kind": "see",
-      "file": "apps/web/src/components/calendar/customer-picker.tsx:133",
+      "file": "apps/web/src/components/calendar/customer-picker.tsx:155",
       "covered": "yes",
       "by": "search_customers"
     },
     {
-      "path": "New appointment → Customer → nobody found, add new (person dialog)",
+      "path": "New appointment → Customer → Add “…” as a new contact, under the results or when nobody’s found (person dialog; the new contact is picked)",
       "kind": "do",
-      "file": "apps/web/src/components/calendar/customer-picker.tsx:157",
+      "file": "apps/web/src/components/calendar/customer-picker.tsx:181",
       "covered": "yes",
       "by": "create_customer"
     },
@@ -1247,35 +1248,42 @@
     {
       "path": "New appointment (phone) → Who it’s for search and chips",
       "kind": "do",
-      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:188",
+      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:186",
       "covered": "yes",
       "by": "search_customers; book_appointment personId"
     },
     {
-      "path": "New appointment (phone) → add a contact",
+      "path": "New appointment (phone) → Add “…” as a new contact under the search, the New contact form (name, phone, email; Choose X or Add anyway)",
       "kind": "do",
-      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:421",
+      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:232",
+      "covered": "yes",
+      "by": "create_customer"
+    },
+    {
+      "path": "Any contact search (phone) → New contact form, shared by New appointment and a document’s signers",
+      "kind": "do",
+      "file": "apps/mobile/src/components/customers/new-contact-form.tsx:60",
       "covered": "yes",
       "by": "create_customer"
     },
     {
       "path": "New appointment (phone) → Calendar, What service",
       "kind": "do",
-      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:256",
+      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:245",
       "covered": "yes",
       "by": "book_appointment calendarId, serviceId"
     },
     {
       "path": "New appointment (phone) → What, as free text",
       "kind": "do",
-      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:280",
+      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:269",
       "covered": "partly",
       "by": "no title input; update_appointment title after"
     },
     {
       "path": "New appointment (phone) → Day, Time",
       "kind": "do",
-      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:291",
+      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:280",
       "covered": "yes",
       "by": "book_appointment startsAt"
     },
@@ -1289,21 +1297,21 @@
     {
       "path": "New appointment (phone) → With",
       "kind": "do",
-      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:325",
+      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:314",
       "covered": "yes",
       "by": "book_appointment userIds"
     },
     {
       "path": "New appointment (phone) → Tell switch and explanation",
       "kind": "do",
-      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:341",
+      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:330",
       "covered": "yes",
       "by": "book_appointment notify"
     },
     {
       "path": "New appointment (phone) → Ask for this time",
       "kind": "do",
-      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:359",
+      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:348",
       "covered": "yes",
       "by": "book_appointment"
     },
