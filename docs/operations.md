@@ -10314,7 +10314,7 @@ What you set up here is the **partner** side: HandsFreeOS is a PayPal partner, a
 
 PayPal needs the migrations `20261027031100_payment_method_from_provider.sql`, `20261027031900_payment_method_paypal_venmo.sql` and `20261027032000_payment_method_paypal_settles.sql`. See "Apply new migrations".
 
-**Until PayPal approves HandsFreeOS as a partner, Connect PayPal says Coming soon** and nobody can press it. Customers see nothing different. Everything below can be set up and tried on PayPal's sandbox while you wait.
+**Until PayPal approves HandsFreeOS as a partner, Connect PayPal says Coming soon** and only HandsFreeOS staff can press it, so you can try it on the sandbox. Businesses and customers see nothing different. Everything below can be set up and tried on PayPal's sandbox while you wait.
 
 ### Before you start
 
@@ -10450,13 +10450,11 @@ You should see the `worker started` line. If the worker refuses to start, the me
 
 #### Try it on the sandbox before anyone else can
 
-Connect PayPal stays Coming soon for everyone until PayPal Part 7. To try it yourself first, turn the switch on for Vercel previews only:
+Connect PayPal stays Coming soon for businesses until PayPal Part 7, but HandsFreeOS staff can press it on the live site. There it shows a **Staff only, for testing** badge. Nothing needs changing in Vercel. Vercel previews can't be used for this: the API and the worker refuse to save from a preview address.
 
-1. In Vercel, open the **handsfreeos-web** project → **Settings** → **Environment Variables**.
-2. Add `NEXT_PUBLIC_PAYPAL_ENABLED` with the value `true`, ticked for **Preview** only. Press **Save**.
-3. Push any branch, and open its preview address. Previews talk to the real worker, which is on the sandbox.
-4. Use a practice business (**Admin** → **Try onboarding**). Press **Connect PayPal** in **Settings** → **Payments** and sign in with the sandbox business account from Part 5.
-5. Send yourself an invoice and pay it with the sandbox personal account. Then book a calendar that asks for a deposit and pay that too.
+1. Sign in to `https://app.handsfreeos.com` with your staff account and open a practice business (**Admin** → **Try onboarding**). Don't use a real business: the account you connect is a sandbox one.
+2. In **Settings** → **Payments**, press **Connect PayPal** and sign in with the sandbox **Business** account from Part 5, the one that plays the business.
+3. Send yourself an invoice and pay it with the sandbox **Personal** account, or with a test card from Part 5. Then book a calendar that asks for a deposit and pay that too.
 
 You should see the invoice paid, the payment in **Money** → **Payments** marked PayPal, and the deposit held and then taken once the booking is confirmed. Disconnect the sandbox account before PayPal Part 6: it stops working on live.
 
@@ -10491,7 +10489,7 @@ You should see **Connect PayPal** with no Coming soon badge in **Settings** → 
 
 ### When something goes wrong
 
-- **Connect PayPal says Coming soon:** `NEXT_PUBLIC_PAYPAL_ENABLED` isn't exactly `true` in Vercel, or the web app wasn't redeployed after it changed. On the phone, the build or update came before `EXPO_PUBLIC_PAYPAL_ENABLED` was set.
+- **Connect PayPal says Coming soon** (or **Staff only, for testing** to HandsFreeOS staff): `NEXT_PUBLIC_PAYPAL_ENABLED` isn't exactly `true` in Vercel, or the web app wasn't redeployed after it changed. On the phone, the build or update came before `EXPO_PUBLIC_PAYPAL_ENABLED` was set.
 - **"PayPal isn’t set up yet"** when a business presses Connect PayPal: the worker has no `PAYPAL_CLIENT_ID`. Check `fly secrets list --app handsfreeos-worker`.
 - **The PayPal sign-up never opens, and the worker's log shows PayPal refusing the sign-up link:** the live app doesn't have Partner Referrals yet. That waits on PayPal Part 1. Meanwhile run on the sandbox (`PAYPAL_ENVIRONMENT=test` with the sandbox values).
 - **A customer says PayPal's buttons never showed** ("We couldn’t reach PayPal, so nothing was charged. Try again in a minute."): PayPal's script didn't load in their browser, usually a strict ad blocker or a work network. Have them try another browser or their phone. Nothing is charged until PayPal's window says yes and PayPal answers the worker.
