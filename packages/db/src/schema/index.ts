@@ -4259,6 +4259,13 @@ export const products = app.table('products', {
   taxable: boolean('taxable').notNull().default(true),
   /** The bookable service this is the price of: one product per service. */
   serviceId: uuid('service_id').references(() => services.id, { onDelete: 'set null' }),
+  /** Sizes, colors and other choices, each with a price bump (core's money/options.ts checks them). */
+  options: jsonb('options')
+    .$type<
+      { id: string; name: string; choices: { id: string; label: string; priceCents: number }[] }[]
+    >()
+    .notNull()
+    .default([]),
   archivedAt: ts('archived_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),

@@ -9,6 +9,7 @@
  * Browser-safe: the public page, the phone, the editor's preview and the server all read an answer the same way.
  */
 import { money } from '../money/format';
+import { findChoice, priceWithChoices, type OptionChoice } from '../money/options';
 import {
   MAX_QUANTITY,
   isQuantitiesAnswer,
@@ -41,6 +42,35 @@ export function quantityRowsOf(question: QuantitiesQuestion): readonly QuantityR
 /** A row's price in cents, or null when it has none. */
 export const rowPriceCents = (row: Pick<QuantityRow, 'price'>): number | null =>
   row.price === null || row.price === undefined ? null : Math.round(row.price * 100);
+
+/**
+ * What the price list says a row from it costs today: the product's price, with its choice's bump when the row is
+ * one of the product's choices (Adult 2XL). Null when the row's choice is no longer on the product.
+ */
+export function priceListCents(
+  row: Pick<QuantityRow, 'optionChoiceId'>,
+  product: { readonly priceCents: number; readonly options?: unknown },
+): number | null {
+  if (!row.optionChoiceId) return product.priceCents;
+  const found = findChoice(product, row.optionChoiceId);
+  return found ? priceWithChoices(product.priceCents, [found.choice]) : null;
+}
+
+/**
+ * One row per choice of a product's option ("T-shirt" by Size: Youth S … Adult 5XL), each priced as the price list
+ * prices it. The caller gives each row its id.
+ */
+export function rowsFromOption(
+  product: { readonly id: string; readonly priceCents: number },
+  option: { readonly choices: readonly OptionChoice[] },
+): { label: string; price: number; productId: string; optionChoiceId: string }[] {
+  return option.choices.map((c) => ({
+    label: c.label,
+    price: priceWithChoices(product.priceCents, [c]) / 100,
+    productId: product.id,
+    optionChoiceId: c.id,
+  }));
+}
 
 /** Whether any row has a price, so the question has something to add up in dollars. */
 export function hasQuantityPrices(question: QuantitiesQuestion): boolean {

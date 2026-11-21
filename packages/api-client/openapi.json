@@ -40714,6 +40714,56 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "options": {
+                    "maxItems": 3,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^o_[a-z0-9]{8}$"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 40
+                        },
+                        "choices": {
+                          "minItems": 1,
+                          "maxItems": 40,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^v_[a-z0-9]{8}$"
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 60
+                              },
+                              "priceCents": {
+                                "default": 0,
+                                "type": "integer",
+                                "minimum": -10000000,
+                                "maximum": 10000000
+                              }
+                            },
+                            "required": [
+                              "label"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "choices"
+                      ]
+                    }
                   }
                 },
                 "required": [
@@ -40792,6 +40842,52 @@
                             }
                           ]
                         },
+                        "options": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "choices": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "label": {
+                                      "type": "string"
+                                    },
+                                    "priceCents": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "label",
+                                    "priceCents"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "choices"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
                         "archivedAt": {
                           "anyOf": [
                             {
@@ -40815,6 +40911,7 @@
                         "unitLabel",
                         "taxable",
                         "serviceId",
+                        "options",
                         "archivedAt"
                       ],
                       "additionalProperties": false
@@ -40926,6 +41023,56 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "options": {
+                    "maxItems": 3,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^o_[a-z0-9]{8}$"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 40
+                        },
+                        "choices": {
+                          "minItems": 1,
+                          "maxItems": 40,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^v_[a-z0-9]{8}$"
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 60
+                              },
+                              "priceCents": {
+                                "default": 0,
+                                "type": "integer",
+                                "minimum": -10000000,
+                                "maximum": 10000000
+                              }
+                            },
+                            "required": [
+                              "label"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "choices"
+                      ]
+                    }
                   }
                 },
                 "required": [
@@ -41004,6 +41151,52 @@
                             }
                           ]
                         },
+                        "options": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "choices": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "label": {
+                                      "type": "string"
+                                    },
+                                    "priceCents": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "label",
+                                    "priceCents"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "choices"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
                         "archivedAt": {
                           "anyOf": [
                             {
@@ -41027,6 +41220,7 @@
                         "unitLabel",
                         "taxable",
                         "serviceId",
+                        "options",
                         "archivedAt"
                       ],
                       "additionalProperties": false
@@ -184406,11 +184600,22 @@
                                                 "type": "number",
                                                 "exclusiveMinimum": 0,
                                                 "maximum": 10000
+                                              },
+                                              "choices": {
+                                                "default": [],
+                                                "maxItems": 3,
+                                                "type": "array",
+                                                "items": {
+                                                  "type": "string",
+                                                  "minLength": 1,
+                                                  "maxLength": 60
+                                                }
                                               }
                                             },
                                             "required": [
                                               "productId",
-                                              "quantity"
+                                              "quantity",
+                                              "choices"
                                             ],
                                             "additionalProperties": false
                                           }
@@ -184466,11 +184671,22 @@
                                                 "type": "number",
                                                 "exclusiveMinimum": 0,
                                                 "maximum": 10000
+                                              },
+                                              "choices": {
+                                                "default": [],
+                                                "maxItems": 3,
+                                                "type": "array",
+                                                "items": {
+                                                  "type": "string",
+                                                  "minLength": 1,
+                                                  "maxLength": 60
+                                                }
                                               }
                                             },
                                             "required": [
                                               "productId",
-                                              "quantity"
+                                              "quantity",
+                                              "choices"
                                             ],
                                             "additionalProperties": false
                                           }
@@ -195065,6 +195281,52 @@
                               }
                             ]
                           },
+                          "options": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "choices": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "label": {
+                                        "type": "string"
+                                      },
+                                      "priceCents": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "label",
+                                      "priceCents"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "name",
+                                "choices"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
                           "archivedAt": {
                             "anyOf": [
                               {
@@ -195088,6 +195350,7 @@
                           "unitLabel",
                           "taxable",
                           "serviceId",
+                          "options",
                           "archivedAt"
                         ],
                         "additionalProperties": false
@@ -201892,6 +202155,52 @@
                           },
                           "unitLabel": {
                             "type": "string"
+                          },
+                          "options": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "choices": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "label": {
+                                        "type": "string"
+                                      },
+                                      "priceCents": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "label",
+                                      "priceCents"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "name",
+                                "choices"
+                              ],
+                              "additionalProperties": false
+                            }
                           }
                         },
                         "required": [
@@ -201900,7 +202209,8 @@
                           "sku",
                           "kind",
                           "priceCents",
-                          "unitLabel"
+                          "unitLabel",
+                          "options"
                         ],
                         "additionalProperties": false
                       }

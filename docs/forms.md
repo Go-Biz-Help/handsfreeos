@@ -183,6 +183,10 @@ design notes.
   a row and keeps its `productId` (the editor reads them from `form.catalogs`' `products`; someone without
   `money.read` sees none). Like an invoice's line, the row keeps its copy, so repricing a product never reprices a live
   form; when they've drifted apart the row says so and offers **Use that price**.
+- **A row per size.** A product with sizes or colors (`docs/selling-products.md`) is offered as "T-shirt, a row per
+  size": one row per choice of that option, each at the product's price with the choice's bump, keeping
+  `optionChoiceId` beside `productId` (`rowsFromOption`). The drift check reads the same price (`priceListCents`), and
+  a row whose choice was taken off the product says so and keeps its name and price.
 
 **What rules here:**
 

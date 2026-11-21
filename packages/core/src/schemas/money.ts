@@ -8,6 +8,7 @@
  * re-used from `../money/status` rather than written out twice.
  */
 import { z } from 'zod';
+import { ProductOptions } from '../money/options';
 import { MoneySettings } from '../money/settings';
 import {
   ESTIMATE_STATUSES,
@@ -258,6 +259,11 @@ export const ProductCreateInput = z.object({
   taxable: z.boolean().optional(),
   /** The bookable service this is the price of: one product per service. */
   serviceId: uuid.nullable().optional(),
+  /**
+   * Sizes, colors and other choices (up to 3), each choice with what it adds to the price in cents (it may take some
+   * off). Picking the product then means picking one choice of each. Ids are made for choices that have none.
+   */
+  options: ProductOptions.optional(),
 });
 export const ProductUpdateInput = z.object({
   ...inWorkspace,
@@ -270,12 +276,19 @@ export const ProductUpdateInput = z.object({
   unitLabel: z.string().trim().min(1).max(40).optional(),
   taxable: z.boolean().optional(),
   serviceId: uuid.nullable().optional(),
+  /** The whole list, replacing what it had. Keep a choice's id to keep form rows made from it pointing at it. */
+  options: ProductOptions.optional(),
 });
 export const ProductArchiveInput = z.object({
   ...inWorkspace,
   productId: uuid,
   /** False puts it back in the catalogue. Nothing is ever deleted: old documents have to stay readable. */
   archived: z.boolean().default(true),
+});
+const productOptionOut = z.object({
+  id: z.string(),
+  name: z.string(),
+  choices: z.array(z.object({ id: z.string(), label: z.string(), priceCents: z.int() })),
 });
 export const ProductOut = z.object({
   id: uuid,
@@ -287,6 +300,8 @@ export const ProductOut = z.object({
   unitLabel: z.string(),
   taxable: z.boolean(),
   serviceId: uuid.nullable(),
+  /** Sizes, colors and other choices, each with its price bump in cents. Empty: picked as it is. */
+  options: z.array(productOptionOut).default([]),
   archivedAt: isoDateTime.nullable(),
 });
 export const ProductRefOutput = z.object({ productId: uuid, archived: z.boolean() });

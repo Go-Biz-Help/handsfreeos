@@ -108,6 +108,15 @@ export const QuantityRow = z.object({
    * its own copy of the name and price, as an invoice's line does, so repricing a product never reprices a form.
    */
   productId: z.uuid().nullable().default(null),
+  /**
+   * The product's choice this row is (its Size Adult 2XL), when the rows were added one per choice. The row's price
+   * is then the product's price with that choice's bump.
+   */
+  optionChoiceId: z
+    .string()
+    .regex(/^v_[a-z0-9]{8}$/)
+    .nullable()
+    .default(null),
 });
 export type QuantityRow = z.infer<typeof QuantityRow>;
 export type QuantityRowInput = z.input<typeof QuantityRow>;

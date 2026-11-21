@@ -21,11 +21,13 @@ import {
   loadCalendar,
   localDateOf,
   openHoursOf,
+  productOptionsOf,
   uuidArray,
   JOB_STATUS_WORDS,
   quoteData,
   type JobStatus,
   type KnowledgeMatch,
+  type ProductOptionRow,
   type TeammateChannel,
   type TeammateConfig,
   type TeammateRow,
@@ -286,6 +288,8 @@ export interface RunProduct {
   readonly name: string;
   readonly priceCents: number;
   readonly unitLabel: string;
+  /** Its sizes, colors and other choices: a bill for it names one of each (core's money/options.ts). */
+  readonly options: readonly ProductOptionRow[];
 }
 
 export interface RunAppointment {
@@ -814,9 +818,15 @@ async function liveOffers(tx: Tx, workspaceId: string, timeZone: string): Promis
 
 /** What's on the price list, by name. */
 async function catalogueOf(tx: Tx, workspaceId: string): Promise<RunProduct[]> {
-  const list = await rows<{ id: string; name: string; price_cents: string; unit_label: string }>(
+  const list = await rows<{
+    id: string;
+    name: string;
+    price_cents: string;
+    unit_label: string;
+    options: unknown;
+  }>(
     tx,
-    sql`select id, name, unit_price_cents::text as price_cents, unit_label
+    sql`select id, name, unit_price_cents::text as price_cents, unit_label, options
         from app.products where workspace_id = ${workspaceId} and archived_at is null
         order by lower(name) limit ${CATALOGUE_MAX}`,
   );
@@ -825,6 +835,7 @@ async function catalogueOf(tx: Tx, workspaceId: string): Promise<RunProduct[]> {
     name: p.name,
     priceCents: Number(p.price_cents),
     unitLabel: p.unit_label,
+    options: productOptionsOf(p),
   }));
 }
 
