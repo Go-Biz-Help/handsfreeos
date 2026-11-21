@@ -357,6 +357,8 @@ function instagram(
     written?: string;
     fails?: boolean;
     shapes?: readonly string[];
+    /** Instagram's Turn on Notifications over the page, the page hidden under it (the owner's post, 21 Nov 2026). */
+    asks?: boolean;
   } = {},
 ) {
   const { window } = new JSDOM(
@@ -372,6 +374,25 @@ function instagram(
   const doc = window.document;
   (window as unknown as { DataTransfer: unknown }).DataTransfer = FakeTransfer;
   const shared: { text: string; files: string[]; shape: string }[] = [];
+  let turnedOn = false;
+  if (opts.asks) {
+    const page = doc.createElement('div');
+    page.setAttribute('aria-hidden', 'true');
+    page.append(...doc.body.children);
+    doc.body.append(page);
+    const asked = doc.createElement('div');
+    asked.innerHTML = `<div role="dialog"><img alt=""><h2>Turn on Notifications</h2>
+      <span>Know right away when people follow you or like and comment on your photos.</span>
+      <button id="turn-on">Turn On</button><button id="not-now">Not Now</button></div>`;
+    doc.body.append(asked);
+    asked.querySelector('#turn-on')!.addEventListener('click', () => {
+      turnedOn = true;
+    });
+    asked.querySelector('#not-now')!.addEventListener('click', () => {
+      asked.remove();
+      page.removeAttribute('aria-hidden');
+    });
+  }
   let commentPressed = false;
   doc.getElementById('comment-post')!.addEventListener('click', () => {
     commentPressed = true;
@@ -466,7 +487,7 @@ function instagram(
     doc
       .getElementById('create')!
       .addEventListener('click', () => menu.setAttribute('aria-hidden', 'false'));
-    return { doc, shared, commentPressed: () => commentPressed };
+    return { doc, shared, commentPressed: () => commentPressed, turnedOn: () => turnedOn };
   }
   doc.getElementById('create')!.addEventListener('click', () => {
     if (!opts.menu) return dialog();
@@ -478,10 +499,20 @@ function instagram(
       dialog();
     });
   });
-  return { doc, shared, commentPressed: () => commentPressed };
+  return { doc, shared, commentPressed: () => commentPressed, turnedOn: () => turnedOn };
 }
 
 describe('putting one of the business’s posts up on Instagram (part 10)', () => {
+  it('closes Turn on Notifications with Not Now before pressing Create under it (the owner, 21 Nov)', async () => {
+    const ig = instagram({ asks: true });
+    const done = await postHere(ig.doc, ask('instagram'));
+    expect(done).toMatchObject({ result: 'done', pressed: true });
+    expect(done.steps.slice(0, 2)).toEqual(['ask:not_now', 'start']);
+    expect(ig.shared).toHaveLength(1);
+    // Nothing is turned on.
+    expect(ig.turnedOn()).toBe(false);
+  });
+
   it('picks Post from Create’s menu, adds the picture, presses Next twice, writes the caption and shares', async () => {
     const ig = instagram({ menu: true });
     const done = await postHere(ig.doc, ask('instagram'));
