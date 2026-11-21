@@ -23,10 +23,15 @@ const ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 const OPTION_ID_RE = /^o_[a-z0-9]{8}$/;
 const CHOICE_ID_RE = /^v_[a-z0-9]{8}$/;
 
+/** Even odds for every letter: bytes from 252 up are thrown away, since 252 is the last multiple of 36 below 256. */
 function randomChars(count: number): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(count));
+  const limit = 256 - (256 % ALPHABET.length);
   let out = '';
-  for (const b of bytes) out += ALPHABET[b % ALPHABET.length];
+  while (out.length < count) {
+    for (const b of crypto.getRandomValues(new Uint8Array(count))) {
+      if (b < limit && out.length < count) out += ALPHABET[b % ALPHABET.length];
+    }
+  }
   return out;
 }
 
