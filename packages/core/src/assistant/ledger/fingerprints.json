@@ -1480,7 +1480,7 @@
   "apps/web/src/components/settings/chat-look-parts.tsx": "f7a53fa395ae",
   "apps/web/src/components/settings/day-start.tsx": "6eece1cc5610",
   "apps/web/src/components/settings/delete-workspace.tsx": "fe6ed95a9d1f",
-  "apps/web/src/components/settings/email-page.tsx": "fdb005694b23",
+  "apps/web/src/components/settings/email-page.tsx": "2101ea2f7ffc",
   "apps/web/src/components/settings/facebook-instagram-page.tsx": "8674fc1c6cbc",
   "apps/web/src/components/settings/fields-settings.tsx": "60503c06ceb7",
   "apps/web/src/components/settings/finish-sign-in.tsx": "49d1728f7134",

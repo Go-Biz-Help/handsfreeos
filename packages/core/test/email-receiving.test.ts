@@ -316,7 +316,7 @@ describe('receiving at a business’s own domain', () => {
     const id = await verifiedDomain(ours, `${token()}.example.com`);
     const ref = { workspaceId: ours.workspaceId, emailDomainId: id };
     expect(await run(emailDomainReceive, ref, owner)).toMatchObject({ receiving: 'pending' });
-    // Asking twice is visibly a no-op.
+    // Asking again while it waits (Check now) changes nothing, and has the worker look for the MX now.
     expect(await run(emailDomainReceive, ref, owner)).toMatchObject({
       receiving: 'pending',
       changed: false,
@@ -355,6 +355,7 @@ describe('receiving at a business’s own domain', () => {
           where entity_id = ${id} and event_type like 'email_domain.receiving%' order by created_at, id`,
     );
     expect(events).toEqual([
+      { event_type: 'email_domain.receiving_requested', payload: { domain: expect.any(String) } },
       { event_type: 'email_domain.receiving_requested', payload: { domain: expect.any(String) } },
       {
         event_type: 'email_domain.receiving_checked',

@@ -626,7 +626,7 @@ export const emailDomainRecord = defineCommand({
 
 export const emailDomainReceive = defineCommand({
   name: 'email_domain.receive',
-  description: `Start receiving the business’s mail at one of its verified domains. Once its MX record points at ${INBOUND_MX_HOST}, mail to every address there arrives in the Inbox.`,
+  description: `Start receiving the business’s mail at one of its verified domains. Once its MX record points at ${INBOUND_MX_HOST}, mail to every address there arrives in the Inbox. Asked again while it waits, it looks for the MX record now.`,
   risk: 2,
   input: EmailDomainRefInput,
   output: EmailDomainReceivingOutput,
@@ -636,8 +636,20 @@ export const emailDomainReceive = defineCommand({
   async handler(ctx, input) {
     const d = await loadDomain(ctx, input.emailDomainId);
     if (d.status !== 'verified') throw unverified(d.domain);
-    if (d.receiving === 'pending' || d.receiving === 'on')
+    if (d.receiving === 'on')
       return { emailDomainId: d.id, receiving: d.receiving, changed: false };
+    // Still waiting for the MX record: asking again (Check now) has the worker look now, not at its next check.
+    if (d.receiving === 'pending') {
+      await ctx.emit({
+        type: 'email_domain.receiving_requested',
+        entityType: 'email_domain',
+        entityId: d.id,
+        payload: { domain: d.domain },
+        before: { receiving: d.receiving },
+        after: { domain: d.domain, receiving: d.receiving },
+      });
+      return { emailDomainId: d.id, receiving: d.receiving, changed: false };
+    }
     // One business at a time receives a name's mail (M19): a domain moving between two businesses stops at the
     // first before the second starts.
     if ((await heldElsewhere(ctx, d.domain, d.id)).receiving)

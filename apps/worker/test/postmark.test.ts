@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DnsLookup } from '../src/email/dns';
 import { createPostmark } from '../src/email/postmark';
+import { INBOUND_REFUSALS } from '../src/email/transport';
 
 /**
  * Postmark's domain checks against a recorded fetch and a stand-in DNS. Postmark keeps DKIM "verified" once it
@@ -249,6 +250,20 @@ describe('a receiving domain’s server (M19)', () => {
     });
     await expect(inbound().openInbound('lonestarhvac.com')).rejects.toMatchObject({
       code: '602',
+      permanent: true,
+    });
+    // Until the domain's MX points at Postmark: the handler treats it as waiting (INBOUND_REFUSALS.noMx).
+    mockServers({
+      'POST /servers': {
+        status: 422,
+        body: {
+          ErrorCode: 610,
+          Message: 'We could not find an MX record pointing to the expected domain.',
+        },
+      },
+    });
+    await expect(inbound().openInbound('lonestarhvac.com')).rejects.toMatchObject({
+      code: INBOUND_REFUSALS.noMx,
       permanent: true,
     });
   });

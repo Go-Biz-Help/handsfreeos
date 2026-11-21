@@ -1,7 +1,7 @@
 {
   "area": "settings-channels",
   "title": "Settings: texting, email, website chat, Facebook and Instagram, templates and lead intake",
-  "checkedOn": "2026-11-20",
+  "checkedOn": "2026-11-21",
   "files": {
     "apps/web/src/app/app/oauth/finish/page.tsx": "32b5c89b1bb7",
     "apps/web/src/app/app/w/[workspaceId]/settings/email/page.tsx": "7a7280639dbc",
@@ -14,7 +14,7 @@
     "apps/web/src/components/settings/a2p-wizard.tsx": "16a231581336",
     "apps/web/src/components/settings/chat-install.tsx": "5a08b1500b10",
     "apps/web/src/components/settings/chat-look-parts.tsx": "f7a53fa395ae",
-    "apps/web/src/components/settings/email-page.tsx": "fdb005694b23",
+    "apps/web/src/components/settings/email-page.tsx": "2101ea2f7ffc",
     "apps/web/src/components/settings/facebook-instagram-page.tsx": "8674fc1c6cbc",
     "apps/web/src/components/settings/inbox-visibility-card.tsx": "e7ce1e333cd7",
     "apps/web/src/components/settings/lead-intake-page.tsx": "f7affad2e1dd",
@@ -1963,189 +1963,196 @@
     {
       "path": "Email → Receive mail here too → Receiving / Waiting for the MX record / Not receiving",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:919",
+      "file": "apps/web/src/components/settings/email-page.tsx:921",
       "covered": "yes",
       "by": "get_settings email domains receiving"
     },
     {
       "path": "Email → Receive mail here too → receiving error",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:928",
+      "file": "apps/web/src/components/settings/email-page.tsx:930",
       "covered": "yes",
       "by": "get_settings email domains receivingError"
     },
     {
       "path": "Email → Receive mail here too → explanation and warning before turning on",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:938",
+      "file": "apps/web/src/components/settings/email-page.tsx:940",
       "covered": "partly",
       "by": "do_email_domain_receive has no warning; settings_help email names it"
     },
     {
       "path": "Email → Receive mail here too → Receive mail here",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:942",
+      "file": "apps/web/src/components/settings/email-page.tsx:944",
       "covered": "yes",
       "by": "do_email_domain_receive"
     },
     {
       "path": "Email → Receive mail here too → MX record: @, value, priority 10, status",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:905",
+      "file": "apps/web/src/components/settings/email-page.tsx:907",
       "covered": "yes",
       "by": "get_settings email inboundMxHost, mxVerifiedAt"
     },
     {
+      "path": "Email → Receive mail here too → Check now, while waiting for the MX record",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-page.tsx:956",
+      "covered": "yes",
+      "by": "do_email_domain_receive, which looks again now while the domain waits"
+    },
+    {
       "path": "Email → Receive mail here too → MX doesn’t point here anymore",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:956",
+      "file": "apps/web/src/components/settings/email-page.tsx:966",
       "covered": "yes",
       "by": "get_settings email domains receiving lapsed"
     },
     {
       "path": "Email → Receive mail here too → Check again",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:962",
+      "file": "apps/web/src/components/settings/email-page.tsx:972",
       "covered": "yes",
       "by": "do_email_domain_receive"
     },
     {
       "path": "Email → Receive mail here too → receiving on text",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:968",
+      "file": "apps/web/src/components/settings/email-page.tsx:978",
       "covered": "yes",
       "by": "get_settings email domains receiving"
     },
     {
       "path": "Email → Receive mail here too → Stop receiving here, with confirm",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:980",
+      "file": "apps/web/src/components/settings/email-page.tsx:990",
       "covered": "yes",
       "by": "do_email_domain_stop_receiving, which warns first"
     },
     {
       "path": "Email → Connected mailboxes → each: account, person, provider, sync detail",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:1061",
+      "file": "apps/web/src/components/settings/email-page.tsx:1071",
       "covered": "yes",
       "by": "get_settings email mailboxes"
     },
     {
       "path": "Email → Connected mailboxes → Connected / Connecting / Needs reconnecting / Not syncing / Disconnected",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:993",
+      "file": "apps/web/src/components/settings/email-page.tsx:1003",
       "covered": "yes",
       "by": "get_settings email mailboxes status"
     },
     {
       "path": "Email → Connected mailboxes → Reconnect",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:1078",
+      "file": "apps/web/src/components/settings/email-page.tsx:1088",
       "covered": "person",
       "by": "signing in to Microsoft or Google"
     },
     {
       "path": "Email → Connected mailboxes → Disconnect",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:1086",
+      "file": "apps/web/src/components/settings/email-page.tsx:1096",
       "covered": "yes",
       "by": "do_mailbox_disconnect"
     },
     {
       "path": "Email → Connected mailboxes → Connect Outlook",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:1103",
+      "file": "apps/web/src/components/settings/email-page.tsx:1113",
       "covered": "person",
       "by": "signing in to Microsoft"
     },
     {
       "path": "Email → Connected mailboxes → Connect Gmail",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:1114",
+      "file": "apps/web/src/components/settings/email-page.tsx:1124",
       "covered": "person",
       "by": "signing in to Google; Coming soon"
     },
     {
       "path": "Email → Connected mailboxes → Gmail is coming soon note",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:1120",
+      "file": "apps/web/src/components/settings/email-page.tsx:1130",
       "covered": "yes",
       "by": "settings_help email notHere"
     },
     {
       "path": "Email → Connected mailboxes → how the sign-in went",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:1448",
+      "file": "apps/web/src/components/settings/email-page.tsx:1458",
       "covered": "yes",
       "by": "get_settings email mailboxes status"
     },
     {
       "path": "Email → Where senders’ mail goes → each: address, folder, who, when; None yet",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:1402",
+      "file": "apps/web/src/components/settings/email-page.tsx:1412",
       "covered": "yes",
       "by": "get_settings email senderRules; read_email_sender_rule_list"
     },
     {
       "path": "Email → Where senders’ mail goes → Remove",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:1407",
+      "file": "apps/web/src/components/settings/email-page.tsx:1417",
       "covered": "yes",
       "by": "do_email_sender_rule_remove"
     },
     {
       "path": "Email → Blocked addresses → each: address, reason, date; Nothing blocked",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:1169",
+      "file": "apps/web/src/components/settings/email-page.tsx:1179",
       "covered": "yes",
       "by": "get_settings email blockedAddresses; list_blocked_email"
     },
     {
       "path": "Email → Blocked addresses → Unblock",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:1174",
+      "file": "apps/web/src/components/settings/email-page.tsx:1184",
       "covered": "yes",
       "by": "manage_email_settings unblock"
     },
     {
       "path": "Email → Mail from people not in Contacts → each: sender, subject or snippet, when; All sorted",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:1325",
+      "file": "apps/web/src/components/settings/email-page.tsx:1335",
       "covered": "yes",
       "by": "list_unmatched_email"
     },
     {
       "path": "Email → Mail from people not in Contacts → Add or link",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:1334",
+      "file": "apps/web/src/components/settings/email-page.tsx:1344",
       "covered": "yes",
       "by": "sort_unmatched_email file_under_customer"
     },
     {
       "path": "Email → Mail from people not in Contacts → Add or link → Link to a customer, Link",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:1246",
+      "file": "apps/web/src/components/settings/email-page.tsx:1256",
       "covered": "yes",
       "by": "sort_unmatched_email file_under_customer personId"
     },
     {
       "path": "Email → Mail from people not in Contacts → Add or link → Pick a person, not a company",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:1255",
+      "file": "apps/web/src/components/settings/email-page.tsx:1265",
       "covered": "yes",
       "by": "the tool refuses a company"
     },
     {
       "path": "Email → Mail from people not in Contacts → Add or link → Add as a new person",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:1258",
+      "file": "apps/web/src/components/settings/email-page.tsx:1268",
       "covered": "yes",
       "by": "add the person, then sort_unmatched_email"
     },
     {
       "path": "Email → Mail from people not in Contacts → Dismiss",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:1337",
+      "file": "apps/web/src/components/settings/email-page.tsx:1347",
       "covered": "yes",
       "by": "sort_unmatched_email dismiss"
     },

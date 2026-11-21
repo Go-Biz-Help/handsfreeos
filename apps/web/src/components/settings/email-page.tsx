@@ -877,7 +877,9 @@ function Receiving({
         ),
       receiving === 'lapsed'
         ? 'Checking again. It takes up to 15 minutes.'
-        : 'Now change the MX record below.',
+        : receiving === 'pending'
+          ? 'Checking now. This shows Receiving once the MX record is found.'
+          : 'Now change the MX record below.',
     );
     setBusy(null);
     if (ok) onChanged();
@@ -948,9 +950,15 @@ function Receiving({
       ) : receiving === 'pending' ? (
         <>
           <p className="mt-1.5 text-[13px] text-text-2">
-            {`At your DNS provider, replace the MX records for ${domain.domain} with this one. We check every 15 minutes, and mail starts arriving once it shows.`}
+            {`At your DNS provider, replace the MX records for ${domain.domain} with this one. We check every 15 minutes, and mail starts arriving once it shows. Just changed it? Click Check now.`}
           </p>
           {mx}
+          <div className="mt-3">
+            <Button size="sm" loading={busy === 'start'} onClick={() => void start()}>
+              <RotateCw className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Check now
+            </Button>
+          </div>
         </>
       ) : receiving === 'lapsed' ? (
         <>
