@@ -56,7 +56,7 @@ export function addonGrantCommands(catalog: Catalog) {
     output: AddonGrantOutput,
     permission: 'platform.addons.manage',
     scope: onPlatform,
-    emits: ['addon_grant.given'],
+    emits: ['platform.addon_gift_given'],
     async handler(ctx, input) {
       const m = await grantable(ctx, input.addonId);
       // Free through the whole of the last day it names, in UTC: it ends at the next midnight.
@@ -69,8 +69,10 @@ export function addonGrantCommands(catalog: Catalog) {
               ${freeUntil}::timestamptz)`,
       );
       if (row?.changed)
+        // Under `platform.`, as HandsFreeOS's own events the worker handles are: with no business on its row,
+        // it reads no other, and the email before a gift ends was never set up.
         await ctx.emit({
-          type: 'addon_grant.given',
+          type: 'platform.addon_gift_given',
           entityType: 'workspace',
           entityId: input.workspaceId,
           payload: {
@@ -99,7 +101,7 @@ export function addonGrantCommands(catalog: Catalog) {
     output: AddonGrantOutput,
     permission: 'platform.addons.manage',
     scope: onPlatform,
-    emits: ['addon_grant.taken_back'],
+    emits: ['platform.addon_gift_taken_back'],
     async handler(ctx, input) {
       const [row] = await rows<{ changed: boolean }>(
         ctx.tx,
@@ -107,7 +109,7 @@ export function addonGrantCommands(catalog: Catalog) {
       );
       if (row?.changed)
         await ctx.emit({
-          type: 'addon_grant.taken_back',
+          type: 'platform.addon_gift_taken_back',
           entityType: 'workspace',
           entityId: input.workspaceId,
           payload: { workspaceId: input.workspaceId, addonId: input.addonId },

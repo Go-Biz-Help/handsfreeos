@@ -47656,7 +47656,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 3. Requires platform.founding.manage. Emits billing.more_time_answered.",
+        "description": "Risk level 3. Requires platform.founding.manage. Emits platform.plan_more_time_answered.",
         "requestBody": {
           "required": true,
           "content": {
@@ -68280,7 +68280,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 3. Requires platform.addons.manage. Emits addon_grant.given.",
+        "description": "Risk level 3. Requires platform.addons.manage. Emits platform.addon_gift_given.",
         "requestBody": {
           "required": true,
           "content": {
@@ -68360,7 +68360,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 3. Requires platform.addons.manage. Emits addon_grant.taken_back.",
+        "description": "Risk level 3. Requires platform.addons.manage. Emits platform.addon_gift_taken_back.",
         "requestBody": {
           "required": true,
           "content": {

@@ -372,7 +372,7 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       'billing.pay_now_requested': onPayNowRequested,
       'billing.pay_day_change_requested': onPayDayChangeRequested,
       'billing.card_removed': onPlanCardRemoved,
-      'billing.more_time_answered': onMoreTimeAnswered,
+      'platform.plan_more_time_answered': onMoreTimeAnswered,
       // Paid add-ons (20261027028500): the first charge when a trial is used up, the owners and admins told of a
       // refused charge or an add-on turned off, and a new card trying again what's past due (founding/addon-billing.ts).
       ...addonBillingHandlers,

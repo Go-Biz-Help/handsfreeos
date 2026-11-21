@@ -503,6 +503,6 @@ export const addonBillingHandlers = {
 
 /** Staff's, which belong to no business: a gift given or taken back. */
 export const addonGiftHandlers = {
-  'addon_grant.given': [onGiftGiven],
-  'addon_grant.taken_back': [onGiftTakenBack],
+  'platform.addon_gift_given': [onGiftGiven],
+  'platform.addon_gift_taken_back': [onGiftTakenBack],
 } as const;

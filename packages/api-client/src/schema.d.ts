@@ -228,7 +228,7 @@ export interface paths {
         put?: never;
         /**
          * Staff: give one business an add-on free, until taken back or until `freeUntil` (the last free day). It can install it even while still being built; its owners and admins add it from their Add-ons page. Anything the business was paying for it stops.
-         * @description Risk level 3. Requires platform.addons.manage. Emits addon_grant.given.
+         * @description Risk level 3. Requires platform.addons.manage. Emits platform.addon_gift_given.
          */
         post: operations["command_addon_grant_give"];
         delete?: never;
@@ -248,7 +248,7 @@ export interface paths {
         put?: never;
         /**
          * Staff: take back an add-on given to one business. A paid one it still runs is turned off within the hour unless it pays for it (its data is kept); a free one keeps running.
-         * @description Risk level 3. Requires platform.addons.manage. Emits addon_grant.taken_back.
+         * @description Risk level 3. Requires platform.addons.manage. Emits platform.addon_gift_taken_back.
          */
         post: operations["command_addon_grant_take_back"];
         delete?: never;
@@ -1568,7 +1568,7 @@ export interface paths {
         put?: never;
         /**
          * Staff: give a business the more time it asked for to pay its HandsFreeOS plan (its own day, or another), or say no. Granted, the failed-payment page goes away and its cards are tried again on that day. Staff only.
-         * @description Risk level 3. Requires platform.founding.manage. Emits billing.more_time_answered.
+         * @description Risk level 3. Requires platform.founding.manage. Emits platform.plan_more_time_answered.
          */
         post: operations["command_billing_answer_more_time"];
         delete?: never;

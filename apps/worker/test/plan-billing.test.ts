@@ -27,6 +27,8 @@ import {
   organizationCreate,
   paymentBlockOf,
   PLAN_RETRY_DAYS,
+  registry,
+  type CommandDef,
   type HumanActor,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
@@ -34,6 +36,7 @@ import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/t
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { processDeliveries } from '../src/deliveries';
+import { ADDON_BILLING_JOBS } from '../src/founding/addon-billing';
 import { planFoundingRenewals } from '../src/founding/checkout';
 import { declinedWords } from '../src/founding/billing';
 import { planCardReturnUrl } from '../src/founding/plan-card-routes';
@@ -45,6 +48,7 @@ import { FAKE_CARDS } from '../src/payments/fake';
 import { processors } from '../src/processors/index';
 import { jobs } from '../src/scheduled';
 import { systemActor } from '../src/services';
+import { mailTo } from './booking-world';
 import { testServices, type TestServices } from './helpers';
 
 const WORKER_ID = `vitest-plan-billing-${process.pid}`;
@@ -653,6 +657,16 @@ describe('more time', () => {
       human(staff),
       meta(),
     );
+    // The owners are emailed the answer. It's a staff event, HandsFreeOS's own, with no business on its row.
+    await rows(
+      admin(),
+      sql`update app.outbox set locked_at = now(), locked_by = ${WORKER_ID}
+          where status = 'pending' and event_type = 'platform.plan_more_time_answered'`,
+    );
+    await processOnce({ ...s, workerId: WORKER_ID, batchSize: 200, reservedOnly: true, handlers });
+    expect(
+      (await mailTo(owner.email)).some((m) => m.Subject.startsWith('You have more time to pay')),
+    ).toBe(true);
     const granted = await planNow();
     expect(granted.more_time_until!.slice(0, 10)).toBe(payBy);
     expect(new Date(granted.next_retry_at!).getTime()).toBeGreaterThanOrEqual(
@@ -667,5 +681,30 @@ describe('more time', () => {
     await retryDue();
     await sweep();
     expect(s.payments.fake.platformCharges()).toHaveLength(charged);
+  });
+});
+
+describe('an add-on given free until a day', () => {
+  it('sets up the email that says it is ending, though the gift is HandsFreeOS’s own event', async () => {
+    const freeUntil = new Date(Date.now() + 30 * DAY).toISOString().slice(0, 10);
+    await executeCommand(
+      api(),
+      registry.command('addon_grant.give') as CommandDef,
+      { workspaceId, addonId: 'outreach', note: 'Trying it with them', freeUntil },
+      human(staff),
+      meta(),
+    );
+    await rows(
+      admin(),
+      sql`update app.outbox set locked_at = now(), locked_by = ${WORKER_ID}
+          where status = 'pending' and event_type = 'platform.addon_gift_given'`,
+    );
+    await processOnce({ ...s, workerId: WORKER_ID, batchSize: 200, reservedOnly: true, handlers });
+    const ending = await rows<{ status: string }>(
+      admin(),
+      sql`select status::text as status from app.scheduled_jobs
+          where workspace_id = ${workspaceId} and kind = ${ADDON_BILLING_JOBS.ending}`,
+    );
+    expect(ending).toEqual([{ status: 'pending' }]);
   });
 });
