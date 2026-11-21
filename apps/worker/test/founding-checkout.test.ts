@@ -35,6 +35,7 @@ import {
 import { handlers } from '../src/handlers/index';
 import { buildHttpServer } from '../src/http/server';
 import { processJobs, type JobContext } from '../src/jobs';
+import { sweepWallet } from '../src/money/recharge';
 import { processOnce } from '../src/outbox';
 import {
   FAKE_CARDS,
@@ -1228,6 +1229,30 @@ describe('a spot bought with a code', () => {
       expect(trial).toMatchObject({ plan: 'monthly', status: 'active', price_cents: 9_700 });
       expect(daysFromNow(trial.trial_ends_at)).toBeGreaterThan(13.9);
       expect(daysFromNow(trial.trial_ends_at)).toBeLessThan(14.1);
+
+      // The trial's card now pays the balance too, with automatic top-up on, and the $5 every business starts with
+      // is under the $10 floor. Nothing is charged today, so the hourly top-up leaves the card alone.
+      const [wallet] = await rows<{ auto_topup: boolean; has_card: boolean; low: boolean }>(
+        admin(),
+        sql`select auto_topup, method_token is not null as has_card, balance_cents <= floor_cents as low
+            from app.usage_wallets where workspace_id = ${workspaceId}::uuid`,
+      );
+      expect(wallet).toEqual({ auto_topup: true, has_card: true, low: true });
+      await sweepWallet({
+        ...s,
+        wallet: { ...s.wallet, mode: 'on' },
+        job: { payload: {} },
+        scope: { workspaceId, organizationId },
+        attempt: 1,
+        now: Date.now(),
+      } as unknown as JobContext);
+      await drain();
+      const [topUps] = await rows<{ n: number }>(
+        admin(),
+        sql`select count(*)::int as n from app.wallet_recharges where workspace_id = ${workspaceId}::uuid`,
+      );
+      expect(topUps?.n).toBe(0);
+      expect(s.payments.fake.platformCharges()).toHaveLength(charged);
 
       // One email, set for three days before the trial ends.
       const queued = await rows<{ run_at: Date; payload: { grantId: string; endsAt: string } }>(

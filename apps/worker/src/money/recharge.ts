@@ -76,6 +76,8 @@ type WalletRow = {
   spent_30d_cents: number | string;
   stage: string;
   workspace_created_at: Date | string;
+  /** The business's plan is in its free trial, which promises nothing is charged until it ends. */
+  in_trial: boolean;
 };
 
 /** Everything deciding whether and how much to top up, in one read. */
@@ -95,7 +97,10 @@ async function walletFor(
             coalesce((select sum(abs(l.amount_cents)) from app.usage_ledger l
               where l.workspace_id = w.workspace_id and l.kind = 'spend'
                 and l.occurred_at > now() - interval '30 days'), 0) as spent_30d_cents,
-            ws.created_at as workspace_created_at, w.stage::text as stage
+            ws.created_at as workspace_created_at, w.stage::text as stage,
+            exists (select 1 from app.workspace_plans p
+              where p.workspace_id = w.workspace_id and p.renewal_count = 0
+                and p.trial_ends_at > now()) as in_trial
           from app.usage_wallets w join app.workspaces ws on ws.id = w.workspace_id
           where w.workspace_id = ${scope.workspaceId}`,
     ),
@@ -110,6 +115,10 @@ const ms = (d: Date | string | null): number | null => (d === null ? null : new 
 export function decideRecharge(w: WalletRow, now: number): Escalation | null {
   // Its agency pays for what it uses: its card, if it has one, is never charged for it.
   if (w.stage === 'agency') return null;
+  // A free trial says nothing is charged until it ends, and every business starts with $5 against a $10 floor, so
+  // topping up here would charge each new trial within the hour. Top-ups start when the trial does end; Top up now
+  // still works, being the business's own press.
+  if (w.in_trial) return null;
   if (!w.auto_topup || !w.method_token || w.suspended_at) return null;
   if (Number(w.pending_recharges) > 0) return null;
   const paused = ms(w.paused_until);

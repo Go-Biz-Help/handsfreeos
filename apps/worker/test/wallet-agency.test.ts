@@ -26,6 +26,7 @@ const low = (stage: string): Parameters<typeof decideRecharge>[0] => ({
   spent_30d_cents: 5_000,
   stage,
   workspace_created_at: new Date(now - 90 * 24 * 60 * 60 * 1000),
+  in_trial: false,
 });
 
 describe('topping up', () => {
@@ -35,6 +36,10 @@ describe('topping up', () => {
 
   it('never charges the card of a business its agency pays for', () => {
     expect(decideRecharge(low('agency'), now)).toBeNull();
+  });
+
+  it('leaves the card alone while the plan is in its free trial', () => {
+    expect(decideRecharge({ ...low('enforce'), in_trial: true }, now)).toBeNull();
   });
 
   // The wallet is read with raw SQL, where timestamps and counts arrive as text. Treating them as Dates threw
