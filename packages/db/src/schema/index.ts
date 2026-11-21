@@ -3182,6 +3182,8 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'business_card',
   // The AI writing down a screenshot of a page a texting registration's check couldn't open (20261027030500).
   'site_screenshot',
+  // The AI writing About you from the person's answers to its interview (20261027031600).
+  'about_you',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
   'faq',

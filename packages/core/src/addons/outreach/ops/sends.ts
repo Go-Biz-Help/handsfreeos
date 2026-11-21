@@ -55,6 +55,7 @@ import { OUTREACH_WORDS } from '../words';
 import { heldForOthers } from '../owners';
 import { fileChats, needs, openerUses, playbooks, posts, profiles, sends } from '../tables';
 import { RETRY_GAP_MINUTES } from '../waiting-words';
+import { CALL_WORDS } from '../calls';
 import { OCCASION_WORDS } from '../occasions';
 import { isOccasionKind, isPartnerKind } from '../today';
 import { automationOf, countWheels } from './automation';
@@ -530,34 +531,37 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
     const replying = input.kind === 'reply' || (autopilot && input.kind === 'partner_reply');
     const needsYou = !okd
       ? AUTOPILOT_WORDS.notOkd
-      : partner && !replying
-        ? autopilot
-          ? null
-          : PARTNER_WORDS.needsYou
-        : input.kind === 'rebook'
+      : // The thank-you after a networking call always waits, Autopilot's too (decision 187, the owner's 5a).
+        input.kind === 'thank_you'
+        ? CALL_WORDS.thanksNeedsYou
+        : partner && !replying
           ? autopilot
             ? null
-            : REBOOK_NEEDS_YOU
-          : isOccasionKind(input.kind)
+            : PARTNER_WORDS.needsYou
+          : input.kind === 'rebook'
             ? autopilot
               ? null
-              : OCCASION_WORDS.needsYou
-            : post
-              ? post.answer
-                ? // They answered the person's comment (decision 163, 8a): the answer waits, Autopilot's too.
-                  COMMENT_NEEDS_YOU.reply
-                : post.strong &&
-                    NETWORKS[profile.platform].forumAnswersPerDay !== null &&
-                    !autopilot
-                  ? COMMENT_NEEDS_YOU.answer
-                  : null
-              : !replying
+              : REBOOK_NEEDS_YOU
+            : isOccasionKind(input.kind)
+              ? autopilot
                 ? null
-                : theirs === null
-                  ? 'HandsFreeOS hasn’t seen what they wrote'
-                  : // Something they asked that the business's Knowledge doesn't answer (decision 122): the person's.
-                    (replyNeedsYou(theirs) ??
-                    (input.unanswered ? KNOWS_WORDS.needsYou(input.unanswered) : null));
+                : OCCASION_WORDS.needsYou
+              : post
+                ? post.answer
+                  ? // They answered the person's comment (decision 163, 8a): the answer waits, Autopilot's too.
+                    COMMENT_NEEDS_YOU.reply
+                  : post.strong &&
+                      NETWORKS[profile.platform].forumAnswersPerDay !== null &&
+                      !autopilot
+                    ? COMMENT_NEEDS_YOU.answer
+                    : null
+                : !replying
+                  ? null
+                  : theirs === null
+                    ? 'HandsFreeOS hasn’t seen what they wrote'
+                    : // Something they asked that the business's Knowledge doesn't answer (decision 122): the person's.
+                      (replyNeedsYou(theirs) ??
+                      (input.unanswered ? KNOWS_WORDS.needsYou(input.unanswered) : null));
     const goes = goesAsItIs({
       sending: settings.sending,
       replies: settings.replies,

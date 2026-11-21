@@ -251,6 +251,8 @@ describe('Today on the phone', () => {
       requestsHeld: null,
       profileOwn: null,
       goal: null,
+      oneOnOnes: null,
+      events: [],
       retryAt: null,
     };
     await render(
@@ -307,6 +309,8 @@ describe('Today on the phone', () => {
       requestsHeld: null,
       profileOwn: null,
       goal: null,
+      oneOnOnes: null,
+      events: [],
       retryAt: null,
     };
     const onOk = jest.fn();
@@ -391,6 +395,8 @@ describe('Today on the phone', () => {
       requestsHeld: null,
       profileOwn: null,
       goal: null,
+      oneOnOnes: null,
+      events: [],
       retryAt: null,
     };
     await render(
@@ -435,6 +441,8 @@ describe('Today on the phone', () => {
       requestsHeld: null,
       profileOwn: null,
       goal: null,
+      oneOnOnes: null,
+      events: [],
       retryAt: null,
     };
     const helpful: HelpfulListOutput = {
@@ -491,7 +499,7 @@ describe('Today on the phone', () => {
   });
 
   it('offers a referral with both texts to copy, and notes it done or puts it aside (decision 174)', async () => {
-    const on = { done: jest.fn(), skip: jest.fn() };
+    const on = { done: jest.fn(), skip: jest.fn(), forMe: jest.fn(), ask: jest.fn() };
     const today: TodayOutput = {
       limits: LIVE.limits,
       items: [],
@@ -511,6 +519,8 @@ describe('Today on the phone', () => {
       requestsHeld: null,
       profileOwn: null,
       goal: null,
+      oneOnOnes: null,
+      events: [],
       retryAt: null,
     };
     const referral: Referral = {
@@ -529,6 +539,9 @@ describe('Today on the phone', () => {
       comment: 'You should reach out to Dana Reyes! They do roofing in Boise.',
       note: 'Hey Dana, someone was just asking for a roofer. https://www.facebook.com/groups/1/posts/2/',
       state: 'waiting',
+      forYou: false,
+      posted: false,
+      needs: null,
       createdAt: new Date(NOW).toISOString(),
     };
     const { rerender } = await render(
@@ -572,6 +585,48 @@ describe('Today on the phone', () => {
       />,
     );
     expect(screen.queryByTestId('today-refer')).toBeNull();
+    // On Facebook (decision 185): Do it for me hands it to their computer; one within the week of a heads-up is the
+    // comment alone; and the ask after two has its own part.
+    await rerender(
+      <TodayBody
+        today={today}
+        referrals={[{ ...referral, forYou: true, note: null }]}
+        referAsks={[
+          {
+            askId: id(73),
+            platform: 'facebook',
+            profileId: id(72),
+            name: 'Dana Reyes',
+            profileUrl: 'https://www.facebook.com/dana.roofs',
+            referred: 2,
+            text: 'Hey Dana, I’ve mentioned you a couple of times.',
+            state: 'waiting',
+            forYou: true,
+            needs: null,
+            createdAt: new Date(NOW).toISOString(),
+          },
+        ]}
+        onReferral={on}
+        error={null}
+        wheels={null}
+        onRetry={jest.fn()}
+        onOk={jest.fn()}
+        onSkip={jest.fn()}
+        onNotForMe={jest.fn()}
+        onEndWheels={jest.fn()}
+      />,
+    );
+    expect(screen.queryByTestId('today-refer-note')).toBeNull();
+    expect(screen.getByText(REFER_WORDS.noNote('Dana Reyes'))).toBeTruthy();
+    expect(screen.getByText(REFER_WORDS.doneComment)).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('today-refer-for-me'));
+    expect(on.forMe).toHaveBeenCalledWith(id(70), 'Dana Reyes', false);
+    expect(screen.getByText(`${REFER_WORDS.askTitle} · 1`)).toBeTruthy();
+    expect(screen.getByText(REFER_WORDS.askBlurb('Dana Reyes', 2))).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('today-refer-ask-for-me'));
+    expect(on.ask).toHaveBeenCalledWith(id(73), 'Dana Reyes', 'approve');
+    await fireEvent.press(screen.getByTestId('today-refer-ask-skip'));
+    expect(on.ask).toHaveBeenCalledWith(id(73), 'Dana Reyes', 'skip');
   });
 
   it('puts LinkedIn’s helpful post on the person’s own feed, to copy and post there', async () => {
@@ -595,6 +650,8 @@ describe('Today on the phone', () => {
       requestsHeld: null,
       profileOwn: null,
       goal: null,
+      oneOnOnes: null,
+      events: [],
       retryAt: null,
     };
     const helpful: HelpfulListOutput = {
@@ -674,6 +731,8 @@ describe('Today on the phone', () => {
       requestsHeld: null,
       profileOwn: null,
       goal: null,
+      oneOnOnes: null,
+      events: [],
       retryAt: null,
     };
     const helpful: HelpfulListOutput = {
@@ -748,6 +807,8 @@ const todayOf = (items: TodayItem[], partners: TodayItem[] = []): TodayOutput =>
   requestsHeld: null,
   profileOwn: null,
   goal: null,
+  oneOnOnes: null,
+  events: [],
   retryAt: null,
 });
 

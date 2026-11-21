@@ -19,6 +19,8 @@ export const PAGE_KINDS = [
   'notifications',
   // Your friends' birthdays (facebook.com/events/birthdays/, decision 108).
   'birthdays',
+  // An event's own page (facebook.com/events/<number>/, decision 188).
+  'event',
   'post',
   'feed',
   'other',
@@ -164,6 +166,34 @@ export interface ChatPage {
   readonly messages: readonly ChatMessage[];
 }
 
+/** Someone an event's page shows hosting it or going (./events.ts, decision 188). */
+export interface EventGoer {
+  readonly name: string;
+  readonly profile: ProfileRef;
+}
+
+/** An event Facebook's event search lists (./events.ts): its own page, and what its card says of it. */
+export interface EventCard {
+  /** Its own page, made plain: https://www.facebook.com/events/<number>/. */
+  readonly url: string;
+  readonly name: string;
+  /** When, as the card wrote it: "Thu, Dec 4 at 7:30 AM CST". */
+  readonly when: string | null;
+  /** When it starts, when the extension could read a day and time from `when`. */
+  readonly startsAt: string | null;
+  /** Where, as the card wrote it: a place's name, a town, or "Online". */
+  readonly place: string | null;
+}
+
+/**
+ * An event's own page: what it is, when and where, who hosts it ("Event by …", and its Meet your hosts) and who's
+ * going, as far as the page shows them without pressing anything (its Guests, without See all).
+ */
+export interface EventPage extends EventCard {
+  readonly hosts: readonly EventGoer[];
+  readonly guests: readonly EventGoer[];
+}
+
 /** One of your notifications: someone accepted your request, reacted, commented, mentioned you. */
 export interface Notice {
   readonly kind:
@@ -196,6 +226,10 @@ export interface ReadResult {
   readonly posts?: readonly Post[];
   readonly chats?: readonly ChatSummary[];
   readonly notices?: readonly Notice[];
+  /** The events an event search lists (decision 188). */
+  readonly events?: readonly EventCard[];
+  /** An event's own page (decision 188). */
+  readonly event?: EventPage;
   /**
    * Which of your own lists the page shows (./friends.ts): your friends, or your friend requests, the ones you've got
    * or, after View sent requests, the ones you've sent.

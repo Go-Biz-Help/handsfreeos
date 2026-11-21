@@ -10,6 +10,7 @@
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { EventsReadInput } from '@hfos/core/addons/outreach/events-near';
 import type { TodayListItem } from '../src/hfos/messages';
 import type { Hfos, Job } from '../src/jobs/job';
 
@@ -2562,8 +2563,25 @@ describe('the events near them on Alignable (decision 112)', () => {
     // Never their own business, nor anyone beside another event.
     expect((saves[0]!['people'] as unknown[]).length).toBe(3);
     expect(inputsOf('hfos-events-read')).toEqual([
-      { workspaceId: ME.businessId, platform: 'alignable', urls: [mixer, lunch] },
+      {
+        workspaceId: ME.businessId,
+        platform: 'alignable',
+        urls: [mixer, lunch],
+        // Each for Today's Events near you (decision 188): its card's line read as when it is.
+        events: [
+          expect.objectContaining({
+            url: mixer,
+            name: 'Spring Business Mixer',
+            when: 'Thu, Nov 6 · 5:30 PM',
+            startsAt: expect.any(String),
+            place: null,
+            hosts: [expect.objectContaining({ name: 'Morgan Cole' })],
+          }),
+          expect.objectContaining({ url: lunch, name: 'Lunch and Learn' }),
+        ],
+      },
     ]);
+    expect(EventsReadInput.safeParse(inputsOf('hfos-events-read')[0]).success).toBe(true);
     expect(presses).toEqual([]);
     expect(end).toEqual({
       line: 'Read 2 events near you in Austin, TX: 6 businesses hosting or going, 6 new to check. The good fits come onto Today once the AI has read their pages. Nothing on an event was pressed, so you’re never signed up.',
@@ -2592,7 +2610,7 @@ describe('the events near them on Alignable (decision 112)', () => {
     const end = await runAlignableDaily('events', dailyJob());
     expect(world.opened).toEqual([MINE, EVENTS]);
     expect(inputsOf('hfos-events-read')).toEqual([
-      { workspaceId: ME.businessId, platform: 'alignable', urls: [] },
+      { workspaceId: ME.businessId, platform: 'alignable', urls: [], events: [] },
     ]);
     expect(end.line).toBe(
       'No new events near you in Austin, TX: every one listed was read before. They’re read again next week.',

@@ -109,6 +109,8 @@ export const CHECK_REASONS = {
   friend: 'A friend',
   /** Follows them on Facebook, though they aren't friends (decision 113): after the friends. */
   follower: 'Follows you, though you’re not friends',
+  /** Hosting or going to an event near them on Facebook, though they aren't friends (decision 188): after followers. */
+  event: 'At an event near you, though you’re not friends',
   /** In one of the business's Facebook groups, though they aren't friends (decision 116): last of all. */
   member: 'In one of your groups, though you’re not friends',
 } as const;

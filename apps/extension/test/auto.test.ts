@@ -16,6 +16,8 @@ import {
   networkWaitWords,
   nextStart,
   nextWatch,
+  REFER_AGAIN_MS,
+  referDue,
   STARTED_GAP_MS,
   watchDue,
   workKey,
@@ -36,6 +38,7 @@ import {
   withTheirName,
   writeComment,
   writeMessage,
+  writeTaggedComment,
   type ChatsBefore,
 } from '../src/networks/facebook/auto';
 import { doPath, doStep, findStep, type FetchStep } from '../src/networks/facebook/fetch';
@@ -149,6 +152,14 @@ describe('what it does next', () => {
     expect(watchDue({}, now)).toBe(true);
     expect(watchDue({ watchAt: nextWatch(now, 0.5) }, now + 60 * 60_000)).toBe(false);
     expect(watchDue({ watchAt: nextWatch(now, 0.5) }, now + 90 * 60_000)).toBe(true);
+  });
+
+  it('looks for referrals to do for the person at once, then every half hour', () => {
+    const now = Date.parse('2026-11-20T15:00:00Z');
+    expect(referDue({ referAt: null }, now)).toBe(true);
+    expect(referDue({}, now)).toBe(true);
+    expect(referDue({ referAt: now + REFER_AGAIN_MS }, now + 29 * 60_000)).toBe(false);
+    expect(referDue({ referAt: now + REFER_AGAIN_MS }, now + REFER_AGAIN_MS)).toBe(true);
   });
 
   it('sends messages OK’d first, and drafts the rest after the steps, or before them with Approve all', () => {
@@ -888,6 +899,78 @@ describe('writing a comment', () => {
     await vi.advanceTimersByTimeAsync(10_000);
     vi.useRealTimers();
     expect(await writing).toBe('not_sent');
+  });
+});
+
+describe('a comment that tags someone (decision 185)', () => {
+  const url = `${FB}/groups/7766554433221100/posts/5555666677778888/`;
+  const tag = {
+    before: 'You should reach out to ',
+    said: 'Dana Reyes',
+    after: '! They did our roof.',
+    name: 'Dana Reyes',
+  };
+
+  /**
+   * The post page, where typing adds the words where the caret is and Delete takes one back, as Chrome does. Typing @
+   * and a name opens Facebook's list of people with these names; picking one puts the name in as a tag.
+   */
+  function taggingPage(listed: readonly string[]) {
+    const doc = load('group-post-2026.html', url);
+    const box = doc.querySelector<HTMLElement>('[role="textbox"][aria-label^="Comment as"]')!;
+    const button = doc.querySelector<HTMLElement>('form [role="button"][aria-label="Comment"]')!;
+    box.textContent = '';
+    const list = doc.createElement('div');
+    list.setAttribute('role', 'listbox');
+    doc.body.append(list);
+    doc.execCommand = (command: string, _ui?: boolean, text?: string) => {
+      const now = box.textContent ?? '';
+      box.textContent = command === 'delete' ? now.slice(0, -1) : now + (text ?? '');
+      const typing = /@([^@]+)$/.exec(box.textContent)?.[1];
+      list.replaceChildren(
+        ...(typing && command !== 'delete'
+          ? listed.map((name) => {
+              const option = doc.createElement('div');
+              option.setAttribute('role', 'option');
+              option.innerHTML = `<span>${name}</span><span>Friend</span>`;
+              option.addEventListener('click', () => {
+                box.textContent = (box.textContent ?? '').replace(/@[^@]+$/, name);
+                list.replaceChildren();
+              });
+              return option;
+            })
+          : []),
+      );
+      return true;
+    };
+    const sent: string[] = [];
+    button.addEventListener('click', () => {
+      sent.push(box.textContent ?? '');
+      box.textContent = '';
+    });
+    return { doc, sent };
+  }
+
+  const write = async (doc: Document) => {
+    vi.useFakeTimers();
+    const writing = writeTaggedComment(doc, tag);
+    await vi.advanceTimersByTimeAsync(15_000);
+    vi.useRealTimers();
+    return writing;
+  };
+
+  it('picks their row of Facebook’s list and tags them', async () => {
+    const { doc, sent } = taggingPage(['Dana Smith', 'Dana Reyes']);
+    expect(await write(doc)).toEqual({ result: 'done', tagged: true });
+    expect(sent).toEqual(['You should reach out to Dana Reyes! They did our roof.']);
+  });
+
+  it('puts their name as plain words when Facebook won’t list them', async () => {
+    for (const listed of [[], ['Dana Smith', 'Dan Reyes']]) {
+      const { doc, sent } = taggingPage(listed);
+      expect(await write(doc)).toEqual({ result: 'done', tagged: false });
+      expect(sent).toEqual(['You should reach out to Dana Reyes! They did our roof.']);
+    }
   });
 });
 
