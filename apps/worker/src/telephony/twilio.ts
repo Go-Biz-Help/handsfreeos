@@ -122,6 +122,25 @@ async function callJson<T>(creds: Creds, url: string, body: unknown): Promise<T>
 }
 
 const credsOf = (a: ProviderAccount): Creds => ({ sid: a.sid, token: a.authToken });
+
+/**
+ * A text's photo or file, as Twilio named it: an https address on Twilio's own API. The account's token goes with
+ * every fetch and delete, so it is only ever sent to Twilio, whatever a webhook claims the media's address is.
+ */
+function twilioMediaUrl(url: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new ProviderError('That isn’t a Twilio media address.', 'media_url', true, 400);
+  }
+  const host = parsed.hostname.toLowerCase();
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.port)
+    throw new ProviderError('That isn’t a Twilio media address.', 'media_url', true, 400);
+  if (host !== 'api.twilio.com' && !/^api\.[a-z0-9-]+(?:\.[a-z0-9-]+)?\.twilio\.com$/.test(host))
+    throw new ProviderError('That isn’t a Twilio media address.', 'media_url', true, 400);
+  return parsed.toString();
+}
 /** A business's own account signs in as its Account SID, or as the API key it gave us. */
 const externalCreds = (c: ExternalTwilioCreds): Creds => ({ sid: c.username, token: c.secret });
 
@@ -1259,7 +1278,7 @@ export function createTwilioTelephony(master: {
     },
 
     async fetchMedia(account, url) {
-      const res = await fetch(url, {
+      const res = await fetch(twilioMediaUrl(url), {
         headers: {
           authorization: `Basic ${Buffer.from(`${account.sid}:${account.authToken}`).toString('base64')}`,
         },
@@ -1279,8 +1298,9 @@ export function createTwilioTelephony(master: {
     },
 
     async deleteMedia(account, url) {
+      const media = twilioMediaUrl(url);
       try {
-        await call(credsOf(account), 'DELETE', url.endsWith('.json') ? url : `${url}.json`);
+        await call(credsOf(account), 'DELETE', media.endsWith('.json') ? media : `${media}.json`);
       } catch (e) {
         if (!(e instanceof ProviderError && e.httpStatus === 404)) throw e;
       }
