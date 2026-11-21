@@ -29,6 +29,7 @@ import {
   type TeammatePatch,
 } from '../src/ai-team/index';
 import { notAppliedWords } from '../src/crm/not-applied';
+import { formatPhone } from '../src/crm/phone';
 import { HfosError } from '../src/errors';
 import { AI_EMPLOYEE_COMMANDS, AI_EMPLOYEE_QUERIES, userIdOf } from '../src/kernel/actor';
 import { defineCommand } from '../src/kernel/define';
@@ -855,6 +856,46 @@ describe('what the AI teammate may change', () => {
     });
     expect(found.output.personId).toBe(yan.personId);
     expect(found.eventIds).toEqual([]);
+  });
+
+  it('writes the name they give over the number they were saved under, and leaves a real name alone', async () => {
+    // Saved under their number when they first texted, before they said who they are.
+    const phone = nextPhone();
+    const { personId } = await run(
+      personCreate,
+      { workspaceId: a.wsId, firstName: formatPhone(phone), lastName: '', phone },
+      a.owner,
+    );
+    const said = await textIn(a, phone, 'Hi, this is Dana Rivera. Do you do AC tune-ups?');
+    await run(
+      conversationHandToAi,
+      { workspaceId: a.wsId, conversationId: said.conversationId },
+      a.owner,
+    );
+    const me = { conversationId: said.conversationId };
+    const named = await asAva(a, me, personUpdate, {
+      workspaceId: a.wsId,
+      personId,
+      firstName: 'Dana',
+      lastName: 'Rivera',
+    });
+    expect([...named.output.updated].sort()).toEqual(['firstName', 'lastName']);
+    const name = async () =>
+      (
+        await admin()
+          .select({ firstName: people.firstName, lastName: people.lastName })
+          .from(people)
+          .where(eq(people.id, personId))
+      )[0];
+    expect(await name()).toEqual({ firstName: 'Dana', lastName: 'Rivera' });
+    // Now it is a real name, the AI teammate only fills blanks again.
+    const again = await asAva(a, me, personUpdate, {
+      workspaceId: a.wsId,
+      personId,
+      firstName: 'Danielle',
+    });
+    expect(again.output.updated).toEqual([]);
+    expect(await name()).toEqual({ firstName: 'Dana', lastName: 'Rivera' });
   });
 
   it('moves its customer’s lead between open stages, and changes only its next action', async () => {

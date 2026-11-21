@@ -63,7 +63,7 @@ import {
   writeFormAnswers,
 } from '../forms/submit';
 import { insertWithId } from '../crm/client-ids';
-import { safeFileName } from '../crm/records';
+import { isStandInName, safeFileName } from '../crm/records';
 import { otherPhonesOf } from '../crm/contact-points';
 import { normalizePhone } from '../crm/phone';
 import { findOrCreateCustomer, intakeSourceOf, takeIntakeSlot } from '../crm/intake';
@@ -551,8 +551,14 @@ async function settleCustomer(
       ...otherPhonesOf(existing?.otherPhones).map((p) => p.phone),
     ];
     const blank = (value: unknown) => value === null || value === undefined || value === '';
+    // Saved under their number or email before they said their name: the name on the form replaces that stand-in.
+    const standIn = !!existing && isStandInName(existing);
     const fill: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(person.fields)) {
+      if (standIn && (key === 'firstName' || key === 'lastName') && !blank(value)) {
+        fill[key] = value;
+        continue;
+      }
       const e164 = asNumber(value);
       if (key === 'phoneAlt') {
         // Another number joins the others (0103) when it reads as one and isn't on file already: a form

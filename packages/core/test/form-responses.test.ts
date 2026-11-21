@@ -26,6 +26,7 @@ import {
   formPublish,
   formSaveDraft,
   organizationCreate,
+  personCreate,
   formResponseDelete,
   formResponseExport,
   formResponseList,
@@ -291,6 +292,31 @@ describe('sending it', () => {
     expect(second.personId).toBe(first.personId);
     const [person] = await admin().select().from(people).where(eq(people.id, first.personId!));
     expect(person!.email).toBe('noor@example.com');
+  });
+
+  it('writes the name on the form over the number a customer was saved under', async () => {
+    // Saved under their number when they first texted, before they said who they are.
+    const { personId } = await run(
+      personCreate,
+      { workspaceId: wsId, firstName: '(512) 555-0131', lastName: '', phone: '+15125550131' },
+      owner,
+    );
+    const form = await publishedForm('Stand-in name');
+    const sent = await submit(await start(form.formId), {
+      [qid('name')]: 'Dana',
+      [qid('phone')]: '(512) 555-0131',
+    });
+    expect(sent.personId).toBe(personId);
+    const [person] = await admin().select().from(people).where(eq(people.id, personId));
+    expect(person).toMatchObject({ firstName: 'Dana', lastName: '' });
+    // A real name stays as it is.
+    const again = await submit(await start(form.formId), {
+      [qid('name')]: 'Danielle',
+      [qid('phone')]: '(512) 555-0131',
+    });
+    expect(again.personId).toBe(personId);
+    const [kept] = await admin().select().from(people).where(eq(people.id, personId));
+    expect(kept!.firstName).toBe('Dana');
   });
 
   it('fills in a field the business invented', async () => {
