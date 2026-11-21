@@ -10148,7 +10148,7 @@ HandsFreeOS's own PayPal merchant id tells PayPal which partner a business is co
 4. Copy the **Client ID**.
 5. Under **Secret key 1**, press **Show** and copy the secret.
 6. Save both in your password manager as "PayPal sandbox", under client id and secret. **The secret can move money in every connected business's account.** It goes on the worker and nowhere else.
-7. Further down the same page, under **Features**, make sure **Accept payments** is ticked. Leave **Vault** and **Log in with PayPal** off. Press **Save** if anything changed.
+7. Further down the same page, under **Features**, leave **Expanded checkout** ticked (older dashboards call it **Accept payments**). Untick **Save payment methods** (Vault) and leave **Log in with PayPal** off: HandsFreeOS never keeps a customer's PayPal for later, since plans stay on Stripe or Square. Press **Save** if anything changed.
 
 After Part 1 is approved, set the switch to **Live** and open the live app PayPal turned the partner features on for (make one the same way if there isn't one yet). Copy its client id and secret, and save them as "PayPal partner".
 
