@@ -111,6 +111,7 @@ import { CancelAllButtons } from './cancel-all';
 import { ChatSoFar } from './chat-bubbles';
 import { Drafted } from './drafted';
 import { HelpfulCard } from './helpful-card';
+import { EventsCard } from './events-card';
 import { ReferralCards } from './referral-card';
 import { PersonName } from './person-menu';
 import { PostQuote } from './post-quote';
@@ -370,6 +371,8 @@ export function TodayView({
             />
           ) : null}
           <ReferralCards workspaceId={workspaceId} referrals={referrals} asks={referAsks} />
+          {/* The events near them coming up (decision 188): none from a server before it. */}
+          <EventsCard workspaceId={workspaceId} events={today.events ?? []} />
           {items.length ? (
             <section aria-labelledby="today-list-title" className="space-y-3">
               <div className="flex flex-wrap items-baseline justify-between gap-3">

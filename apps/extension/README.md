@@ -469,7 +469,8 @@ tab whose network was turned off since it loaded notes nothing, reads nothing, a
 | A group's People tab                        | The group, and each member with the list they're in; admins and moderators are marked to leave alone |
 | A group                                     | The group (public or private, members, joined or not) and its posts                                  |
 | Your groups                                 | Each group, with the line under its name                                                             |
-| Search results                              | People, groups and posts                                                                             |
+| Search results                              | People, groups and posts; on an event search, each event with when and where its card says           |
+| An event's page                             | Its name, day, place, hosts and the guests it shows, nothing pressed (decision 188)                  |
 | Chats, and an open chat                     | Each chat with its last message; an open chat's messages, who sent each, when                        |
 | Notifications                               | Who accepted your request, reacted, commented or mentioned you                                       |
 | Any page                                    | Facebook's warnings: a temporary block, a limit, a security check                                    |
@@ -1273,6 +1274,30 @@ was reported. From 0.126.2:
   Before, it was read and never kept, as Instagram shows no times on its messages.
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
+
+### Events near you on Facebook, once a week (0.150.0)
+
+The owner's pick 7a of 20 Nov 2026 (docs/outreach.md, decision 188): "Local Facebook events: read once a week like
+Alignable's, and the hosts and people going get the AI's check, with nothing pressed, plus a Today card listing the
+events so you can go in person."
+
+- **Once a week, before the followers and the day's checks** (`events` in `DAILY_JOBS`, `readFacebookEvents` in
+  `src/jobs/events.ts`): HandsFreeOS says whether it's due and what to search for (core's `outreach.events.next` with
+  `platform: 'facebook'`: "networking Boise, ID", then "business Boise, ID", from the person's town or the business's
+  address). With no town known it says how to set one and tries next time.
+- **Facebook's event search** (`/search/events/?q=…`, `readEventCards` in `src/networks/facebook/events.ts`): each event
+  once by its own page (`eventFromUrl`), with its name and what its card says of when and where. Up to 5 coming up that
+  weren't read before are opened, 15 to 30 seconds apart.
+- **Each event's page** (`readEventPage`, page kind `event`): its name, its day's line in everyday capitals with the
+  moment it starts (`src/networks/event-when.ts`), its place, its hosts (the "Event by …" line and Meet your hosts) and
+  the guests its page shows, read a screen or two down. Nothing is pressed: no Going, Interested, Invite or Share, and no
+  See all.
+- **Sent to HandsFreeOS** (`outreach.events.read` with `events`): the events go on Today's Events near you, and the
+  people who aren't the person's friends are checked by the AI like friends, the good fits going on Today for a friend
+  request. A search with no events, or an event that showed nobody, is noted with its outline.
+- **Alignable's weekly read sends its events too** (`alignableEventSeen` in `src/jobs/alignable/events.ts`): name, its
+  card's line as when or where, and its hosts, so Alignable's events show on Today the same way.
+- **Check Facebook** opens an event search and its first event, and notes how many events and people each showed.
 
 ### Referrals done for you on Facebook (0.149.0)
 

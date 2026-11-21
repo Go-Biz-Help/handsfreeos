@@ -9739,6 +9739,23 @@
         "required": ["workspaceId", "profileId", "outcome"]
       }
     },
+    "outreach.event.skip": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "eventId"]
+      }
+    },
     "outreach.friend.set": {
       "offline": "online",
       "input": {

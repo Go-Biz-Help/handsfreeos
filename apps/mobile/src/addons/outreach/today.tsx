@@ -71,6 +71,7 @@ import {
 } from './kit';
 import { PersonName } from './person-menu';
 import { PostQuote } from './post-quote';
+import { EventsPart } from './events';
 import { ReferralsPart, type ReferralActions } from './referrals';
 
 /**
@@ -191,6 +192,14 @@ export function useTodayProps(
               ? RW.askDoneSaid(name)
               : RW.askSkipSaid,
         ),
+    },
+    onEventSkip: async (eventId) => {
+      try {
+        await change('outreach.event.skip', { workspaceId: ws, eventId });
+        after(W.skipped);
+      } catch (e) {
+        failed(e);
+      }
     },
     onHelpful: {
       write: () =>
@@ -328,6 +337,7 @@ export function TodayBody({
   referrals = null,
   referAsks = null,
   onReferral,
+  onEventSkip,
   error,
   wheels,
   onRetry,
@@ -354,6 +364,8 @@ export function TodayBody({
   /** The asks after two on this network (decision 185): none while they load. */
   referAsks?: readonly ReferAsk[] | null;
   onReferral?: ReferralActions;
+  /** Not going: an event near them off the list (decision 188). */
+  onEventSkip?: (eventId: string) => void;
   error: string | null;
   wheels: WheelsListOutput | null;
   onRetry: () => void;
@@ -476,6 +488,8 @@ export function TodayBody({
       {referrals && onReferral ? (
         <ReferralsPart referrals={referrals} asks={referAsks ?? []} on={onReferral} />
       ) : null}
+      {/* The events near them coming up (decision 188): none from a server before it. */}
+      <EventsPart events={list.events ?? []} onSkip={onEventSkip} />
       {asking.length ? (
         <Part
           title={`${W.asking} · ${asking.length.toLocaleString('en-US')}`}

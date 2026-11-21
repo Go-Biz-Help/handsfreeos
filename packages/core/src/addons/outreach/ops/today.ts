@@ -86,6 +86,7 @@ import {
 } from '../finds';
 import { RECONNECT_QUIET_DAYS, type CheckVerdict, type RequestAnswer } from '../checks';
 import { FOLLOWER_WHY, FOLLOWERS_KEPT_DAYS } from '../followers';
+import { EVENT_PEOPLE_KEPT_DAYS, eventWhy } from '../events-near';
 import { type EngagementKind, WARM_LEAD_DAYS } from '../helpful';
 import type { GroupResults } from '../results';
 import { EVER, reachedPeople, resultsByGroup } from './activity';
@@ -147,6 +148,7 @@ import { groupFitOf } from './group-checks';
 import { sendsToday } from './sends';
 import { heldAmong } from './in-hands';
 import { oneOnOnesOf, oneOnOnesShown } from './calls';
+import { todayEvents } from './events-near';
 import { postParts } from '../sends';
 import { requestsPauseOf } from './request-pause';
 import { slowsNow, startOfToday, warningOf } from './tidy';
@@ -964,8 +966,9 @@ export async function todayFor(
     }
   }
 
-  // The person's followers on Facebook (decision 113): those who aren't friends, checked by the AI like friends, and
-  // good. Ahead of the groups' people, as they made the first move. With Like a post first on, their request comes a
+  // The person's followers on Facebook (decision 113), and people hosting or going to events near them there (decision
+  // 188): those who aren't friends, checked by the AI like friends, and good. Ahead of the groups' people, as they made
+  // the first move or are close by. With Like a post first on, their request comes a
   // day after one of their posts was liked, or at once after a warm-up missed, and the list has likes for tomorrow's.
   let followerRequests = 0;
   let followerLikes = 0;
@@ -991,19 +994,39 @@ export async function todayFor(
         playbook_name: string | null;
         liked_at: Date | string | null;
         warm_up_missed_at: Date | string | null;
+        follows: boolean;
+        event_name: string | null;
+        event_host: boolean | null;
       }>(
         ctx.tx,
         sql`select p.id, p.name, p.url, ch.why as check_why, pb.name as playbook_name, p.warm_up_missed_at,
                 (select max(t.at) from addon_outreach.touches t
                   where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like'
-                    and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz) as liked_at
-              from addon_outreach.followers fo
-              join addon_outreach.profiles p on p.id = fo.profile_id
+                    and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz) as liked_at,
+                w.follows, ev.name as event_name, ev.host as event_host
+              from (
+                select x.profile_id, bool_or(x.follows) as follows from (
+                  select fo.profile_id, true as follows from addon_outreach.followers fo
+                  where fo.workspace_id = ${ws} and fo.user_id = ${me}
+                    and fo.seen_at >= ${ago(FOLLOWERS_KEPT_DAYS)}::timestamptz
+                  union all
+                  select ep.profile_id, false as follows from addon_outreach.event_people ep
+                  where ep.workspace_id = ${ws} and ep.user_id = ${me}
+                    and ep.seen_at >= ${ago(EVENT_PEOPLE_KEPT_DAYS)}::timestamptz
+                ) x group by x.profile_id
+              ) w
+              join addon_outreach.profiles p on p.id = w.profile_id
               join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
                 and ch.verdict in ('good', 'maybe')
               left join addon_outreach.playbooks pb on pb.id = ch.playbook_id
-              where fo.workspace_id = ${ws} and fo.user_id = ${me} and p.platform = 'facebook'
-                and fo.seen_at >= ${ago(FOLLOWERS_KEPT_DAYS)}::timestamptz
+              left join lateral (
+                select e.name, ep.host from addon_outreach.event_people ep
+                join addon_outreach.events e on e.id = ep.event_id
+                where ep.profile_id = p.id and ep.user_id = ${me}
+                  and ep.seen_at >= ${ago(EVENT_PEOPLE_KEPT_DAYS)}::timestamptz
+                order by ep.host desc, ep.seen_at desc limit 1
+              ) ev on true
+              where p.platform = 'facebook'
               and not ${knowsThem(me)} and ${stillToReach(me)} and ${reach}
                 and not exists (select 1 from addon_outreach.friends fr
                   where fr.profile_id = p.id and fr.user_id = ${me})
@@ -1016,7 +1039,8 @@ export async function todayFor(
     const likedBy = (p: (typeof good)[number]) =>
       p.liked_at === null ? null : new Date(p.liked_at).getTime();
     const whyOf = (p: (typeof good)[number]) => [
-      FOLLOWER_WHY,
+      ...(p.follows ? [FOLLOWER_WHY] : []),
+      ...(p.event_name ? [eventWhy(p.event_name, p.event_host ?? false)] : []),
       ...p.check_why.slice(0, FOUND_WHY_MOST),
     ];
     const ready = good.filter((p) => {
@@ -2393,6 +2417,11 @@ export async function todayFor(
     oneOnOnes: oneOnOnesShown(callWeeks)
       ? { week: callWeeks.week, lastWeek: callWeeks.lastWeek }
       : null,
+    // The events near them coming up (decision 188, the owner's 7a), on the networks whose events are read.
+    events:
+      input.platform === 'facebook' || input.platform === 'alignable'
+        ? await todayEvents(ctx, me, input.platform, now)
+        : [],
     retryAt: drafted.retryAt(input.platform),
   };
   return { list, most };

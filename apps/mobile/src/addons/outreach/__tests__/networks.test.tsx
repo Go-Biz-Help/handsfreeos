@@ -339,6 +339,7 @@ const todayOf = (items: TodayItem[]): TodayOutput => ({
   profileOwn: null,
   goal: null,
   oneOnOnes: null,
+  events: [],
   retryAt: null,
 });
 

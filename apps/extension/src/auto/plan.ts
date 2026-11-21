@@ -59,7 +59,9 @@ export type DoneKind = AutoKind | 'drafted' | 'sent' | 'story_like';
  * The jobs it does once a day, in order (./daily.ts, decision 32), by turns with the list (decision 123). From 0.144.0
  * HandsFreeOS's own comment research on every network, for whoever of its staff started one (`comment_research`,
  * decisions 166 and 172, ../jobs/comment-research.ts), on Instagram since 0.140.0: each network's runner asks first
- * and, for anyone else, it's done for the day before a line of it is shown.
+ * and, for anyone else, it's done for the day before a line of it is shown. From 0.150.0 the events near the person on
+ * Facebook, once a week before their followers and the day's checks (`events`, decision 188, ../jobs/events.ts), as
+ * Alignable's runner reads its own.
  */
 export const DAILY_JOBS = [
   'requests',
@@ -71,6 +73,7 @@ export const DAILY_JOBS = [
   'posts',
   'active',
   'chats',
+  'events',
   'followers',
   'checks',
   'partners',
@@ -87,8 +90,7 @@ export type DailyJob = (typeof DAILY_JOBS)[number];
  * groups read first (`my_groups`) and the posts of the groups they joined (`group_posts`), beside Facebook's
  * `group_checks`, `join` and `members`; from 0.101.0 the week's helpful post asked for on Instagram and Alignable
  * (`weekly_post`, decision 109); from 0.102.0 Instagram's accounts like the business's (`like_yours`, decision
- * 110, ../jobs/instagram/like-yours.ts); and from 0.104.0 the events near the person on Alignable, once a week
- * (`events`, decision 112, ../jobs/alignable/events.ts); and from 0.109.0 who engaged with the person's helpful posts
+ * 110, ../jobs/instagram/like-yours.ts); and from 0.109.0 who engaged with the person's helpful posts
  * on LinkedIn on its own (`engaged`, after the day's post is asked for), as it reads with its window in front only
  * while they're away from their computer (decision 120).
  */
@@ -101,7 +103,6 @@ export type OwnDailyJob =
   | 'group_posts'
   | 'weekly_post'
   | 'like_yours'
-  | 'events'
   | 'engaged';
 
 /** The shortest and longest wait between two steps in the working hours. */

@@ -558,6 +558,19 @@ export const findsWeek = defineAddonQuery(outreachAddon, {
           group by f.platform, f.how
           order by f.platform, f.how`,
     );
+    // People at events near them on Facebook (decision 188) aren't finds: they're checked like friends, by event.
+    const atEvents = await rows<{ found: number; good: number; maybe: number }>(
+      ctx.tx,
+      sql`select count(*)::int as found,
+            count(*) filter (where c.verdict = 'good')::int as good,
+            count(*) filter (where c.verdict = 'maybe')::int as maybe
+          from addon_outreach.checks c
+          join addon_outreach.profiles p on p.workspace_id = c.workspace_id and p.id = c.profile_id
+          where c.workspace_id = ${ws} and c.user_id = ${me} and c.via = 'event'
+            and c.looked_at >= ${since} ${on(sql`p.platform`)}
+          having count(*) > 0`,
+    );
+    for (const e of atEvents) ways.push({ platform: 'facebook', how: 'event', ...e });
     const checked = await rows<{ via: string; found: number; good: number; maybe: number }>(
       ctx.tx,
       sql`select c.via, count(*)::int as found,

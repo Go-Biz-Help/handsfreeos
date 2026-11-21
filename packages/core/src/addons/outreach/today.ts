@@ -113,6 +113,7 @@ import { DraftOpener, type Opener, wayOfKind } from './openers';
 import { WarningState } from './tidy';
 import { TodayGoal } from './goal';
 import { OneOnOnes } from './calls';
+import { TodayEvent } from './events-near';
 import { inNetworkWords, NETWORKS, type Platform } from './networks';
 import { VISIT_LIKES } from './keep-warm';
 import { REACH_KEYS, THEIR_WORK_ASK, TheirWorkFound, type TheirWork } from './local';
@@ -542,6 +543,11 @@ export const TodayOutput = z.object({
    * alike. Null while they have no Networking calendar picked and no networking call lately, and from a server before it.
    */
   oneOnOnes: OneOnOnes.nullable().default(null),
+  /**
+   * The events near the person on this network that are coming up (decision 188, ./events-near.ts, the owner's 7a), the
+   * soonest first, so they can go in person: none on a network whose events aren't read, and from a server before it.
+   */
+  events: z.array(TodayEvent).default([]),
   /**
    * When the next message or comment tried again on this network may go (decision 132): its person is off the list
    * till then, and the extension looks again by then. Null while none waits.

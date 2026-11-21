@@ -5111,6 +5111,32 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         says last week's number beside the week before, to whoever had one in the last 5 weeks.
       - No extension change: the extension drafts and sends the thank-you as it does the day's other messages.
 
+188.  **Events near you on Facebook, and on Today** (Chris, 20 Nov 2026, part 4's pick 7a: "Local Facebook events: read
+      once a week like Alignable's, and the hosts and people going get the AI's check, with nothing pressed, plus a
+      Today card listing the events so you can go in person"). Builds on decisions 112 (Alignable's events), 113
+      (followers checked like friends) and 177 (where the person is):
+      - **Once a week** (`EVENTS_EVERY_DAYS`), the extension's `events` job (0.150.0, `src/jobs/events.ts`, before the
+        followers and the day's checks) asks `outreach.events.next` with `platform: 'facebook'`, which says what to
+        search for (`eventSearches`: "networking Boise, ID", then "business Boise, ID", from Settings → You → Where you
+        are, else the business's address; `ownArea` in `ops/local.ts`). With no town known it says how to set one.
+      - **Facebook's event search** is read a screen or two, and up to 5 events coming up that weren't read before
+        (`EVENTS_READ_MOST`) are opened, 15 to 30 seconds apart: each one's name, day, place, hosts ("Event by …" and
+        Meet your hosts) and the guests its page shows go to `outreach.events.read` with `events` (`EventSeen`).
+        **Nothing is pressed** on an event: no Going, Interested, Invite or Share, and no See all.
+      - **Kept as the person's own** (migration 031800): the events in `addon_outreach.events` (both networks; from
+        0.150.0 Alignable's weekly read sends its events too), and on Facebook who was there in
+        `addon_outreach.event_people`, the person's own profile never. Someone seen at an event stays someone to check
+        for `EVENT_PEOPLE_KEPT_DAYS` (30).
+      - **The AI checks them like friends** (`outreach.checks.next`'s reason `event`, after followers; via `event`),
+        told "Going to the Facebook event “Spring Mixer” (Boise Centre) near the owner, though they aren’t friends"
+        (`eventFact`). A good fit goes on Today for a warm-up and a friend request, as a follower does, with why:
+        "Hosting “Spring Mixer” near you" or "Going to …" (`eventWhy`). The week's finds count them as found by an
+        event.
+      - **Today's Events near you** (`outreach.today`'s `events`, on the web and the phone): up to 5 events coming up in
+        the next 45 days, the soonest first (one whose day wasn't read stays 10 days), each with when and where as its
+        page said, who hosts it, how many people there the AI is checking or found a fit, **Open** (the event's own
+        page) and **Not going** (`outreach.event.skip`, risk 0). Going is the person's to do.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -6001,9 +6027,10 @@ commenter's comment, the AI's check of Facebook's group members, 3 screens of a 
 Alignable, the business's found checks a day, results by hashtag, phrase and kind of business, and tidying away finds
 never checked after two weeks came with decision 116, the comment Like and Alignable's likers from guessed markup too.
 
-Local networking (decisions 177 to 180 are the first three of four parts, from the owner's picks of 18 Nov 2026) still
-to come: local Facebook events (part 4; its referrals are decision 185, the About you interview 186, and networking
-calls' prep notes, thank-yous and weekly count 187). Referrals are done for the person only on
+Local networking (decisions 177 to 180 are the first three of four parts, from the owner's picks of 18 Nov 2026) is
+all built: part 4 is the referrals (decision 185), the About you interview (186), networking calls' prep notes,
+thank-yous and weekly count (187), and local events on Facebook and Today (188). The event search and an event's page
+are read by guesses till the owner's next Check Facebook outlines them. Referrals are done for the person only on
 Facebook: on the other networks, and for someone the person talks with on another network than the post's, they wait
 on Today. Today's ordering is the only place near people go first; the Pipeline and the lists don't sort by distance
 yet.

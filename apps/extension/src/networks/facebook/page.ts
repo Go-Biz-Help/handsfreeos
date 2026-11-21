@@ -7,6 +7,7 @@ import { readBirthdays } from './birthdays';
 import { readChat, type ChatOptions } from './chat';
 import { readChats } from './chats';
 import { inTopBar, mainOf, tabsIn } from './dom';
+import { readEventCards, readEventPage } from './events';
 import { friendListOf, listBeside, readListBeside, withRequests } from './friends';
 import { readGroupAbout, readGroupLinks, readGroupPage } from './groups';
 import { readNotices } from './notifications';
@@ -114,6 +115,15 @@ export function readPage(
       const url = facebookUrl(href);
       // /search/people, /search/groups and /search/posts show one sort; /search/top and the rest show them all.
       const tab = url ? (pathParts(url)[1]?.toLowerCase() ?? '') : '';
+      // /search/events lists events near the person (decision 188), and nothing else is read there.
+      if (tab === 'events') {
+        found = { events: readEventCards(main, base, now) };
+        if (!found.events?.length)
+          notes.push(
+            'Found no events here. If the page shows some, save the page outline and send it to us so we can fix the reader.',
+          );
+        break;
+      }
       const all = !['people', 'groups', 'posts'].includes(tab);
       found = {
         people: all || tab === 'people' ? readPeople(main, base) : [],
@@ -134,6 +144,13 @@ export function readPage(
     case 'birthdays':
       found = { people: readBirthdays(main, base) };
       break;
+    case 'event': {
+      // An event's own page (decision 188): read, never pressed.
+      const event = readEventPage(main, base, doc.title, now);
+      if (event) found = { event };
+      if (!event?.name) notes.push('Couldn’t find the event’s name on this page.');
+      break;
+    }
     case 'post':
     case 'feed':
       found = { posts: readPosts(main, base) };

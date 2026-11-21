@@ -8917,6 +8917,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.event.skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Not going: take an event off the person’s list of events near them on Today (Events near you). Its people are still checked. Nothing changes on the network.
+         * @description Risk level 0. Requires outreach.use. Emits .
+         */
+        post: operations["command_outreach_event_skip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.events.read": {
         parameters: {
             query?: never;
@@ -8927,7 +8947,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s computer read the events in their town on Alignable this week: up to 5 not read before, whose hosts and guests went to the AI to check. Nothing on an event was pressed. The next read is a week on.
+         * The person’s computer read the events near them this week, on Alignable or Facebook: up to 5 not read before, each kept for Today’s list of events near them, with who hosts it. On Facebook the hosts and people going who aren’t friends are checked by the AI like friends; on Alignable they went to the AI as found. Nothing on an event was pressed. The next read is a week on.
          * @description Risk level 0. Requires outreach.use. Emits .
          */
         post: operations["command_outreach_events_read"];
@@ -22787,7 +22807,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone who sent them a friend request they haven’t answered (for what to do with it), anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, the rest of their friends, their followers on Facebook who aren’t friends yet, then people in the business’s Facebook groups who aren’t friends, the best fit first. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.
+         * Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone who sent them a friend request they haven’t answered (for what to do with it), anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, the rest of their friends, their followers on Facebook who aren’t friends yet, people hosting or going to events near them on Facebook who aren’t friends, then people in the business’s Facebook groups who aren’t friends, the best fit first. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_checks_next"];
@@ -22887,7 +22907,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Whether the person’s computer reads the events in their town on Alignable today: once a week, the first time and then a week after the last read. With the events it read lately, which it never reads again.
+         * Whether the person’s computer reads the events near them today, on Alignable (their town’s events) or Facebook (its event search for their town): once a week, the first time and then a week after the last read. With the events it read lately, which it never reads again, and on Facebook what to search for.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_events_next"];
@@ -49327,6 +49347,37 @@ export interface operations {
             };
         };
     };
+    command_outreach_event_skip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    eventId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        skipped: boolean;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_events_read: {
         parameters: {
             query?: never;
@@ -49337,11 +49388,37 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    events?: {
+                        /** @default [] */
+                        guests?: {
+                            name: string;
+                            profile: {
+                                id: string | null;
+                                url: string;
+                                username: string | null;
+                            };
+                        }[];
+                        /** @default [] */
+                        hosts?: {
+                            name: string;
+                            profile: {
+                                id: string | null;
+                                url: string;
+                                username: string | null;
+                            };
+                        }[];
+                        name: string;
+                        place?: string | null;
+                        /** @default null */
+                        startsAt?: string | null;
+                        url: string;
+                        when?: string | null;
+                    }[];
                     /**
                      * @default alignable
                      * @enum {string}
                      */
-                    platform?: "alignable";
+                    platform?: "alignable" | "facebook";
                     /** @default [] */
                     urls?: string[];
                     /** Format: uuid */
@@ -49357,6 +49434,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default 0 */
+                        added: number;
                         readAt: string;
                     };
                 };
@@ -90208,7 +90287,7 @@ export interface operations {
                             /** Format: uuid */
                             profileId: string;
                             /** @enum {string} */
-                            reason: "asked" | "request" | "country" | "prospect" | "chat" | "chat_only" | "group" | "friend" | "follower" | "member";
+                            reason: "asked" | "request" | "country" | "prospect" | "chat" | "chat_only" | "group" | "friend" | "follower" | "event" | "member";
                             url: string;
                         }[];
                         perDay: number;
@@ -90484,7 +90563,7 @@ export interface operations {
                      * @default alignable
                      * @enum {string}
                      */
-                    platform?: "alignable";
+                    platform?: "alignable" | "facebook";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -90500,6 +90579,8 @@ export interface operations {
                     "application/json": {
                         due: boolean;
                         read: string[];
+                        /** @default [] */
+                        searches: string[];
                     };
                 };
             };
@@ -94298,6 +94379,18 @@ export interface operations {
                 content: {
                     "application/json": {
                         auto: ("reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up")[];
+                        /** @default [] */
+                        events: {
+                            hosts: string[];
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            people: number;
+                            place: string | null;
+                            startsAt: string | null;
+                            url: string;
+                            when: string | null;
+                        }[];
                         /**
                          * @default {
                          *       "on": false,

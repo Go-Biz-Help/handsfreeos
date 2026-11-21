@@ -38,6 +38,7 @@ import type {
 import type { EngagementKind, HelpfulState } from './helpful';
 import type { ReferralState } from './referrals';
 import type { CallHow } from './calls';
+import type { EventPlatform } from './events-near';
 import type { TallyKind } from './tallies';
 import type { KeptTime, TimeBooking, TimeOfferState } from './meeting-times';
 import type { AutopilotState } from './autopilot';
@@ -1899,7 +1900,7 @@ export const eventReads = addonOutreach.table(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    platform: text('platform').notNull().default('alignable').$type<'alignable'>(),
+    platform: text('platform').notNull().default('alignable').$type<EventPlatform>(),
     readAt: ts('read_at').notNull(),
     urls: text('urls')
       .array()
@@ -1909,6 +1910,72 @@ export const eventReads = addonOutreach.table(
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
   (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.platform)],
+);
+
+/**
+ * Each event near a person their computer read (./events-near.ts, decisions 112 and 188): its name, when and where as
+ * the page wrote them, and who hosts it, for Today's card. Put aside with Not going (`skippedAt`). Each person's own.
+ */
+export const events = addonOutreach.table(
+  'events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    platform: text('platform').notNull().$type<EventPlatform>(),
+    url: text('url').notNull(),
+    name: text('name').notNull(),
+    whenText: text('when_text'),
+    startsAt: ts('starts_at'),
+    place: text('place'),
+    hosts: text('hosts')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    seenAt: ts('seen_at').notNull(),
+    skippedAt: ts('skipped_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.platform, t.url),
+  ],
+);
+
+/**
+ * Who hosts or is going to each event near a person on Facebook (decision 188): someone who isn't their friend is
+ * checked by the AI like a friend, and a good fit goes on Today for a friend request. Each person's own.
+ */
+export const eventPeople = addonOutreach.table(
+  'event_people',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    eventId: uuid('event_id').notNull(),
+    profileId: uuid('profile_id').notNull(),
+    host: boolean('host').notNull().default(false),
+    seenAt: ts('seen_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.eventId, t.profileId),
+    foreignKey({
+      columns: [t.workspaceId, t.eventId],
+      foreignColumns: [events.workspaceId, events.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
 );
 
 /**

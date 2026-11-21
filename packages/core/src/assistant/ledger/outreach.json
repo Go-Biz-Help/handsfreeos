@@ -14,6 +14,7 @@
     "apps/mobile/src/addons/outreach/counters.tsx": "bffec9a1089f",
     "apps/mobile/src/addons/outreach/countries.tsx": "2f03fcedf70c",
     "apps/mobile/src/addons/outreach/country-setting.tsx": "7d3f0edcc4a3",
+    "apps/mobile/src/addons/outreach/events.tsx": "3764e2911207",
     "apps/mobile/src/addons/outreach/find.tsx": "b26b6980e71f",
     "apps/mobile/src/addons/outreach/frame.tsx": "c021610d6bb8",
     "apps/mobile/src/addons/outreach/friends.tsx": "0baef8d179a7",
@@ -54,7 +55,7 @@
     "apps/mobile/src/addons/outreach/setup.tsx": "88dc516bdf04",
     "apps/mobile/src/addons/outreach/social-card.tsx": "9dfd419415b9",
     "apps/mobile/src/addons/outreach/ticker.tsx": "3ac4c69f8f42",
-    "apps/mobile/src/addons/outreach/today.tsx": "37ee86d25917",
+    "apps/mobile/src/addons/outreach/today.tsx": "c758ae29713b",
     "apps/mobile/src/addons/outreach/video-library.tsx": "44d9f03cf97f",
     "apps/mobile/src/addons/outreach/waiting.tsx": "b6772eb1c110",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/outreach/_layout.tsx": "182d0b21e1d1",
@@ -75,6 +76,7 @@
     "apps/web/src/addons/outreach/country-skipped.tsx": "516d0754c63b",
     "apps/web/src/addons/outreach/download-card.tsx": "825bdd9c2a92",
     "apps/web/src/addons/outreach/drafted.tsx": "52c849cb5740",
+    "apps/web/src/addons/outreach/events-card.tsx": "64a8476edae2",
     "apps/web/src/addons/outreach/extension-download.tsx": "891862569d90",
     "apps/web/src/addons/outreach/extension-link.tsx": "4c07a42dd2e2",
     "apps/web/src/addons/outreach/file-asks.tsx": "241d2d78e017",
@@ -124,7 +126,7 @@
     "apps/web/src/addons/outreach/status-strip.tsx": "cf43b1c1f4b5",
     "apps/web/src/addons/outreach/their-work.tsx": "96e7160240f3",
     "apps/web/src/addons/outreach/ticker.tsx": "3bf4c993fe11",
-    "apps/web/src/addons/outreach/today-view.tsx": "104195fb8075",
+    "apps/web/src/addons/outreach/today-view.tsx": "b908f506b275",
     "apps/web/src/addons/outreach/touched-posts.tsx": "a25e60b0a355",
     "apps/web/src/addons/outreach/tracking-view.tsx": "6894838d24e1",
     "apps/web/src/addons/outreach/video-library.tsx": "de0fb2af8146",
@@ -150,7 +152,7 @@
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/setup/page.tsx": "3b4de50baa1d",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/show.tsx": "4394397ae5a0",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/today/page.tsx": "652469b89773",
-    "packages/core/src/addons/outreach/manifest.ts": "f427b1411655"
+    "packages/core/src/addons/outreach/manifest.ts": "dd9f74541115"
   },
   "items": [
     {
@@ -1696,28 +1698,42 @@
     {
       "path": "Today → One-on-ones: this week's networking calls and last week's",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:266",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:267",
       "covered": "yes",
       "by": "outreach_today oneOnOnes"
     },
     {
+      "path": "Today → Events near you: each event coming up with when, where, who hosts it and how many people there to check",
+      "kind": "see",
+      "file": "apps/web/src/addons/outreach/events-card.tsx:39",
+      "covered": "yes",
+      "by": "outreach_today events"
+    },
+    {
+      "path": "Today → Events near you → Open, Not going",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/events-card.tsx:75",
+      "covered": "yes",
+      "by": "Open: outreach_today events url, the event's page to open; Not going: outreach_event_skip"
+    },
+    {
       "path": "Today → Heads up: Facebook's warning",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:260",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:261",
       "covered": "yes",
       "by": "outreach_today warning; outreach_live warning"
     },
     {
       "path": "Today → Heads up: training wheels, first days at a gentler pace, new messages wait",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:271",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:272",
       "covered": "yes",
       "by": "outreach_today wheels, fresh, newMessagesWait"
     },
     {
       "path": "Today → Heads up: friend requests held (too many waiting, or the monthly limit)",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:288",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:289",
       "covered": "yes",
       "by": "outreach_today requestsHeld"
     },
@@ -1731,7 +1747,7 @@
     {
       "path": "Today → Heads up: Start new requests again (after upgrading)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:525",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:528",
       "covered": "yes",
       "by": "outreach_start_requests_again"
     },
@@ -1745,14 +1761,14 @@
     {
       "path": "Today → Heads up: your own profile changes wait; Look at it",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:309",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:310",
       "covered": "yes",
       "by": "outreach_today profileOwn; outreach_get_ready"
     },
     {
       "path": "Today → N things need you; Open Needs you",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:323",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:324",
       "covered": "yes",
       "by": "outreach_waiting count"
     },
@@ -1850,7 +1866,7 @@
     {
       "path": "Today → Get ready line and Open Set up",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:859",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:862",
       "covered": "yes",
       "by": "outreach_get_ready items, ready"
     },
@@ -1997,168 +2013,168 @@
     {
       "path": "Today → list title (on network), how many",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:365",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:366",
       "covered": "yes",
       "by": "outreach_today items"
     },
     {
       "path": "Today → Approve all N; answers to OK one at a time",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:374",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:377",
       "covered": "yes",
       "by": "outreach_approve_messages"
     },
     {
       "path": "Today → replies still answered while you get ready",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:392",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:395",
       "covered": "partly",
       "by": "outreach_today ready; the note is the screen's"
     },
     {
       "path": "Today → each row: name (person menu), open their page or chat",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:721",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:724",
       "covered": "yes",
       "by": "outreach_today profileUrl, postUrl and chatUrl beside threadKey (ai.answer withChatLinks), the link Open in Messenger and the rest open"
     },
     {
       "path": "Today → each row: why, Asking, Done on its own, what to do (Confirm, Warm up, Friend request, First message, Pitch, Video, Follow-up, Reply, Thank them for the call, …)",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:750",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:753",
       "covered": "yes",
       "by": "outreach_today items kind, why, asking; auto"
     },
     {
       "path": "Today → each row: the post (More/Less, when posted)",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:768",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:771",
       "covered": "yes",
       "by": "outreach_today post, postWhole, posted"
     },
     {
       "path": "Today → each row: the chat's summary and Next",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:776",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:779",
       "covered": "yes",
       "by": "outreach_today summary, nextStep"
     },
     {
       "path": "Today → each row: looks like a partner; Potential partner",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:813",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:816",
       "covered": "yes",
       "by": "outreach_today partnerHint; outreach_potential_partner"
     },
     {
       "path": "Today → each row: the chat so far",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:788",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:791",
       "covered": "yes",
       "by": "outreach_today items"
     },
     {
       "path": "Today → each row: a drafted message waiting (Send, Edit, Skip)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:789",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:792",
       "covered": "yes",
       "by": "outreach_approve_messages, outreach_skip_message"
     },
     {
       "path": "Today → each row: Draft a message / comment / reply (look it up on your computer first)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:1125",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:1128",
       "covered": "yes",
       "by": "outreach_ask_computer kind lookup, draft"
     },
     {
       "path": "Today → each row: Draft from what HandsFreeOS knows / Draft again",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:1145",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:1148",
       "covered": "yes",
       "by": "outreach_draft_message"
     },
     {
       "path": "Today → each row: drafts' notes: offline, what the look-up said, which opener, the times it offers, what they asked unanswered",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:1058",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:1061",
       "covered": "yes",
       "by": "outreach_draft_message opener, meeting, unanswered; outreach_asks line"
     },
     {
       "path": "Today → each row: the drafts (one text or N texts)",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:1085",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:1088",
       "covered": "yes",
       "by": "outreach_draft_message drafts"
     },
     {
       "path": "Today → each row: Copy a draft (then it's noted sent, a pitch marked pitched, a reply's time booked)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:1095",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:1098",
       "covered": "partly",
       "by": "outreach_note_sent, outreach_mark_stage, outreach_book_time; which opener was used isn't noted (outreach.opener.use)"
     },
     {
       "path": "Today → each row: Copy video link",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:1168",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:1171",
       "covered": "yes",
       "by": "outreach_today videoLink; outreach_note_sent kind video"
     },
     {
       "path": "Today → each row: Copy demo link / Copy the link only (pitch)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:1182",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:1185",
       "covered": "yes",
       "by": "outreach_today demoLink; outreach_mark_stage pitched"
     },
     {
       "path": "Today → each row: Stop check-ins",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:1201",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:1204",
       "covered": "yes",
       "by": "outreach_stop_follow_ups"
     },
     {
       "path": "Today → each row: Not for me (a post)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:1214",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:1217",
       "covered": "yes",
       "by": "outreach_skip_post postId"
     },
     {
       "path": "Today → nothing on the list: where to start (save your groups, read your chats, check your friends) with their buttons",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:547",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:550",
       "covered": "yes",
       "by": "outreach_ask_computer kinds groups, chats, checks"
     },
     {
       "path": "Today → Partners: title, count, about, each partner row like the list",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:414",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:417",
       "covered": "yes",
       "by": "outreach_today partners"
     },
     {
       "path": "Today → Done today: each step at its time (a failed one in amber), Show N more, nothing yet",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:624",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:627",
       "covered": "yes",
       "by": "outreach_live feed (steps)"
     },
     {
       "path": "Today → Friend requests need a playbook; Go to Playbooks",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:449",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:452",
       "covered": "yes",
       "by": "outreach_today hasPlaybook"
     },
     {
       "path": "Today → Save who runs these groups: each group (link) and Save its members",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:468",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:471",
       "covered": "yes",
       "by": "outreach_today readAdmins; outreach_ask_computer kind members"
     },
@@ -2172,7 +2188,7 @@
     {
       "path": "Today → How it works (three steps)",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/today-view.tsx:650",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:653",
       "covered": "partly",
       "by": "manifest ai directory and tool descriptions; the steps are the screen's words"
     },
@@ -4163,6 +4179,13 @@
       "file": "apps/mobile/src/addons/outreach/referrals.tsx:159",
       "covered": "yes",
       "by": "outreach_referrals asks; outreach_answer_refer_ask answer approve, done, skip"
+    },
+    {
+      "path": "Phone → Today → Events near you: when, where, who hosts it, people there to check, Open, Not going",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/outreach/events.tsx:31",
+      "covered": "yes",
+      "by": "outreach_today events; Not going: outreach_event_skip"
     },
     {
       "path": "Phone → a playbook → Test it: make someone up, the first message, quick replies, type a reply, Goes quiet, Let the AI play them, Start over",
