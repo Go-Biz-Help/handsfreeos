@@ -433,6 +433,16 @@ export const FormCatalogsOutput = z.object({
       kind: z.enum(['product', 'service', 'fee']),
       priceCents: z.int(),
       unitLabel: z.string(),
+      /** Its sizes, colors and other choices, so one row per Size can be added with each one's price. */
+      options: z
+        .array(
+          z.object({
+            id: z.string(),
+            name: z.string(),
+            choices: z.array(z.object({ id: z.string(), label: z.string(), priceCents: z.int() })),
+          }),
+        )
+        .default([]),
     }),
   ),
   calendars: z.array(

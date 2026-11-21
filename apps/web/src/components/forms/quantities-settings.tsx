@@ -12,8 +12,11 @@ import {
   MAX_QUANTITY_ROWS,
   money,
   parseMoney,
+  priceListCents,
+  priceWithChoices,
   quantityRowsOf,
   rowPriceCents,
+  rowsFromOption,
   type FormOp,
   type Question,
   type QuantityRow,
@@ -31,6 +34,17 @@ import { newChoice } from './editor-state';
 import { RequiredInput } from './required-text';
 
 type Product = FormCatalogsOut['products'][number];
+
+/**
+ * What "Add from your products…" offers: a product as one row, or a product with sizes or colors as one row per
+ * choice of one of its options ("T-shirt, a row per size"), each at its own price.
+ */
+interface Offer {
+  readonly key: string;
+  readonly label: string;
+  readonly product: Product;
+  readonly option: Product['options'][number] | null;
+}
 
 export function QuantitiesSettings({
   workspaceId,
@@ -68,18 +82,40 @@ export function QuantitiesSettings({
   const products = catalogs?.products ?? [];
   const productOf = (row: QuantityRow): Product | undefined =>
     row.productId ? products.find((p) => p.id === row.productId) : undefined;
-  const onTheForm = new Set(rows.map((r) => r.productId).filter(Boolean));
-  const notYetAdded = products.filter((p) => !onTheForm.has(p.id));
+  const plainOnForm = new Set(rows.filter((r) => !r.optionChoiceId).map((r) => r.productId));
+  const choicesOnForm = new Set(rows.map((r) => r.optionChoiceId).filter(Boolean));
+  const offers: Offer[] = products.flatMap((p): Offer[] =>
+    p.options.length
+      ? p.options.map((o) => ({
+          key: `${p.id}:${o.id}`,
+          label: `${p.name}, a row per ${o.name.toLowerCase()} · from ${money(
+            Math.min(...o.choices.map((c) => priceWithChoices(p.priceCents, [c]))),
+          )}`,
+          product: p,
+          option: o,
+        }))
+      : [{ key: p.id, label: `${p.name} · ${money(p.priceCents)}`, product: p, option: null }],
+  );
+  const notYetAdded = offers.filter((o) =>
+    o.option
+      ? o.option.choices.some((c) => !choicesOnForm.has(c.id))
+      : !plainOnForm.has(o.product.id),
+  );
+  const plainLeft = notYetAdded.filter((o) => !o.option);
   const full = rows.length >= MAX_QUANTITY_ROWS;
 
-  const addProducts = (list: readonly Product[]) => {
-    const room = MAX_QUANTITY_ROWS - rows.length;
+  const addOffers = (list: readonly Offer[]) => {
+    const fresh = list.flatMap((o) =>
+      o.option
+        ? rowsFromOption(o.product, o.option).filter((r) => !choicesOnForm.has(r.optionChoiceId))
+        : [{ label: o.product.name, price: o.product.priceCents / 100, productId: o.product.id }],
+    );
     apply(
-      list.slice(0, room).map((p) => ({
+      fresh.slice(0, MAX_QUANTITY_ROWS - rows.length).map((fields) => ({
         op: 'add_choice' as const,
         questionId,
         index: null,
-        choice: { ...newChoice(p.name), price: p.priceCents / 100, productId: p.id },
+        choice: { ...newChoice(fields.label), ...fields },
       })),
     );
   };
@@ -96,7 +132,9 @@ export function QuantitiesSettings({
         </div>
         {rows.map((row) => {
           const product = productOf(row);
-          const drifted = product && product.priceCents !== rowPriceCents(row);
+          // What the price list says this row costs now: the product's price, with its size's bump.
+          const listCents = product ? priceListCents(row, product) : null;
+          const drifted = listCents !== null && listCents !== rowPriceCents(row);
           return (
             <div key={row.id} className="space-y-1">
               <div className="flex items-center gap-2">
@@ -127,17 +165,19 @@ export function QuantitiesSettings({
               </div>
               {row.productId ? (
                 <p className="text-[12px] text-text-3">
-                  {product ? (
+                  {product && listCents === null ? (
+                    `That choice is no longer on ${product.name}. The form keeps this name and price.`
+                  ) : product && listCents !== null ? (
                     <>
                       From your price list
                       {drifted ? (
                         <>
-                          , which now says {money(product.priceCents)}.{' '}
+                          , which now says {money(listCents)}.{' '}
                           {!readOnly ? (
                             <button
                               type="button"
                               className="font-medium text-accent-text underline-offset-2 hover:underline"
-                              onClick={() => patchRow(row.id, { price: product.priceCents / 100 })}
+                              onClick={() => patchRow(row.id, { price: listCents / 100 })}
                             >
                               Use that price
                             </button>
@@ -184,26 +224,26 @@ export function QuantitiesSettings({
                   value=""
                   disabled={full}
                   onChange={(e) => {
-                    const picked = notYetAdded.find((p) => p.id === e.target.value);
-                    if (picked) addProducts([picked]);
+                    const picked = notYetAdded.find((o) => o.key === e.target.value);
+                    if (picked) addOffers([picked]);
                   }}
                   data-testid="quantity-add-product"
                 >
                   <option value="">Add from your products…</option>
-                  {notYetAdded.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} · {money(p.priceCents)}
+                  {notYetAdded.map((o) => (
+                    <option key={o.key} value={o.key}>
+                      {o.label}
                     </option>
                   ))}
                 </Select>
-                {notYetAdded.length > 1 ? (
+                {plainLeft.length > 1 ? (
                   <Button
                     variant="ghost"
                     size="sm"
                     disabled={full}
-                    onClick={() => addProducts(notYetAdded)}
+                    onClick={() => addOffers(plainLeft)}
                   >
-                    Add all {notYetAdded.length}
+                    Add all {plainLeft.length}
                   </Button>
                 ) : null}
               </>

@@ -14,6 +14,11 @@ import { useRouter } from 'next/navigation';
 import { useState, type SyntheticEvent } from 'react';
 import { toast } from 'sonner';
 import { MoneyInput } from '@/components/money/money-input';
+import {
+  optionDraftsReady,
+  ProductOptionsEditor,
+  type OptionDraft,
+} from '@/components/money/product-options-editor';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -44,7 +49,12 @@ interface Form {
   taxable: boolean;
   serviceId: string | null;
   archived: boolean;
+  options: readonly OptionDraft[];
 }
+
+/** "Size (12) · Color (5)": what a product comes in, under its name. */
+const optionsLine = (p: ProductRow): string | null =>
+  p.options.length ? p.options.map((o) => `${o.name} (${o.choices.length})`).join(' · ') : null;
 
 const blank = (taxable: boolean): Form => ({
   id: null,
@@ -56,6 +66,7 @@ const blank = (taxable: boolean): Form => ({
   taxable,
   serviceId: null,
   archived: false,
+  options: [],
 });
 
 const formOf = (p: ProductRow): Form => ({
@@ -68,6 +79,7 @@ const formOf = (p: ProductRow): Form => ({
   taxable: p.taxable,
   serviceId: p.serviceId,
   archived: p.archivedAt !== null,
+  options: p.options,
 });
 
 export function ProductsPage({
@@ -165,6 +177,11 @@ export function ProductsPage({
                             </span>
                             {archived ? <Badge variant="gray">Archived</Badge> : null}
                           </span>
+                          {optionsLine(p) ? (
+                            <span className="mt-0.5 block text-xs text-text-3">
+                              {optionsLine(p)}
+                            </span>
+                          ) : null}
                         </td>
                         <td className={cn(td, 'font-mono text-[12px]')}>{p.sku || '—'}</td>
                         <td className={td}>{KIND_WORDS[p.kind]}</td>
@@ -231,6 +248,9 @@ export function ProductsPage({
                           </>
                         ) : null}
                       </span>
+                      {optionsLine(p) ? (
+                        <span className="text-[13px] text-text-3">{optionsLine(p)}</span>
+                      ) : null}
                       <span className="flex flex-wrap items-center gap-1.5">
                         {p.taxable ? (
                           <Badge variant="accent">Taxable</Badge>
@@ -326,7 +346,9 @@ function ProductEditor({
   const [f, setF] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [badPrice, setBadPrice] = useState(false);
-  const invalid = !f.name.trim() || !f.unitLabel.trim() || badPrice;
+  const [badChanges, setBadChanges] = useState(0);
+  const invalid =
+    !f.name.trim() || !f.unitLabel.trim() || badPrice || !optionDraftsReady(f.options, badChanges);
   // One product per bookable service, so "AC tune-up" is one price in two places.
   const taken = new Set(
     products
@@ -347,6 +369,15 @@ function ProductEditor({
         unitLabel: f.unitLabel.trim(),
         taxable: f.taxable,
         serviceId: f.serviceId,
+        options: f.options.map((o) => ({
+          id: o.id,
+          name: o.name.trim(),
+          choices: o.choices.map((c) => ({
+            id: c.id,
+            label: c.label.trim(),
+            priceCents: c.priceCents,
+          })),
+        })),
       };
       if (f.id)
         unwrap(
@@ -485,6 +516,15 @@ function ProductEditor({
             ))}
           </datalist>
         </Field>
+      </div>
+
+      <div className="mt-3.5 border-t border-border pt-3.5">
+        <ProductOptionsEditor
+          options={f.options}
+          basePriceCents={f.unitPriceCents}
+          onChange={(options) => setF((was) => ({ ...was, options }))}
+          onBadPrices={setBadChanges}
+        />
       </div>
 
       <div className="mt-3.5 flex items-center justify-between gap-3 border-t border-border pt-3.5">

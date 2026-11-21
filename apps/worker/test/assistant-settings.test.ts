@@ -2085,6 +2085,57 @@ describe('Settings → Products', () => {
     expect((await catalogue()).find((p) => p.id === item.id)!.archivedAt).toBeNull();
   });
 
+  it('gives an item sizes with their price changes, and keeps each size when it’s sent back by name', async () => {
+    const name = `Tee ${suffix}`;
+    const add = await product({
+      action: 'create',
+      name,
+      priceDollars: 12,
+      options: [
+        {
+          name: 'Size',
+          choices: [{ label: 'Adult M' }, { label: 'Adult 2XL', priceChangeDollars: 2 }],
+        },
+      ],
+    });
+    expect(fieldOf(add.card, 'Sizes, colors and choices')).toBe('Size: Adult M, Adult 2XL (+$2)');
+    await add.done();
+    const item = (await catalogue()).find((p) => p.name === name)! as ProductRow & {
+      options: { id: string; choices: { id: string; label: string; priceCents: number }[] }[];
+    };
+    const twoXl = item.options[0]!.choices[1]!;
+    expect(twoXl).toMatchObject({ label: 'Adult 2XL', priceCents: 200 });
+
+    const change = await product({
+      action: 'change',
+      productId: item.id,
+      options: [
+        {
+          name: 'Size',
+          choices: [
+            { label: 'Adult M' },
+            { label: 'Adult 2XL', priceChangeDollars: 3 },
+            { label: 'Adult 3XL', priceChangeDollars: 4 },
+          ],
+        },
+      ],
+    });
+    expect(change.card.fields.map((f) => f.label)).toEqual(['Item', 'Sizes, colors and choices']);
+    await change.done();
+    const after = (await catalogue()).find((p) => p.id === item.id)! as typeof item;
+    // The same size keeps its id, so a form's row made from it still finds it.
+    expect(after.options[0]!.choices[1]).toEqual({ ...twoXl, priceCents: 300 });
+
+    // A size that would cost less than nothing is refused before a card.
+    await expect(
+      product({
+        action: 'change',
+        productId: item.id,
+        options: [{ name: 'Size', choices: [{ label: 'Tiny', priceChangeDollars: -20 }] }],
+      }),
+    ).rejects.toThrow('Tiny would cost less than nothing');
+  });
+
   it('says which item it can’t find instead of failing, and asks for a name first', async () => {
     await expect(
       product({ action: 'change', productId: randomUUID(), priceDollars: 1 }),

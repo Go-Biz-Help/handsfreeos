@@ -56106,6 +56106,16 @@ export interface operations {
                      */
                     kind?: "product" | "service" | "fee";
                     name: string;
+                    options?: {
+                        choices: {
+                            id?: string;
+                            label: string;
+                            /** @default 0 */
+                            priceCents?: number;
+                        }[];
+                        id?: string;
+                        name: string;
+                    }[];
                     serviceId?: string | null;
                     sku?: string | null;
                     taxable?: boolean;
@@ -56135,6 +56145,16 @@ export interface operations {
                             /** @enum {string} */
                             kind: "product" | "service" | "fee";
                             name: string;
+                            /** @default [] */
+                            options: {
+                                choices: {
+                                    id: string;
+                                    label: string;
+                                    priceCents: number;
+                                }[];
+                                id: string;
+                                name: string;
+                            }[];
                             serviceId: string | null;
                             sku: string | null;
                             taxable: boolean;
@@ -56164,6 +56184,16 @@ export interface operations {
                     /** @enum {string} */
                     kind?: "product" | "service" | "fee";
                     name?: string;
+                    options?: {
+                        choices: {
+                            id?: string;
+                            label: string;
+                            /** @default 0 */
+                            priceCents?: number;
+                        }[];
+                        id?: string;
+                        name: string;
+                    }[];
                     /** Format: uuid */
                     productId: string;
                     serviceId?: string | null;
@@ -56193,6 +56223,16 @@ export interface operations {
                             /** @enum {string} */
                             kind: "product" | "service" | "fee";
                             name: string;
+                            /** @default [] */
+                            options: {
+                                choices: {
+                                    id: string;
+                                    label: string;
+                                    priceCents: number;
+                                }[];
+                                id: string;
+                                name: string;
+                            }[];
                             serviceId: string | null;
                             sku: string | null;
                             taxable: boolean;
@@ -75054,6 +75094,8 @@ export interface operations {
                                     /** @enum {string} */
                                     kind: "create_invoice";
                                     lines: {
+                                        /** @default [] */
+                                        choices: string[];
                                         /** Format: uuid */
                                         productId: string;
                                         quantity: number;
@@ -75066,6 +75108,8 @@ export interface operations {
                                     /** @enum {string} */
                                     kind: "create_estimate";
                                     lines: {
+                                        /** @default [] */
+                                        choices: string[];
                                         /** Format: uuid */
                                         productId: string;
                                         quantity: number;
@@ -82568,6 +82612,16 @@ export interface operations {
                             /** @enum {string} */
                             kind: "product" | "service" | "fee";
                             name: string;
+                            /** @default [] */
+                            options: {
+                                choices: {
+                                    id: string;
+                                    label: string;
+                                    priceCents: number;
+                                }[];
+                                id: string;
+                                name: string;
+                            }[];
                             priceCents: number;
                             sku: string | null;
                             unitLabel: string;
@@ -97512,6 +97566,16 @@ export interface operations {
                             /** @enum {string} */
                             kind: "product" | "service" | "fee";
                             name: string;
+                            /** @default [] */
+                            options: {
+                                choices: {
+                                    id: string;
+                                    label: string;
+                                    priceCents: number;
+                                }[];
+                                id: string;
+                                name: string;
+                            }[];
                             serviceId: string | null;
                             sku: string | null;
                             taxable: boolean;

@@ -1143,3 +1143,31 @@ describe('automatic top-up of the balance', () => {
     expect(p.card.warnings).toMatchObject([{ kind: 'blocked' }]);
   });
 });
+
+describe('a catalogue item with sizes, on a line written by asking', () => {
+  it('names and prices the line with the size asked for, and asks which size when none is given', async () => {
+    const shirtId = (
+      (await run(productCreate, {
+        workspaceId,
+        name: `T-shirt ${suffix}`,
+        unitPriceCents: 1_200,
+        taxable: false,
+        options: [
+          {
+            name: 'Size',
+            choices: [{ label: 'Adult M' }, { label: 'Adult 2XL', priceCents: 200 }],
+          },
+        ],
+      })) as { productId: string }
+    ).productId;
+    const p = await prepare('write_estimate', {
+      personId: maria.id,
+      title: 'Team shirts',
+      lines: [{ productId: shirtId, quantity: 2, choices: ['Adult 2XL'] }],
+    });
+    expect(field(p.card, `T-shirt ${suffix} (Adult 2XL)`)).toBe('2 each × $14 · no tax');
+    await expect(
+      prepare('write_estimate', { personId: maria.id, lines: [{ productId: shirtId }] }),
+    ).rejects.toThrow(`T-shirt ${suffix} comes in more than one Size. Say which in choices`);
+  });
+});

@@ -28,6 +28,12 @@ import { defineCommand } from '../kernel/define';
 import type { AiEmployeeActor, CommandContext } from '../kernel/types';
 import { loadConversation } from '../messaging/store';
 import {
+  choicesFromWords,
+  nameWithChoices,
+  priceWithChoices,
+  productOptionsOf,
+} from '../money/options';
+import {
   EstimateAnswerForCustomerInput,
   EstimateCreateForCustomerInput,
   InvoiceCreateForCustomerInput,
@@ -143,13 +149,23 @@ async function catalogueLines(tx: Tx, workspaceId: string, lines: readonly Catal
         [{ path: `lines.${i}.productId`, message: 'That isn’t on the price list.' }],
         `Line ${i + 1} names a product that isn’t on the price list, or was archived. Use products from the price list.`,
       );
+    // A product with sizes or colors is billed as the choices picked: "T-shirt (Adult 2XL)" at its price.
+    const picked = choicesFromWords(
+      { name: p.name, unitPriceCents: Number(p.unitPriceCents), options: productOptionsOf(p) },
+      l.choices ?? [],
+    );
+    if ('problem' in picked)
+      throw HfosError.validation(
+        [{ path: `lines.${i}.choices`, message: picked.problem }],
+        `Line ${i + 1}: ${picked.problem}`,
+      );
     return {
       productId: p.id,
-      name: p.name,
+      name: nameWithChoices(p.name, picked.choices),
       description: p.description ?? null,
       quantity: l.quantity,
       unitLabel: p.unitLabel,
-      unitPriceCents: Number(p.unitPriceCents),
+      unitPriceCents: priceWithChoices(Number(p.unitPriceCents), picked.choices),
       taxable: p.taxable,
       discountCents: 0,
     };

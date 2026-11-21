@@ -13,6 +13,9 @@
  */
 import {
   cardLine,
+  choicesFromWords,
+  nameWithChoices,
+  priceWithChoices,
   computeTotals,
   depositInvoiceOf,
   depositProblem,
@@ -47,6 +50,7 @@ import {
   type EstimateStatus,
   type MoneySettings,
   type PaymentTerms,
+  type ProductOptionRow,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import { teamSignerLink } from '../documents/links';
@@ -284,6 +288,7 @@ interface Product {
   unitPriceCents: number;
   unitLabel: string;
   taxable: boolean;
+  options: ProductOptionRow[];
 }
 interface Plan {
   id: string;
@@ -426,6 +431,7 @@ interface OptionArg {
 interface LineArg {
   productId?: string;
   name?: string;
+  choices?: string[];
   description?: string;
   quantity?: number;
   unitPrice?: number;
@@ -491,13 +497,20 @@ function lineFrom(l: LineArg, products: Map<string, Product>, settings: MoneySet
       throw HfosError.notFound(
         'That item isn’t in the catalogue. get_settings with area products lists what is.',
       );
+    // An item with sizes or colors is named and priced as the choices picked, as the editor's picker does.
+    const picked = choicesFromWords(p, l.choices ?? []);
+    if ('problem' in picked)
+      throw HfosError.validation([{ path: 'lines', message: picked.problem }], picked.problem);
     return {
       productId: p.id,
-      name: l.name ?? p.name,
+      name: l.name ?? nameWithChoices(p.name, picked.choices),
       description: l.description ?? p.description,
       quantity,
       unitLabel: l.unitLabel ?? p.unitLabel,
-      unitPriceCents: l.unitPrice === undefined ? p.unitPriceCents : cents(l.unitPrice),
+      unitPriceCents:
+        l.unitPrice === undefined
+          ? priceWithChoices(p.unitPriceCents, picked.choices)
+          : cents(l.unitPrice),
       taxable: l.taxable ?? p.taxable,
       discountCents,
     };

@@ -1317,7 +1317,7 @@ export const assistantTools = [
   define({
     name: 'manage_product',
     description:
-      'Settings → Products: add something that goes on an estimate or an invoice, change it (its name, code, kind, price, what one is called, whether it is taxed, the bookable service it is the price of), archive it, or put an archived one back. get_settings (area products) lists them, archived ones too. A new price never changes a document already sent.',
+      'Settings → Products: add something that goes on an estimate or an invoice, change it (its name, code, kind, price, what one is called, whether it is taxed, the bookable service it is the price of, its sizes, colors and other choices with their price changes), archive it, or put an archived one back. get_settings (area products) lists them, archived ones too. A new price never changes a document already sent.',
     input: z.object({
       action: z.enum(['create', 'change', 'archive', 'put_back']),
       productId: uuid
@@ -1354,6 +1354,33 @@ export const assistantTools = [
         .optional()
         .describe(
           'The bookable service it is the price of, so customers can book it (one item each); null: not bookable',
+        ),
+      options: z
+        .array(
+          z.object({
+            name: text(40).describe('Size, Color, Style…'),
+            choices: z
+              .array(
+                z.object({
+                  label: text(60).describe('Adult 2XL, Black, 15 oz…'),
+                  priceChangeDollars: z
+                    .number()
+                    .min(-100_000)
+                    .max(100_000)
+                    .optional()
+                    .describe(
+                      'What this choice adds to the price; negative takes some off; left out, the same price',
+                    ),
+                }),
+              )
+              .min(1)
+              .max(40),
+          }),
+        )
+        .max(3)
+        .optional()
+        .describe(
+          'Sizes, colors and other choices (up to 3). The whole list, replacing what it had; an empty list takes them all off. Picking the item on an estimate, an invoice or a form then means picking one of each. Keep each existing option and choice by its name, so form rows made from it still find it',
         ),
     }),
     autonomy: 'confirm',

@@ -25,6 +25,7 @@ Read the doc for the area you're changing before writing code. Most have a secti
 | Deleting for good, and the Deleted bin       | `docs/deleting.md`                                                                                                |
 | Admin → Try onboarding (practice businesses) | `docs/practice.md`                                                                                                |
 | Forms, surveys and quizzes                   | `docs/forms.md`                                                                                                   |
+| Products with sizes and colors, and orders   | `docs/selling-products.md`, then `docs/forms.md` for order forms and design uploads                               |
 | Documents to sign, and their templates       | `docs/documents.md`                                                                                               |
 | Search everything, and settings search       | `docs/search.md`, then `HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md`                                                |
 | The business's main offer                    | `docs/main-offer.md`, then `HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md` and the plans beside it                |

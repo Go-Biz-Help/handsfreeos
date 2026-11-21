@@ -23,7 +23,7 @@ import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
 import { decodeTimeCursor, encodeCursor } from '../kernel/pagination';
 import type { QueryContext } from '../kernel/types';
-import { moneySettingsOf, numberPreview, wasMarkedPaid } from '../money/index';
+import { moneySettingsOf, numberPreview, productOptionsOf, wasMarkedPaid } from '../money/index';
 import {
   EstimateGetInput,
   EstimateGetOutput,
@@ -201,11 +201,13 @@ export const productList = defineQuery({
       unit_label: string;
       taxable: boolean;
       service_id: string | null;
+      options: unknown;
       archived_at: Date | string | null;
     }>(
       ctx.tx,
       sql`select p.id, p.name, p.description, p.sku, p.kind::text as kind,
-            p.unit_price_cents::float8 as unit_price_cents, p.unit_label, p.taxable, p.service_id, p.archived_at
+            p.unit_price_cents::float8 as unit_price_cents, p.unit_label, p.taxable, p.service_id, p.options,
+            p.archived_at
           from app.products p
           where p.workspace_id = ${ctx.scope.workspaceId!}
             ${input.includeArchived ? sql`` : sql`and p.archived_at is null`}
@@ -225,6 +227,11 @@ export const productList = defineQuery({
         unitLabel: p.unit_label,
         taxable: p.taxable,
         serviceId: p.service_id,
+        options: productOptionsOf(p).map((o) => ({
+          id: o.id,
+          name: o.name,
+          choices: o.choices.map((c) => ({ id: c.id, label: c.label, priceCents: c.priceCents })),
+        })),
         archivedAt: moneyIso(p.archived_at),
       })),
     };

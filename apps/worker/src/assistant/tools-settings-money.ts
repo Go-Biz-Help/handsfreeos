@@ -21,11 +21,13 @@ import {
   money as exactMoney,
   numberingAtCounter,
   PRODUCT_KIND_WORDS,
+  choiceBumpWords,
   reminderSchedule,
   type AutomationDef,
   type AttentionSettings,
   type MoneySettings,
   type ProductKind,
+  type ProductOptionRow,
   type TeammateConfig,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
@@ -345,6 +347,7 @@ interface Product {
   unitLabel: string;
   taxable: boolean;
   serviceId: string | null;
+  options: ProductOptionRow[];
   archivedAt: string | null;
 }
 
@@ -366,6 +369,23 @@ function productInput(args: Args): Record<string, unknown> {
     ...(str(args['unitLabel']) ? { unitLabel: str(args['unitLabel']) } : {}),
     ...(bool(args['taxable']) === undefined ? {} : { taxable: args['taxable'] }),
     ...(args['serviceId'] === undefined ? {} : { serviceId: args['serviceId'] }),
+    // Without ids: the command keeps each option's and choice's id by its name.
+    ...(Array.isArray(args['options'])
+      ? {
+          options: (
+            args['options'] as {
+              name: string;
+              choices: { label: string; priceChangeDollars?: number }[];
+            }[]
+          ).map((o) => ({
+            name: o.name,
+            choices: o.choices.map((c) => ({
+              label: c.label,
+              priceCents: cents(c.priceChangeDollars ?? 0),
+            })),
+          })),
+        }
+      : {}),
   };
 }
 
@@ -435,6 +455,22 @@ async function productRows(
     });
   if (shows('serviceId'))
     rows.push({ label: 'Customers can book it', value: service ?? (only ? 'Not bookable' : '') });
+  if (shows('options') && (only || p.options.length))
+    rows.push({
+      label: 'Sizes, colors and choices',
+      value: p.options.length
+        ? p.options
+            .map(
+              (o) =>
+                `${o.name}: ${o.choices
+                  .map((c) =>
+                    c.priceCents ? `${c.label} (${choiceBumpWords(c.priceCents)})` : c.label,
+                  )
+                  .join(', ')}`,
+            )
+            .join('; ')
+        : 'None',
+    });
   return rows;
 }
 

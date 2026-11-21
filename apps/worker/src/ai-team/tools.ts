@@ -48,6 +48,9 @@ import {
   loadTerritories,
   localDateOf,
   money,
+  choicesFromWords,
+  nameWithChoices,
+  priceWithChoices,
   personUpdate,
   quoteData,
   startOfLocalDay,
@@ -687,6 +690,7 @@ function fromCatalogue(
   const items = (Array.isArray(args['items']) ? args['items'] : []) as {
     productId: string;
     quantity: number;
+    choices?: string[];
   }[];
   const lines: CatalogueLine[] = [];
   const names: string[] = [];
@@ -694,9 +698,20 @@ function fromCatalogue(
   for (const i of items) {
     const p = d.rc.catalogue.find((x) => x.id === i.productId);
     if (!p) return { error: 'Use only product ids from the price list in your context.' };
-    lines.push({ productId: p.id, quantity: i.quantity });
-    names.push(i.quantity === 1 ? p.name : `${i.quantity} × ${p.name}`);
-    totalCents += Math.round(p.priceCents * i.quantity);
+    // A T-shirt in Adult 2XL is priced and named as that choice; a product with choices needs one of each.
+    const picked = choicesFromWords(
+      { name: p.name, unitPriceCents: p.priceCents, options: p.options },
+      i.choices ?? [],
+    );
+    if ('problem' in picked) return { error: picked.problem };
+    const name = nameWithChoices(p.name, picked.choices);
+    lines.push({
+      productId: p.id,
+      quantity: i.quantity,
+      choices: picked.choices.map((c) => c.label),
+    });
+    names.push(i.quantity === 1 ? name : `${i.quantity} × ${name}`);
+    totalCents += Math.round(priceWithChoices(p.priceCents, picked.choices) * i.quantity);
   }
   return { lines, totalCents, words: names.join(', ') };
 }
