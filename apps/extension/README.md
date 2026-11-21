@@ -1275,6 +1275,17 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Instagram's Turn on Notifications closed before a post (0.150.2)
+
+The owner's Content Creator post on Instagram of 21 Nov 2026 didn't go up: "Instagram didn't show the box to write a
+post". Its problem report showed Instagram's **Turn on Notifications** over the page, with **Turn On** and **Not Now**,
+and the page under it hidden from screen readers, so Create, under it, was never pressed.
+
+From 0.150.2, before it looks for Create, a dialog Instagram shows over the page with a **Not Now** is closed with it
+(`igCloseAsks` in `src/research/post-here.ts`, step `ask:not_now`), up to three in a row, so **Save your login info**
+and the like are closed the same way. Never **Turn On**, never anything but Not Now, and never a dialog holding a file
+field or words, so a post someone started is left as it is.
+
 ### Events near you on Facebook, once a week (0.150.0)
 
 The owner's pick 7a of 20 Nov 2026 (docs/outreach.md, decision 188): "Local Facebook events: read once a week like

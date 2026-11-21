@@ -515,9 +515,10 @@ Instagram from 0.133.0, Threads and X from 0.138.0. The post's sheet offers **Co
   took, and the background wakes a hidden posting window, as its own timers aren't slowed. Before, a Page post's
   90 seconds after Publish, counted as 225 looks, could take nearly four hours, and every post due after it waited
   (on 16 Nov 2026 the 12 PM LinkedIn and Instagram posts went up at 1:52 and 1:53 PM).
-- **Instagram** (part 10): **Create** on its home page (then **Post** when it asks which kind), the pictures or the
-  person's video into Create new post, **OK** when it says a video goes up as a reel, **Original** under cropping's
-  **Select crop** (else 4:5: Instagram starts on a square, which cut the bottom off a 4:5 picture's words; extension
+- **Instagram** (part 10): first, anything Instagram asks over the page with a **Not Now** (Turn on Notifications,
+  which hid Create on 21 Nov 2026) is closed with it, never with Turn On (extension 0.150.2); then **Create** on its
+  home page (then **Post** when it asks which kind), the pictures or the person's video into Create new post, **OK**
+  when it says a video goes up as a reel, **Original** under cropping's **Select crop** (else 4:5: Instagram starts on a square, which cut the bottom off a 4:5 picture's words; extension
   0.140.1), **Next** past cropping and editing, then the words in the caption box and **Share**. Its link comes from the person's own newest posts, as
   Instagram's page asks for them, by its first words.
 - **Threads and X** (part 16, decision 41; `post-short.ts`): X's compose page (x.com/compose/post) or Threads' home
