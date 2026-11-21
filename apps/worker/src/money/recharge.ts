@@ -64,16 +64,18 @@ type WalletRow = {
   method_token: string | null;
   customer_ref: string | null;
   provider: string | null;
-  suspended_at: Date | null;
-  paused_until: Date | null;
+  // Timestamps come back from this raw read as text, not Dates: drizzle turns the driver's date parsing off. Typed
+  // as Date alone, `workspace_created_at.getTime()` threw on every sweep from 12 Nov, so no balance was topped up.
+  suspended_at: Date | string | null;
+  paused_until: Date | string | null;
   escalation_step: number;
   recharges_in_window: number;
-  window_started_at: Date | null;
-  last_recharge_at: Date | null;
-  pending_recharges: number;
+  window_started_at: Date | string | null;
+  last_recharge_at: Date | string | null;
+  pending_recharges: number | string;
   spent_30d_cents: number | string;
   stage: string;
-  workspace_created_at: Date;
+  workspace_created_at: Date | string;
 };
 
 /** Everything deciding whether and how much to top up, in one read. */
@@ -101,14 +103,15 @@ async function walletFor(
   return w ?? null;
 }
 
-const ms = (d: Date | null): number | null => (d ? d.getTime() : null);
+/** A timestamp from a raw read, text or Date, in milliseconds. */
+const ms = (d: Date | string | null): number | null => (d === null ? null : new Date(d).getTime());
 
 /** Whether this wallet should be topped up now, and for how much. */
 export function decideRecharge(w: WalletRow, now: number): Escalation | null {
   // Its agency pays for what it uses: its card, if it has one, is never charged for it.
   if (w.stage === 'agency') return null;
   if (!w.auto_topup || !w.method_token || w.suspended_at) return null;
-  if (w.pending_recharges > 0) return null;
+  if (Number(w.pending_recharges) > 0) return null;
   const paused = ms(w.paused_until);
   if (paused !== null && paused > now) return null;
   if (Number(w.balance_cents) > Number(w.floor_cents)) return null;
@@ -121,7 +124,7 @@ export function decideRecharge(w: WalletRow, now: number): Escalation | null {
     },
     topupCents: Number(w.topup_cents),
     spent30dCents: Number(w.spent_30d_cents),
-    workspaceCreatedAt: w.workspace_created_at.getTime(),
+    workspaceCreatedAt: new Date(w.workspace_created_at).getTime(),
     now,
   });
 }

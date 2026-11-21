@@ -6,13 +6,15 @@
  *   one after it, automatic ones too.
  * - **With the wallet not on, a press is cancelled**: never charged, and never left waiting to hold the next one up.
  * - **The hourly check arms a sweep** for a wallet that could need a top-up. It used to read no wallets at all.
+ * - **The sweep tops up a balance under its floor.** It threw on every run from 12 Nov (a timestamp read as text was
+ *   treated as a Date), so a business with auto top-up on and a working card ran down to nothing.
  */
 import { walletTopUp } from '@hfos/core/server';
-import { rows, sql } from '@hfos/db/client';
+import { asWorker, rows, sql } from '@hfos/db/client';
 import { closeTestDbs, signInTestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { JobContext } from '../src/jobs';
-import { planWallets, RECHARGE_JOBS, walletSweepKey } from '../src/money/recharge';
+import { planWallets, RECHARGE_JOBS, sweepWallet, walletSweepKey } from '../src/money/recharge';
 import { FAKE_CARDS } from '../src/payments/fake';
 import { admin, drain, moneyWorld, run, type MoneyWorld } from './money-world';
 
@@ -124,5 +126,37 @@ describe('topping up the balance', () => {
           where kind = ${RECHARGE_JOBS.sweep} and dedupe_key = ${walletSweepKey(w.workspaceId)}`,
     );
     expect(sweep?.status).toBe('pending');
+  });
+
+  it('tops up a balance that has fallen under its floor when the hourly sweep runs, once', async () => {
+    // A quiet wallet: no run of top-ups going, so the sweep asks for the business's own amount. The ladder is
+    // HandsFreeOS's to write, so it is reset as the worker would.
+    const scope = { workspaceId: w.workspaceId, organizationId: w.organizationId };
+    const floor = (await balance()) + 1_000;
+    await asWorker(on.s.db, scope, (tx) =>
+      tx.execute(sql`update app.usage_wallets set floor_cents = ${floor}, topup_cents = 2_500,
+            auto_topup = true, escalation_step = 0, recharges_in_window = 0, window_started_at = null,
+            last_recharge_at = null
+          where workspace_id = ${w.workspaceId}`),
+    );
+    const before = charges().length;
+    const sweep = () =>
+      sweepWallet({
+        ...on.s,
+        job: { payload: {} } as unknown as JobContext['job'],
+        scope,
+        attempt: 1,
+        now: Date.now(),
+      });
+    await sweep();
+    await drain(on);
+    expect(charges().slice(before)).toEqual([
+      expect.objectContaining({ amountCents: 2_500, status: 'succeeded' }),
+    ]);
+    expect((await topUps()).at(-1)).toMatchObject({ status: 'succeeded', amount_cents: 2_500 });
+    // Back over its floor, the next hour's sweep leaves the card alone.
+    await sweep();
+    await drain(on);
+    expect(charges().slice(before)).toHaveLength(1);
   });
 });

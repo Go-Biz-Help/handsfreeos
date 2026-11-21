@@ -36,4 +36,20 @@ describe('topping up', () => {
   it('never charges the card of a business its agency pays for', () => {
     expect(decideRecharge(low('agency'), now)).toBeNull();
   });
+
+  // The wallet is read with raw SQL, where timestamps and counts arrive as text. Treating them as Dates threw
+  // "workspace_created_at.getTime is not a function" on every hourly sweep from 12 Nov, and no balance was topped up.
+  it('tops up from the row as the database hands it over, with timestamps and counts as text', () => {
+    const asText = {
+      ...low('enforce'),
+      workspace_created_at: '2026-06-28 12:00:00.123456+00',
+      window_started_at: '2026-09-20 08:00:00+00',
+      last_recharge_at: '2026-09-20 08:00:00+00',
+      paused_until: '2026-09-01 00:00:00+00',
+      pending_recharges: '0',
+    };
+    expect(decideRecharge(asText, now)).toMatchObject({ amountCents: expect.any(Number) });
+    expect(decideRecharge({ ...asText, pending_recharges: '1' }, now)).toBeNull();
+    expect(decideRecharge({ ...asText, paused_until: '2026-09-27 00:00:00+00' }, now)).toBeNull();
+  });
 });
