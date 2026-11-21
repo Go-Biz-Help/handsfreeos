@@ -70,7 +70,7 @@ tests, the seed and local development never need a PayPal account.
 3. **Settings and onboarding:** Connect PayPal in Settings → Payments and the onboarding payments step (web and phone),
    the account card, Venmo and Pay Later switches; the Assistant's coverage and ledger items.
 4. **The customer's pages:** PayPal's buttons on the invoice page, pay links and the deposit step; new payment methods
-   `paypal` and `venmo` (migrations `20261027031200` and `20261027031300`), shown in Money → Payments and on receipts.
+   `paypal` and `venmo` (migrations `20261027031900` and `20261027032000`), shown in Money → Payments and on receipts.
    - The buttons sit above the card box ("or" between them), or alone when PayPal is the account the money goes to.
      They show beside another account only when the PayPal account is open to everyone (`apps/worker/src/payments/payable.ts`).
    - A deposit is an order with `intent: AUTHORIZE`, captured once the time is confirmed. Venmo and Pay Later are off

@@ -1,5 +1,5 @@
 -- =============================================================================
--- 20261027031300 · A PayPal payment learns how it was made from PayPal.
+-- 20261027032000 · A PayPal payment learns how it was made from PayPal.
 --
 -- 20261027031100 lets a payment's method change once, on the provider's first
 -- answer, between the ways a provider takes money (card or bank transfer). A
