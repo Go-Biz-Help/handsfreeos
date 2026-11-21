@@ -24,29 +24,56 @@
  * page's title says how it went. No Save buttons, but the extension's link, a box to type in that keeps its own.
  */
 import {
+  autopilotOn,
   choicesFor,
   freshWords,
+  groupModeChange,
+  groupModeOf,
   halvedNow,
   hoursProblem,
   NOT_FRESH,
   OTHER_PLATFORMS,
+  requestModeChange,
+  WHEELS,
   wheelsWords,
   type AutomationSettings,
   type BusinessRules,
   type NetworkChoices,
   type OtherPlatform,
 } from '@hfos/core/addons/outreach/automation';
+import {
+  firstSentence,
+  HANDS_OFF_WORDS as H,
+  handsOffEverywhere,
+  handsOffOf,
+  NETWORK_PAGE_WORDS as P,
+  withHandsOff,
+  withHandsOffEverywhere,
+  type HandsOff,
+} from '@hfos/core/addons/outreach/hands-off';
+import { DAILY_STEPS, type DailyStep } from '@hfos/core/addons/outreach/limits';
+import { networkStatus } from '@hfos/core/addons/outreach/network-status';
 import { outreachSettings, settingsToSave } from '@hfos/core/addons/outreach/chat-read';
 import {
+  dailyWordsOn,
+  groupsChoiceOn,
+  helpfulOn,
   NETWORK_WORDS as NW,
   networksOn,
+  noRunnerWords,
+  requestsChoiceOn,
+  ticksOn,
+  ticksShownOn,
+  tidyChoiceOn,
   withNetwork,
 } from '@hfos/core/addons/outreach/network-words';
 import { askableOn } from '@hfos/core/addons/outreach/asks';
 import {
   isLooking,
+  NETWORKS,
   PLATFORM_KEYS,
   PLATFORMS,
+  runsOnItsOwn,
   type Platform,
 } from '@hfos/core/addons/outreach/networks';
 import { LIKE_YOURS_WORDS } from '@hfos/core/addons/outreach/like-yours';
@@ -61,6 +88,12 @@ import {
 import { profileWordsOn, READY_WORDS as R, tickCounts } from '@hfos/core/addons/outreach/readiness';
 import { checkCounts } from '@hfos/core/addons/outreach/profile-check';
 import { SET_UP_PAGE_WORDS } from '@hfos/core/addons/outreach/set-up-page';
+import {
+  handsOffGroups,
+  levelsAllowed,
+  SETTINGS_PAGE_WORDS as SP,
+  teamLimitsLine,
+} from '@hfos/core/addons/outreach/settings-pages';
 import { networkSteps, outreachSetupPath, SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import { START_FRESH_WORDS as F, OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
@@ -75,27 +108,41 @@ import { Badge } from '@/components/ui/badge';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { LocationPart } from './location-part';
+import { MyCalendarsPart } from './my-calendars';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
-import { countriesProblem, TeamSettingsFields, type TeamSettings } from './business-settings';
+import {
+  BusinessRows,
+  countriesProblem,
+  FoundChecksPick,
+  type TeamSettings,
+} from './business-settings';
+import { CommentResearchPart } from './comment-research';
 import { AskButton } from './asks';
 import { ExtensionDownload } from './extension-download';
 import { ExtensionLinkForm } from './extension-link';
 import { ProfileSheet } from './get-ready';
-import { AskedCard, ComputersCard, useServerNow } from './live-view';
+import { AskedCard, ComputerMain, useServerNow } from './live-view';
 import { RunNowAll } from './run-now';
 import {
+  ChangeRow,
+  HandsOffPart,
+  MoreSettings,
+  NetworkStatusCard,
+  PickRow,
+  Row,
+  RowsCard,
+} from './network-settings';
+import {
   AllowedPicks,
-  AutopilotPart,
-  DefaultsFold,
-  ExtensionTicks,
+  ChoicesForm,
   HoursPart,
   LimitsFields,
   NetworkModes,
   NetworkTicks,
-  NetworkTidy,
   Part,
   PushesPart,
   Tick,
@@ -104,7 +151,15 @@ import {
 } from './settings-view';
 import { StartFresh } from './start-fresh';
 import { VideoLibrary } from './video-library';
-import type { Asks, Automation, AutomationPeople, Live, Readiness, WheelsList } from './types';
+import type {
+  Asks,
+  Automation,
+  AutomationPeople,
+  Live,
+  NetworkHere,
+  Readiness,
+  WheelsList,
+} from './types';
 import { useAct } from './use-act';
 import { useAutosave, type Autosave, type SaveStatus } from './use-autosave';
 import { ProfilesSideBySide } from './profile-whole';
@@ -154,6 +209,8 @@ interface Props {
   readiness?: Readiness | null;
   /** On Team: who's on training wheels, to end them early. */
   wheels?: WheelsList | null;
+  /** On a network's page, the person's own: its status card's live view and what waits there (decision 170). */
+  here?: NetworkHere | null;
   /** On Videos: the playbooks' short videos, the library until it's first saved (decision 154). */
   playbookVideos?: readonly PlaybookVideo[];
 }
@@ -178,16 +235,28 @@ function SettingsPages({
   asks = null,
   readiness = null,
   wheels = null,
+  here = null,
   playbookVideos = [],
 }: Props) {
+  // The networks whose picks were chosen under How hands-off? as Autopilot went off there, since the last save: that
+  // save keeps those picks over the person's own from before Autopilot (decision 170).
+  const picked = useRef(new Set<Platform>());
   const person = useAutosave<AutomationSettings>(
     me.settings,
-    async (settings) =>
-      unwrap(
+    async (settings) => {
+      const chosen = [...picked.current];
+      picked.current.clear();
+      return unwrap(
         await apiBrowser().POST('/v1/commands/outreach.automation.save', {
-          body: { workspaceId, userId: me.userId, settings },
+          body: {
+            workspaceId,
+            userId: me.userId,
+            settings,
+            ...(chosen.length ? { picked: chosen } : {}),
+          },
         }),
-      ).settings,
+      ).settings;
+    },
     // Hours caught halfway (a start moved past the end, no day ticked) wait, saying why under them.
     (value) => hoursProblem(value.hours) !== null,
   );
@@ -212,6 +281,16 @@ function SettingsPages({
   );
   // What the business allows: an owner's or admin's own changes show at once.
   const rules: Rules = business ? team.value.rules : me.rules;
+  // How hands-off? picked on one network's page, or on Settings → You for every network (decision 170).
+  const handsOff = (platform: Platform | null, level: HandsOff) =>
+    person.set((v) => {
+      const next =
+        platform === null
+          ? withHandsOffEverywhere(v, level, rules)
+          : withHandsOff(v, platform, level, rules);
+      for (const p of next.picked) picked.current.add(p);
+      return next.settings;
+    });
   const statuses = business ? [person.status, team.status] : [person.status];
   // Your computer is the person's own; Team and Start fresh are the business's, for those who may change it.
   const shown: SettingsPart =
@@ -256,16 +335,26 @@ function SettingsPages({
           workspaceId={workspaceId}
           asks={mine ? asks : null}
           readiness={mine ? readiness : null}
+          here={mine ? here : null}
+          onHandsOff={handsOff}
         />
       ) : shown === 'computer' ? (
         <>
           <PageTitle title={W.settingsParts.computer} about={S.computerAbout} />
-          <Card className="space-y-3 p-5" data-testid="outreach-settings-computer">
-            {live ? <ComputerPart workspaceId={workspaceId} live={live} /> : null}
-            <ExtensionDownload link={extensionLink} folded />
-          </Card>
+          {/* The computer that works, its download, and the others standing by (decision 170, part 2). */}
+          {live ? (
+            <ComputerMain
+              workspaceId={workspaceId}
+              live={live}
+              download={<ExtensionDownload link={extensionLink} folded />}
+            />
+          ) : (
+            <Card className="space-y-3 p-5" data-testid="outreach-settings-computer">
+              <ExtensionDownload link={extensionLink} folded />
+            </Card>
+          )}
           {/* Every job it can do now, on each network (decision 129), beside what was asked of it lately and how each
-              went (decision 127). */}
+              went (decision 127), the same ones folded. */}
           {asks ? (
             <>
               <RunNowAll
@@ -310,15 +399,11 @@ function SettingsPages({
             business={business}
             person={person}
             statuses={statuses}
-            autopilotAllowed={rules.autopilotAllowed}
+            rules={rules}
+            onHandsOff={(level) => handsOff(null, level)}
           />
-          {/* Their own profiles on every network, side by side (decision 84). */}
-          {mine ? (
-            <ProfilesSideBySide
-              workspaceId={workspaceId}
-              networks={networksOn(person.value, rules.networksAllowed)}
-            />
-          ) : null}
+          {/* HandsFreeOS's own comment research, for its staff only (decision 166). */}
+          {mine ? <CommentResearchPart workspaceId={workspaceId} /> : null}
         </>
       )}
     </div>
@@ -401,7 +486,11 @@ function SaveLine({ statuses }: { statuses: readonly SaveStatus[] }) {
   );
 }
 
-/** The person's own, on every network; for owners and admins, a line to Team, which has the business's (decision 129). */
+/**
+ * The person's own, on every network (decision 170, part 2): How hands-off with each network's level under it, how the
+ * AI writes for them, their working hours and alerts as rows, their profiles side by side and Set up as rows, and for
+ * owners and admins a line to Team, which has the business's.
+ */
 function GeneralPage({
   workspaceId,
   me,
@@ -409,7 +498,8 @@ function GeneralPage({
   business,
   person,
   statuses,
-  autopilotAllowed,
+  rules,
+  onHandsOff,
 }: {
   workspaceId: string;
   me: Automation;
@@ -417,24 +507,93 @@ function GeneralPage({
   business: Readonly<Record<string, unknown>> | null;
   person: Autosave<AutomationSettings>;
   statuses: readonly SaveStatus[];
-  autopilotAllowed: boolean;
+  rules: Rules;
+  /** A level picked for every network at once (decision 170). */
+  onHandsOff: (level: HandsOff) => void;
 }) {
   const own = { value: person.value, onChange: person.set, card: true, testId: 'outreach-my' };
+  const on = networksOn(person.value, rules.networksAllowed);
+  const networks = on.filter((p) => runsOnItsOwn(p) && !isLooking(p));
+  const groups = handsOffGroups(person.value, networks);
+  const wheels =
+    (me.wheels.on && autopilotOn(person.value, 'facebook')) ||
+    OTHER_PLATFORMS.some(
+      (p) => me.networkWheels[p].on && person.value.networks[p].on && autopilotOn(person.value, p),
+    );
+  const hoursWrong = hoursProblem(person.value.hours) !== null;
   return (
     <>
       <PageTitle title={S.general} about={S.generalAbout}>
         <SaveLine statuses={statuses} />
       </PageTitle>
-      {mine ? (
-        <div
-          className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-card px-4 py-3"
-          data-testid="outreach-setup-again"
+      {me.changedBy ? (
+        <p className="text-[13px] text-text-2" data-testid="outreach-settings-changed-by">
+          {W.changedBy(me.changedBy)}
+        </p>
+      ) : null}
+      {/* How hands-off, on every network, first (decision 170): each network's page then picks its own. */}
+      {networks.length ? (
+        <HandsOffPart
+          platform={null}
+          level={handsOffEverywhere(person.value, networks)}
+          onPick={onHandsOff}
+          rules={rules}
+          canManage={business !== null}
+          title={H.everywhereTitle}
+          about={H.everywhereAbout}
+          note={wheels ? H.wheels : null}
+          testId="outreach-hands-off"
         >
-          <p className="min-w-0 flex-1 text-[13px] text-text-2">
-            {SET_UP_PAGE_WORDS.settingsAbout}{' '}
-            {business ? SETUP_WORDS.againAboutManage : SETUP_WORDS.againAbout}
-          </p>
-          <div className="flex flex-wrap gap-2">
+          {groups.length > 1 || networks.length > 1 ? (
+            <ul
+              className="divide-y divide-border rounded-[10px] bg-card-2 px-3.5"
+              data-testid="outreach-hands-off-networks"
+            >
+              {groups.map((g) => (
+                <li
+                  key={g.networks.join(',')}
+                  className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 py-2 text-[13px]"
+                  data-testid="outreach-hands-off-group"
+                >
+                  <span className="font-semibold">{SP.groupNetworks(g)}</span>
+                  <span className="text-text-2">{SP.groupLine(g)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </HandsOffPart>
+      ) : null}
+      <VoicePart {...own} switches />
+      {/* Their own town, radius and local focus (decision 177): each person's own, so only on their own page. */}
+      {mine ? <LocationPart workspaceId={workspaceId} /> : null}
+      {mine ? <MyCalendarsPart workspaceId={workspaceId} /> : null}
+      <RowsCard testId="outreach-my-rows">
+        <ChangeRow
+          title={SP.hours}
+          about={SP.hoursAbout(person.value.hours)}
+          open={hoursWrong}
+          testId="outreach-my-hours"
+        >
+          <HoursPart {...own} card={false} timezone={me.timezone} />
+        </ChangeRow>
+      </RowsCard>
+      <PushesPart {...own} compact />
+      {mine ? (
+        <RowsCard testId="outreach-setup-again">
+          <ChangeRow
+            title={SP.profiles}
+            about={SP.profilesAbout}
+            label={SP.open}
+            testId="outreach-my-profiles"
+          >
+            {/* Their own profiles on every network, side by side (decision 84). */}
+            <ProfilesSideBySide workspaceId={workspaceId} networks={on} bare />
+          </ChangeRow>
+          <PickRow
+            title={SP.setUp}
+            about={business ? SETUP_WORDS.againAboutManage : SETUP_WORDS.againAbout}
+            testId="outreach-my-set-up"
+          >
             {/* Set up, once it's gone from the side menu (decision 129). */}
             <ButtonLink
               size="sm"
@@ -446,32 +605,15 @@ function GeneralPage({
             </ButtonLink>
             <ButtonLink
               size="sm"
+              variant="secondary"
               href={outreachSetupPath(workspaceId, { again: true })}
               data-testid="outreach-setup-again-open"
             >
               {SETUP_WORDS.again}
             </ButtonLink>
-          </div>
-        </div>
+          </PickRow>
+        </RowsCard>
       ) : null}
-      {me.changedBy ? (
-        <p className="text-[13px] text-text-2" data-testid="outreach-settings-changed-by">
-          {W.changedBy(me.changedBy)}
-        </p>
-      ) : null}
-      {/* Autopilot first (decision 151, answer 7a): one switch for every network they work. */}
-      <AutopilotPart
-        {...own}
-        testId="outreach-autopilot"
-        allowed={autopilotAllowed}
-        wheels={
-          me.wheels.on ||
-          OTHER_PLATFORMS.some((p) => me.networkWheels[p].on && person.value.networks[p].on)
-        }
-      />
-      <VoicePart {...own} />
-      <HoursPart {...own} timezone={me.timezone} />
-      <PushesPart {...own} switches />
       {business ? (
         <TeamMoved workspaceId={workspaceId} words={S.teamMovedAll} testId="outreach-team-moved" />
       ) : (
@@ -508,9 +650,10 @@ function TeamMoved({
 }
 
 /**
- * Team, for owners and admins (decision 129): everything about their people in one place. Your people, each with their
- * training wheels to end early and their settings to open; what people may pick, where a new person starts, the
- * extension's link and the business's other settings; and each network's say for everyone.
+ * Team, for owners and admins (decisions 129 and 170): everything about their people in one place, as rows. Your
+ * people, each with the networks they work, their training wheels to end early and their settings to open; one
+ * Networks list, each with whether the team may use it and its limits a press away; what people may pick and where a
+ * new person starts, each behind Change; the business's own settings as short picks; and More settings, folded.
  */
 function TeamPage({
   workspaceId,
@@ -531,6 +674,8 @@ function TeamPage({
   statuses: readonly SaveStatus[];
 }) {
   const setRules = (rules: BusinessRules) => team.set((v) => ({ ...v, rules }));
+  const change = (next: Partial<TeamSettings>) => team.set((v) => ({ ...v, ...next }));
+  const { rules } = team.value;
   return (
     <>
       <PageTitle title={S.teamTitle} about={S.teamPageAbout}>
@@ -539,41 +684,66 @@ function TeamPage({
       {people ? (
         <YourPeople workspaceId={workspaceId} myId={me.userId} people={people} wheels={wheels} />
       ) : null}
-      <Part card title={S.team} badge={S.teamWho} about={S.teamAbout} testId="outreach-team">
-        <AllowedPicks rules={team.value.rules} onChange={setRules} />
-        <div className="border-t border-border pt-4">
-          <DefaultsFold rules={team.value.rules} onChange={setRules} timezone={me.timezone} />
-        </div>
-        <div className="border-t border-border pt-4">
+      <RowsCard title={SP.networks} about={SP.networksAbout} testId="outreach-team-networks">
+        {PLATFORM_KEYS.map((p) => (
+          <TeamOnNetwork key={p} platform={p} team={team} />
+        ))}
+      </RowsCard>
+      <RowsCard title={SP.picks} testId="outreach-team-picks">
+        <ChangeRow
+          title={SP.mayGo}
+          about={SP.mayGoLine(levelsAllowed(rules))}
+          testId="outreach-team-may-go"
+        >
+          <AllowedPicks rules={rules} onChange={setRules} />
+        </ChangeRow>
+        <ChangeRow
+          title={SP.starts}
+          about={SP.startsLine(rules.defaults)}
+          testId="outreach-defaults-part"
+        >
+          <p className="text-[13px] text-text-2">{`${W.abouts.defaults} Change anyone’s under Your people, above.`}</p>
+          <ChoicesForm
+            value={rules.defaults}
+            onChange={(defaults) => setRules({ ...rules, defaults })}
+            sendingAllowed={rules.sendingAllowed}
+            repliesAllowed={rules.repliesAllowed}
+            postingAllowed={rules.postingAllowed}
+            timezone={me.timezone}
+            testId="outreach-defaults"
+          />
+        </ChangeRow>
+      </RowsCard>
+      <RowsCard
+        title={SP.wholeBusiness}
+        badge={<Badge variant="owner">{S.teamWho}</Badge>}
+        testId="outreach-team"
+      >
+        <BusinessRows value={team.value} onChange={change} />
+        <ChangeRow
+          title={SP.extension}
+          about={business.extensionLink ? SP.extensionTheirs : SP.extensionOurs}
+          testId="outreach-team-extension"
+        >
           <ExtensionLinkForm
             key={String(business.extensionLink ?? '')}
             workspaceId={workspaceId}
             settings={business}
+            bare
           />
-        </div>
-        <div className="border-t border-border pt-4">
-          <TeamSettingsFields
-            value={team.value}
-            onChange={(change) => team.set((v) => ({ ...v, ...change }))}
-          />
-        </div>
-      </Part>
-      <section className="space-y-3" aria-labelledby="outreach-team-networks-title">
-        <div>
-          <h3 id="outreach-team-networks-title" className="text-[17px] font-semibold">
-            {S.networksTitle}
-          </h3>
-          <p className="mt-0.5 text-[13px] text-text-2">{S.networksAbout}</p>
-        </div>
-        {PLATFORM_KEYS.map((p) => (
-          <TeamOnNetwork key={p} platform={p} team={team} />
-        ))}
-      </section>
+        </ChangeRow>
+      </RowsCard>
+      <MoreSettings about={SP.moreAbout} testId="outreach-team-more">
+        <FoundChecksPick value={team.value} onChange={change} />
+      </MoreSettings>
     </>
   );
 }
 
-/** Everyone who uses Social Outreach here, with their training wheels on each network to end, and their settings. */
+/**
+ * Everyone who uses Social Outreach here: the networks each works, their training wheels on each network to end, and
+ * their settings to open.
+ */
 function YourPeople({
   workspaceId,
   myId,
@@ -589,63 +759,71 @@ function YourPeople({
   const { busy, act } = useAct();
   const anyWheels = Boolean(wheels?.people.length);
   return (
-    <Part card title={S.people} about={S.peopleAbout} testId="outreach-team-people">
-      {anyWheels ? <p className="text-[12.5px] text-text-3">{S.wheelsAbout}</p> : null}
-      <ul className="divide-y divide-border">
-        {people.people.map((p) => {
-          const theirs = wheels?.people.filter((w) => w.userId === p.userId) ?? [];
-          return (
-            <li
-              key={p.userId}
-              className="flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0 last:pb-0"
-              data-testid="outreach-team-person"
-            >
-              <div className="min-w-0 flex-[1_1_220px] space-y-1.5">
-                <div className="text-[14px] font-medium">
-                  {p.name}
-                  {p.userId === myId ? (
-                    <span className="font-normal text-text-3"> {S.you}</span>
-                  ) : null}
-                </div>
-                {p.saved ? null : <div className="text-[12.5px] text-text-3">{S.notSaved}</div>}
-                {theirs.map((w) => (
-                  <div
-                    key={w.platform}
-                    className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] text-text-2"
-                    data-testid="outreach-team-wheels"
-                  >
-                    <span>
-                      <span className="font-medium text-warning-text">
-                        {S.wheelsOn(PLATFORMS[w.platform])}
-                      </span>
-                      {' · '}
-                      {S.wheelsLine(w.wheels.ok, w.wheels.daysLeft)}
-                    </span>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      disabled={busy !== null}
-                      loading={busy === `${w.userId}:${w.platform}`}
-                      onClick={() =>
-                        void act(
-                          `${w.userId}:${w.platform}`,
-                          async () =>
-                            unwrap(
-                              await apiBrowser().POST('/v1/commands/outreach.wheels.end', {
-                                body: { workspaceId, userId: w.userId, platform: w.platform },
-                              }),
-                            ),
-                          W.wheelsEnded(w.name),
-                        )
-                      }
-                      data-testid="outreach-team-wheels-end"
-                    >
-                      <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
-                      {W.endNow}
-                    </Button>
-                  </div>
-                ))}
+    <RowsCard title={S.people} about={S.peopleAbout} testId="outreach-team-people">
+      {anyWheels ? <p className="pb-2 text-[12.5px] text-text-3">{S.wheelsAbout}</p> : null}
+      {people.people.map((p) => {
+        const theirs = wheels?.people.filter((w) => w.userId === p.userId) ?? [];
+        return (
+          <div
+            key={p.userId}
+            className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+            data-testid="outreach-team-person"
+          >
+            <div className="min-w-0 flex-[1_1_240px] space-y-1">
+              <div className="text-[14px] font-medium">
+                {p.name}
+                {p.userId === myId ? (
+                  <span className="font-normal text-text-3"> {S.you}</span>
+                ) : null}
               </div>
+              <div className="text-[13px] text-text-2" data-testid="outreach-team-person-networks">
+                {p.saved ? SP.peopleNetworks(p.networks) : S.notSaved}
+              </div>
+              {theirs.map((w) => (
+                <div
+                  key={w.platform}
+                  className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-text-2"
+                  data-testid="outreach-team-wheels"
+                >
+                  <Badge variant="pending">{SP.wheelsChip}</Badge>
+                  <span>
+                    {SP.wheelsLine(
+                      PLATFORMS[w.platform],
+                      w.wheels.ok,
+                      WHEELS.ok,
+                      w.wheels.daysLeft,
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-none flex-wrap gap-2">
+              {theirs.map((w) => (
+                <Button
+                  key={w.platform}
+                  variant="secondary"
+                  size="sm"
+                  disabled={busy !== null}
+                  loading={busy === `${w.userId}:${w.platform}`}
+                  onClick={() =>
+                    void act(
+                      `${w.userId}:${w.platform}`,
+                      async () =>
+                        unwrap(
+                          await apiBrowser().POST('/v1/commands/outreach.wheels.end', {
+                            body: { workspaceId, userId: w.userId, platform: w.platform },
+                          }),
+                        ),
+                      W.wheelsEnded(w.name),
+                    )
+                  }
+                  aria-label={`${W.endNow}: ${S.wheelsOn(PLATFORMS[w.platform])}`}
+                  data-testid="outreach-team-wheels-end"
+                >
+                  <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  {theirs.length > 1 ? `${W.endNow} · ${PLATFORMS[w.platform]}` : W.endNow}
+                </Button>
+              ))}
               <ButtonLink
                 size="sm"
                 variant="secondary"
@@ -656,13 +834,13 @@ function YourPeople({
                 })}
                 data-testid="outreach-team-person-open"
               >
-                {S.theirSettings}
+                {SP.open}
               </ButtonLink>
-            </li>
-          );
-        })}
-      </ul>
-    </Part>
+            </div>
+          </div>
+        );
+      })}
+    </RowsCard>
   );
 }
 
@@ -680,6 +858,8 @@ function NetworkPage({
   workspaceId,
   asks,
   readiness,
+  here,
+  onHandsOff,
 }: {
   platform: Platform;
   me: Automation;
@@ -693,9 +873,14 @@ function NetworkPage({
   asks: Asks | null;
   /** The person's own profile on the network, read and checked: null on someone else's settings. */
   readiness: Readiness | null;
+  /** The status card's live view and what waits there (decision 170): null on someone else's, or when not had. */
+  here: NetworkHere | null;
+  /** A level picked under How hands-off? (decision 170). */
+  onHandsOff: (platform: Platform, level: HandsOff) => void;
 }) {
   const [switching, setSwitching] = useState(false);
   const [said, setSaid] = useState<{ readonly ok: boolean; readonly words: string } | null>(null);
+  const [allLimits, setAllLimits] = useState(false);
   const name = PLATFORMS[platform];
   const value = person.value;
   const may = rules.networksAllowed.includes(platform);
@@ -710,7 +895,48 @@ function NetworkPage({
   const facebook = !OTHER_PLATFORMS.includes(platform as OtherPlatform);
   // A network still looked at (decision 78) has nothing to choose yet: only Chrome's say and its Check.
   const looking = isLooking(platform);
+  const runs = runsOnItsOwn(platform);
+  const level = handsOffOf(choices);
+  const piloted = choices.autopilot === true;
   const testId = `outreach-my-networks-${platform}`;
+  const now = useServerNow(here?.live.now ?? new Date().toISOString());
+  // Facebook's sites are the extension's own (decision 77): only another network waits for Chrome's Allow.
+  const blocked = Boolean(
+    platform !== 'facebook' && asks?.computer && !allowedOn(asks.computer.allowed, platform),
+  );
+  const status = here
+    ? networkStatus({
+        platform,
+        live: here.live,
+        level,
+        waiting: here.waiting,
+        people: here.people,
+        chromeBlocked: blocked,
+        now,
+      })
+    : null;
+  const ticks = ticksOn(platform);
+  const requests = requestsChoiceOn(platform);
+  const groups = groupsChoiceOn(platform);
+  const tidy = tidyChoiceOn(platform);
+  const unfriends = tidy.options.some((o) => o.key === 'unfriend');
+  // The switches under What it does: confirming requests is its own row where it's asked how (`requests`).
+  const shownTicks = ticksShownOn(platform).filter((k) => !(requests && k === 'confirmRequests'));
+  const limits = limitsShownOn(platform, rules, halvedNow({ wheels, fresh, choices }));
+  const words = dailyWordsOn(platform);
+  const limitsLine = P.limitsLine(
+    limits
+      .filter((l) => (DAILY_STEPS as readonly string[]).includes(l.key) && l.most > 0)
+      .map((l) => `${l.most.toLocaleString('en-US')} ${words[l.key as DailyStep].many}`),
+  );
+  const halved = wheels.on
+    ? wheelsWords(wheels, choices.fullSpeed)
+    : fresh.on && !choices.fullSpeed
+      ? freshWords(fresh, platform)
+      : null;
+  // Autopilot on for every network the person works: picking here sets this one on its own (decision 170).
+  const everywhere =
+    piloted && networksOn(value, rules.networksAllowed).every((p) => autopilotOn(value, p));
   const flip = (next: boolean) => {
     setSwitching(true);
     setSaid(null);
@@ -752,26 +978,6 @@ function NetworkPage({
         ) : null}
         <SaveLine statuses={statuses} />
       </PageTitle>
-      {on && !looking && asks ? (
-        // Turned on: its own short setup, from Chrome's Allow to a first day there (decision 83).
-        <div
-          className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-card px-4 py-3"
-          data-testid={`${testId}-set-up`}
-        >
-          <p className="min-w-0 flex-[1_1_260px] text-[13px] text-text-2">
-            {SETUP_WORDS.setUpNetworkAbout(platform)}
-          </p>
-          <ButtonLink
-            size="sm"
-            variant="secondary"
-            href={outreachSetupPath(workspaceId, {
-              step: { net: platform, step: networkSteps(platform)[0]! },
-            })}
-          >
-            {SETUP_WORDS.setUpNetwork(name)}
-          </ButtonLink>
-        </div>
-      ) : null}
       {!may ? (
         <p className="text-[13px] text-text-2" data-testid={`${testId}-not-allowed`}>
           {NW.notAllowed(name, team !== null)}
@@ -783,141 +989,164 @@ function NetworkPage({
         >
           {NW.off(name)}
         </p>
+      ) : looking ? (
+        <p
+          className="rounded-card border border-dashed border-border-strong px-5 py-4 text-[13px] text-text-2"
+          data-testid={`${testId}-looking`}
+        >
+          {NW.looking(name)}
+        </p>
       ) : (
         <>
-          {facebook ? null : asks?.computer && !allowedOn(asks.computer.allowed, platform) ? (
-            // Their computer said Chrome hasn't let it on the network: its asks there wait for this.
+          {status ? (
+            <NetworkStatusCard
+              workspaceId={workspaceId}
+              platform={platform}
+              status={status}
+              testId={`${testId}-status`}
+            />
+          ) : blocked && asks?.computer ? (
+            // No status card to say so: what to press in Chrome, on its own.
             <p
-              role="alert"
               className="rounded-menu bg-warning-soft px-3.5 py-2.5 text-[13px] text-warning-text"
               data-testid={`${testId}-chrome-blocked`}
             >
               {REPORT_WORDS.notAllowed(asks.computer.name, platform)}
             </p>
+          ) : null}
+          {runs ? (
+            <HandsOffPart
+              platform={platform}
+              level={level}
+              onPick={(l) => onHandsOff(platform, l)}
+              rules={rules}
+              canManage={team !== null}
+              note={
+                piloted && wheels.on
+                  ? H.wheels
+                  : everywhere && networksOn(value, rules.networksAllowed).length > 1
+                    ? P.wholeAutopilot
+                    : null
+              }
+              testId={`${testId}-hands-off`}
+            />
           ) : (
             <p
-              className="rounded-menu bg-accent-soft px-3.5 py-2.5 text-[13px] text-accent-text"
-              data-testid={`${testId}-chrome`}
+              className="rounded-menu bg-card-2 px-3.5 py-2.5 text-[13px] text-text-2"
+              data-testid={`${testId}-no-runner`}
             >
-              {S.builtIn(name)}
+              {noRunnerWords(platform)}
             </p>
           )}
-          {looking ? (
-            <p
-              className="rounded-card border border-dashed border-border-strong px-5 py-4 text-[13px] text-text-2"
-              data-testid={`${testId}-looking`}
-            >
-              {NW.looking(name)}
-            </p>
-          ) : (
-            <>
-              {wheels.on ? (
-                <p
-                  className="rounded-menu bg-warning-soft px-3.5 py-2.5 text-[13px] text-warning-text"
-                  data-testid={`${testId}-wheels`}
-                >
-                  {wheelsWords(wheels, choices.fullSpeed)}
-                </p>
-              ) : null}
-              {fresh.on && !choices.fullSpeed ? (
-                <p
-                  className="rounded-menu bg-card-2 px-3.5 py-2.5 text-[13px] text-text-2"
-                  data-testid={`${testId}-fresh`}
-                >
-                  {freshWords(fresh, platform)}
-                </p>
-              ) : null}
-              <NetworkModes
-                card
-                platform={platform}
-                value={choices}
-                onChange={set}
-                sendingAllowed={rules.sendingAllowed}
-                repliesAllowed={rules.repliesAllowed}
-                postingAllowed={rules.postingAllowed}
-                wheelsStart={!wheels.from}
-                piloted={person.value.autopilot}
-                testId={testId}
-              />
-              <NetworkTicks
-                card
-                platform={platform}
-                value={choices}
-                onChange={set}
-                piloted={person.value.autopilot}
-                testId={testId}
-              />
-              <NetworkTidy
-                card
-                platform={platform}
-                value={choices}
-                onChange={set}
-                testId={testId}
-              />
-              {platform === 'instagram' ? (
-                <Part card title={LIKE_YOURS_WORDS.title} testId="outreach-like-yours-moved">
-                  <p className="text-[13px] text-text-2">
-                    {LIKE_YOURS_WORDS.moved}{' '}
-                    <Link
-                      href={outreachHref(workspaceId, { view: 'find', net: 'instagram' })}
-                      className="font-medium text-accent-text hover:underline"
-                    >
-                      {OUTREACH_PAGES.find}
-                    </Link>
-                  </p>
-                </Part>
-              ) : null}
-              {facebook ? (
-                <ExtensionTicks
-                  card
+          {shownTicks.length || requests || groups || runs ? (
+            <Part card title={P.whatItDoes} testId={`${testId}-does`}>
+              {shownTicks.map((key) => (
+                <Tick
+                  key={key}
                   switches
-                  value={value}
-                  onChange={person.set}
-                  testId="outreach-my"
+                  words={[ticks[key][0], firstSentence(ticks[key][1])]}
+                  checked={choices[key]}
+                  onChange={(next) => set({ [key]: next })}
+                  testId={`${testId}-${key}`}
+                />
+              ))}
+              {groups ? (
+                <Tick
+                  switches
+                  words={[P.joinGroups, P.joinGroupsAbout]}
+                  checked={groupModeOf(choices) === 'join'}
+                  onChange={(next) => set(groupModeChange(next ? 'join' : 'mine'))}
+                  testId={`${testId}-groups`}
                 />
               ) : null}
-              <Part
-                card
-                title={S.yourLimits(name)}
-                about={NW.limitsAbout(name)}
-                testId={`${testId}-limits`}
-              >
-                <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                  {limitsShownOn(platform, rules, halvedNow({ wheels, fresh, choices })).map(
-                    (l) => (
-                      <li
-                        key={l.key}
-                        className="min-w-0 rounded-[10px] bg-card-2 p-3"
-                        data-testid={`${testId}-limit-${l.key}`}
-                      >
-                        <div className="text-xl font-semibold tabular-nums">
-                          {l.most.toLocaleString('en-US')}
-                        </div>
-                        <div className="text-[12.5px] text-text-2">{l.label}</div>
-                        {l.note ? <div className="text-[12px] text-text-3">{l.note}</div> : null}
-                      </li>
-                    ),
-                  )}
-                </ul>
-                <div className="mt-4 space-y-4 border-t border-border pt-4">
+              {runs ? (
+                <Tick
+                  switches
+                  words={[
+                    tidy.options.find((o) => o.key === 'cancel')?.label ?? tidy.label,
+                    firstSentence(tidy.about),
+                  ]}
+                  checked={choices.tidy !== 'off'}
+                  onChange={(next) =>
+                    set({
+                      tidy: next ? (choices.tidy === 'unfriend' ? 'unfriend' : 'cancel') : 'off',
+                    })
+                  }
+                  testId={`${testId}-tidy`}
+                />
+              ) : null}
+              {requests ? (
+                <div className={cn(piloted && 'opacity-70')}>
                   <Tick
                     switches
-                    words={[NW.young(name), NW.youngAbout(name)]}
-                    checked={choices.young}
-                    onChange={(young) => set({ young })}
-                    testId={`${testId}-young`}
-                  />
-                  <Tick
-                    switches
-                    words={[NW.fullSpeed(name), NW.fullSpeedAbout(name)]}
-                    checked={choices.fullSpeed}
-                    onChange={(fullSpeed) => set({ fullSpeed })}
-                    testId={`${testId}-full-speed`}
+                    words={[
+                      P.answerRequests(NETWORKS[platform].words.friendRequests),
+                      piloted ? P.piloted : P.answerRequestsAbout,
+                    ]}
+                    checked={choices.confirmRequests}
+                    onChange={(next) =>
+                      piloted ? undefined : set(requestModeChange(next ? 'fits' : 'mine'))
+                    }
+                    testId={`${testId}-requests`}
                   />
                 </div>
-              </Part>
-            </>
-          )}
+              ) : null}
+            </Part>
+          ) : null}
+          {facebook ? (
+            <Part card title={P.whileYouUse(name)} about={W.abouts.extension}>
+              {(['noting', 'readChats', 'markPosts'] as const).map((key) => (
+                <Tick
+                  key={key}
+                  switches
+                  words={W.ticks[key]}
+                  checked={value[key]}
+                  onChange={(next) => person.set((v) => ({ ...v, [key]: next }))}
+                  testId={`outreach-my-${key}`}
+                />
+              ))}
+            </Part>
+          ) : null}
+          <Part card title={P.limits} testId={`${testId}-limits`}>
+            <p className="text-[13.5px] text-text-2" data-testid={`${testId}-limits-line`}>
+              {limitsLine}
+              {halved ? ` ${halved}` : ''}
+            </p>
+            {allLimits ? (
+              <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                {limits.map((l) => (
+                  <li
+                    key={l.key}
+                    className="min-w-0 rounded-[10px] bg-card-2 p-3"
+                    data-testid={`${testId}-limit-${l.key}`}
+                  >
+                    <div className="text-xl font-semibold tabular-nums">
+                      {l.most.toLocaleString('en-US')}
+                    </div>
+                    <div className="text-[12.5px] text-text-2">{l.label}</div>
+                    {l.note ? <div className="text-[12px] text-text-3">{l.note}</div> : null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setAllLimits((a) => !a)}
+              className="text-[13px] font-medium text-accent-text hover:underline"
+              data-testid={`${testId}-limits-all`}
+            >
+              {allLimits ? P.hideLimits : P.showLimits}
+            </button>
+            <div className="border-t border-border pt-4">
+              <Tick
+                switches
+                words={[P.fullSpeed, NW.fullSpeedAbout(name)]}
+                checked={choices.fullSpeed}
+                onChange={(fullSpeed) => set({ fullSpeed })}
+                testId={`${testId}-full-speed`}
+              />
+            </div>
+          </Part>
           {asks && readiness ? (
             <ProfilePart
               workspaceId={workspaceId}
@@ -927,26 +1156,112 @@ function NetworkPage({
               testId={`${testId}-profile`}
             />
           ) : null}
-          {asks && askableOn(platform, 'checkup') ? (
-            <Part
-              card
-              title={REPORT_WORDS.checkupTitle(name)}
-              about={REPORT_WORDS.checkupAbout(platform)}
-              testId={`${testId}-checkup`}
-            >
-              <AskButton
-                workspaceId={workspaceId}
-                asks={asks}
-                ask={{ kind: 'checkup' }}
+          <MoreSettings name={name} helpful={helpfulOn(platform)} testId={`${testId}-more`}>
+            {runs ? (
+              <NetworkModes
                 platform={platform}
-                label={REPORT_WORDS.checkupTitle(name)}
-                testId={`${testId}-checkup-ask`}
+                value={choices}
+                onChange={set}
+                sendingAllowed={rules.sendingAllowed}
+                repliesAllowed={rules.repliesAllowed}
+                postingAllowed={rules.postingAllowed}
+                wheelsStart={!wheels.from}
+                sendingPart={false}
+                piloted={piloted}
+                repliesAbout={P.repliesAbout}
+                testId={testId}
               />
-            </Part>
-          ) : null}
+            ) : null}
+            {runs && level === 'each' && rules.sendingAllowed.includes('approve_all') ? (
+              <Tick
+                switches
+                words={[P.messagesFirst, P.messagesFirstAbout]}
+                checked={choices.sending === 'approve_all'}
+                onChange={(next) => set({ sending: next ? 'approve_all' : 'steps' })}
+                testId={`${testId}-messages-first`}
+              />
+            ) : null}
+            {requests && choices.confirmRequests ? (
+              <NetworkTicks
+                platform={platform}
+                value={choices}
+                onChange={set}
+                piloted={piloted}
+                only="requests"
+                title={P.howItAnswers(NETWORKS[platform].words.friendRequests)}
+                testId={testId}
+              />
+            ) : null}
+            {runs && unfriends && choices.tidy !== 'off' ? (
+              <Tick
+                switches
+                words={[P.unfriend, P.unfriendAbout]}
+                checked={choices.tidy === 'unfriend'}
+                onChange={(next) => set({ tidy: next ? 'unfriend' : 'cancel' })}
+                testId={`${testId}-unfriend`}
+              />
+            ) : null}
+            <Tick
+              switches
+              words={[NW.young(name), NW.youngAbout(name)]}
+              checked={choices.young}
+              onChange={(young) => set({ young })}
+              testId={`${testId}-young`}
+            />
+            {platform === 'instagram' ? (
+              <Row title={LIKE_YOURS_WORDS.title} testId="outreach-like-yours-moved">
+                <p className="text-[13px] text-text-2">
+                  {LIKE_YOURS_WORDS.moved}{' '}
+                  <Link
+                    href={outreachHref(workspaceId, { view: 'find', net: 'instagram' })}
+                    className="font-medium text-accent-text hover:underline"
+                  >
+                    {OUTREACH_PAGES.find}
+                  </Link>
+                </p>
+              </Row>
+            ) : null}
+            {asks && askableOn(platform, 'checkup') ? (
+              <Row
+                title={REPORT_WORDS.checkupTitle(name)}
+                about={firstSentence(REPORT_WORDS.checkupAbout(platform))}
+                testId={`${testId}-checkup`}
+              >
+                <AskButton
+                  workspaceId={workspaceId}
+                  asks={asks}
+                  ask={{ kind: 'checkup' }}
+                  platform={platform}
+                  label={REPORT_WORDS.checkupTitle(name)}
+                  testId={`${testId}-checkup-ask`}
+                />
+              </Row>
+            ) : null}
+            {asks ? (
+              // Its own short setup, from Chrome's Allow to a first day there (decision 83).
+              <Row title={P.setUpAgain(name)} about={P.setUpAgainAbout} testId={`${testId}-set-up`}>
+                <ButtonLink
+                  size="sm"
+                  variant="secondary"
+                  href={outreachSetupPath(workspaceId, {
+                    step: { net: platform, step: networkSteps(platform)[0]! },
+                  })}
+                >
+                  {SETUP_WORDS.setUpNetwork(name)}
+                </ButtonLink>
+              </Row>
+            ) : null}
+            {team ? (
+              <TeamMoved
+                workspaceId={workspaceId}
+                words={S.teamMoved(name)}
+                testId={`outreach-team-moved-${platform}`}
+              />
+            ) : null}
+          </MoreSettings>
         </>
       )}
-      {team ? (
+      {team && (!on || !may || looking) ? (
         <TeamMoved
           workspaceId={workspaceId}
           words={S.teamMoved(name)}
@@ -1018,22 +1333,35 @@ function ProfilePart({
   );
 }
 
-/** For owners and admins, a network's say for the whole team: whether it may use it, and each person's daily limits. */
+/**
+ * For owners and admins, a network's row in Team's Networks list: its limits a day for each person, whether the team
+ * may use it (Facebook always), and Limits to change them under the row.
+ */
 function TeamOnNetwork({ platform, team }: { platform: Platform; team: Autosave<TeamSettings> }) {
+  const [open, setOpen] = useState(false);
   const name = PLATFORMS[platform];
   const { rules } = team.value;
   // Facebook is always allowed (`BusinessRules.networksAllowed`).
   const always = !OTHER_PLATFORMS.includes(platform as OtherPlatform);
   const allowed = always || rules.networksAllowed.includes(platform);
+  const limited = allowed && !isLooking(platform);
+  const testId = `outreach-team-${platform}`;
   return (
-    <Part card title={S.teamOn(name)} badge={S.teamWho} testId={`outreach-team-${platform}`}>
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="text-[14px] font-semibold">{S.teamMay(name)}</div>
-          {always ? null : <div className="text-[13px] text-text-2">{S.teamMayAbout(name)}</div>}
-        </div>
+    <div className="py-3 first:pt-0 last:pb-0" data-testid={testId}>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 sm:grid-cols-[110px_minmax(0,1fr)_auto_auto]">
+        <span className="text-[14px] font-semibold">{name}</span>
+        <span
+          className="col-span-2 row-start-2 text-[13px] text-text-2 sm:col-span-1 sm:row-start-auto"
+          data-testid={`${testId}-line`}
+        >
+          {!allowed
+            ? SP.offForTeam
+            : isLooking(platform)
+              ? SP.stillLooked
+              : teamLimitsLine(platform, rules)}
+        </span>
         {always ? (
-          <Badge variant="gray">{NW.alwaysAllowed}</Badge>
+          <Badge variant="gray">{SP.alwaysOn}</Badge>
         ) : (
           <Switch
             checked={allowed}
@@ -1052,9 +1380,22 @@ function TeamOnNetwork({ platform, team }: { platform: Platform; team: Autosave<
             testId={`outreach-rules-network-${platform}`}
           />
         )}
+        {limited ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            aria-expanded={open}
+            onClick={() => setOpen((o) => !o)}
+            data-testid={`${testId}-limits`}
+          >
+            {open ? SP.done : SP.limits}
+          </Button>
+        ) : (
+          <span className="hidden w-[70px] sm:block" aria-hidden />
+        )}
       </div>
-      {allowed && !isLooking(platform) ? (
-        <div className="border-t border-border pt-4">
+      {limited && open ? (
+        <div className="mt-3 rounded-[10px] bg-card-2 p-3.5 max-md:p-3">
           <LimitsFields
             platform={platform}
             rules={rules}
@@ -1066,16 +1407,6 @@ function TeamOnNetwork({ platform, team }: { platform: Platform; team: Autosave<
           />
         </div>
       ) : null}
-    </Part>
-  );
-}
-
-/** The person's computers, to rename; or how to get one going. */
-function ComputerPart({ workspaceId, live }: { workspaceId: string; live: Live }) {
-  const now = useServerNow(live.now);
-  return live.computers.length ? (
-    <ComputersCard workspaceId={workspaceId} live={live} now={now} bare />
-  ) : (
-    <p className="text-[13px] text-text-2">{W.noComputer}</p>
+    </div>
   );
 }

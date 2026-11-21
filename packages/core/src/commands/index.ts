@@ -48,6 +48,7 @@ import {
   calendarCreate,
   calendarRestoreRevision,
   calendarSave,
+  calendarSetEmbedSites,
   calendarSetSlug,
   calendarSetStatus,
 } from './calendar';
@@ -64,7 +65,7 @@ import {
   territoryDelete,
   territoryUpdate,
 } from './calendar-catalog';
-import { scheduleSet, timeOffAdd, timeOffRemove } from './calendar-hours';
+import { dayStartSet, scheduleSet, timeOffAdd, timeOffRemove } from './calendar-hours';
 import { calendarConnectionCommands } from './calendar-connection';
 import { meetingConnectionCommands } from './meeting-connection';
 import { liveMeetingCommands } from './live-meeting';
@@ -117,6 +118,11 @@ import {
   phoneUpdateSettings,
 } from './phone';
 import {
+  registrationSaveSiteScreenshot,
+  registrationSiteCheckSavePages,
+  registrationSiteCheckStart,
+} from './site-check';
+import {
   registrationEmailWebPerson,
   registrationRecordCheck,
   registrationRequestReview,
@@ -135,6 +141,7 @@ import { recordHoldCommands } from './record-hold';
 import { binCommands } from './bin';
 import { safetyCommands } from './safety';
 import { supportAccessCommands } from './support-access';
+import { practiceCommands } from './practice';
 import { addonAlertCommands } from './addon-alert';
 export { addonAlertAcknowledge } from './addon-alert';
 export {
@@ -208,6 +215,7 @@ import {
   callStart,
   callUpdateStatus,
 } from './call';
+import { userAboutSet } from './user-about';
 import { userPhoneRecordCall, userPhoneStartVerification, userPhoneVerify } from './user-phone';
 import { accountDelete, accountNoteDeleted, assistantConsent } from './account';
 import { companyCreate } from './company.create';
@@ -387,6 +395,7 @@ import {
   conversationPickUp,
   conversationTakeOver,
 } from './conversation-handling';
+import { personHandBack, personNoteByHand, personTakeOver } from './person-hands';
 import { indeedApplicantReceive, intakeSubmit } from './intake';
 import {
   intakeSourceArchive,
@@ -515,6 +524,17 @@ export const {
 } = addonRoadmapCommands(ADDON_CATALOG);
 export { addonRoadmapCommands } from './addon-roadmap';
 
+import { addonBillingCommands } from './addon-billing';
+
+/** Paying for a paid add-on: turning it off at the end of what's paid, keeping it, and the worker's half (20261027028500). */
+export const {
+  stop: addonBillingStop,
+  keep: addonBillingKeep,
+  recordCharge: addonBillingRecordCharge,
+  turnOff: addonBillingTurnOff,
+} = addonBillingCommands(ADDON_CATALOG);
+export { addonBillingCommands } from './addon-billing';
+
 import { addonGrantCommands } from './addon-grant';
 
 /** Staff handing one business an add-on still being built, to try it (Real Estate, step 2). */
@@ -584,6 +604,9 @@ export {
   registrationSaveDraft,
   registrationUpdateStatus,
   registrationRecordCheck,
+  registrationSiteCheckStart,
+  registrationSiteCheckSavePages,
+  registrationSaveSiteScreenshot,
   registrationRequestReview,
   registrationReviewApprove,
   registrationReviewSendBack,
@@ -599,6 +622,7 @@ export {
   userPhoneRecordCall,
   userPhoneStartVerification,
   userPhoneVerify,
+  userAboutSet,
   accountDelete,
   accountNoteDeleted,
   assistantConsent,
@@ -696,6 +720,7 @@ export {
   calendarRestoreRevision,
   calendarSetStatus,
   calendarSetSlug,
+  calendarSetEmbedSites,
   serviceCreate,
   serviceUpdate,
   serviceArchive,
@@ -710,6 +735,7 @@ export {
   scheduleSet,
   timeOffAdd,
   timeOffRemove,
+  dayStartSet,
   appointmentCreate,
   appointmentUpdate,
   appointmentSetMeetingLink,
@@ -834,6 +860,9 @@ export const commands: readonly CommandDef[] = [
   registrationSaveDraft,
   registrationUpdateStatus,
   registrationRecordCheck,
+  registrationSiteCheckStart,
+  registrationSiteCheckSavePages,
+  registrationSaveSiteScreenshot,
   registrationRequestReview,
   registrationReviewApprove,
   registrationReviewSendBack,
@@ -875,6 +904,7 @@ export const commands: readonly CommandDef[] = [
   userPhoneStartVerification,
   userPhoneRecordCall,
   userPhoneVerify,
+  userAboutSet,
   emailDomainAdd,
   emailDomainVerify,
   emailDomainRemove,
@@ -909,6 +939,7 @@ export const commands: readonly CommandDef[] = [
   calendarRestoreRevision,
   calendarSetStatus,
   calendarSetSlug,
+  calendarSetEmbedSites,
   serviceCreate,
   serviceUpdate,
   serviceArchive,
@@ -923,6 +954,7 @@ export const commands: readonly CommandDef[] = [
   scheduleSet,
   timeOffAdd,
   timeOffRemove,
+  dayStartSet,
   appointmentCreate,
   appointmentUpdate,
   appointmentSetMeetingLink,
@@ -1040,6 +1072,9 @@ export const commands: readonly CommandDef[] = [
   conversationTakeOver,
   conversationHandToAi,
   conversationPickUp,
+  personTakeOver,
+  personNoteByHand,
+  personHandBack,
   aiTeammateCreate,
   aiTeammateSaveConfig,
   aiTeammateRestore,
@@ -1153,7 +1188,7 @@ export const commands: readonly CommandDef[] = [
   ...phoneListenerCommands,
   // HandsFreeOS's own business, the one that may use handsfreeos.com for its email (M19).
   ...ownBusinessCommands,
-  // HandsFreeOS video calls for one business, test businesses first (docs/video-calls.md).
+  // HandsFreeOS video calls on or off for one business; every business starts with them on (docs/video-calls.md).
   ...videoCallsSwitchCommands,
   // Which AI answers: Claude, or OpenAI while Claude is in trouble.
   ...aiProviderCommands,
@@ -1199,6 +1234,8 @@ export const commands: readonly CommandDef[] = [
   ...safetyCommands,
   // HandsFreeOS support let into private records (Real Estate step 4).
   ...supportAccessCommands,
+  // Practice businesses for Admin → Try onboarding (20261027027400).
+  ...practiceCommands,
   // Saying you've seen an add-on's alert, from its Home card (Real Estate step 5).
   ...addonAlertCommands,
   ...relationshipCommands,
@@ -1226,6 +1263,11 @@ export const commands: readonly CommandDef[] = [
   addonUnvote,
   addonMarkNewsSeen,
   addonPickChoose,
+  // Paying for a paid add-on (20261027028500).
+  addonBillingStop,
+  addonBillingKeep,
+  addonBillingRecordCharge,
+  addonBillingTurnOff,
   // Staff handing a business an add-on to try (Real Estate, step 2).
   addonGrantGive,
   addonGrantTakeBack,
@@ -1307,6 +1349,7 @@ export * from './portal-access';
 export * from './portal-files';
 export * from './portal-messages';
 export * from './conversation-handling';
+export * from './person-hands';
 export { leadRecordAnswers } from './lead.record_answers';
 export * from './chat-widget';
 export * from './intake-source';

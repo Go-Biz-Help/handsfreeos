@@ -51,11 +51,37 @@ export function writeIn(doc: Document, box: HTMLElement, text: string): void {
   if (!typed) typeInto(doc, box, text, true);
 }
 
+/**
+ * Empties a box to write in, as a person does by selecting all of it and deleting it: Chrome's own delete first
+ * (`writeIn`), then, where the box's editor ignores that, all of it selected again and replaced with nothing once the
+ * editor has taken the selection, a moment later. From the owner's second Check Threads (15 Nov 2026, 0.140.7):
+ * Threads' editor (Lexical) left the word written in its box to reply in through select-all-and-delete, and takes the
+ * replacing only once it has seen the selection. Only ever with the focus in the box. Whether it's empty.
+ */
+export async function emptyIn(doc: Document, box: HTMLElement, tries = 3): Promise<boolean> {
+  const empty = () => (writingIn(box) ? null : true);
+  writeIn(doc, box, '');
+  if ((await waitFor(empty, 300)) || !box.isConnected) return !writingIn(box);
+  for (let n = 0; n < tries; n++) {
+    box.focus();
+    if (doc.activeElement !== box || typeof doc.execCommand !== 'function') break;
+    doc.execCommand('selectAll');
+    await pause(150 + n * 150);
+    doc.execCommand('insertText', false, '');
+    if (await waitFor(empty, 300)) return true;
+  }
+  return !writingIn(box);
+}
+
 /** What a person presses: buttons, links drawn as buttons, and menu rows. */
 const CONTROLS =
   'button, [role="button"], a[href], [role="link"], [role="menuitem"], [role="tab"], input[type="submit"], input[type="button"]';
-/** Where a person writes: a plain box, or one drawn to write in. */
-const BOXES = 'textarea, input[type="text"], [role="textbox"], [contenteditable="true"]';
+/**
+ * Where a person writes: a plain box, or one drawn to write in. An input with no type is a text box too (Instagram's
+ * box in a reel's comments, the owner's problem report of 18 Nov 2026), as the reader's own boxes count it.
+ */
+const BOXES =
+  'textarea, input[type="text"], input:not([type]), [role="textbox"], [contenteditable="true"]';
 
 /** What a box to write in is for: its label, its placeholder, or the label tied to it. */
 export function boxName(box: Element): string {

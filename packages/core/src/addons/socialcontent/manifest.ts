@@ -11,6 +11,7 @@
  * It's in `development`: offered nowhere, and installable only where HandsFreeOS staff hand it out to try.
  */
 import { defineAddon } from '../manifest';
+import { ADDON_TRIAL_DAYS } from '../billing';
 import { SOCIALCONTENT_LOOK_ALIKES, SOCIALCONTENT_PLACES } from './ai-places';
 import { SOCIALCONTENT_PAGES } from './words';
 
@@ -130,6 +131,7 @@ export const socialcontentAddon = defineAddon({
       'socialcontent.content.saved',
       'socialcontent.content.approved',
       'socialcontent.content.skipped',
+      'socialcontent.content.hidden',
       'socialcontent.content.pictured',
       'socialcontent.content.posting',
       'socialcontent.content.posted',
@@ -164,19 +166,22 @@ export const socialcontentAddon = defineAddon({
   // The calendar topped up once a week from the first fill (decision 18), and each post's pictures made. AI picks'
   // posts moved to the hours it learned (decision 27). Setting itself up, step by step, until it writes (decision 28).
   // News and facts looked up online once a week (decision 38).
+  // Posts Redo asked to be written again, one job each, a little apart (the owner, 15 Nov).
   jobs: [
     'socialcontent.weekly',
     'socialcontent.monthly',
     'socialcontent.notes',
     'socialcontent.calendar',
     'socialcontent.pictures',
+    'socialcontent.rewrite',
     'socialcontent.times',
     'socialcontent.setup',
     'socialcontent.research',
   ],
-  billing: { model: 'free' },
-  // The business's main offer and its lists for content (docs/main-offer.md, "For your content"): every post and idea
-  // is written from them, and none until the offer is live (the owner's picks, 11 Nov 2026).
+  // $47 a month for the whole business, after 14 days free (the owner's pick, 2026-11-17).
+  billing: { model: 'paid', monthlyCents: 4700, trialDays: ADDON_TRIAL_DAYS },
+  // The business's main offer and its lists for content (docs/main-offer.md, "For your posts and messages"): every post
+  // and idea is written from them, and none until the offer is live (the owner's picks, 11 Nov 2026).
   uses: ['main_offer'],
   ui: {
     // Its pages in the side menu, which pop out from its one row (the owner's decision, 2026-10-09).

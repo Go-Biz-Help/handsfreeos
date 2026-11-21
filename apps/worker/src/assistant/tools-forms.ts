@@ -27,6 +27,8 @@ import {
   parseStoredForm,
   publicFormPath,
   questionKindLabel,
+  quantitiesWords,
+  quantityRowsOf,
   ruleText,
   textingBoxesTwice,
   type AnswerSheet,
@@ -264,15 +266,25 @@ function settingsOf(config: Record<string, unknown>, names: Names): Record<strin
 /** One question as its row and its settings show it: the choices, where the answer goes, when it shows. */
 function questionOut(q: Question, definition: FormDefinition, names: Names) {
   const config = (q.config ?? {}) as Record<string, unknown>;
-  const choices = (config['choices'] as { id: string; label: string }[] | undefined) ?? [];
+  const choices =
+    (config['choices'] as { id: string; label: string; price?: number | null }[] | undefined) ?? [];
   const settings = settingsOf(config, names);
   return {
     id: q.id,
     title: q.title,
-    kind: questionKindLabel({ type: q.type as QuestionType, config: q.config }),
+    kind: questionKindLabel({ type: q.type as QuestionType, config: q.config, mapTo: q.mapTo }),
     ...(q.help ? { help: q.help } : {}),
     ...(q.required ? { required: true } : {}),
-    ...(choices.length ? { choices: choices.map((c) => ({ id: c.id, label: c.label })) } : {}),
+    ...(choices.length
+      ? {
+          choices: choices.map((c) => ({
+            id: c.id,
+            label: c.label,
+            // A How many of each row's price, in dollars, when it has one.
+            ...(q.type === 'quantities' && typeof c.price === 'number' ? { price: c.price } : {}),
+          })),
+        }
+      : {}),
     ...(q.mapTo ? { fillsIn: names.target(q.mapTo) } : {}),
     ...(q.showIf.conditions.length ? { showsOnlyWhen: ruleText(q.showIf, definition) } : {}),
     ...(Object.keys(settings).length ? { settings } : {}),
@@ -874,9 +886,46 @@ function choiceOf(q: Question, said: unknown): unknown {
   return found ? found.id : text;
 }
 
+/**
+ * How many of each, as the model said it: an object of counts by the row's id or its words ({"Adult M": 5}), or the
+ * words themselves ("Adult M: 5, Adult L 3"). A row nobody can find stays under what was said, so the check that
+ * follows names it rather than it quietly going missing.
+ */
+function quantitiesOf(q: Question, said: unknown): AnswerValue {
+  const rows = quantityRowsOf(q);
+  const rowId = (key: string) => {
+    const text = key.trim();
+    return (
+      rows.find((r) => r.id === text)?.id ??
+      rows.find((r) => r.label.trim().toLowerCase() === text.toLowerCase())?.id ??
+      text
+    );
+  };
+  const pairs: [string, unknown][] =
+    typeof said === 'string'
+      ? said
+          .split(/[,;\n]/)
+          .map((part) => /^(.*?)[\s:×x=-]+(\d+)\s*$/i.exec(part.trim()))
+          .filter((m): m is RegExpExecArray => m !== null)
+          .map((m) => [m[1]!, m[2]!])
+      : said && typeof said === 'object' && !Array.isArray(said)
+        ? Object.entries(said as Record<string, unknown>)
+        : [];
+  if (!pairs.length) return said as AnswerValue;
+  const out: Record<string, number> = {};
+  for (const [key, n] of pairs) {
+    const count = typeof n === 'number' ? n : Number(String(n).trim());
+    const id = rowId(key);
+    out[id] = (out[id] ?? 0) + (Number.isFinite(count) ? count : NaN);
+  }
+  return out;
+}
+
 /** What the model said, as the answer the question takes: what the phone's field would have sent. */
 function answerFor(q: Question, said: unknown): AnswerValue {
   switch (q.type) {
+    case 'quantities':
+      return quantitiesOf(q, said);
     case 'choice':
       return choiceOf(q, said) as AnswerValue;
     case 'checkboxes':
@@ -899,6 +948,7 @@ function answerFor(q: Question, said: unknown): AnswerValue {
 
 /** An answer in words, for the card: the choices' words, Yes or No, an address on one line. */
 function shownAs(q: Question, value: AnswerValue): string {
+  if (q.type === 'quantities') return quantitiesWords(q, value) ?? 'None';
   const choices = ((q.config ?? {}) as { choices?: { id: string; label: string }[] }).choices ?? [];
   const label = (v: unknown) => choices.find((c) => c.id === v)?.label ?? String(v);
   if (Array.isArray(value)) return value.map(label).join(', ');

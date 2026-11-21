@@ -20,7 +20,7 @@ import {
   testEnv,
   type TestUser,
 } from '@hfos/db/testing';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { outreachBusiness } from '../../../packages/core/test/addons/outreach-fixture';
@@ -37,8 +37,12 @@ import {
   setup,
   stages,
 } from '../../../packages/core/src/addons/outreach/tables';
-import { PLAYBOOK_TEMPLATES } from '../../../packages/core/src/addons/outreach/playbooks';
-import { FallbackProvider, type AiProvider, type AiRoute } from '@hfos/ai';
+import { SAMPLES_RULES } from '../../../packages/core/src/addons/outreach/conversation';
+import {
+  CRM_FIRST_MESSAGE,
+  PLAYBOOK_TEMPLATES,
+} from '../../../packages/core/src/addons/outreach/playbooks';
+import { AiProviderError, FallbackProvider, type AiProvider, type AiRoute } from '@hfos/ai';
 import { scriptedAi } from '../src/ai/scripted';
 import { buildHttpServer } from '../src/http/server';
 import { testServices } from './helpers';
@@ -59,13 +63,27 @@ const draft = async (u: TestUser, input: Record<string, unknown>) =>
     payload: { workspaceId: ws, input },
   });
 
+/**
+ * A first message as the stand-in model writes it from the playbook's own words (decision 164): the blanks filled for
+ * the person, and a second with a small change of wording.
+ */
+const SAYS =
+  'if I could get you more deals while also saving you time for your business using my easy to use CRM software, would you be interested?';
+const firsts = (name: string) => [`Hey ${name}, ${SAYS}`, `Hi ${name}, ${SAYS}`];
+
 /** Drafts the model answers next with nothing at all, no words written, as the AI service sometimes does. */
 let blanks = 0;
+/** Drafts the AI service turns away next as overloaded (529), the way Claude and the backup sometimes both do. */
+let busy = 0;
 const scripted = scriptedAi();
 const blanking: AiProvider = {
   id: 'blanking',
   model: scripted.model,
   stream: (request, options) => {
+    if (busy > 0 && String(request.system).startsWith('You write short')) {
+      busy -= 1;
+      return Promise.reject(new AiProviderError('Overloaded', 'overloaded', true, 529));
+    }
     if (blanks > 0 && String(request.system).startsWith('You write short')) {
       blanks -= 1;
       return Promise.resolve({
@@ -160,21 +178,21 @@ afterAll(async () => {
 });
 
 describe('drafts for Today', () => {
-  it('gives a few to pick from, each once, without the words to avoid', async () => {
+  it('writes a first message from the playbook’s own words, each draft once, without the words to avoid', async () => {
     const res = await draft(owner, { kind: 'opener', profileId });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({
       kind: 'opener',
       answer: null,
-      drafts: [
-        'Hi Dana, thanks for adding me! How’s business going?',
-        'Hey Dana, good to connect. What keeps you busiest these days?',
-      ],
-      // The playbook's first style: none has been used yet.
+      // The playbook's first message, fitted to Dana. The repeat and the one with “free trial” are dropped.
+      drafts: firsts('Dana'),
+      // The playbook's first message: it has one version, so there are no turns to take.
       opener: {
         playbookId: expect.any(String),
-        kind: 'style',
-        text: PLAYBOOK_TEMPLATES.crm_demos.details.openerStyles[0],
+        kind: 'own',
+        text: CRM_FIRST_MESSAGE,
+        // The ways it could go (decision 183): only the pitch, so the AI wasn't asked to pick.
+        ways: ['pitch'],
       },
       simple: false,
       unanswered: null,
@@ -182,53 +200,60 @@ describe('drafts for Today', () => {
     });
   });
 
-  it('takes turns with the openers, and sends the business’s own as written', async () => {
+  it('takes turns with the first message’s versions, each fitted to the person (decision 164)', async () => {
     const [playbook] = await testDbs()
       .admin.db.select()
       .from(playbooks)
       .where(eq(playbooks.workspaceId, ws));
-    const own = 'Hi {first name}! Do you run your own business?';
+    const second = 'Hey [first name], do you run your own business?';
     await testDbs()
       .admin.db.update(playbooks)
-      .set({ details: { ...playbook!.details, ownOpeners: [own] } })
+      .set({ details: { ...playbook!.details, script: { first: [CRM_FIRST_MESSAGE, second] } } })
       .where(eq(playbooks.id, playbook!.id));
-    // Each style used once by this person, with others: their own opener is next.
-    for (const [i, text] of PLAYBOOK_TEMPLATES.crm_demos.details.openerStyles.entries()) {
-      const [other] = await testDbs()
-        .admin.db.insert(profiles)
-        .values({
-          workspaceId: ws,
-          platform: 'facebook',
-          username: `someone.${i}`,
-          url: `https://www.facebook.com/someone.${i}`,
-          name: `Someone ${i}`,
-        })
-        .returning({ id: profiles.id });
-      await testDbs().admin.db.insert(openerUses).values({
+    // The first version used once by this person, with someone else: the second is next.
+    const [other] = await testDbs()
+      .admin.db.insert(profiles)
+      .values({
         workspaceId: ws,
-        userId: owner.id,
-        profileId: other!.id,
-        playbookId: playbook!.id,
-        kind: 'style',
-        text,
-        usedAt: new Date(),
-      });
-    }
+        platform: 'facebook',
+        username: 'someone.0',
+        url: 'https://www.facebook.com/someone.0',
+        name: 'Someone 0',
+      })
+      .returning({ id: profiles.id });
+    await testDbs().admin.db.insert(openerUses).values({
+      workspaceId: ws,
+      userId: owner.id,
+      profileId: other!.id,
+      playbookId: playbook!.id,
+      kind: 'own',
+      text: CRM_FIRST_MESSAGE,
+      usedAt: new Date(),
+    });
     const res = await draft(owner, { kind: 'opener', profileId });
     expect(res.json()).toEqual({
       kind: 'opener',
       answer: null,
-      drafts: ['Hi Dana! Do you run your own business?'],
-      opener: { playbookId: playbook!.id, kind: 'own', text: own },
+      drafts: ['Hey Dana, do you run your own business?', 'Hi Dana, do you run your own business?'],
+      opener: { playbookId: playbook!.id, kind: 'own', text: second, ways: ['pitch'] },
       simple: false,
       unanswered: null,
       meeting: null,
     });
-    // Someone else's turns are their own.
-    expect((await draft(member, { kind: 'opener', profileId })).json().opener.kind).toBe('style');
+    // Someone else's turns are their own: they start with the first version.
+    expect((await draft(member, { kind: 'opener', profileId })).json().opener).toEqual({
+      playbookId: playbook!.id,
+      kind: 'own',
+      text: CRM_FIRST_MESSAGE,
+      ways: ['pitch'],
+    });
+    await testDbs()
+      .admin.db.update(playbooks)
+      .set({ details: playbook!.details })
+      .where(eq(playbooks.id, playbook!.id));
   });
 
-  it('keeps a first message close to the one the person wrote themselves in Your messages (decision 87)', async () => {
+  it('never swaps the playbook’s first message for one a person wrote in Your messages (decisions 87 and 164)', async () => {
     const [playbook] = await testDbs()
       .admin.db.select()
       .from(playbooks)
@@ -246,6 +271,7 @@ describe('drafts for Today', () => {
         at: new Date().toISOString(),
         version: 1,
         mine: ['first.1'],
+        rules: SAMPLES_RULES,
       },
       messageNotes: { first: ['Shorter.'] },
     };
@@ -253,9 +279,9 @@ describe('drafts for Today', () => {
       .admin.db.insert(setup)
       .values({ workspaceId: ws, userId: member.id, ...said })
       .onConflictDoUpdate({ target: [setup.workspaceId, setup.userId], set: said });
+    // The first message's words are the playbook's: what they wrote of it before is no example to keep close to.
     const res = (await draft(member, { kind: 'opener', profileId })).json();
-    expect(res.drafts).toEqual(['Hey, open to more booked calls this month? (for Dana)']);
-    // The owner wrote none of theirs: their drafts are as before.
+    expect(res.drafts).toEqual(firsts('Dana'));
     expect((await draft(owner, { kind: 'comment', postId })).json().drafts).toHaveLength(2);
     await testDbs()
       .admin.db.update(setup)
@@ -273,6 +299,150 @@ describe('drafts for Today', () => {
     expect(res.json().drafts).toHaveLength(2);
     expect((await draft(owner, { kind: 'comment' })).statusCode).toBe(404);
     expect((await draft(member, { kind: 'comment', postId })).statusCode).toBe(404);
+  });
+
+  it('writes a warm-up’s comment about the post, or none: never a brochure’s words, filler, or the owner as one of them (decision 165)', async () => {
+    let n = 0;
+    const warm = async (body: string) => {
+      const [po] = await testDbs()
+        .admin.db.insert(posts)
+        .values({
+          workspaceId: ws,
+          userId: owner.id,
+          profileId,
+          url: `https://www.facebook.com/dana.reyes/posts/20000${++n}/`,
+          body,
+          found: 'scroll',
+          checkState: 'good',
+          seenAt: new Date(),
+          warmUp: true,
+        })
+        .returning({ id: posts.id });
+      const res = await draft(owner, { kind: 'comment', postId: po!.id });
+      expect(res.statusCode, res.body).toBe(200);
+      return res.json().drafts as string[];
+    };
+    // A win: the comment that names it stays, and the one in a brochure's words goes.
+    expect(await warm('Just got the keys to our second shop on Main Street!')).toEqual([
+      'Congrats on this, Dana, big step!',
+    ]);
+    // Their own heritage: the owner has said nothing of themselves, so "same" goes and the playful one stays.
+    const heritage =
+      'Day 5 of Hispanic Heritage Month and I’m still waiting on my gifts. Somebody tell my family.';
+    expect(await warm(heritage)).toEqual(['Day five and nothing, Dana?']);
+    // Once they've said so of themselves in About you, speaking as one of them stays. A teammate's is their own.
+    await testDbs().admin.db.execute(
+      sql`insert into app.user_about (user_id, about) values (${member.id}, 'I’m Mexican-American.')`,
+    );
+    expect(await warm(heritage.replace('Day 5', 'Day 6'))).toEqual(['Day five and nothing, Dana?']);
+    await testDbs().admin.db.execute(
+      sql`insert into app.user_about (user_id, about) values (${owner.id}, 'I’m Mexican-American, from San Antonio.')`,
+    );
+    expect(await warm(heritage.replace('Day 5', 'Day 7'))).toEqual([
+      'Still waiting on mine too, same',
+      'Day five and nothing, Dana?',
+    ]);
+    await testDbs().admin.db.execute(
+      sql`delete from app.user_about where user_id in (${owner.id}, ${member.id})`,
+    );
+    // A caption that leans on its video gives nothing real to say: no comment, rather than one a bot could have left.
+    expect(await warm('It be like that')).toEqual([]);
+  });
+
+  it('comments on what the post shows once the extension took its picture, and never keeps it (decision 166)', async () => {
+    let n = 0;
+    const warm = async (look: unknown) => {
+      const [po] = await testDbs()
+        .admin.db.insert(posts)
+        .values({
+          workspaceId: ws,
+          userId: owner.id,
+          profileId,
+          url: `https://www.instagram.com/dana.reyes/reel/30000${++n}/`,
+          body: 'It be like that',
+          found: 'scroll',
+          checkState: 'good',
+          seenAt: new Date(),
+          warmUp: true,
+        })
+        .returning({ id: posts.id });
+      const res = await draft(owner, { kind: 'comment', postId: po!.id, look });
+      expect(res.statusCode, res.body).toBe(200);
+      return { drafts: res.json().drafts as string[], postId: po!.id };
+    };
+    const jpeg = `/9j/${'A'.repeat(400)}`;
+    // Shown two frames of the video its caption leans on, it says what it saw there and comments on that.
+    const seen = await warm({ kind: 'video', jpegs: [jpeg, jpeg] });
+    expect(seen.drafts).toEqual(['That truck is not going anywhere, Dana']);
+    // Something that isn't a picture is left out: the words alone give nothing, so there's no comment.
+    expect((await warm({ kind: 'photo', jpegs: ['not a picture'] })).drafts).toEqual([]);
+    expect((await warm({ kind: 'photo', jpegs: [] })).drafts).toEqual([]);
+    // Another kind of draft never takes pictures.
+    const opener = await draft(owner, {
+      kind: 'opener',
+      profileId,
+      look: { kind: 'photo', jpegs: [jpeg] },
+    });
+    expect(opener.statusCode, opener.body).toBe(200);
+    // Nothing of what it was shown is kept with the post.
+    const kept = await testDbs().admin.db.execute(
+      sql`select to_jsonb(po)::text as row from addon_outreach.posts po where po.id = ${seen.postId}`,
+    );
+    expect(JSON.stringify(kept)).not.toContain('/9j/');
+  });
+
+  it('writes a warm-up’s comment as real comments sound once a research’s guide is in use (decision 166)', async () => {
+    const db = testDbs().admin.db;
+    const [ig] = await db
+      .insert(profiles)
+      .values({
+        workspaceId: ws,
+        platform: 'instagram',
+        username: 'rio.vance',
+        url: 'https://www.instagram.com/rio.vance/',
+        name: 'Rio Vance',
+      })
+      .returning({ id: profiles.id });
+    let n = 0;
+    const warm = async (profile: string) => {
+      const [po] = await db
+        .insert(posts)
+        .values({
+          workspaceId: ws,
+          userId: owner.id,
+          profileId: profile,
+          url: `https://www.instagram.com/rio.vance/p/40000${++n}/`,
+          body: 'New truck day finally',
+          found: 'scroll',
+          checkState: 'good',
+          seenAt: new Date(),
+          warmUp: true,
+        })
+        .returning({ id: posts.id });
+      const res = await draft(owner, { kind: 'comment', postId: po!.id });
+      expect(res.statusCode, res.body).toBe(200);
+      return res.json().drafts as string[];
+    };
+    // With no guide in use, it's written as before.
+    expect(await warm(ig!.id)).toEqual(['Congrats on this, Rio, big step!']);
+    await db.execute(
+      sql`update platform.comment_guides set stopped_at = now()
+          where platform = 'instagram' and stopped_at is null`,
+    );
+    await db.execute(
+      sql`insert into platform.comment_guides (platform, guide, comments)
+          values ('instagram', 'Half of them are 3 words or fewer.', 2000)`,
+    );
+    try {
+      expect(await warm(ig!.id)).toEqual(['New truck looks clean, Rio']);
+      // Instagram's guide is for Instagram's comments: someone on another network is written to as before.
+      expect(await warm(profileId)).toEqual(['Congrats on this, Dana, big step!']);
+    } finally {
+      await db.execute(
+        sql`update platform.comment_guides set stopped_at = now() where stopped_at is null`,
+      );
+    }
+    expect(await warm(ig!.id)).toEqual(['Congrats on this, Rio, big step!']);
   });
 
   it('drafts a reply to a question kept in a group, never with a link (decision 114)', async () => {
@@ -580,10 +750,9 @@ describe('a first message on Instagram', () => {
       .admin.db.update(friends)
       .set({ state: 'friends' })
       .where(eq(friends.profileId, ig!.id));
-    expect((await draft(member, { kind: 'opener', profileId: ig!.id })).json().drafts).toEqual([
-      'Hi Sam, thanks for adding me! How’s business going?',
-      'Hey Sam, good to connect. What keeps you busiest these days?',
-    ]);
+    expect((await draft(member, { kind: 'opener', profileId: ig!.id })).json().drafts).toEqual(
+      firsts('Sam'),
+    );
   });
 });
 
@@ -722,6 +891,22 @@ describe('what the business knows (decision 122)', () => {
       });
     expect((await said('Are you open on Saturday?')).unanswered).toBeNull();
     expect((await said('Do you come out to Dallas?')).unanswered).toBe('do you come out to dallas');
+  });
+});
+
+describe('when the AI service is busy', () => {
+  // On 19 Nov 2026 five Facebook drafts in an evening came back "The AI is busy right now. Try again in a minute."
+  it('asks once more after a few seconds, and says it’s busy only when it still is', async () => {
+    busy = 1;
+    const res = await draft(owner, { kind: 'reply', chatId });
+    expect(res.statusCode).toBe(200);
+    expect(busy).toBe(0);
+    expect(res.json().drafts.length).toBeGreaterThan(0);
+    busy = 2;
+    const failed = await draft(owner, { kind: 'reply', chatId });
+    expect(busy).toBe(0);
+    expect(failed.statusCode).toBe(503);
+    expect(failed.json().error.rule).toBe('ai_busy');
   });
 });
 

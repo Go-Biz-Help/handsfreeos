@@ -1200,7 +1200,7 @@
     {
       "path": "Phone → Settings → Partners row: Who sends you customers, and what they’ve earned",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:247",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:249",
       "covered": "yes",
       "by": "get_settings partners"
     },

@@ -17,6 +17,7 @@ const I = W.ideas;
 const V = W.watch;
 const K = W.calendar;
 const O = W.post;
+const X = W.picking;
 
 export const SOCIALCONTENT_PLACES: readonly AppPlace[] = [
   {
@@ -97,14 +98,17 @@ export const SOCIALCONTENT_PLACES: readonly AppPlace[] = [
     onScreen: [
       `${K.fill}, ${K.approveWeek} (when posts wait for an OK) and ${K.write}`,
       `When it was last filled and when it fills again, ${K.plan} (how many posts a week on each network and at what time), how many are OK’d and going up, whose computer puts them up and when it last checked in`,
-      `Each day: its posts (network, time, format, ${O.states.draft}, ${O.states.ready}, ${O.states.skipped} and the rest, the picture, title and first line, and what one still needs before it can go) and each ${K.open} with ${K.writeFor}; posts with ${K.undated} below`,
+      `Each day: its posts (network, time, format, ${O.states.draft}, ${O.states.ready}, ${O.states.skipped} and the rest, the picture, title and first line, and what one still needs before it can go) and each ${K.open} with ${K.writeFor} (pressing anywhere on it writes the post; today’s open places show while they’re 30 minutes or more off, so deleting or hiding a post opens its place again); posts with ${K.undated} below`,
       `Opening a post: ${O.title}, ${O.network}, ${O.format}, ${O.when} and ${O.time}, ${O.facebookWhere} on Facebook, ${O.hook}, ${O.words}, ${O.hashtags}, ${O.slides} on a carousel and ${O.script} on a video`,
-      `Its ${O.picture}: ${O.ways.design} (words on a picture in the business’s colour), ${O.ways.photo} (9¢ each) or ${O.ways.own}; ${O.makeAgain} with ${O.makeAsk}, ${O.switchTo(O.ways.design)} or ${O.switchTo(O.ways.photo)}, ${O.upload} and ${O.remove}`,
+      `Its ${O.picture}: ${O.ways.design} (words on a picture in the business’s colour), ${O.ways.photo} (9¢ each) or ${O.ways.own}, made 3:4 for Instagram and 4:5 for the other networks; ${O.makeAgain} with ${O.makeAsk}, ${O.switchTo(O.ways.design)} or ${O.switchTo(O.ways.photo)}, ${O.upload} and ${O.remove}`,
       `On a video: ${O.video}, with ${O.addVideo} or ${O.otherVideo} (up to 25 MB) and ${O.remove}`,
       `${O.save}, ${O.approve} or ${O.takeBack}, ${O.postNow}, ${O.skip} or ${O.restore}, and ${O.rewrite} with ${O.rewriteAsk}`,
-      `Once it went up: ${O.seeIt.profile}, ${O.seeIt.page}, ${O.seeIt.feed('LinkedIn')} or ${O.seeIt.feed('Instagram')}; when it ${O.didntPost.toLowerCase()}, why, and ${O.postNow} to try again (places it already went up in are left out); ${O.copy} on networks posted by hand for now`,
+      `Once it went up: ${O.seeIt.profile}, ${O.seeIt.page}, ${O.seeIt.feed('LinkedIn')} or ${O.seeIt.feed('Instagram')}; when it ${O.didntPost.toLowerCase()}, why, with ${X.tryAgain} (places it already went up in are left out), ${X.lookOne} and ${X.markOne}; ${O.copy} on networks posted by hand for now`,
       `${O.numbers.title}: its views (where the network shows them), likes, comments and shares about 2 and 7 days after it went up, in each place, and whether it did well against the business’s own other posts there`,
-      `${K.recent}: what went up in the 30 days before, each with its latest numbers`,
+      `${K.recent}: what went up in the 30 days before, each with its latest numbers, and what didn’t go up`,
+      `${X.looks.list}, ${X.looks.week} and ${X.looks.month} (each person’s last look is kept; weeks start Monday), with ${X.today} and a week or month back or ahead`,
+      `${X.showsLabel}: ${X.shows.all}, ${X.shows.waiting}, ${X.shows.okd}, ${X.shows.posted}, ${X.shows.failed} and ${X.shows.hidden}, each with its count; hidden posts show only under ${X.shows.hidden}`,
+      `${X.select}: a tick beside each post, day, week and ${K.recent}; ${X.pick} picks today, this week or month, a kind in what’s shown, or a kind at any date; the bar then has ${X.ok}, ${X.redo}, ${X.look}, ${X.mark}, ${X.hide} or ${X.show}, and ${X.remove}`,
     ],
     howTo: [
       `Fill two weeks of posts: ${K.fill}. The AI writes one for each open day in the plan from saved ideas, new ideas and the Playbook, and tops up once a week on its own after the first time`,
@@ -113,11 +117,16 @@ export const SOCIALCONTENT_PLACES: readonly AppPlace[] = [
       `Facebook posts go to the person’s profile, their Page or both; posting to the Page needs its link in ${NAME} → ${P.gear} → ${G.posting}`,
       'OK’d posts on Facebook (profile, Page or both), LinkedIn and Instagram go up at their times from the reading computer, in Chrome with the HandsFreeOS Social extension, while Chrome is open there (a Page’s post goes through Meta Business Suite, so the person’s profile isn’t switched). Up to a day late if that computer was off; after that they’re marked as didn’t post',
       `Put one up now: ${O.postNow}. It counts as the OK`,
+      `Redo posts: ${X.select} on the Calendar, pick them, then ${X.redo}. Ones waiting for an OK or OK’d are written again by the AI in new words, a few at a time, and each waits for an OK again. Ones that went up wrong or didn’t go up go up again one at a time on each network, 30 minutes apart; one that went up goes up again everywhere, so the person deletes the old one on the network (HandsFreeOS can’t take posts down). It counts as the OK`,
+      `Act on many posts at once: ${X.select}, pick posts (or ${X.pick} for whole days, weeks, months or every one of a kind), then ${X.ok} (waiting only), ${X.redo} (waiting and OK’d ones are written again, past ones go up again), ${X.look}, ${X.mark} (didn’t post only), ${X.hide} or ${X.remove}`,
+      `Hide posts: they leave the Calendar but stay under ${X.shows.hidden}, where ${X.show} brings them back; one not up yet won’t go up while hidden`,
+      `Delete posts: owners and admins only, after asking. It doesn’t take posts down from the networks; ${X.removeHide} keeps them instead`,
+      `A post that ${O.didntPost.toLowerCase()}: ${X.tryAgain}, ${X.lookOne} (Chrome looks on the network from the computer that posts; it also looks once on its own, 10 minutes after it failed), or ${X.markOne} when it’s up on the network, with its link if there is one`,
       `A video post goes up with the person’s own video: record it from the script, then ${O.addVideo} on the post (up to 25 MB). It can’t be OK’d until it has one`,
       `See how a post did: open it under ${K.recent} (or on its day). The reading computer reads its numbers about 2 and 7 days after it went up; one that did well goes into the Playbook`,
     ],
     canChange: [
-      'fill the calendar, write a post (for an open day, a network or from an idea), change a post’s words, day, time and picture, make its picture again or switch its kind, OK it or the whole week, take the OK back, put it up now, skip it or bring it back, and write it again',
+      'fill the calendar, write a post (for an open day, a network or from an idea), change a post’s words, day, time and picture, make its picture again or switch its kind, OK it or the whole week, take the OK back, put it up now, redo posts that went up wrong or didn’t go up, skip it or bring it back, write it again, and for many posts at once OK, redo (write waiting ones again, or put past ones up again), check if posted, mark as posted, hide, show again or delete them',
     ],
     path: 'calendar',
   },

@@ -3,12 +3,13 @@
  * from the Friends tab in HandsFreeOS (**Check my connections**), and **Research** on one person's row (decision
  * 46a). HandsFreeOS says who's next and how many today has room for, on LinkedIn's own count: a look at a profile
  * is seen by its owner, so profiles read there have a day's limit of their own (40 to start), and each one read here
- * counts. The extension opens each one's profile in a window of its own, checks it's them, reads what it says about
- * them, and sends those lines for the AI to read with the person's chat with them. One page each: nothing is followed
- * from it, and nothing is pressed. It goes at a person's pace and stops on any LinkedIn warning.
+ * counts, and never more on a day the goal needs more good fits (decision 184). The extension opens each one's profile
+ * in a window of its own, checks it's them, reads what it says about them, and sends those lines for the AI to read
+ * with the person's chat with them. One page each: nothing is followed from it, and nothing is pressed. It goes a
+ * minute or two between profiles, a few at a time (the runner's batch), and stops on any LinkedIn warning.
  */
 import type { AskResult } from '@hfos/core/addons/outreach/asks';
-import { CHECK_PACE_SECONDS, RESEARCH_WORDS } from '@hfos/core/addons/outreach/checks';
+import { checkPaceOf, RESEARCH_WORDS } from '@hfos/core/addons/outreach/checks';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
 import type { ChecksNext } from '../../hfos/messages';
 import { profileLines } from '../../networks/linkedin/lookup';
@@ -19,8 +20,8 @@ import { moreToCome, type ReadThem, type Who } from '../checks';
 import { paced, pause, valueOf, warnedOn, type Job, type JobEnd } from '../job';
 import { readLinkedIn } from './read';
 
-/** Between people, a steady pace like a person's: never the same twice. */
-const PACE_MS = [CHECK_PACE_SECONDS[0] * 1000, CHECK_PACE_SECONDS[1] * 1000] as const;
+/** Between people, a steady pace like a person's, never the same twice: LinkedIn's slower one (decision 184). */
+const PACE_MS = [checkPaceOf('linkedin')[0] * 1000, checkPaceOf('linkedin')[1] * 1000] as const;
 
 /**
  * Whether the profile shown is the one opened: the same member by LinkedIn's id or their address's name. A link with

@@ -260,6 +260,8 @@ export const content = addonSocialcontent.table(
     words: text('words').notNull().default(''),
     hook: text('hook'),
     hashtags: text('hashtags').array().notNull().default([]),
+    /** Threads and X (decision 41): the posts under the first in a chain, in order. */
+    chain: text('chain').array().notNull().default([]),
     slides: jsonb('slides').notNull().$type<{ heading: string; body: string }[]>().default([]),
     script: jsonb('script').$type<{ lines: string[]; shots: string[] }>(),
     picture: text('picture'),
@@ -291,6 +293,23 @@ export const content = addonSocialcontent.table(
     numbers: jsonb('numbers').notNull().$type<OwnNumbers>().default({}),
     checksDueAt: ts('checks_due_at'),
     doneWell: jsonb('done_well').$type<DoneWell>(),
+    /**
+     * Hidden from the Calendar but kept under its Hidden filter (the owner, 15 Nov); one not up yet is skipped too, so
+     * it never goes up while hidden.
+     */
+    hiddenAt: ts('hidden_at'),
+    /**
+     * Check if it posted (the owner, 15 Nov): when the reading computer next looks on the network for a post that
+     * didn't post, when it last looked and didn't find it everywhere, and why it couldn't look.
+     */
+    lookDueAt: ts('look_due_at'),
+    lookedAt: ts('looked_at'),
+    lookFailure: text('look_failure'),
+    /**
+     * Whether a person asked for the look (Check if it posted, the owner, 18 Nov): its window then comes in front right
+     * away, as a Check's does; a look on its own comes in front only while they're away (docs/outreach.md, decision 120).
+     */
+    lookAsked: boolean('look_asked').notNull().default(false),
     createdBy: userRef('created_by'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),

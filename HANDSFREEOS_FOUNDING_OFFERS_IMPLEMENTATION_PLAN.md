@@ -133,6 +133,29 @@ Billing & Usage). Migration `20261027023600`.
   next payment. Not while a payment is owed.
 - **Not done:** pausing (the plan can stop renewing, not pause), and billing on the phone.
 
+### 1.5 A 14-day free trial on both plans (decided 2026-11-13)
+
+The owner's words: "add a 14 day free trial to my pricing." Picked with the owner's ★ choices: the card is taken at
+sign-up and charged when the trial ends; both plans, $97 a month and $497 a year; the 30-day money back stays,
+counted from the first payment; and an email 3 days before the trial ends, plus a note in the web app. Migration
+`20261027027000`.
+
+- **It is the code's trial, made the default.** `founding_offers.trial_days` (14 on `monthly` and
+  `founding_lifetime`) puts the days on the checkout, so Stripe's page only keeps the card, the spot turns on at once,
+  its first month or year starts when the trial ends, and the hourly sweep charges it then. Stopping it renewing during
+  the trial gives the spot back when the trial ends, with nothing charged.
+- **One free trial a person, and a business** (`private.founding_trial_days`): somebody who has started a founding
+  plan before (a trial or a payment, on any business), or a business that has, pays from the first day. A code's own
+  trial still applies, and the longer of the two wins; a code's discount comes off each payment after the trial.
+- **The plan page** asks `founding.trials` what this person gets and says "Start your 14-day free trial", with the day
+  the card is charged. `founding.counts` carries each plan's trial too.
+- **Told before it ends:** when a spot turns on with a trial, the worker sets one job for `TRIAL_ENDING_DAYS` (3)
+  before it ends, which emails the owners and admins when the card is charged and what, unless the trial was stopped
+  or is over. In those days `billing.status` says `trialEnding` to whoever manages money, and the web app shows a note
+  across the top of the business, with a Hide kept on the device. The phone shows nothing (the stores' rule).
+- **The website** says it in its own words (`freeTrial` in `apps/site/src/content/site.ts`): the pricing page, the
+  home page, the trade pages, the FAQ and the terms. Change the days in both places.
+
 ---
 
 ## 2. What the repo has, and what it is missing

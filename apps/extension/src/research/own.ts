@@ -7,6 +7,7 @@
  *   creator's post is read.
  * - **Facebook and LinkedIn:** the post's own page, by the network's reader: its reactions count as likes, and its
  *   comments. Neither shows views or shares there.
+ * - **Threads and X (decision 41):** the post's own page, by the network's reader: its likes and replies.
  *
  * Each minute, after posting (./run.ts), it asks for the next post whose read is due (`socialcontent.own.next`), on the
  * networks with no warning today, and says what each place showed (`socialcontent.own.read`), or why a place couldn't be
@@ -124,6 +125,22 @@ async function readAt(
   }
   const read = await tab.hands('read');
   if (read === null) return failed('no_tab');
+  if (network === 'threads' || network === 'x') {
+    // Threads and X (decision 41): the post its own page names, with its likes and replies, as their readers found
+    // it (`found`, src/networks/follows/read.ts).
+    const found = (
+      read as { found?: { post?: { likes: number | null; replies: number | null } | null } }
+    ).found;
+    if (!found?.post) return failed('not_shown');
+    return {
+      place,
+      views: null,
+      likes: found.post.likes,
+      comments: found.post.replies,
+      shares: null,
+      failure: null,
+    };
+  }
   const post = ownPostOf(shownOf(read)?.posts ?? [], check.text);
   if (!post) return failed('not_shown');
   return {

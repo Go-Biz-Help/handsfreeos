@@ -17,6 +17,7 @@ import {
   calendarList,
   calendarRestoreRevision,
   calendarSave,
+  calendarSetEmbedSites,
   calendarSetSlug,
   calendarSetStatus,
   resourceArchive,
@@ -552,6 +553,73 @@ describe('catalogs', () => {
       sql`select slug from app.calendar_slugs where calendar_id = ${cal.id}`,
     );
     expect(retired.map((r) => r.slug)).toEqual([cal.slug]);
+  });
+});
+
+describe('a calendar on the business’s own website', () => {
+  it('keeps the sites allowed to show it, as typed any way with each one’s www twin, and refuses the rest', async () => {
+    const cal = await makeCalendar(t, 'Website visits', {}, { activate: false });
+    expect((await get(cal.id)).calendar.embedOrigins).toEqual([]);
+
+    const saved = await run(
+      calendarSetEmbedSites,
+      {
+        workspaceId: t.wsId,
+        calendarId: cal.id,
+        embedOrigins: ['LoneStarHVAC.com', 'https://book.lonestarhvac.com/visits', ' '],
+      },
+      t.owner,
+    );
+    expect(saved.embedOrigins).toEqual([
+      'https://lonestarhvac.com',
+      'https://www.lonestarhvac.com',
+      'https://book.lonestarhvac.com',
+    ]);
+    expect((await get(cal.id)).calendar.embedOrigins).toEqual(saved.embedOrigins);
+    const [event] = await rows<{ payload: { embedOrigins: string[] } }>(
+      admin(),
+      sql`select payload from app.events where event_type = 'calendar.embed_sites_changed'
+          and entity_id = ${cal.id} order by created_at desc limit 1`,
+    );
+    expect(event?.payload.embedOrigins).toEqual(saved.embedOrigins);
+
+    // A refused entry names itself, and nothing is saved.
+    const refused = await expectHfos(
+      () =>
+        run(
+          calendarSetEmbedSites,
+          {
+            workspaceId: t.wsId,
+            calendarId: cal.id,
+            embedOrigins: ['lonestarhvac.com', 'not a site'],
+          },
+          t.owner,
+        ),
+      'validation',
+      400,
+    );
+    expect(refused.message).toContain('not a site');
+    expect((await get(cal.id)).calendar.embedOrigins).toEqual(saved.embedOrigins);
+
+    // Someone who can't manage calendars can't list sites either.
+    await expectHfos(
+      () =>
+        run(
+          calendarSetEmbedSites,
+          { workspaceId: t.wsId, calendarId: cal.id, embedOrigins: ['elsewhere.com'] },
+          t.member,
+        ),
+      'forbidden',
+    );
+
+    // An empty list: shown on no other site again.
+    const cleared = await run(
+      calendarSetEmbedSites,
+      { workspaceId: t.wsId, calendarId: cal.id, embedOrigins: [] },
+      t.owner,
+    );
+    expect(cleared.embedOrigins).toEqual([]);
+    expect((await get(cal.id)).calendar.embedOrigins).toEqual([]);
   });
 });
 

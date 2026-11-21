@@ -19,6 +19,8 @@ import {
   countryLets,
   countryOfPlace,
   countryRuleWords,
+  countryTag,
+  countryUnsureWhy,
   guessedCountries,
   guessPrompt,
   linesCountry,
@@ -145,6 +147,11 @@ describe('reading a country', () => {
       how: 'seen',
       alt: 'NG',
     });
+    // Karla (15 Nov 2026): the AI agrees she lives in South Dakota and names Honduras, where she's from, as well. Where
+    // someone's from never counts against where they live (decision 169).
+    expect(
+      lookedCountry(['Lives in Brookings, South Dakota'], said('US', 'HN', false)),
+    ).toMatchObject({ country: 'US', how: 'seen', alt: null, unsure: false });
     expect(lookedCountry(['From Lagos, Nigeria'], said('US', 'NG', false))).toEqual({
       country: 'US',
       how: 'friends',
@@ -219,13 +226,23 @@ describe('the setting', () => {
     // After a look: its answer, or When we can't tell.
     expect(fate({ country: 'NG', how: 'friends', looked: true })).toBe('skip');
     expect(fate({ country: 'US', how: 'friends', looked: true })).toBe('reach');
-    expect(fate({ country: 'US', how: 'friends', looked: true, unsure: true })).toBe('ask');
+    // An AI not sure but leaning one way decides by its best guess (decision 169).
+    expect(fate({ country: 'US', how: 'friends', looked: true, unsure: true })).toBe('reach');
+    expect(fate({ country: 'NG', how: 'friends', looked: true, unsure: true })).toBe('skip');
+    // Nothing to go on: When we can't tell.
+    expect(fate({ how: 'unknown', looked: true, unsure: true })).toBe('ask');
     expect(fate({ how: 'unknown', looked: true, unsure: true }, { ...only, unsure: 'skip' })).toBe(
       'skip',
     );
     // A profile and friends that disagree: can't tell only when the setting treats the two differently.
     expect(fate({ country: 'US', how: 'seen', alt: 'NG', looked: true })).toBe('ask');
     expect(fate({ country: 'US', how: 'seen', alt: 'CA', looked: true })).toBe('reach');
+    // Two countries: can't tell only when the AI isn't sure. A sure AI decides, whatever else it named.
+    expect(fate({ country: 'AU', how: 'friends', alt: 'US', looked: true, unsure: true })).toBe(
+      'ask',
+    );
+    expect(fate({ country: 'IN', how: 'friends', alt: 'US', looked: true })).toBe('skip');
+    expect(fate({ country: 'US', how: 'friends', alt: 'NG', looked: true })).toBe('reach');
     // A person's call wins.
     expect(fate({ country: 'NG', how: 'seen', through: true })).toBe('reach');
     expect(fate({ country: 'US', how: 'seen', skip: true })).toBe('skip');
@@ -323,6 +340,7 @@ describe('skipping people for country', () => {
       how: string | null;
       reason: string[];
       why: string | null;
+      whyUnsure: string | null;
       skippedByYou: boolean;
     }[];
   };
@@ -439,6 +457,26 @@ describe('skipping people for country', () => {
     expect(kept).toEqual({ country: 'US', country_how: 'seen' });
   });
 
+  it('says on each row how sure it is, and why it can’t tell', () => {
+    expect(countryTag('friends', true)).toEqual({ words: 'Best guess, not sure', sure: false });
+    expect(countryTag('friends', false)).toEqual({
+      words: 'Worked out from their profile and friends',
+      sure: true,
+    });
+    expect(countryTag('seen', false).sure).toBe(true);
+    expect(countryTag('guessed', false).sure).toBe(false);
+    expect(countryUnsureWhy({ how: 'unknown', country: null, alt: null })).toMatch(/^Nothing/);
+    expect(countryUnsureWhy({ how: 'seen', country: 'US', alt: 'NG' })).toBe(
+      'Their profile says they live in United States, but the AI thinks it’s Nigeria.',
+    );
+    expect(countryUnsureWhy({ how: 'friends', country: 'AU', alt: 'US' })).toBe(
+      'It could be Australia or United States, and the AI isn’t sure which.',
+    );
+    expect(countryUnsureWhy({ how: 'friends', country: 'US', alt: null })).toBe(
+      'United States is the AI’s best guess, but it isn’t sure.',
+    );
+  });
+
   it('waits for a look before skipping on a From or a guess, and lists how many wait', async () => {
     const chidi = await idOf('chidi.o');
     // A From beats a guess, and a guess never undoes a From.
@@ -512,15 +550,23 @@ describe('skipping people for country', () => {
       ['Ana Silva', 'unknown', null],
     ]);
     expect(unsure.people[0]!.reason).toEqual(['No mutual friends to go on']);
+    expect(unsure.people[0]!.whyUnsure).toMatch(/^Nothing on their profile/);
 
     await setRule({ mode: 'only', codes: ['US'], unsure: 'through' });
     expect(await requests()).toEqual(['Ana Silva', 'Dana Reyes']);
     await setRule({ mode: 'only', codes: ['US'], unsure: 'skip' });
-    expect((await skippedList()).people.map((p) => p.name).sort()).toEqual([
+    const skipped = await skippedList();
+    expect(skipped.people.map((p) => p.name).sort()).toEqual([
       'Ana Silva',
       'Chidi Okafor',
       'Ngozi Adeyemi',
     ]);
+    // Skipped because it can't tell, it says so; skipped for where they live, it doesn't.
+    expect(Object.fromEntries(skipped.people.map((p) => [p.name, p.whyUnsure !== null]))).toEqual({
+      'Ana Silva': true,
+      'Chidi Okafor': false,
+      'Ngozi Adeyemi': false,
+    });
 
     await setRule({ mode: 'only', codes: ['US'] });
     await decide(ana, 'through');
@@ -544,10 +590,11 @@ describe('skipping people for country', () => {
       why: 'Their mutual friends are in Nigeria',
     });
     expect(await requests()).toEqual([]);
-    expect((await skippedList('unsure')).people.map((p) => p.name).sort()).toEqual([
-      'Ana Silva',
-      'Dana Reyes',
-    ]);
+    const unsure = await skippedList('unsure');
+    expect(unsure.people.map((p) => p.name).sort()).toEqual(['Ana Silva', 'Dana Reyes']);
+    expect(unsure.people.find((p) => p.name === 'Dana Reyes')!.whyUnsure).toBe(
+      'Their profile says they live in United States, but the AI thinks it’s Nigeria.',
+    );
     // Reaching both countries, the split doesn't matter.
     await setRule({ mode: 'only', codes: ['US', 'NG'] });
     expect(await requests()).toEqual(['Chidi Okafor', 'Dana Reyes']);

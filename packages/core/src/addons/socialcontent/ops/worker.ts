@@ -28,7 +28,7 @@ import { HfosError } from '../../../errors';
 import { executeCommandWithin } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
 import { customRecordCreate, customRecordUpdate } from '../../../commands/custom-record';
-import { formatFor, hasPictures } from '../calendar';
+import { chainFor, formatFor, hasPictures } from '../calendar';
 import {
   CalendarFilledInput,
   ContentPicturedInput,
@@ -363,6 +363,8 @@ export const contentPut = defineAddonCommand(socialcontentAddon, {
       words: p.words,
       hook: p.hook,
       hashtags: p.hashtags,
+      // Threads and X (decision 41): a longer tip's posts under the first.
+      chain: chainFor(input.network, p.chain),
       slides: format === 'carousel' ? p.slides : [],
       script: format === 'video' ? p.script : null,
       picture: p.picture,

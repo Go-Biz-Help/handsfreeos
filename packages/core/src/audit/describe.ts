@@ -710,6 +710,12 @@ function describeAction(e: AuditEntry): string {
       return calendarStatusSentence(e);
     case 'calendar.set_slug':
       return `changed the link for ${name(e)} from ${s(e.before?.slug)} to ${s(e.after?.slug)}`;
+    case 'calendar.set_embed_sites': {
+      const sites = Array.isArray(e.after?.sites) ? e.after.sites.map(s).filter(Boolean) : [];
+      return sites.length
+        ? `let ${sites.map((o) => o.replace(/^https?:\/\//, '')).join(', ')} show ${name(e)} on their pages`
+        : `stopped other websites showing ${name(e)}`;
+    }
     case 'service.create':
       return `added the service ${name(e)}`;
     case 'service.update':
@@ -742,6 +748,8 @@ function describeAction(e: AuditEntry): string {
             : `updated the booking site /book/${s(e.after?.slug)}`;
     case 'schedule.set':
       return `set ${possessive(e)} hours to ${s(e.after?.hours) || 'closed'}`;
+    case 'day_start.set':
+      return `set ${possessive(e)} day to start from ${s(e.after?.dayStart) || 'the business’s address'}`;
     case 'time_off.add':
       return `added ${s(e.after?.kind) === 'available' ? 'extra open time' : 'time off'} for ${owner(e)}: ${offSpan(e.after)}`;
     case 'time_off.remove':
@@ -1953,6 +1961,7 @@ const CALENDAR_PREFIXES = [
   'booking_site.',
   'schedule.',
   'time_off.',
+  'day_start.',
   'appointment.',
   'attendee.',
   'session.',

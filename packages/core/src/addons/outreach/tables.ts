@@ -5,7 +5,7 @@
  * and demos, 20261027001200 for the extension on its own, 20261027001300 for the messages it sends,
  * 20261027001500 for live status: the computers, the day and the feed, and 20261027001600 for Waiting for you: the
  * steps it needs the person for, and the bundled push, 20261027001700 for asking the extension, 20261027002000 for
- * the fits among friends and chats, 20261027002100 for stages, 20261027002200 for checking and joining groups, 20261027002810 for countries, 20261027008400 for partners, 20261027009300 for finding partners by search, 20261027009800 for a code from the person's email, 20261027014100 for finding people by topic, 20261027021500 for counting what the extension does, and 20261027022500 for times to meet offered in the chat):
+ * the fits among friends and chats, 20261027002100 for stages, 20261027002200 for checking and joining groups, 20261027002810 for countries, 20261027008400 for partners, 20261027009300 for finding partners by search, 20261027009800 for a code from the person's email, 20261027014100 for finding people by topic, 20261027021500 for counting what the extension does, 20261027022500 for times to meet offered in the chat, and 20261027027300 for the comment research):
  * the Drizzle mirror its server code reads and writes through.
  * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
@@ -24,7 +24,7 @@ import {
   unique,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { leads, people, users, workspaces } from '@hfos/db/schema';
+import { calendars, leads, people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
 import type { AskKind, AskReply, AskResult, AskState, AskTask, AskVia } from './asks';
 import type {
@@ -36,6 +36,9 @@ import type {
   SendKind,
 } from './automation';
 import type { EngagementKind, HelpfulState } from './helpful';
+import type { ReferralState } from './referrals';
+import type { CallHow } from './calls';
+import type { EventPlatform } from './events-near';
 import type { TallyKind } from './tallies';
 import type { KeptTime, TimeBooking, TimeOfferState } from './meeting-times';
 import type { AutopilotState } from './autopilot';
@@ -50,6 +53,7 @@ import type {
   MessageSamples,
 } from './conversation';
 import type { CountryHow, MutualCountries } from './countries';
+import type { AreaHow, Reach } from './local';
 import type { GroupCheckState, JoinAnswered, JoinState } from './group-checks';
 import type { PitchRead } from './stages';
 import type { DemoHow } from './demos';
@@ -60,6 +64,7 @@ import type { ProfileTicks } from './readiness';
 import type { ListMark } from './lists';
 import type { PartnerFit, PartnerKind, PartnerSearchKind, PartnerStage } from './partners';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
+import type { CommentFindings, ResearchPlatform, ResearchState } from './comment-research';
 import type { LikeYoursState } from './like-yours';
 import type { OccasionKind } from './occasions';
 import type { FriendAnswer, FriendState, TidyKind } from './limits';
@@ -235,6 +240,20 @@ export const profiles = addonOutreach.table(
     /** Whoever reached them first (decision 107), and since when: another's Today leaves them out. */
     ownerUserId: userRef('owner_user_id'),
     ownedAt: ts('owned_at'),
+    /**
+     * What they do and where (decision 177, ../local.ts): their line of work, their area as it reads and as a known US
+     * town, whether they serve local customers, nationwide or online, and how it's known (their page, the chat, or a
+     * person typed it, which the AI never writes over), when and by whom.
+     */
+    work: text('work'),
+    area: text('area'),
+    town: text('town'),
+    reach: text('reach').$type<Reach>(),
+    areaHow: text('area_how').$type<AreaHow>(),
+    areaAt: ts('area_at'),
+    areaBy: userRef('area_by'),
+    /** When the person last copied one of the AI's drafts for them from Today to send themselves (decision 182). */
+    copiedAt: ts('copied_at'),
     savedBy: userRef('saved_by'),
     lastSeenBy: userRef('last_seen_by'),
     lastSeenAt: ts('last_seen_at').notNull().defaultNow(),
@@ -619,6 +638,8 @@ export const posts = addonOutreach.table(
     replyAt: ts('reply_at'),
     /** A post a warm-up visit liked, kept for its one comment while they decide on the request (decision 161). */
     warmUp: boolean('warm_up').notNull().default(false),
+    /** What the writer asks people to recommend someone for (decision 174): "a roofer in Boise"; null for none. */
+    asks: text('asks'),
     checkedAt: ts('checked_at'),
     skippedAt: ts('skipped_at'),
     seenAt: ts('seen_at').notNull(),
@@ -627,6 +648,153 @@ export const posts = addonOutreach.table(
   (t) => [
     unique().on(t.workspaceId, t.id),
     unique().on(t.workspaceId, t.userId, t.url),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * Someone the person talked with, referred under a post asking for what they do (decision 174, ../referrals.ts): the
+ * post, who, why they fit, the comment naming them and the heads-up to them, as the AI wrote them; and where it stands:
+ * waiting for the person, approved (posted for them on Facebook, decision 185), done, or put aside. One a post. Each
+ * person's own. The heads-up is null when they had one this week; `postedAt`, `tagged` and `notedAt` say what their
+ * computer did, and `needs` why one came back to them.
+ */
+export const referrals = addonOutreach.table(
+  'referrals',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    postId: uuid('post_id').notNull(),
+    /** Who is referred. */
+    profileId: uuid('profile_id').notNull(),
+    why: text('why'),
+    comment: text('comment').notNull(),
+    note: text('note'),
+    state: text('state').notNull().default('waiting').$type<ReferralState>(),
+    postedAt: ts('posted_at'),
+    tagged: boolean('tagged'),
+    notedAt: ts('noted_at'),
+    needs: text('needs'),
+    doneAt: ts('done_at'),
+    skippedAt: ts('skipped_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.postId),
+    foreignKey({
+      columns: [t.workspaceId, t.postId],
+      foreignColumns: [posts.workspaceId, posts.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * The note to someone referred twice (decision 185, ../referrals.ts): it asks if they'd send people the person's way
+ * too, or have a call, once the chat has been quiet a few days. One a person, ever. Waiting for the person, approved
+ * (sent for them on Facebook), done, or put aside.
+ */
+export const referAsks = addonOutreach.table(
+  'refer_asks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** Whom it goes to. */
+    profileId: uuid('profile_id').notNull(),
+    text: text('text').notNull(),
+    state: text('state').notNull().default('waiting').$type<ReferralState>(),
+    needs: text('needs'),
+    sentAt: ts('sent_at'),
+    doneAt: ts('done_at'),
+    skippedAt: ts('skipped_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.profileId),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * A networking call with someone the person chats with (decision 187, ./calls.ts): booked through their networking call
+ * link (`how` link) or on their Networking calendar under that person's name (`name`). The prep note pushed before it
+ * is kept with the call's time then (`preppedFor`), so a call moved later gets a new one.
+ */
+export const calls = addonOutreach.table(
+  'calls',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').notNull(),
+    appointmentId: uuid('appointment_id').notNull(),
+    personId: uuid('person_id'),
+    how: text('how').notNull().$type<CallHow>(),
+    prep: text('prep'),
+    preppedAt: ts('prepped_at'),
+    preppedFor: ts('prepped_for'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.appointmentId, t.userId),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * In your hands (decision 182, ./in-hands.ts): someone a person on the team wrote to themselves, or took over. The AI
+ * sends them no message till someone gives them back (`backAt`); a row given back stays, so a message read again later
+ * that was written before then never takes them again.
+ */
+export const hands = addonOutreach.table(
+  'hands',
+  {
+    profileId: uuid('profile_id').primaryKey(),
+    workspaceId: workspaceRef(),
+    userId: userRef('user_id'),
+    how: text('how').notNull().$type<'wrote' | 'took_over'>(),
+    /** The network they wrote on; null for Take over. */
+    place: text('place'),
+    since: ts('since').notNull(),
+    /** Their latest message by hand. */
+    lastAt: ts('last_at').notNull(),
+    /** When the person last pressed Keep it mine on the ask. */
+    keptAt: ts('kept_at'),
+    /** When their phone last heard the ask. */
+    askedAt: ts('asked_at'),
+    backAt: ts('back_at'),
+    backBy: userRef('back_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.profileId),
     foreignKey({
       columns: [t.workspaceId, t.profileId],
       foreignColumns: [profiles.workspaceId, profiles.id],
@@ -776,6 +944,24 @@ export const automation = addonOutreach.table(
     dayReport: boolean('day_report').notNull().default(true),
     /** A push when someone accepts their friend request, connection or follow (decision 101). Off to start. */
     acceptedPush: boolean('accepted_push').notNull().default(false),
+    /**
+     * Where they are (decision 177, ../local.ts): their town as it reads and as a known US town, how far from it is
+     * near, and whether group searches and Today lean local.
+     */
+    homeArea: text('home_area'),
+    homeTown: text('home_town'),
+    radiusMiles: smallint('radius_miles').notNull().default(25),
+    localFocus: boolean('local_focus').notNull().default(false),
+    /**
+     * Their own calendars (decision 178, ../local.ts): the networking call books on the first, a demo on the second,
+     * ahead of the playbook's link. Null for none picked.
+     */
+    networkingCalendarId: uuid('networking_calendar_id').references(() => calendars.id, {
+      onDelete: 'set null',
+    }),
+    leadCalendarId: uuid('lead_calendar_id').references(() => calendars.id, {
+      onDelete: 'set null',
+    }),
     /** How the AI writes for them (../voice.ts). */
     voiceShorthand: boolean('voice_shorthand').notNull().default(false),
     voiceAcronyms: boolean('voice_acronyms').notNull().default(false),
@@ -1399,6 +1585,11 @@ export const followUps = addonOutreach.table(
     answeredAt: ts('answered_at'),
     offerVersion: integer('offer_version'),
     stoppedAt: ts('stopped_at'),
+    /**
+     * A yes in the networking chat after an introduction was to a networking call (decision 173): the ask for a time
+     * and what follows it go on the person's own calendar, not the playbook's demo link.
+     */
+    call: boolean('call').notNull().default(false),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -1709,7 +1900,7 @@ export const eventReads = addonOutreach.table(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    platform: text('platform').notNull().default('alignable').$type<'alignable'>(),
+    platform: text('platform').notNull().default('alignable').$type<EventPlatform>(),
     readAt: ts('read_at').notNull(),
     urls: text('urls')
       .array()
@@ -1719,6 +1910,72 @@ export const eventReads = addonOutreach.table(
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
   (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.platform)],
+);
+
+/**
+ * Each event near a person their computer read (./events-near.ts, decisions 112 and 188): its name, when and where as
+ * the page wrote them, and who hosts it, for Today's card. Put aside with Not going (`skippedAt`). Each person's own.
+ */
+export const events = addonOutreach.table(
+  'events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    platform: text('platform').notNull().$type<EventPlatform>(),
+    url: text('url').notNull(),
+    name: text('name').notNull(),
+    whenText: text('when_text'),
+    startsAt: ts('starts_at'),
+    place: text('place'),
+    hosts: text('hosts')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    seenAt: ts('seen_at').notNull(),
+    skippedAt: ts('skipped_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.platform, t.url),
+  ],
+);
+
+/**
+ * Who hosts or is going to each event near a person on Facebook (decision 188): someone who isn't their friend is
+ * checked by the AI like a friend, and a good fit goes on Today for a friend request. Each person's own.
+ */
+export const eventPeople = addonOutreach.table(
+  'event_people',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    eventId: uuid('event_id').notNull(),
+    profileId: uuid('profile_id').notNull(),
+    host: boolean('host').notNull().default(false),
+    seenAt: ts('seen_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.eventId, t.profileId),
+    foreignKey({
+      columns: [t.workspaceId, t.eventId],
+      foreignColumns: [events.workspaceId, events.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
 );
 
 /**
@@ -1847,12 +2104,74 @@ export const timeOffers = addonOutreach.table(
   ],
 );
 
+/**
+ * A comment research (./comment-research.ts, decision 166): HandsFreeOS's own, started by its staff. Who started it
+ * (only their browser reads for it), where it stands, the comments kept and left out, the hashtags read so far, and
+ * what it found. One at a time a business.
+ */
+export const commentResearch = addonOutreach.table(
+  'comment_research',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    platform: text('platform').notNull().default('instagram').$type<ResearchPlatform>(),
+    state: text('state').notNull().$type<ResearchState>(),
+    target: integer('target').notNull(),
+    days: integer('days').notNull(),
+    startedAt: ts('started_at').notNull(),
+    kept: integer('kept').notNull().default(0),
+    dropped: integer('dropped').notNull().default(0),
+    posts: integer('posts').notNull().default(0),
+    tags: text('tags')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    findings: jsonb('findings').$type<CommentFindings>(),
+    guide: text('guide'),
+    endedAt: ts('ended_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id)],
+);
+
+/**
+ * A comment a research kept: its words alone, the kind of post it was under, and under how many posts it was seen.
+ * Never who wrote it, the post or its address.
+ */
+export const commentSamples = addonOutreach.table(
+  'comment_samples',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    researchId: uuid('research_id').notNull(),
+    topic: text('topic').notNull(),
+    words: text('words').notNull(),
+    wordsKey: text('words_key').notNull(),
+    seen: integer('seen').notNull().default(1),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.researchId, t.wordsKey),
+    foreignKey({
+      columns: [t.workspaceId, t.researchId],
+      foreignColumns: [commentResearch.workspaceId, commentResearch.id],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   asks,
   automation,
   autopilotPeople,
   checks,
+  commentResearch,
+  commentSamples,
   computers,
   days,
   engagements,

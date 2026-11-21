@@ -16,6 +16,7 @@ import { conversations, emailDomains, telephonyRegistrations } from '@hfos/db/sc
 import { accountJobs } from './account/delete';
 import { FORM_JOBS, FORMS_STOPPED_KEY, formJobs, nextStoppedSweep } from './forms/stopped';
 import { BIN_JOBS, BIN_SWEEP_KEY, binJobs } from './bin/index';
+import { PRACTICE_JOBS, PRACTICE_SWEEP_KEY, practiceJobs } from './practice/jobs';
 import { addonJobs, ensureAddonSweep } from './addons/index';
 import { ensureAddonVoting, roadmapJobs } from './addons/roadmap';
 import { workspaceJobs } from './workspace/delete';
@@ -105,6 +106,12 @@ import { portJobs } from './telephony/ports';
 import { importJobs } from './telephony/imports';
 import { phoneAccountJobs } from './telephony/account-switch';
 import { rcsJobs } from './telephony/rcs';
+import {
+  REGISTRATION_CHECK_JOBS,
+  REGISTRATION_FIRST_SWEEP_MS,
+  REGISTRATION_SWEEP_KEY,
+  registrationCheckJobs,
+} from './telephony/registration-check';
 import { META_JOBS, META_PLAN_KEY, metaJobs } from './social/jobs';
 import { META_LEAD_JOBS, META_LEADS_PLAN_KEY, metaLeadJobs } from './social/leads';
 import { ATTENDANCE_JOB, ATTENDANCE_KEY, attendanceClose } from './booking/attendance';
@@ -150,6 +157,11 @@ import {
   FOUNDING_RENEWALS_KEY,
   foundingJobs,
 } from './founding/checkout';
+import {
+  ADDON_BILLING_JOBS,
+  ADDON_BILLING_SWEEP_KEY,
+  addonBillingJobs,
+} from './founding/addon-billing';
 import { RCS_BILLING_JOBS, RCS_RENEWALS_KEY, rcsBillingJobs } from './telephony/rcs-billing';
 import { TEXTING_FEE_JOBS, TEXTING_MONTHS_KEY, textingFeeJobs } from './telephony/texting-fees';
 import { PAYOUT_JOBS, PAYOUT_PLAN_KEY, partnerPayoutJobs } from './partners/payouts';
@@ -544,6 +556,9 @@ export const jobs: JobMap = {
   ...SUPPORT_JOBS,
   'conversation.unanswered_check': unansweredCheck,
   'registration.poll': registrationPoll,
+  // Every three hours, each business's texting registration looked at again: a stopped check started, and an
+  // approval the carriers took back noticed (telephony/registration-check.ts).
+  ...registrationCheckJobs,
   // Moving a number a business already owns to us: sending it, asking the carrier, calling it off (M17).
   ...portJobs,
   ...importJobs,
@@ -560,6 +575,7 @@ export const jobs: JobMap = {
   [SPAM_SWEEP_JOB]: sweepSpam,
   // The Deleted bin: emptied 30 days on, or at once on "Delete now" (bin/index.ts).
   ...binJobs,
+  ...practiceJobs,
   'email.remove_files': removeEmailFiles,
   'mailbox.sync': mailboxSync,
   'calendar.refresh': calendarRefresh,
@@ -641,6 +657,9 @@ export const jobs: JobMap = {
   // Founding seats (0093): a Checkout page made at Stripe, and the hourly sweep that gives back reservations
   // nobody took up or paid for (founding/checkout.ts).
   ...foundingJobs,
+  // Paid add-ons (20261027028500): the hourly sweep, each monthly charge with its retries, and the emails a few days
+  // before a trial or a gift ends (founding/addon-billing.ts).
+  ...addonBillingJobs,
   // RCS (0104): a request's Stripe page, the hourly sweep for paid years that are up, and each renewal's charge
   // (telephony/rcs-billing.ts).
   ...rcsBillingJobs,
@@ -726,6 +745,16 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
       workspaceId: null,
       organizationId: null,
     });
+    // Every three hours, from five minutes after the start: each business's texting registration looked at again
+    // (telephony/registration-check.ts).
+    await scheduleJob(tx, {
+      kind: REGISTRATION_CHECK_JOBS.sweep,
+      dedupeKey: REGISTRATION_SWEEP_KEY,
+      runAt: new Date(Date.now() + REGISTRATION_FIRST_SWEEP_MS),
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
     // Hourly, from a minute after the start: a text or email the worker gave up sending without saying so is
     // marked "Not delivered", so it can be sent again (messaging/unsent.ts).
     await scheduleJob(tx, {
@@ -748,6 +777,15 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     await scheduleJob(tx, {
       kind: SPAM_SWEEP_JOB,
       dedupeKey: 'sweep:spam',
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Practice businesses whose time is up are deleted, hourly (Admin → Try onboarding, practice/jobs.ts).
+    await scheduleJob(tx, {
+      kind: PRACTICE_JOBS.sweep,
+      dedupeKey: PRACTICE_SWEEP_KEY,
       runAt,
       payload: {},
       workspaceId: null,
@@ -881,6 +919,16 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     await scheduleJob(tx, {
       kind: FOUNDING_JOBS.renewals,
       dedupeKey: FOUNDING_RENEWALS_KEY,
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Paid add-ons (20261027028500), hourly: a month that's due is charged, a stop or a trial that's up ends, and a
+    // paid add-on nobody pays for any more is turned off.
+    await scheduleJob(tx, {
+      kind: ADDON_BILLING_JOBS.sweep,
+      dedupeKey: ADDON_BILLING_SWEEP_KEY,
       runAt,
       payload: {},
       workspaceId: null,

@@ -10,6 +10,7 @@
  */
 import { createHash, randomUUID } from 'node:crypto';
 import {
+  billingStatus,
   executeCommand,
   executeQuery,
   foundingBuy,
@@ -26,7 +27,11 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { processDeliveries } from '../src/deliveries';
 import { foundingRenewalFailedEmail, foundingRenewedEmail } from '../src/emails/templates';
-import { planFoundingRenewals, SELF_SERVE_PAGE_MINUTES } from '../src/founding/checkout';
+import {
+  planFoundingRenewals,
+  SELF_SERVE_PAGE_MINUTES,
+  sendTrialEnding,
+} from '../src/founding/checkout';
 import { handlers } from '../src/handlers/index';
 import { buildHttpServer } from '../src/http/server';
 import { processJobs, type JobContext } from '../src/jobs';
@@ -1190,6 +1195,110 @@ describe('a spot bought with a code', () => {
     );
     expect(g!.status).toBe('revoked');
     expect((await planNow()).status).toBe('canceled');
+  });
+
+  it('the plan’s own free trial needs no code, and its owners hear three days before it ends', async () => {
+    // One free trial a person and a business (20261027027000): start this owner and business with none used.
+    await admin().execute(
+      sql`delete from platform.founding_checkouts
+          where organization_id = ${organizationId}::uuid or requested_by = ${owner.id}::uuid`,
+    );
+    await admin().execute(
+      sql`update platform.founding_offers set trial_days = 14 where id = ${MONTHLY}`,
+    );
+    try {
+      const { output } = await executeCommand(
+        api(),
+        foundingBuy,
+        { workspaceId, offerId: MONTHLY },
+        actor(owner),
+        meta(),
+      );
+      await drain();
+      const page = s.payments.fake.checkouts().find((p) => p.checkoutId === output.checkoutId)!;
+      expect(page).toMatchObject({ setupOnly: true, saveCard: true, amountCents: 9_700 });
+      expect(page.productName).toContain('14 days free');
+      expect(page.description).toContain('Nothing is charged today');
+
+      const charged = s.payments.fake.platformCharges().length;
+      await s.payments.fake.payCheckout(page.sessionRef);
+      await drain();
+      expect(s.payments.fake.platformCharges()).toHaveLength(charged);
+      const trial = await planNow();
+      expect(trial).toMatchObject({ plan: 'monthly', status: 'active', price_cents: 9_700 });
+      expect(daysFromNow(trial.trial_ends_at)).toBeGreaterThan(13.9);
+      expect(daysFromNow(trial.trial_ends_at)).toBeLessThan(14.1);
+
+      // One email, set for three days before the trial ends.
+      const queued = await rows<{ run_at: Date; payload: { grantId: string; endsAt: string } }>(
+        admin(),
+        sql`select run_at, payload from app.scheduled_jobs
+            where kind = 'founding.trial_ending' and status = 'pending'
+              and workspace_id = ${workspaceId}::uuid and payload ->> 'grantId' = ${trial.grant_id}`,
+      );
+      expect(queued).toHaveLength(1);
+      expect(daysFromNow(new Date(queued[0]!.run_at).toISOString())).toBeGreaterThan(10.9);
+      expect(daysFromNow(new Date(queued[0]!.run_at).toISOString())).toBeLessThan(11.1);
+
+      const sent: { to: string; subject: string; text: string }[] = [];
+      const run = (payload: { grantId: string; endsAt: string }) =>
+        sendTrialEnding({
+          ...s,
+          mailer: {
+            send: async (m: { to: string; subject: string; text: string }) => void sent.push(m),
+          },
+          job: { payload },
+          scope: { workspaceId, organizationId },
+          attempt: 1,
+          now: Date.now(),
+        } as unknown as JobContext);
+      await run(queued[0]!.payload);
+      expect(sent).toHaveLength(1);
+      expect(sent[0]!.to).toBe(owner.email);
+      expect(sent[0]!.subject).toContain('free trial');
+      expect(sent[0]!.text).toContain('$97');
+      expect(sent[0]!.text).toContain('Settings → Billing & Usage');
+
+      // In its last days the web app says it too, to whoever pays.
+      await admin().execute(
+        sql`update app.workspace_plans
+               set trial_ends_at = now() + interval '2 days', current_period_end = now() + interval '2 days'
+             where workspace_id = ${workspaceId}`,
+      );
+      const ending = await executeQuery(
+        api(),
+        billingStatus,
+        { workspaceId },
+        actor(owner),
+        meta(),
+      );
+      expect(ending.trialEnding).toMatchObject({ chargeCents: 9_700 });
+      expect(daysFromNow(ending.trialEnding!.endsAt)).toBeLessThan(2.1);
+
+      // Stopped renewing: no email, and no note.
+      await executeCommand(
+        api(),
+        foundingSetRenewing,
+        { workspaceId, renewing: false },
+        actor(owner),
+        meta(),
+      );
+      sent.length = 0;
+      await run({ grantId: trial.grant_id, endsAt: ending.trialEnding!.endsAt });
+      expect(sent).toEqual([]);
+      const stopped = await executeQuery(
+        api(),
+        billingStatus,
+        { workspaceId },
+        actor(owner),
+        meta(),
+      );
+      expect(stopped.trialEnding).toBeNull();
+    } finally {
+      await admin().execute(
+        sql`update platform.founding_offers set trial_days = null where id = ${MONTHLY}`,
+      );
+    }
   });
 });
 

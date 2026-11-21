@@ -32,6 +32,7 @@
  */
 import {
   automationOn,
+  inHands,
   automationSettingsOf,
   businessLineOf,
   callPlacesOf,
@@ -791,6 +792,8 @@ export const aiCallPlaceJob: JobHandler = async (ctx) => {
         // Deleting a customer cancels their calls waiting to go; one queued since isn't made either.
         if (c.deleted) return skip(tx, c.id, 'deleted').then(() => null);
         if (c.call_consent === 'opted_out') return skip(tx, c.id, 'no_calls').then(() => null);
+        // Someone on the team has them (core's messaging/hands.ts): the AI doesn't call them.
+        if (await inHands(tx, c.person_id)) return skip(tx, c.id, 'in_your_hands').then(() => null);
         // A call to a lead needs the written yes, still, or a business landline while the business calls those.
         let basis: 'written' | 'business_landline' | 'check' | null = null;
         if (TO_LEADS.has(c.purpose)) {

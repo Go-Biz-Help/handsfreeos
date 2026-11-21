@@ -96,7 +96,7 @@ export function tallyLabel(kind: TallyKind, platform: Platform | null): string {
   switch (kind) {
     case 'friend_request':
       if (!w) return 'Friend requests and follows sent';
-      return platform === 'instagram' ? 'Accounts followed' : `${cap(w.friendRequests)} sent`;
+      return NETWORKS[platform!].follows ? 'Accounts followed' : `${cap(w.friendRequests)} sent`;
     case 'like':
       return 'Likes';
     case 'comment':
@@ -106,7 +106,7 @@ export function tallyLabel(kind: TallyKind, platform: Platform | null): string {
     case 'recommend':
       return 'Recommendations';
     case 'accepted':
-      return w && platform !== 'instagram'
+      return w && !NETWORKS[platform!].follows
         ? `${cap(w.friendRequests)} accepted`
         : 'Requests accepted';
     case 'post_up':
@@ -134,10 +134,12 @@ export function tallyLabel(kind: TallyKind, platform: Platform | null): string {
     case 'group_listed':
       return 'Groups read from your list';
     case 'cancelled':
-      return platform === 'instagram' ? 'Follow requests taken back' : 'Old requests cancelled';
+      return platform && NETWORKS[platform].follows
+        ? 'Follow requests taken back'
+        : 'Old requests cancelled';
     case 'unfriended':
       if (!w) return 'Friends removed or unfollowed';
-      return platform === 'instagram' ? 'Accounts unfollowed' : `${cap(w.friends)} removed`;
+      return NETWORKS[platform!].follows ? 'Accounts unfollowed' : `${cap(w.friends)} removed`;
     case 'declined':
       return 'Requests turned down';
     case 'drafted':

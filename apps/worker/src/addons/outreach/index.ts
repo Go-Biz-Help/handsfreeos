@@ -29,11 +29,13 @@ import {
 import { VIDEO_SCRIPT_ACTION, videoScript } from './video';
 import { PROFILE_CHECK_ACTION, PROFILE_MORE_ACTION, profileCheck, profileMore } from './profile';
 import { NICHE_FIT_ACTION, nicheFit, PLAYBOOK_ASSIST_ACTION, playbookAssist } from './assist';
+import { PLAYBOOK_TEST_ACTION, playbookTest } from './playbook-test';
 import { CHECK_PEOPLE_JOB, checkLooked, checkPeopleJob } from './checks';
 import { CHECK_PARTNERS_JOB, checkPartnersJob, partnerLooked } from './partners';
 import { countriesWanted, GUESS_COUNTRIES_JOB, guessCountriesJob } from './countries';
 import { downloadSaved, READ_CHATS_JOB, readChatsJob } from './chats';
 import { appointmentBooked } from './demos';
+import { CALL_PREP_JOB, callBooked, callPrepJob, callRescheduled } from './calls';
 import { appointmentCompleted, leadWanted } from './leads';
 import {
   CHECK_GROUPS_JOB,
@@ -46,11 +48,21 @@ import {
   CHECK_POSTS_JOB,
   checkPostsJob,
   oldGoodWanted,
+  commentReplied,
   postChecked,
   postsSaved,
   recheckGoodPosts,
 } from './posts';
 import { DRAFT_HELPFUL_JOB, draftHelpfulJob, helpfulAsked } from './helpful';
+import {
+  FIND_REFERRAL_JOB,
+  findReferralJob,
+  REFER_ASK_JOB,
+  referAskFound,
+  referAskJob,
+  referralDone,
+  referralFound,
+} from './referrals';
 import { LIKE_PICK_ACTION, likePick } from './likes';
 import {
   HELPER_LOOK_ACTION,
@@ -60,6 +72,11 @@ import {
   helperWay,
   helperWays,
 } from './helper';
+import {
+  commentResearchChanged,
+  SUM_COMMENT_RESEARCH_JOB,
+  sumCommentResearchJob,
+} from './comment-research';
 import { likeYoursFound, PICK_LIKE_YOURS_JOB, pickLikeYoursJob } from './like-yours';
 import { TODAY_DRAFT_ACTION, todayDraft } from './today';
 import { TIMES_BOOK_ACTION, timesBook, timesCheck } from './times-check';
@@ -92,6 +109,7 @@ import {
   autopilotReminderJob,
   autopilotSaved,
 } from './autopilot';
+import { handedBack, HANDS_ASK_JOB, handsAskJob, handsReplySeen, handsTaken } from './hands';
 import { armWeekly, WEEKLY_JOB, weeklyJob } from './weekly';
 import { scheduleWordsWrite, WRITE_WORDS_JOB, wordsWanted, writeWordsJob } from './words';
 
@@ -179,13 +197,23 @@ export const outreachAddonWorker: AddonWorkerModule = {
     'outreach.posts.saved': andMorning(postsSaved),
     // A post asking for what the business offers pushes to the person who found it at once (./posts.ts, decision 49).
     'outreach.post.checked': postChecked,
+    'outreach.referral.found': referralFound,
+    // Referred twice: the ask that they send people the person's way too, three days on (decision 185).
+    'outreach.referral.done': referralDone,
+    'outreach.refer_ask.found': referAskFound,
+    // Someone who said yes to a demo under the person's comment on Threads or X pushes at once (./posts.ts, 163).
+    'outreach.comment.replied': commentReplied,
     // Friends and people chatted with, read off their pages, wait for the AI's check of them (./checks.ts).
     'outreach.check.looked': andMorning(checkLooked),
     // A group's About page, rules and posts, read off Facebook, wait for the AI's check of it (./groups.ts).
     'outreach.group.looked': groupLooked,
     // A helpful post asked for is written by the AI (./helpful.ts, decision 50).
     'outreach.helpful.asked': helpfulAsked,
-    'outreach.reply.seen': andWeekly(replySeen),
+    // And of those in someone's hands, the ask (./hands.ts, decision 182).
+    'outreach.reply.seen': both(andWeekly(replySeen), handsReplySeen),
+    // Someone in a person's hands, kept, or given back in Contacts (./hands.ts, decision 182).
+    'outreach.hands.taken': handsTaken,
+    'person.handed_back': handedBack,
     // A reply handed over pushes at once (./alerts.ts); any other message that waits for the person's OK, and a
     // step the extension needs them for, push as they chose: bundled or one for each (./waiting.ts).
     'outreach.send.queued': both(handOver, sendWaits),
@@ -196,7 +224,9 @@ export const outreachAddonWorker: AddonWorkerModule = {
     'outreach.friends.saved': countriesWanted,
     // Someone accepting the person's friend request pushes to their phone, when they switched that on (./alerts.ts).
     'outreach.friend.accepted': requestAccepted,
-    'appointment.booked': appointmentBooked,
+    // A networking call booked, or moved, has its prep push half an hour before it (./calls.ts, decision 187).
+    'appointment.booked': both(appointmentBooked, callBooked),
+    'appointment.rescheduled': callRescheduled,
     // A Facebook warning pushes to the person's phone, and what the extension tells the app keeps the feed's
     // pruning armed (./live.ts).
     'outreach.warning.seen': warningSeen,
@@ -237,10 +267,16 @@ export const outreachAddonWorker: AddonWorkerModule = {
     // An OK'd message with times waits while they're checked again and its booking made (./times-check.ts, decision
     // 149).
     'outreach.times.check': timesCheck,
+    // A comment research started, full or stopped is summed up when its days end, or now (./comment-research.ts,
+    // decision 166).
+    'outreach.comment_research.changed': commentResearchChanged,
   },
   jobs: {
     [READ_CHATS_JOB]: readChatsJob,
     [CHECK_POSTS_JOB]: checkPostsJob,
+    [FIND_REFERRAL_JOB]: findReferralJob,
+    [REFER_ASK_JOB]: referAskJob,
+    [CALL_PREP_JOB]: callPrepJob,
     [CHECK_PEOPLE_JOB]: checkPeopleJob,
     [CHECK_PARTNERS_JOB]: checkPartnersJob,
     [CHECK_GROUPS_JOB]: checkGroupsJob,
@@ -266,11 +302,14 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [GOAL_MIDDAY_JOB]: goalMiddayJob,
     [AUTOPILOT_LIST_JOB]: autopilotListJob,
     [AUTOPILOT_REMINDER_JOB]: autopilotReminderJob,
+    [SUM_COMMENT_RESEARCH_JOB]: sumCommentResearchJob,
+    [HANDS_ASK_JOB]: handsAskJob,
   },
   // AI help on a playbook's parts, from the builder (./assist.ts), drafts for Today (./today.ts), and answers to a
   // group's questions when the extension asks to join it (./groups.ts), and which post to like (./likes.ts).
   actions: {
     [PLAYBOOK_ASSIST_ACTION]: playbookAssist,
+    [PLAYBOOK_TEST_ACTION]: playbookTest,
     [NICHE_FIT_ACTION]: nicheFit,
     // The person's own profile, read by their extension, checked by the AI (./profile.ts, decision 64).
     [PROFILE_CHECK_ACTION]: profileCheck,

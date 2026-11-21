@@ -1,6 +1,8 @@
 import {
   FORM_MODE_LABELS,
   isSingleCheckbox,
+  NAME_QUESTIONS,
+  nameQuestionOf,
   publicFormPath,
   QUESTION_LABELS,
   SINGLE_CHECKBOX_LABEL,
@@ -20,6 +22,7 @@ import {
   Hash,
   Heading,
   ListChecks,
+  ListOrdered,
   MapPin,
   MousePointerClick,
   PenLine,
@@ -29,6 +32,7 @@ import {
   Star,
   ToggleLeft,
   Type,
+  UserRound,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -55,25 +59,43 @@ export const QUESTION_ICONS: Readonly<Record<QuestionType, LucideIcon>> = {
   video: Film,
   booking: CalendarCheck,
   button: MousePointerClick,
+  quantities: ListOrdered,
 };
 
 export { QUESTION_LABELS, FORM_MODE_LABELS };
 
-/** The icon for a question in the list: a yes or no shown as one box gets the box. */
-export const questionIcon = (question: { type: QuestionType; config?: unknown }): LucideIcon =>
-  isSingleCheckbox(question) ? SquareCheck : QUESTION_ICONS[question.type];
+/** The icon for a question in the list: a yes or no shown as one box gets the box, a name box the person. */
+export const questionIcon = (question: {
+  type: QuestionType;
+  config?: unknown;
+  mapTo?: string | null;
+}): LucideIcon =>
+  isSingleCheckbox(question)
+    ? SquareCheck
+    : nameQuestionOf(question)
+      ? UserRound
+      : QUESTION_ICONS[question.type];
 
 /**
- * A row in the "add a question" menu: a kind of question, or `single_checkbox`, which is a yes or no shown as one
- * box to check ("I agree to the terms"). It has a row of its own because that's what people look for.
+ * A row in the "add a question" menu: a kind of question; `single_checkbox`, which is a yes or no shown as one
+ * box to check ("I agree to the terms"); or `first_name` and `last_name`, short answers saved as the customer's name
+ * (`NAME_QUESTIONS`). They have rows of their own because that's what people look for.
  */
-export type QuestionMenuItem = QuestionType | 'single_checkbox';
+export type QuestionMenuItem = QuestionType | 'single_checkbox' | 'first_name' | 'last_name';
 
 export const menuItemLabel = (item: QuestionMenuItem): string =>
-  item === 'single_checkbox' ? SINGLE_CHECKBOX_LABEL : QUESTION_LABELS[item];
+  item === 'single_checkbox'
+    ? SINGLE_CHECKBOX_LABEL
+    : item === 'first_name' || item === 'last_name'
+      ? NAME_QUESTIONS[item].label
+      : QUESTION_LABELS[item];
 
 export const menuItemIcon = (item: QuestionMenuItem): LucideIcon =>
-  item === 'single_checkbox' ? SquareCheck : QUESTION_ICONS[item];
+  item === 'single_checkbox'
+    ? SquareCheck
+    : item === 'first_name' || item === 'last_name'
+      ? UserRound
+      : QUESTION_ICONS[item];
 
 /** The question types offered in the "add a question" menu, in the order people reach for them. */
 export const QUESTION_MENU: readonly { group: string; types: readonly QuestionMenuItem[] }[] = [
@@ -81,8 +103,11 @@ export const QUESTION_MENU: readonly { group: string; types: readonly QuestionMe
     group: 'Asking',
     types: ['short_text', 'long_text', 'choice', 'checkboxes', 'single_checkbox', 'yes_no'],
   },
-  { group: 'Details', types: ['email', 'phone', 'address', 'date', 'time'] },
-  { group: 'Numbers', types: ['number', 'money', 'rating', 'scale'] },
+  {
+    group: 'Details',
+    types: ['first_name', 'last_name', 'email', 'phone', 'address', 'date', 'time'],
+  },
+  { group: 'Numbers', types: ['number', 'money', 'quantities', 'rating', 'scale'] },
   { group: 'Other', types: ['content', 'video', 'booking', 'file', 'signature', 'payment'] },
 ];
 

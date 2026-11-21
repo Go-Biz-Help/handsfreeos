@@ -482,6 +482,11 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
         api().POST('/v1/commands/outreach.posts.save', { body: ask.input }),
         ask.input.workspaceId,
       );
+    case 'hfos-comment-replies':
+      return call(
+        api().POST('/v1/commands/outreach.comment_replies.save', { body: ask.input }),
+        ask.input.workspaceId,
+      );
     case 'hfos-checks-next':
       return call(
         api().POST('/v1/queries/outreach.checks.next', { body: ask.input }),
@@ -530,6 +535,16 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
     case 'hfos-occasions-save':
       return call(
         api().POST('/v1/commands/outreach.occasions.save', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-comment-research-next':
+      return call(
+        api().POST('/v1/queries/outreach.comment_research.next', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-comment-research-save':
+      return call(
+        api().POST('/v1/commands/outreach.comment_research.save', { body: ask.input }),
         ask.input.workspaceId,
       );
     case 'hfos-like-yours-next':

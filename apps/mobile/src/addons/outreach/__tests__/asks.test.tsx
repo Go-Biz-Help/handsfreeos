@@ -306,6 +306,33 @@ describe('An ask’s line on the phone', () => {
     expect(screen.queryByTestId('ask-stop')).toBeNull();
   });
 
+  it('folds the asks that ended the same way under the newest, with how many more and since when', async () => {
+    const failed = (n: number, askedAt: string) =>
+      ask({
+        askId: id(20 + n),
+        state: 'failed',
+        line: 'Couldn’t open your groups list.',
+        askedAt,
+        endedAt: askedAt,
+      });
+    await render(
+      <AskedPart
+        asks={asksOf([
+          failed(3, '2026-10-10T14:40:00.000Z'),
+          failed(2, '2026-10-10T14:20:00.000Z'),
+          failed(1, '2026-10-10T14:10:00.000Z'),
+        ])}
+        actions={actionsOf()}
+      />,
+    );
+    expect(screen.getAllByTestId('live-ask')).toHaveLength(1);
+    expect(screen.getAllByText('Couldn’t open your groups list.')).toHaveLength(1);
+    const same = screen.getByTestId('live-ask-same');
+    expect(same).toHaveTextContent(/^The same, 2 more times since /);
+    await fireEvent.press(same);
+    expect(screen.getAllByText('Couldn’t open your groups list.')).toHaveLength(3);
+  });
+
   it('reloads the screen once when an ask has just ended done, not on the first answer', async () => {
     const reload = jest.fn();
     const { rerender } = await renderHook(

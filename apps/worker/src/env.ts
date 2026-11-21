@@ -47,6 +47,12 @@ export interface WorkerEnv {
   /** The public base URL providers call (signatures are checked against it, never against the Host header). */
   readonly publicUrl: string;
   readonly webOrigins: readonly string[];
+  /**
+   * The fixed addresses the worker reads websites from (`fly ips allocate-egress`), comma-separated in
+   * SITE_READER_IPS: the texting registration's checks tell a business whose site's security stops us which ones to
+   * allow (core's robotCheckAllow). Empty until they're allocated, and the checks then offer the other ways past.
+   */
+  readonly siteReaderIps: readonly string[];
   readonly jwksUrl: string | null;
   readonly jwtIssuer: string | null;
   readonly telephonyProvider: 'twilio' | 'fake';
@@ -699,6 +705,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     httpHost: env.WORKER_HTTP_HOST ?? (production ? '0.0.0.0' : '127.0.0.1'),
     publicUrl,
     webOrigins: list(env.WEB_ORIGINS ?? 'http://localhost:3000'),
+    siteReaderIps: list(env.SITE_READER_IPS ?? ''),
     jwksUrl:
       env.SUPABASE_JWKS_URL ??
       (supabaseUrl ? `${supabaseUrl}/auth/v1/.well-known/jwks.json` : null),

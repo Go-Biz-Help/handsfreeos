@@ -44,12 +44,14 @@ import { Segmented } from '@/components/ui/segmented';
 import { Stepper } from '@/components/ui/stepper';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import type { FormBrand } from '@/components/forms/design-panel';
 import { CalendarAutomations } from '@/components/workflows/calendar-automations';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { Ok, Pipeline, ResourceItem, ServiceItem, TerritoryItem } from '@/lib/api/types';
 import { teamSentence, type ModuleKey } from '@/lib/calendar/describe';
 import { dateOf, fmtAt, fmtLength, fmtWhen, TIME_OPTIONS } from '@/lib/calendar/time';
 import { useLiveVersion } from '@/lib/realtime/live-provider';
+import { CalendarDesignModule } from './design-module';
 import { WeeklyHoursEditor } from './weekly-hours';
 
 export interface BuilderPerson {
@@ -91,6 +93,8 @@ export interface ModuleProps {
   readonly calendarName?: string;
   /** Settings → Payments, for the Payments module. */
   readonly payments?: BuilderPayments;
+  /** The business's colour, logo and website, which the Design section starts from. */
+  readonly brand?: FormBrand;
 }
 
 const WEEKDAYS_9_TO_5: WeeklyHours = [1, 2, 3, 4, 5].map((day) => ({
@@ -759,7 +763,7 @@ function CapacityModule({ draft, patch }: ModuleProps) {
 
 // ---------- Locations ----------
 
-const KINDS: LocationKind[] = ['customer_address', 'business', 'virtual', 'phone'];
+const KINDS: LocationKind[] = ['customer_address', 'business', 'virtual', 'phone', 'meetup'];
 
 function LocationsModule({ draft, patch, workspaceId }: ModuleProps) {
   const options = draft.locations.options;
@@ -893,6 +897,22 @@ function LocationsModule({ draft, patch, workspaceId }: ModuleProps) {
                     }
                   />
                 )}
+              </>
+            ) : o.kind === 'meetup' ? (
+              <>
+                <CommitInput
+                  label="Your usual spot"
+                  placeholder="Your usual spot (optional)"
+                  className="min-w-[200px] flex-1"
+                  value={o.address ?? ''}
+                  onCommit={(v) =>
+                    set(options.map((x, j) => (j === i ? { ...x, address: v.trim() || null } : x)))
+                  }
+                />
+                <span className="w-full text-xs text-text-3">
+                  Customers pick your usual spot, a coffee shop halfway between you, or a place they
+                  name.
+                </span>
               </>
             ) : (
               <span className="flex-1 text-xs text-text-3">
@@ -1219,6 +1239,17 @@ function BuffersModule({ draft, patch }: ModuleProps) {
           options={TRAVEL}
           label="Travel time"
           onChange={(travelMinutes) => patch({ buffers: { travelMinutes } })}
+        />
+      </SetRow>
+      <SetRow
+        center
+        title="Leave time to drive between visits"
+        description="Customers give their address first and see only times you can drive to, from your visit before or where your day starts (Settings → My calendar). Travel time is added on top."
+      >
+        <Switch
+          checked={b.driveBetween}
+          label="Leave time to drive between visits"
+          onChange={(driveBetween) => patch({ buffers: { driveBetween } })}
         />
       </SetRow>
     </>
@@ -2354,6 +2385,16 @@ export function ModuleForm(props: ModuleProps & { module: ModuleKey }) {
         />
       ) : (
         <SoonModule title="Automations" what="Workflows that run when bookings happen." />
+      );
+    case 'design':
+      return (
+        <CalendarDesignModule
+          workspaceId={props.workspaceId}
+          draft={props.draft}
+          patch={props.patch}
+          brand={props.brand ?? { color: null, logo: null }}
+          calendarName={props.calendarName ?? 'Your calendar'}
+        />
       );
   }
 }

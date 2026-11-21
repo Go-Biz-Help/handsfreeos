@@ -152,6 +152,14 @@ const ONLINE_COMMANDS = [
   'outreach.helpful.ok',
   'outreach.helpful.posted',
   'outreach.helpful.skip',
+  // Refer someone you've talked with on Today (decision 174): I did both, or Not this one.
+  'outreach.referral.done',
+  'outreach.referral.skip',
+  // ... or Do it for me, and the ask after two referrals answered (decision 185).
+  'outreach.referral.approve',
+  'outreach.refer_ask.answer',
+  // Not going: an event near them off Today (decision 188).
+  'outreach.event.skip',
   // Letting the browser extension sign in by picking its number, from the push (20261027002910).
   'extension_sign_in.answer',
   // Get ready on Today (decision 63): a profile item ticked, the goal set, and the messages OK'd.
@@ -186,7 +194,7 @@ const ONLINE_COMMANDS = [
   'ai_teammate.answer_feedback',
   'teammate_lesson.dismiss',
   // Settings → Main offer (HANDSFREEOS_MAIN_OFFER_PHONE_IMPLEMENTATION_PLAN.md): a part edited, the direction, and
-  // going live; and a list for content saved (docs/main-offer.md, "For your content", pick 6b).
+  // going live; and a list for content saved (docs/main-offer.md, "For your posts and messages", pick 6b).
   'main_offer.save_draft',
   'main_offer.save_direction',
   'main_offer.publish',
@@ -213,17 +221,34 @@ const ONLINE_COMMANDS = [
   'socialcontent.work.stop',
   'socialcontent.idea.decide',
   // Its Calendar on the phone (part 12): a post saved, OK'd or its OK taken back, the week OK'd, a post skipped or
-  // brought back, Post it now, and a post removed (the owner, 11 Nov).
+  // brought back, Post it now, a post removed (the owner, 11 Nov), posts redone, and picked posts OK'd, hidden or shown
+  // again, deleted, marked as posted or looked for on the network (the owner, 15 Nov).
   'socialcontent.content.save',
   'socialcontent.content.approve',
   'socialcontent.content.approve_week',
   'socialcontent.content.skip',
   'socialcontent.content.post_now',
   'socialcontent.content.remove',
+  'socialcontent.content.redo',
+  'socialcontent.content.approve_many',
+  'socialcontent.content.hide',
+  'socialcontent.content.remove_many',
+  'socialcontent.content.mark_posted',
+  'socialcontent.content.look',
   // Contractor Operations in the field (docs/contractor.md, "On the phone"), with signal: a job's own status, and
   // taking a note off.
   'contractor.job.set_status',
   'contractor.note.remove',
+  // About you (docs/outreach.md, decision 165), on More → Settings, with signal: what a person says of themselves.
+  'user_about.set',
+  // In your hands (messaging/hands.ts), on a customer's page and Contacts → In your hands, with signal: Take over, and
+  // Give back to the AI.
+  'person.take_over',
+  'person.hand_back',
+  // Social Outreach's In your hands (decision 182): Take over and Give back in the person menu, Keep it mine on the ask.
+  'outreach.hands.take',
+  'outreach.hands.give_back',
+  'outreach.hands.keep',
 ];
 /**
  * Commands only the browser extension sends, which can wait in it as long as the browser is offline (Social
@@ -316,6 +341,7 @@ const QUERIES = [
   'outreach.lookup',
   // Where someone stands as their person menu opens (decision 91): in Contacts, a client, on Don't pitch.
   'outreach.profile.marks',
+  'outreach.hands',
   // Whether the person has set Social Outreach up: until then the phone says to do it on a computer (decision 45).
   'outreach.setup',
   // The Pipeline screen: everyone the person reached, by where they stand (decision 47).
@@ -356,6 +382,10 @@ const QUERIES = [
   'socialcontent.idea.list',
   'socialcontent.calendar.get',
   'socialcontent.content.get',
+  // About you, with signal: it's the person's alone, so never in the phone's copy (decision 165).
+  'user_about.get',
+  // In your hands, with signal: whether someone on the team has a customer, and the list of everyone they have.
+  'person.in_hands',
 ];
 
 /** An input's JSON Schema, without the regex a format already stands for (a uuid's, a date-time's). */

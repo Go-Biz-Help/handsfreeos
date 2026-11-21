@@ -61,6 +61,10 @@ export type GroupsList = Ok<'/v1/queries/outreach.groups'>;
 /** The list for today and its drafts (packages/core/src/addons/outreach/today.ts). */
 export type TodayList = Ok<'/v1/queries/outreach.today'>;
 export type TodayListItem = TodayList['items'][number];
+/** The referrals and asks after two the runner does for the person (decision 185). */
+export type ReferralsDue = Ok<'/v1/queries/outreach.referrals.due'>;
+export type DueReferral = ReferralsDue['referrals'][number];
+export type DueAsk = ReferralsDue['asks'][number];
 export type { TodayDraftInput };
 /** Old requests and friends to unfriend, and each one the extension did (packages/core/src/addons/outreach/tidy.ts). */
 export type Tidy = Ok<'/v1/queries/outreach.friends.tidy'>;
@@ -77,7 +81,9 @@ export type WarningNoteInput = Body<'/v1/commands/outreach.warning.note'>;
 export type WarningNoted = Ok<'/v1/commands/outreach.warning.note'>;
 /** Group posts worth a comment, kept and marked (packages/core/src/addons/outreach/posts.ts). */
 export type PostsSaveInput = Body<'/v1/commands/outreach.posts.save'>;
+export type CommentRepliesSaveInput = Body<'/v1/commands/outreach.comment_replies.save'>;
 export type PostsSaved = Ok<'/v1/commands/outreach.posts.save'>;
+export type CommentRepliesSaved = Ok<'/v1/commands/outreach.comment_replies.save'>;
 /** Chats whose last message is theirs, seen on Facebook (packages/core/src/addons/outreach/alerts.ts). */
 export type RepliesNoteInput = Body<'/v1/commands/outreach.replies.note'>;
 export type RepliesNoted = Ok<'/v1/commands/outreach.replies.note'>;
@@ -141,6 +147,14 @@ export type PostsPeopleNextInput = Body<'/v1/queries/outreach.posts.people_next'
 export type PostsPeopleNext = Ok<'/v1/queries/outreach.posts.people_next'>;
 export type FindsSaveInput = Body<'/v1/commands/outreach.finds.save'>;
 export type FindsSaved = Ok<'/v1/commands/outreach.finds.save'>;
+/**
+ * The comment research (decision 166, packages/core/src/addons/outreach/comment-research.ts): which hashtags to read
+ * next for the one this person started, and a hashtag's comments read, as words alone.
+ */
+export type CommentResearchNextInput = Body<'/v1/queries/outreach.comment_research.next'>;
+export type CommentResearchNext = Ok<'/v1/queries/outreach.comment_research.next'>;
+export type CommentResearchSaveInput = Body<'/v1/commands/outreach.comment_research.save'>;
+export type CommentResearchSaved = Ok<'/v1/commands/outreach.comment_research.save'>;
 /**
  * Instagram accounts like the business's (decision 110, packages/core/src/addons/outreach/like-yours.ts): what to search
  * for and which kept account to read today, the accounts a search showed, and an account read.
@@ -356,6 +370,8 @@ export type HfosAsk =
   | { readonly type: 'hfos-report'; readonly input: ReportSaveInput }
   | { readonly type: 'hfos-warning'; readonly input: WarningNoteInput }
   | { readonly type: 'hfos-save-posts'; readonly input: PostsSaveInput }
+  /** Replies to the person's comments on Threads or X, from their notifications (decision 163, answer 8a). */
+  | { readonly type: 'hfos-comment-replies'; readonly input: CommentRepliesSaveInput }
   | { readonly type: 'hfos-checks-next'; readonly input: ChecksNextInput }
   | { readonly type: 'hfos-check-look'; readonly input: CheckLookInput }
   | { readonly type: 'hfos-follow-backs-next'; readonly input: FollowBacksNextInput }
@@ -375,6 +391,8 @@ export type HfosAsk =
   | { readonly type: 'hfos-like-yours-next'; readonly input: LikeYoursNextInput }
   | { readonly type: 'hfos-like-yours-found'; readonly input: LikeYoursFoundInput }
   | { readonly type: 'hfos-like-yours-read'; readonly input: LikeYoursReadInput }
+  | { readonly type: 'hfos-comment-research-next'; readonly input: CommentResearchNextInput }
+  | { readonly type: 'hfos-comment-research-save'; readonly input: CommentResearchSaveInput }
   /** Events near the person on Alignable (decision 112): whether this week's read is due, and a read noted. */
   | { readonly type: 'hfos-events-next'; readonly input: EventsNextInput }
   | { readonly type: 'hfos-events-read'; readonly input: EventsReadInput }
@@ -471,6 +489,7 @@ export interface HfosValues {
   readonly 'hfos-report': ReportSaved;
   readonly 'hfos-warning': WarningNoted;
   readonly 'hfos-save-posts': PostsSaved;
+  readonly 'hfos-comment-replies': CommentRepliesSaved;
   readonly 'hfos-checks-next': ChecksNext;
   readonly 'hfos-check-look': CheckLooked;
   readonly 'hfos-follow-backs-next': FollowBacksNext;
@@ -484,6 +503,8 @@ export interface HfosValues {
   readonly 'hfos-like-yours-next': LikeYoursNext;
   readonly 'hfos-like-yours-found': LikeYoursFound;
   readonly 'hfos-like-yours-read': LikeYoursRead;
+  readonly 'hfos-comment-research-next': CommentResearchNext;
+  readonly 'hfos-comment-research-save': CommentResearchSaved;
   readonly 'hfos-events-next': EventsNext;
   readonly 'hfos-events-read': EventsRead;
   readonly 'hfos-followers-next': FollowersNext;

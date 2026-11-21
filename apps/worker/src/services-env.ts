@@ -28,11 +28,13 @@ import { createSupabaseStore, unconfiguredStore } from './storage';
 import { createTelephony } from './telephony/index';
 import { createSiteHost } from './hosting';
 import { createDriveTimer } from './geo/driving';
+import { createPlaceFinder } from './geo/places';
 import { createModelPicker, createSpeech, createVoiceAi } from './voice-agent/index';
 import { voiceTroubleAlarm } from './voice-agent/voice-trouble';
 import { createGeocoder } from './geo/geocoder';
 import { createOpinly } from './opinly';
 import { createPictures } from './pictures';
+import { createPracticeKit } from './practice/kit';
 import { createTranscriber } from './telephony/transcriber';
 import { createFfmpegConverter } from './telephony/video';
 import { createWorkflowAi } from './workflows/ai-runner';
@@ -68,6 +70,7 @@ export function createEngineServices(env: WorkerEnv, log: Logger, db: Db): Engin
     video: createFfmpegConverter({ log }),
     geocoder: createGeocoder(env, log),
     driving: createDriveTimer(env, log),
+    places: createPlaceFinder(env, log),
     speech: createSpeech(
       env,
       log,
@@ -138,6 +141,8 @@ export function createEngineServices(env: WorkerEnv, log: Logger, db: Db): Engin
       : {}),
     // Workflow AI steps and AI-sorted branches answer from that model, grounded in the knowledge base.
     workflowAi: createWorkflowAi({ db: db, ai, log, wallet }),
+    // Practice businesses (Admin → Try onboarding) are worked for with these stand-ins: nothing of theirs goes outside.
+    practice: createPracticeKit(env, log),
     // HandsFreeOS's own support desk (M13): where its mail arrives, and who it goes out as.
     support: {
       mailDomain: env.supportMailDomain,

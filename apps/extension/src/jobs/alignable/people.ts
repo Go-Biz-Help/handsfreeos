@@ -15,7 +15,7 @@ import type { FriendList } from '@hfos/core/addons/outreach/friends';
 import { alignableItem, alignableListSave, type AlignableListed } from '../../hfos/saves';
 import { counted } from '../../words';
 import { pause, valueOf, type Job, type JobEnd } from '../job';
-import { ended, gather, MY_NETWORK, REQUESTS, SIGNED_IN } from './read';
+import { ended, gather, MY_NETWORK, REQUESTS } from './read';
 
 /** Connections are read to the end, up to this many screens. */
 export const CONNECTION_SCROLLS = 150;
@@ -58,7 +58,11 @@ export async function saveConnections(job: Job): Promise<JobEnd> {
   );
   if (ended(got)) return got;
   if (!got.items.length)
-    return { line: `Alignable showed no connections. ${SIGNED_IN}`, warned: false, failed: true };
+    return {
+      line: 'Alignable showed no connections. If you have some, ask again in a few minutes.',
+      warned: false,
+      failed: true,
+    };
   const saved = await saveList(job, got.items, 'friends');
   if (ended(saved)) return saved;
   const whole = got.whole && !job.stopped();

@@ -9,12 +9,18 @@ import {
 import {
   CONTENT_FORMATS,
   FACEBOOK_WHERE,
+  formatFor,
   hasPictures,
+  isShortNetwork,
+  pictureShapeOf,
   POSTING,
   POSTING_NETWORKS,
+  postLength,
   postText,
+  SHORT_POSTS,
   type ContentFormat,
   type FacebookWhere,
+  type PictureShape,
   type PostingNetwork,
 } from '@hfos/core/addons/socialcontent/calendar';
 import type { Content, ContentPicture } from '@hfos/core/addons/socialcontent/content-shapes';
@@ -80,6 +86,7 @@ import {
   useSocialcontentAnswer,
   useSocialcontentContext,
 } from './kit';
+import { DidntPost } from './calendar-picking';
 
 /**
  * One of the business's own posts on the phone, as the web's sheet (docs/socialcontent.md, "Making posts", "Posting"
@@ -280,6 +287,8 @@ export interface PostDraft {
   readonly hook: string;
   readonly hashtags: string;
   readonly slides: readonly { heading: string; body: string }[];
+  /** The posts under the first on Threads and X (decision 41). */
+  readonly chain: readonly string[];
   readonly lines: string;
   readonly shots: string;
   readonly facebookWhere: readonly FacebookWhere[];
@@ -299,6 +308,7 @@ export function draftOf(p: Content, timeZone: string): PostDraft {
     hook: p.hook ?? '',
     hashtags: p.hashtags.join(' '),
     slides: p.slides.map((s) => ({ ...s })),
+    chain: [...(p.chain ?? [])],
     lines: p.script?.lines.join('\n') ?? '',
     shots: p.script?.shots.join('\n') ?? '',
     facebookWhere: [...p.facebookWhere],
@@ -306,6 +316,8 @@ export function draftOf(p: Content, timeZone: string): PostDraft {
     time: p.postAt ? clockOf(p.postAt, timeZone) : '09:00',
   };
 }
+
+const hashtagsOf = (s: string) => s.split(/[\s,]+/).filter(Boolean);
 
 const lines = (s: string) =>
   s
@@ -324,6 +336,7 @@ export function saveInput(p: Content, d: PostDraft, timeZone: string) {
     hook: d.hook.trim() || null,
     hashtags: d.hashtags.split(/[\s,]+/).filter(Boolean),
     slides: d.slides.map((s) => ({ ...s })),
+    chain: isShortNetwork(d.network) ? d.chain.filter((t) => t.trim()) : [],
     script: d.format === 'video' ? { lines: lines(d.lines), shots: lines(d.shots) } : null,
     facebookWhere: [...d.facebookWhere],
     postAt: d.day ? new Date(localInstant(d.day, d.time || '09:00', timeZone)).toISOString() : null,
@@ -335,6 +348,9 @@ export interface PostActions {
   save(d: PostDraft): Promise<unknown>;
   approve(ok: boolean): void;
   postNow(): void;
+  /** A post that didn't post (the owner, 15 Nov): Chrome looks for it on the network, or it's marked as posted. */
+  look(): void;
+  mark(link: string | null): Promise<unknown>;
   skip(skipIt: boolean): void;
   rewrite(ask: string): void;
   makePicture(way: 'design' | 'photo', ask: string): void;
@@ -408,6 +424,27 @@ export function PostScreen({ postId }: { postId: string }) {
         async () =>
           (await change('socialcontent.content.post_now', { workspaceId: ws, postId })).output,
         W.post.postNowAsked,
+      ),
+    look: () =>
+      void act(
+        `look:${postId}`,
+        async () =>
+          (await change('socialcontent.content.look', { workspaceId: ws, postIds: [postId] }))
+            .output,
+        (out) => W.picking.lookAsked(out?.asked ?? 0, out?.notAsked.length ?? 0),
+      ),
+    mark: (link) =>
+      act(
+        `mark:${postId}`,
+        async () =>
+          (
+            await change('socialcontent.content.mark_posted', {
+              workspaceId: ws,
+              postIds: [postId],
+              link,
+            })
+          ).output,
+        (out) => W.picking.marked(out?.marked ?? 0, out?.notMarked.length ?? 0),
       ),
     skip: (skipIt) =>
       void act(
@@ -690,13 +727,27 @@ export function PostBody({
         </Card>
       ) : null}
 
-      {p.failure ? (
+      {p.failure || p.state === 'failed' ? (
         <Card
-          className="gap-1 border-danger-soft bg-danger-soft/40 p-4"
+          className="gap-2 border-danger-soft bg-danger-soft/40 p-4"
           testID="socialcontent-post-failure"
         >
-          <Text className="text-[13.5px] leading-[19px] text-danger-text">{p.failure}</Text>
-          {p.state === 'failed' && postsHere ? <Note>{W.post.tryAgain}</Note> : null}
+          {p.failure ? (
+            <Text className="text-[13.5px] leading-[19px] text-danger-text">{p.failure}</Text>
+          ) : null}
+          {/* Try again, Check if it posted, Mark as posted (the owner, 15 Nov). */}
+          {p.state === 'failed' && postsHere ? (
+            <DidntPost
+              post={p}
+              timeZone={timeZone}
+              now={Date.now()}
+              online={online}
+              busy={busy === 'now' ? `again:${p.id}` : busy}
+              onTryAgain={actions.postNow}
+              onLook={actions.look}
+              onMark={actions.mark}
+            />
+          ) : null}
         </Card>
       ) : null}
 
@@ -718,7 +769,10 @@ export function PostBody({
                 label={networkName(n)}
                 on={d.network === n}
                 disabled={!changeable}
-                onPress={() => set('network', n)}
+                // A format the network doesn't take turns into one it does (no carousel on Threads or X).
+                onPress={() =>
+                  setD((x) => (x ? { ...x, network: n, format: formatFor(n, x.format) } : x))
+                }
                 testID={`socialcontent-post-network-${n}`}
               />
             ))}
@@ -726,18 +780,20 @@ export function PostBody({
         </Field>
         <Field label={W.post.format}>
           <Chips>
-            {CONTENT_FORMATS.filter((f) => !(f === 'text' && d.network === 'instagram')).map(
-              (f) => (
-                <FilterChip
-                  key={f}
-                  label={W.post.formats[f]}
-                  on={d.format === f}
-                  disabled={!changeable}
-                  onPress={() => set('format', f)}
-                  testID={`socialcontent-post-format-${f}`}
-                />
-              ),
-            )}
+            {CONTENT_FORMATS.filter(
+              (f) =>
+                !(f === 'text' && d.network === 'instagram') &&
+                !(f === 'carousel' && isShortNetwork(d.network)),
+            ).map((f) => (
+              <FilterChip
+                key={f}
+                label={W.post.formats[f]}
+                on={d.format === f}
+                disabled={!changeable}
+                onPress={() => set('format', f)}
+                testID={`socialcontent-post-format-${f}`}
+              />
+            ))}
           </Chips>
         </Field>
         <Field label={W.post.when} hint={d.day ? null : W.post.noDay}>
@@ -839,7 +895,84 @@ export function PostBody({
             testID="socialcontent-post-hashtags"
           />
         </Field>
+        {isShortNetwork(d.network) ? (
+          <Text
+            className={cn(
+              'text-[12.5px]',
+              postLength(d.words, hashtagsOf(d.hashtags)) > POSTING.textMost[d.network]
+                ? 'text-danger-text'
+                : 'text-text-3',
+            )}
+            testID="socialcontent-post-characters"
+          >
+            {W.post.characters(
+              postLength(d.words, hashtagsOf(d.hashtags)),
+              POSTING.textMost[d.network],
+            )}
+          </Text>
+        ) : null}
       </Card>
+
+      {isShortNetwork(d.network) ? (
+        <Card className="gap-3 p-4" testID="socialcontent-post-chain">
+          <View className="gap-0.5">
+            <Group>{W.post.chain}</Group>
+            <Text className="text-[12.5px] text-text-3">
+              {W.post.chainHint(networkName(d.network))}
+            </Text>
+          </View>
+          {d.chain.map((t, i) => (
+            <View key={i} className="gap-2 rounded-card border border-border p-3">
+              <View className="flex-row items-center">
+                <Text className="flex-1 text-[12.5px] text-text-3">
+                  {W.post.chainPost(i + 2)} · {t.trim().length}/{POSTING.textMost[d.network]}
+                </Text>
+                {changeable ? (
+                  <Pressable
+                    role="button"
+                    accessibilityLabel={W.post.removeChainPost(i + 2)}
+                    hitSlop={8}
+                    onPress={() =>
+                      set(
+                        'chain',
+                        d.chain.filter((_, j) => j !== i),
+                      )
+                    }
+                  >
+                    <Icon as={X} className="size-4 text-text-3" />
+                  </Pressable>
+                ) : null}
+              </View>
+              <Input
+                value={t}
+                maxLength={POSTING.textMost[d.network]}
+                multiline
+                editable={changeable}
+                className="min-h-[64px] py-2.5"
+                textAlignVertical="top"
+                onChangeText={(v) =>
+                  set(
+                    'chain',
+                    d.chain.map((x, j) => (j === i ? v : x)),
+                  )
+                }
+                testID={`socialcontent-post-chain-${i}`}
+              />
+            </View>
+          ))}
+          {changeable && d.chain.length < SHORT_POSTS.chainMost ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="self-start"
+              onPress={() => set('chain', [...d.chain, ''])}
+              testID="socialcontent-post-chain-add"
+            >
+              {W.post.addChainPost}
+            </Button>
+          ) : null}
+        </Card>
+      ) : null}
 
       {d.format === 'carousel' ? (
         <Card className="gap-3 p-4" testID="socialcontent-post-slides">
@@ -969,6 +1102,7 @@ export function PostBody({
                 <Tile
                   key={pic.fileId}
                   picture={pic}
+                  shape={pictureShapeOf(p.network)}
                   onOpen={() => setViewing(i)}
                   onRemove={changeable ? () => actions.remove(pic.fileId) : null}
                   disabled={busy !== null}
@@ -981,6 +1115,10 @@ export function PostBody({
           ) : p.pictureState === 'failed' ? (
             <Text className="text-[13px] leading-[18px] text-danger-text">
               {W.post.pictureStates.failed} {p.pictureFailure}
+            </Text>
+          ) : p.pictureFlags.length ? (
+            <Text className="text-[13px] leading-[18px] text-warning-text">
+              {W.post.pictureFlagged(p.pictureFlags)}
             </Text>
           ) : null}
           {p.picture ? (
@@ -1080,7 +1218,8 @@ export function PostBody({
             </Button>
           ) : p.state === 'ready' || p.state === 'failed' ? (
             <>
-              {postsHere ? (
+              {/* A post that didn't post tries again from its card above. */}
+              {postsHere && p.state === 'ready' ? (
                 <Button
                   loading={busy === 'now'}
                   disabled={other('now') || making}
@@ -1225,19 +1364,28 @@ function Chips({ children }: { children: React.ReactNode }) {
   return <View className="flex-row flex-wrap gap-1.5">{children}</View>;
 }
 
+/** A picture's tile, 132 wide, in its shape. */
+const TILE: Record<PictureShape, string> = {
+  '4:5': 'h-[165px] w-[132px]',
+  '3:4': 'h-[176px] w-[132px]',
+  '1:1': 'h-[132px] w-[132px]',
+};
+
 /**
- * One of its pictures (or its video, taller), with a cross to take it off the post. A picture opens full screen
- * when pressed.
+ * One of its pictures (or its video, taller), in its network's shape, with a cross to take it off the post. A picture
+ * opens full screen when pressed.
  */
 function Tile({
   picture,
   tall = false,
+  shape = '4:5',
   onOpen,
   onRemove,
   disabled,
 }: {
   picture: ContentPicture;
   tall?: boolean;
+  shape?: PictureShape;
   onOpen?: () => void;
   onRemove: (() => void) | null;
   disabled: boolean;
@@ -1246,7 +1394,7 @@ function Tile({
     <View
       className={cn(
         'overflow-hidden rounded-md bg-card-2',
-        tall ? 'h-[240px] w-[135px]' : 'h-[165px] w-[132px]',
+        tall ? 'h-[240px] w-[135px]' : TILE[shape],
       )}
       testID={`socialcontent-post-file-${picture.fileId}`}
     >

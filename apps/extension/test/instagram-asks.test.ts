@@ -259,7 +259,7 @@ describe('Save my followers, on Instagram', () => {
     const { tab } = instagramTab({ '/': signedOut });
     const { job } = instagramJob(tab);
     expect(await runAsk({ kind: 'friends' }, job, 'instagram')).toMatchObject({
-      line: 'Couldn’t find your own account in Instagram’s menu. Check you’re signed in to Instagram in this browser, then ask again.',
+      line: 'Couldn’t find your own account in Instagram’s menu. Ask again in a few minutes.',
       failed: true,
     });
     const empty = () =>
@@ -271,7 +271,7 @@ describe('Save my followers, on Instagram', () => {
     expect(
       await runAsk({ kind: 'friends' }, instagramJob(second.tab).job, 'instagram'),
     ).toMatchObject({
-      line: 'Instagram showed nobody in your followers. If you have some, check you’re signed in to Instagram in this browser, then ask again.',
+      line: 'Instagram showed nobody in your followers. If you have some, ask again in a few minutes.',
       failed: true,
     });
   });

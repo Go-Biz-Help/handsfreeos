@@ -592,7 +592,7 @@ describe('Edit it myself', () => {
   });
 });
 
-describe('For your content (pick 6b: the lists change on the phone too, with the AI’s help)', () => {
+describe('For your posts and messages (pick 6b: the lists change on the phone too, with the AI’s help)', () => {
   const LISTS = '/v1/commands/main_offer.save_list';
   const HELP = '/v1/main-offer/lists';
 
@@ -611,7 +611,7 @@ describe('For your content (pick 6b: the lists change on the phone too, with the
     });
     await show();
     const row = await screen.findByTestId('main-offer-lists-link');
-    expect(row).toHaveTextContent(/For your content.*1 of 11 lists filled in\./);
+    expect(row).toHaveTextContent(/For your posts and messages.*1 of 11 lists filled in\./);
     await fireEvent.press(row);
     expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/settings/main-offer-lists`);
   });

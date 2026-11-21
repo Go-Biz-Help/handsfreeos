@@ -69,7 +69,7 @@ export function HoldPage({ token }: { token: string }) {
   const [handoff] = useState<Returned>(() =>
     typeof window === 'undefined' ? null : readReturn(window.location.search),
   );
-  const finishing = !!handoff && handoff.kind !== 'cancelled';
+  const finishing = !!handoff && handoff.kind !== 'cancelled' && handoff.kind !== 'refused';
 
   const land = useCallback((answer: RecordedPay) => {
     setHold(answer.hold);
@@ -96,10 +96,12 @@ export function HoldPage({ token }: { token: string }) {
     const back = handoff;
     if (!back) return;
     window.history.replaceState(null, '', window.location.pathname);
-    if (back.kind === 'cancelled') {
+    if (back.kind === 'cancelled' || back.kind === 'refused') {
       forgetPress(token);
       setNotice(
-        'Payment cancelled — nothing was charged. Your time is still held for a few minutes.',
+        back.kind === 'refused'
+          ? 'That payment didn’t go through, so nothing was charged. Your time is still held for a few minutes: try again, or pick another way to pay.'
+          : 'Payment cancelled — nothing was charged. Your time is still held for a few minutes.',
       );
       return;
     }

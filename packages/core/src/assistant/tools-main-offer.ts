@@ -103,7 +103,7 @@ export const mainOfferTools: readonly AssistantTool[] = [
   define({
     name: 'manage_main_offer',
     description:
-      'The rest of Settings → Main offer: throw the draft away (the live version stays), set the owner’s direction for the whole offer that every score and try follows, set the names the business goes by on people’s profiles, set one of the lists for content (For your content: the AI Social Media Content Creator writes posts and ideas from them; read them with get_settings main_offer, lists), or take parts from one of the AI’s tries into the draft (its id from try_main_offer, or from get_settings main_offer, whose tries lists this round’s, as Review and go live’s Versions does).',
+      'The rest of Settings → Main offer: throw the draft away (the live version stays), set the owner’s direction for the whole offer that every score and try follows, set the names the business goes by on people’s profiles, set one of the lists for content (For your posts and messages: the AI Social Media Content Creator writes posts and ideas from them; read them with get_settings main_offer, lists), or take parts from one of the AI’s tries into the draft (its id from try_main_offer, or from get_settings main_offer, whose tries lists this round’s, as Review and go live’s Versions does).',
     input: z.object({
       action: z.enum(['discard_draft', 'set_direction', 'set_names', 'set_list', 'take_from_try']),
       direction: z
@@ -168,7 +168,7 @@ export const mainOfferTools: readonly AssistantTool[] = [
   }),
   define({
     name: 'help_main_offer_lists',
-    description: `Ask the AI for help with the main offer’s lists for content (Settings → Main offer, For your content), as its buttons do: write gives new lines for a list (Write it for me), improve rewrites one line three ways (Improve), examples gives lines to model for the business’s line of work (Examples), and gaps says which lists are missing or thin (What’s missing). It reads the offer, the owner’s direction, the lists and the Knowledge base, and costs AI from the daily limit. Nothing is saved: show the person the lines, and save the ones they pick with manage_main_offer (set_list), the whole list. The lists are ${LISTS_SAID}.`,
+    description: `Ask the AI for help with the main offer’s lists for content (Settings → Main offer, For your posts and messages), as its buttons do: write gives new lines for a list (Write it for me), improve rewrites one line three ways (Improve), examples gives lines to model for the business’s line of work (Examples), and gaps says which lists are missing or thin (What’s missing). It reads the offer, the owner’s direction, the lists and the Knowledge base, and costs AI from the daily limit. Nothing is saved: show the person the lines, and save the ones they pick with manage_main_offer (set_list), the whole list. The lists are ${LISTS_SAID}.`,
     input: z.object({
       mode: z.enum(OFFER_LIST_MODES).describe('write, improve, examples, or gaps'),
       list: z.enum(OFFER_LISTS).optional().describe('Which list; gaps reads them all'),

@@ -177,6 +177,7 @@ function waitingOf(w: DemoWorld): Ok<'/v1/queries/outreach.waiting'> {
     ),
     wheels: wheelsOf(w),
     commentHolds: [],
+    hands: [],
     pushes: 'bundled',
     hours: { start: 8, end: 18, days: [1, 2, 3, 4, 5] },
     timezone: w.state.timeZone,

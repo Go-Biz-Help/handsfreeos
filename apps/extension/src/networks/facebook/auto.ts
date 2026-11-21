@@ -17,7 +17,7 @@ import { conversationWith, isConversation, readChat } from './chat';
 import { clean, inTopBar, isAfter, labelOf, mainIn, mainOf, textWithEmoji } from './dom';
 import { findStep, shown, type FetchStep } from './fetch';
 import { isNameLike, nameForms, peopleLinked, sameName } from './people';
-import { COMMENT, LIKE, LIKE_HOOK, likeStateOf, postBoxes, readPost } from './posts';
+import { COMMENT, LIKE, LIKE_HOOK, likeStateOf, postBoxes, postLoading, readPost } from './posts';
 import type { TidyPlan } from './tidy';
 import type { Named, ProfilePage, ProfileRef } from './types';
 import { classifyUrl, FACEBOOK } from './urls';
@@ -149,7 +149,12 @@ export type AutoResult =
    * A message the extension didn't send itself: the typing didn't land in their chat's box only, or the box stopped
    * being theirs before it went. What it typed is taken out again, or said where it couldn't be (`MessageWrote`).
    */
-  | 'not_theirs';
+  | 'not_theirs'
+  /**
+   * The post doesn't let them comment: its bar has its Like or Share but no Comment, and there's no box to comment in,
+   * as Facebook draws a post whose author limited who can comment (from 0.141.1).
+   */
+  | 'closed';
 
 /**
  * A post's own Like button, not one of its comments': "Like", or "Remove Like" once liked, by its label or, where
@@ -196,16 +201,53 @@ export interface TheirPost {
   readonly liked: boolean;
 }
 
-/** The posts on the page by the person, as far as the page has drawn, the latest first. */
+/** Facebook's own mark on a post's Share button, in the bar its Like sits in. */
+const SHARE_HOOK = '[data-ad-rendering-role="share_button"]';
+/** A post's Share button by its label: "Share Dana Reyes's post". */
+const SHARE = /^share\s+\S.*['’]s (post|photo|video|reel)$/i;
+
+/**
+ * A post whose bar Facebook drew with no Like in it: its Share is there, and no Like beside it (the owner's problem
+ * reports of 10 to 14 Nov 2026: a cover photo update shows only "Share (name)'s post" and who reacted, so the visit
+ * picked it, found nothing to press and stopped). It can't be liked, so it's never offered to pick (from 0.140.2).
+ */
+function noLikeShown(box: Element): boolean {
+  if (likeButton(box) !== null) return false;
+  return (
+    box.querySelector(SHARE_HOOK) !== null ||
+    [...box.querySelectorAll('[role="button"], button')].some((b) => SHARE.test(labelOf(b)))
+  );
+}
+
+/** Their posts on the page, as far as it has drawn, each by its box, with or without a Like to press. */
+function postsBy(doc: Document, href: string, profile: ProfileRef) {
+  return postBoxes(mainOf(doc)).flatMap((box) => {
+    const post = readPost(box, href);
+    return post?.author && sameRef(post.author.profile, profile) ? [{ box, post }] : [];
+  });
+}
+
+/**
+ * Whether every post of theirs the page drew has no Like to press (`noLikeShown`): there's nothing to like, and nothing
+ * went wrong.
+ */
+export function noneLikeable(doc: Document, href: string, profile: ProfileRef): boolean {
+  const posts = postsBy(doc, href, profile);
+  return posts.length > 0 && posts.every(({ box }) => noLikeShown(box));
+}
+
+/**
+ * The posts on the page by the person, as far as the page has drawn, the latest first: never one Facebook shows with
+ * no Like (`noLikeShown`).
+ */
 export function theirPosts(
   doc: Document,
   href: string,
   profile: ProfileRef,
 ): { readonly box: Element; readonly post: TheirPost }[] {
   const found: { readonly box: Element; readonly post: TheirPost }[] = [];
-  for (const box of postBoxes(mainOf(doc))) {
-    const post = readPost(box, href);
-    if (!post?.author || !sameRef(post.author.profile, profile)) continue;
+  for (const { box, post } of postsBy(doc, href, profile)) {
+    if (noLikeShown(box)) continue;
     const like = likeButton(box);
     found.push({
       box,
@@ -237,18 +279,6 @@ export function saysNoPosts(doc: Document): boolean {
 
 /** Times it waits on a post Facebook is still loading, while it has drawn fewer posts than it reads. */
 const LOADING_WAITS = 5;
-
-/**
- * A post Facebook is still loading: a post's box with nothing in it but its "Loading..." mark, as Facebook shows below
- * the posts it has drawn, and in their place while it hasn't drawn any yet.
- */
-function postLoading(doc: Document): Element | null {
-  return (
-    [...mainOf(doc).querySelectorAll('[role="article"]')].find(
-      (box) => box.querySelector('[role="status"]') !== null && clean(box.textContent) === '',
-    ) ?? null
-  );
-}
 
 /**
  * Reads the latest few posts on someone's profile that are theirs (decision 33), scrolling a little while fewer are
@@ -450,6 +480,29 @@ export function sendButton(box: Element): HTMLElement | null {
   return null;
 }
 
+/** Facebook's own mark on a post's Comment button, in the bar its Like and Share sit in. */
+const COMMENT_HOOK = '[data-ad-rendering-role="comment_button"]';
+
+/**
+ * Whether the post the page shows doesn't let them comment (the owner's problem report of 15 Nov 2026): its bar is
+ * drawn, with its Like or Share, but has no Comment, and there's no box to comment in. Facebook draws a post that way
+ * when whoever posted it limited who can comment, so there's nothing to write in. In the post's box over the page
+ * when one is open, as `commentBox` looks.
+ */
+export function commentsClosed(doc: Document): boolean {
+  const dialog = [...doc.querySelectorAll('[role="dialog"]')].filter(shown).at(-1);
+  const root = dialog ?? mainOf(doc);
+  const bar = root.querySelector(`${LIKE_HOOK}, ${SHARE_HOOK}`);
+  return (
+    bar !== null &&
+    root.querySelector(COMMENT_HOOK) === null &&
+    commentBox(doc) === null &&
+    ![...root.querySelectorAll('[role="button"], button')].some((b) =>
+      /^(leave a comment|comment)$/i.test(labelOf(b)),
+    )
+  );
+}
+
 /** The post's Comment, which some posts need pressed before they show their box to comment in. */
 export function commentOpener(doc: Document): HTMLElement | null {
   return (
@@ -459,19 +512,114 @@ export function commentOpener(doc: Document): HTMLElement | null {
   );
 }
 
-/**
- * Writes a comment under the post the page shows, and sends it (decision 26): types it into the post's box to
- * comment in, presses the button that sends it (or Enter), and waits for the box to empty.
- */
-export async function writeComment(doc: Document, text: string): Promise<AutoResult> {
+/** The post's own box to comment in, pressing its Comment first when a post needs that; or why there's none. */
+async function boxToComment(doc: Document): Promise<HTMLElement | 'closed' | 'none'> {
   let box = commentBox(doc);
   if (!box) {
     commentOpener(doc)?.click();
     await pause(1_200);
     box = commentBox(doc);
   }
-  if (!box) return 'none';
+  return box ?? (commentsClosed(doc) ? 'closed' : 'none');
+}
+
+/**
+ * Writes a comment under the post the page shows, and sends it (decision 26): types it into the post's box to
+ * comment in, presses the button that sends it (or Enter), and waits for the box to empty. `closed` when the post
+ * doesn't let them comment (`commentsClosed`).
+ */
+export async function writeComment(doc: Document, text: string): Promise<AutoResult> {
+  const box = await boxToComment(doc);
+  if (typeof box === 'string') return box;
   return (await typeAndSend(doc, box, text)).result;
+}
+
+/**
+ * Writes a referral's comment, which tags whom it names (decision 185): @ and their name, picked from the list Facebook
+ * opens (`typeTagging`). `tagged` says whether Facebook took the tag; else their name went as plain words.
+ */
+export async function writeTaggedComment(
+  doc: Document,
+  tag: TagAsk,
+): Promise<{ readonly result: AutoResult; readonly tagged: boolean }> {
+  const box = await boxToComment(doc);
+  if (typeof box === 'string') return { result: box, tagged: false };
+  if (hasWriting(box)) return { result: 'not_sent', tagged: false };
+  const tagged = await typeTagging(doc, box, tag);
+  if (!hasWriting(box)) return { result: 'not_sent', tagged: false };
+  return { result: await pressSend(doc, box), tagged };
+}
+
+/**
+ * Whom a comment tags (decision 185): the words before their name, their name as the comment says it, the words
+ * after, and their whole name to type after the @ (`mentionParts` in @hfos/core/addons/outreach/referrals).
+ */
+export interface TagAsk {
+  readonly before: string;
+  readonly said: string;
+  readonly after: string;
+  readonly name: string;
+}
+
+/** How long it looks for Facebook's list of people to tag, once @ and the name are typed. */
+const TAG_LOOKS = 8;
+const TAG_LOOK_MS = 400;
+
+/** The rows of the list of people to tag that typing @ opens, as shown. */
+function tagOptions(doc: Document): HTMLElement[] {
+  return [...doc.querySelectorAll<HTMLElement>('[role="listbox"] [role="option"]')].filter(shown);
+}
+
+/** The names a row of that list may show: its label, and each of its words on a line of its own. */
+function namesOf(option: Element): string[] {
+  return [
+    clean(option.getAttribute('aria-label')),
+    ...[...option.querySelectorAll('span, div')]
+      .filter((el) => el.children.length === 0)
+      .map((el) => clean(el.textContent)),
+  ].filter(Boolean);
+}
+
+/** Whether a name in the list is theirs: whole, or without a nickname. */
+const isTheirs = (shownAs: string, name: string) =>
+  nameForms(shownAs).some((one) => nameForms(name).some((other) => sameName(one, other)));
+
+/**
+ * Types a comment that tags someone (decision 185, the owner's 1a, 20 Nov 2026: when Facebook won't let it tag them,
+ * their name goes as plain words): the words before their name, then @ and their whole name, and picks the row of
+ * Facebook's list that shows it; then the words after. When no row shows their name, or picking it didn't take, what
+ * was typed for the tag is taken back out a character at a time and their name goes as the comment said it. True when
+ * it's a tag.
+ */
+export async function typeTagging(doc: Document, box: HTMLElement, tag: TagAsk): Promise<boolean> {
+  box.focus();
+  box.click();
+  await pause(300);
+  if (tag.before) doc.execCommand('insertText', false, tag.before);
+  const typed = `@${tag.name}`;
+  doc.execCommand('insertText', false, typed);
+  let row: HTMLElement | null = null;
+  for (let look = 0; look < TAG_LOOKS && !row; look++) {
+    await pause(TAG_LOOK_MS);
+    row = tagOptions(doc).find((o) => namesOf(o).some((n) => isTheirs(n, tag.name))) ?? null;
+  }
+  let tagged = false;
+  if (row) {
+    const view = doc.defaultView!;
+    row.dispatchEvent(new view.MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    row.click();
+    await pause(500);
+    // Picked, Facebook puts their name in as a tag in place of what was typed: no @ and name left as words.
+    tagged = !(box.textContent ?? '').includes(typed);
+  }
+  if (!tagged) {
+    for (let i = 0; i < typed.length; i++) doc.execCommand('delete', false);
+    await pause(200);
+    doc.execCommand('insertText', false, tag.said);
+  }
+  if (tag.after) doc.execCommand('insertText', false, tag.after);
+  await pause(800);
+  return tagged;
 }
 
 /** What a box to write in is called: its label, else its placeholder. */
@@ -975,6 +1123,32 @@ async function closeWindow(doc: Document, box: HTMLElement): Promise<boolean> {
   return false;
 }
 
+/** How long a closed chat window is left to go before the next is closed. */
+const CLOSED_PAUSE_MS = 300;
+
+/**
+ * Closes the small chat windows open over a page before a like or a message goes (the owner's pick of 13 Nov 2026,
+ * noted under decision 26): Facebook keeps them open from page to page, and other people's left open covered the
+ * posts and the window a message opened (the problem reports of 13 Nov 2026: five open, none theirs, so nothing was
+ * sent, and likes with chat windows in their way). Each by its own Close chat; nothing in Messenger is deleted. A
+ * window with writing in its box is left alone, as the person may be writing there, and Messenger's own chat page,
+ * the main column, has none. How many it closed.
+ */
+export async function closeChatWindows(doc: Document): Promise<number> {
+  const main = mainIn(doc);
+  if (!main) return 0;
+  let closed = 0;
+  for (const close of closesIn(doc.body)) {
+    if (main.contains(close) || !close.isConnected || !shown(close)) continue;
+    const chatWindow = windowAround(close, main);
+    if ([...chatWindow.querySelectorAll(WRITING)].some(hasWriting)) continue;
+    (close as HTMLElement).click();
+    closed++;
+    await pause(CLOSED_PAUSE_MS);
+  }
+  return closed;
+}
+
 /** Whether the focus is in a box: on it, or on something inside it. */
 const focusIn = (doc: Document, box: Element) =>
   doc.activeElement !== null && box.contains(doc.activeElement);
@@ -1093,6 +1267,11 @@ async function typeAndSend(
     }
   }
   if (!hasWriting(box)) return { result: 'not_sent' };
+  return { result: await pressSend(doc, box) };
+}
+
+/** Sends what's typed in a box with the button beside it, or Enter, and waits for the box to empty. */
+async function pressSend(doc: Document, box: HTMLElement): Promise<'done' | 'not_sent'> {
   const send = sendButton(box);
   if (send) send.click();
   else
@@ -1109,7 +1288,7 @@ async function typeAndSend(
       );
   for (let wait = 0; wait < 20; wait++) {
     await pause(300);
-    if (!hasWriting(box)) return { result: 'done' };
+    if (!hasWriting(box)) return 'done';
   }
-  return { result: 'not_sent' };
+  return 'not_sent';
 }

@@ -29,6 +29,7 @@ import {
 import { REPLY_STARTS } from '../alerts';
 import { GROUP_REPLY_WORDS, groupRepliesOn, REPLY_KEPT_DAYS } from '../active';
 import { demoLink, demoRef } from '../demos';
+import { bookingPageOf } from '../meeting-times';
 import { bestFit, type Fit, type FitPlaybook } from '../fit';
 import type { GroupCheckState } from '../group-checks';
 import { DAILY_STEPS, type DailyStep, type FriendAnswer } from '../limits';
@@ -49,7 +50,8 @@ import {
   type ConversationStep,
   type FollowUpNext,
 } from '../conversation';
-import { paceOf, type Platform } from '../playbooks';
+import { paceOf, takesStep, type Platform } from '../playbooks';
+import { hasWays } from '../script';
 import {
   leftToday,
   RECOMMEND_PER_DAY,
@@ -57,6 +59,7 @@ import {
   requestsHeldOn,
   requestsLimitHeld,
   SAY_HI_WHY,
+  stepOfItem,
   TODAY_KIND_KEYS,
   TODAY_LIMIT,
   TODAY_MOST,
@@ -71,6 +74,7 @@ import {
 } from '../today';
 import { FIELD_CHECK_SINCE, POST_FRESH_DAYS } from '../posts';
 import { LIST_RETRY_STEPS, needWhyWords, REQUEST_PRESSED_WHY, RETRIED_WHY } from '../waiting-words';
+import { CALL_THANKS_DAYS, CALL_WORDS } from '../calls';
 import { NEW_JOB_DAYS, OCCASION_WORDS, type OccasionKind } from '../occasions';
 import { commentSendsOn, foundByTopicOn, ownSuggestions } from '../profile-parts';
 import {
@@ -82,6 +86,7 @@ import {
 } from '../finds';
 import { RECONNECT_QUIET_DAYS, type CheckVerdict, type RequestAnswer } from '../checks';
 import { FOLLOWER_WHY, FOLLOWERS_KEPT_DAYS } from '../followers';
+import { EVENT_PEOPLE_KEPT_DAYS, eventWhy } from '../events-near';
 import { type EngagementKind, WARM_LEAD_DAYS } from '../helpful';
 import type { GroupResults } from '../results';
 import { EVER, reachedPeople, resultsByGroup } from './activity';
@@ -108,9 +113,13 @@ import {
   requestAnswerColumns,
   type Ctx,
 } from './common';
+import { leadPathOf, localOf } from './local';
+import { milesBetweenTowns } from './towns';
 import {
   acceptedMine,
+  connectedToMe,
   goalStock,
+  introsOnly,
   knowsThem,
   myOwnProfile,
   perDayFor,
@@ -122,12 +131,24 @@ import { goalFacts } from './goal';
 import { fewAhead, goalTries, goalWhy } from '../goal';
 import { foundByTopicSince, workingBuild } from './live';
 import { visitsDue } from './keep-warm';
-import { keepWarmOn, VISIT_LIKES, visitLikes, visitWhy, warmUpEnds } from '../keep-warm';
+import {
+  keepWarmOn,
+  VISIT_GAP_DAYS,
+  VISIT_LIKES,
+  visitLikes,
+  visitWhy,
+  WARM_BEFORE_HI_DAYS,
+  warmBeforeHiWhy,
+  warmUpEnds,
+} from '../keep-warm';
 import { playbooksInUse } from './friends';
 import { retrySince } from './needs';
 import { readinessFor } from './readiness';
 import { groupFitOf } from './group-checks';
 import { sendsToday } from './sends';
+import { heldAmong } from './in-hands';
+import { oneOnOnesOf, oneOnOnesShown } from './calls';
+import { todayEvents } from './events-near';
 import { postParts } from '../sends';
 import { requestsPauseOf } from './request-pause';
 import { slowsNow, startOfToday, warningOf } from './tidy';
@@ -420,7 +441,7 @@ export async function todayFor(
   // Under Autopilot (decision 151), nobody new is reached till the person OKs them on the day's list, nor anyone
   // further along till they're OK'd once: `reach` is `lets` with that. A reply owed, an answer to their comment, a
   // request to confirm and Recommend them go as ever. The day's list itself is worked out without it (`plan`).
-  const gate = everything.autopilot && !plan;
+  const gate = settings.autopilot === true && !plan;
   const reach = gate
     ? sql`(${lets} and exists (select 1 from addon_outreach.autopilot_people ap
         where ap.workspace_id = ${ws} and ap.user_id = ${me} and ap.profile_id = p.id and ap.state = 'ok'))`
@@ -463,8 +484,15 @@ export async function todayFor(
   const linked = [...playbooks]
     .sort((a, b) => a.name.localeCompare(b.name))
     .find((p) => p.details.link);
+  // Their own Lead calendar comes first (decision 178), on the playbook link's address when that's one of the business's
+  // booking pages; the playbook's link is the backup.
+  const leadPath = linked && bookingPageOf(linked.details.link) ? await leadPathOf(ctx, me) : null;
+  const bookLink =
+    linked && leadPath
+      ? `${new URL(linked.details.link!).origin}${leadPath}`
+      : linked?.details.link;
   const demoFor = (profileId: string | null) =>
-    linked && profileId ? demoLink(linked.details.link, demoRef(me, profileId)) : null;
+    bookLink && profileId ? demoLink(bookLink, demoRef(me, profileId)) : null;
 
   // Requests the person got to confirm, as they picked and the AI says (decisions 30, 121 and 136). The rest lately
   // are theirs to decide, in Waiting for you.
@@ -938,8 +966,9 @@ export async function todayFor(
     }
   }
 
-  // The person's followers on Facebook (decision 113): those who aren't friends, checked by the AI like friends, and
-  // good. Ahead of the groups' people, as they made the first move. With Like a post first on, their request comes a
+  // The person's followers on Facebook (decision 113), and people hosting or going to events near them there (decision
+  // 188): those who aren't friends, checked by the AI like friends, and good. Ahead of the groups' people, as they made
+  // the first move or are close by. With Like a post first on, their request comes a
   // day after one of their posts was liked, or at once after a warm-up missed, and the list has likes for tomorrow's.
   let followerRequests = 0;
   let followerLikes = 0;
@@ -965,19 +994,39 @@ export async function todayFor(
         playbook_name: string | null;
         liked_at: Date | string | null;
         warm_up_missed_at: Date | string | null;
+        follows: boolean;
+        event_name: string | null;
+        event_host: boolean | null;
       }>(
         ctx.tx,
         sql`select p.id, p.name, p.url, ch.why as check_why, pb.name as playbook_name, p.warm_up_missed_at,
                 (select max(t.at) from addon_outreach.touches t
                   where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like'
-                    and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz) as liked_at
-              from addon_outreach.followers fo
-              join addon_outreach.profiles p on p.id = fo.profile_id
+                    and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz) as liked_at,
+                w.follows, ev.name as event_name, ev.host as event_host
+              from (
+                select x.profile_id, bool_or(x.follows) as follows from (
+                  select fo.profile_id, true as follows from addon_outreach.followers fo
+                  where fo.workspace_id = ${ws} and fo.user_id = ${me}
+                    and fo.seen_at >= ${ago(FOLLOWERS_KEPT_DAYS)}::timestamptz
+                  union all
+                  select ep.profile_id, false as follows from addon_outreach.event_people ep
+                  where ep.workspace_id = ${ws} and ep.user_id = ${me}
+                    and ep.seen_at >= ${ago(EVENT_PEOPLE_KEPT_DAYS)}::timestamptz
+                ) x group by x.profile_id
+              ) w
+              join addon_outreach.profiles p on p.id = w.profile_id
               join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
                 and ch.verdict in ('good', 'maybe')
               left join addon_outreach.playbooks pb on pb.id = ch.playbook_id
-              where fo.workspace_id = ${ws} and fo.user_id = ${me} and p.platform = 'facebook'
-                and fo.seen_at >= ${ago(FOLLOWERS_KEPT_DAYS)}::timestamptz
+              left join lateral (
+                select e.name, ep.host from addon_outreach.event_people ep
+                join addon_outreach.events e on e.id = ep.event_id
+                where ep.profile_id = p.id and ep.user_id = ${me}
+                  and ep.seen_at >= ${ago(EVENT_PEOPLE_KEPT_DAYS)}::timestamptz
+                order by ep.host desc, ep.seen_at desc limit 1
+              ) ev on true
+              where p.platform = 'facebook'
               and not ${knowsThem(me)} and ${stillToReach(me)} and ${reach}
                 and not exists (select 1 from addon_outreach.friends fr
                   where fr.profile_id = p.id and fr.user_id = ${me})
@@ -990,7 +1039,8 @@ export async function todayFor(
     const likedBy = (p: (typeof good)[number]) =>
       p.liked_at === null ? null : new Date(p.liked_at).getTime();
     const whyOf = (p: (typeof good)[number]) => [
-      FOLLOWER_WHY,
+      ...(p.follows ? [FOLLOWER_WHY] : []),
+      ...(p.event_name ? [eventWhy(p.event_name, p.event_host ?? false)] : []),
       ...p.check_why.slice(0, FOUND_WHY_MOST),
     ];
     const ready = good.filter((p) => {
@@ -1233,9 +1283,25 @@ export async function todayFor(
   // Then any other friend never talked to whom a check found fit, or might (decision 155): the person accepted their
   // request, connected on the network themselves, or has been friends a while. Never Reconnect's catch-up, which is for
   // a conversation had. Each waits the playbook's days after becoming friends, the good fits before the maybes.
+  // While every playbook in use here starts with an introduction (decision 168, the owner's 3b), everyone who
+  // connected with the person lately is greeted too, a check or not, unless a check found them not a fit.
+  //
+  // A few days of warm-up first (decision 183, the owner's 4b): while the person's warm-ups are on, a playbook here
+  // warms up and their computer does visits, someone who accepted fast, or was a friend already, waits for Say hi till
+  // their first like is `WARM_BEFORE_HI_DAYS` old, or a visit found nothing to like. Meanwhile a visit every few days at
+  // random likes 1 or 2 of their newest posts, as for someone deciding on a request, with the day's likes left.
   const openersLeft = leftToday(limits, 'opener');
   if (openersLeft) {
-    const fresh = sql`(${acceptedMine(me)} and f.since >= ${ago(TODAY_WINDOW_DAYS.opener)}::timestamptz)`;
+    const intro = introsOnly(playbooks);
+    const connected = intro ? connectedToMe(me) : sql`false`;
+    const fresh = sql`((${acceptedMine(me)} or ${connected}) and f.since >= ${ago(TODAY_WINDOW_DAYS.opener)}::timestamptz)`;
+    const warmFirst =
+      settings.warmUp && takesStep(playbooks, 'engage') && keepWarmOn(await workingBuild(ctx, me));
+    const firstLike = sql`(select min(t.at) from addon_outreach.touches t
+        where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like')`;
+    const warmedUp = warmFirst
+      ? sql`(p.warm_up_missed_at is not null or coalesce(${firstLike} <= ${ago(WARM_BEFORE_HI_DAYS)}::timestamptz, false))`
+      : sql`true`;
     const accepted = await rows<{
       id: string;
       name: string;
@@ -1244,6 +1310,7 @@ export async function todayFor(
       fresh: boolean;
       mine: boolean;
       theirs: boolean;
+      followed: boolean;
       why: string[] | null;
       about: string | null;
       playbook_name: string | null;
@@ -1251,6 +1318,8 @@ export async function todayFor(
       ctx.tx,
       sql`select p.id, p.name, p.url, f.since, ${fresh} as fresh, ${acceptedMine(me)} as mine,
               (f.answer is not null or ch.request_answer is not null) as theirs,
+              exists (select 1 from addon_outreach.engagements e
+                where e.profile_id = p.id and e.user_id = ${me} and e.kind = 'follow') as followed,
               case when ch.verdict in ('good', 'maybe') then ch.why end as why,
               case when ch.verdict in ('good', 'maybe') then ch.about end as about,
               pb.name as playbook_name
@@ -1259,10 +1328,69 @@ export async function todayFor(
             left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
             left join addon_outreach.playbooks pb on pb.id = ch.playbook_id
             where f.workspace_id = ${ws} and f.since <= ${ago(pace.messageAfterDays)}::timestamptz
-              and ${sayHiReady(me, ago(TODAY_WINDOW_DAYS.opener), reach)}
+              and ${sayHiReady(me, ago(TODAY_WINDOW_DAYS.opener), reach, intro)}
+              and ${warmedUp}
             order by ${fresh} desc, (ch.verdict = 'good') desc nulls last, f.since desc, p.id
             limit ${openersLeft}`,
     );
+    // Those still warming up before it: a visit when it's due, the last one a random 1 to 3 days back (`visitsDue`'s
+    // gap), with what's left of the day's likes.
+    const likesTaken = items.reduce(
+      (n, i) => n + (i.kind === 'warm_up' ? (i.keepWarm?.likes ?? 1) : 0),
+      0,
+    );
+    const hiLikes = warmFirst ? Math.max(0, likeRoom - likesTaken) : 0;
+    const span = VISIT_GAP_DAYS.most - VISIT_GAP_DAYS.least + 1;
+    const warming =
+      hiLikes >= VISIT_LIKES.least
+        ? await rows<{
+            id: string;
+            name: string;
+            url: string;
+            first_like: Date | string | null;
+            playbook_name: string | null;
+          }>(
+            ctx.tx,
+            sql`select p.id, p.name, p.url, ${firstLike} as first_like, pb.name as playbook_name
+                from addon_outreach.friends f
+                join addon_outreach.profiles p on p.id = f.profile_id
+                left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
+                left join addon_outreach.playbooks pb on pb.id = ch.playbook_id
+                cross join lateral (select (select max(t.at) from addon_outreach.touches t
+                    where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like') as visited) lv
+                where f.workspace_id = ${ws}
+                  and ${sayHiReady(me, ago(TODAY_WINDOW_DAYS.opener), reach, intro)}
+                  and not ${warmedUp}
+                  and (lv.visited is null
+                    or lv.visited < ${todayStart.toISOString()}::timestamptz - make_interval(days =>
+                      ${VISIT_GAP_DAYS.least - 1}::int
+                        + mod(abs(hashtext(p.id::text || ':' || (lv.visited at time zone 'UTC')::date::text)::bigint),
+                          ${span}::bigint)::int))
+                order by ${fresh} desc, (ch.verdict = 'good') desc nulls last, f.since desc, p.id
+                limit ${Math.floor(hiLikes / VISIT_LIKES.least)}`,
+          )
+        : [];
+    let hiLeft = hiLikes;
+    for (const w of warming) {
+      const likes = Math.min(visitLikes(w.id, todayStart.toISOString().slice(0, 10)), hiLeft);
+      if (likes < VISIT_LIKES.least) break;
+      hiLeft -= likes;
+      const hiFrom = new Date(
+        (w.first_like === null ? now : new Date(w.first_like).getTime()) +
+          WARM_BEFORE_HI_DAYS * DAY,
+      );
+      items.push(
+        item({
+          kind: 'warm_up',
+          name: w.name,
+          profileId: w.id,
+          profileUrl: w.url,
+          why: warmBeforeHiWhy(hiFrom),
+          playbookName: w.playbook_name,
+          keepWarm: { likes, until: hiFrom.toISOString(), hi: true },
+        }),
+      );
+    }
     for (const p of accepted) {
       const when = dayWords(p.since, now);
       const how = p.mine
@@ -1271,7 +1399,9 @@ export async function todayFor(
           : SAY_HI_WHY.accepted(when)
         : p.theirs
           ? SAY_HI_WHY.theirs(when)
-          : SAY_HI_WHY.known;
+          : p.followed
+            ? SAY_HI_WHY.followed(when)
+            : SAY_HI_WHY.known;
       items.push(
         item({
           kind: 'opener',
@@ -1373,6 +1503,67 @@ export async function todayFor(
       );
     }
     followLeft -= Math.min(demoed.length, followLeft);
+  }
+
+  // After a networking call (decision 187, ../calls.ts): a thank-you, for a few days after it ended, unless the person
+  // wrote to them since it began, or skipped it. Anyone owed a reply gets the reply instead. It always waits for the
+  // person's OK (the owner's 5a), on the follow-ups' limit after the demos'.
+  if (followLeft > 0) {
+    const zone = await workspaceTimezone(ctx.tx, ws);
+    const listedNow = new Set(items.map((i) => i.profileId).filter(Boolean));
+    const called = await rows<{
+      id: string;
+      name: string;
+      url: string;
+      chat_id: string | null;
+      thread_key: string | null;
+      summary: string | null;
+      next_step: string | null;
+      starts_at: Date | string;
+    }>(
+      ctx.tx,
+      sql`select distinct on (p.id) p.id, p.name, p.url, c.id as chat_id, c.thread_key, c.summary, c.next_step,
+              a.starts_at
+            from addon_outreach.calls k
+            join addon_outreach.profiles p on p.id = k.profile_id
+            join app.appointments a on a.id = k.appointment_id and a.bin_item_id is null
+            ${latestChat('p')}
+            where k.workspace_id = ${ws} and k.user_id = ${me}
+              and p.platform = ${input.platform} and ${contactable('p')} and not ${isClient('p')}
+              and a.status in ('scheduled', 'completed')
+              and a.ends_at <= ${nowAt}::timestamptz
+              and a.ends_at >= ${ago(CALL_THANKS_DAYS)}::timestamptz
+              and not exists (select 1 from app.appointment_attendees aa
+                where aa.appointment_id = a.id and aa.person_id = k.person_id
+                  and aa.status in ('cancelled', 'no_show'))
+              and not exists (select 1 from addon_outreach.touches t
+                where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message' and t.at >= a.starts_at)
+              and not exists (select 1 from addon_outreach.sends s
+                where s.profile_id = p.id and s.user_id = ${me} and s.kind = 'thank_you'
+                  and s.state = 'skipped' and s.done_at >= a.starts_at)
+              and (c.id is null or c.last_from_me or c.last_at <= a.starts_at)
+              and not exists (select 1 from addon_outreach.replies r
+                where r.profile_id = p.id and r.user_id = ${me} and r.seen_at > a.starts_at
+                  and not exists (select 1 from addon_outreach.touches t
+                    where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message' and t.at > r.seen_at))
+            order by p.id, a.starts_at desc`,
+    );
+    const thanks = called.filter((p) => !listedNow.has(p.id)).slice(0, followLeft);
+    for (const p of thanks)
+      items.push(
+        item({
+          kind: 'thank_you',
+          name: p.name,
+          profileId: p.id,
+          profileUrl: p.url,
+          chatId: p.chat_id,
+          threadKey: p.thread_key,
+          why: [CALL_WORDS.thanksWhy(demoWhen(p.starts_at, intlTimeZone(zone)))],
+          summary: p.summary,
+          nextStep: p.next_step,
+        }),
+      );
+    followLeft -= thanks.length;
   }
 
   // A birthday today, or a new job lately (decision 108, ../occasions.ts): what the person's computer read on
@@ -1576,10 +1767,13 @@ export async function todayFor(
                   f.answer === 'later' ? 'Said not now' : `No answer since ${day(f.last_at)}`,
                   'once a month',
                 ]
-              : [
-                  `${CONVERSATION_STEPS[f.step]}, no answer yet`,
-                  `${Math.min(f.sent + 1, of)} of ${of}`,
-                ],
+              : f.step === 'intro'
+                ? // The one nudge after an introduction (decision 173), never one of the follow-ups.
+                  [`${CONVERSATION_STEPS[f.step]}, no answer yet`, 'one nudge']
+                : [
+                    `${CONVERSATION_STEPS[f.step]}, no answer yet`,
+                    `${Math.min(f.sent + 1, of)} of ${of}`,
+                  ],
           summary: f.summary,
           nextStep: f.next_step,
           demoLink: demoFor(f.id),
@@ -1778,6 +1972,8 @@ export async function todayFor(
     );
     askingLeft = Math.min(commentsLeft, Math.max(0, answersCap - (answered?.n ?? 0)));
   }
+  // The answers to someone who replied to the person's comment (decision 163): they go whatever the steps.
+  const replyPosts = new Set<string>();
   if (commentsLeft) {
     const good = await rows<{
       id: string;
@@ -1785,6 +1981,7 @@ export async function todayFor(
       posted: string | null;
       body: string;
       check_why: string | null;
+      reply: boolean;
       profile_id: string;
       name: string;
       profile_url: string;
@@ -1794,6 +1991,7 @@ export async function todayFor(
     }>(
       ctx.tx,
       sql`select * from (select po.id, po.url, po.posted, po.body, po.check_why, po.strong, po.seen_at,
+              po.found = 'reply' as reply,
               p.id as profile_id, p.name, p.url as profile_url, g.name as group_name, pb.name as playbook_name,
               row_number() over (partition by po.strong order by po.seen_at desc) as nth
             from addon_outreach.posts po
@@ -1807,15 +2005,18 @@ export async function todayFor(
                 sql`and (po.checked_at is null or po.checked_at >= ${FIELD_CHECK_SINCE}::timestamptz)`
               }
               and p.friendship <> 'self' and not ${myOwnProfile(me)}
-            and ${pitchable('p')} and ${inPlay(me, 'p')} and ${notOthers(me, 'g')} and ${reach}
+            and ${pitchable('p')} and ${inPlay(me, 'p')} and ${notOthers(me, 'g')}
+              -- A reply to the person's comment (decision 163) is an answer to them: Autopilot's list never holds it.
+              and (po.found = 'reply' or ${reach})
               and not exists (select 1 from addon_outreach.group_people x
                 where x.profile_id = p.id and x.runs_group)
               and not exists (select 1 from addon_outreach.touches t
                 where t.user_id = ${me} and t.kind = 'comment' and t.post_url = po.url)) good
             where not good.strong or good.nth <= ${askingLeft}
-            order by good.strong desc, good.seen_at desc limit ${commentsLeft}`,
+            order by good.reply desc, good.strong desc, good.seen_at desc limit ${commentsLeft}`,
     );
-    for (const po of good)
+    for (const po of good) {
+      if (po.reply) replyPosts.add(po.id);
       items.push(
         item({
           kind: 'comment',
@@ -1835,6 +2036,7 @@ export async function todayFor(
           playbookName: po.playbook_name,
         }),
       );
+    }
   }
 
   // The day's reply in one of the person's groups (decision 114): a question there their computer kept for it, in the
@@ -2020,9 +2222,10 @@ export async function todayFor(
         marked: boolean;
         answer: Answer | null;
         partner_hint: string | null;
+        town: string | null;
       }>(
         ctx.tx,
-        sql`select p.id, p.person_id, p.platform_id, exists (select 1 from addon_outreach.demos d
+        sql`select p.id, p.person_id, p.platform_id, p.town, exists (select 1 from addon_outreach.demos d
                 where d.profile_id = p.id and d.user_id = ${me} and d.how = 'marked' and d.undone_at is null) as marked,
                 (select f.answer from addon_outreach.follow_ups f
                   where f.profile_id = p.id and f.user_id = ${me} and f.answered_at >= f.last_at) as answer,
@@ -2044,12 +2247,41 @@ export async function todayFor(
   // A post asking for what the business offers tops the list (decision 49): answered fast, before anything else.
   // The rest go in the kinds' order (../today.ts `TODAY_KINDS`), each kind as it was worked out.
   const order = new Map(TODAY_KIND_KEYS.map((k, i) => [k, i] as const));
-  const byKind = (a: TodayItem, b: TodayItem) => order.get(a.kind)! - order.get(b.kind)!;
+  // Within a kind, while the person focuses on local groups (decision 177), people who work near them go first.
+  const local = await localOf(ctx, me);
+  const near = new Set(
+    local.localFocus && local.town
+      ? known
+          .filter((k) => (milesBetweenTowns(local.town, k.town) ?? Infinity) <= local.radiusMiles)
+          .map((k) => k.id)
+      : [],
+  );
+  const isNear = (i: TodayItem) => Number(i.profileId !== null && near.has(i.profileId));
+  const byKind = (a: TodayItem, b: TodayItem) =>
+    order.get(a.kind)! - order.get(b.kind)! || isNear(b) - isNear(a);
   // Under Autopilot, whatever's left for someone not OK'd yet waits for the day's list (decision 151): a step tried
   // again, a demo's reminder, a note for their day. Someone with nobody kept for them can't be on it, so waits too.
   const okd = gate ? await okdAmong(ctx, me, items) : null;
   const passes = (i: Pick<TodayItem, 'kind' | 'profileId'>) =>
     okd === null || !waitsForPeopleOk(i.kind) || (i.profileId !== null && okd.has(i.profileId));
+  // A step no playbook in use here ticks isn't done (decision 164): its kinds stay off the list. An answer to
+  // someone who replied to the person's comment is a reply, so it goes whatever the steps.
+  const onStep = (i: TodayItem) => {
+    const step = stepOfItem(i);
+    if (step === null || (i.postId !== null && replyPosts.has(i.postId))) return true;
+    // A first message goes only from a playbook with a way ticked to start a chat (decision 183): a new one starts with
+    // none, and starts no chat till one is.
+    if (i.kind === 'opener' && playbooks.length)
+      return playbooks.some((p) => p.details.steps.includes('message') && hasWays(p.details));
+    return takesStep(playbooks, step);
+  };
+  // Someone in a person's hands gets no message from the AI (decision 182): likes, comments and the rest still go.
+  const inHands = await heldAmong(
+    ctx,
+    items.filter(isMessage).flatMap((i) => (i.profileId ? [i.profileId] : [])),
+  );
+  const notHeld = (i: TodayItem) =>
+    !(isMessage(i) && i.profileId !== null && inHands.has(i.profileId));
   const listedItems = [
     ...items.filter((i) => i.asking),
     ...items.filter((i) => !i.asking).sort(byKind),
@@ -2057,6 +2289,8 @@ export async function todayFor(
     .filter(
       (i) =>
         passes(i) &&
+        onStep(i) &&
+        notHeld(i) &&
         !drafted.off(i.profileId, i.kind, underAPost(i.kind) ? i.postId : null) &&
         !commentOpenElsewhere(i),
     )
@@ -2087,12 +2321,17 @@ export async function todayFor(
       left: partnerRoom(limits, listedItems),
     })
   ).filter((i) => !drafted.off(i.profileId, i.kind));
+  const partnersHeld = await heldAmong(
+    ctx,
+    partnerItems.filter(isMessage).flatMap((i) => (i.profileId ? [i.profileId] : [])),
+  );
   const partnersOkd = gate ? await okdAmong(ctx, me, partnerItems) : null;
   const partnersPass = partnerItems.filter(
     (i) =>
-      partnersOkd === null ||
-      !waitsForPeopleOk(i.kind) ||
-      (i.profileId !== null && partnersOkd.has(i.profileId)),
+      !(isMessage(i) && i.profileId !== null && partnersHeld.has(i.profileId)) &&
+      (partnersOkd === null ||
+        !waitsForPeopleOk(i.kind) ||
+        (i.profileId !== null && partnersOkd.has(i.profileId))),
   );
   const partnerRecent = await recentOf(ctx, me, partnersPass.filter(isMessage));
   const partnersListed = partnersPass.map((i) => {
@@ -2148,6 +2387,8 @@ export async function todayFor(
     ),
     facts,
   };
+  // The person's 1-on-1s this week and last (decision 187, the owner's 6a), the same on every network's list.
+  const callWeeks = await oneOnOnesOf(ctx.tx, ws, me, new Date(now));
   const list = {
     limits,
     items: ready ? listedItems : listedItems.filter((i) => i.kind === 'reply'),
@@ -2173,6 +2414,14 @@ export async function todayFor(
     requestsHeld,
     profileOwn,
     goal,
+    oneOnOnes: oneOnOnesShown(callWeeks)
+      ? { week: callWeeks.week, lastWeek: callWeeks.lastWeek }
+      : null,
+    // The events near them coming up (decision 188, the owner's 7a), on the networks whose events are read.
+    events:
+      input.platform === 'facebook' || input.platform === 'alignable'
+        ? await todayEvents(ctx, me, input.platform, now)
+        : [],
     retryAt: drafted.retryAt(input.platform),
   };
   return { list, most };

@@ -33,6 +33,7 @@ export * from './crm/not-applied';
 // The CRM screens' shared words and working out (M10 step 15).
 export * from './crm/format';
 export * from './crm/record-words';
+export * from './crm/hands-words';
 export * from './crm/timeline-words';
 export * from './crm/attribution-words';
 // Which emails are Indeed telling a business somebody applied, and what they say without the AI (funnels).
@@ -46,6 +47,7 @@ export * from './crm/person-merge';
 export * from './crm/picked-contact';
 // A new contact started from a customer search that found nobody (New appointment, web and phone).
 export * from './crm/new-contact';
+export * from './crm/business-card';
 // The search text a phone works out for itself: its pickers and its offline search.
 export * from './crm/search-text';
 // Fields a business invents, and the kinds of records and relationships it makes up (0101).
@@ -58,8 +60,10 @@ export * from './messaging/policies';
 // A business's own policy or terms, given back with the texting section in place.
 export * from './messaging/policy-update';
 export * from './messaging/preflight';
+export * from './messaging/site-forms';
 // The page a website's host shows a bot instead of the page asked for.
 export * from './websites/robot-check';
+export * from './websites/site-pages';
 export * from './messaging/website-fixes';
 export * from './messaging/sms';
 export * from './messaging/rcs';
@@ -90,6 +94,7 @@ export * from './assistant/answer-text';
 // Asking and leaving: picking an answer back up that came in while nobody was watching.
 export * from './assistant/catch-up';
 export * from './account/settings-words';
+export * from './account/about-you';
 export * from './account/view-as-words';
 export * from './account/sign-in';
 export * from './account/extension-sign-in';
@@ -113,6 +118,8 @@ export * from './main-offer/lists';
 export * from './partners/index';
 // HandsFreeOS's own affiliate program (20261027014000): its words and links.
 export * from './affiliates/index';
+// Practice businesses for Admin → Try onboarding (20261027027400): their words and flows.
+export * from './practice/words';
 export * from './writing';
 export * from './ai-team/index';
 // Funnels: the steps the AI teammate takes each person through.

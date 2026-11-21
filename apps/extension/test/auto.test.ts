@@ -4,6 +4,7 @@
  * Respond opens a menu with Confirm), its post's Like, and a group post's box to comment in, never a reply's; and a
  * message's box, only the chat's that is with them: Messenger's, or their chat window's among others left open.
  */
+import { JSDOM } from 'jsdom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { TodayListItem } from '../src/hfos/messages';
 import {
@@ -15,6 +16,8 @@ import {
   networkWaitWords,
   nextStart,
   nextWatch,
+  REFER_AGAIN_MS,
+  referDue,
   STARTED_GAP_MS,
   watchDue,
   workKey,
@@ -24,6 +27,7 @@ import {
   AUTO_PLANS,
   chatsOpen,
   likeTheirPost,
+  noneLikeable,
   readTheirPosts,
   saysNoPosts,
   MESSAGE_PATH,
@@ -34,6 +38,7 @@ import {
   withTheirName,
   writeComment,
   writeMessage,
+  writeTaggedComment,
   type ChatsBefore,
 } from '../src/networks/facebook/auto';
 import { doPath, doStep, findStep, type FetchStep } from '../src/networks/facebook/fetch';
@@ -147,6 +152,14 @@ describe('what it does next', () => {
     expect(watchDue({}, now)).toBe(true);
     expect(watchDue({ watchAt: nextWatch(now, 0.5) }, now + 60 * 60_000)).toBe(false);
     expect(watchDue({ watchAt: nextWatch(now, 0.5) }, now + 90 * 60_000)).toBe(true);
+  });
+
+  it('looks for referrals to do for the person at once, then every half hour', () => {
+    const now = Date.parse('2026-11-20T15:00:00Z');
+    expect(referDue({ referAt: null }, now)).toBe(true);
+    expect(referDue({}, now)).toBe(true);
+    expect(referDue({ referAt: now + REFER_AGAIN_MS }, now + 29 * 60_000)).toBe(false);
+    expect(referDue({ referAt: now + REFER_AGAIN_MS }, now + REFER_AGAIN_MS)).toBe(true);
   });
 
   it('sends messages OK’d first, and drafts the rest after the steps, or before them with Approve all', () => {
@@ -765,6 +778,61 @@ describe('liking their latest post', () => {
     expect(likeStateOf(button('Remove Like from Dana Reyes’s post'))).toBe('liked');
     expect(likeStateOf(button('Change Like reaction'))).toBe('liked');
     expect(likeStateOf(button('Share'))).toBe('unknown');
+    // On a post with no count in it (the problem reports of 10 to 13 Nov 2026), and never a comment's or the count.
+    expect(likeStateOf(button('Like Dana Reyes’s post'))).toBe('like');
+    expect(likeStateOf(button('Unlike Dana Reyes’s post'))).toBe('liked');
+    expect(likeStateOf(button('Like Dana Reyes’s comment'))).toBe('unknown');
+    expect(likeStateOf(button('Like: 8 people'))).toBe('unknown');
+  });
+
+  it('presses a Like that says whose post it is, on a post with no count in it (the problem reports of 10 to 13 Nov 2026)', async () => {
+    vi.useFakeTimers();
+    const doc = load('profile-2026.html', URL);
+    const like = doc.querySelector<HTMLElement>('[aria-label="Remove Like"]')!;
+    like.setAttribute('aria-label', 'Like Dana Reyes’s post');
+    let pressed = 0;
+    like.addEventListener('click', () => pressed++);
+    const reading = readTheirPosts(doc, URL, dana, view, 6);
+    await vi.advanceTimersByTimeAsync(15_000);
+    const [post] = await reading;
+    expect(post!.liked).toBe(false);
+    const going = likeTheirPost(doc, URL, dana, { index: 0, url: post!.url });
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect((await going).result).toBe('done');
+    expect(pressed).toBe(1);
+  });
+
+  it('never offers a post Facebook shows with no Like, only its Share (the problem reports of 10 to 14 Nov 2026)', async () => {
+    vi.useFakeTimers();
+    const doc = load('profile-2026.html', URL);
+    const box = theirPosts(doc, URL, dana)[0]!.box;
+    const likeable = box.cloneNode(true) as Element;
+    // A cover photo update, as the reports outlined it: its bar holds only "Share (name)'s post" and who reacted.
+    box.querySelector('[aria-label="Remove Like"]')!.parentElement!.outerHTML =
+      '<div role="button" aria-label="Share Dana Reyes’s post"><div><i></i><div data-ad-rendering-role="share_button"></div></div></div>';
+    box.querySelector('[aria-label="Leave a comment"]')!.remove();
+    expect(theirPosts(doc, URL, dana)).toEqual([]);
+    expect(noneLikeable(doc, URL, dana)).toBe(true);
+    const reading = readTheirPosts(doc, URL, dana, view, 6);
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(await reading).toEqual([]);
+    // Known by its label alone too.
+    box.querySelector('[data-ad-rendering-role="share_button"]')!.remove();
+    expect(theirPosts(doc, URL, dana)).toEqual([]);
+    // A post whose bar isn't drawn yet, with no Share either, is read as before: its Like may come.
+    box.querySelector('[aria-label="Share Dana Reyes’s post"]')!.remove();
+    expect(theirPosts(doc, URL, dana)).toHaveLength(1);
+    expect(noneLikeable(doc, URL, dana)).toBe(false);
+    // Another of theirs with its Like is offered beside one with none, and there's something to like.
+    box
+      .querySelector('[role="toolbar"]')!
+      .insertAdjacentHTML(
+        'beforebegin',
+        '<div role="button" aria-label="Share Dana Reyes’s post"></div>',
+      );
+    box.after(likeable);
+    expect(theirPosts(doc, URL, dana).map((f) => f.box)).toEqual([likeable]);
+    expect(noneLikeable(doc, URL, dana)).toBe(false);
   });
 
   it('reads nobody else’s posts', async () => {
@@ -831,6 +899,128 @@ describe('writing a comment', () => {
     await vi.advanceTimersByTimeAsync(10_000);
     vi.useRealTimers();
     expect(await writing).toBe('not_sent');
+  });
+});
+
+describe('a comment that tags someone (decision 185)', () => {
+  const url = `${FB}/groups/7766554433221100/posts/5555666677778888/`;
+  const tag = {
+    before: 'You should reach out to ',
+    said: 'Dana Reyes',
+    after: '! They did our roof.',
+    name: 'Dana Reyes',
+  };
+
+  /**
+   * The post page, where typing adds the words where the caret is and Delete takes one back, as Chrome does. Typing @
+   * and a name opens Facebook's list of people with these names; picking one puts the name in as a tag.
+   */
+  function taggingPage(listed: readonly string[]) {
+    const doc = load('group-post-2026.html', url);
+    const box = doc.querySelector<HTMLElement>('[role="textbox"][aria-label^="Comment as"]')!;
+    const button = doc.querySelector<HTMLElement>('form [role="button"][aria-label="Comment"]')!;
+    box.textContent = '';
+    const list = doc.createElement('div');
+    list.setAttribute('role', 'listbox');
+    doc.body.append(list);
+    doc.execCommand = (command: string, _ui?: boolean, text?: string) => {
+      const now = box.textContent ?? '';
+      box.textContent = command === 'delete' ? now.slice(0, -1) : now + (text ?? '');
+      const typing = /@([^@]+)$/.exec(box.textContent)?.[1];
+      list.replaceChildren(
+        ...(typing && command !== 'delete'
+          ? listed.map((name) => {
+              const option = doc.createElement('div');
+              option.setAttribute('role', 'option');
+              option.innerHTML = `<span>${name}</span><span>Friend</span>`;
+              option.addEventListener('click', () => {
+                box.textContent = (box.textContent ?? '').replace(/@[^@]+$/, name);
+                list.replaceChildren();
+              });
+              return option;
+            })
+          : []),
+      );
+      return true;
+    };
+    const sent: string[] = [];
+    button.addEventListener('click', () => {
+      sent.push(box.textContent ?? '');
+      box.textContent = '';
+    });
+    return { doc, sent };
+  }
+
+  const write = async (doc: Document) => {
+    vi.useFakeTimers();
+    const writing = writeTaggedComment(doc, tag);
+    await vi.advanceTimersByTimeAsync(15_000);
+    vi.useRealTimers();
+    return writing;
+  };
+
+  it('picks their row of Facebook’s list and tags them', async () => {
+    const { doc, sent } = taggingPage(['Dana Smith', 'Dana Reyes']);
+    expect(await write(doc)).toEqual({ result: 'done', tagged: true });
+    expect(sent).toEqual(['You should reach out to Dana Reyes! They did our roof.']);
+  });
+
+  it('puts their name as plain words when Facebook won’t list them', async () => {
+    for (const listed of [[], ['Dana Smith', 'Dan Reyes']]) {
+      const { doc, sent } = taggingPage(listed);
+      expect(await write(doc)).toEqual({ result: 'done', tagged: false });
+      expect(sent).toEqual(['You should reach out to Dana Reyes! They did our roof.']);
+    }
+  });
+});
+
+describe('a post that doesn’t let them comment', () => {
+  // The owner's problem report of 15 Nov 2026: the post opened in its box over the page, its comments under it, its bar
+  // with Like, React and Share but no Comment, and no box to comment in anywhere, as Facebook draws a post whose author
+  // limited who can comment. It said "couldn’t find the box to comment in" and went to the problem reports.
+  const url = `${FB}/dana.reyes.12/posts/pfbid0aaaa1111bbbb2222/`;
+  const postBox = (bar: string) =>
+    new JSDOM(
+      `<!doctype html><html><body><div role="main"><div role="article">A post in the feed behind</div></div>
+      <div><div role="dialog"><div role="dialog"><div aria-hidden="false">
+        <div><h2 dir="auto"><span dir="auto">Dana Reyes's Post</span></h2>
+          <div role="button" aria-label="Close"><svg aria-hidden="true"></svg></div></div>
+        <div><span dir="auto">New tiles in the kitchen</span>
+          <div>${bar}</div>
+          <div><div role="button" aria-expanded="false"><span dir="auto">Most relevant</span></div>
+            <div role="article" aria-label="Comment by Sam Lee 1 week ago">
+              <a role="link" href="/sam.lee?comment_id=1">Sam Lee</a><span dir="auto">Looks great</span>
+              <div role="button" aria-label="Like"><svg role="img"></svg></div>
+              <div role="button" aria-label="React"></div></div></div></div>
+      </div></div></div></div></body></html>`,
+      { url },
+    ).window.document;
+  const LIKE_REACT = `<div role="button" aria-label="React with Like to Dana Reyes's post"><i></i>
+      <div data-ad-rendering-role="like_button"></div></div>
+    <div role="button" aria-label="React to Dana Reyes's post"><svg aria-hidden="true"></svg></div>`;
+  const SHARE_BUTTON = `<div role="button" aria-label="Share Dana Reyes's post"><i></i>
+      <div data-ad-rendering-role="share_button"></div></div>`;
+  const COMMENT_BUTTON = `<div role="button" aria-label="Leave a comment"><i></i>
+      <div data-ad-rendering-role="comment_button"></div></div>`;
+
+  it('says the post is closed to comments: no Comment in its bar and no box, and nothing is typed', async () => {
+    const doc = postBox(`${LIKE_REACT}${SHARE_BUTTON}`);
+    vi.useFakeTimers();
+    const writing = writeComment(doc, 'Love these tiles.');
+    await vi.advanceTimersByTimeAsync(10_000);
+    vi.useRealTimers();
+    expect(await writing).toBe('closed');
+  });
+
+  it('still says no box when the bar has its Comment, or isn’t drawn yet', async () => {
+    for (const bar of [`${LIKE_REACT}${COMMENT_BUTTON}${SHARE_BUTTON}`, '']) {
+      const doc = postBox(bar);
+      vi.useFakeTimers();
+      const writing = writeComment(doc, 'Love these tiles.');
+      await vi.advanceTimersByTimeAsync(10_000);
+      vi.useRealTimers();
+      expect(await writing).toBe('none');
+    }
   });
 });
 

@@ -54,6 +54,7 @@ import {
 } from '@hfos/core/addons/outreach/like-pick';
 import { visitLine, visitPicks } from '@hfos/core/addons/outreach/keep-warm';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
+import { mentionParts } from '@hfos/core/addons/outreach/referrals';
 import { buttonFor } from '@hfos/core/addons/outreach/helper';
 import type { ProblemHelper } from '@hfos/core/problem-report';
 import { messageParts, partPauseMs } from '@hfos/core/addons/outreach/voice';
@@ -69,15 +70,19 @@ import type { FetchStep } from '../networks/facebook/fetch';
 import { facebook } from '../networks/facebook/kit';
 import { FRIENDSHIP_WORDS, NO_ADD_FRIEND } from '../networks/facebook/tidy';
 import type { ProfileRef, ReadResult, ThreadRef } from '../networks/facebook/types';
+import { NO_RESEARCH, researchRuns } from '../jobs/comment-research';
 import { valueOf, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { nameForms, sameName } from '../networks/facebook/people';
 import { FACEBOOK, facebookUrl, profileFromUrl } from '../networks/facebook/urls';
 import type {
   AutoStatus,
   Drafts,
+  DueAsk,
+  DueReferral,
   HfosAnswer,
   HfosAsk,
   ReadyShown,
+  ReferralsDue,
   TodayList,
   TodayListItem,
   TodaySoFar,
@@ -89,10 +94,12 @@ import {
   beatSoon,
   dayChange,
   feed,
+  jobKind,
   keptFor,
   liveNow,
   onWake,
   pressDay,
+  outcomeKind,
   pressWaiting,
 } from '../hfos/live';
 import { isNoting, noteNeed, takeNote } from '../hfos/noting';
@@ -105,12 +112,16 @@ import { groupsToWork, watchPosts } from '../jobs/posts';
 import { postHelpful } from '../jobs/helpful';
 import {
   commentDoing,
+  COMMENTS_CLOSED,
   draftComment,
   isCommentWork,
+  LOOK_MS,
+  NOTHING_TO_SAY,
   sendComment,
   type CommentOutcome,
-  type CommentRunner,
+  type LookingRunner,
 } from './comments';
+import { lookAtPost } from './post-look';
 import { DAILY_DOING, DAILY_NAMES, postSender, runDaily } from './daily';
 import {
   beforeDay,
@@ -133,6 +144,8 @@ import {
   gapAfter,
   HELPFUL_AGAIN_MS,
   helpfulDue,
+  referDue,
+  REFER_AGAIN_MS,
   IDLE_MS,
   isState,
   listTurn,
@@ -170,8 +183,6 @@ const CHAT_LOOKS = 8;
 /** How long a button is looked for; the box asking to be sure, less. */
 const WAIT_MS = 8_000;
 const WAIT_OPTIONAL_MS = 3_000;
-/** A gap longer than this closes its window until the next step. */
-const KEEP_WINDOW_MS = 5 * 60_000;
 /** After something went wrong, it tries again this much later. */
 const AGAIN_MS = 15 * 60_000;
 /** While noting is off, or nobody has picked a business, it looks again this often. */
@@ -325,6 +336,9 @@ function keptOf(item: TodayListItem): ProfileRef | null {
   return kept && !kept.id && id && /^\d{1,20}$/.test(id) ? { ...kept, id } : kept;
 }
 
+/** What the runner says of a profile Facebook won't show. */
+const PROFILE_UNAVAILABLE = 'Facebook says their profile isn’t available right now';
+
 /**
  * Opens someone's profile and checks it's them: the page and its profile, and the profile to note the step against
  * (the one kept, with what the page added); or what stopped it.
@@ -343,6 +357,11 @@ async function openProfile(
   const page = await read();
   const stop = await warnedOn(page, businessId);
   if (stop) return { outcome: { stop } };
+  // Facebook shows "This content isn't available right now" where their profile was: they blocked the person, or
+  // closed or hid it. Nothing's left to try and nothing went wrong, so it isn't reported (the problem report of 13 Nov
+  // 2026, a message that said it couldn't find Message on their profile).
+  if (page.profile?.unavailable)
+    return { outcome: { done: false, line: `${item.name}: ${PROFILE_UNAVAILABLE}`, skip: true } };
   const shown = page.profile?.profile ?? null;
   if (!page.profile || !shown || !samePerson(shown, page.profile.name, want, item.name))
     return {
@@ -490,7 +509,7 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
     const picks = visitPicks(theirs.posts, item.keepWarm.likes, neverLike);
     if (!picks.length) {
       // Nothing new to like: HandsFreeOS hears it, and it counts as the visit.
-      const line = visitLine(item.name, facebook.platform, 0);
+      const line = visitLine(item.name, facebook.platform, 0, item.keepWarm?.hi === true);
       await missed(line);
       return { done: true, line };
     }
@@ -528,12 +547,16 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
       });
       liked++;
     }
-    return { done: true, line: visitLine(item.name, facebook.platform, liked) };
+    return {
+      done: true,
+      line: visitLine(item.name, facebook.platform, liked, item.keepWarm?.hi === true),
+    };
   }
   if (!theirs.posts.length) {
     const line = `No post of ${item.name}’s to like: ${after.without}`;
     if (!theirs.none) return missed(line);
-    // Facebook says they have no posts: nothing's left to try, and nothing went wrong to report (decision 145's skip).
+    // Facebook says they have no posts, or shows none with a Like: nothing's left to try, and nothing went wrong to
+    // report (decision 145's skip).
     await missed(line);
     return { done: false, line, skip: true };
   }
@@ -647,24 +670,30 @@ async function warmComment(
   return { done: true };
 }
 
-/** Writes the AI's comment under a good post in their groups (decision 20). */
+/**
+ * Writes the AI's comment under a good post in their groups (decision 20). From 0.144.0 the post's own page opens
+ * first, and its picture or its video's frames go with the draft (decision 172), as on Instagram.
+ */
 async function comment(item: TodayListItem, businessId: string): Promise<Outcome> {
   const author = profileOf(item.profileUrl);
   if (!author || !item.postUrl || !item.postId)
     return { done: false, line: `${item.name}’s post: no link kept` };
-  const drafted = await answer({
-    type: 'hfos-draft',
-    workspaceId: businessId,
-    input: { kind: 'comment', postId: item.postId },
-  });
-  if (!drafted.ok) return { done: false, line: `${item.name}’s post: ${drafted.problem.message}` };
-  const text = (drafted.value as { drafts: readonly string[] }).drafts[0];
-  if (!text) return { done: false, line: `${item.name}’s post: the AI had nothing to say on it` };
   await tab.open(item.postUrl);
   await setState({ tabId: tab.tabId });
   const page = await read();
   const stop = await warnedOn(page, businessId);
   if (stop) return { stop };
+  await pause(LOOK_MS);
+  const look = await lookAtPost(commenting, { profile: author, postUrl: item.postUrl });
+  const drafted = await answer({
+    type: 'hfos-draft',
+    workspaceId: businessId,
+    input: { kind: 'comment', postId: item.postId, ...(look ? { look } : {}) },
+  });
+  if (!drafted.ok) return { done: false, line: `${item.name}’s post: ${drafted.problem.message}` };
+  const text = (drafted.value as { drafts: readonly string[] }).drafts[0];
+  // No comment is the right answer when there's nothing real to say (decision 165): no failure (from 0.141.3).
+  if (!text) return { done: false, line: `${item.name}’s post: ${NOTHING_TO_SAY}`, skip: true };
   const wrote = await tab.ask({ type: 'hfos-comment', text });
   if (!wrote.ok) throw new Error(wrote.error);
   if (wrote.result === 'none')
@@ -673,6 +702,9 @@ async function comment(item: TodayListItem, businessId: string): Promise<Outcome
       line: `${item.name}’s post: couldn’t find the box to comment in`,
       need: true,
     };
+  // Whoever posted it limited who can comment: nobody can write there, so it's no failure (from 0.141.1).
+  if (wrote.result === 'closed')
+    return { done: false, line: `${item.name}’s post: ${COMMENTS_CLOSED}`, skip: true };
   if (wrote.result !== 'done')
     return {
       done: false,
@@ -698,7 +730,8 @@ async function comment(item: TodayListItem, businessId: string): Promise<Outcome
     },
     at: now(),
   });
-  return { done: true, line: `Commented on ${item.name}’s post` };
+  const from = look ? (look.kind === 'video' ? ', from its video' : ', from its picture') : '';
+  return { done: true, line: `Commented on ${item.name}’s post${from}` };
 }
 
 // ------------------------------------------------------------------------------------------------- messages
@@ -929,29 +962,35 @@ async function theirKey(
   return { profile };
 }
 
+/** A message typed in their chat: sent (or partly, said in `partly`), not sent and why, or a warning that stopped it. */
+type Typed =
+  | {
+      readonly sent: true;
+      readonly profile: ProfileRef;
+      readonly thread: ThreadRef | null;
+      readonly partly: string | null;
+    }
+  | { readonly sent: false; readonly line: string; readonly skip?: true }
+  | { readonly stop: string };
+
 /**
- * Sends a message OK'd (or let go as it is) in Messenger, and notes it as its own: as a few short texts, a few seconds
- * apart, when the person texts that way (@hfos/core/addons/outreach/voice), each part between blank lines its own.
+ * Types a message in their chat in Messenger, opened as `openChat` checks it's theirs: as a few short texts, a few
+ * seconds apart, when the person texts that way (@hfos/core/addons/outreach/voice), each part between blank lines its
+ * own. Nothing is noted here.
  */
-async function sendMessage(
+async function typeMessage(
   item: TodayListItem,
+  text: string,
   businessId: string,
   split: boolean,
-): Promise<Outcome> {
-  const send = item.send!;
-  const failed = async (line: string): Promise<Outcome> => {
-    const lead = `${item.name}: `;
-    await sendDone(
-      send.sendId,
-      businessId,
-      false,
-      line.startsWith(lead) ? line.slice(lead.length) : line,
-    );
-    return { done: false, line };
-  };
+): Promise<Typed> {
   const chat = await openChat(item, businessId, true);
-  if ('outcome' in chat) return 'stop' in chat.outcome ? chat.outcome : failed(chat.outcome.line);
-  const parts = messageParts(send.text, split);
+  if ('outcome' in chat) {
+    const o = chat.outcome;
+    if ('stop' in o) return o;
+    return { sent: false, line: o.line, ...('skip' in o && o.skip === true ? { skip: true } : {}) };
+  }
+  const parts = messageParts(text, split);
   // Whose chat it goes in: the tab types only into one it shows is with them, by their profile, or by the name
   // Facebook showed for them where a chat links to nobody.
   const names = chat.name ? [chat.name] : [];
@@ -970,9 +1009,10 @@ async function sendMessage(
       const checked = await theirKey(profile, wrote.linksTo, businessId);
       if ('stop' in checked) return checked;
       if (!checked.profile)
-        return failed(
-          `${item.name}: couldn’t make sure the chat that opened was theirs, so nothing was sent`,
-        );
+        return {
+          sent: false,
+          line: `${item.name}: couldn’t make sure the chat that opened was theirs, so nothing was sent`,
+        };
       profile = checked.profile;
       wrote = await tab.ask({ type: 'hfos-message', text: part, profile, names, ...close });
     }
@@ -988,18 +1028,44 @@ async function sendMessage(
               ? 'Facebook didn’t take the message'
               : null;
     if (why === null) continue;
-    if (i === 0) return failed(`${item.name}: ${why}`);
+    if (i === 0) return { sent: false, line: `${item.name}: ${why}` };
     partly = `Sent ${item.name} ${i} of ${parts.length} texts, then: ${why}`;
     break;
+  }
+  return { sent: true, profile, thread: chat.thread, partly };
+}
+
+/** A line about someone without their name in front, as HandsFreeOS keeps why. */
+const withoutName = (line: string, name: string) => {
+  const lead = `${name}: `;
+  return line.startsWith(lead) ? line.slice(lead.length) : line;
+};
+
+/**
+ * Sends a message OK'd (or let go as it is) in Messenger (`typeMessage`), and notes it as its own.
+ */
+async function sendMessage(
+  item: TodayListItem,
+  businessId: string,
+  split: boolean,
+): Promise<Outcome> {
+  const send = item.send!;
+  const typed = await typeMessage(item, send.text, businessId, split);
+  if ('stop' in typed) return typed;
+  if (!typed.sent) {
+    await sendDone(send.sendId, businessId, false, withoutName(typed.line, item.name));
+    return typed.skip
+      ? { done: false, line: typed.line, skip: true }
+      : { done: false, line: typed.line };
   }
   await takeNote({
     type: 'hfos-noted',
     step: {
       kind: 'message',
-      to: { name: item.name, profile },
+      to: { name: item.name, profile: typed.profile },
       group: null,
       postUrl: null,
-      thread: chat.thread,
+      thread: typed.thread,
       replying: item.kind === 'reply' || item.kind === 'partner_reply',
       auto: true,
     },
@@ -1009,7 +1075,210 @@ async function sendMessage(
   await pause(SETTLE_MS);
   const stop = await warnedOn(await read(), businessId);
   if (stop) return { stop };
-  return { done: true, line: partly ?? `Sent ${item.name} a message` };
+  return { done: true, line: typed.partly ?? `Sent ${item.name} a message` };
+}
+
+// ------------------------------------------------------------------------------------------------- referrals
+
+/**
+ * Whom a referral or an ask after two is for, as the chat steps take someone on the list: their name, their profile
+ * and number, and their chat when it's kept. Those steps read nothing else of it.
+ */
+const listItemOf = (who: DueReferral | DueAsk): TodayListItem =>
+  ({
+    kind: 'follow_up',
+    name: who.name,
+    profileId: who.profileId,
+    profileUrl: who.profileUrl,
+    platformId: who.platformId,
+    threadKey: who.threadKey,
+    chatId: null,
+  }) as unknown as TodayListItem;
+
+/** Notes a message it sent on its own, as `sendMessage` does. */
+async function noteMessage(name: string, sent: Extract<Typed, { sent: true }>): Promise<void> {
+  await takeNote({
+    type: 'hfos-noted',
+    step: {
+      kind: 'message',
+      to: { name, profile: sent.profile },
+      group: null,
+      postUrl: null,
+      thread: sent.thread,
+      replying: false,
+      auto: true,
+    },
+    at: now(),
+  });
+}
+
+/**
+ * A referral done for the person (decision 185): the comment under the post, with whom it names typed as a tag, or
+ * their name as plain words where Facebook won't list them (the owner's 1a), noted as a comment on the post's writer,
+ * so it counts toward the day's comments (2a); then the heads-up in their chat, noted as a message. HandsFreeOS hears
+ * how it went (`outreach.referral.posted`): what couldn't go waits on Today for the person, with why.
+ */
+async function refer(r: DueReferral, businessId: string, split: boolean): Promise<Outcome> {
+  let commented = r.posted;
+  let tagged = false;
+  const said = (o: { noted?: boolean; skip?: boolean; more?: boolean; why?: string | null }) =>
+    call(
+      api().POST('/v1/commands/outreach.referral.posted', {
+        body: {
+          workspaceId: businessId,
+          referralId: r.referralId,
+          commented,
+          tagged,
+          noted: o.noted ?? false,
+          skip: o.skip ?? false,
+          more: o.more ?? false,
+          why: o.why ? o.why.slice(0, 300) : null,
+        },
+      }),
+      businessId,
+    );
+  const lead = `Referring ${r.name}`;
+  if (!commented) {
+    const writer = profileOf(r.writerUrl);
+    if (!writer) {
+      await said({ why: 'no link is kept for whoever wrote the post' });
+      return { done: false, line: `${lead}: no link kept for the post’s writer` };
+    }
+    await tab.open(r.postUrl);
+    await setState({ tabId: tab.tabId });
+    const stop = await warnedOn(await read(), businessId);
+    if (stop) return { stop };
+    await pause(LOOK_MS);
+    const parts = mentionParts(r.comment, r.name);
+    const wrote = parts
+      ? await tab.ask({ type: 'hfos-tag-comment', tag: { ...parts, name: r.name } })
+      : await tab.ask({ type: 'hfos-comment', text: r.comment });
+    if (!wrote.ok) {
+      await said({ why: wrote.error });
+      return { done: false, line: `${lead}: ${wrote.error}`, need: true };
+    }
+    // Whoever posted it limited who can comment: nothing to do there.
+    if (wrote.result === 'closed') {
+      await said({ skip: true, why: COMMENTS_CLOSED });
+      return { done: false, line: `${lead}: the post ${COMMENTS_CLOSED}`, skip: true };
+    }
+    if (wrote.result !== 'done') {
+      const why =
+        wrote.result === 'none'
+          ? 'it couldn’t find the box to comment in'
+          : 'Facebook didn’t take the comment';
+      await said({ why });
+      return { done: false, line: `${lead}: ${why}`, need: true };
+    }
+    commented = true;
+    tagged = wrote.tagged === true;
+    await takeNote({
+      type: 'hfos-noted',
+      step: {
+        kind: 'comment',
+        to: { name: r.writer, profile: writer },
+        group: null,
+        postUrl: r.postUrl,
+        thread: null,
+        replying: null,
+        auto: true,
+        commentText: r.comment,
+        why: `Referring ${r.name}`,
+      },
+      at: now(),
+    });
+    // Kept as posted at once: a computer that stops before the heads-up never posts the comment again.
+    if (r.note) await said({ more: true });
+    await pause(SETTLE_MS);
+    const after = await warnedOn(await read(), businessId);
+    if (after) {
+      await said({ why: 'Facebook showed a warning, so the heads-up waits' });
+      return { stop: after };
+    }
+  }
+  const how = tagged ? 'tagged' : 'by name';
+  if (!r.note) {
+    await said({});
+    return { done: true, line: `Referred ${r.name} on a post, ${how}` };
+  }
+  const typed = await typeMessage(listItemOf(r), r.note, businessId, split);
+  if ('stop' in typed) {
+    await said({ why: 'Facebook showed a warning, so the heads-up didn’t go' });
+    return typed;
+  }
+  if (!typed.sent) {
+    const why = withoutName(typed.line, r.name);
+    await said({ why: `the heads-up: ${why}` });
+    return { done: false, line: `Referred ${r.name}, but the heads-up: ${why}`, need: true };
+  }
+  await noteMessage(r.name, typed);
+  await said({ noted: true });
+  await pause(SETTLE_MS);
+  const stop = await warnedOn(await read(), businessId);
+  if (stop) return { stop };
+  return { done: true, line: `Referred ${r.name} on a post, ${how}, and sent them the heads-up` };
+}
+
+/** The ask after two, sent for the person (decision 185); HandsFreeOS hears how it went (`outreach.refer_ask.sent`). */
+async function askBack(a: DueAsk, businessId: string, split: boolean): Promise<Outcome> {
+  const said = (sent: boolean, why: string | null) =>
+    call(
+      api().POST('/v1/commands/outreach.refer_ask.sent', {
+        body: {
+          workspaceId: businessId,
+          askId: a.askId,
+          sent,
+          why: why ? why.slice(0, 300) : null,
+        },
+      }),
+      businessId,
+    );
+  const typed = await typeMessage(listItemOf(a), a.text, businessId, split);
+  if ('stop' in typed) {
+    await said(false, 'Facebook showed a warning, so it didn’t go');
+    return typed;
+  }
+  if (!typed.sent) {
+    const why = withoutName(typed.line, a.name);
+    await said(false, why);
+    return { done: false, line: `Asking ${a.name} to send people your way: ${why}`, need: true };
+  }
+  await noteMessage(a.name, typed);
+  await said(true, null);
+  await pause(SETTLE_MS);
+  const stop = await warnedOn(await read(), businessId);
+  if (stop) return { stop };
+  return { done: true, line: `Asked ${a.name} to send people your way` };
+}
+
+/**
+ * The next referral or ask after two to do for the person, one a go (decision 185): null when there's none, or the
+ * server is from before them.
+ */
+async function referNext(businessId: string, split: boolean): Promise<Outcome | null> {
+  let due: ReferralsDue;
+  try {
+    due = await call(
+      api().POST('/v1/queries/outreach.referrals.due', {
+        body: { workspaceId: businessId, platform: 'facebook' },
+      }),
+      businessId,
+    );
+  } catch (error) {
+    if (error instanceof Refused && error.problem.status === 404) return null;
+    throw error;
+  }
+  const r = due.referrals[0];
+  if (r) {
+    await say(`Referring ${r.name} on a post…`, { working: true });
+    return refer(r, businessId, split);
+  }
+  const a = due.asks[0];
+  if (a) {
+    await say(`Asking ${a.name} to send people your way…`, { working: true });
+    return askBack(a, businessId, split);
+  }
+  return null;
 }
 
 function doItem(item: TodayListItem, businessId: string): Promise<Outcome> {
@@ -1059,7 +1328,7 @@ const doneAs = (work: Work): DoneKind =>
  * The day's reply under a question in one of the person's groups (decision 114): drafted from the post and posted
  * under it as a comment through `sends` is (./comments.ts), the post's own page looked at for a warning first.
  */
-const commenting: CommentRunner = {
+const commenting: LookingRunner = {
   platform: 'facebook',
   tab,
   async onPage(businessId) {
@@ -1304,6 +1573,15 @@ async function go(): Promise<void> {
   if (JSON.stringify(state.lists) !== JSON.stringify(lists)) state = await setState({ lists });
   const before = beforeDay(lists, state.before ?? {}, at, timezone);
   let daily = settings.collect ? nextDaily(state, at) : null;
+  // HandsFreeOS's own comment research (decision 172) is only for whoever of its staff started one: asked without a
+  // word once its turn comes, and for anyone else it's done for the day before a line of it is ever shown.
+  if (
+    daily === 'comment_research' &&
+    !(await researchRuns(answer as Hfos, to.businessId, 'facebook'))
+  ) {
+    state = await setState({ daily: { ...state.daily, comment_research: NO_RESEARCH } });
+    daily = nextDaily(state, at);
+  }
   // Short of good fits once the day's reading is done (decision 126, answer 6a): it finds people again, with the next
   // search words, and checks them.
   if (settings.collect && !before && !daily && roundDue(state, at)) {
@@ -1336,7 +1614,7 @@ async function go(): Promise<void> {
       return goAt(tomorrow());
     }
     const line = beforeDayLine(before, end);
-    void feed('job', line);
+    void feed(jobKind(end), line);
     if (((before.do === 'save' && before.first) || before.do === 'group_checks') && end.failed) {
       // The first time, the day waits for the lists and the groups: it tries again in a few minutes.
       await closeWindow();
@@ -1364,7 +1642,7 @@ async function go(): Promise<void> {
       return goAt(tomorrow());
     }
     await say(`${DAILY_NAMES[daily]}: ${end.line}`, { readLast: true });
-    void feed('job', `${DAILY_NAMES[daily]}: ${end.line}`);
+    void feed(jobKind(end), `${DAILY_NAMES[daily]}: ${end.line}`);
     if ((await stateNow()).stopped) {
       await closeWindow();
       return goAt(tomorrow());
@@ -1373,6 +1651,30 @@ async function go(): Promise<void> {
     return goAt(
       Date.now() + gapAfter({ now: Date.now(), until: null, left: 0, started: true, random }),
     );
+  }
+
+  // A referral or an ask after two to do for the person (decision 185): OK'd, or under Autopilot. One a go, in the
+  // working hours, looked for every half hour; one done is a step, with a person's pace after it.
+  if (inHours && referDue(state, at)) {
+    let end: Outcome | null;
+    try {
+      end = await inTurn('runner', () => referNext(to.businessId, settings.voice?.split ?? true));
+    } finally {
+      await setState({ working: false, tabId: tab.tabId });
+    }
+    await setState({ referAt: end ? Date.now() : Date.now() + REFER_AGAIN_MS });
+    if (end && 'stop' in end) {
+      await closeWindow();
+      await say(end.stop, { stopped: 'warning' });
+      return goAt(tomorrow());
+    }
+    if (end) {
+      await say(end.line);
+      void feed(end.done ? 'done' : 'failed', end.line);
+      return goAt(
+        Date.now() + gapAfter({ now: Date.now(), until: null, left: 0, started: true, random }),
+      );
+    }
   }
 
   // Today's helpful post, when the person lets it post on its own (decision 50): once the AI has written it.
@@ -1402,7 +1704,7 @@ async function go(): Promise<void> {
     }
     if (settled) {
       await say(`Helpful post: ${end.line}`);
-      void feed(end.posted ? 'done' : 'passed', `Helpful post: ${end.line}`);
+      void feed(end.posted ? 'done' : 'failed', `Helpful post: ${end.line}`);
       return goAt(
         Date.now() + gapAfter({ now: Date.now(), until: null, left: 0, started: true, random }),
       );
@@ -1418,7 +1720,7 @@ async function go(): Promise<void> {
       return goAt(tomorrow());
     }
     await say(`Newest posts: ${end.line}`);
-    void feed('job', `Newest posts: ${end.line}`);
+    void feed(jobKind(end), `Newest posts: ${end.line}`);
     if ((await stateNow()).stopped) {
       await closeWindow();
       return goAt(tomorrow());
@@ -1568,7 +1870,7 @@ async function workNext(
   // A step tried again that it found done already is cleared (decision 145).
   if (work.do === 'step') void clearRetried(item, outcome, businessId);
   // The feed of today's steps in HandsFreeOS. A stop on a warning isn't one: HandsFreeOS writes that line itself.
-  void feed(outcome.done ? 'done' : 'passed', outcome.line);
+  void feed(outcomeKind(outcome), outcome.line);
   // Stop for today, pressed while that step went.
   if ((await stateNow()).stopped) {
     await closeWindow();
@@ -1582,7 +1884,6 @@ async function workNext(
     started: state.started || at.reading,
     random: Math.random(),
   });
-  if (gap > KEEP_WINDOW_MS) await closeWindow();
   await goAt(Date.now() + gap);
 }
 
@@ -1606,6 +1907,8 @@ export async function tick(): Promise<void> {
     );
     await goAt(Date.now() + AGAIN_MS).catch(() => undefined);
   } finally {
+    // Its tab closes the moment the go's work is done; the next step opens a fresh one (decision 171).
+    if (tab.tabId !== null) await closeWindow().catch(() => undefined);
     busy = false;
     // The day stopped, or another computer took over, while that go went: it looks again now, and stops or stands
     // by, rather than at the next step's time.

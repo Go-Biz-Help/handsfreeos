@@ -39,7 +39,7 @@ import { visitLine, visitPicks } from '@hfos/core/addons/outreach/keep-warm';
 import { businessDay } from '@hfos/core/addons/outreach/automation';
 import type { MessageKind } from '@hfos/core/addons/outreach/automation';
 import { ASK_FIRST_WORDS } from '@hfos/core/addons/outreach/asks';
-import { CHECKS_PER_DAY } from '@hfos/core/addons/outreach/checks';
+import { CHECKS_PER_DAY, checksBatchOf } from '@hfos/core/addons/outreach/checks';
 import {
   fallbackLikePick,
   LIKE_POSTS_READ,
@@ -53,7 +53,7 @@ import type { TodayKind } from '@hfos/core/addons/outreach/today';
 import { buttonFor } from '@hfos/core/addons/outreach/helper';
 import type { ProblemHelper } from '@hfos/core/problem-report';
 import { follow, loadSettings } from '../hfos/follow';
-import { feed, keptFor, onBeat, type Kept } from '../hfos/live';
+import { feed, jobKind, keptFor, onBeat, outcomeKind, type Kept } from '../hfos/live';
 import type { Drafts, TodayList, TodayListItem } from '../hfos/messages';
 import { isNoting, noteNeed, takeNote } from '../hfos/noting';
 import { clearRetried, handsOver, retryAfterUpdate } from './retry';
@@ -61,7 +61,16 @@ import { chatCollect, NOTHING_TO_ANSWER, yoursLast } from '../hfos/saves';
 import { answer, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
 import { chatMemory, LINKEDIN_MESSAGING, readChats } from '../jobs/chats';
-import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
+import { NO_RESEARCH, researchRuns } from '../jobs/comment-research';
+import {
+  pause as settle,
+  valueOf,
+  warnedLine,
+  type Hfos,
+  type Job,
+  type JobEnd,
+} from '../jobs/job';
+import { readLinkedInComments } from '../jobs/linkedin/comment-research';
 import { reporter } from '../jobs/report';
 import { checkConnections, isThem, readThemOnLinkedIn } from '../jobs/linkedin/checks';
 import { checkFound } from '../jobs/found-checks';
@@ -90,7 +99,7 @@ import {
   isCommentWork,
   sendComment,
   type CommentOutcome,
-  type CommentRunner,
+  type LookingRunner,
 } from './comments';
 import { DAILY_CHATS } from './daily';
 import { AWAY_AGAIN_MS, awayEnd, isNotAway, PutOff, waitingFor, waitingWords } from './on-screen';
@@ -105,7 +114,6 @@ import {
 } from './lists';
 import {
   afterDaily,
-  AGAIN_WORDS,
   ANSWERING,
   answersAnyTime,
   freshState,
@@ -161,7 +169,8 @@ export const LINKEDIN_AUTO: readonly TodayKind[] = ['confirm', 'warm_up', 'frien
  * its search found is read after the helpful post (`post_people`), and the people found are checked last
  * (`found_checks`), inside its 40 profiles read, found people first. From 0.109.0 who engaged with their helpful posts
  * is read on its own after the day's post is asked for (`engaged`), as that read needs its window in front, so waits
- * till they're away from their computer (decision 120) while the post goes up as ever.
+ * till they're away from their computer (decision 120) while the post goes up as ever. From 0.144.0 HandsFreeOS's own
+ * comment research before the profile (`comment_research`, decision 172), only for whoever of its staff started one.
  */
 export const LINKEDIN_DAILY = [
   'requests',
@@ -175,6 +184,7 @@ export const LINKEDIN_DAILY = [
   'engaged',
   'post_people',
   'found_checks',
+  'comment_research',
   'profile',
 ] as const satisfies readonly (DailyJob | OwnDailyJob)[];
 type LinkedInDaily = (typeof LINKEDIN_DAILY)[number];
@@ -191,6 +201,7 @@ const DAILY_DOING: Readonly<Record<LinkedInDaily, string>> = {
   engaged: 'Reading who engaged with your helpful posts on LinkedIn…',
   post_people: 'Reading who reacted to and commented on good posts on LinkedIn…',
   found_checks: 'Checking the people found on LinkedIn for good fits…',
+  comment_research: 'Reading comments under posts on LinkedIn for HandsFreeOS’s comment research…',
   profile: 'Reading your LinkedIn profile, as it does on the 1st of each month…',
 };
 const DAILY_NAMES: Readonly<Record<LinkedInDaily, string>> = {
@@ -205,6 +216,7 @@ const DAILY_NAMES: Readonly<Record<LinkedInDaily, string>> = {
   engaged: 'Who engaged with your posts',
   post_people: 'Who reacted and commented',
   found_checks: 'Check the people found',
+  comment_research: 'Comment research',
   profile: 'Read my profile',
 };
 
@@ -212,8 +224,6 @@ const DAILY_NAMES: Readonly<Record<LinkedInDaily, string>> = {
 export const LINKEDIN_GAP_MS = { least: 2 * 60_000, most: 6 * 60_000 } as const;
 /** While LinkedIn draws what a press opened. */
 const SETTLE_MS = 2_000;
-/** A gap longer than this closes its window until the next step. */
-const KEEP_WINDOW_MS = 5 * 60_000;
 /** After something went wrong, it tries again this much later. */
 const AGAIN_MS = 15 * 60_000;
 /** While noting is off, it looks again this often. */
@@ -614,7 +624,7 @@ async function visit(item: TodayListItem, businessId: string, likes: number): Pr
   if (!theirs.ok) throw new Error(theirs.error);
   const picks = visitPicks(theirs.posts, likes, neverLike);
   if (!picks.length) {
-    const line = visitLine(item.name, PLATFORM, 0);
+    const line = visitLine(item.name, PLATFORM, 0, item.keepWarm?.hi === true);
     await missed(item, businessId, line);
     return { done: true, line };
   }
@@ -655,7 +665,7 @@ async function visit(item: TodayListItem, businessId: string, likes: number): Pr
     );
     liked++;
   }
-  return { done: true, line: visitLine(item.name, PLATFORM, liked) };
+  return { done: true, line: visitLine(item.name, PLATFORM, liked, item.keepWarm?.hi === true) };
 }
 
 /** Where you stand with them, in words: for a step passed over. */
@@ -737,12 +747,11 @@ async function invite(item: TodayListItem, businessId: string): Promise<Outcome>
   const standing = opened.page.profile!.connection;
   if (standing === 'pending')
     return { done: false, line: `${item.name}: invited already`, skip: true };
+  if (standing === 'received')
+    return { done: false, line: `${item.name}: ${STANDING.received}`, need: true };
+  // Connected already, or their own profile: nothing's left to do, so it's no failure (decision 145).
   if (STANDING[standing])
-    return {
-      done: false,
-      line: `${item.name}: ${STANDING[standing]}`,
-      ...(standing === 'received' ? { need: true as const } : {}),
-    };
+    return { done: false, line: `${item.name}: ${STANDING[standing]}`, skip: true };
   const pressConnect = async (sent?: true) => {
     const went = await tab.ask({ type: 'hfos-connect', ...(sent ? { sent } : {}) });
     if (!went.ok) throw new Error(went.error);
@@ -808,7 +817,7 @@ async function invite(item: TodayListItem, businessId: string): Promise<Outcome>
  * What a comment's send (./comments.ts, decisions 92 and 102) borrows: this window's tab, and a look at the page it
  * opened for LinkedIn's warning. LinkedIn's pages never ask to sign in mid-run, so it never stops for now.
  */
-const commenting: CommentRunner = {
+const commenting: LookingRunner = {
   platform: PLATFORM,
   tab,
   async onPage(businessId) {
@@ -933,7 +942,14 @@ async function bringInChat(
 
 /** Drafts a message with the AI after looking them up on LinkedIn, and hands it to HandsFreeOS to wait or go. */
 async function draftMessage(item: TodayListItem, businessId: string): Promise<Outcome> {
-  if (item.kind === 'comment') return commentOutcome(await draftComment(item, businessId));
+  // The post's picture or video goes with its draft (decision 172, from 0.144.0).
+  if (item.kind === 'comment')
+    return commentOutcome(
+      await draftComment(item, businessId, {
+        runner: commenting,
+        them: keptMember(item.profileUrl, item.platformId),
+      }),
+    );
   if (item.kind === 'reply' || item.kind === 'partner_reply') {
     const stopped = await bringInChat(item, businessId);
     if (stopped) return stopped;
@@ -1066,8 +1082,32 @@ async function sendMessage(
   return { done: true, line: partly ?? `Sent ${item.name} a message` };
 }
 
-/** Does a piece of work: a step on the list, a draft, or a send. */
-export function doWork(work: Work, businessId: string, split: boolean): Promise<Outcome> {
+/**
+ * A LinkedIn warning that came after a step's own read, on a page LinkedIn moved to once it had drawn: its security
+ * check (/checkpoint/challenge/…), from the owner's problem reports of 19 Nov 2026 (0.147.11), where a warm-up read
+ * their profile's address before LinkedIn went on to its check, said "LinkedIn showed a different page", and the next
+ * two steps were handed over the same way. The page is read again once it has settled: its warning stops LinkedIn for
+ * the day, as one read in time does. Null with none, or with no window open.
+ */
+async function warnedLate(businessId: string): Promise<{ readonly stop: string } | null> {
+  if (tab.tabId === null) return null;
+  await settle(SETTLE_MS);
+  const page = await read().catch(() => null);
+  const stop = page ? await warnedOn(page, businessId) : null;
+  return stop ? { stop } : null;
+}
+
+/**
+ * Does a piece of work: a step on the list, a draft, or a send. One that didn't go, on a page that shows a LinkedIn
+ * warning by then, stops for the day instead (`warnedLate`).
+ */
+export async function doWork(work: Work, businessId: string, split: boolean): Promise<Outcome> {
+  const outcome = await workDone(work, businessId, split);
+  if ('stop' in outcome || outcome.done || outcome.skip) return outcome;
+  return (await warnedLate(businessId)) ?? outcome;
+}
+
+function workDone(work: Work, businessId: string, split: boolean): Promise<Outcome> {
   if (work.do === 'draft') return draftMessage(work.item, businessId);
   if (work.do === 'send') return sendMessage(work.item, businessId, split);
   switch (work.item.kind) {
@@ -1161,6 +1201,15 @@ const reporting = (job: Job, kind: LinkedInDaily): Job => ({
     }),
 });
 
+/**
+ * How many profiles LinkedIn's checks read in one go (decision 184): a few at a time, each next few 35 to 60 minutes
+ * later (`again`, plan.ts `afterDaily`), so the day's 40 spread through the day.
+ */
+const LINKEDIN_BATCH = checksBatchOf(PLATFORM) ?? CHECKS_PER_DAY;
+
+/** The words a day's last line adds while LinkedIn's checks wait for their next few (decision 184). */
+export const LINKEDIN_AGAIN_WORDS = 'It reads more profiles later today, a few at a time.';
+
 /** Does one of LinkedIn's once-a-day jobs. */
 export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<JobEnd> {
   switch (kind) {
@@ -1171,7 +1220,7 @@ export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<J
     case 'tidy':
       return withdrawOnItsOwn(job);
     case 'checks':
-      return checkConnections(job, CHECKS_PER_DAY);
+      return checkConnections(job, LINKEDIN_BATCH);
     case 'partners':
       return checkPartners(job, PARTNER_CHECKS_PER_DAY, {
         platform: PLATFORM,
@@ -1205,7 +1254,9 @@ export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<J
       // A post it couldn't read, or whose box of who reacted didn't open or read nobody, is noted with its outline.
       return readPostPeople(reporting(job, kind));
     case 'found_checks':
-      return checkFound(job, { platform: PLATFORM, read: readThemOnLinkedIn });
+      return checkFound(job, { platform: PLATFORM, read: readThemOnLinkedIn }, LINKEDIN_BATCH);
+    case 'comment_research':
+      return readLinkedInComments(job);
     case 'profile':
       return readProfileOnItsOwn(job, PLATFORM, linkedInProfileRead);
   }
@@ -1330,6 +1381,15 @@ async function go(): Promise<void> {
   const away = await awayNow();
   const passOver = putOff.passOver(away);
   let daily = choices.collect ? nextLinkedInDaily(state, passOver, at) : null;
+  // HandsFreeOS's own comment research (decision 172) is only for whoever of its staff started one: asked without a
+  // word once its turn comes, and for anyone else it's done for the day before a line of it is ever shown.
+  if (
+    daily === 'comment_research' &&
+    !(await researchRuns(answer as Hfos, to.businessId, PLATFORM))
+  ) {
+    state = await setState({ daily: { ...state.daily, comment_research: NO_RESEARCH } });
+    daily = nextLinkedInDaily(state, passOver, at);
+  }
   // Short of good fits once the day's reading is done (decision 126, answer 6a): it finds people again, with the next
   // search words, and checks them.
   if (
@@ -1374,7 +1434,7 @@ async function go(): Promise<void> {
       return soon();
     }
     await setState({ readLast: true });
-    void feed('job', `${NAME}: ${line}`);
+    void feed(jobKind(end), `${NAME}: ${line}`);
     if (before.do === 'save' && before.first && end.failed) {
       await closeWindow();
       await say(
@@ -1397,7 +1457,7 @@ async function go(): Promise<void> {
     const line = `${DAILY_NAMES[daily]}: ${end.line}`;
     await say(line, { readLast: true });
     if (end.away) putOff.off(daily);
-    else void feed('job', `${NAME}: ${line}`);
+    else void feed(jobKind(end), `${NAME}: ${line}`);
     return soon();
   }
 
@@ -1419,7 +1479,7 @@ async function go(): Promise<void> {
     if (settled) {
       const line = `Helpful post: ${end.line}`;
       await say(line);
-      void feed(end.posted ? 'done' : 'passed', `${NAME}: ${line}`);
+      void feed(end.posted ? 'done' : 'failed', `${NAME}: ${line}`);
       return soon();
     }
   }
@@ -1440,7 +1500,7 @@ async function go(): Promise<void> {
           : state.tried.length
             ? `Done for today on ${NAME}. It looks again within the hour for anything new.`
             : `Nothing on your ${NAME} list for it to do yet.`
-      }${again !== null ? ` ${AGAIN_WORDS}` : ''}`,
+      }${again !== null ? ` ${LINKEDIN_AGAIN_WORDS}` : ''}`,
     );
     return goAt(
       Math.min(
@@ -1566,7 +1626,7 @@ async function workNext(
   if (need) void noteNeed(need);
   // A step tried again that it found done already is cleared (decision 145).
   if (work.do === 'step') void clearRetried(item, outcome, businessId);
-  void feed(outcome.done ? 'done' : 'passed', `${NAME}: ${outcome.line}`);
+  void feed(outcomeKind(outcome), `${NAME}: ${outcome.line}`);
   if (stopAsked) {
     await closeWindow();
     return goAt(null);
@@ -1582,7 +1642,6 @@ async function workNext(
       random: at.random,
     }),
   );
-  if (gap > KEEP_WINDOW_MS) await closeWindow();
   await goAt(Date.now() + gap);
 }
 
@@ -1680,6 +1739,8 @@ export async function linkedInTick(): Promise<void> {
     );
     await goAt(Date.now() + AGAIN_MS).catch(() => undefined);
   } finally {
+    // Its tab closes the moment the go's work is done; the next step opens a fresh one (decision 171).
+    if (tab.tabId !== null) await closeWindow().catch(() => undefined);
     busy = false;
     if (again) {
       again = false;

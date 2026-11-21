@@ -18,6 +18,7 @@ import { fullName } from '../crm/records';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import { emailDedupeKey, emailPreview, matchPersonByEmail, SPAM_SCORE } from '../messaging/email';
+import { takeIntoHands } from '../messaging/hands';
 import {
   findConversation,
   findOrCreateConversation,
@@ -152,6 +153,9 @@ export const emailReceive = defineCommand({
     'lead.created',
     // Mail in Other mail or Spam (M19): filed, and nothing wakes up.
     'email.filed',
+    // An email someone wrote from their own mailbox puts the customer in their hands.
+    'person.taken_over',
+    'conversation.taken_over',
   ],
   actors: ['system'],
   async handler(ctx, input) {
@@ -527,6 +531,15 @@ export const emailReceive = defineCommand({
         after: { person: p ? fullName(p.firstName, p.lastName) : null, with: counterpart },
       });
     }
+    // An email someone wrote from their own mailbox, lately: the customer is in their hands (messaging/hands.ts).
+    if (!inbound && author && person && fresh && newest)
+      await takeIntoHands(ctx, {
+        personId: person,
+        userId: author,
+        how: 'wrote',
+        place: 'email',
+        at,
+      });
     if (nudge) {
       const m = await workspaceMessaging(ctx.tx, workspaceId);
       const reminderMs = input.reminderAfterMs ?? m.settings.unansweredReminderMinutes * 60_000;

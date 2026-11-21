@@ -11,6 +11,7 @@ export * from './plan';
 export * from './recommend';
 export * from './suggest';
 export * from './words';
+export * from './billing';
 export * from './catalog';
 export * from './planned';
 export * from './roadmap';

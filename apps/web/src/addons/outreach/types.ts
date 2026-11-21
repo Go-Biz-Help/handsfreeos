@@ -35,6 +35,15 @@ export type Automation = Ok<'/v1/queries/outreach.automation'>;
 export type AutomationPeople = Ok<'/v1/queries/outreach.automation.people'>;
 /** The person's extension right now, their day and today's steps (packages/core/src/addons/outreach/live.ts). */
 export type Live = Ok<'/v1/queries/outreach.live'>;
+/**
+ * A network's status card at the top of its page in Settings (decision 170): its live view, how many things wait on
+ * the person there under Needs you, and how many of Autopilot's people there wait for their OK.
+ */
+export interface NetworkHere {
+  readonly live: Live;
+  readonly waiting: number;
+  readonly people: number;
+}
 /** Each person's status for owners and admins: never their lines, feed or messages. */
 export type LiveTeam = Ok<'/v1/queries/outreach.live.team'>;
 /**

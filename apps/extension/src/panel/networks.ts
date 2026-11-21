@@ -3,8 +3,8 @@
  * they took back in Chrome (each is let on from install since 0.88.0, decision 85) gets a plain line and **Allow on
  * LinkedIn**, which asks Chrome (Chrome asks only from the person's own click, so the button is here); and a network that warned them today gets a red note naming
  * it. Facebook's warning is Next up's (./status.ts), where the runner works. A network that's off shows nothing.
- * LinkedIn's runner (src/auto/linkedin.ts), Alignable's (src/auto/alignable.ts) and Instagram's (src/auto/instagram.ts)
- * each say what they're doing in a line of their own.
+ * LinkedIn's runner (src/auto/linkedin.ts), Alignable's (src/auto/alignable.ts), Instagram's (src/auto/instagram.ts),
+ * and Threads' and X's (src/auto/follows.ts) each say what they're doing in a line of their own.
  */
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import {
@@ -12,6 +12,8 @@ import {
   INSTAGRAM_STATE_KEY,
   isState,
   LINKEDIN_STATE_KEY,
+  THREADS_STATE_KEY,
+  X_STATE_KEY,
   type AutoState,
 } from '../auto/plan';
 import { warnedByNetwork, WARNED_KEY, type WarnedByNetwork } from '../hfos/warned';
@@ -22,12 +24,14 @@ import { button, h, type Child } from './dom';
 let box: HTMLElement | null = null;
 let states: NetworkStates | null = null;
 let warned: WarnedByNetwork = {};
-/** Each network's own runner, as it keeps itself: LinkedIn's, Alignable's and Instagram's. */
+/** Each network's own runner, as it keeps itself: LinkedIn's, Alignable's, Instagram's, Threads' and X's. */
 let runners: Partial<Record<Platform, AutoState>> = {};
 const RUNNER_KEYS: Partial<Record<Platform, string>> = {
   linkedin: LINKEDIN_STATE_KEY,
   alignable: ALIGNABLE_STATE_KEY,
   instagram: INSTAGRAM_STATE_KEY,
+  threads: THREADS_STATE_KEY,
+  x: X_STATE_KEY,
 };
 /** The networks Chrome was asked about from here and said no to, until it says yes. */
 const refused = new Set<Platform>();

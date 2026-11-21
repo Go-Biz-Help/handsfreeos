@@ -7,7 +7,7 @@
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { mergeRecent } from '../../src/addons/outreach/chat-collect';
+import { mergeRecent, WORDLESS, withoutStatus } from '../../src/addons/outreach/chat-collect';
 import { outreachBusiness, refused, runAs } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
@@ -54,6 +54,85 @@ describe('keeping the latest few', () => {
     const c = them('Demo?', '2026-09-02T10:00:00.000Z');
     expect(mergeRecent([a, b], [b, c])).toEqual([a, b, c]);
     expect(mergeRecent([c], [a])).toEqual([a, c]);
+  });
+
+  // Instagram's messages show no time: each read gives them the time the chat's row says, which moves on. The owner's
+  // screenshot (17 Nov 2026) showed one first message, sent once, nine times over.
+  it('knows a message read again by its words, whatever time the read gave it', () => {
+    const sent = me('Hey, could I help you book more jobs?', '2026-11-09T16:26:00.000Z');
+    let kept = mergeRecent([], [sent]);
+    for (const at of [
+      '2026-11-09T17:04:00.000Z',
+      '2026-11-09T22:33:00.000Z',
+      '2026-11-15T17:29:00.000Z',
+    ])
+      kept = mergeRecent(kept, [{ ...sent, text: ` ${sent.text}\n`, at }]);
+    expect(kept).toEqual([sent]);
+    // Their answer comes in with the read's time: it's new, and the first message keeps its own.
+    const answer = them('Sure, tell me more', '2026-11-16T10:00:00.000Z');
+    expect(mergeRecent(kept, [{ ...sent, at: answer.at }, answer])).toEqual([sent, answer]);
+  });
+
+  it('keeps words said twice in a chat twice, and puts a new one after what it followed', () => {
+    const hi = me('Hi', '2026-11-01T10:00:00.000Z');
+    const ok = them('ok', '2026-11-01T11:00:00.000Z');
+    const thanks = me('Thanks', '2026-11-02T10:00:00.000Z');
+    const kept = [hi, ok, thanks];
+    // The same "ok" again, read with a time from before the last kept one: it's new, and goes last.
+    const again = them('ok', '2026-11-01T09:00:00.000Z');
+    const merged = mergeRecent(kept, [ok, thanks, again]);
+    expect(merged.map((m) => m.text)).toEqual(['Hi', 'ok', 'Thanks', 'ok']);
+    expect(merged[3]!.at).toBe(thanks.at);
+    // A read that missed one in the middle (its side didn't show) keeps it where it was.
+    expect(mergeRecent(kept, [hi, thanks])).toEqual(kept);
+  });
+});
+
+describe('what Messenger says about a message', () => {
+  it('leaves the line under the person’s last message off it', () => {
+    expect(withoutStatus('Talk soon\nSent 33m ago', true)).toBe('Talk soon');
+    expect(withoutStatus('Talk soon\nSeen 2h ago\n', true)).toBe('Talk soon');
+    expect(withoutStatus('Talk soon\nDelivered', true)).toBe('Talk soon');
+    expect(withoutStatus('Sent you the link\nSent just now', true)).toBe('Sent you the link');
+    expect(withoutStatus('I sent it 2 days ago', true)).toBe('I sent it 2 days ago');
+  });
+
+  it('keeps one of the person’s with no words as that, and leaves Facebook’s own line out', () => {
+    expect(withoutStatus('Sent 1d ago', true)).toBe(WORDLESS);
+    expect(withoutStatus('Sent 1d ago', false)).toBe('');
+    expect(
+      withoutStatus(
+        'New messages and calls are secured with end-to-end encryption. Only people in this chat can read, listen to, or share them.',
+        false,
+      ),
+    ).toBe('');
+  });
+
+  // The owner's screenshots (17 Nov 2026): one check-in, sent once, kept six times over, each "Sent 18h ago", "Sent 23h
+  // ago" and on, as each read took the line under it for part of it.
+  it('knows a message read again with another line under it', () => {
+    const checkIn = me('Hey William, just checking in on this.', '2026-11-16T15:00:00.000Z');
+    const hi = them('Hi there', '2026-11-15T15:00:00.000Z');
+    let kept = mergeRecent([], [hi, { ...checkIn, text: `${checkIn.text}\nSent 18h ago` }]);
+    for (const line of ['Sent 23h ago', 'Seen 1d ago', 'Delivered', 'Sent 2d ago'])
+      kept = mergeRecent(kept, [hi, { ...checkIn, text: `${checkIn.text}\n${line}` }]);
+    expect(kept).toEqual([hi, checkIn]);
+    // Kept with the line by a HandsFreeOS from before, it comes off, and the same message without it is the same one.
+    expect(mergeRecent([{ ...checkIn, text: `${checkIn.text}\nSent 33m ago` }], [checkIn])).toEqual(
+      [checkIn],
+    );
+  });
+
+  it('keeps a picture the person sent, once, so the chat still ends with them', () => {
+    const notice = them(
+      'Messages and calls are secured with end-to-end encryption.',
+      '2026-11-01T10:00:00.000Z',
+    );
+    const skull = them('💀', '2026-11-01T10:00:00.000Z');
+    const picture = me('Sent 6m ago', '2026-11-01T18:15:00.000Z');
+    const kept = mergeRecent([], [notice, skull, picture]);
+    expect(kept).toEqual([skull, { ...picture, text: WORDLESS }]);
+    expect(mergeRecent(kept, [skull, { ...picture, text: 'Sent 1d ago' }])).toEqual(kept);
   });
 });
 
@@ -222,6 +301,37 @@ describe('chats read in Messenger', () => {
       expect(both).toHaveLength(2);
       expect(both.every((c) => c.profile_id !== null)).toBe(true);
     });
+  });
+
+  it('keeps a message once when each read gives it another time', async () => {
+    const riley = (at: string) => ({
+      name: 'Riley Stone',
+      thread: { id: '4000111', encrypted: false },
+      profile: null,
+      messages: [me('Hey, could I help you book more jobs?', at)],
+    });
+    expect((await collect([riley(daysAgo(3))])).saved).toBe(1);
+    // Read again later with the time moved on: nothing new, so nothing kept and nothing counted.
+    expect((await collect([riley(daysAgo(2))])).saved).toBe(0);
+    expect((await collect([riley(daysAgo(1))])).saved).toBe(0);
+    const r = await chatOf('Riley Stone');
+    expect(r!.recent.map((m) => m.text)).toEqual(['Hey, could I help you book more jobs?']);
+    expect(r!.messages).toBe(1);
+  });
+
+  it('keeps a message once when the line under it changes', async () => {
+    const morgan = (line: string) => ({
+      name: 'Morgan Price',
+      thread: { id: '4000222', encrypted: false },
+      profile: null,
+      messages: [them('Sounds good', daysAgo(2)), me(`Talk soon\n${line}`, daysAgo(1))],
+    });
+    expect((await collect([morgan('Sent 33m ago')])).saved).toBe(1);
+    expect((await collect([morgan('Sent 4h ago')])).saved).toBe(0);
+    expect((await collect([morgan('Seen 1d ago')])).saved).toBe(0);
+    const m = await chatOf('Morgan Price');
+    expect(m!.recent.map((x) => x.text)).toEqual(['Sounds good', 'Talk soon']);
+    expect(m).toMatchObject({ messages: 2, last_from_me: true });
   });
 
   it('refuses messages from after today', async () => {

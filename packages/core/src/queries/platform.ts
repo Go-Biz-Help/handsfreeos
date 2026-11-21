@@ -87,7 +87,8 @@ export const platformBusinessList = defineQuery({
   permission: 'platform.businesses.read',
   scope: onPlatform,
   async handler(ctx, input) {
-    const conditions = [];
+    // Practice businesses (Admin → Try onboarding) are nobody's sign-up: they're never listed.
+    const conditions = [isNull(organizations.practiceEndsAt)];
     if (input.search) {
       const like = `%${input.search}%`;
       conditions.push(or(ilike(workspaces.name, like), ilike(organizations.name, like))!);
@@ -97,13 +98,14 @@ export const platformBusinessList = defineQuery({
     // Only the orders by sign-up page, because they are the only ones that cannot change under the reader's feet.
     const pages = input.sort === 'newest' || input.sort === 'attention';
     if (input.cursor && pages) conditions.push(lt(workspaces.createdAt, new Date(input.cursor)));
+    // A business whose people have never done anything has no last active: the quietest of all, never the busiest.
     const order =
       input.sort === 'name'
         ? [asc(workspaces.name)]
         : input.sort === 'busiest'
-          ? [desc(lastActive)]
+          ? [dsql`${lastActive} desc nulls last`, desc(workspaces.createdAt)]
           : input.sort === 'quietest'
-            ? [asc(lastActive)]
+            ? [dsql`${lastActive} asc nulls first`, desc(workspaces.createdAt)]
             : [desc(workspaces.createdAt)];
     const list = await ctx.tx
       .select({
@@ -118,7 +120,7 @@ export const platformBusinessList = defineQuery({
       })
       .from(workspaces)
       .leftJoin(organizations, eq(organizations.id, workspaces.organizationId))
-      .where(conditions.length ? and(...conditions) : undefined)
+      .where(and(...conditions))
       .orderBy(...order)
       .limit(input.limit + 1);
     const page = list.slice(0, input.limit);
@@ -202,10 +204,10 @@ export const platformBusinessGet = defineQuery({
         fullName: users.fullName,
         email: dsql<string>`${users.email}::text`,
         role: workspaceMemberships.role,
-        lastActiveAt: dsql<string | null>`(
-          select max(e.created_at)::text from app.events e
-          where e.workspace_id = ${input.workspaceId} and e.actor_id = ${users.id}
-        )`,
+        // Staff read none of a business's events under the ordinary rules: the function checks the permission.
+        lastActiveAt: dsql<
+          string | null
+        >`private.admin_person_last_active(${input.workspaceId}, ${users.id})::text`,
       })
       .from(workspaceMemberships)
       .innerJoin(users, eq(users.id, workspaceMemberships.userId))
@@ -224,11 +226,31 @@ export const platformBusinessGet = defineQuery({
       .where(and(eq(tickets.workspaceId, input.workspaceId), isNull(tickets.mergedInto)))
       .orderBy(desc(tickets.createdAt))
       .limit(20);
-    const grants = await rows<{ addon_id: string; note: string | null; granted_at: string }>(
+    const grants = await rows<{
+      addon_id: string;
+      note: string | null;
+      granted_at: string;
+      free_until: string | null;
+    }>(
       ctx.tx,
-      sql`select addon_id, note, granted_at::text from platform.addon_grants
+      sql`select addon_id, note, granted_at::text, free_until::text from platform.addon_grants
           where workspace_id = ${input.workspaceId}::uuid order by addon_id`,
     );
+    const paying = await rows<{
+      addon_id: string;
+      status: 'trial' | 'active' | 'past_due' | 'ended';
+      price_cents: number;
+      trial_ends_at: string | null;
+      paid_through: string | null;
+      next_charge_at: string | null;
+      stop_at: string | null;
+    }>(
+      ctx.tx,
+      sql`select addon_id, status, price_cents, trial_ends_at::text, paid_through::text, next_charge_at::text,
+            stop_at::text
+          from app.addon_subscriptions where workspace_id = ${input.workspaceId}::uuid order by addon_id`,
+    );
+    const at = (v: string | null) => (v ? new Date(v).toISOString() : null);
     return {
       phoneModel: PHONE_MODELS.find((m) => m === row.w.phoneModel) ?? null,
       phoneListener: PHONE_LISTENERS.find((l) => l === row.w.phoneListener) ?? null,
@@ -238,6 +260,16 @@ export const platformBusinessGet = defineQuery({
         addonId: g.addon_id,
         note: g.note,
         grantedAt: new Date(g.granted_at).toISOString(),
+        freeUntil: at(g.free_until),
+      })),
+      addonSubscriptions: paying.map((p) => ({
+        addonId: p.addon_id,
+        status: p.status,
+        priceCents: p.price_cents,
+        trialEndsAt: at(p.trial_ends_at),
+        paidThrough: at(p.paid_through),
+        nextChargeAt: at(p.next_charge_at),
+        stopAt: at(p.stop_at),
       })),
       business: {
         workspaceId: row.w.id,

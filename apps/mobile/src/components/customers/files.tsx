@@ -1,12 +1,15 @@
 import { fileKindLabel, filePhoneLine, formatBytes, FILE_WORDS, type FileOut } from '@hfos/core';
 import * as React from 'react';
-import { Pressable, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 
 import { Camera, FileText, Image as ImageIcon, CloudUpload } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { toast } from '@/components/ui/toast';
+import { MediaViewer } from '@/components/inbox/media-viewer';
+import { signedUrl } from '@/inbox/storage';
 import { usePhotoProgress } from '@/changes/hooks';
 import type { PhotoRow } from '@/changes/photos';
 import { megabytes } from '@/changes/list';
@@ -54,6 +57,59 @@ export function FileRow({
       </Text>
       {!online ? <Text className="text-[11px] text-text-3">{FILE_WORDS.needsSignal}</Text> : null}
     </Pressable>
+  );
+}
+
+/** What opens over the screen itself: a photo or a video. Anything else opens in whatever the phone uses for it. */
+const showsHere = (file: FileOut) => file.isImage || (file.mimeType ?? '').startsWith('video/');
+
+/**
+ * A record's files that have landed. Tapping one asks Storage for a short-lived link as the signed-in person (Storage's
+ * own rules decide whether they may read it). A photo or a video then opens over the screen, in the viewer messages
+ * use; a PDF or a document opens in the phone's browser. It never goes through the web app: there is no page there
+ * for one file, and the person may not be signed in to it on this phone.
+ */
+export function FileRows({ files, online }: { files: readonly FileOut[]; online: boolean }) {
+  // Each opening gets a new key, so it starts unzoomed; closing keeps it mounted long enough to fade out.
+  const [viewer, setViewer] = React.useState<{
+    file: FileOut;
+    url: string;
+    key: number;
+    open: boolean;
+  } | null>(null);
+  async function open(file: FileOut) {
+    const link = await signedUrl(file.bucket, file.objectPath).catch(() => null);
+    if (!link) {
+      toast.error(online ? FILE_WORDS.wontOpen : FILE_WORDS.needsSignal);
+      return;
+    }
+    if (showsHere(file)) {
+      setViewer((was) => ({ file, url: link, key: (was?.key ?? 0) + 1, open: true }));
+      return;
+    }
+    await Linking.openURL(link).catch(() => toast.error(FILE_WORDS.wontOpen));
+  }
+  return (
+    <>
+      {files.map((file) => (
+        <FileRow key={file.id} file={file} online={online} onOpen={(f) => void open(f)} />
+      ))}
+      {viewer ? (
+        <MediaViewer
+          key={viewer.key}
+          media={{
+            bucket: viewer.file.bucket,
+            objectPath: viewer.file.objectPath,
+            contentType: viewer.file.mimeType ?? 'image/jpeg',
+            sizeBytes: viewer.file.sizeBytes ?? 0,
+            name: viewer.file.name,
+          }}
+          url={viewer.url}
+          open={viewer.open}
+          onClose={() => setViewer((was) => was && { ...was, open: false })}
+        />
+      ) : null}
+    </>
   );
 }
 

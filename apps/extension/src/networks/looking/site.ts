@@ -25,8 +25,8 @@ import type { CenterNetwork } from '../accounts-center/pages';
 import type { Noticer } from '../kit';
 import type { StepTry, TryStep } from '../tries';
 
-/** A network looked at: Instagram or Alignable. */
-export type LookingPlatform = Extract<Platform, 'instagram' | 'alignable'>;
+/** A network built on this kit: Instagram, Alignable, and from decision 163 Threads and X (../follows/). */
+export type LookingPlatform = Extract<Platform, 'instagram' | 'alignable' | 'threads' | 'x'>;
 
 /** Whose post a comment goes on, and which (decision 92): their profile, and the post's own link. */
 export interface CommentOn {
@@ -118,6 +118,8 @@ export interface LookingSite {
   readonly words: ReadonlySet<string>;
   /** Its own words in an address's query, kept in an outline beside every network's (tab, type, filter, sort). */
   readonly queryKept?: ReadonlySet<string>;
+  /** Its parts' test ids that end in someone's username (X's): the name hidden in an outline (../outline.ts). */
+  readonly testIdName?: RegExp;
   /** Its warnings, as its pages word them. */
   readonly warnings: readonly RegExp[];
   /** The addresses that are themselves a warning: a check of the account before going on. */
@@ -281,6 +283,17 @@ export interface LookingSite {
       text: string,
       on: CommentOn,
     ) => Promise<AutoResult>;
+    /**
+     * The post's own part of its page, for a look at its picture or video before its comment is drafted (decision
+     * 166, ../post-look.ts): `on` says whose post and which, as for `comment`, and it's given only on that post's own
+     * page. `skip` rules out what's drawn there but isn't the post's (a tile that opens another post). Null on any
+     * other page. A site without it is never looked at, and its comments are written from the post's words.
+     */
+    readonly postPart?: (
+      doc: Document,
+      href: string,
+      on: CommentOn,
+    ) => { readonly root: Element; readonly skip: (el: Element) => boolean } | null;
     /**
      * The group's own Join, on its page (Alignable's, decision 92): what came of it, as Facebook's `hfos-join` says.
      * `answerJoin`, where the site asks questions first; a site without it asks none, so the kit says there were none.

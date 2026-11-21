@@ -145,13 +145,13 @@ export function handedLine(
 /** Take over: what the toast says, with or without a draft dropped. */
 export function takeOverToast(name: string, draftCancelled: boolean): string {
   return draftCancelled
-    ? `You took over. ${name}’s draft was dropped, and it stays quiet until you hand it back.`
-    : `It’s yours. ${name} stays quiet until you hand it back.`;
+    ? `You took over. ${name}’s draft was dropped, and it stays quiet with them everywhere until you hand them back.`
+    : `They’re in your hands. ${name} stays quiet with them everywhere until you hand them back.`;
 }
 
 /** Hand back: what the toast says. */
 export function handBackToast(name: string, who: string): string {
-  return `Handed back to ${name}. It answers ${who}’s next message.`;
+  return `Handed back to ${name}. It answers ${who}’s next message, and ${who} is out of your hands.`;
 }
 
 /** "Hand Tom back to Ava?": handing back always asks first. */
@@ -165,9 +165,9 @@ export function handBackQuestion(name: string, who: string): { title: string; bo
 /** Above the composer when sending changes who answers. */
 export function handoverNote(view: HandlingView, name: string): string | null {
   return view === 'ai'
-    ? `Sending takes this conversation over from ${name}. It stays quiet until someone hands it back.`
+    ? `Sending puts them in your hands. ${name} stays quiet with them everywhere until someone hands them back.`
     : view === 'needs_person'
-      ? `Replying takes it. ${name} stays quiet until someone hands it back.`
+      ? `Replying takes it. ${name} stays quiet with them until someone hands them back.`
       : null;
 }
 

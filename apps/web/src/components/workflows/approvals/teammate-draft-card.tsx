@@ -157,7 +157,9 @@ export function TeammateDraftCard({
     try {
       if (how === 'take') {
         await cmd.takeOver(d.conversationId);
-        toast.success(`It’s yours. ${name} stays quiet until you hand it back.`);
+        toast.success(
+          `They’re in your hands. ${name} stays quiet with them everywhere until you hand them back.`,
+        );
         router.push(`/app/w/${workspaceId}/inbox/${d.conversationId}`);
       } else {
         await cmd.retry(d.id);

@@ -27,6 +27,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { FormLogoMark, useFormLook } from '@/components/forms/form-look';
 import { Button } from '@/components/ui/button';
 import { FieldError, Label } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
@@ -34,6 +35,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ApiError } from '@/lib/api/errors';
 import {
   bookOnline,
+  getHalfway,
   getOpenTimes,
   isHeld,
   joinWaitlist,
@@ -50,6 +52,7 @@ import {
 import { cn } from '@/lib/utils';
 import { BookedPanel } from './booked-panel';
 import { DepositStep, TimeWentPanel } from './deposit-pay';
+import { showFrameTop, useEmbedded } from './embedded';
 import {
   dateShort,
   dayShort,
@@ -105,13 +108,17 @@ function StepHead({
   sub,
   onBack,
   className,
+  isName,
 }: {
   label?: string;
   title: string;
   sub?: ReactNode;
   onBack?: () => void;
   className?: string;
+  /** The heading is the calendar's name, which its design can hide (screen readers still hear it). */
+  isName?: boolean;
 }) {
+  const { showTitle } = useFormLook();
   return (
     <div className={cn('flex flex-col gap-0.5', className)}>
       <div className="flex min-h-6 items-center justify-between">
@@ -133,7 +140,14 @@ function StepHead({
           </button>
         ) : null}
       </div>
-      <h1 className="text-lg font-semibold tracking-[-0.005em]">{title}</h1>
+      <h1
+        className={cn(
+          'text-lg font-semibold tracking-[-0.005em]',
+          isName && !showTitle && 'sr-only',
+        )}
+      >
+        {title}
+      </h1>
       {sub ? <p className="text-[13px] text-text-2">{sub}</p> : null}
     </div>
   );
@@ -205,6 +219,128 @@ function ChoiceGroup({ label, children }: { label: string; children: ReactNode }
     <div role="radiogroup" aria-label={label} className="flex flex-col gap-2">
       <span className="text-[13px] font-medium">{label}</span>
       {children}
+    </div>
+  );
+}
+
+type MeetHow = 'usual' | 'halfway' | 'name';
+
+/**
+ * Where to meet, on a calendar that meets up somewhere (decision 179 in docs/outreach.md: coffee spots): the usual
+ * spot, a coffee shop halfway between them (found from their address), or a place they name. The spot is where the
+ * team drives to, so the times come after it.
+ */
+function MeetSpot({
+  site,
+  calendarSlug,
+  usual,
+  chosenUserId,
+  value,
+  onChange,
+}: {
+  site: string;
+  calendarSlug: string;
+  usual: string | null;
+  chosenUserId: string | null;
+  value: { how: MeetHow; at: string };
+  onChange: (v: { how: MeetHow; at: string }) => void;
+}) {
+  const [from, setFrom] = useState('');
+  const [found, setFound] = useState<{ name: string; address: string } | null>(null);
+  const [looking, setLooking] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [named, setNamed] = useState(value.how === 'name' ? value.at : '');
+
+  async function findHalfway() {
+    setLooking(true);
+    setProblem(null);
+    try {
+      const { spot } = await getHalfway(site, calendarSlug, { address: from.trim(), chosenUserId });
+      setFound(spot);
+      if (spot) onChange({ how: 'halfway', at: `${spot.name}, ${spot.address}` });
+      else
+        setProblem(
+          usual
+            ? 'We couldn’t find a spot halfway. Pick our usual spot, or name a place.'
+            : 'We couldn’t find a spot halfway. Name a place you like instead.',
+        );
+    } catch (e) {
+      setProblem(e instanceof Error ? e.message : 'That didn’t work. Try again in a minute.');
+    } finally {
+      setLooking(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2" data-testid="meet-spot">
+      <ChoiceGroup label="Where should we meet?">
+        {usual ? (
+          <Choice
+            selected={value.how === 'usual'}
+            onSelect={() => onChange({ how: 'usual', at: usual })}
+            title="Our usual spot"
+            description={usual}
+            testId="meet-usual"
+          />
+        ) : null}
+        <Choice
+          selected={value.how === 'halfway'}
+          onSelect={() =>
+            onChange({ how: 'halfway', at: found ? `${found.name}, ${found.address}` : '' })
+          }
+          title="Somewhere halfway"
+          description={found ? `${found.name}, ${found.address}` : 'A coffee shop between us.'}
+          testId="meet-halfway"
+        />
+        <Choice
+          selected={value.how === 'name'}
+          onSelect={() => onChange({ how: 'name', at: named })}
+          title="I’ll pick the place"
+          description="Tell us the name and address."
+          testId="meet-name"
+        />
+      </ChoiceGroup>
+      {value.how === 'halfway' ? (
+        <div>
+          <Label htmlFor="bk-meet-from">Your address or town</Label>
+          <div className="flex gap-2">
+            <Input
+              id="bk-meet-from"
+              autoComplete="street-address"
+              placeholder="Round Rock, TX"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              data-testid="meet-from"
+            />
+            <Button
+              variant="secondary"
+              loading={looking}
+              disabled={from.trim().length < 3}
+              onClick={() => void findHalfway()}
+              data-testid="meet-find"
+            >
+              Find a spot
+            </Button>
+          </div>
+          <FieldError>{problem}</FieldError>
+        </div>
+      ) : null}
+      {value.how === 'name' ? (
+        <div>
+          <Label htmlFor="bk-meet-named">The place</Label>
+          <Input
+            id="bk-meet-named"
+            placeholder="Mozart’s Coffee, 3825 Lake Austin Blvd, Austin, TX"
+            value={named}
+            maxLength={300}
+            onChange={(e) => {
+              setNamed(e.target.value);
+              onChange({ how: 'name', at: e.target.value });
+            }}
+            data-testid="meet-named"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -514,6 +650,8 @@ export function BookingFlow({
   linkRef?: string | null;
 }) {
   const info = page.booking!;
+  // The calendar's name at the top, unless its design hides it (screen readers still hear it).
+  const { showTitle } = useFormLook();
   // Times in the visitor's zone (their device's, or the one they changed it to), the owner's pick 4a.
   const [tz, setTz] = useViewerZone(page.timezone);
   const zoneLine = (
@@ -539,16 +677,30 @@ export function BookingFlow({
   const zipRouting = info.zipRouting;
   // M18: areas by distance or drawn on a map go by the street address; the open times say if it's served.
   const byAddress = !!zipRouting?.byAddress;
+  // Decision 179: a calendar that leaves time to drive between visits times the drive to a visit at their address.
+  const drives = !!info.drives && locationKind === 'customer_address';
+  const askWhere = byAddress || drives;
   const [where, setWhere] = useState('');
   const whereComplete = where.trim().length >= 8 && /\d/.test(where);
   const zipComplete = /^\d{5}$/.test(zip);
   const zipCovered =
-    !zipRouting ||
-    (byAddress ? whereComplete : zipComplete && zipRouting.postalCodes.includes(zip));
+    (!drives || whereComplete) &&
+    (!zipRouting ||
+      (askWhere ? whereComplete : zipComplete && zipRouting.postalCodes.includes(zip)));
   const chooseLocation = info.customerChoosesLocation && info.locations.length > 1;
+  // Decision 179: a calendar that meets up somewhere asks where before the times, as the drive depends on it.
+  const meetup = locationKind === 'meetup';
+  const usualSpot = info.locations.find((l) => l.kind === 'meetup')?.address ?? null;
+  const [meet, setMeet] = useState<{ how: MeetHow; at: string }>({
+    how: usualSpot ? 'usual' : 'halfway',
+    at: usualSpot ?? '',
+  });
+  const meetAt = meetup ? meet.at.trim() : '';
   const hasChoices =
     !sessionsMode &&
     (!!zipRouting ||
+      !!info.drives ||
+      info.locations.some((l) => l.kind === 'meetup') ||
       info.services.length > 1 ||
       lengths.length > 1 ||
       info.people.length > 1 ||
@@ -589,7 +741,16 @@ export function BookingFlow({
   const maxDate = info.window.dateTo && info.window.dateTo < horizon ? info.window.dateTo : horizon;
   const [slot, setSlot] = useState<PublicSlot | null>(null);
   const [noTimes, setNoTimes] = useState(false);
-  const loadKey = JSON.stringify([serviceId, duration, party, zip, where, personId, locationKind]);
+  const loadKey = JSON.stringify([
+    serviceId,
+    duration,
+    party,
+    zip,
+    where,
+    personId,
+    locationKind,
+    meetAt,
+  ]);
   const load = useCallback(
     (from: string, to: string) =>
       getOpenTimes(site, calendarSlug, {
@@ -598,8 +759,8 @@ export function BookingFlow({
         serviceId,
         durationMinutes: sessionsMode ? undefined : duration,
         partySize: party,
-        postalCode: zipRouting && !byAddress ? zip : null,
-        address: byAddress ? where.trim() : null,
+        postalCode: zipRouting && !askWhere ? zip : null,
+        address: meetup ? meetAt || null : askWhere ? where.trim() : null,
         chosenUserId: personId || null,
         locationKind,
       }),
@@ -611,7 +772,9 @@ export function BookingFlow({
       duration,
       party,
       zipRouting,
-      byAddress,
+      askWhere,
+      meetup,
+      meetAt,
       zip,
       where,
       personId,
@@ -693,10 +856,13 @@ export function BookingFlow({
   const [waitFor, setWaitFor] = useState<WaitlistTarget | null>(null);
   const [waitlisted, setWaitlisted] = useState<{ position: number; again: boolean } | null>(null);
 
+  const embedded = useEmbedded();
   const go = (s: Step) => {
     setError(null);
     setStep(s);
     window.scrollTo({ top: 0 });
+    // On the business's own site, the box's top is what scrolled away, not this page's.
+    if (embedded) showFrameTop();
   };
 
   function failed(e: unknown) {
@@ -755,8 +921,12 @@ export function BookingFlow({
         durationMinutes: sessionsMode ? undefined : duration,
         partySize: party,
         locationKind,
-        address: needsAddress || byAddress ? form.address.trim() || where.trim() || null : null,
-        postalCode: zipRouting && !byAddress ? zip : null,
+        address: meetup
+          ? meetAt || null
+          : needsAddress || askWhere
+            ? form.address.trim() || where.trim() || null
+            : null,
+        postalCode: zipRouting && !askWhere ? zip : null,
         chosenUserId: personId || null,
         name: form.name,
         phone: form.phone.trim() || null,
@@ -1026,8 +1196,13 @@ export function BookingFlow({
   if (step === 'choose') {
     content = (
       <>
-        <StepHead label={stepLabel} title={page.calendar.name} sub={page.calendar.description} />
-        {byAddress ? (
+        <StepHead
+          label={stepLabel}
+          title={page.calendar.name}
+          sub={page.calendar.description}
+          isName
+        />
+        {askWhere ? (
           <div>
             <Label htmlFor="bk-where">Your street address</Label>
             <Input
@@ -1041,7 +1216,9 @@ export function BookingFlow({
               }}
             />
             <p className="mt-1.5 text-xs text-text-3">
-              We check it against where we go. The times you see next are for your address.
+              {drives
+                ? 'We leave time to drive to you, so the times you see next fit your address.'
+                : 'We check it against where we go. The times you see next are for your address.'}
             </p>
           </div>
         ) : zipRouting ? (
@@ -1158,12 +1335,25 @@ export function BookingFlow({
             ))}
           </ChoiceGroup>
         ) : null}
+        {meetup ? (
+          <MeetSpot
+            site={site}
+            calendarSlug={calendarSlug}
+            usual={usualSpot}
+            chosenUserId={personId || null}
+            value={meet}
+            onChange={setMeet}
+          />
+        ) : null}
         {maxParty > 1 ? <PartyStepper value={party} max={maxParty} onChange={setParty} /> : null}
         <ActionBar>
           <Button
             size="lg"
             className="w-full"
-            disabled={!zipCovered || (info.services.length > 0 && !service)}
+            data-form-action=""
+            disabled={
+              !zipCovered || (meetup && meetAt.length < 3) || (info.services.length > 0 && !service)
+            }
             onClick={() => go('time')}
           >
             Continue
@@ -1188,7 +1378,14 @@ export function BookingFlow({
               <span className="text-xs font-semibold uppercase tracking-[0.04em] text-text-3">
                 {stepLabel}
               </span>
-              <h1 className="text-lg font-semibold">{what}</h1>
+              <h1
+                className={cn(
+                  'text-lg font-semibold',
+                  what === page.calendar.name && !showTitle && 'sr-only',
+                )}
+              >
+                {what}
+              </h1>
               <span className="flex items-center gap-2 text-[13px] text-text-2">
                 <Clock size={15} aria-hidden />
                 {lengthLabel(duration)}
@@ -1236,7 +1433,12 @@ export function BookingFlow({
             }}
             onEmpty={() => setNoTimes(true)}
             footer={
-              <Button className="w-full" disabled={!slot} onClick={() => go('details')}>
+              <Button
+                className="w-full"
+                disabled={!slot}
+                onClick={() => go('details')}
+                data-form-action=""
+              >
                 {slot ? `Continue with ${timeOf(slot.startsAt, tz)}` : 'Continue'}
               </Button>
             }
@@ -1251,7 +1453,13 @@ export function BookingFlow({
               <span className="text-text-3">{lengthLabel(duration)}</span>
             </div>
           ) : null}
-          <Button size="lg" className="w-full" disabled={!slot} onClick={() => go('details')}>
+          <Button
+            size="lg"
+            className="w-full"
+            disabled={!slot}
+            onClick={() => go('details')}
+            data-form-action=""
+          >
             Continue
           </Button>
         </ActionBar>
@@ -1260,7 +1468,7 @@ export function BookingFlow({
   } else if (step === 'sessions') {
     content = (
       <>
-        <StepHead title={page.calendar.name} sub={page.calendar.description} />
+        <StepHead title={page.calendar.name} sub={page.calendar.description} isName />
         {maxParty > 1 ? <PartyStepper value={party} max={maxParty} onChange={setParty} /> : null}
         {rows.length ? (
           <div className="divide-y divide-border overflow-hidden rounded-card border border-border bg-card shadow-1">
@@ -1396,6 +1604,7 @@ export function BookingFlow({
             className="w-full"
             loading={submitting}
             disabled={botSiteKey !== null && !botToken}
+            data-form-action=""
           >
             Join the waitlist
           </Button>
@@ -1527,6 +1736,7 @@ export function BookingFlow({
             className="w-full"
             loading={submitting}
             disabled={!slot || (botSiteKey !== null && !botToken)}
+            data-form-action=""
           >
             {takesPayment ? 'Continue to payment' : `Book ${what}`}
           </Button>
@@ -1543,6 +1753,8 @@ export function BookingFlow({
       )}
       data-testid={`step-${step}`}
     >
+      {/* The business's logo, when the design shows it on a website (its own page has it in the header). */}
+      <FormLogoMark className="mb-0 self-start" />
       {content}
     </div>
   );

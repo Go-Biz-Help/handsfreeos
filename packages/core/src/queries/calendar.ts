@@ -42,9 +42,11 @@ import {
   workspaceMemberships,
 } from '@hfos/db/schema';
 import { assertTeammateCalendar } from '../ai-team/reach';
-import { aiEmployeeOf } from '../kernel/actor';
+import { aiEmployeeOf, requireHuman } from '../kernel/actor';
+import { scopeCan } from '../kernel/execute';
 import { openTimes } from '../calendar/booking';
 import { parseConfig } from '../calendar/config';
+import { dayStartShown } from '../calendar/day-start';
 import { CALENDAR_SECTIONS, describeCalendar, moduleSummary } from '../calendar/describe';
 import { DEPOSIT_HOLD_MS } from '../calendar/deposit';
 import {
@@ -81,6 +83,8 @@ import {
   CalendarListOutput,
   ResourceListInput,
   ResourceListOutput,
+  DayStartGetInput,
+  DayStartShown,
   ScheduleTeamInput,
   ScheduleTeamOutput,
   ServiceListInput,
@@ -222,6 +226,7 @@ export const calendarGet = defineQuery({
         ...summary(row!, zone, site, await upcomingCounts(ctx.tx, ws)),
         config: calendar.config,
         ownTimezone: calendar.ownTimezone,
+        embedOrigins: row!.embedOrigins,
         issues,
         howItWorks: describeCalendar(calendar.config, catalogs),
         sections: CALENDAR_SECTIONS.map((s) => ({
@@ -822,6 +827,26 @@ const connectionOut = (c: ConnectionRow, fullName: string) => ({
   disconnectedAt: c.disconnectedAt?.toISOString() ?? null,
   createdAt: c.createdAt.toISOString(),
   meetTranscripts: c.provider === 'google' && hasMeetTranscripts(c.scopes),
+});
+
+/** Where a person's day starts (decision 179): their own address, or the business's that it falls back to. */
+export const dayStartGet = defineQuery({
+  name: 'day_start.get',
+  description:
+    'Where a person’s working day starts, for drive times between visits: their own address, or none (then the business’s address, also given). Yours, or (owners and admins) a teammate’s.',
+  input: DayStartGetInput,
+  output: DayStartShown,
+  permission: 'workspace.read',
+  scope: inWorkspace,
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const userId = input.userId ?? me;
+    if (userId !== me && !scopeCan(ctx.scope, 'calendars.manage'))
+      throw HfosError.forbidden(
+        'Only owners and admins see where someone else’s day starts. Ask them, or look at your own.',
+      );
+    return dayStartShown(ctx.tx, input.workspaceId, userId);
+  },
 });
 
 export const scheduleTeam = defineQuery({

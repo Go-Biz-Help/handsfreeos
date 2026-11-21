@@ -15,6 +15,8 @@ import { executeCommandWithin, scopeCan } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
 import type { Permission } from '../../../permissions';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
+import { localOf, theirWorkShown } from './local';
+import { handsPeople } from './in-hands';
 import { NO_JOURNEY } from '../journey';
 import { chatLinksAnswer, clientOutcome, SAME_NAME_FIRST } from '../ai-answers';
 import { outreachAddon } from '../manifest';
@@ -305,6 +307,19 @@ export const profileMarks = defineAddonQuery(outreachAddon, {
       journey: (await journeysOf(ctx, me, [profile.id])).get(profile.id) ?? NO_JOURNEY,
       intro: profile.intro,
       mutualFriends: profile.mutualFriends,
+      // What they do and where, and how far from the person (decision 177).
+      theirWork: theirWorkShown(
+        {
+          work: profile.work,
+          area: profile.area,
+          town: profile.town,
+          reach: profile.reach,
+          area_how: profile.areaHow,
+        },
+        await localOf(ctx, me),
+      ),
+      // In someone's hands (decision 182): whose, for Give back to the AI.
+      inHands: (await handsPeople(ctx, me, { profileId: profile.id, limit: 1 })).people[0] ?? null,
     };
   },
 });

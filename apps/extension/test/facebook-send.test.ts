@@ -6,6 +6,7 @@
  * Message opens their chat instead. It types only into their chat's window, never one left open from the person
  * before, and says so when there's none.
  */
+import { JSDOM } from 'jsdom';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TodayListItem } from '../src/hfos/messages';
 import { theirPosts } from '../src/networks/facebook/auto';
@@ -28,6 +29,8 @@ const world = vi.hoisted(() => ({
   posted: [] as { path: string; body: Record<string, unknown> }[],
   /** A command that can't reach HandsFreeOS. */
   unreachable: null as string | null,
+  /** What the AI wrote for a comment, checked. */
+  commentDrafts: ['Love these tiles.'] as string[],
 }));
 
 vi.mock('../src/hfos/session', () => {
@@ -39,7 +42,11 @@ vi.mock('../src/hfos/session', () => {
   return {
     Refused,
     savingTo: async () => ME,
-    answer: async () => ({ ok: true, value: {} }),
+    // A comment's draft (decision 20) has the AI's words; nothing else here asks the AI.
+    answer: async (ask: { input?: { kind?: string } }) => ({
+      ok: true,
+      value: ask?.input?.kind === 'comment' ? { drafts: world.commentDrafts } : {},
+    }),
     answerWith: async (_t: string, fn: () => Promise<unknown>) => ({ ok: true, value: await fn() }),
     api: () => ({
       POST: async (path: string, options: { body: Record<string, unknown> }) => {
@@ -141,6 +148,7 @@ beforeEach(() => {
   world.noted = [];
   world.posted = [];
   world.unreachable = null;
+  world.commentDrafts = ['Love these tiles.'];
 });
 
 /** Dana's follow-up, OK'd, to go in her chat. */
@@ -226,7 +234,8 @@ function messenger(sent: Sent[], name = 'Dana Reyes'): Document {
  * its box, as Facebook's does in front (or nothing, or takes the tab to her chat in Messenger), with Riley's left open
  * over it (or not), and another Dana Reyes's, linking to nobody (or not). Her window links to her username, unless
  * `links` says otherwise; with `cursor` false, Facebook puts no cursor in it, as with its window behind another. With
- * `hersOpen`, her own window, linking there, is open over the page already, left from an earlier try.
+ * `hersOpen`, her own window, linking there, is open over the page already, left from an earlier try. With
+ * `rileyWriting` or `namesakeWriting`, that window's box holds the person's own writing, so it's never closed.
  */
 function danaProfile(
   sent: Sent[],
@@ -238,15 +247,22 @@ function danaProfile(
     links?: string;
     cursor?: boolean;
     hersOpen?: string;
+    rileyWriting?: string;
+    namesakeWriting?: string;
   },
 ): Document {
   const doc = load('profile-2026.html', o.at ?? DANA);
   const layer = doc.createElement('div');
   doc.body.append(layer);
-  if (o.rileyOpen) layer.append(chatWindow(doc, 'Riley Quinn', '/riley.quinn.7/'));
+  if (o.rileyOpen) {
+    const riley = chatWindow(doc, 'Riley Quinn', '/riley.quinn.7/');
+    if (o.rileyWriting) riley.querySelector('[role="textbox"]')!.textContent = o.rileyWriting;
+    layer.append(riley);
+  }
   if (o.namesakeOpen) {
     const other = chatWindow(doc, 'Dana Reyes', null);
     other.querySelector('[role="textbox"]')!.setAttribute('data-who', 'the other Dana Reyes');
+    if (o.namesakeWriting) other.querySelector('[role="textbox"]')!.textContent = o.namesakeWriting;
     layer.append(other);
   }
   if (o.hersOpen) layer.append(chatWindow(doc, 'Dana Reyes', o.hersOpen));
@@ -306,7 +322,8 @@ describe('sending a message on Facebook', () => {
     expect(noted()).toMatchObject({ thread: { id: THREAD_KEY } });
   });
 
-  it('closes the chat window it sent in once the message has gone, and leaves the others open', async () => {
+  it('closes the chat windows left open before pressing Message, and the one it sent in once the message has gone', async () => {
+    // The owner's pick of 13 Nov 2026: other people's windows left open covered the page, and a message failed.
     const sent: Sent[] = [];
     let page: Document | null = null;
     world.pages = (url) =>
@@ -319,7 +336,24 @@ describe('sending a message on Facebook', () => {
     expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
     expect(sent).toEqual([{ to: 'Write to Dana Reyes', text: 'Glad to help, Dana.' }]);
     expect(page!.querySelector('[aria-label="Write to Dana Reyes"]')).toBeNull();
-    expect(page!.querySelector('[aria-label="Write to Riley Quinn"]')).not.toBeNull();
+    expect(page!.querySelector('[aria-label="Write to Riley Quinn"]')).toBeNull();
+    // A window with the person's own writing in its box stays as it is: they may be writing there.
+    const kept: Sent[] = [];
+    world.pages = (url) =>
+      url === CHAT
+        ? load('chat-2026.html', CHAT)
+        : url === DANA
+          ? (page = danaProfile(kept, {
+              opens: true,
+              rileyOpen: true,
+              rileyWriting: 'See you Tuesday',
+            }))
+          : null;
+    expect(await send(approved())).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+    expect(kept).toEqual([{ to: 'Write to Dana Reyes', text: 'Glad to help, Dana.' }]);
+    expect(page!.querySelector('[aria-label="Write to Riley Quinn"]')?.textContent).toBe(
+      'See you Tuesday',
+    );
   });
 
   it('keeps the window open between a message’s texts, and closes it after the last', async () => {
@@ -358,8 +392,11 @@ describe('sending a message on Facebook', () => {
   it('sends nothing into the last person’s chat window when theirs doesn’t open, and says so', async () => {
     const sent: Sent[] = [];
     let page: Document | null = null;
+    // Riley's window stays open, with the person's own writing in it: nothing more goes in.
     world.pages = (url) =>
-      url === DANA ? (page = danaProfile(sent, { opens: false, rileyOpen: true })) : null;
+      url === DANA
+        ? (page = danaProfile(sent, { opens: false, rileyOpen: true, rileyWriting: 'Sounds good' }))
+        : null;
     const outcome = await send(approved({ kind: 'opener', threadKey: null }));
     expect(outcome).toEqual({
       done: false,
@@ -367,13 +404,33 @@ describe('sending a message on Facebook', () => {
     });
     expect(sent).toEqual([]);
     expect(page!.querySelector('[aria-label="Write to Riley Quinn"]')!.textContent?.trim()).toBe(
-      '',
+      'Sounds good',
     );
     expect(world.posted.find((p) => p.path === SEND_DONE)?.body).toMatchObject({
       sent: false,
       why: 'couldn’t find a chat open with them, so nothing was sent',
     });
     expect(world.noted).toEqual([]);
+  });
+
+  it('passes over one whose profile Facebook won’t show, with nothing to report (the owner’s report of 13 Nov 2026)', async () => {
+    // "This content isn’t available right now" where her profile was: she blocked the person, or closed or hid it.
+    const sent: Sent[] = [];
+    world.pages = (url) => {
+      if (url !== DANA) return null;
+      const doc = danaProfile(sent, { opens: true, rileyOpen: false });
+      doc.title = '(2) Facebook';
+      doc.querySelector('[role="main"]')!.innerHTML =
+        '<div><div><h2 dir="auto"><span dir="auto">This content isn’t available right now</span></h2><span dir="auto">When this happens, it’s usually because the owner only shared it with a small group of people, changed who can see it or it’s been deleted.</span></div><a role="link" aria-label="Go to Feed" href="/"><span>Go to Feed</span></a></div><div><div role="button"><span dir="auto">Go back</span></div><a role="link" href="/help"><span dir="auto">Visit Help Center</span></a></div>';
+      return doc;
+    };
+    expect(await send(approved({ kind: 'reconnect', threadKey: null }))).toEqual({
+      done: false,
+      line: 'Dana Reyes: Facebook says their profile isn’t available right now',
+      skip: true,
+    });
+    expect(world.opened).toEqual([DANA]);
+    expect(sent).toEqual([]);
   });
 
   it('sends nothing into another Dana Reyes’s chat window left open, linking to nobody, when hers doesn’t open', async () => {
@@ -471,11 +528,18 @@ describe('sending a message on Facebook', () => {
     const outcome = await send(approved({ kind: 'opener', threadKey: null, profileUrl: KEPT }));
     expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
     expect(sent).toEqual([{ to: 'Write to Dana Reyes', text: 'Glad to help, Dana.' }]);
-    // Not while another Dana Reyes's window, linking to nobody, was open before: her name proves nothing then.
+    // Not while another Dana Reyes's window, linking to nobody, stayed open before (with the person's writing in it):
+    // her name proves nothing then.
     const none: Sent[] = [];
     world.pages = (url) =>
       url === KEPT
-        ? danaProfile(none, { opens: true, rileyOpen: false, namesakeOpen: true, at: KEPT })
+        ? danaProfile(none, {
+            opens: true,
+            rileyOpen: false,
+            namesakeOpen: true,
+            namesakeWriting: 'Hi Dana',
+            at: KEPT,
+          })
         : null;
     expect(await send(approved({ kind: 'opener', threadKey: null, profileUrl: KEPT }))).toEqual({
       done: false,
@@ -504,8 +568,8 @@ describe('sending a message on Facebook', () => {
 
   it('sends in their window left open from an earlier try, linking by number, once their number’s profile is theirs', async () => {
     // The owner's problem reports of 10 and 11 Nov 2026: kept by username, a try that didn't send left her window,
-    // linking to her by number, open over every page, and her Message only brought it up again: nothing opened, and
-    // a window open before proves nothing by name, so it could never go.
+    // linking to her by number, open over every page. From 13 Nov it's closed before her Message is pressed, with
+    // Riley's (the owner's pick), so her Message opens it again, and it goes once her number's profile is hers.
     const NUMBER = '100009000000031';
     const BY_NUMBER = `${FB}/profile.php?id=${NUMBER}`;
     const sent: Sent[] = [];
@@ -513,9 +577,11 @@ describe('sending a message on Facebook', () => {
     world.pages = (url) =>
       url === DANA || url === BY_NUMBER
         ? (last = danaProfile(sent, {
-            opens: false,
+            opens: true,
             rileyOpen: true,
             hersOpen: `/${NUMBER}/`,
+            links: `/${NUMBER}/`,
+            cursor: false,
           }))
         : null;
     expect(await send(approved({ kind: 'reconnect', threadKey: null }))).toEqual({
@@ -525,26 +591,25 @@ describe('sending a message on Facebook', () => {
     expect(world.opened).toEqual([DANA, BY_NUMBER]);
     expect(sent).toEqual([{ to: 'Write to Dana Reyes', text: 'Glad to help, Dana.' }]);
     expect(noted()).toMatchObject({ to: { profile: { id: NUMBER, username: 'dana.reyes.12' } } });
-    // And once it has gone, her window is closed, Riley's left.
-    const boxes = [...last!.querySelectorAll('[role="textbox"]')].map((box) =>
-      box.getAttribute('aria-label'),
-    );
-    expect(boxes).not.toContain('Write to Dana Reyes');
-    expect(boxes).toContain('Write to Riley Quinn');
+    // And once it has gone, no window is left open over the page.
+    expect(last!.querySelectorAll('[aria-label="Close chat"]')).toHaveLength(0);
   });
 
-  it('sends nothing on a window left open with their name when another one shows it too, or its number isn’t theirs', async () => {
+  it('sends nothing in the window their Message opened by number when another one shows their name too, or the number isn’t theirs', async () => {
     const NUMBER = '100009000000044';
     const BY_NUMBER = `${FB}/profile.php?id=${NUMBER}`;
-    // Another Dana Reyes's window, linking to nobody, open beside the one left: neither can be told for hers.
+    // Another Dana Reyes's window, linking to nobody, left open with the person's own writing in it (so it isn't
+    // closed): her name on the one that opened proves nothing then.
     const sent: Sent[] = [];
     world.pages = (url) =>
       url === DANA
         ? danaProfile(sent, {
-            opens: false,
+            opens: true,
             rileyOpen: false,
             namesakeOpen: true,
-            hersOpen: `/${NUMBER}/`,
+            namesakeWriting: 'Hi Dana',
+            links: `/${NUMBER}/`,
+            cursor: false,
           })
         : null;
     expect(await send(approved({ kind: 'reconnect', threadKey: null }))).toEqual({
@@ -552,14 +617,19 @@ describe('sending a message on Facebook', () => {
       line: 'Dana Reyes: couldn’t find a chat open with them, so nothing was sent',
     });
     expect(world.opened).toEqual([DANA]);
-    // The one left links to a number whose profile is someone else's.
+    // The one that opened links to a number whose profile is someone else's.
     world.opened = [];
     world.posted = [];
     world.pages = (url) =>
       url === BY_NUMBER
         ? load('profile-2026.html', `${FB}/sam.lee.4`)
         : url === DANA
-          ? danaProfile(sent, { opens: false, rileyOpen: true, hersOpen: `/${NUMBER}/` })
+          ? danaProfile(sent, {
+              opens: true,
+              rileyOpen: true,
+              links: `/${NUMBER}/`,
+              cursor: false,
+            })
           : null;
     expect(await send(approved({ kind: 'reconnect', threadKey: null }))).toEqual({
       done: false,
@@ -849,9 +919,138 @@ describe('a warm-up on Facebook', () => {
     expect(world.posted.filter((p) => p.path === MISSED)).toHaveLength(1);
   });
 
+  it('closes the chat windows left open over their profile first, but not one with writing in its box (the owner’s pick of 13 Nov 2026)', async () => {
+    const doc = noPosts('No posts available');
+    const layer = doc.createElement('div');
+    doc.body.append(layer);
+    const riley = chatWindow(doc, 'Riley Quinn', '/riley.quinn.7/');
+    const sam = chatWindow(doc, 'Sam Lee', '/sam.lee.4/');
+    sam.querySelector('[role="textbox"]')!.textContent = 'Back in five';
+    layer.append(riley, sam);
+    world.pages = (url) => (url === DANA ? doc : null);
+    expect(await step(warmUp)).toEqual({ done: false, line: LINE, skip: true });
+    expect(riley.isConnected).toBe(false);
+    expect(sam.isConnected).toBe(true);
+    expect(sam.querySelector('[role="textbox"]')!.textContent).toBe('Back in five');
+  });
+
+  it('reports nothing when their only post shows no Like, only its Share (the owner’s reports of 10 to 14 Nov 2026)', async () => {
+    world.pages = (url) => {
+      if (url !== DANA) return null;
+      const doc = load('profile-2026.html', DANA);
+      const dana = { id: null, username: 'dana.reyes.12', url: DANA };
+      // A cover photo update: its bar holds only "Share (name)'s post" and who reacted, and the rest still loads.
+      const box = theirPosts(doc, DANA, dana)[0]!.box;
+      box.querySelector('[aria-label="Remove Like"]')!.parentElement!.outerHTML =
+        '<div role="button" aria-label="Share Dana Reyes’s post"><div data-ad-rendering-role="share_button"></div></div>';
+      box.querySelector('[aria-label="Leave a comment"]')!.remove();
+      return doc;
+    };
+    expect(await step(warmUp)).toEqual({ done: false, line: LINE, skip: true });
+    expect(world.posted.filter((p) => p.path === MISSED)).toHaveLength(1);
+    // A visit while they decide on the request: nothing new to like, and it counts as the visit.
+    expect(
+      await step({ ...warmUp, keepWarm: { likes: 2, until: '2026-11-26T06:00:00.000Z' } }),
+    ).toEqual({
+      done: true,
+      line: expect.stringMatching(/^No new post of Dana Reyes’s to like on this visit/),
+    });
+  });
+
   it('still says it found none when Facebook doesn’t say they have none', async () => {
     world.pages = (url) => (url === DANA ? noPosts(null) : null);
     expect(await step(warmUp)).toEqual({ done: false, line: LINE });
     expect(world.posted.filter((p) => p.path === MISSED)).toHaveLength(1);
+  });
+});
+
+describe('a comment on a good post in their groups on Facebook (decision 20)', () => {
+  const POST = `${FB}/dana.reyes.12/posts/pfbid0aaaa1111bbbb2222/`;
+  const comment = {
+    ...approved(),
+    kind: 'comment',
+    send: null,
+    threadKey: null,
+    postId: '2c3d4e5f-6071-4829-93a4-b5c6d7e8f901',
+    postUrl: POST,
+    post: 'New tiles in the kitchen',
+  } as TodayListItem;
+
+  /**
+   * The post in its box over the page, as the owner's problem report of 15 Nov 2026 outlined it: its bar with Like,
+   * React and Share but no Comment, its comments under it, and no box to comment in, as Facebook draws a post whose
+   * author limited who can comment.
+   */
+  const closed = () =>
+    new JSDOM(
+      `<!doctype html><html><body><div role="main"><div role="article">A post in the feed behind</div></div>
+      <div><div role="dialog"><div role="dialog"><div aria-hidden="false">
+        <div><h2 dir="auto"><span dir="auto">Dana Reyes's Post</span></h2>
+          <div role="button" aria-label="Close"><svg aria-hidden="true"></svg></div></div>
+        <div><span dir="auto">New tiles in the kitchen</span>
+          <div><div role="button" aria-label="React with Like to Dana Reyes's post">
+              <div data-ad-rendering-role="like_button"></div></div>
+            <div role="button" aria-label="React to Dana Reyes's post"></div>
+            <div role="button" aria-label="Share Dana Reyes's post">
+              <div data-ad-rendering-role="share_button"></div></div></div>
+          <div role="article" aria-label="Comment by Sam Lee 1 week ago">
+            <a role="link" href="/sam.lee?comment_id=1">Sam Lee</a><span dir="auto">Looks great</span></div></div>
+      </div></div></div></div></body></html>`,
+      { url: POST },
+    ).window.document;
+
+  async function step(item: TodayListItem) {
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    try {
+      const going = doWork({ do: 'step', item }, ME.businessId, false);
+      await vi.advanceTimersByTimeAsync(60_000);
+      return await going;
+    } finally {
+      vi.useRealTimers();
+    }
+  }
+
+  it('passes over a post that doesn’t let them comment, with nothing to report or hand over', async () => {
+    world.pages = (url) => (url === POST ? closed() : null);
+    expect(await step(comment)).toEqual({
+      done: false,
+      line: 'Dana Reyes’s post: it doesn’t let you comment on it',
+      skip: true,
+    });
+    expect(world.noted).toEqual([]);
+  });
+
+  it('passes over a post the AI had nothing real to say on, with nothing written, reported or handed over', async () => {
+    // The owner's problem reports of 13 to 15 Nov 2026: each came right after the AI wrote, its drafts all taken out by
+    // the checks, and no comment is the right answer then (decision 165). From 0.144.0 the post opens first, for the
+    // AI to see its picture (decision 172), and nothing is written there.
+    world.commentDrafts = [];
+    world.pages = (url) => (url === POST ? closed() : null);
+    expect(await step(comment)).toEqual({
+      done: false,
+      line: 'Dana Reyes’s post: the AI had nothing to say on it',
+      skip: true,
+    });
+    expect(world.opened).toEqual([POST]);
+    expect(world.noted).toEqual([]);
+  });
+
+  it('still hands it over when the post has its Comment but no box to comment in shows', async () => {
+    world.pages = (url) => {
+      if (url !== POST) return null;
+      const doc = closed();
+      doc
+        .querySelector('[data-ad-rendering-role="share_button"]')!
+        .parentElement!.insertAdjacentHTML(
+          'beforebegin',
+          '<div role="button" aria-label="Leave a comment"><div data-ad-rendering-role="comment_button"></div></div>',
+        );
+      return doc;
+    };
+    expect(await step(comment)).toEqual({
+      done: false,
+      line: 'Dana Reyes’s post: couldn’t find the box to comment in',
+      need: true,
+    });
   });
 });

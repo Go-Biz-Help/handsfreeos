@@ -221,6 +221,14 @@ const NEED_CONNECT: Readonly<
     request: ['Follow ', ' yourself'],
   },
   alignable: { confirm: ['Accept ', '’s connection request yourself'] },
+  threads: {
+    confirm: ['Confirm or delete ', '’s follow request yourself'],
+    request: ['Follow ', ' yourself'],
+  },
+  x: {
+    confirm: ['Accept or decline ', '’s follow request yourself'],
+    request: ['Follow ', ' yourself'],
+  },
 };
 
 /**

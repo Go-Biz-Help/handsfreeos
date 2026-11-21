@@ -42,7 +42,9 @@
  * like a message, with **OK**, **Change** and **Skip**, and Approve all takes it too, but never an answer to a post
  * asking for what the business offers.
  */
+import type { ReferAsk, Referral } from '@hfos/core/addons/outreach/referrals';
 import { freshWords, underAPost, wheelsWords } from '@hfos/core/addons/outreach/automation';
+import { CALL_WORDS } from '@hfos/core/addons/outreach/calls';
 import { KNOWS_WORDS } from '@hfos/core/addons/outreach/knows';
 import { TIME_WORDS } from '@hfos/core/addons/outreach/meeting-times';
 import { clockWords } from '@hfos/core/addons/outreach/live';
@@ -109,6 +111,8 @@ import { CancelAllButtons } from './cancel-all';
 import { ChatSoFar } from './chat-bubbles';
 import { Drafted } from './drafted';
 import { HelpfulCard } from './helpful-card';
+import { EventsCard } from './events-card';
+import { ReferralCards } from './referral-card';
 import { PersonName } from './person-menu';
 import { PostQuote } from './post-quote';
 import { GoalNote, goalNoteOn } from './goal-note';
@@ -140,6 +144,7 @@ const KIND_BADGE = {
   reply: 'pending',
   demo_reminder: 'accent',
   rebook: 'pending',
+  thank_you: 'ok',
   birthday: 'accent',
   new_job: 'accent',
   comment: 'accent',
@@ -159,6 +164,8 @@ export function TodayView({
   networks,
   today,
   helpful,
+  referrals = [],
+  referAsks = [],
   team = null,
   asks,
   waiting,
@@ -181,6 +188,10 @@ export function TodayView({
   readiness: Readiness | null;
   /** Today's helpful post, and those up lately (decision 50). */
   helpful: HelpfulList;
+  /** Referrals waiting for the person on this network (decision 174), or done for them soon (decision 185). */
+  referrals?: readonly Referral[];
+  /** The asks after two on this network (decision 185). */
+  referAsks?: readonly ReferAsk[];
   /** How each person's extension is doing on the network shown: for owners and admins, else null. */
   team?: LiveTeam | null;
   /** The look-ups and group members asked of the person's computer from here. */
@@ -251,6 +262,12 @@ export function TodayView({
         working={networks.map((n) => n.platform)}
         canManage={canManage}
       />
+      {/* The week's 1-on-1s and last week's (decision 187): none from a server before it. */}
+      {today.oneOnOnes ? (
+        <p className="mb-4 text-[13px] text-text-2" data-testid="today-one-on-ones">
+          {CALL_WORDS.week(today.oneOnOnes.week, today.oneOnOnes.lastWeek)}
+        </p>
+      ) : null}
       {headsUp ? (
         <Card className="mb-4 p-4" data-testid="today-heads-up">
           <h2 className="text-[15px] font-semibold">{W.headsUp}</h2>
@@ -353,6 +370,9 @@ export function TodayView({
               asks={asks}
             />
           ) : null}
+          <ReferralCards workspaceId={workspaceId} referrals={referrals} asks={referAsks} />
+          {/* The events near them coming up (decision 188): none from a server before it. */}
+          <EventsCard workspaceId={workspaceId} events={today.events ?? []} />
           {items.length ? (
             <section aria-labelledby="today-list-title" className="space-y-3">
               <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -613,6 +633,7 @@ function DoneToday({ live }: { live: Live }) {
                 className={cn(
                   'min-w-0',
                   step.kind === 'stopped' && 'text-danger-text',
+                  step.kind === 'failed' && 'text-warning-text',
                   step.kind === 'passed' && 'text-text-2',
                 )}
               >

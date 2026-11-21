@@ -123,12 +123,14 @@ import {
   onPayNowRequested,
   onFoundingCheckoutRequested,
   onFoundingPaid,
+  onFoundingClaimed,
 } from '../founding/checkout';
 import {
   onMoreTimeAnswered,
   onPayDayChangeRequested,
   onPlanCardRemoved,
 } from '../founding/billing';
+import { addonBillingHandlers, addonGiftHandlers } from '../founding/addon-billing';
 import { onBusinessCreated } from '../opinly';
 import { onPlanCardRequested, onPlanChanged } from '../money/subscriptions';
 import { onBridgeCancelled, onBridgeRequested, onVerificationRequested } from '../telephony/cell';
@@ -360,6 +362,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       'founding.checkout_requested': onFoundingCheckoutRequested,
       // …and paid for: the website's analytics hears of it from a job, when it has a key (founding/checkout.ts).
       'founding.paid': onFoundingPaid,
+      // …and turned on: with a free trial, a job tells the business a few days before it ends (20261027027000).
+      'founding.claimed': onFoundingClaimed,
       // A yearly seat renewed, or the card refused it (20261027009500): the owners and admins are emailed.
       'founding.renewed': onFoundingBilled,
       'founding.renewal_failed': onFoundingBilled,
@@ -369,6 +373,9 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       'billing.pay_day_change_requested': onPayDayChangeRequested,
       'billing.card_removed': onPlanCardRemoved,
       'billing.more_time_answered': onMoreTimeAnswered,
+      // Paid add-ons (20261027028500): the first charge when a trial is used up, the owners and admins told of a
+      // refused charge or an add-on turned off, and a new card trying again what's past due (founding/addon-billing.ts).
+      ...addonBillingHandlers,
       // A business made in onboarding is a sign-up, told to Opinly when it has a key (opinly.ts).
       'workspace.created': onBusinessCreated,
       // The usage wallet ran low (M16): if it has a card and automatic top-up on, the charge is queued as a job
@@ -550,4 +557,7 @@ export const handlers: HandlerMap = {
   ...affiliateHandlers,
   // Voting on what's next (0109): the team's pick, told to the businesses that voted for it.
   ...roadmapHandlers,
+  // Staff giving an add-on free or taking it back (20261027028500): its end told ahead, and a paid one nobody pays
+  // for any more turned off (founding/addon-billing.ts).
+  ...addonGiftHandlers,
 };

@@ -4,14 +4,16 @@
  * themselves (getting their file, where they type their password; cancelling old requests, withdrawing invitations and
  * unfriending)
  * goes in a tab in view, reused from step to step while it's open, and brought to the front when a step is handed to
- * them. A quiet one opens out of view and closes after. The runner that works on its own (auto/run.ts), and the rest of
- * what's asked, have a window of their own, which opens beside the person's without taking their attention. A read that
- * needs the screen brings it in front: a Check right away, anything else only while the person is away from their
- * computer (decision 120, ./away.ts), stepping back the moment they're back.
+ * them. A quiet one opens out of view and closes after. The runners that work on their own (auto/run.ts and the rest),
+ * Content Creator's reads, and the rest of what's asked, each have a tab of the one work window (./opened.ts, decision
+ * 171), which opens beside the person's without taking their attention, and each closes its tab the moment its work is
+ * done. A read that needs the screen brings that window in front with its tab: a Check right away, anything else only
+ * while the person is away from their computer (decision 120, ./away.ts), stepping back the moment they're back.
  */
 import { awayNow, type Hold, markDark, NotAway, onBack } from './away';
 import { catchCopiesIn } from './networks/copies';
 import { facebook, type Kit } from './networks';
+import { closeWorkTab, isOurs, openWorkTab } from './opened';
 import type {
   Answer,
   Ask,
@@ -19,6 +21,7 @@ import type {
   PostsAnswer,
   PostsAsk,
   AutoAsk,
+  TagCommentAsk,
   BrowseAnswer,
   BrowseAsk,
   ConnectAsk,
@@ -31,6 +34,8 @@ import type {
   StoryAsk,
   CommentLikeAnswer,
   CommentLikeAsk,
+  PostLookAnswer,
+  PostLookAsk,
   TheirCommentAnswer,
   TheirCommentAsk,
   GroupFeedAnswer,
@@ -71,11 +76,8 @@ const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 const DRAW_MS = 2_400;
 /** While a read waits for the person to be away, it looks again this often. */
 const AWAY_LOOK_MS = 5_000;
-/** Its own window's size: the layout every network's readers were tuned on. */
-const WIDTH = 1100;
-const HEIGHT = 900;
 
-/** Where a work tab opens: in the person's window, in view or out of it; or in a window of its own. */
+/** Where a work tab opens: in the person's window, in view or out of it; or in the work window (./opened.ts). */
 export type TabPlace = 'view' | 'quiet' | 'window';
 
 /** When a read that needs the screen brings its window in front: right away (a Check), or only while they're away. */
@@ -111,7 +113,9 @@ export class WorkTab {
   private stepped = false;
   private readonly place: TabPlace;
   private readonly kit: Kit;
-  private readonly when: FrontWhen;
+  /** When its reads come in front: as it was made, or right away for the one the person asked for (`inFront`). */
+  private when: FrontWhen;
+  private readonly made: FrontWhen;
   private readonly waits: boolean;
 
   constructor(
@@ -122,6 +126,7 @@ export class WorkTab {
     this.place = place;
     this.kit = kit;
     this.when = front;
+    this.made = front;
     this.waits = waits;
   }
 
@@ -130,9 +135,13 @@ export class WorkTab {
     return this.id;
   }
 
-  /** Takes over a tab opened before (the runner's, after the background restarted), when it's still open. */
+  /**
+   * Takes over a tab opened before (the runner's, after the background restarted), when it's still open: only one this
+   * run of Chrome and the extension opened (./opened.ts), never a tab of the person's that came to have its number.
+   */
   async adopt(id: number | null): Promise<void> {
     if (id === null) return;
+    if (this.place === 'window' && !(await isOurs(id))) return;
     this.id = await chrome.tabs.get(id).then(
       (tab) => tab.id ?? null,
       () => null,
@@ -149,7 +158,10 @@ export class WorkTab {
       throw new Error(
         `That link isn’t a ${this.kit.network.name} page, so the extension didn’t open it. Check the link in HandsFreeOS, then try again.`,
       );
-    const active = this.place === 'view';
+    // In the work window, its tab is the one shown while no other network's is in front for a read.
+    const active =
+      this.place === 'view' ||
+      (this.place === 'window' && (this.front || onScreen === null || onScreen === this.key));
     if (this.id !== null) {
       try {
         const tab = await chrome.tabs.update(this.id, { url, ...(active ? { active } : {}) });
@@ -159,21 +171,8 @@ export class WorkTab {
       }
     }
     if (this.place === 'window') {
-      // Beside the person's, not in front of it, so they keep working while it does; unless it's to be in front. At
-      // their window's right, so where it shows over theirs it leaves its left in view.
-      const theirs = await lastFocused();
-      const beside =
-        theirs?.left !== undefined && theirs.top !== undefined && theirs.width !== undefined
-          ? { left: Math.max(theirs.left, theirs.left + theirs.width - WIDTH), top: theirs.top }
-          : {};
-      const made = await chrome.windows.create({
-        url,
-        focused: this.front,
-        width: WIDTH,
-        height: HEIGHT,
-        ...beside,
-      });
-      this.id = made?.tabs?.[0]?.id ?? null;
+      // A tab of the work window, opening it beside the person's when it isn't open (./opened.ts).
+      this.id = await openWorkTab(url, { front: this.front, active });
       if (this.id === null) throw new Error('Chrome didn’t open the window.');
       return this.loaded(this.id);
     }
@@ -304,9 +303,19 @@ export class WorkTab {
    * minutes, with no other network's window in front: an ask waits till then, saying so through `hold`; the runner's
    * read is put off (`NotAway`). The moment they're back their window goes back in front of its own, and the read goes
    * on in front again only once they're away again (an ask's), or is put off at its next page or step (the runner's).
+   * `now`: the person asked for this one (Check if it posted, 18 Nov 2026), so it comes in front right away, as a Check.
    */
-  async inFront<T>(work: () => Promise<T>, hold?: Hold): Promise<T> {
+  async inFront<T>(work: () => Promise<T>, hold?: Hold, now = false): Promise<T> {
     if (this.place !== 'window' || this.front) return work();
+    this.when = now ? 'now' : this.made;
+    try {
+      return await this.frontFor(work, hold);
+    } finally {
+      this.when = this.made;
+    }
+  }
+
+  private async frontFor<T>(work: () => Promise<T>, hold?: Hold): Promise<T> {
     const away = this.when === 'away';
     if (away) await this.untilAway(hold ?? null);
     const theirs = await lastFocused();
@@ -331,19 +340,15 @@ export class WorkTab {
     }
   }
 
-  /** Closes the tab, when it's still open; for the runner, its whole window. */
+  /**
+   * Closes the tab, when it's still open. In the work window, any tab a page opened from it goes too, and the window
+   * closes with its last tab (./opened.ts).
+   */
   async close(): Promise<void> {
     const id = this.id;
     this.id = null;
     if (id === null) return;
-    if (this.place === 'window') {
-      const tab = await chrome.tabs.get(id).catch(() => null);
-      if (tab) {
-        const all = await chrome.tabs.query({ windowId: tab.windowId }).catch(() => []);
-        if (all.length <= 1)
-          return void (await chrome.windows.remove(tab.windowId).catch(() => undefined));
-      }
-    }
+    if (this.place === 'window') return closeWorkTab(id);
     await chrome.tabs.remove(id).catch(() => undefined);
   }
 
@@ -371,6 +376,7 @@ export class WorkTab {
   async ask(message: PostLinksAsk): Promise<PostLinksAnswer>;
   async ask(message: PostsAsk): Promise<PostsAnswer>;
   async ask(message: AutoAsk): Promise<AutoAnswer>;
+  async ask(message: TagCommentAsk): Promise<AutoAnswer>;
   async ask(message: ConnectAsk): Promise<AutoAnswer>;
   async ask(message: AnswerRequestAsk): Promise<AutoAnswer>;
   async ask(message: OpenMessageAsk): Promise<OpenMessageAnswer>;
@@ -380,6 +386,7 @@ export class WorkTab {
   async ask(message: StoryAsk): Promise<StoryAnswer>;
   async ask(message: TheirCommentAsk): Promise<TheirCommentAnswer>;
   async ask(message: CommentLikeAsk): Promise<CommentLikeAnswer>;
+  async ask(message: PostLookAsk): Promise<PostLookAnswer>;
   async ask(message: GroupFeedAsk): Promise<GroupFeedAnswer>;
   async ask(message: GroupLikeAsk): Promise<AutoAnswer>;
   async ask(message: PostPeopleAsk): Promise<PostPeopleAnswer>;
@@ -398,6 +405,7 @@ export class WorkTab {
     message:
       | FetchAsk
       | AutoAsk
+      | TagCommentAsk
       | ConnectAsk
       | AnswerRequestAsk
       | OpenMessageAsk
@@ -408,6 +416,7 @@ export class WorkTab {
       | StoryAsk
       | TheirCommentAsk
       | CommentLikeAsk
+      | PostLookAsk
       | GroupFeedAsk
       | GroupLikeAsk
       | PostPeopleAsk
@@ -432,6 +441,7 @@ export class WorkTab {
     | StoryAnswer
     | TheirCommentAnswer
     | CommentLikeAnswer
+    | PostLookAnswer
     | GroupFeedAnswer
     | PostPeopleAnswer
     | OwnProfileAnswer

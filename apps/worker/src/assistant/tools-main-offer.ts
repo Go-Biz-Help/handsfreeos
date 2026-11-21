@@ -763,8 +763,8 @@ const suggestMainOffer: MainOfferAutoTool = async (db, ctx, args, deps) => {
 };
 
 /**
- * The lists' own help, as For your content's buttons give it: Write it for me, Improve a line, Examples and What's
- * missing. Nothing is saved until the person picks.
+ * The lists' own help, as the buttons under For your posts and messages give it: Write it for me, Improve a line,
+ * Examples and What's missing. Nothing is saved until the person picks.
  */
 const helpMainOfferLists: MainOfferAutoTool = async (db, ctx, args, deps) => {
   const offer = await offerOf(db, ctx);

@@ -146,6 +146,38 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   // The pace: the first message two days after they accept.
   await builder.getByTestId('pace-message').getByRole('button', { name: /^More/ }).click();
   await expect(builder.getByTestId('pace-message')).toContainText('2');
+  // What a tick does is said under the steps (decision 164).
+  await expect(builder.getByTestId('playbook-steps-hint')).toContainText(
+    'Untick a step and it stops',
+  );
+  await next.click();
+
+  // What it says (decision 164): every message in the business's own words, starting from the owner's latest way. A
+  // second version of the first message takes turns with the first; the rules no playbook changes are shown, locked.
+  await expect(builder.getByRole('heading', { name: 'What does it say?' })).toBeVisible();
+  await expect(builder.getByTestId('playbook-script-first-0')).toHaveValue(
+    /^Hey \[first name\], if I could get you \[what your offer gets them\]/,
+  );
+  // Ways to start a chat (decision 183): none ticked on a new playbook, and it won't carry on till one is. A way that
+  // needs something not given yet says where to add it.
+  await expect(builder.getByTestId('playbook-ways-count')).toHaveText('0 ways ticked');
+  await expect(next).toBeDisabled();
+  await expect(builder.getByTestId('playbook-way-socialProof-missing')).toContainText(
+    'Needs a real result',
+  );
+  await builder.getByTestId('playbook-way-pitch-tick').check();
+  await expect(builder.getByTestId('playbook-ways-count')).toHaveText('1 way ticked');
+  await expect(next).toBeEnabled();
+  await builder.getByTestId('playbook-script-first-add').click();
+  // An empty version stops the step until it's written or taken out.
+  await expect(next).toBeDisabled();
+  await builder
+    .getByTestId('playbook-script-first-1')
+    .fill('Hey [first name], who orders lunch at your office?');
+  await expect(next).toBeEnabled();
+  await expect(builder.getByTestId('playbook-locked-rules')).toContainText(
+    'Never names a group you’re both in',
+  );
   await next.click();
 
   // The short video can wait: no script or link yet.
@@ -185,15 +217,6 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   await expect(builder.getByLabel('Your tone')).toHaveValue('Friendly, no hard sell');
   await next.click();
 
-  // How it starts a chat: a style tapped, and an opener of the business's own.
-  await expect(builder.getByRole('heading', { name: 'How do you start a chat?' })).toBeVisible();
-  await builder.getByRole('button', { name: /^Say it could bring them more customers/ }).click();
-  await builder.getByRole('button', { name: 'Add an opener' }).click();
-  await builder
-    .getByLabel('Your opener 1')
-    .fill('Hi {first name}! Who orders lunch at your office?');
-  await next.click();
-
   // The summary: named after its goal to start with, and the conversation as it reads.
   await expect(builder.getByTestId('playbook-name')).toHaveValue('Make a sale');
   await builder.getByTestId('playbook-name').fill('Office orders');
@@ -206,16 +229,26 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   await expect(script).toContainText('“Yes” adds Wants a tasting, then make the offer');
   await expect(script).toContainText('“No” adds Not a fit, then stop here');
   await expect(script).toContainText('They answer in their own words.');
-  await expect(builder.getByTestId('review-openers')).toContainText(
-    'Say it could bring them more customers without more work',
+  await expect(builder.getByTestId('review-script')).toContainText(
+    '“Hey [first name], who orders lunch at your office?”',
   );
-  await expect(builder.getByTestId('review-openers')).toContainText('1 opener of your own');
+  await expect(builder.getByTestId('review-script')).toContainText(
+    '2 first messages taking turns. 1 part in your own words, the rest in the starting words.',
+  );
+  await expect(builder.getByTestId('playbook-summary-ways')).toHaveText(
+    'Ways to start a chat: Direct pitch',
+  );
+  // A new one is kept in this browser as it's written, and made at the end.
+  await expect(builder.getByTestId('playbook-kept-here')).toContainText('Kept in this browser');
   await builder.getByTestId('playbook-save').click();
   await expect(page.getByText('Office orders is ready.')).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/a/outreach/playbooks$`));
   const card = page.getByTestId('playbook-Office orders');
+  await expect(card.getByTestId('playbook-first-message')).toContainText(
+    'Starts with one of 2 first messages, like “Hey [first name], if I could get you',
+  );
   await expect(card.getByTestId('playbook-questions')).toHaveText(
-    'Asks 2 questions, starting with “Do you order food for the office?”',
+    'May ask 2 questions, like “Do you order food for the office?”',
   );
 
   // Changing it opens on the summary. Taking a tag out takes it off the answer that added it.
@@ -226,21 +259,34 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   await builder.getByTestId('playbook-next').click();
   await expect(builder.getByTestId('playbook-step-review')).toBeVisible();
   await expect(script).toContainText('“Yes”, then make the offer');
+  // A saved one saves each change as it's made (the owner's autosave): Done only goes back.
+  await expect(builder.getByTestId('playbook-save-status')).toHaveText('Saved');
+  await expect(builder.getByTestId('playbook-save')).toHaveText('Done');
   await builder.getByTestId('playbook-save').click();
-  await expect(page.getByText('Office orders is saved.')).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/a/outreach/playbooks$`));
 
-  // A template's conversation comes with it, and answers lead further down.
+  // A template comes with what it says (its own first messages, decision 164) and its conversation, where answers
+  // lead further down.
   await page.getByTestId('playbook-new').click();
-  await page.getByTestId('template-crm_demos').click();
-  await expect(page).toHaveURL(new RegExp(`/a/outreach/playbooks/new\\?template=crm_demos$`));
-  for (let i = 0; i < 9; i++) await builder.getByTestId('playbook-next').click();
-  await expect(builder.getByTestId('question-1-text')).toHaveValue('Do you use a CRM?');
-  await expect(builder.getByLabel('After answer 2 to question 1')).toHaveValue('q4');
+  await page.getByTestId('template-real_estate').click();
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/playbooks/new\\?template=real_estate$`));
+  for (let i = 0; i < 7; i++) await builder.getByTestId('playbook-next').click();
+  await expect(builder.getByTestId('playbook-script-first-2')).toHaveValue(
+    'Hey [first name], if I could show you what your home is worth today, would you be interested?',
+  );
+  // A template's ways start unticked too.
+  await expect(builder.getByTestId('playbook-next')).toBeDisabled();
+  await builder.getByTestId('playbook-way-pitch-tick').check();
+  await builder.getByTestId('playbook-way-compliment-tick').check();
   for (let i = 0; i < 3; i++) await builder.getByTestId('playbook-next').click();
-  await expect(builder.getByTestId('playbook-name')).toHaveValue('CRM demos');
+  await expect(builder.getByTestId('question-1-text')).toHaveValue(
+    'Are you thinking about buying, selling, or both?',
+  );
+  await expect(builder.getByLabel('After answer 2 to question 1')).toHaveValue('q4');
+  for (let i = 0; i < 2; i++) await builder.getByTestId('playbook-next').click();
+  await expect(builder.getByTestId('playbook-name')).toHaveValue('Home buyers and sellers');
   await expect(script).toContainText(
-    '“No”, then ask question 4: “How do you keep track of follow-ups now?”',
+    '“In the next 3 months” adds Moving soon, then ask question 5: “Are you working with an agent yet?”',
   );
 });
 
@@ -1039,10 +1085,10 @@ test('a network’s On for you saves at once on its page, with a line beside it,
   );
   expect((await kept()).networks.linkedin.on).toBe(true);
 
-  // Its choices show, and one picked saves by itself too: no Save button.
+  // Its choices show, and How hands-off? picked saves by itself too (decision 170): no Save button.
   await expect(page.getByTestId('outreach-my-save')).toHaveCount(0);
   const picked = page.waitForResponse((r) => isSave(r.url(), r.request().method()));
-  await page.getByTestId('outreach-my-networks-linkedin-sending-steps').click();
+  await page.getByTestId('outreach-my-networks-linkedin-hands-off-each').click();
   expect((await picked).ok()).toBe(true);
   expect((await kept()).networks.linkedin).toMatchObject({ on: true, sending: 'steps' });
 
@@ -1123,15 +1169,17 @@ test('Settings opens You, LinkedIn’s page, Facebook’s and Team from its menu
   await expect(page.getByTestId('outreach-settings-part-linkedin-state')).toHaveText('Off');
   await expect(page.getByTestId('outreach-settings-part-instagram-state')).toHaveText('Off');
   await expect(page.getByTestId('outreach-settings-part-alignable-state')).toHaveText('Off');
-  await expect(page.getByTestId('outreach-settings-soon-threads')).toContainText('Soon');
+  await expect(page.getByTestId('outreach-settings-part-threads-state')).toHaveText('Off');
+  await expect(page.getByTestId('outreach-settings-part-x-state')).toHaveText('Off');
+  await expect(page.getByTestId('outreach-settings-soon-tiktok')).toContainText('Soon');
 
   // An emoji now and then: saved by itself, and still ticked after a reload.
   const emojiSaved = saved('outreach.automation.save');
-  await page.getByTestId('outreach-my-voice-emoji').check();
+  await page.getByTestId('outreach-my-voice-emoji').click();
   expect((await emojiSaved).ok()).toBe(true);
   await expect(status).toHaveText('Saved. The extension follows it in a few seconds.');
   await page.reload();
-  await expect(page.getByTestId('outreach-my-voice-emoji')).toBeChecked();
+  await expect(page.getByTestId('outreach-my-voice-emoji')).toHaveAttribute('aria-checked', 'true');
 
   // Team, from the menu (decision 129): the owner among their people, what people may pick, the extension's link box
   // with its own Save, and each network's say for everyone.
@@ -1140,9 +1188,14 @@ test('Settings opens You, LinkedIn’s page, Facebook’s and Team from its menu
   await expect(view).toHaveAttribute('data-part', 'team');
   await expect(title).toHaveText('Team');
   await expect(page.getByTestId('outreach-team-person')).toContainText('(you)');
-  await expect(page.getByTestId('outreach-team')).toContainText('For your team');
+  await expect(page.getByTestId('outreach-team')).toContainText('For the whole business');
+  // The extension's link is a row that says where it comes from, opened with Change (decision 170).
+  await expect(page.getByTestId('outreach-team-extension-about')).toHaveText(
+    'HandsFreeOS’s own download.',
+  );
+  await page.getByTestId('outreach-team-extension-toggle').click();
   await expect(page.getByTestId('outreach-extension-link-save')).toBeVisible();
-  await expect(page.getByTestId('outreach-team-facebook')).toContainText('Always allowed');
+  await expect(page.getByTestId('outreach-team-facebook')).toContainText('Always on');
   await expect(page.getByTestId('outreach-rules-network-linkedin')).toHaveAttribute(
     'aria-checked',
     'true',
@@ -1184,12 +1237,19 @@ test('Settings opens You, LinkedIn’s page, Facebook’s and Team from its menu
   await expect(page.getByTestId('outreach-team-moved-linkedin')).toContainText(
     'Your team’s say on LinkedIn is on Team.',
   );
-  // On for you: its choices, that it works there from install, and its limits as they stand show; the menu says it's on.
+  // On for you: its status card (no computer yet, decision 170), How hands-off?, and its limits as they stand show,
+  // every one of them a press away; the menu says it's on.
   await page.getByTestId('outreach-my-networks-linkedin-on').click();
   await expect(page.getByTestId('outreach-my-networks-linkedin-saved')).toBeVisible();
-  await expect(page.getByTestId('outreach-my-networks-linkedin-chrome')).toContainText(
-    'nothing to allow in Chrome',
+  await page.reload();
+  await expect(page.getByTestId('outreach-my-networks-linkedin-status-title')).toHaveText(
+    'LinkedIn waits for your computer',
   );
+  await expect(page.getByTestId('outreach-my-networks-linkedin-hands-off-myself')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await page.getByTestId('outreach-my-networks-linkedin-limits-all').click();
   await expect(
     page.getByTestId('outreach-my-networks-linkedin-limit-friend_request'),
   ).toContainText('At most 80 in any 7 days');
@@ -1207,8 +1267,12 @@ test('Settings opens You, LinkedIn’s page, Facebook’s and Team from its menu
   await expect(profileSheet).toHaveCount(0);
   // The team's daily invitations, typed on Team: saved once it's left, and their own limit on LinkedIn's page follows,
   // half while LinkedIn is new to them (decision 96).
+  // The team's say sits under More settings, folded to start (decision 170).
+  await page.getByTestId('outreach-my-networks-linkedin-more-toggle').click();
   await page.getByTestId('outreach-team-moved-linkedin-open').click();
   await expect(page).toHaveURL(new RegExp(`/a/outreach/settings/team$`));
+  // Each network's limits open from its row in the Networks list (decision 170).
+  await page.getByTestId('outreach-team-linkedin-limits').click();
   const invites = page.getByTestId('outreach-rules-linkedin-limit-friend_request');
   await expect(invites).toHaveValue('15');
   const limitSaved = saved('addon.save_settings');
@@ -1216,11 +1280,16 @@ test('Settings opens You, LinkedIn’s page, Facebook’s and Team from its menu
   await invites.blur();
   expect((await limitSaved).ok()).toBe(true);
   await page.reload();
+  await expect(page.getByTestId('outreach-team-linkedin-line')).toContainText(
+    '10 invitations to connect',
+  );
+  await page.getByTestId('outreach-team-linkedin-limits').click();
   await expect(invites).toHaveValue('10');
   await page.getByTestId('outreach-settings-part-linkedin').click();
-  await expect(page.getByTestId('outreach-my-networks-linkedin-fresh')).toContainText(
+  await expect(page.getByTestId('outreach-my-networks-linkedin-limits-line')).toContainText(
     'New on LinkedIn',
   );
+  await page.getByTestId('outreach-my-networks-linkedin-limits-all').click();
   await expect(
     page.getByTestId('outreach-my-networks-linkedin-limit-friend_request').locator('div').first(),
   ).toHaveText('5');

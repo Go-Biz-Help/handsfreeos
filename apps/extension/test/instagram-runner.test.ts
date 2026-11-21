@@ -34,6 +34,8 @@ const world = vi.hoisted(() => ({
   /** The page each address opens, and what its buttons do. */
   pages: (_url: string): { html: string; at?: string } | null => null,
   behave: (_doc: Document, _url: string): void => undefined,
+  /** What Instagram draws on the page on its own once it's been read this many times: a page that came late. */
+  moves: null as { reads: number; html: string } | null,
   opened: [] as string[],
   noted: [] as { note: unknown; platform: unknown }[],
   needs: [] as unknown[],
@@ -132,6 +134,7 @@ vi.mock('../src/tab', async () => {
     WorkTab: class {
       private doc: Document | null = null;
       private at = '';
+      private reads = 0;
       get tabId() {
         return this.doc ? 9 : null;
       }
@@ -153,10 +156,16 @@ vi.mock('../src/tab', async () => {
         this.doc = new Dom(`<!doctype html><html><body>${page.html}</body></html>`, {
           url: this.at,
         }).window.document;
+        this.reads = 0;
         world.behave(this.doc, url);
         return 9;
       }
       async ask(message: { readonly type: string }) {
+        const moves = world.moves;
+        if (message.type === 'hfos-read' && moves && this.doc && this.reads++ >= moves.reads) {
+          this.doc.body.innerHTML = moves.html;
+          world.moves = null;
+        }
         const doc = this.doc;
         if (!doc) return { ok: false, error: 'The Instagram tab was closed.' };
         if (message.type === 'hfos-read') return { ok: true, result: kit.readPage(doc, this.at) };
@@ -441,6 +450,7 @@ beforeEach(() => {
   world.hfos = {};
   world.pages = () => null;
   world.behave = () => undefined;
+  world.moves = null;
   world.choices = { on: true, sending: 'steps', collect: false, warmUp: true };
   world.away = true;
   world.hours = notToday();
@@ -493,12 +503,13 @@ describe('what it does on Instagram’s list', () => {
     const all = { ...engaged, weekly_post: 'q' };
     expect(nextInstagramDaily({ daily: all })).toBe('post_people');
     expect(nextInstagramDaily({ daily: { ...all, post_people: 'r' } })).toBe('found_checks');
+    // Then HandsFreeOS's own comment research, for whoever of its staff started one (decision 166).
+    const found = { ...all, post_people: 'r', found_checks: 's' };
+    expect(nextInstagramDaily({ daily: found })).toBe('comment_research');
     // And on the 1st of each month, their own profile read (decision 99).
-    expect(nextInstagramDaily({ daily: { ...all, post_people: 'r', found_checks: 's' } })).toBe(
-      'profile',
-    );
+    expect(nextInstagramDaily({ daily: { ...found, comment_research: 'c' } })).toBe('profile');
     expect(
-      nextInstagramDaily({ daily: { ...all, post_people: 'r', found_checks: 's', profile: 'p' } }),
+      nextInstagramDaily({ daily: { ...found, comment_research: 'c', profile: 'p' } }),
     ).toBeNull();
   });
 
@@ -725,6 +736,122 @@ describe('a warm-up on Instagram', () => {
     });
     expect(pressed).toEqual([]);
     expect(world.noted).toEqual([]);
+  });
+
+  it('likes a post of theirs they made with another account: named beside its author, or among the others behind its button', async () => {
+    // The owner's problem reports of 14 Nov 2026: a post or reel on their own grid made with others reads
+    // "<someone> and 2 others" over it, the others behind a button or a link that lists them, so its author was someone
+    // else and its like never went. Here as the report outlined it: no article round the post, the header's two
+    // pictures, "<author> and …", its place, and its More options.
+    const POST = `${IG}/p/C5eeeeeee/`;
+    const REEL = `${IG}/reel/C6fffffff/`;
+    const madeTogether = (by: string, others: string) => `${MENU}<main role="main"><div><div>
+      <div><div><div><span role="link"><img alt="${by}'s profile picture"></span>
+            <span role="link"><img alt="Profile picture"></span></div>
+          <div><span dir="auto"><a role="link" href="/${by}/"><span dir="auto">${by}</span></a><span>and</span>${others}</span>
+            <span dir="auto"><a role="link" href="/explore/locations/123/austin-texas/">Austin, Texas</a></span></div>
+          <div role="button" aria-expanded="false"><svg role="img" aria-label="More options"></svg></div></div>
+        <hr>
+        <div><div><a role="link" href="/${by}/"><img alt="${by}'s profile picture"></a>
+          <div><span dir="auto"><a role="link" href="/${by}/"><span dir="auto">${by}</span></a><time>18h</time></span>
+            <span>A new water heater, fitted</span></div></div></div>
+        <section><div><div role="button" id="like"><svg role="img" aria-label="Like"></svg></div>
+          <div role="button"><svg role="img" aria-label="Comment"></svg></div></div></section>
+      </div></div></div></main>`;
+    // The reels player, as the other report outlined it: the reel's account over its video, Verified, "and" and its
+    // button naming how many others.
+    const reelTogether = `${MENU}<main role="main"><div><div>
+      <div><img aria-hidden="true" alt=""><div><video></video><div role="group" aria-label="Video player">
+        <div role="presentation"><div role="button"><div><div><div>
+          <a role="link" aria-label="sam.lee reels" href="/sam.lee/reels/"><div>
+            <span role="link"><img alt="sam.lee's profile picture"></span><span role="link"><img alt="Profile picture"></span></div></a>
+          <div><span dir="auto"><a role="link" aria-label="sam.lee reels" href="/sam.lee/reels/">sam.lee</a>
+            <svg role="img" aria-label="Verified"></svg><span>and</span><div role="button">2 others</div></span></div></div>
+          <div role="button">Follow</div></div></div></div></div></div></div>
+      <div><div><div role="button" id="like"><svg role="img" aria-label="Like"></svg></div>
+          <div role="button"><span dir="auto"><span>74</span></span></div></div>
+        <div role="button" aria-expanded="false"><div><svg role="img" aria-label="Comment"></svg><span>2</span></div></div></div>
+    </div></div></main>`;
+    const pressed: string[] = [];
+    const visitTo = async (page: { html: string; at?: string }, reel = false) => {
+      pressed.length = 0;
+      world.opened = [];
+      world.noted = [];
+      world.posted = [];
+      const code = reel ? 'C6fffffff' : 'C5eeeeeee';
+      world.pages = (url) =>
+        url === DANA
+          ? {
+              html: accountHtml({ posts: [[code, 'A water heater']] }).replace(
+                `/dana.reyes/p/${code}/`,
+                reel ? `/dana.reyes/reel/${code}/` : `/dana.reyes/p/${code}/`,
+              ),
+            }
+          : url === (reel ? REEL : POST)
+            ? page
+            : null;
+      world.behave = (doc, url) => {
+        const like = doc.getElementById('like');
+        like?.addEventListener('click', () => {
+          like.querySelector('svg')!.setAttribute('aria-label', 'Unlike');
+          pressed.push(url);
+        });
+      };
+      return doWork(
+        {
+          do: 'step',
+          item: item({
+            kind: 'warm_up',
+            keepWarm: { likes: 1, until: '2026-11-26T06:00:00.000Z' },
+          }),
+        },
+        ME.businessId,
+        true,
+        0,
+      );
+    };
+    const LIKED = {
+      done: true,
+      line: 'Liked a post of Dana Reyes’s while they decide on following you back',
+    };
+    const NOT_LIKED = {
+      done: false,
+      line: 'Couldn’t like Dana Reyes’s post on this visit',
+      look: true,
+    };
+    // "sam.lee and 2 others", the others behind a link that lists them: the post came off her grid, so it's liked.
+    expect(
+      await visitTo({
+        html: madeTogether('sam.lee', '<a role="link" href="#"><span>2 others</span></a>'),
+      }),
+    ).toEqual(LIKED);
+    expect(pressed).toEqual([POST]);
+    expect(notedAs().map((n) => n.postUrl)).toEqual([POST]);
+    // "sam.lee and dana.reyes", her name linked beside his.
+    expect(
+      await visitTo({
+        html: madeTogether('sam.lee', '<a role="link" href="/dana.reyes/">dana.reyes</a>'),
+      }),
+    ).toEqual(LIKED);
+    expect(pressed).toEqual([POST]);
+    // The reel in the reels player, "sam.lee ✓ and 2 others".
+    expect(await visitTo({ html: reelTogether, at: `${IG}/reels/C6fffffff/` }, true)).toEqual(
+      LIKED,
+    );
+    expect(pressed).toEqual([REEL]);
+    // "sam.lee and lee.chan", someone else named: not hers, and nothing is pressed.
+    expect(
+      await visitTo({
+        html: madeTogether('sam.lee', '<a role="link" href="/lee.chan/">lee.chan</a>'),
+      }),
+    ).toEqual(NOT_LIKED);
+    expect(pressed).toEqual([]);
+    expect(world.noted).toEqual([]);
+    // Someone else's post that names nobody beside them: still not hers.
+    expect(
+      await visitTo({ html: madeTogether('sam.lee', '').replace('<span>and</span>', '') }),
+    ).toEqual(NOT_LIKED);
+    expect(pressed).toEqual([]);
   });
 
   it('counts a visit with no post of theirs to like, and tells HandsFreeOS (decision 161)', async () => {
@@ -1621,7 +1748,8 @@ describe('a comment on a good post on Instagram (decision 92)', () => {
     });
   };
 
-  it('drafts one from the post, and leaves it to wait for their OK', async () => {
+  it('drafts one after a look at the post on its own page, and leaves it to wait for their OK', async () => {
+    world.pages = (url) => (url === POST_URL ? { html: postWithBoxes() } : null);
     world.hfos['hfos-draft'] = () => ({
       drafts: [TEXT],
       kind: 'comment',
@@ -1642,8 +1770,10 @@ describe('a comment on a good post on Instagram (decision 92)', () => {
     expect(
       world.posted.find((p) => p.path === '/v1/commands/outreach.send.queue')?.body,
     ).toMatchObject({ kind: 'comment', postId: POST_ID, text: TEXT });
-    // Nothing opened or written on Instagram for it.
-    expect(world.opened).toEqual([]);
+    // The post's own page is opened for a look at it (decision 166). This one shows no picture, so the AI has the
+    // post's words alone, as before. Nothing is pressed, written or noted on Instagram for it.
+    expect(world.opened).toEqual([POST_URL]);
+    expect(world.asked.find((a) => a.type === 'hfos-draft')?.input).not.toHaveProperty('look');
     expect(world.noted).toEqual([]);
   });
 
@@ -2076,17 +2206,74 @@ describe('its day', () => {
     expect(world.opened).not.toContain(`${IG}/me.owner/followers/`);
     expect(state().daily).not.toHaveProperty('requests');
     expect(state().line).toBe(`Your newest followers: ${AWAY_WAIT_LINE}`);
-    // The rest of the day goes on: here, nothing on the list, so the last line says what waits.
+    // The rest of the day goes on: here, nothing on the list, so the last line says what waits. HandsFreeOS's comment
+    // research (decision 166) isn't theirs to read for, so its turn passes without a line, a page or a step.
     await instagramTick();
     expect(state().line).toBe(
       'Nothing on your Instagram list for it to do yet. One part waits till you’ve been away from your computer for 2 minutes, as it needs its window on screen: Your newest followers.',
     );
+    expect(world.asked.some((a) => a.type === 'hfos-comment-research-next')).toBe(true);
+    expect(state().daily).toHaveProperty('comment_research');
+    expect(world.opened.some((url) => url.includes('/explore/tags/'))).toBe(false);
     expect(alarms.get('hfos-auto-instagram')).toBeLessThan(Date.now() + 11 * 60_000);
     // Once they're away, it's read.
     world.away = true;
     await instagramTick();
     expect(world.opened).toContain(`${IG}/me.owner/followers/`);
     expect(state().daily).toHaveProperty('requests');
+  });
+
+  it('reads for HandsFreeOS’s comment research only when HandsFreeOS says this person started one (decision 166)', async () => {
+    keep(day('started'));
+    world.hours = ALL_DAY;
+    world.choices = { on: true, sending: 'steps', collect: true, warmUp: true };
+    world.hfos['hfos-lists'] = saved;
+    world.away = true;
+    // Everything before it is done today.
+    const before = Object.fromEntries(
+      [
+        'requests',
+        'follow_backs',
+        'tidy',
+        'checks',
+        'chats',
+        'partners',
+        'posts',
+        'like_yours',
+        'helpful',
+        'weekly_post',
+        'post_people',
+        'found_checks',
+      ].map((job) => [job, 'Done.']),
+    );
+    store.set(INSTAGRAM_STATE_KEY, { ...freshState(today()), daily: before });
+    world.answers['/v1/queries/outreach.today'] = () => ({
+      items: [],
+      auto: ['warm_up', 'friend_request'],
+      messages: [],
+      sending: 'steps',
+      partners: [],
+      limits: { like: { done: 0, most: 30 } },
+    });
+    world.pages = (url) =>
+      url === `${IG}/` ? { html: `${MENU}<main><article></article></main>` } : null;
+    // One they started, with today's share read already: the job gets its turn, and says so.
+    world.hfos['hfos-comment-research-next'] = () => ({
+      research: {
+        id: '1f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b',
+        tags: [],
+        postsEach: 5,
+        kept: 700,
+        target: 2_000,
+      },
+    });
+    await instagramTick();
+    const state = () => store.get(INSTAGRAM_STATE_KEY) as { daily: Record<string, string> };
+    expect(state().daily.comment_research).toBe(
+      'Today’s share of the comment research is read: 700 of about 2,000 comments kept so far. It carries on tomorrow.',
+    );
+    expect(world.asked.filter((a) => a.type === 'hfos-comment-research-next')).toHaveLength(2);
+    expect(world.asked.some((a) => a.type === 'hfos-comment-research-save')).toBe(false);
   });
 });
 
@@ -2302,6 +2489,41 @@ describe('Instagram’s growing (part 15)', () => {
         .filter((a) => a.type === 'hfos-save-posts')
         .map((a) => (a.input as { posts: { name: string }[] }).posts.map((p) => p.name)),
     ).toEqual([['quinn.plumbing']]);
+    expect(end.line).toContain('Looked at 1 hashtag on Instagram and read 1 post');
+  });
+
+  it('waits for a hashtag’s search that shows only Instagram’s loading mark, and reads its posts once they’re drawn', async () => {
+    // The owner's problem reports of 1, 3 and 19 Nov 2026: the search drew nothing but its loading mark when it was
+    // read, and was noted as a page with no posts.
+    world.pages = (url) =>
+      ({
+        [`${IG}/explore/tags/austinplumbing/`]: {
+          html: `${MENU}<section><main role="main"><div role="progressbar"><svg role="img" aria-label="Loading..."></svg></div></main></section>`,
+          at: `${IG}/explore/search/keyword/?q=%23austinplumbing`,
+        },
+        [`${IG}/p/C7aaaaaaa/`]: {
+          html: foundPostHtml('quinn.plumbing', 'Plumbing in Austin all week', null),
+        },
+      })[url] ?? null;
+    world.moves = {
+      reads: 1,
+      html: `${MENU}<section><main role="main"><div><div><span dir="auto">#austinplumbing</span></div>
+        ${grid(['C7aaaaaaa'])}</div></main></section>`,
+    };
+    world.hfos['hfos-post-words'] = () => ({
+      words: ['plumbing'],
+      tags: ['austinplumbing'],
+      places: ['Austin'],
+    });
+    world.hfos['hfos-save-posts'] = (ask) => ({
+      groupId: null,
+      posts: [],
+      checking: (ask['input'] as { posts: unknown[] }).posts.length,
+    });
+    const report = vi.fn(async (_note?: ReportNote) => undefined);
+    const end = await runInstagramDaily('posts', { ...job(), report });
+    expect(report).not.toHaveBeenCalled();
+    expect(world.opened).toEqual([`${IG}/explore/tags/austinplumbing/`, `${IG}/p/C7aaaaaaa/`]);
     expect(end.line).toContain('Looked at 1 hashtag on Instagram and read 1 post');
   });
 

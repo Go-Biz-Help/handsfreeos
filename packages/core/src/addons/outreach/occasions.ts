@@ -26,6 +26,8 @@ export const OCCASIONS_ON: Readonly<Record<Platform, readonly OccasionKind[]>> =
   linkedin: ['birthday', 'new_job'],
   instagram: [],
   alignable: [],
+  threads: [],
+  x: [],
 };
 
 /** How long after a new job is seen a note about it is still worth it. A birthday's is on the day alone. */

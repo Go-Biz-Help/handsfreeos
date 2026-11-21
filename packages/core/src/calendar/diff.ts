@@ -24,6 +24,7 @@ export const LOCATION_NAMES: Readonly<Record<LocationKind, string>> = {
   business: 'business',
   virtual: 'video call',
   phone: 'phone call',
+  meetup: 'meet-up spot',
 };
 
 const SERVICE_MODES = { none: 'off', one: 'one service', choice: 'customer picks' } as const;
@@ -33,6 +34,22 @@ const OWNERSHIP = {
   none: 'nobody',
 } as const;
 const PAYMENTS = { none: 'none', deposit: 'deposit', full: 'full payment' } as const;
+
+/** The parts of a booking page's design, as the Design section names them. */
+const DESIGN_PARTS: readonly (readonly [keyof NonNullable<CalendarConfig['design']>, string])[] = [
+  ['scheme', 'light or dark'],
+  ['colors', 'colours'],
+  ['font', 'font'],
+  ['textSize', 'text size'],
+  ['corners', 'corners'],
+  ['fields', 'boxes'],
+  ['button', 'button'],
+  ['showLogo', 'logo'],
+  ['showTitle', 'name at the top'],
+  ['matched', 'matched website'],
+];
+const look = (d: CalendarConfig['design']) =>
+  !d ? 'the business’s colour' : d.matched ? `matches ${d.matched.site}` : 'its own look';
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const onOff = (v: boolean) => (v ? 'on' : 'off');
@@ -167,6 +184,12 @@ export function diffConfigs(a: CalendarConfig, b: CalendarConfig, catalogs?: Nam
   change('Buffer before', a.buffers.before, b.buffers.before, minutesOrNone);
   change('Buffer after', a.buffers.after, b.buffers.after, minutesOrNone);
   change('Travel time', a.buffers.travelMinutes, b.buffers.travelMinutes, minutesOrNone);
+  change(
+    'Leave time to drive between visits',
+    a.buffers.driveBetween,
+    b.buffers.driveBetween,
+    onOff,
+  );
   change('ZIP routing', a.territory.routing === 'zip', b.territory.routing === 'zip', onOff);
   change('Territories', a.territory.territoryIds, b.territory.territoryIds, (v) =>
     v.length ? v.map(territory).join(', ') : 'all',
@@ -268,5 +291,15 @@ export function diffConfigs(a: CalendarConfig, b: CalendarConfig, catalogs?: Nam
     !same(a.automations.workflowIds, b.automations.workflowIds)
   )
     lines.push('Workflows changed');
+
+  // Design
+  const [da, db] = [a.design, b.design];
+  if (!da || !db) change('Design', da, db, look);
+  else {
+    const parts = DESIGN_PARTS.filter(([k]) => !same(da[k], db[k])).map(([, name]) => name);
+    // The parts it doesn't offer (spacing, labels, width) still count, so a save is never lost.
+    if (parts.length) lines.push(`Design: changed the ${parts.join(', ')}`);
+    else if (!same(da, db)) lines.push('Design changed');
+  }
   return lines;
 }

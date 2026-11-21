@@ -35,7 +35,7 @@ offered to nobody; staff give it to a business from Admin → Businesses.
 | What the AI is asked about standouts, and its checks     | `notes-ai.ts`; the asks run in the worker's `socialcontent/notes.ts`             |
 | The Playbook, ideas and Try watching                     | `ops/notes.ts`                                                                   |
 | The extension's reading                                  | `apps/extension/src/research/` (its README's 0.127.0 section)                    |
-| Instagram's reads, and Facebook's and LinkedIn's         | `instagram-read.ts`; `page-read.ts`                                              |
+| Instagram's reads; Facebook's and LinkedIn's; Threads'   | `instagram-read.ts`; `page-read.ts`; `follow-read.ts` (Threads and X)            |
 | Watching a video in the reading tab                      | `apps/extension/src/research/watch.ts`                                           |
 | The web pages                                            | `apps/web/src/addons/socialcontent/`, routes under `a/socialcontent/`            |
 | What it's doing, on the Creators page                    | `activity-card.tsx` there; the extension's `Progress` in `research/read.ts`      |
@@ -52,7 +52,12 @@ offered to nobody; staff give it to a business from Admin → Businesses.
 | OpenAI's photo-style pictures                            | `apps/worker/src/pictures.ts`                                                    |
 | The Calendar page and a post's sheet                     | `calendar-page.tsx` and `post-sheet.tsx` in the web's folder                     |
 | Posting: where a post goes, its words as they go up      | `calendar.ts` (`placesFor`, `postText`, `POSTING`)                               |
-| Posting: the next post due, how it went, Post it now     | `ops/posting.ts`; `supabase/migrations/20261027025100_socialcontent_posting.sql` |
+| Posting: next post due, how it went, Post it now, Redo   | `ops/posting.ts`; `supabase/migrations/20261027025100_socialcontent_posting.sql` |
+| Picking many posts: OK, hide, delete, mark, check, pick  | `ops/picked.ts`; `20261027027600_socialcontent_hide_and_look.sql`                |
+| Redo on many waiting posts: written again, one job each  | the worker's `socialcontent/content.ts` (`rewriteManyNow`, `runRewrite`)         |
+| The Calendar's looks, filters and what's picked (shared) | `calendar-looks.ts` (pure, used by the web and the phone)                        |
+| The web's Select bar, Pick menu, Week and Month          | `calendar-picking.tsx` and `calendar-grids.tsx` in the web's folder              |
+| The extension checking if a post went up                 | `apps/extension/src/research/look.ts`                                            |
 | The extension putting a post up                          | `apps/extension/src/research/posting.ts` and `post-here.ts`                      |
 | Its own posts' numbers: when they're read, doing well    | `own.ts` (pure); `ops/own.ts`; `20261027025200_socialcontent_own_numbers.sql`    |
 | The schedule: open places, the hours it learned, moves   | `schedule.ts` (pure); `ops/schedule.ts`; the worker's `socialcontent.times` job  |
@@ -93,6 +98,13 @@ offered to nobody; staff give it to a business from Admin → Businesses.
   read again by the next search, and suggested when they fit. Profiles that still wouldn't open are counted (**Couldn’t open N profiles**),
   and a search where none opened, or most didn't, ends saying so with a problem report, never as done (9 Nov 2026,
   after two searches showed 30 accounts and read none).
+- **On Threads and X** (part 17, decision 41; extension 0.139.0, `follow-read.ts`), by their pages: a search reads
+  the network's top posts for each of the niche's searches (X's Top, Threads' default search) and gathers their
+  writers, then on X its people search; their profiles give followers, bio and link, when they last posted and their
+  latest posts' likes and replies. A studied creator's own posts are read from their profile, scrolled back to the
+  read's start: never a repost or a reply to someone else, and a pinned post at the top (older than the one under it)
+  is kept as pinned and never stops it. Likes and replies are kept; views aren't read. An older niche, with searches
+  written before the two were read, is searched there by its name.
 - **What it's doing** (the owner's ask, 9 Nov 2026: "so we can know the work it's done"). The Creators page shows,
   on top, whether the reading computer is there (when it last asked for work, and its extension's version; quiet past
   10 minutes), what it's doing now (the words it's searching, the searches done, the accounts the searches showed,
@@ -143,7 +155,8 @@ offered to nobody; staff give it to a business from Admin → Businesses.
 - **The Calendar on the phone** (part 12). Its first screen lists the Calendar too, at the web's own address
   (`a/socialcontent/calendar`). It does what the web's does: Fill the calendar, OK the week, Write a post, the
   Fill on its own switch, when it filled and fills again with the plan and who puts posts up, each day's posts and open days (Write one), No day yet,
-  and Went up lately with each post's latest numbers. A post opens on its own screen at `calendar?post=<id>`, as the
+  and Lately with each post's latest numbers and what didn't go up, the List, Week and Month looks, the filters,
+  and Select with its bar and Pick sheet (see "Picking many posts"). A post opens on its own screen at `calendar?post=<id>`, as the
   web's sheet does, so a link to one opens it there too. That screen changes everything the sheet does (title,
   network, format, a day in the next two weeks and a time in the business's time zone, where on Facebook, hook,
   words, hashtags, slides, script), shows where it went up and How it did, makes its picture again, takes the
@@ -152,7 +165,8 @@ offered to nobody; staff give it to a business from Admin → Businesses.
   swipe between (and pinch to zoom on iPhone). On a network the extension doesn't post on yet, Share the words
   hands them to the phone's share sheet. The day and clock words (`dayShown`, `timeShown`, `filledLine`,
   `planShown`) live in core's words, shared with the web. Its commands (`socialcontent.content.save`, `.approve`,
-  `.approve_week`, `.post_now`, `.skip`, `.remove`) are online commands; uploads ask `file.begin_upload` and `file.confirm`
+  `.approve_week`, `.post_now`, `.skip`, `.remove`, `.redo`, `.approve_many`, `.hide`, `.remove_many`,
+  `.mark_posted`, `.look`) are online commands; uploads ask `file.begin_upload` and `file.confirm`
   straight away (as an anytime command would only be queued) and put the file in storage between. The screens ask
   again every 20 seconds (the Calendar) and 15 (a post) while open, so a picture being made or a post going up shows
   when it's done.
@@ -168,33 +182,55 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   slides or script, what its picture shows and how it's made, its pictures (file ids, in order), where on Facebook it
   goes, when it goes, and its state (waiting for an OK, OK'd, posting, posted, didn't post, skipped). The kind is made
   when the add-on is turned on; the migration made it for businesses that already had it.
-- **The plan** is in Settings → Posting (owners and admins), on the web and the phone: for each of Instagram, Facebook
-  and LinkedIn, **AI picks** or **I pick** (part 13, below under "The schedule"). Settings also takes the Facebook
+- **The plan** is in Settings → Posting (owners and admins), on the web and the phone: for each of Instagram, Facebook,
+  LinkedIn, Threads and X, **AI picks** or **I pick** (part 13, below under "The schedule"). Threads and X start off
+  (decision 41): while off, their row suggests 5 a week, with **Post 5 a week** to turn one on. Settings also takes the Facebook
   Page's link and where Facebook posts go (the profile, the Page or both), which each Facebook post starts with, and
   the **Fill on its own** switch (below).
 - **The Calendar** shows today and the next 14 days, day by day: each post with its picture, title, first line and
   state, and each open place in the plan (a place with no post, or only a skipped one) with **Write one**, saying when
-  AI picks is trying a new time there.
+  AI picks is trying a new time there. Pressing anywhere on an open place writes its post, on List, Week and the
+  phone, and Month shows them as dashed **Open** chips that do the same (the owner, 15 Nov). Today's open places show
+  too while they're at least 30 minutes off (`CALENDAR.todayLeadMs`; `openSlots(…, today: true)`, which only
+  `calendar.get` asks), so deleting or hiding today's post opens its place again; filling still starts tomorrow.
   **Fill the calendar** has the worker write a post for every open day from tomorrow on: 5 at a time, 30 seconds
   apart, from saved ideas first, then new ones, then the Playbook alone. After the first fill it tops up once a week
   on its own (`socialcontent.calendar`, re-armed when the add-on is turned back on). **Write a post** takes the next
   open day; **Write the post** on an idea does the same for the idea's network and marks it used.
+- **Write a post asks two things first** (the owner, 14 Nov), in a window on the web and a sheet on the phone:
+  **which networks**, one or more, starting on the first with posts in the plan (`firstPlannedNetwork`), and **how
+  the AI writes it**: **AI on its own**, or **My direction** with a box for what the post is about (`ask`, 500
+  characters at most, `CALENDAR.askMost`). The worker action takes `networks` and writes a post for each, about the
+  same thing, all at once; each is written in its network's way (Threads within 500 characters, X within 280,
+  Instagram always with a picture) and goes on that network's next open day. One that fails is named in the answer
+  (`missed`) while the others are kept. AI on its own is planned the way Fill the calendar plans each post
+  (`planWrites` for one place): the kind the weekly mix needs next, a waiting idea of that kind or the next line from
+  the lists, and the next look, so it's the same for every network picked. One post opens once written; several
+  show on their days.
 - **Fill on its own** (the owner, 11 Nov): a switch on the Calendar (web and phone) and in Settings → Posting, on
   until an owner or admin turns it off (`settings.auto_fill`, from `20261027025800_socialcontent_auto_fill.sql`).
   Off, a fill under way stops before its next post, the weekly top-up writes nothing and isn't queued again, and
   Fill the calendar is hidden (`socialcontent_fill_off` if it's asked for anyway); the posts already written stay,
   and Write a post still works. Turned on again, the worker hears `socialcontent.settings.saved` (`fillTurnedOn`)
   and fills the open days right away.
-- **Writing** asks Claude for the post in the network's way (Instagram's hook and up to 10 hashtags, Facebook like a
-  neighbour, LinkedIn a lesson and a question), as the business, never inventing results, prices or reviews. Its
-  answer is checked (`checkedPost`): Instagram never gets words alone, a carousel needs 2 slides, hashtags are kept
-  apart from the words, and the AI picks how the picture is made. **Write it again** takes what to change.
+- **Writing** asks Claude for the post in the network's way (Instagram's hook and up to 5 hashtags, all Instagram takes, Facebook like a
+  neighbour, LinkedIn a lesson and a question, Threads like a conversation with one topic tag, X short with 1 or 2
+  hashtags), as the business, never inventing results, prices or reviews, nor anything of the owner's own life
+  (`OWNER_LIFE_UNKNOWN`, docs/outreach.md decision 165). Its answer is checked (`checkedPost`):
+  Instagram never gets words alone, a carousel needs 2 slides, hashtags are kept apart from the words, and the AI picks
+  how the picture is made. **Write it again** takes what to change.
+- **Threads and X** (decision 41): X takes 280 characters and Threads 500, tags included (`POSTING.textMost`,
+  `postLength`). The writer's words are cut at a sentence to fit beside the tags (`shortWords`), never a carousel
+  (`formatFor` makes it a picture), and words alone about half the time there (`LOOKS.shortText`), apart from the
+  other networks' mix. A longer tip gets a **chain** of up to 4 more posts under it (`content.chain`, `chainFor`),
+  edited on the post's screen beside a character count; empty on every other network. A post whose words and tags, or
+  a post of its chain, run past what the network takes can't be OK'd until shortened (`stillNeeds`).
 - **The AI writes picture posts and words alone, never videos** (the owner, 11 Nov): its formats are `AI_FORMATS`
   (picture, carousel, words only), an idea taken from a video standout becomes a picture or carousel post, and an
   answer that still says video is kept as a picture post. A video post is only ever the person's own, when they pick
   Video on a post. Video drafts the AI wrote before, with no video added, are written again as picture posts on the
   same day by the next fill.
-- **The main offer comes first** (the owner's picks of 11 Nov, 4a and 7b; docs/main-offer.md, "For your content"):
+- **The main offer comes first** (the owner's picks of 11 Nov, 4a and 7b; docs/main-offer.md, "For your posts and messages"):
   the add-on declares `uses: ['main_offer']`, so Settings → Main offer comes with it. No post or idea is written until
   the offer is live, as in Social Outreach: Write a post, Write it again, Fill the calendar and Suggest ideas are
   refused (`socialcontent_offer_not_live`), the weekly top-up and the nightly ideas write nothing, and the Calendar and
@@ -206,16 +242,25 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   and the lists for content (what makes you different, features and benefits, your voice, never say and the rest),
   the Playbook and the idea it's written from. Ideas read the offer and the lists too.
 - **Pictures** (decisions 14, 39 and 40), made in the worker's `socialcontent.pictures` job, one post at a time:
+  - **Their shape** (the owner, 15 Nov: Instagram pictures weren't the shape Instagram shows, then "apparently 3:4 is
+    the default for instagram now", and their pick of 3:4 over square): Instagram's are 1080 by 1440 (3:4), every
+    other network's 1080 by 1350 (4:5), every page of a carousel alike (`pictureShapeOf` and `PICTURE_SIZES` in
+    `calendar.ts`, so changing Instagram's shape is one line). OpenAI is asked for that shape and its picture cut to
+    it; the check sees each picture whole in its shape; the web and the phone show them in it. The shape is kept in
+    the post's design (`design.shape`). Instagram posts not up yet whose AI pictures aren't in its shape have them
+    made again on their own, the way they had them, keeping their words (`remakeLeft`): after any post's pictures are
+    made, with the weekly read, and when the add-on comes on. Like **Make it again**, new pictures take an OK back;
+    hidden posts wait until they're shown, and people's own pictures are left alone.
   - **Designed by the AI** (tips, steps, quotes, claims and a carousel's slides): Claude picks one font and three
     colours for the whole design (from colours that go with the business's colour, `paletteFor`, kept readable) and
-    a layout and words for each page; the worker draws each page as a 1080 by 1350 PNG (`draw.ts`). The layouts and
+    a layout and words for each page; the worker draws each page as a PNG in its shape (`draw.ts`). The layouts and
     fonts are under "Variety" below. Words are drawn, never left to an image model, so they're spelled right; emoji
     are left out. Charged as the AI's words, like any ask.
   - **Photo with words, by the AI**: OpenAI's image model (`OPENAI_IMAGE_MODEL`, GPT-Image-2.6 Sunburst) makes a
-    lifelike photo with no words from the AI's description, cropped to 1080 by 1350, and Claude designs the words over
+    lifelike photo with no words from the AI's description, cropped to its shape, and Claude designs the words over
     it in the photo or framed layout, like a picture made in Canva (decision 39); on a carousel it goes under the first
-    slide. When it's busy, GPT-Image-2.6 Flare tries once (`OPENAI_IMAGE_BACKUP_MODEL`); it plans at `medium`
-    (`OPENAI_IMAGE_COMPLEXITY`). Charged 9¢ each on the balance (`ai.image`), and only when the balance has room; the
+    slide. When it's busy, GPT-Image-2.6 Flare tries once (`OPENAI_IMAGE_BACKUP_MODEL`); it plans at `high`
+    (`OPENAI_IMAGE_COMPLEXITY`; the owner, 16 Nov: "we don't need speed we need quality"). Charged 9¢ each on the balance (`ai.image`), and only when the balance has room; the
     charge keeps OpenAI's real cost beside it. A photo that still can't be made on the last try leaves the picture
     designed without it. Without `OPENAI_API_KEY` posts get designed pictures only. See "Photo-style pictures: the
     image models" in docs/operations.md.
@@ -223,15 +268,56 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
     all, like a Canva graphic, with the exact words and the business's colours (`graphicPromptFor`). It's kept only
     when the check passes it; otherwise the photo is made again without words and the words are drawn over it. Each
     OpenAI picture is charged 9¢ when it's made, kept or not. Under "Variety" below.
-  - **Checked before it's kept** (decision 40, `check-ai.ts`): Claude looks at every picture made, made smaller
-    (540 by 675), beside the words each page should say, and fails one with a word misspelt, garbled, extra, cut off
-    or too small, words overlapping, anything strange in a photo, or a look no business owner would post. A drawn
-    design that fails is designed once more, told each problem, and the one with fewer problems is kept. The answer
-    is kept on the design (`check`). When the check can't be asked, a drawn design is kept and a graphic isn't.
+  - **Checked before it's kept** (decision 40, `check-ai.ts`): Claude looks at every picture made, beside the words
+    each page should say: a page with a photo whole, at full size (`CHECKS.photoWidth`, since at half a bent laptop
+    or a wrong finger is a few dots: the owner, 17 Nov), the others made smaller (540 by 675), enough to read every
+    word. It fails one with a word misspelt, garbled, extra, cut off
+    or too small, words overlapping, a mistake image AIs make in a photo, or a look no business owner would post. A
+    drawn design that fails is tried up to twice more (`CHECKS.retries`), and the one with the fewest problems is
+    kept: a problem with the words or layout is designed again, told each problem (`fixAsk`); a mistake in the photo
+    itself has the photo made again, told what to avoid (`photoFixAsk`), at another 9¢ each time, under the same
+    design when only the photo was wrong. When a new photo can't be made, the one before stays. The answer is kept on
+    the design (`check`, with the photo's problems under `photo`), and `checked: 4` marks a picture made under this
+    check. When the check can't be asked, a drawn design is kept and a graphic isn't. What the check still found on a
+    kept picture shows beside it on the post, on the web and the phone, so the owner looks closely before an OK
+    (`pictureFlags`, the post's `pictureFlags`, words `post.pictureFlagged`).
+  - **The photo mistakes it looks for** (the owner, 15 Nov: "the phone in her hand is just a blank white screen",
+    `PHOTO_MISTAKES`): a phone, laptop, TV or other screen in use that's blank, white, grey or black, even when the
+    post is about waiting; wrong, extra or joined fingers, or hands holding things in ways they can't; warped faces,
+    eyes or teeth; people or things that melt together, float, bend or are doubled; made-up writing on signs,
+    screens, boxes or clothes; words, numbers, icons or app screens that are part of the photo, even faint ones
+    showing through behind the page's own words; any thing bent out of its real shape (the owner, 17 Nov: "look at the
+    laptop on this image. the ai should have noticed how the shape of it is all wonky", a laptop on a truck's dash
+    with a bent lid and a base running into the dash, which check 3 passed). For that it goes over the photo one thing
+    at a time before judging it, each person, hand and object, asking whether a camera could have taken it so:
+    straight edges straight, parts the right size for each other, parts joined where they should be (a laptop's lid
+    meeting its base along one hinge), resting on something that could hold it; and it lists what it went over
+    (`photoLooked`, asked first so it looks, never kept). Any writing in the photo counts as a photo mistake, since only a new
+    photo fixes it (16 Nov: 9 of 23 remade photos still failed, mostly on faint writing the check had blamed on the
+    layout). The post writer is told never to describe a blank screen, words in the scene or the words laid over it
+    (`WRITE_SYSTEM`), and every photo and graphic OpenAI makes is told a screen in use glows with soft, blurred colour
+    and nothing readable, or faces away, even when the scene says otherwise, and that every object keeps its real
+    shape (`PHOTO_LOOKS_REAL`). The faint writing
+    came from the scenes themselves: all 9 still failing said "Overlay text reads '…'" or "with the words '…'
+    overlaid", or filled a screen with apps, and the image model drew those words faintly while told to draw none. So
+    a photo is asked for from the scene without them (`sceneWithoutWords`): quoted words, parts about words over the
+    photo, and what a screen shows (unless the screen is the scene's subject) are left out, sentence by sentence, and
+    a sentence with too little left goes. Older posts' scenes are cleaned the same way when their photo is made
+    again. A graphic that fails for a photo mistake
+    passes it on to the photo made in its place. Photo-style pictures on any network on posts not up yet are made
+    again under this check by the same catch-up as Instagram's shape (`remakeLeft`) when they were made before the
+    photo mistakes check (`checked` under 2), or made under an older check and still failed it (the owner's pick, 16
+    Nov). Ones that passed an older check are checked again under this one first, their kept pictures as they are
+    (`recheck`, `recheckKept`), and stay, marked `checked: 4`, when they pass; one that fails is made again, a new
+    photo told what was wrong under the same design when only the photo was, else designed again told the problems
+    (the owner, 17 Nov). A re-check costs one look, not a new photo.
     The check is told only the words a page's layout draws (items only on list and before and after pages, a mark
     only on number pages: `wordsOfPage`) and what the layout draws on purpose, such as a myth's crossed-out heading
     (`pageToCheck`). Words are shrunk to fit their room, past their usual smallest size if need be, before any are
-    left out; a page that still can't fit them all fails as if the check had said so (`withCutWords`). After the
+    left out; a page that still can't fit them all fails as if the check had said so (`withCutWords`). A page's
+    words over their most (`POST_LIMITS`, which the designer is told, the footer's 60 characters included) are cut
+    at a sentence's end, else a word's, never mid-word (`clipWords`: footers cut at 60 letters read "Visit the li",
+    16 Nov). After the
     first 39 posts (13 Nov), 9 designs had failed only for a mark or items their layout never draws, or for the body
     that list and before and after pages left out; they now draw it.
   - **Your own**: **Add your photo** uploads to the post's files. A video post needs the person's own video: they
@@ -265,7 +351,7 @@ The plans are pure, in core (`variety.ts`, `research-ai.ts`, the designs in `pos
 - **A kind for each post** (decision 36): of every 10, about 4 **tips**, 2 **customer problems**, 2 **stories** and 2
   about **the offer**, each the kind furthest behind its share of the last 10, never the same kind twice in a row
   (`nextAngles`). The AI is told what each kind does (`ANGLE_FOR_AI`).
-- **A topic for each post** (decision 34): a line from the main offer's For your content lists, the kind's lists
+- **A topic for each post** (decision 34): a line from the main offer's For your posts and messages lists, the kind's lists
   taking turns (`ANGLE_LISTS`), a list with a line not used lately first, then its line used longest ago
   (`pickTopic`). The writer sees the business's last 20 posts (`<recent_posts>`) and never opens the way one did.
   Posts and ideas keep their kind and topic (`angle`, `topic_list`, `topic`), shown as a badge and an About line on
@@ -362,13 +448,13 @@ takes the next step each time something it waits on happens, and checks again ev
    studied (`pickCreators`, then `socialcontent.creators.pick`). Creator research stays Instagram only for now.
 5. **Notes and the Playbook** come as they always do, once the posts are read.
 6. **Writing** (decision 32) starts once the Playbook is written or 3 days have passed since setup started, and only
-   once the main offer is live and its For your content lists are all filled (`writeWaitsOn`). With no Playbook and
+   once the main offer is live and its For your posts and messages lists are all filled (`writeWaitsOn`). With no Playbook and
    no idea yet, the first fill writes from the main offer's lists. Each post still waits for an OK (decision 33).
 
 Each step taken is marked once, with its first time, in `settings.setup` (`socialcontent.setup.mark`), so it never runs
 twice; businesses that had niches or a fill before part 14 were marked as set up by the migration. The Creators page
 shows the steps on the web and the phone (`setupSteps`, worked out in core from `overview.setup`), each with where it
-stands and a button to fix what one waits on (Settings, Main offer, For your content), until every step is done or off.
+stands and a button to fix what one waits on (Settings, Main offer, For your posts and messages), until every step is done or off.
 
 - **Swapping out quiet creators** (decision 31): each month, before the search, the creators the AI picked whose
   posts were read and who haven't posted in 45 days, or have fewer than 1 standout in 30 posts once 30 are read, are
@@ -380,14 +466,19 @@ stands and a button to fix what one waits on (Settings, Main offer, For your con
 
 ## Posting
 
-Parts 9 and 10 (decisions 15 to 17). An OK'd post goes up at its time from the business's reading computer, in Chrome
-with the HandsFreeOS Social extension, while Chrome is open there: Facebook and LinkedIn from 0.132.0, Instagram from
-0.133.0. The post's sheet offers **Copy the words** on any network the extension doesn't post on.
+Parts 9, 10 and 16 (decisions 15 to 17 and 41). An OK'd post goes up at its time from the business's reading computer,
+in Chrome with the HandsFreeOS Social extension, while Chrome is open there: Facebook and LinkedIn from 0.132.0,
+Instagram from 0.133.0, Threads and X from 0.138.0. The post's sheet offers **Copy the words** on any network the extension doesn't post on.
 
 - **Each minute, before any reading,** the extension asks for the next post due (`socialcontent.post.next`) on the
-  networks it posts on with no warning today. HandsFreeOS hands it the OK'd post whose time has come, soonest first,
+  networks it posts on with no warning today. HandsFreeOS hands it the OK'd post whose time has come, soonest first
+  (Facebook last of those due at the same time, since it goes to two places and waits on Business Suite, so the rest
+  never wait behind it: the owner's 12 PM posts of 16 Nov 2026),
   with its words as they go up (`postText`: the words, a blank line, then the hashtags, within what the network
-  takes), its pictures (or the person's video, on a video post), the places it still goes, and the Page's link. It's
+  takes: on Instagram no more than 5 hashtags, words included, since a caption with more goes up without its words;
+  words written a line to a paragraph, with no blank line anywhere, get one between each, as decision 158 in
+  `docs/outreach.md` asks, except on Threads and X, and the writer saves them that way too: `withParagraphs`),
+  its pictures (or the person's video, on a video post), the places it still goes, and the Page's link. It's
   taken (`posting`), so it goes up once.
 - **Where it goes** (`placesFor`): on Facebook the person's profile, the business's Page, or both, in that order
   (decision 17); on LinkedIn and Instagram their feed. Each place it went up is kept (`posted_to`, with its link when the network
@@ -396,13 +487,44 @@ with the HandsFreeOS Social extension, while Chrome is open there: Facebook and 
   HandsFreeOS's storage on the person's own sign-in; the network's box is opened, the words typed, the pictures added
   (its file field, pasting, its photo button with the file picker held back, or dropping them), Next pressed when the
   box asks, then Post. A Facebook Page's post goes through Meta Business Suite's Create post for the Page, so the
-  person's profile is never switched to the Page while Social Outreach works as them; a tick for Instagram there is
-  turned off. Its link comes from the network (LinkedIn's View post), else from the top of the profile, the Page or
+  person's profile is never switched to the Page while Social Outreach works as them; Instagram is taken off what it
+  posts to there (a tick, or the Instagram account in Post to, which Business Suite picks for a Page with Instagram
+  linked), and after Publish it waits up to 90 seconds, then looks on the Page for the post before saying it didn't
+  go up (extension 0.140.5, after two Page posts on 14 Nov were marked as failed while still publishing). A Page of Facebook's newer kind is opened there by its own number, not the one in its link (extension
+  0.139.2). LinkedIn's newer box takes the pictures in a window of its own (Upload from computer, then Next). Its link comes from the network (LinkedIn's View post), else from the top of the profile, the Page or
   their own posts by its first words.
+- **Looking for it on the page that lists it** (extension 0.147.3; `lookOn` in `research/posting.ts`): Facebook draws
+  a profile's or a Page's posts only once they're scrolled near, and nothing in a window hidden behind another. The
+  owner's Page posts of 15 and 16 Nov 2026 were looked for while every post there still said "Loading...", so four that
+  may have gone up were marked as not. Now the first post still loading is scrolled into view and waited on, by the
+  clock, till the newest four are drawn, for up to 30 seconds; when they never draw it looks once more with the window
+  in front, only while the person is away (decision 120). If it still can't see them, it says Facebook didn't load the
+  Page's posts so it couldn't check, never that the post isn't there. Check if it posted looks the same way, further
+  back (the newest 12). From extension 0.147.6 a post counts as there when its words match, with or without a link
+  (`postShown`): Facebook leaves a new post's own link empty until it's pointed at, and cuts long words short with "…"
+  before See more, which is left off before comparing. On 17 Nov 2026 the owner's 12 PM Page post was the first on
+  the Page and still marked as not posted for both reasons. From extension 0.147.10 (migration 028900) a look a person
+  asked for (Check if it posted, or Check again: `look_asked`, handed to the extension as `asked`) brings the window
+  in front right away when the Page's posts didn't draw behind theirs, as a Check does (decision 120), and puts their
+  window back after. On 18 Nov 2026 the owner's Check if it posted found the Page's newest post but said Facebook
+  didn't load the Page's posts for the one under it: behind their window Facebook draws its newest post and nothing
+  past it. A look on its own (10 minutes after a post that may have gone up) still comes in front only while they're
+  away. A window Chrome doesn't show is waited on 10 seconds (`POSTS_HIDDEN_MS`), not 30, before that.
+- **Behind the person's windows** (extension 0.146.0): the posting window sits beside theirs, mostly hidden while they
+  work, where Chrome slows a page's timers to once a minute. The hands wait by the clock, never by how many looks they
+  took, and the background wakes a hidden posting window, as its own timers aren't slowed. Before, a Page post's
+  90 seconds after Publish, counted as 225 looks, could take nearly four hours, and every post due after it waited
+  (on 16 Nov 2026 the 12 PM LinkedIn and Instagram posts went up at 1:52 and 1:53 PM).
 - **Instagram** (part 10): **Create** on its home page (then **Post** when it asks which kind), the pictures or the
-  person's video into Create new post, **OK** when it says a video goes up as a reel, **Next** past cropping and
-  editing, then the words in the caption box and **Share**. Its link comes from the person's own newest posts, as
+  person's video into Create new post, **OK** when it says a video goes up as a reel, **Original** under cropping's
+  **Select crop** (else 4:5: Instagram starts on a square, which cut the bottom off a 4:5 picture's words; extension
+  0.140.1), **Next** past cropping and editing, then the words in the caption box and **Share**. Its link comes from the person's own newest posts, as
   Instagram's page asks for them, by its first words.
+- **Threads and X** (part 16, decision 41; `post-short.ts`): X's compose page (x.com/compose/post) or Threads' home
+  page ("What's new?", else Create): the words in its first box, the pictures, then each post of the chain in a box of
+  its own after **Add post** (X) or **Add to thread** (Threads), then **Post** (**Post all** with a chain). Its link
+  comes from the note the network shows once it went, else from the top of the person's own profile by its first words.
+  A Post the network keeps off (the words run past what it takes) is never pressed.
 - **How it went** (`socialcontent.post.went`): up everywhere is **Posted**, with **See it on your profile**, **your
   Page** or **LinkedIn**; any place that didn't take it is **Didn't post**, saying why and where. A network's warning
   before anything was pressed stops posting and reading there for the day, for both social add-ons, and the post goes
@@ -410,12 +532,68 @@ with the HandsFreeOS Social extension, while Chrome is open there: Facebook and 
 - **Never twice:** once Post is pressed in a place it's never pressed there again on its own. One taken that hasn't
   said how it went within 20 minutes is marked as didn't post ("it may have gone up"), never retried. One still
   waiting a day past its time (the computer was off) is marked as didn't post too.
-- **Post it now** (`socialcontent.content.post_now`, risk 2: the Assistant asks first) puts an OK'd post, or one that
-  didn't post, up now: its time becomes now, and it counts as the OK. Places it already went up in are left out.
+- **Post it now** (`socialcontent.content.post_now`, risk 2: the Assistant asks first) puts an OK'd post up now: its
+  time becomes now, and it counts as the OK. On a post that didn't post the same command is **Try again** (see
+  "Picking many posts"). Places it already went up in are left out.
+- **Redo posts** (the owner, 15 Nov, after Instagram posts went up cut square): on the Calendar, on the web and the
+  phone, **Select**, pick posts that went up or didn't go up (`canRedo`), then **Redo** on the bar
+  (`socialcontent.content.redo`, risk 2: the Assistant asks first; no cap since the owner's second design, sent 500 at
+  a time) puts them up again: the first on each network now, the rest one every 30 minutes on that network
+  (`redoTimes`, `POSTING.redoEveryMs`), so a network never sees a burst. Each counts as the OK, and its time counts as
+  the person's (`placed_by = 'person'`), so AI picks never moves it. One that **didn't go up** keeps where it went, so
+  only the rest is tried again. One that **went up** goes up again everywhere it went: its places, link, numbers and
+  next read are cleared, since they were the old post's, and the bar tells the person to delete the old one on the
+  network, as HandsFreeOS can't take posts down. It says which it couldn't redo and why (one going up right now, one
+  skipped, a draft or OK'd one, or what one still needs). What didn't go up now shows under **Lately** (it was **Went
+  up lately**, and a post that went up nowhere dropped off the Calendar once its day passed).
 - **The Calendar** says how many are OK'd and going up, whose computer puts them up, and warns when none is picked or
   it hasn't checked in for 10 minutes (`postingLines`, shared with the phone).
 - **When a place doesn't work,** a problem report goes to Admin → Problem reports with job `post.profile`,
   `post.page` or `post.feed`: what the hands did, step by step, and the page's outline. Never a name.
+
+## Picking many posts
+
+The owner's design (15 Nov), on the web and the phone. The Calendar has three looks, **List** (today and the next two
+weeks, with Lately; the default), **Week** and **Month**; weeks start Monday. Each person's last look is kept (a
+cookie on the web, the phone's own store), and the address carries `?look=&day=` on the web. `calendar.get` takes
+`from` and `days` (1 to 42), so a week asks 7 days and a month the 6 weeks it shows; `recent` is the 30 days before
+`from`. The looks, ranges, filters and what's picked are worked out once, in `calendar-looks.ts`.
+
+- **Filters**: All, Waiting for your OK, OK'd, Posted, Didn't post and Hidden, each with its count (`shows`,
+  `filterCounts`). A hidden post shows only under Hidden, with a Hidden badge and a dashed edge.
+- **Select** puts a tick beside each post, each day, each week on Month, Lately, and one for everything shown.
+  **Pick** adds Today, This week or This month, a kind in what's shown, or a kind at any date (everything, waiting,
+  past, didn't post, hidden), which asks `socialcontent.content.pick` (up to 500, saying when there are more). Clear
+  what's picked empties it.
+- **The bar** says how many are picked and what they are (`summaryOf`), and offers only what fits them, with each
+  button's count: **OK** (waiting ones: `.approve_many`), **Redo** (past ones go up again: `.redo`, with "Also redo
+  the N that posted" before any that went up are included; waiting and OK'd ones are written again, below), **Check if posted** (`.look`), **Mark posted** (didn't post ones:
+  `.mark_posted`), **Hide** or **Show again** (`.hide`, `hide: false` to show), and **Delete** (`.remove_many`).
+  Every command takes up to 500 posts and says which it left alone and why; the screens send more in turns
+  (`inTurns`).
+- **Redo on posts waiting to go up** (the owner, 15 Nov: "should also have a redo option when selecting the posts")
+  has the AI write drafts and OK'd posts again in new words (`canRewrite`). It asks first in a window (a sheet on the
+  phone), then the worker action `socialcontent.content.rewrite_many` queues one `socialcontent.rewrite` job a post,
+  20 seconds apart (`REWRITE_GAP_MS`), so the page needn't stay open. Each is written again as **Write it again**
+  does (`rewriteOne`), so an OK'd one waits for an OK again. One that went up, was hidden or was deleted before its
+  turn is left as it is; one already queued isn't queued twice. It waits for the main offer to be live, as writing
+  does.
+- **Hide** keeps the posts under Hidden. One not up yet is skipped too, so it never goes up while hidden; showing it
+  again doesn't OK it again.
+- **Delete** is for owners and admins (`records.archive`, as removing one is). It asks first, says it doesn't take
+  posts down from the networks, and offers **Hide instead**. A post that went up can be deleted now; one going up
+  right now can't. Others see who can.
+- **A post that didn't post** shows why, then **Try again** (`.post_now`), **Check if it posted** (`.look`) and **Mark
+  as posted** (`.mark_posted`, after asking, with its link if there is one, so its numbers are read). Checking asks the
+  reading computer, which looks for it on the network by its first words (`socialcontent.post.look_next` and
+  `.looked`, extension 0.140.6). It says Checking… while it looks, then that it isn't there and when it checked (and
+  Mark as posted reads "Mark as posted anyway", and the check stays as **Check again**: the owner, 17 Nov 2026, as the
+  Page posts the check had missed before extension 0.147.3 showed no way to look again), or why it couldn't look.
+  Found, it's marked as posted with its link. It also looks once on its own, 10 minutes after a post that may have gone up is marked as didn't post
+  (`LOOK.afterFailMs`).
+- **The Assistant** does all of these (`socialcontent_pick_own_posts`, `_approve_own_posts`, `_hide_own_posts`,
+  `_remove_own_posts`, `_mark_own_posts_posted`, `_check_own_posts`, `_rewrite_own_posts`); OK, Delete and Mark posted wait on a Confirm
+  card.
 
 ## Its own posts' numbers
 
@@ -510,8 +688,10 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
 - **Words on pictures are drawn by the worker, except OpenAI's whole graphics** (decisions 14 and 40): OpenAI's
   photos are asked for with no words in them and the words are laid over them (decision 39); a whole graphic, words
   and all, is kept only when the check passes it, and how often one is tried follows how the last ones did.
-- **Every picture is checked before it's kept** (decision 40): a design that fails is designed once more, a graphic
-  that fails is never kept, and a graphic the check couldn't look at isn't kept either.
+- **Every picture is checked before it's kept** (decision 40): a design that fails is designed again, or its photo
+  made again when the mistake is in the photo (the owner, 15 Nov), up to twice more (16 Nov), and what still fails
+  shows beside the picture; a graphic that fails is never kept, and a graphic the check couldn't look at isn't kept
+  either.
 - **A fact found online always keeps the page the search really found** (decision 38): the facts ask may only point
   at pages from the search's own results, and a post names its source in plain words, never adding a number or claim
   the fact doesn't give.
@@ -519,6 +699,13 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
   kind, topic and look, and what comes back is held to them (`checkedPost`, `checkedDesign`).
 - **A post goes up once in each place** (part 9). Once Post is pressed in a place it's never pressed there again on
   its own; one that may have gone up is the person's to look at, and Post it now leaves out the places it went up in.
+  The one exception is the person's own **Redo posts** on one that went up (the owner, 15 Nov): it goes up again
+  everywhere, and the old one is theirs to delete on the network.
+- **HandsFreeOS never takes a post down from a network** (the owner, 15 Nov). Deleting posts takes them off the
+  Calendar only, and says so; Hide keeps them. Only owners and admins delete; anyone who uses the add-on hides.
+- **A hidden post never goes up**: hiding one not up yet skips it, and showing it again leaves it for a person to OK.
+- **Mark as posted is only for a post that didn't post**, and only a person does it, after asking: it's their word
+  that it's up on the network. Check if it posted is the way to let HandsFreeOS look.
 - **A Page's post never switches the person's profile:** it goes through Meta Business Suite, so Social Outreach,
   working at the same time, stays the person.
 - **The business's own posts are weighed only against its own** (part 11): in the same place, by their 7-day numbers,
@@ -537,4 +724,6 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
 - Removing a post's older AI pictures: a picture made again replaces them on the post, but the old files stay among
   its files, since deleting a file is a person's step.
 - TikTok and YouTube (part 7).
+- Reading a Threads or X post's views and reposts: the readers take likes and replies (part 17). X's own count (a link as 23 characters, some emoji as 2) isn't followed: the writer leaves
+  room, and a post X keeps off is said, never pressed.
 - LinkedIn company pages' posts (members' posts are read), and watching Facebook's and LinkedIn's videos.

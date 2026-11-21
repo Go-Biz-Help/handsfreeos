@@ -20,6 +20,7 @@ import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import {
   CALENDAR,
+  chainFor,
   formatFor,
   hasPictures,
   POSTING,
@@ -45,6 +46,7 @@ import {
   type ContentPicture,
 } from '../content-shapes';
 import { socialcontentAddon } from '../manifest';
+import { pictureFlags } from '../check-ai';
 import { tidyHashtags } from '../posts-ai';
 import { isAngle } from '../variety';
 import { isOfferList } from '../../../main-offer/lists';
@@ -66,13 +68,25 @@ export const POST_REFUSALS = {
   notOnPost:
     'One of those pictures isn’t on this post anymore. Refresh the page, then add it again with Add your photo.',
   skipped: 'That post is skipped. Bring it back first, then OK it.',
+  /** Redo (the owner, 15 Nov) is for posts that went up or didn't. */
+  notRedoable: 'It hasn’t gone up yet, so there’s nothing to redo. OK it, or press Post it now.',
   removeWho:
     'Only an owner or admin removes posts. Press Skip it instead, which opens its day for another post too, or ask one of them.',
-  removePosted: (network: string) =>
-    `That post already went up, so it stays on the calendar with its numbers. To take it down, delete it on ${network} itself.`,
 } as const;
 
 export type ContentRow = typeof content.$inferSelect & { title: string };
+
+/**
+ * A post that's going up (OK'd, redone, or put up now) is shown again if it was hidden (a hidden post never goes up),
+ * and is no longer looked for (Check if it posted is for one that didn't post).
+ */
+export const NOT_HIDDEN_OR_LOOKED = {
+  hiddenAt: null,
+  lookDueAt: null,
+  lookedAt: null,
+  lookFailure: null,
+  lookAsked: false,
+} as const;
 
 /** The post, with its record's name, when it's in this business and not in the Deleted bin. */
 export async function loadContent(
@@ -101,7 +115,7 @@ export async function loadContent(
   return { ...c, title: r.title };
 }
 
-const networkWord = (n: string) =>
+export const networkWord = (n: string) =>
   n === 'instagram'
     ? 'Instagram'
     : n === 'facebook'
@@ -143,6 +157,7 @@ function fromRaw(r: RawRow): ContentRow {
     words: String(r['words'] ?? ''),
     hook: (r['hook'] as string | null) ?? null,
     hashtags: (r['hashtags'] as string[] | null) ?? [],
+    chain: (r['chain'] as string[] | null) ?? [],
     slides: (r['slides'] as ContentRow['slides']) ?? [],
     script: (r['script'] as ContentRow['script']) ?? null,
     picture: (r['picture'] as string | null) ?? null,
@@ -171,6 +186,11 @@ function fromRaw(r: RawRow): ContentRow {
     doneWell: isPlainObject(r['done_well'])
       ? (r['done_well'] as unknown as ContentRow['doneWell'])
       : null,
+    hiddenAt: asDate(r['hidden_at']),
+    lookDueAt: asDate(r['look_due_at']),
+    lookedAt: asDate(r['looked_at']),
+    lookFailure: (r['look_failure'] as string | null) ?? null,
+    lookAsked: r['look_asked'] === true,
     createdBy: (r['created_by'] as string | null) ?? null,
     createdAt: asDate(r['created_at'])!,
     updatedAt: asDate(r['updated_at'])!,
@@ -178,7 +198,7 @@ function fromRaw(r: RawRow): ContentRow {
   };
 }
 
-async function readPosts(ctx: Ctx, where: ReturnType<typeof sql>): Promise<ContentRow[]> {
+export async function readPosts(ctx: Ctx, where: ReturnType<typeof sql>): Promise<ContentRow[]> {
   const found = await rows<RawRow>(
     ctx.tx,
     sql`${POST_SELECT} where c.workspace_id = ${ctx.scope.workspaceId!} and ${where}`,
@@ -239,6 +259,7 @@ export async function contentOut(ctx: Ctx, list: readonly ContentRow[]): Promise
       words: c.words,
       hook: c.hook,
       hashtags: c.hashtags,
+      chain: c.chain ?? [],
       slides: Array.isArray(c.slides) ? c.slides : [],
       script: c.script && Array.isArray(c.script.lines) ? c.script : null,
       picture: c.picture,
@@ -246,6 +267,7 @@ export async function contentOut(ctx: Ctx, list: readonly ContentRow[]): Promise
       pictureState: c.pictureState,
       pictureFailure: c.pictureFailure,
       pictures,
+      pictureFlags: c.pictureState === 'made' ? pictureFlags(c.design) : [],
       facebookWhere: c.facebookWhere,
       state: c.state,
       postAt: c.postAt?.toISOString() ?? null,
@@ -266,6 +288,8 @@ export async function contentOut(ctx: Ctx, list: readonly ContentRow[]): Promise
         network: c.network,
         format: c.format,
         words: c.words,
+        hashtags: c.hashtags,
+        chain: c.chain ?? [],
         slides: Array.isArray(c.slides) ? c.slides : [],
         fileIds: pictures.map((p) => p.fileId),
         videos: pictures.filter((p) => p.mimeType?.startsWith('video/')).length,
@@ -273,6 +297,10 @@ export async function contentOut(ctx: Ctx, list: readonly ContentRow[]): Promise
         facebookWhere: c.facebookWhere,
         facebookPage: s.facebookPage,
       }),
+      hidden: c.hiddenAt !== null,
+      lookAt: c.state === 'failed' ? (c.lookDueAt?.toISOString() ?? null) : null,
+      lookedAt: c.state === 'failed' ? (c.lookedAt?.toISOString() ?? null) : null,
+      lookFailure: c.state === 'failed' ? c.lookFailure : null,
       createdAt: c.createdAt.toISOString(),
       updatedAt: c.updatedAt.toISOString(),
     });
@@ -289,7 +317,7 @@ async function nameOf(ctx: Ctx, userId: string): Promise<string | null> {
 }
 
 /** The day range a calendar shows, as instants in the business's time zone. */
-function rangeOf(from: string, days: number, timeZone: string) {
+export function rangeOf(from: string, days: number, timeZone: string) {
   const end = addDays(from, days);
   return {
     end,
@@ -306,7 +334,7 @@ const RECENT_DAYS = 30;
 export const calendarGet = defineAddonQuery(socialcontentAddon, {
   name: 'socialcontent.calendar.get',
   description:
-    'The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the plan’s open places with no post yet (each AI picks hour, and whether it’s an hour the AI is trying out); the plan itself (for each of Instagram, Facebook and LinkedIn: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times picked on each weekday); what AI picks learned (its best hours so far, from the creators’ posts or the business’s own); when it last filled, whether it fills on its own (autoFill) and when it fills again; whether the main offer is live (offerLive: until it is, the AI writes no posts); and how many ideas are saved to write from.',
+    'The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up, or didn’t go up, in the 30 days before, each that went up with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the plan’s open places with no post yet (each AI picks hour, and whether it’s an hour the AI is trying out); the plan itself (for each of Instagram, Facebook and LinkedIn: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times picked on each weekday); what AI picks learned (its best hours so far, from the creators’ posts or the business’s own); when it last filled, whether it fills on its own (autoFill) and when it fills again; whether the main offer is live (offerLive: until it is, the AI writes no posts); and how many ideas are saved to write from.',
   input: CalendarGetInput,
   output: CalendarGetOutput,
   permission: 'socialcontent.use',
@@ -329,10 +357,11 @@ export const calendarGet = defineAddonQuery(socialcontentAddon, {
       ctx,
       sql`c.post_at is null and c.state = 'draft' order by c.created_at desc limit 50`,
     );
-    // What went up in the 30 days before these days, with how each did (part 11).
+    // What went up in the 30 days before these days, with how each did (part 11), and what didn't go up, so it can
+    // be redone (the owner, 15 Nov).
     const recent = await readPosts(
       ctx,
-      sql`jsonb_array_length(c.posted_to) > 0
+      sql`(jsonb_array_length(c.posted_to) > 0 or c.state = 'failed')
           and (c.post_at is null or c.post_at < ${start.toISOString()}::timestamptz)
           and coalesce(c.posted_at, c.updated_at) > ${new Date(now - RECENT_DAYS * 86_400_000).toISOString()}::timestamptz
           order by coalesce(c.posted_at, c.updated_at) desc limit 20`,
@@ -346,6 +375,8 @@ export const calendarGet = defineAddonQuery(socialcontentAddon, {
       timeZone,
       now,
       days: ahead,
+      // Today's places too, while there's time to OK a post there (the owner, 15 Nov: a deleted post's place stays).
+      today: true,
     }).filter((slot) => slot.date >= from && slot.date < end);
     const [counts] = await rows<{ saved: number; ready: number }>(
       ctx.tx,
@@ -393,7 +424,7 @@ export const calendarGet = defineAddonQuery(socialcontentAddon, {
 export const contentGet = defineAddonQuery(socialcontentAddon, {
   name: 'socialcontent.content.get',
   description:
-    'One of the business’s own posts: its network, format, title, words, hook, hashtags, a carousel’s slides or a video’s script, what its picture shows and how it’s made (designed by the AI, a photo-style picture from the AI, or the person’s own), its pictures, where on Facebook it goes, when it goes, whether it’s waiting for an OK, OK’d, posted or skipped, what it still needs before it can be OK’d, and once it went up: where, its links, its numbers about 2 and 7 days after (views, likes, comments, shares) and whether it did well against the business’s own other posts.',
+    'One of the business’s own posts: its network, format, title, words, hook, hashtags, a carousel’s slides or a video’s script, what its picture shows and how it’s made (designed by the AI, a photo-style picture from the AI, or the person’s own), its pictures, where on Facebook it goes, when it goes, whether it’s waiting for an OK, OK’d, posted or skipped, what it still needs before it can be OK’d, what the picture check still found wrong with its pictures if anything, and once it went up: where, its links, its numbers about 2 and 7 days after (views, likes, comments, shares) and whether it did well against the business’s own other posts.',
   input: ContentGetInput,
   output: ContentShape,
   permission: 'socialcontent.use',
@@ -487,6 +518,8 @@ export const contentSave = defineAddonCommand(socialcontentAddon, {
       words: input.words === undefined ? was.words : input.words.trim(),
       hook: input.hook === undefined ? was.hook : input.hook || null,
       hashtags: input.hashtags === undefined ? was.hashtags : tidyHashtags(input.hashtags, 30),
+      // Threads and X keep their chain (decision 41); any other network has none.
+      chain: chainFor(network, input.chain ?? was.chain ?? []),
       slides:
         input.slides === undefined ? was.slides : input.slides.filter((s) => s.heading || s.body),
       script: input.script === undefined ? was.script : input.script,
@@ -509,6 +542,7 @@ export const contentSave = defineAddonCommand(socialcontentAddon, {
       next.words !== was.words ||
       next.hook !== was.hook ||
       !sameList(next.hashtags, was.hashtags) ||
+      !sameList(next.chain, was.chain ?? []) ||
       !sameList(next.slides, was.slides) ||
       JSON.stringify(next.script) !== JSON.stringify(was.script) ||
       next.picture !== was.picture ||
@@ -554,7 +588,7 @@ export const contentSave = defineAddonCommand(socialcontentAddon, {
 });
 
 /** OKs a post that's ready to: nothing missing, and its time ahead. Null when it's OK'd; else what it needs. */
-async function okOne(
+export async function okOne(
   ctx: CommandContext,
   c: ContentRow,
   me: string,
@@ -574,6 +608,8 @@ async function okOne(
     network: c.network,
     format: c.format,
     words: c.words,
+    hashtags: c.hashtags,
+    chain: c.chain ?? [],
     slides: Array.isArray(c.slides) ? c.slides : [],
     fileIds: pictures.map((p) => p.id),
     videos: pictures.filter((p) => p.mime_type?.startsWith('video/')).length,
@@ -586,7 +622,14 @@ async function okOne(
   const at = changeMoment(ctx.meta);
   await ctx.tx
     .update(content)
-    .set({ state: 'ready', approvedBy: me, approvedAt: at, failure: null, updatedAt: at })
+    .set({
+      state: 'ready',
+      approvedBy: me,
+      approvedAt: at,
+      failure: null,
+      ...NOT_HIDDEN_OR_LOOKED,
+      updatedAt: at,
+    })
     .where(eq(content.recordId, c.recordId));
   await ctx.emit({
     type: 'socialcontent.content.approved',
@@ -737,10 +780,18 @@ export const contentSkip = defineAddonCommand(socialcontentAddon, {
   },
 });
 
+/** Takes a post off the Calendar for good: its record archived, as an add-on's records are never deleted. */
+export async function removeOne(ctx: CommandContext, c: ContentRow): Promise<void> {
+  await executeCommandWithin(ctx, customRecordArchive, {
+    workspaceId: ctx.scope.workspaceId!,
+    customRecordId: c.recordId,
+  });
+}
+
 export const contentRemove = defineAddonCommand(socialcontentAddon, {
   name: 'socialcontent.content.remove',
   description:
-    'Remove one of the business’s own posts from the calendar for good, so it never goes up and its day is open for another (Fill the calendar or Write one then writes a new one there). Its record is archived, as an add-on’s records are never deleted. Not a post that went up or is going up. Owners and admins.',
+    'Remove one of the business’s own posts from the calendar for good, so it never goes up and its day is open for another (Fill the calendar or Write one then writes a new one there). Its record is archived, as an add-on’s records are never deleted. One that went up comes off the calendar too, but stays on the network: HandsFreeOS can’t take posts down. Not one going up right now. Owners and admins.',
   risk: 2,
   input: ContentRemoveInput,
   output: ContentRemoveOutput,
@@ -762,19 +813,14 @@ export const contentRemove = defineAddonCommand(socialcontentAddon, {
     if (!scopeCan(ctx.scope, 'records.archive'))
       throw HfosError.rule('socialcontent_remove_forbidden', 403, POST_REFUSALS.removeWho);
     const c = await loadContent(ctx, input.postId, { lock: true });
-    if (c.state === 'posted')
-      throw HfosError.rule(
-        'socialcontent_post_posted',
-        409,
-        POST_REFUSALS.removePosted(networkWord(c.network)),
-      );
     if (c.state === 'posting')
       throw HfosError.rule('socialcontent_post_posting', 409, POST_REFUSALS.posting);
-    await executeCommandWithin(ctx, customRecordArchive, {
-      workspaceId: ctx.scope.workspaceId!,
-      customRecordId: c.recordId,
-    });
-    const openDay = c.postAt ? localDateOf(c.postAt.getTime(), await timeZoneOf(ctx)) : null;
+    await removeOne(ctx, c);
+    // A post that went up keeps its day: it's on the network still.
+    const openDay =
+      c.postAt && c.state !== 'posted'
+        ? localDateOf(c.postAt.getTime(), await timeZoneOf(ctx))
+        : null;
     return { postId: c.recordId, openDay };
   },
 });

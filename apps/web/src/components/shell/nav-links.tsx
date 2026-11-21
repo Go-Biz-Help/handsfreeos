@@ -707,8 +707,9 @@ interface GroupProps {
 }
 
 /**
- * A group the person made, as one row that is lit by what is inside it. An add-on they put in it shows its pages
- * there, under its name.
+ * A group the person made, as one row that is lit by what is inside it. An add-on they put in it is still its own row,
+ * whose pages open from it as they do in the menu (the owner, 2026-11-15): beside the group's flyout on hover or a
+ * press, in place in the drawer. Not every add-on's pages in one long list.
  */
 function Group({
   workspaceId,
@@ -737,15 +738,15 @@ function Group({
           if (!item) return null;
           if (item.pages)
             return (
-              <div key={key} role="group" aria-label={item.label} className="flex flex-col gap-0.5">
-                <p className="px-2.5 pb-1 pt-2 text-xs font-medium text-text-3">{item.label}</p>
-                <AddonPageLinks
-                  workspaceId={workspaceId}
-                  item={item}
-                  pathname={pathname}
-                  onNavigate={picked}
-                />
-              </div>
+              <AddonRow
+                key={key}
+                workspaceId={workspaceId}
+                item={item}
+                active={key === activeKey}
+                pathname={pathname}
+                variant={variant}
+                onNavigate={picked}
+              />
             );
           return (
             <NavLink

@@ -3,6 +3,8 @@ import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import { asWorker, rows, sql, type SystemScope, type Tx } from '@hfos/db/client';
 import { scheduledJobs } from '@hfos/db/schema';
 import { backoffMs, errorMessage, MAX_ATTEMPTS } from './outbox';
+import { forPractice } from './practice/kit';
+import { inPractice, practiceRunFor } from './practice/scope';
 import type { WorkerServices } from './services';
 import { renewAfterRefusal } from './telephony/tokens';
 
@@ -173,14 +175,21 @@ export async function processJobs(deps: JobDeps): Promise<JobStats> {
       continue;
     }
     try {
-      const result = await handler({
-        ...deps,
-        job,
-        scope: { workspaceId: job.workspaceId, organizationId: job.organizationId },
-        attempt: job.attempts + 1,
-        now: deps.clock ? deps.clock(job) : Date.now(),
-        log: deps.log.child({ jobId: id, kind: job.kind }),
+      // A practice business's jobs run with its stand-ins (practice/kit.ts): nothing goes outside.
+      const run = await practiceRunFor(deps.db, {
+        organizationId: job.organizationId,
+        workspaceId: job.workspaceId,
       });
+      const result = await inPractice(run, () =>
+        handler({
+          ...forPractice(deps, run),
+          job,
+          scope: { workspaceId: job.workspaceId, organizationId: job.organizationId },
+          attempt: job.attempts + 1,
+          now: deps.clock ? deps.clock(job) : Date.now(),
+          log: deps.log.child({ jobId: id, kind: job.kind }),
+        }),
+      );
       if (result?.rescheduleAt) {
         await finish({
           runAt: notLaterThanWake(result.rescheduleAt),

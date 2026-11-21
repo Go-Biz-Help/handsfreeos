@@ -66,8 +66,18 @@ export const SEND_STATE_KEYS = Object.keys(SEND_STATES) as [SendState, ...SendSt
  * the AI writes should reach the messages already drafted.
  *
  * 1. Nothing mentions a group the owner and they are both in (decision 157, ./no-groups.ts).
+ * 2. Every message is written from the playbook's own words (decision 164, ./script.ts; the owner's 5a).
+ * 3. Nothing says the owner shares someone's background or life unless the owner said so of themselves, and a comment
+ *    says something real about its post in the words people type (decision 165, ./about-owner.ts, ./comment-says.ts).
+ * 4. An introduction asks a question about them, as a text of its own right after it when the person sends a few
+ *    (decision 175, ./today.ts `introTask`, ./voice.ts `introTexts`).
+ * 5. A networking chat's reply is short, reacts to what they said with the business's story, asks a question only when
+ *    the chat would stall, offers a demo only when they ask about the business, and wraps up after they've written back
+ *    twice (decision 176, ./today.ts `networkingReplyTask`).
+ * 6. An introduction says one true thing the owner and they have in common, right after the thanks (decision 181,
+ *    ./script.ts `STARTING_INTRO` and `FILL_BLANKS`).
  */
-export const RULES_VERSION = 1;
+export const RULES_VERSION = 6;
 
 /** Why one drafted under older rules can't be OK'd (`RULES_VERSION`), and what happens to it. */
 export const SEND_REWRITTEN =
@@ -311,6 +321,8 @@ export function goesAsItIs(o: {
   readonly autopilot?: boolean;
 }): boolean {
   if (o.wheels || o.sending === 'off') return false;
+  // The thank-you after a networking call waits for the person's OK, Autopilot or not (decision 187, the owner's 5a).
+  if (o.kind === 'thank_you') return false;
   // A partner's messages wait for the person's OK, whatever Sending says (decision 81), and so do another time after
   // a no-show (decision 106) and a birthday or new-job note (decision 108); not under Autopilot (decision 151, answer
   // 1a), where they go as the rest do, to people the person OK'd.
@@ -361,6 +373,8 @@ export const COMMENT_HOLD_WORDS = `Each comment waits for your OK until you’ve
 export const COMMENT_NEEDS_YOU = {
   /** An answer to an Alignable post asking for exactly what the business offers (decision 79). */
   answer: 'a forum answer always waits for your OK',
+  /** An answer to a reply under the person's comment on Threads or X (decision 163, answer 8a), Autopilot's too. */
+  reply: 'they answered your comment, so you see your answer first',
 } as const;
 
 /** Why another time after a no-show waits for an OK of its own (decision 106, `needsYou`). */

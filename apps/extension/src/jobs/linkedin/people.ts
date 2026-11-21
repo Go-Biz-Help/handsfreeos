@@ -16,14 +16,7 @@ import type { Invitation, Person } from '../../networks/linkedin/types';
 import { profileKey } from '../../networks/linkedin/urls';
 import { counted } from '../../words';
 import { pause, paced, valueOf, type Job, type JobEnd } from '../job';
-import {
-  CONNECTIONS,
-  ended,
-  gather,
-  INVITATIONS_RECEIVED,
-  INVITATIONS_SENT,
-  SIGNED_IN,
-} from './read';
+import { CONNECTIONS, ended, gather, INVITATIONS_RECEIVED, INVITATIONS_SENT } from './read';
 
 /** Connections are read to the end, up to this many screens: 30,000 at most, LinkedIn's cap. */
 export const CONNECTION_SCROLLS = 150;
@@ -63,7 +56,11 @@ export async function saveConnections(job: Job): Promise<JobEnd> {
   );
   if (ended(got)) return got;
   if (!got.items.length)
-    return { line: `LinkedIn showed no connections. ${SIGNED_IN}`, warned: false, failed: true };
+    return {
+      line: 'LinkedIn showed no connections. If you have some, ask again in a few minutes.',
+      warned: false,
+      failed: true,
+    };
   const saved = await saveList(job, got.items, 'friends');
   if (ended(saved)) return saved;
   const whole = got.whole && !job.stopped();

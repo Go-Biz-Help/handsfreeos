@@ -190,7 +190,15 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await expect(playbook.getByTestId('playbook-useful-link')).toHaveValue(
     'https://summit.test/checklist',
   );
+  // On past who, leave alone, where and the steps, to what it says (decision 164). No way to start a chat is ticked
+  // on a new playbook, so it waits for one (decision 183); with the free checklist given, Value first has what it
+  // needs. Then on to the short video.
   for (let i = 0; i < 5; i++) await playbook.getByTestId('playbook-next').click();
+  await expect(playbook.getByTestId('playbook-next')).toBeDisabled();
+  await expect(playbook.getByTestId('playbook-way-valueFirst-missing')).toHaveCount(0);
+  await playbook.getByTestId('playbook-way-pitch-tick').check();
+  await playbook.getByTestId('playbook-way-valueFirst-tick').check();
+  await playbook.getByTestId('playbook-next').click();
 
   // The short video: the AI writes its script from the offer and the niche, and one part is written again. The video
   // itself goes in the video library (decision 154), which the step points to where its link was.
@@ -209,7 +217,7 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
     'href',
     `/app/w/${workspaceId}/a/outreach/settings/videos`,
   );
-  for (let i = 0; i < 5; i++) await playbook.getByTestId('playbook-next').click();
+  for (let i = 0; i < 4; i++) await playbook.getByTestId('playbook-next').click();
   await expect(playbook.getByTestId('review-video')).toContainText('Script written');
   await expect(playbook.getByTestId('review-niche')).toContainText('Roofers with 2 to 3 crews');
   await expect(playbook.getByTestId('review-niche')).toContainText('1 result as proof');
@@ -316,6 +324,7 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await expect(ready.getByTestId('ready-profile')).toHaveAttribute('data-state', 'done');
   // Side by side on Settings (decision 84): each network read, as it was read.
   await page.goto(`/app/w/${workspaceId}/a/outreach?view=settings`);
+  await page.getByTestId('outreach-my-profiles-toggle').click();
   const sides = page.getByTestId('outreach-profiles-side-by-side');
   await expect(sides).toContainText('Facebook');
   await expect(sides).toContainText('Test Owner');

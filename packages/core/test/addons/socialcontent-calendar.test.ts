@@ -9,15 +9,21 @@ import {
   AI_FORMATS,
   CALENDAR,
   DEFAULT_PLAN,
+  canRedo,
+  chainFor,
+  firstPlannedNetwork,
   formatFor,
   placesFor,
   placesLeft,
   planOf,
   POSTING,
   postsAWeek,
+  SHORT_POSTS,
   postText,
+  redoTimes,
   stillNeeds,
   weekOf,
+  withParagraphs,
   type ReadyCheck,
 } from '../../src/addons/socialcontent/calendar';
 import {
@@ -28,6 +34,7 @@ import {
   filledLine,
   planShown,
   postingLines,
+  SOCIALCONTENT_WORDS as W,
   timeShown,
 } from '../../src/addons/socialcontent/words';
 import {
@@ -35,6 +42,10 @@ import {
   checkedPost,
   designOf,
   photoPromptFor,
+  sceneWithoutWords,
+  DESIGN_SYSTEM,
+  clipWords,
+  shortWords,
   tidyHashtags,
   WRITE_SCHEMA,
   WRITE_SYSTEM,
@@ -90,6 +101,38 @@ describe('the posting plan', () => {
     });
     expect(plan.facebook.week).toEqual(weekOf(2, '12:30'));
     expect(postsAWeek(plan.linkedin)).toBe(0);
+  });
+
+  it('starts Write a post on the first network with posts in the plan, else Instagram (the owner, 14 Nov)', () => {
+    expect(firstPlannedNetwork(DEFAULT_PLAN)).toBe('instagram');
+    const off = { ...DEFAULT_PLAN.instagram, perWeek: 0 };
+    expect(firstPlannedNetwork({ ...DEFAULT_PLAN, instagram: off })).toBe('facebook');
+    expect(
+      firstPlannedNetwork({
+        ...DEFAULT_PLAN,
+        instagram: off,
+        facebook: off,
+        linkedin: off,
+        threads: { mode: 'mine', perWeek: 0, week: weekOf(2, '10:00') } as typeof off,
+      }),
+    ).toBe('threads');
+    expect(
+      firstPlannedNetwork({ instagram: off, facebook: off, linkedin: off, threads: off, x: off }),
+    ).toBe('instagram');
+  });
+
+  it('says how writing on several networks went, and which to try again (the owner, 14 Nov)', () => {
+    expect(W.calendar.writeGo(1)).toBe('Write it');
+    expect(W.calendar.writeGo(3)).toBe('Write 3 posts');
+    expect(W.calendar.writtenMany(3, [])).toBe(
+      'Written 3 posts, one for each network. They’re waiting for your OK.',
+    );
+    expect(W.calendar.writtenMany(2, ['Threads'])).toMatch(
+      /^Written 2 posts, .* Threads didn’t work this time\. Press Write a post to try it again\.$/,
+    );
+    expect(W.calendar.writtenMany(1, ['Threads', 'X'])).toMatch(
+      /^Written 1 post, .* Threads and X didn’t work this time\. Press Write a post to try them again\.$/,
+    );
   });
 });
 
@@ -178,6 +221,26 @@ describe('checking what the AI writes', () => {
     expect(post.words).toBe('Here’s how to get it back.\n\nSave this for later.');
     expect(post.hashtags).toEqual(['CRM', 'smallbusiness', 'automation']);
     expect(tidyHashtags(['a', 'b', 'c'], 2)).toEqual(['a', 'b']);
+    // Instagram takes 5; Facebook keeps what the AI gave.
+    const many = Array.from({ length: 10 }, (_, i) => `tag${i + 1}`);
+    expect(checkedPost(answer({ hashtags: many }), 'instagram')!.hashtags).toHaveLength(5);
+    expect(checkedPost(answer({ hashtags: many }), 'facebook')!.hashtags).toHaveLength(10);
+  });
+
+  it('keeps a post on X or Threads within what it takes, with its tag or two and its chain (decision 41)', () => {
+    const long =
+      'Texts pile up while you work. ' +
+      'Answer them in one place and stop missing jobs. '.repeat(8);
+    const onX = checkedPost(answer({ words: long, chain: ['Step one.', 'Step two.'] }), 'x')!;
+    expect(onX.hashtags).toEqual(['CRM', 'smallbusiness']);
+    expect(postText('x', onX.words, onX.hashtags).length).toBeLessThanOrEqual(280);
+    expect(onX.words.endsWith('.')).toBe(true);
+    expect(onX.chain).toEqual(['Step one.', 'Step two.']);
+    const onThreads = checkedPost(answer({ format: 'carousel' }), 'threads')!;
+    expect(onThreads.hashtags).toEqual(['CRM']);
+    expect(onThreads.format).toBe('photo');
+    expect(shortWords('linkedin', long, [])).toBe(long);
+    expect(checkedPost(answer({ chain: ['More'] }), 'instagram')!.chain).toEqual([]);
   });
 
   it('turns words alone into a picture post on Instagram', () => {
@@ -299,6 +362,77 @@ describe('checking what the AI designs', () => {
     expect(prompt).toContain('Also: make it brighter');
     expect(prompt).toMatch(/No words, letters, logos/);
     expect(prompt).toMatch(/bottom third calm/);
+    // A screen in use shows something, even when the scene asked for a blank one (the owner, 15 Nov).
+    expect(prompt).toMatch(
+      /never a blank white, grey or black screen, even if the scene above says so/,
+    );
+    expect(prompt).toMatch(/five fingers/);
+    expect(prompt).toMatch(/no words, numbers, icons or notifications on it/);
+  });
+
+  it('leaves the words meant to go over a photo, and busy screens, out of what the photo is asked for', () => {
+    // The owner's scenes of 16 Nov: the image AI drew these faint behind the page's own words.
+    expect(
+      sceneWithoutWords(
+        'A contractor\'s phone lights up with a missed call on a workbench surrounded by tools and gloves, mid job site, with the words "Missed Call, 10:04 AM" overlaid.',
+      ),
+    ).toBe(
+      "A contractor's phone lights up with a missed call on a workbench surrounded by tools and gloves, mid job site.",
+    );
+    expect(
+      sceneWithoutWords(
+        'A home service business owner stands in their workshop, looking at a laptop open on a workbench. The screen shows a CRM dashboard with automations already running. A few words are laid over the photo: "Ask this before you sign."',
+      ),
+    ).toBe(
+      'A home service business owner stands in their workshop, looking at a laptop open on a workbench.',
+    );
+    expect(
+      sceneWithoutWords(
+        "A contractor sits in his truck cab, phone in hand, texting instead of digging through a cluttered app on a laptop beside him. The words 'Just send a message. It's handled.' sit across the bottom of the photo.",
+      ),
+    ).toBe(
+      'A contractor sits in his truck cab, phone in hand, texting instead of digging through a cluttered app on a laptop beside him.',
+    );
+    expect(
+      sceneWithoutWords(
+        'A phone sitting on a dusty work truck dashboard, screen lit up showing a missed call, with the words ‘The silence after’ overlaid near the top.',
+      ),
+    ).toBe('A phone sitting on a dusty work truck dashboard.');
+    // The subject stays even when it's a screen; what it may show is the photo prompt's.
+    expect(
+      sceneWithoutWords(
+        "A contractor's phone lights up on a truck dashboard with a missed call notification, grease-stained work gloves resting nearby. Overlay text reads: 'Missed call ≠ lost lead.'",
+      ),
+    ).toBe(
+      "A contractor's phone lights up on a truck dashboard with a missed call notification, grease-stained work gloves resting nearby.",
+    );
+    // A scene with no words in it is asked for as it was.
+    const plain =
+      "A person sitting on their couch in the evening, looking at their phone, waiting for a reply that hasn't come. Soft lamp light, a bit of worry on their face.";
+    expect(sceneWithoutWords(plain)).toBe(plain);
+    expect(
+      photoPromptFor('A van outside a house. Overlay text reads "Book today."', null),
+    ).not.toMatch(/Book today|Overlay/);
+  });
+
+  it('cuts words to their room at a sentence or a word, never in the middle of a word', () => {
+    expect(
+      clipWords(
+        'Curious what this looks like for your business? Visit the link to set up a time.',
+        60,
+      ),
+    ).toBe('Curious what this looks like for your business?');
+    expect(
+      clipWords('HandsFreeOS: visit the link to book a free walkthrough today, no pressure', 60),
+    ).toBe('HandsFreeOS: visit the link to book a free walkthrough');
+    expect(clipWords('Short enough.', 60)).toBe('Short enough.');
+    expect(DESIGN_SYSTEM).toMatch(/a footer \(one short line, at most 60 characters\)/);
+  });
+
+  it('says beside a picture what the check still found, and what to do', () => {
+    expect(W.post.pictureFlagged(['Faint text shows through. ', 'Six fingers'])).toBe(
+      'The picture check still found: Faint text shows through; Six fingers. Press Make it again for a new one, or look closely before you OK it.',
+    );
   });
 });
 
@@ -320,13 +454,70 @@ describe('putting posts up (part 9)', () => {
       'Three ways to save time.\n\n#crm #automation',
     );
     expect(postText('linkedin', 'Words only', [])).toBe('Words only');
+    // Instagram takes 5 hashtags, counting any in the words: a caption with more goes up without its words.
+    const ten = Array.from({ length: 10 }, (_, i) => `tag${i + 1}`);
+    expect(postText('instagram', 'Save this.', ten)).toBe(
+      'Save this.\n\n#tag1 #tag2 #tag3 #tag4 #tag5',
+    );
+    expect(postText('instagram', 'Save this #crm #leads.', ten)).toBe(
+      'Save this #crm #leads.\n\n#tag1 #tag2 #tag3',
+    );
+    expect(postText('facebook', 'Words', ten).match(/#/g)).toHaveLength(10);
     const long = postText('linkedin', 'x'.repeat(3_500), ['tag']);
     expect(long.length).toBeLessThanOrEqual(POSTING.textMost.linkedin);
     expect(long.endsWith('…\n\n#tag')).toBe(true);
   });
 
-  it('posts on Facebook and LinkedIn (part 9), and Instagram (part 10)', () => {
-    expect(POSTING.networks).toEqual(['facebook', 'linkedin', 'instagram']);
+  it('puts a blank line between paragraphs written a line apart (the owner, 15 Nov)', () => {
+    // The Page post that went up as a wall of lines: one line break between paragraphs, and no blank line anywhere.
+    const tight = 'Ever put off a call?\nMost owners do. \nHere’s the truth.';
+    expect(postText('facebook', tight, ['crm'])).toBe(
+      'Ever put off a call?\n\nMost owners do.\n\nHere’s the truth.\n\n#crm',
+    );
+    expect(withParagraphs('linkedin', tight)).toBe(
+      'Ever put off a call?\n\nMost owners do.\n\nHere’s the truth.',
+    );
+    // Words spaced already keep short lines stacked on purpose.
+    const stacked = 'So many buttons.\nSo many settings.\n\nHere’s the fix.';
+    expect(withParagraphs('instagram', stacked)).toBe(stacked);
+    expect(withParagraphs('facebook', 'One line')).toBe('One line');
+    // Threads and X keep theirs: every character counts.
+    expect(withParagraphs('x', tight)).toBe(tight);
+    // What the AI writes is kept spaced, so the Calendar shows it the way it goes up.
+    expect(checkedPost(answer({ words: tight }), 'facebook')!.words).toBe(
+      'Ever put off a call?\n\nMost owners do.\n\nHere’s the truth.',
+    );
+    expect(WRITE_SYSTEM).toContain('blank line between paragraphs');
+  });
+
+  it('redoes posts that went up or didn’t, one at a time on each network (the owner, 15 Nov)', () => {
+    expect(canRedo({ state: 'failed', network: 'facebook' })).toBe(true);
+    expect(canRedo({ state: 'posted', network: 'instagram' })).toBe(true);
+    for (const state of ['draft', 'ready', 'posting', 'skipped'] as const)
+      expect(canRedo({ state, network: 'instagram' })).toBe(false);
+    expect(canRedo({ state: 'failed', network: 'tiktok' })).toBe(false);
+    const gap = 30 * 60_000;
+    expect(POSTING.redoEveryMs).toBe(gap);
+    expect(redoTimes(['instagram', 'facebook', 'instagram', 'instagram', 'facebook'], NOW)).toEqual(
+      [NOW, NOW, NOW + gap, NOW + 2 * gap, NOW + gap],
+    );
+    expect(redoTimes([], NOW)).toEqual([]);
+    expect(W.calendar.redoPosted(['Instagram', 'Facebook'])).toMatch(
+      /Delete the old ones on Instagram and Facebook yourself/,
+    );
+    expect(W.calendar.redone(1, 0)).toBe(
+      'It goes up again in a minute or two, from the computer that posts.',
+    );
+    expect(W.calendar.redone(4, 1)).toBe(
+      '4 posts go up again from the computer that posts: the first in a minute or two, then one every 30 minutes on each network. 1 post couldn’t be redone. Open it to see what it needs.',
+    );
+    expect(W.calendar.redone(0, 2)).toBe(
+      '2 posts couldn’t be redone. Open them to see what they need.',
+    );
+  });
+
+  it('posts on Facebook and LinkedIn (part 9), Instagram (part 10), and Threads and X (decision 41)', () => {
+    expect(POSTING.networks).toEqual(['facebook', 'linkedin', 'instagram', 'threads', 'x']);
   });
 
   it('says whose computer puts the OK’d posts up, and warns when it’s quiet or there’s none', () => {
@@ -428,5 +619,57 @@ describe('the Calendar’s days and times, as the web and the phone both show th
     expect(planShown(plan, ['instagram', 'facebook', 'linkedin'], name)).toBe(
       'Your plan: Instagram: 10 posts a week, up to 2 a day, at the times the AI picks · Facebook: 3 posts a week at your times · Linkedin: off. Change the plan in Settings.',
     );
+  });
+});
+
+describe('Threads and X (decision 41)', () => {
+  const ready: ReadyCheck = {
+    network: 'x',
+    format: 'text',
+    words: 'Three ways to save time this week.',
+    slides: [],
+    fileIds: [],
+    videos: 0,
+    postAt: '2026-11-11T15:00:00Z',
+    facebookWhere: [],
+  };
+
+  it('takes 280 characters on X and 500 on Threads, with a tag or two', () => {
+    expect(POSTING.textMost.x).toBe(280);
+    expect(POSTING.textMost.threads).toBe(500);
+    expect(SHORT_POSTS.tagsMost).toEqual({ threads: 1, x: 2 });
+    expect(SHORT_POSTS.suggestedPerWeek).toBe(5);
+    const long = postText('x', 'y'.repeat(400), ['crm']);
+    expect(long.length).toBeLessThanOrEqual(280);
+    expect(long.endsWith('…\n\n#crm')).toBe(true);
+  });
+
+  it('never makes a carousel there: a picture instead', () => {
+    expect(formatFor('x', 'carousel')).toBe('photo');
+    expect(formatFor('threads', 'carousel')).toBe('photo');
+    expect(formatFor('instagram', 'carousel')).toBe('carousel');
+    expect(formatFor('x', 'text')).toBe('text');
+  });
+
+  it('keeps a chain of up to 4 more posts, each within what the network takes, and none elsewhere', () => {
+    const chain = chainFor('x', [' One ', '', 'z'.repeat(300), 'Three', 'Four', 'Five']);
+    expect(chain).toHaveLength(SHORT_POSTS.chainMost);
+    expect(chain[0]).toBe('One');
+    expect(chain[1]!.length).toBeLessThanOrEqual(280);
+    expect(chainFor('threads', ['More'])).toEqual(['More']);
+    expect(chainFor('linkedin', ['More'])).toEqual([]);
+  });
+
+  it('won’t OK words and tags, or a post in the chain, longer than the network takes', () => {
+    expect(stillNeeds(ready)).toBeNull();
+    expect(stillNeeds({ ...ready, words: 'w'.repeat(275), hashtags: ['crm'] })).toMatch(
+      /run past the 280 characters X takes/,
+    );
+    expect(stillNeeds({ ...ready, words: 'w'.repeat(270), hashtags: ['crm'] })).toBeNull();
+    expect(stillNeeds({ ...ready, network: 'threads', chain: ['ok', 't'.repeat(501)] })).toMatch(
+      /Post 3 in its chain runs past the 500 characters Threads takes/,
+    );
+    // Elsewhere the words are cut to fit when posted, as before.
+    expect(stillNeeds({ ...ready, network: 'linkedin', words: 'w'.repeat(4_000) })).toBeNull();
   });
 });

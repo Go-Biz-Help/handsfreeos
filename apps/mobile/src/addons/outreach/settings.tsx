@@ -1,9 +1,10 @@
 import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
-import type {
-  AutomationOutput,
-  AutomationPeopleOutput,
-  AutomationSettings,
-  WheelsListOutput,
+import {
+  WHEELS,
+  type AutomationOutput,
+  type AutomationPeopleOutput,
+  type AutomationSettings,
+  type WheelsListOutput,
 } from '@hfos/core/addons/outreach/automation';
 import {
   outreachSettings,
@@ -11,7 +12,13 @@ import {
   type OutreachSettings,
 } from '@hfos/core/addons/outreach/chat-read';
 import type { CountriesSkippedOutput, CountryList } from '@hfos/core/addons/outreach/countries';
-import { networksOn } from '@hfos/core/addons/outreach/network-words';
+import {
+  withHandsOff,
+  withHandsOffEverywhere,
+  type HandsOff,
+} from '@hfos/core/addons/outreach/hands-off';
+import type { NetworkStatus } from '@hfos/core/addons/outreach/network-status';
+import { networkOfWaiting, networksOn } from '@hfos/core/addons/outreach/network-words';
 import { PLATFORM_KEYS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import {
   isNetworkPart,
@@ -19,6 +26,7 @@ import {
   SETTINGS_WORDS,
   settingsPartOf,
 } from '@hfos/core/addons/outreach/settings-parts';
+import { SETTINGS_PAGE_WORDS as SP } from '@hfos/core/addons/outreach/settings-pages';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { VIDEO_LIBRARY_WORDS, type PlaybookVideo } from '@hfos/core/addons/outreach/video-library';
 import { useFocusEffect } from 'expo-router';
@@ -47,9 +55,11 @@ import {
   useOutreachContext,
 } from './kit';
 import { SaveLine } from './settings-bits';
+import { RowsCard } from './settings-hands-off';
 import { VideoLibraryPart } from './video-library';
+import { LocationPart, MyCalendarsPart } from './local';
 import { GeneralMine, GeneralTeam } from './settings-general';
-import { NetworkMine, NetworkTeam } from './settings-network';
+import { NetworkMine, NetworkTeam, type NetworkHere } from './settings-network';
 import { useAskActions, useAsks, type AskActions } from './asks';
 import { useProfileProps, type ProfileProps } from './ready';
 
@@ -174,6 +184,29 @@ export function SettingsScreen({ whose, part: raw }: { whose?: string; part?: st
     asks.data,
     W.rows.settings,
   );
+  // The status card at the top of a network's page (decision 170): its live view, and what waits on the person there.
+  // No card when any of it can't be had.
+  const here = useOutreachAnswer<NetworkHere | null>(
+    networkPart && isNetworkPart(part)
+      ? async () => {
+          const [live, waiting, autopilot] = await Promise.all([
+            api.POST('/v1/queries/outreach.live', { body: { workspaceId: ws, platform: part } }),
+            api.POST('/v1/queries/outreach.waiting', { body: { workspaceId: ws, items: true } }),
+            api.POST('/v1/queries/outreach.autopilot', { body: { workspaceId: ws } }),
+          ]);
+          if (!live.data || !waiting.data) return null;
+          return {
+            live: live.data,
+            waiting: waiting.data.items.filter((i) => networkOfWaiting(i) === part).length,
+            people: (autopilot.data?.people ?? []).filter(
+              (p) => p.platform === part && p.state === 'waiting',
+            ).length,
+          };
+        }
+      : null,
+    `network-here:${ws}:${part}`,
+    W.rows.settings,
+  );
   // Back on the menu from a part: asked again, so each network's On or Off is as just saved.
   const shown = React.useRef(false);
   const { reload: reloadAutomation } = automation;
@@ -210,11 +243,21 @@ export function SettingsScreen({ whose, part: raw }: { whose?: string; part?: st
   return (
     <SettingsPartBody
       part={part}
+      workspaceId={ws}
       automation={automation.data}
       error={automation.error}
       asks={asks.data}
       askActions={askActions}
       profile={profile}
+      here={networkPart ? here.data : null}
+      onAct={(act) =>
+        act === 'computer'
+          ? openOutreach(ws, 'live')
+          : act === 'today'
+            ? openOutreach(ws, 'today', isNetworkPart(part) ? `net=${part}` : '')
+            : openOutreach(ws, 'waiting')
+      }
+      onToday={isNetworkPart(part) ? () => openOutreach(ws, 'today', `net=${part}`) : null}
       mine={mine}
       business={ctx.manages ? business.data : null}
       manages={ctx.manages}
@@ -240,14 +283,16 @@ export function SettingsScreen({ whose, part: raw }: { whose?: string; part?: st
         }
       }}
       onRetry={automation.reload}
-      onSaveMine={async (settings) => {
+      onSaveMine={async (settings, picked) => {
         try {
           await change('outreach.automation.save', {
             workspaceId: ws,
             ...(mine ? {} : { userId: userId! }),
             settings,
+            ...(picked.length ? { picked: [...picked] } : {}),
           });
           automation.reload();
+          if (networkPart) here.reload();
           return null;
         } catch (e) {
           return failed(e);
@@ -440,8 +485,11 @@ interface PartProps {
   manages: boolean;
   online: boolean;
   onRetry: () => void;
-  /** Saves the person's settings: the problem's words, or null once saved. */
-  onSaveMine: (settings: AutomationSettings) => Promise<string | null>;
+  /**
+   * Saves the person's settings: the problem's words, or null once saved. `picked` names the networks whose picks were
+   * chosen under How hands-off? as Autopilot went off there, which the save keeps (decision 170).
+   */
+  onSaveMine: (settings: AutomationSettings, picked: readonly Platform[]) => Promise<string | null>;
   /** Saves some of the business's settings, made on what's kept as the save goes; the others stay as they are. */
   onSaveBusiness: (
     edit: (now: OutreachSettings) => Partial<OutreachSettings>,
@@ -451,6 +499,11 @@ interface PartProps {
   askActions?: AskActions | null;
   /** On a network's page, the person's own profile there, read and checked (decision 80). */
   profile?: ProfileProps | null;
+  /** On a network's page, the person's own: its status card's live view and what waits there (decision 170). */
+  here?: NetworkHere | null;
+  /** The status card's button, and its link to Today. */
+  onAct?: ((act: NonNullable<NetworkStatus['act']>) => void) | null;
+  onToday?: (() => void) | null;
   /** On General: how many the country setting holds back, and opening its lists. */
   countries?: CountriesSkippedOutput | null;
   onCountries?: (list: CountryList) => void;
@@ -469,6 +522,8 @@ interface PartProps {
   onEndWheels?: (userId: string, platform: Platform) => Promise<string | null>;
   /** On Videos: the playbooks' short videos, the library until it's first saved (decision 154). */
   playbookVideos?: readonly PlaybookVideo[];
+  /** On You: the business, for Where you are and Your calendars, which load their own (decisions 177 and 178). */
+  workspaceId?: string;
 }
 
 /** A part's page: You, a network's, Videos or Team. */
@@ -508,6 +563,9 @@ function PartPage({
   asks = null,
   askActions = null,
   profile = null,
+  here = null,
+  onAct = null,
+  onToday = null,
   countries = null,
   onCountries,
   onLikeYours = null,
@@ -518,6 +576,7 @@ function PartPage({
   onTeam,
   onEndWheels,
   playbookVideos = [],
+  workspaceId,
 }: Omit<PartProps, 'automation' | 'error'> & { title: string; automation: AutomationOutput }) {
   const mineID =
     part === 'general'
@@ -534,7 +593,28 @@ function PartPage({
   const report = (testID: string) => (state: SaveState) => {
     if (state.kind !== 'idle') setLine({ testID, state });
   };
-  const form = useAutosave(automation.settings, onSaveMine, report(mineID));
+  // The networks whose picks were chosen under How hands-off? as Autopilot went off there, since the last save: that
+  // save keeps those picks over the person's own from before Autopilot (decision 170).
+  const picked = React.useRef(new Set<Platform>());
+  const form = useAutosave(
+    automation.settings,
+    (settings) => {
+      const chosen = [...picked.current];
+      picked.current.clear();
+      return onSaveMine(settings, chosen);
+    },
+    report(mineID),
+  );
+  // How hands-off? picked on a network's page, or on You for every network.
+  const handsOff = (platform: Platform | null, level: HandsOff) =>
+    form.change((v) => {
+      const next =
+        platform === null
+          ? withHandsOffEverywhere(v, level, automation.rules)
+          : withHandsOff(v, platform, level, automation.rules);
+      for (const p of next.picked) picked.current.add(p);
+      return next.settings;
+    });
   return (
     <Screen
       title={title}
@@ -587,6 +667,23 @@ function PartPage({
                   onEnd={onEndWheels}
                 />
               ) : null}
+              {/* One Networks list (decision 170, part 2): each network's limits open from its row. */}
+              <RowsCard
+                title={SP.networks}
+                about={SP.networksAbout}
+                testID="settings-team-networks"
+              >
+                {PLATFORM_KEYS.map((p) => (
+                  <NetworkTeam
+                    key={p}
+                    platform={p}
+                    business={business}
+                    online={online}
+                    onSave={onSaveBusiness}
+                    onState={report(`settings-team-${p}`)}
+                  />
+                ))}
+              </RowsCard>
               <GeneralTeam
                 business={business}
                 timezone={automation.timezone}
@@ -597,29 +694,24 @@ function PartPage({
                   onCountries ? <CountryListRows got={countries} onOpen={onCountries} /> : null
                 }
               />
-              <Part
-                title={SETTINGS_WORDS.networksTitle}
-                about={SETTINGS_WORDS.networksAbout}
-                testID="settings-team-networks"
-              >
-                <View className="gap-3">
-                  {PLATFORM_KEYS.map((p) => (
-                    <NetworkTeam
-                      key={p}
-                      platform={p}
-                      business={business}
-                      online={online}
-                      onSave={onSaveBusiness}
-                      onState={report(`settings-team-${p}`)}
-                    />
-                  ))}
-                </View>
-              </Part>
             </>
           ) : null
         ) : part === 'general' ? (
           <>
-            <GeneralMine automation={automation} form={form} online={online} />
+            <GeneralMine
+              automation={automation}
+              form={form}
+              online={online}
+              manages={manages}
+              onHandsOff={(level) => handsOff(null, level)}
+            />
+            {/* Where you are and Focus on local groups (decision 177): only ever your own. */}
+            {mine && workspaceId ? (
+              <LocationPart workspaceId={workspaceId} online={online} />
+            ) : null}
+            {mine && workspaceId ? (
+              <MyCalendarsPart workspaceId={workspaceId} online={online} />
+            ) : null}
             {manages ? (
               <TeamMoved
                 words={SETTINGS_WORDS.teamMovedAll}
@@ -645,6 +737,10 @@ function PartPage({
               askActions={mine ? askActions : null}
               profile={mine ? profile : null}
               onLikeYours={onLikeYours}
+              here={mine ? here : null}
+              onHandsOff={(level) => handsOff(part, level)}
+              onAct={onAct}
+              onToday={onToday}
             />
             {manages ? (
               <TeamMoved
@@ -721,7 +817,7 @@ export function YourPeople({
             <View key={p.userId} testID="settings-person">
               <ListRow
                 label={p.userId === myId ? `${p.name} ${SETTINGS_WORDS.you}` : p.name}
-                detail={p.saved ? SETTINGS_WORDS.theirSettings : SETTINGS_WORDS.notSaved}
+                detail={p.saved ? SP.peopleNetworks(p.networks ?? []) : SETTINGS_WORDS.notSaved}
                 onPress={onTheirs ? () => onTheirs(p.userId) : undefined}
                 testID="settings-person-open"
               />
@@ -731,8 +827,16 @@ export function YourPeople({
                   className="flex-row flex-wrap items-center gap-2 px-4 pb-3"
                   testID="settings-person-wheels"
                 >
+                  <Text className="rounded-full bg-warning-soft px-2 py-0.5 text-[12px] font-semibold text-warning-text">
+                    {SP.wheelsChip}
+                  </Text>
                   <Text className="min-w-0 flex-1 text-[13px] text-text-2">
-                    {`${SETTINGS_WORDS.wheelsOn(PLATFORMS[w.platform])} · ${SETTINGS_WORDS.wheelsLine(w.wheels.ok, w.wheels.daysLeft)}`}
+                    {SP.wheelsLine(
+                      PLATFORMS[w.platform],
+                      w.wheels.ok,
+                      WHEELS.ok,
+                      w.wheels.daysLeft,
+                    )}
                   </Text>
                   {onEnd ? (
                     <Button

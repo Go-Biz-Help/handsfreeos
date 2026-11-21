@@ -74,6 +74,7 @@ describe('capabilitySets', () => {
         'fxdocs',
         'fxinv',
         'fxjobs',
+        'fxpaid',
         'fxproj',
         'fxprop',
         'fxrent',
@@ -82,9 +83,10 @@ describe('capabilitySets', () => {
         'fxwarranty',
       ].sort(),
     );
-    // Never on offer: planned, beta, paid, deprecated.
-    for (const hidden of ['fxinflu', 'fxbeta', 'fxpaid', 'fxgone'])
+    // Never on offer: planned, beta, deprecated. A paid one is, at its price (20261027028500).
+    for (const hidden of ['fxinflu', 'fxbeta', 'fxgone'])
       expect(installable.has(hidden)).toBe(false);
+    expect(installable.has('fxpaid')).toBe(true);
     expect(sets.planned.map((c) => c.id)).toEqual(['fxinflu.marketplace']);
   });
 
@@ -171,7 +173,7 @@ describe('an add-on staff handed a business to try (Real Estate, step 2)', () =>
     });
   });
 
-  it('lets staff hand out a paid one before billing exists', () => {
+  it('lets staff give a paid one free', () => {
     const granted: CapabilityContext = { ...A, grants: ['fxpaid'] };
     expect(planTransition(granted, 'fxpaid', 'install').kind).toBe('plan');
   });
@@ -276,10 +278,8 @@ describe('planTransition', () => {
       rule: 'addon_not_available',
     });
     expect(planTransition(A, 'fxbeta', 'install')).toMatchObject({ kind: 'refused' });
-    expect(planTransition(A, 'fxpaid', 'install')).toMatchObject({
-      kind: 'refused',
-      rule: 'addon_needs_billing',
-    });
+    // A paid one plans like any other: its trial or its charge starts as it moves (20261027028500).
+    expect(planTransition(A, 'fxpaid', 'install')).toMatchObject({ kind: 'plan' });
     expect(planTransition(B, 'fxprop', 'install')).toEqual({ kind: 'already' });
     expect(planTransition(A, 'nothing', 'install')).toMatchObject({ rule: 'addon_unknown' });
   });

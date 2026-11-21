@@ -104,11 +104,14 @@ export const SHOWN_STATES = {
 export type ShownState = keyof typeof SHOWN_STATES;
 export const SHOWN_STATE_KEYS = Object.keys(SHOWN_STATES) as [ShownState, ...ShownState[]];
 
-/** The feed's lines: a step done, one passed over, a once-a-day job, a stop on a warning, and the day pressed. */
-export const STEP_KINDS = ['done', 'passed', 'job', 'stopped', 'day'] as const;
+/**
+ * The feed's lines: a step done, one passed over, a once-a-day job, a job that failed (decision 170: three the same in
+ * a row is stuck, ./network-status.ts), a stop on a warning, and the day pressed.
+ */
+export const STEP_KINDS = ['done', 'passed', 'job', 'failed', 'stopped', 'day'] as const;
 export type StepKind = (typeof STEP_KINDS)[number];
 /** The extension sends these; HandsFreeOS writes `stopped` (a warning) and `day` itself. */
-export const SENT_STEP_KINDS = ['done', 'passed', 'job'] as const;
+export const SENT_STEP_KINDS = ['done', 'passed', 'job', 'failed'] as const;
 
 export const DAY_STATES = ['started', 'stopped'] as const;
 export type DayState = (typeof DAY_STATES)[number];
@@ -244,10 +247,16 @@ export const LiveBeatOutput = z.object({
   /**
    * Each other network's day (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md, "Each network on its own"): LinkedIn's
    * runner works only while LinkedIn's is started, and a stop there ends only LinkedIn's work. Empty from a HandsFreeOS
-   * before networks.
+   * before networks; Threads and X from decision 163.
    */
   days: z
-    .object({ linkedin: LiveDay, instagram: LiveDay, alignable: LiveDay })
+    .object({
+      linkedin: LiveDay,
+      instagram: LiveDay,
+      alignable: LiveDay,
+      threads: LiveDay,
+      x: LiveDay,
+    })
     .partial()
     .default({}),
   /** The ids of the lines sent that are kept now: the extension lets them go. */

@@ -17,12 +17,14 @@ import type { AnswerSheet } from './logic';
 import {
   customTargetFieldId,
   isCustomTarget,
+  NAME_MAX_LENGTH,
   type AddressAnswer,
   type AnswerValue,
 } from './questions';
 import { isEmailAddress, type RecordedAnswer } from './render';
 import { isBookingAnswer } from './booking';
 import { watchedWords } from './video';
+import { quantityTotal, quantityWorthCents } from './quantities';
 
 // ---- Who answered ----
 
@@ -46,7 +48,7 @@ const text = (value: AnswerValue): string | null => {
  * fit rather than failing the whole submission over a few letters nobody will miss.
  */
 export const PERSON_LIMITS = {
-  name: 80,
+  name: NAME_MAX_LENGTH,
   notes: 10_000,
   source: 80,
   line1: 200,
@@ -246,7 +248,11 @@ export function patchesFromAnswers(
       const title = answerText(question, value as AnswerValue);
       if (title) lead.fields.title = title;
     } else if (target === 'lead.value') {
-      const amount = Number(value);
+      // How many of each is what the order comes to, when its rows have prices.
+      const amount =
+        question.type === 'quantities'
+          ? (quantityWorthCents(question, value) ?? NaN) / 100
+          : Number(value);
       if (Number.isFinite(amount)) lead.fields.value = amount;
     } else {
       const known = PERSON_COLUMNS[target];
@@ -341,6 +347,9 @@ const pickedIds = (answer: RecordedAnswer): string[] =>
 
 /** The number a summary averages: the answer itself, or how many boxes were ticked. */
 function numberFor(answer: RecordedAnswer): string | null {
+  // How many of each: how many in all, so Results can average an order's size.
+  if (answer.type === 'quantities')
+    return answer.value ? String(quantityTotal(answer.value)) : null;
   if (typeof answer.value === 'number') return String(answer.value);
   if (typeof answer.value === 'boolean') return answer.value ? '1' : '0';
   if (Array.isArray(answer.value)) return String(answer.value.length);
@@ -354,6 +363,7 @@ function numberFor(answer: RecordedAnswer): string | null {
 /** The answer as words, for the text summaries and the export. */
 function textFor(answer: RecordedAnswer): string | null {
   if (answer.labels.length) return answer.labels.join(', ');
+  if (answer.words) return answer.words.slice(0, 5000);
   if (answer.type === 'video' && typeof answer.value === 'number')
     return watchedWords(answer.value);
   if (answer.type === 'booking' && isBookingAnswer(answer.value)) return answer.value.label;

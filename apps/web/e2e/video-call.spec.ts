@@ -15,7 +15,7 @@ import {
 import { linkFrom, waitForMail } from './helpers';
 
 /**
- * HandsFreeOS video calls (docs/video-calls.md), end to end on a real LiveKit server: support turns them on in
+ * HandsFreeOS video calls (docs/video-calls.md), end to end on a real LiveKit server: on for the business in
  * /admin, a customer books an online visit set to one, opens their own Join link and waits, the owner joins from the
  * appointment, and the customer goes straight in (the owner's 6a). They see each other, chat and raise a hand, the
  * customer points at the owner's shared screen, End for everyone ends it for both, and the appointment says who
@@ -79,7 +79,7 @@ test('a customer and the owner meet in a booked HandsFreeOS video call', async (
   });
   expect(((await made.json()) as { made: number }).made).toBe(1);
 
-  // Support turns video calls on for the business.
+  // Every business starts with video calls on (20261027028400), and /admin says so.
   await page.goto(`/admin/businesses/${owner.workspaceId}`);
   const on = page.getByTestId('admin-video-calls-on');
   await on.click();

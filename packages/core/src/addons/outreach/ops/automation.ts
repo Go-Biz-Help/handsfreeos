@@ -21,6 +21,8 @@ import {
   AutomationOutput,
   AutomationSaveInput,
   AutomationSaveOutput,
+  autopilotNetworks,
+  autopilotOn,
   businessLimitsOn,
   choicesFor,
   dayList,
@@ -32,6 +34,7 @@ import {
   notAllowedWords,
   NO_WHEELS,
   OTHER_PLATFORMS,
+  type OtherPlatform,
   RequestClosedInput,
   RequestClosedOutput,
   WHEELS,
@@ -50,9 +53,9 @@ import {
   type BusinessRules,
   type FreshState,
   type NetworkChoices,
-  type OtherPlatform,
   type WheelsKept,
   type WheelsState,
+  sentOver,
 } from '../automation';
 import { AUTOPILOT_WORDS } from '../autopilot';
 import { outreachSettings } from '../chat-read';
@@ -60,6 +63,7 @@ import { givenOnly } from '../loose';
 import type { Voice } from '../voice';
 import { outreachAddon } from '../manifest';
 import { networkLimitsNow, PLATFORM_KEYS, type Platform } from '../networks';
+import { networksOn } from '../network-words';
 import { automation, networkStarts, profiles, setup, type NetworkWheelKept } from '../tables';
 import { inWorkspace, type Ctx } from './common';
 
@@ -477,6 +481,30 @@ export const automationGet = defineAddonQuery(outreachAddon, {
   },
 });
 
+/**
+ * Each other network's Autopilot as the person keeps it, where what was sent doesn't say (a screen from before decision
+ * 170 sends none, and leaves each following Facebook's as it's kept, or as they said).
+ */
+function ownAutopilotKept(
+  networks: NetworksSettings,
+  sent: Partial<Record<OtherPlatform, { autopilot?: boolean } | undefined>>,
+  own: AutomationSettings,
+): NetworksSettings {
+  const kept = <P extends OtherPlatform>(p: P) => {
+    const said = sent[p]?.autopilot ?? own.networks[p].autopilot;
+    const { autopilot: _, ...rest } = networks[p];
+    return said === undefined ? rest : { ...rest, autopilot: said };
+  };
+  return {
+    facebook: networks.facebook,
+    linkedin: kept('linkedin'),
+    instagram: kept('instagram'),
+    alignable: kept('alignable'),
+    threads: kept('threads'),
+    x: kept('x'),
+  };
+}
+
 /** `changes` put on `settings`: what's left out, in the voice and each network's choices too, stays as it is. */
 function withChanges(settings: AutomationSettings, changes: AutomationChanges): AutomationSettings {
   const { voice, networks, ...rest } = changes;
@@ -490,6 +518,8 @@ function withChanges(settings: AutomationSettings, changes: AutomationChanges): 
       linkedin: { ...n.linkedin, ...givenOnly(networks?.linkedin) },
       instagram: { ...n.instagram, ...givenOnly(networks?.instagram) },
       alignable: { ...n.alignable, ...givenOnly(networks?.alignable) },
+      threads: { ...n.threads, ...givenOnly(networks?.threads) },
+      x: { ...n.x, ...givenOnly(networks?.x) },
     },
   };
 }
@@ -509,7 +539,7 @@ export const automationSave = defineAddonCommand(outreachAddon, {
         ? 'Change what the browser extension does on its own for this teammate'
         : 'Change what the browser extension does on its own for you',
     description:
-      'Change what the browser extension does for the person on its own (Social Outreach → Settings: You, and each network’s page), or for a teammate an owner or admin picks (userId, as Settings → Team → Their settings): on Facebook the choices themselves (sending, replies, warmUp, confirmRequests, collect, joinGroups, watchPosts, posting), on LinkedIn, Instagram and Alignable each network’s own under networks; whether each network is on for them; Autopilot; how the AI writes (voice); their alerts and their working hours (hours, sent whole). Send only what changes, in changes, by the names outreach_automation shows: everything left out, and each network’s choices left out, stays as it is. Only what the business allows.',
+      'Change what the browser extension does for the person on its own (Social Outreach → Settings: You, and each network’s page), or for a teammate an owner or admin picks (userId, as Settings → Team → Their settings): on Facebook the choices themselves (sending, replies, warmUp, confirmRequests, collect, joinGroups, watchPosts, posting), on LinkedIn, Instagram, Alignable, Threads and X each network’s own under networks; whether each network is on for them; Autopilot, each network’s own (Facebook’s as autopilot, the others’ as networks.<network>.autopilot); how the AI writes (voice); their alerts and their working hours (hours, sent whole). How hands-off? on a network’s page is a set of these: I do it myself = sending off, replies draft; I OK each message = sending steps, replies draft; All on its own = sending everything, replies everything; Autopilot = that network’s autopilot on (each turned off for the others). When a level turns Autopilot off on a network, name it in picked, so the picks sent stay rather than the person’s own from before Autopilot. Send only what changes, in changes, by the names outreach_automation shows: everything left out, and each network’s choices left out, stays as it is. Only what the business allows.',
     autonomy: 'confirm',
     keywords: ['change extension settings', 'let it send', 'working hours', 'autopilot'],
   },
@@ -534,17 +564,20 @@ export const automationSave = defineAddonCommand(outreachAddon, {
           voice: sent.voice ?? kept.voice,
           dayReport: sent.dayReport ?? kept.dayReport,
           acceptedPush: sent.acceptedPush ?? kept.acceptedPush,
-          networks: sent.networks ?? kept.networks,
+          networks: sent.networks
+            ? ownAutopilotKept(sentOver(kept.networks, sent.networks), sent.networks, own)
+            : ownAutopilotKept(kept.networks, {}, own),
         }
-      : { ...kept, autopilot: own.autopilot };
+      : { ...kept, autopilot: own.autopilot, networks: ownAutopilotKept(kept.networks, {}, own) };
     // Only what changes (the Assistant changing one choice): the rest, each part of the voice and of each network's
     // choices too, as it is.
     const asked = input.changes ? withChanges(whole, input.changes) : whole;
-    const autopilot = asked.autopilot;
-    // While Autopilot is on, and as it's turned on or off, what it picks stays the person's own underneath (decision
-    // 151): the screens show its picks then, so theirs come back as they were once it's off.
-    const s = own.autopilot || autopilot ? keepOwnPicks(asked, own) : asked;
-    if (autopilot && !own.autopilot && !rules.autopilotAllowed)
+    // On each network, while Autopilot is on, and as it's turned on or off, what it picks stays the person's own
+    // underneath (decisions 151 and 170): the screens show its picks then, so theirs come back as they were once it's
+    // off, unless they picked others just now (`picked`).
+    const s = keepOwnPicks(asked, own, input.picked ?? []);
+    const turnedOn = PLATFORM_KEYS.filter((p) => autopilotOn(s, p) && !autopilotOn(own, p));
+    if (turnedOn.length > 0 && !rules.autopilotAllowed)
       throw HfosError.rule('outreach_autopilot_not_allowed', 403, AUTOPILOT_WORDS.notAllowed);
     const refused = notAllowedWords(s, rules);
     if (refused) throw HfosError.rule('not_allowed', 403, refused);
@@ -615,9 +648,12 @@ export const automationSave = defineAddonCommand(outreachAddon, {
           (['facebook', ...OTHER_PLATFORMS] as const).map((p) => [p, choicesFor(s, p).on]),
         ),
         byOther: whose !== me,
-        // Autopilot in force, and turned on now (decision 151): the worker makes today's list at once.
-        autopilot: inForce.autopilot,
-        ...(inForce.autopilot && !own.autopilot ? { autopilotOn: true } : {}),
+        // Autopilot in force on any network, and turned on now on one (decisions 151, 170): the worker makes today's
+        // list at once.
+        autopilot: autopilotNetworks(inForce).length > 0,
+        ...(turnedOn.some((p) => autopilotNetworks(inForce).includes(p))
+          ? { autopilotOn: true }
+          : {}),
       },
     });
     return shown(ctx, whose, row, rules);
@@ -823,6 +859,7 @@ export const automationPeople = defineAddonQuery(outreachAddon, {
             sending: settings.sending,
             replies: settings.replies,
             wheels: stateOf(row, rules, now).on,
+            networks: networksOn(settings, rules.networksAllowed),
           };
         })
         .sort((a, b) => a.name.localeCompare(b.name)),

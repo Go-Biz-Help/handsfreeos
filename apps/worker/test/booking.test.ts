@@ -14,6 +14,7 @@ import {
   calendarCreate,
   calendarGet,
   calendarSave,
+  calendarSetEmbedSites,
   calendarSetStatus,
   executeCommand,
   executeQuery,
@@ -359,6 +360,53 @@ describe('the booking page', () => {
     );
     expect(refused.statusCode).toBe(409);
     expect(errorOf(refused).rule).toBe('calendar_not_bookable');
+  });
+
+  it('says which sites may show a calendar inside them, for the embed’s frame rule, and none for a private one', async () => {
+    const cal = await makeCalendar('On the website');
+    const sites = (url: string) =>
+      get(url).then((res) => {
+        expect(res.statusCode, res.body).toBe(200);
+        return (res.json() as { embedOrigins: string[] }).embedOrigins;
+      });
+    expect(await sites(`/public/book/${site}/${cal.slug}/embed`)).toEqual([]);
+    await run(calendarSetEmbedSites, {
+      workspaceId,
+      calendarId: cal.id,
+      embedOrigins: ['lonestarhvac.com'],
+    });
+    const listed = ['https://lonestarhvac.com', 'https://www.lonestarhvac.com'];
+    expect(await sites(`/public/book/${site}/${cal.slug}/embed`)).toEqual(listed);
+    // The permanent link names the same calendar.
+    expect(await sites(`/public/book/c/${cal.id}/embed`)).toEqual(listed);
+    // Unknown, or not for customers: framed by nobody, without a 404 for the web to read.
+    expect(await sites(`/public/book/${site}/no-such-calendar/embed`)).toEqual([]);
+    const hidden = await makeCalendar('Private on the website', { public: false });
+    await run(calendarSetEmbedSites, {
+      workspaceId,
+      calendarId: hidden.id,
+      embedOrigins: ['lonestarhvac.com'],
+    });
+    expect(await sites(`/public/book/${site}/${hidden.slug}/embed`)).toEqual([]);
+  });
+
+  it('hands the booking page the calendar’s design, and none for one never designed', async () => {
+    const plain = await makeCalendar('Plain look');
+    const page = (slug: string) =>
+      get(`/public/book/${site}/${slug}`).then(
+        (res) => (res.json() as { calendar: { design: unknown } }).calendar.design,
+      );
+    expect(await page(plain.slug)).toBeNull();
+    const designed = await makeCalendar('Our own look', {
+      design: { colors: { button: '#0F766E' }, font: 'Lora', corners: 'round', showTitle: false },
+    });
+    expect(await page(designed.slug)).toMatchObject({
+      colors: { button: '#0f766e', background: null },
+      font: 'Lora',
+      corners: 'round',
+      showTitle: false,
+      showLogo: false,
+    });
   });
 
   it('answers a filled honeypot with a plain 400 and saves nothing', async () => {

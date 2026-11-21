@@ -7,16 +7,38 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AWAY_WAIT_LINE, NotAway } from '../src/away';
 import { workUrl } from '../src/networks/facebook/urls';
+import { forgetRun, OPENED_KEY } from '../src/opened';
 import { WorkTab } from '../src/tab';
 
 const opened: string[] = [];
+
+/**
+ * Chrome's storage as this run left it, having opened the work window (9) with tab 4 in it: only such a tab is taken
+ * over (src/opened.ts).
+ */
+const ours = () => {
+  const area = (kept: Map<string, unknown>) => ({
+    get: async (key: string) => (kept.has(key) ? { [key]: kept.get(key) } : {}),
+    set: async (values: Record<string, unknown>) => {
+      for (const [key, value] of Object.entries(values)) kept.set(key, value);
+    },
+  });
+  return {
+    local: area(new Map([[OPENED_KEY, { run: 'r', work: 9, windows: { '9': [4] } }]])),
+    session: area(new Map([['hfos.run', 'r']])),
+  };
+};
 
 beforeAll(() => {
   vi.useFakeTimers();
   vi.stubGlobal('chrome', {
     tabs: {
       create: async ({ url }: { url: string }) => (opened.push(url), { id: 3 }),
-      update: async (_id: number, { url }: { url: string }) => (opened.push(url), { id: 3 }),
+      // Only a page asked for: not Chrome told to keep the tab loaded.
+      update: async (_id: number, { url }: { url?: string }) => (
+        url && opened.push(url),
+        { id: 3 }
+      ),
       get: async () => ({ id: 3, status: 'complete' }),
     },
     windows: {
@@ -28,7 +50,10 @@ afterAll(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
-beforeEach(() => void (opened.length = 0));
+beforeEach(() => {
+  opened.length = 0;
+  forgetRun();
+});
 
 describe('where the extension’s tab may go', () => {
   it('takes Facebook’s pages and its Accounts Center, over https only', () => {
@@ -91,6 +116,7 @@ describe('a window of its own, in front while a page is read', () => {
       scripting: {
         executeScript: async () => [{ result: front === 9 ? 'visible' : 'hidden' }],
       },
+      storage: ours(),
     });
     return { goTo: (id: number) => void (front = id) };
   };
@@ -202,6 +228,7 @@ describe('outside a Check, in front only while the person is away (decision 120)
       scripting: {
         executeScript: async () => [{ result: front === 9 ? 'visible' : 'hidden' }],
       },
+      storage: ours(),
       idle: {
         queryState: async () => idle.state,
         setDetectionInterval: () => undefined,
@@ -223,6 +250,21 @@ describe('outside a Check, in front only while the person is away (decision 120)
     await expect(tab.inFront(work)).rejects.toBeInstanceOf(NotAway);
     expect(work).not.toHaveBeenCalled();
     expect(focused).toEqual([]);
+  });
+
+  it('comes in front right away for a read the person asked for (Check if it posted, 18 Nov), then as before', async () => {
+    const focused: number[] = [];
+    const idle: { state: string; heard?: (state: string) => void } = { state: 'active' };
+    stub(focused, idle);
+    const tab = runner();
+    await tab.adopt(4);
+    expect(await tab.inFront(async () => (focused.push(0), 'read'), undefined, true)).toBe('read');
+    expect(focused).toEqual([9, 0, 1]);
+    // It didn't listen for them coming back: they were there all along.
+    expect(idle.heard).toBeUndefined();
+    // The runner's next read waits for them to be away again.
+    await expect(tab.inFront(async () => 'read')).rejects.toBeInstanceOf(NotAway);
+    expect(focused).toEqual([9, 0, 1]);
   });
 
   it('comes in front once they’ve been away two minutes, then puts their window back', async () => {

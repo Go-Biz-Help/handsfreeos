@@ -152,7 +152,7 @@ const be = (staff: readonly string[]) => (staff.length > 1 ? 'are' : 'is');
 /** Where it is, for an email's details. */
 export function whereLine(v: Visit): string | null {
   if (v.locationKind === 'customer_address') return v.address ?? 'At your address';
-  if (v.locationKind === 'business') return v.address;
+  if (v.locationKind === 'business' || v.locationKind === 'meetup') return v.address;
   if (v.locationKind === 'virtual')
     return `${v.meetingUrl ? `Online: ${v.meetingUrl}` : 'Online'}${
       v.recorded
@@ -479,7 +479,10 @@ export function reminderEmail(i: ReminderInput): EmailText {
   const rel = relativeDay(v.startsAt, i.now, tz);
   const who = v.staff.length ? joinNames(v.staff) : null;
   const place =
-    (v.locationKind === 'customer_address' || v.locationKind === 'business') && v.address
+    (v.locationKind === 'customer_address' ||
+      v.locationKind === 'business' ||
+      v.locationKind === 'meetup') &&
+    v.address
       ? `, at ${v.address}`
       : v.locationKind === 'virtual'
         ? v.meetingUrl

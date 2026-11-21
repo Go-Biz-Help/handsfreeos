@@ -146,7 +146,7 @@ export function MainOfferPage({
         canManage={canManage}
       />
 
-      {/* The lists for content the Content Creator writes from (docs/main-offer.md, "For your content"). */}
+      {/* The lists for content the Content Creator writes from (docs/main-offer.md, "For your posts and messages"). */}
       <ContentLists workspaceId={workspaceId} lists={offer.lists} canManage={canManage} />
 
       {live ? (

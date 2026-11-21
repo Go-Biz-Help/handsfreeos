@@ -241,6 +241,8 @@ export interface PreparedPay {
     readonly status: 'requires_payment';
     readonly amountCents: number;
     readonly method: PayMethod;
+    /** Whose fields the page shows. Left out by a worker from before it was sent: the view's session says. */
+    readonly provider?: string;
     readonly flow: 'client_confirm' | 'server_charge';
     readonly publishableKey: string;
     readonly accountId: string;

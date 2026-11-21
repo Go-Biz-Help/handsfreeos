@@ -331,3 +331,160 @@ describe('who has to pay first', () => {
     expect(e.detail).toBe('needs_plan_is_ours');
   });
 });
+
+// ---------- every plan's own free trial (20261027027000) ----------
+
+describe('a free trial of the plan’s own', () => {
+  /** Somebody new each time: one free trial a person, so a person who paid before gets none. */
+  const freshOwner = () => createTestUser(`trial-${uniq()}`);
+  const businessOf = async (who: TestUser): Promise<{ org: string; ws: string }> => {
+    const name = `Trialler ${uniq()}`;
+    const { orgId, wsId } = await bootstrapOrganization(who, name, name);
+    return { org: orgId, ws: wsId };
+  };
+  const trials = (ws: string, who: TestUser) =>
+    as(who)((tx) =>
+      rows<{ offer_id: string; trial_days: number | null }>(
+        tx,
+        sql`select * from private.founding_trials(${ws}::uuid)`,
+      ),
+    );
+  const pageTrial = async (id: string): Promise<number | null> => {
+    const [c] = await rows<{ trial_days: number | null }>(
+      admin,
+      sql`select trial_days from platform.founding_checkouts where id = ${id}::uuid`,
+    );
+    return c!.trial_days;
+  };
+  const houseCode = async (code: string, days: 7 | 14 | 30) => {
+    await admin.execute(sql`delete from platform.affiliate_codes where code = ${code}`);
+    await admin.execute(
+      sql`insert into platform.affiliate_codes (code, offer_id, trial_days) values (${code}, ${MONTHLY}, ${days})`,
+    );
+  };
+
+  beforeEach(async () => {
+    await admin.execute(
+      sql`update platform.founding_offers set trial_days = 14 where id in (${YEARLY}, ${MONTHLY}, ${FREE})`,
+    );
+  });
+
+  it('makes the page a free trial that keeps the card, and the first month starts when it ends', async () => {
+    const who = await freshOwner();
+    const { org, ws } = await businessOf(who);
+    // Only the plans with a price: the free one is never bought.
+    expect(await trials(ws, who)).toEqual([
+      { offer_id: YEARLY, trial_days: 14 },
+      { offer_id: MONTHLY, trial_days: 14 },
+    ]);
+
+    const out = await buy(ws, MONTHLY, who);
+    expect(await pageTrial(out.checkout_id)).toBe(14);
+    expect(await checkout(out.checkout_id)).toMatchObject({ amount_cents: 9700 });
+
+    // Stripe's setup page charged nothing and kept a card.
+    expect(await paid(out.checkout_id, ws, org, 0)).toMatchObject({ outcome: 'activated' });
+    const [plan] = await rows<{
+      trial_ends_at: Date;
+      current_period_end: Date;
+      price_cents: number;
+    }>(
+      admin,
+      sql`select trial_ends_at, current_period_end, price_cents from app.workspace_plans
+          where workspace_id = ${ws}::uuid`,
+    );
+    const days = (new Date(plan!.trial_ends_at).getTime() - Date.now()) / 86_400_000;
+    expect(days).toBeGreaterThan(13.9);
+    expect(days).toBeLessThanOrEqual(14);
+    expect(new Date(plan!.current_period_end).getTime()).toBe(
+      new Date(plan!.trial_ends_at).getTime(),
+    );
+    expect(plan!.price_cents).toBe(9700);
+  });
+
+  it('is one free trial a person: their next business pays from the first day', async () => {
+    const who = await freshOwner();
+    const first = await businessOf(who);
+    const out = await buy(first.ws, YEARLY, who);
+    await paid(out.checkout_id, first.ws, first.org, 0);
+
+    const second = await businessOf(who);
+    expect((await trials(second.ws, who)).every((t) => t.trial_days === null)).toBe(true);
+    const again = await buy(second.ws, MONTHLY, who);
+    expect(await pageTrial(again.checkout_id)).toBeNull();
+  });
+
+  it('is none on a plan without one', async () => {
+    await admin.execute(
+      sql`update platform.founding_offers set trial_days = null where id = ${MONTHLY}`,
+    );
+    const who = await freshOwner();
+    const { ws } = await businessOf(who);
+    expect(await trials(ws, who)).toEqual([
+      { offer_id: YEARLY, trial_days: 14 },
+      { offer_id: MONTHLY, trial_days: null },
+    ]);
+    expect(await pageTrial((await buy(ws, MONTHLY, who)).checkout_id)).toBeNull();
+  });
+
+  it('gives the longer of a code’s trial and the plan’s, and a code’s trial even after one', async () => {
+    const who = await freshOwner();
+    const { org, ws } = await businessOf(who);
+    await houseCode('trial-long-test', 30);
+    await houseCode('trial-short-test', 7);
+    const preview = (code: string) =>
+      as(who)((tx) =>
+        rows<{ offer_id: string; trial_days: number | null }>(
+          tx,
+          sql`select offer_id, trial_days from private.affiliate_code_preview(${code}, ${ws}::uuid)
+              where refusal is null`,
+        ),
+      );
+    expect(await preview('trial-short-test')).toEqual([{ offer_id: MONTHLY, trial_days: 14 }]);
+    expect(await preview('trial-long-test')).toEqual([{ offer_id: MONTHLY, trial_days: 30 }]);
+
+    const short = await as(who)((tx) =>
+      rows<Bought>(
+        tx,
+        sql`select * from private.founding_buy(${ws}::uuid, ${MONTHLY}, 'trial-short-test')`,
+      ),
+    );
+    expect(await pageTrial(short[0]!.checkout_id)).toBe(14);
+    await paid(short[0]!.checkout_id, ws, org, 0);
+
+    // Their own trial is used up, but a code's is a promise somebody made them.
+    const next = await businessOf(who);
+    const long = await as(who)((tx) =>
+      rows<Bought>(
+        tx,
+        sql`select * from private.founding_buy(${next.ws}::uuid, ${MONTHLY}, 'trial-long-test')`,
+      ),
+    );
+    expect(await pageTrial(long[0]!.checkout_id)).toBe(30);
+    await admin.execute(
+      sql`delete from platform.affiliate_codes where code in ('trial-long-test', 'trial-short-test')`,
+    );
+  });
+
+  it('replaces a page made before the trial with a trial page', async () => {
+    await admin.execute(
+      sql`update platform.founding_offers set trial_days = null where id = ${MONTHLY}`,
+    );
+    const who = await freshOwner();
+    const { ws } = await businessOf(who);
+    const before = await buy(ws, MONTHLY, who);
+    await admin.execute(
+      sql`update platform.founding_offers set trial_days = 14 where id = ${MONTHLY}`,
+    );
+    const after = await buy(ws, MONTHLY, who);
+    expect(after.checkout_id).not.toBe(before.checkout_id);
+    expect(await pageTrial(after.checkout_id)).toBe(14);
+    expect((await checkout(before.checkout_id)).status).toBe('failed');
+  });
+
+  it('is only for somebody who manages the business’s money', async () => {
+    const { ws } = await newBusiness();
+    const e = await expectPgError(() => trials(ws, member));
+    expect(e.detail).toBe('founding_buy_not_yours');
+  });
+});

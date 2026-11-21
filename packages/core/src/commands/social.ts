@@ -33,6 +33,7 @@ import { logChannelActivity } from '../crm/activities';
 import { intakeFromChannel, type IntakeResult } from '../crm/intake';
 import { fullName } from '../crm/records';
 import { HfosError } from '../errors';
+import { takeIntoHands } from '../messaging/hands';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { isUniqueViolation } from '../kernel/pg-errors';
@@ -918,6 +919,9 @@ export const metaMessageReceive = defineCommand({
     'person.created',
     'lead.created',
     'attribution.touched',
+    // A reply someone typed in Facebook's or Instagram's own inbox puts the customer in their hands.
+    'person.taken_over',
+    'conversation.taken_over',
   ],
   actors: ['system'],
   async handler(ctx, input) {
@@ -1179,6 +1183,16 @@ export const metaMessageReceive = defineCommand({
           ...(conv.metaAccountId ? {} : { metaAccountId: account.id }),
         })
         .where(eq(conversations.id, conv.id));
+      // Someone on the team typed it themselves: the customer is in their hands (messaging/hands.ts). Who isn't
+      // known, as Meta doesn't say; an instant reply set up there is nobody's.
+      if (personId && latest && !instant)
+        await takeIntoHands(ctx, {
+          personId,
+          userId: null,
+          how: 'wrote',
+          place: channel,
+          at,
+        });
       return {
         outcome: 'recorded' as const,
         messageId,

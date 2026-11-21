@@ -40,7 +40,7 @@ describe('defaults', () => {
       },
     });
     expect(c.resources).toEqual({ required: [] });
-    expect(c.buffers).toEqual({ before: 0, after: 0, travelMinutes: 0 });
+    expect(c.buffers).toEqual({ before: 0, after: 0, travelMinutes: 0, driveBetween: false });
     expect(c.territory).toEqual({ routing: 'off', territoryIds: [] });
     expect(c.window).toEqual({
       minNoticeMinutes: 240,

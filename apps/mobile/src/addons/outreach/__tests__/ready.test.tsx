@@ -1,5 +1,5 @@
 import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
-import { NO_MESSAGE_NOTES } from '@hfos/core/addons/outreach/conversation';
+import { NO_MESSAGE_NOTES, SAMPLES_RULES } from '@hfos/core/addons/outreach/conversation';
 import { PROFILE_ITEMS_ON } from '@hfos/core/addons/outreach/profile-check';
 import { PROFILE_PART_WORDS } from '@hfos/core/addons/outreach/profile-parts';
 import {
@@ -142,6 +142,7 @@ describe('Get ready on the phone', () => {
           version: 1,
           // The second follow-up in their own words, written on their computer (decision 87).
           mine: ['followUps.1'],
+          rules: SAMPLES_RULES,
         },
         notes: { ...NO_MESSAGE_NOTES, followUps: ['Less pushy.'] },
       },

@@ -26,6 +26,7 @@
  * (`app/w/[workspaceId]/a/outreach/show.tsx`), with what the person asked their computer to do on it (./asks.tsx), and
  * why those wait is said once, under the title.
  */
+import type { ReferAsk, Referral } from '@hfos/core/addons/outreach/referrals';
 import type { ActivityPeriod } from '@hfos/core/addons/outreach/activity';
 import type { ChatView } from '@hfos/core/addons/outreach/chat-read';
 import type { FriendView } from '@hfos/core/addons/outreach/friends';
@@ -85,6 +86,7 @@ import { FindView } from './find-view';
 import { FriendsView } from './friends-view';
 import { GroupPage } from './group-page';
 import { GroupsView } from './groups-view';
+import { HandsView } from './hands-view';
 import type { Board } from './board';
 import { NetworkPicker } from './network-ui';
 import { PartnersView } from './partners-view';
@@ -111,6 +113,7 @@ import type {
   HelpfulList,
   Live,
   LiveTeam,
+  NetworkHere,
   Openers,
   Partners,
   Pipeline,
@@ -133,6 +136,10 @@ export type OutreachShown =
       readonly networks: readonly NetworkLive[];
       readonly today: TodayList;
       readonly helpful: HelpfulList;
+      /** Referrals waiting for the person on the network shown (decision 174); left out, none. */
+      readonly referrals?: readonly Referral[];
+      /** The asks after two on the network shown (decision 185); left out, none. */
+      readonly referAsks?: readonly ReferAsk[];
       /** How each person's extension is doing on the network shown, for owners and admins: else null. */
       readonly team: LiveTeam | null;
       readonly asks: Asks;
@@ -190,6 +197,13 @@ export type OutreachShown =
       readonly asks: Asks;
       /** The network picked: null for every network. */
       readonly net: Platform | null;
+    }
+  | {
+      /** In your hands (decision 182), which loads itself: everyone's, or only the person's own. */
+      readonly view: 'hands';
+      readonly mine: boolean;
+      /** The person's own id, so their own rows say "You". */
+      readonly me: string | null;
     }
   | {
       /** Left alone's Skipped for country, which loads itself. */
@@ -266,6 +280,8 @@ export type OutreachShown =
       readonly readiness?: Readiness | null;
       /** On Team, who's on training wheels: null when it couldn't be had, or on another part. */
       readonly wheels?: WheelsList | null;
+      /** On a network's page, the person's own: its status card's live view and what waits there (decision 170). */
+      readonly here?: NetworkHere | null;
       /** On Videos, the playbooks' short videos, the library until it's first saved (decision 154). */
       readonly playbookVideos?: readonly PlaybookVideo[];
     };
@@ -546,6 +562,8 @@ function peopleListShown(shown: OutreachShown): PeopleList | null {
       return { list: 'chats' };
     case 'partners':
       return { list: 'partners' };
+    case 'hands':
+      return { list: 'hands' };
     case 'skipped':
       return { list: 'country' };
     default:
@@ -564,6 +582,8 @@ function peopleHref(workspaceId: string, at: PeopleList): string {
       return outreachHref(workspaceId, { view: 'chats' });
     case 'partners':
       return outreachHref(workspaceId, { view: 'partners' });
+    case 'hands':
+      return outreachHref(workspaceId, { view: 'hands' });
     case 'country':
       return outreachHref(workspaceId, { view: 'skipped' });
   }
@@ -773,6 +793,7 @@ export function OutreachHome({
               asks={shown.asks ?? null}
               readiness={shown.readiness ?? null}
               wheels={shown.wheels ?? null}
+              here={shown.here ?? null}
               playbookVideos={shown.playbookVideos ?? []}
             />
           </div>
@@ -801,6 +822,8 @@ export function OutreachHome({
           networks={shown.networks}
           today={shown.today}
           helpful={shown.helpful}
+          referrals={shown.referrals ?? []}
+          referAsks={shown.referAsks ?? []}
           team={shown.team}
           asks={shown.asks}
           waiting={shown.waiting}
@@ -875,6 +898,8 @@ export function OutreachHome({
         />
       ) : shown.view === 'skipped' ? (
         <SkippedCountryCard workspaceId={workspaceId} />
+      ) : shown.view === 'hands' ? (
+        <HandsView workspaceId={workspaceId} me={shown.me} mine={shown.mine} />
       ) : shown.view === 'partners' ? (
         <PartnersView
           workspaceId={workspaceId}

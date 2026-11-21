@@ -167,6 +167,11 @@ describe('Run now on Your computer', () => {
     await render(<RunNowPart asks={ASKS} actions={a} networks={['facebook', 'linkedin']} />);
     expect(screen.getByTestId('run-now-all-facebook')).toBeTruthy();
     expect(screen.getByTestId('run-now-all-linkedin')).toBeTruthy();
+    // One network open at a time, the first to start (decision 170, part 2).
+    expect(screen.getByTestId('run-now-all-facebook-groups')).toBeTruthy();
+    expect(screen.queryByTestId('run-now-all-linkedin-requests')).toBeNull();
+    await fireEvent.press(screen.getByTestId('run-now-all-linkedin-toggle'));
+    expect(screen.queryByTestId('run-now-all-facebook-groups')).toBeNull();
     await fireEvent.press(screen.getByTestId('run-now-all-linkedin-requests'));
     expect(a.ask).toHaveBeenCalledWith({ kind: 'requests' }, 'linkedin');
   });

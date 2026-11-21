@@ -5,7 +5,6 @@ import {
   money,
   RECORD_WORDS,
   TASK_WORDS,
-  type FileOut,
   type LeadCard,
   type TagRef,
   type TaskOut,
@@ -34,7 +33,7 @@ import { StageBadge } from '@/components/pipeline/bits';
 import { TaskRow } from '@/components/tasks/task-row';
 
 import { ChangeMark, DetailRow, OwedCard, RecordTabs, type RecordTab } from './bits';
-import { FileRow, FilesEmpty, UploadingRow } from './files';
+import { FileRows, FilesEmpty, UploadingRow } from './files';
 import { NoteSheet, PhotoSheet, RECORD_SHEET_WORDS, TagSheet, TaskSheet } from './sheets';
 import { TimelineEmpty, TimelineRow } from './timeline';
 import type { RecordData } from '@/customers/use-record';
@@ -207,9 +206,7 @@ export function RecordBody(props: RecordBodyProps) {
             {data.uploading.map((photo) => (
               <UploadingRow key={photo.id} photo={photo} />
             ))}
-            {data.files.map((file) => (
-              <FileRow key={file.id} file={file} online={online} onOpen={openFile} />
-            ))}
+            <FileRows files={data.files} online={online} />
             <View className="py-2">
               <Button
                 variant="secondary"
@@ -336,13 +333,6 @@ function toggleTask(workspaceId: string, task: TaskOut, userId: string) {
   return task.doneAt
     ? reopenTask(workspaceId, task.id)
     : completeTask(workspaceId, task.id, userId).then(() => toast.show(TASK_WORDS.completed));
-}
-
-/** Opening a file needs signal: its link is short-lived and the file itself lives in Storage. */
-function openFile(file: FileOut) {
-  void openWeb(`/app/f/${file.id}`).then((opened) => {
-    if (!opened) toast.error('Opening a file needs signal.');
-  });
 }
 
 /**

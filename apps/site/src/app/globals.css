@@ -534,3 +534,90 @@ p {
     transform: translateY(6px);
   }
 }
+
+/*
+ * The home page's headline (components/rotating-headline.tsx): "The CRM" holds still and the reason after it is
+ * written in by a thin, shiny blue line, then rubbed out by it on the way back. The line is light, not a bar: two
+ * pixels, a soft glow and a few sparkles drifting off behind it, so it reads as a pen of light rather than a wipe.
+ * The script moves it; this is how it looks. The box is two lines tall at every width, so nothing below it moves.
+ */
+.headline-rotor {
+  --sweep-hot: color-mix(in oklab, var(--accent) 45%, #ffffff);
+  --sweep-core: var(--accent);
+  --sweep-glow: color-mix(in oklab, var(--accent) 80%, transparent);
+  --sweep-glow-soft: color-mix(in oklab, var(--accent) 35%, transparent);
+  min-height: 1.96em;
+  min-height: 2lh;
+}
+@media (prefers-color-scheme: dark) {
+  .headline-rotor {
+    --sweep-hot: #ffffff;
+    --sweep-core: color-mix(in oklab, var(--accent) 45%, #ffffff);
+    --sweep-glow: color-mix(in oklab, var(--accent) 85%, transparent);
+    --sweep-glow-soft: color-mix(in oklab, var(--accent) 45%, transparent);
+  }
+}
+.headline-phrase {
+  position: relative;
+  display: inline-block;
+  vertical-align: top;
+}
+.headline-sweep {
+  position: absolute;
+  top: -0.06em;
+  bottom: -0.06em;
+  left: 0;
+  width: 0;
+  pointer-events: none;
+}
+.headline-sweep-line {
+  position: absolute;
+  top: 0;
+  right: -1px;
+  bottom: 0;
+  width: 2px;
+  border-radius: 2px;
+  opacity: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--sweep-core) 16%,
+    var(--sweep-hot) 50%,
+    var(--sweep-core) 84%,
+    transparent
+  );
+  box-shadow:
+    0 0 6px 1px var(--sweep-glow),
+    0 0 18px 3px var(--sweep-glow-soft);
+}
+/* Sparkles leave the line and drift off behind it, the way it came (`--dir` is 1 going right, -1 coming back). */
+.headline-sparkle {
+  position: absolute;
+  top: var(--y);
+  left: 50%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--sweep-hot);
+  box-shadow: 0 0 4px 1px var(--sweep-glow);
+  opacity: 0;
+  animation: headline-sparkle 760ms ease-out infinite paused;
+  animation-delay: var(--delay);
+}
+.headline-sweep[data-on] .headline-sparkle {
+  animation-play-state: running;
+}
+@keyframes headline-sparkle {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% - var(--dir, 1) * var(--dx)), calc(-50% + var(--dy))) scale(0.2);
+  }
+}

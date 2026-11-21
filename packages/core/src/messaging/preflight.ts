@@ -22,7 +22,11 @@ export type PreflightId =
   | 'opt_in_surface'
   | 'chat_on_site'
   /** Another way customers agree (`OtherOptIn`), numbered in the order the business listed them. */
-  | `other_way_${number}`;
+  | `other_way_${number}`
+  /** Every page of the site looked through for forms the registration doesn't name (`site-forms.ts`): all clear. */
+  | 'site_forms'
+  /** One form found on the site with something a reviewer turns down, numbered in the order found. */
+  | `site_form_${number}`;
 
 export interface PreflightCheck {
   readonly id: PreflightId;
@@ -35,6 +39,22 @@ export interface PreflightCheck {
   readonly detail: string;
   /** The address that was actually opened, when one was. */
   readonly url?: string | null;
+  /**
+   * The pages that showed a robot check instead of themselves (`robotCheck`), so this row couldn't look at them: the
+   * last step offers the ways past for each (owner, 2026-11-20).
+   */
+  readonly blocked?: readonly BlockedPage[];
+  /**
+   * Where the page this row read came from, when it wasn't our own server's read: the person's browser on their site
+   * (the browser check), or the screenshot they added. Said beside the row, for them and for HandsFreeOS.
+   */
+  readonly via?: 'browser' | 'screenshot';
+}
+
+/** A page that showed a robot check instead of itself, and whose check it was (`RobotCheck.by`). */
+export interface BlockedPage {
+  readonly url: string;
+  readonly by: string | null;
 }
 
 /** What the worker managed to get for one address. */
@@ -48,11 +68,18 @@ export interface FetchedPage {
   readonly finalUrl?: string | null;
   /** The fetcher's own reason, when it refused or failed before a response. */
   readonly error?: string | null;
+  /** The response's headers, names in lower case, when the fetcher kept them (`robotCheck` reads a few). */
+  readonly headers?: Readonly<Record<string, string>>;
   /**
    * The form framed on the page, when the box was found there rather than on the page itself (`framedAddresses`):
    * `html` is then that form's, and `url` stays the page's, since that is the address the carrier is given.
    */
   readonly framedUrl?: string | null;
+  /**
+   * Where the page came from when it wasn't our server's own read: the person's browser on their own site (the
+   * browser check) or their screenshot, written out as a page (`site-pages.ts`).
+   */
+  readonly source?: 'browser' | 'screenshot' | null;
 }
 
 // ---------- reading a page ----------
@@ -65,6 +92,11 @@ export interface FetchedPage {
  * inside an image is a policy a reviewer cannot read either.
  */
 export function pageText(html: string): string {
+  return plainText(html).toLowerCase();
+}
+
+/** `pageText` with the page's own capitals kept, for quoting it back to the business. */
+export function plainText(html: string): string {
   return html
     .replace(/<(script|style|noscript)\b[^>]*>[\s\S]*?<\/\1>/gi, ' ')
     .replace(/<[^>]+>/g, ' ')
@@ -75,8 +107,7 @@ export function pageText(html: string): string {
     .replace(/[‘’]/g, "'")
     .replace(/[“”]/g, '"')
     .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
+    .trim();
 }
 
 /** Does this page talk about text messages at all? A policy that never mentions them fails the review. */
@@ -181,7 +212,7 @@ export interface ConsentBoxReading {
 }
 
 /** Blanks out script and style bodies, keeping every other character where it was. */
-const withoutScripts = (html: string): string =>
+export const withoutScripts = (html: string): string =>
   html.replace(/<(script|style|noscript)\b[^>]*>[\s\S]*?<\/\1>/gi, (m) => ' '.repeat(m.length));
 
 /**
@@ -248,10 +279,18 @@ export function readConsentBox(html: string, names: readonly string[] = []): Con
   return {
     found: true,
     preTicked: /\schecked(?=[\s=/>])/i.test(tag),
-    required: /\srequired(?=[\s=/>])/i.test(tag) || /\saria-required\s*=\s*["']?true/i.test(tag),
+    required: boxRequired(tag),
     missing,
     termsLink,
   };
+}
+
+/**
+ * Whether a tick box has to be ticked to send its form: `required`, or marked so for the page's own check
+ * (`aria-required`, or `data-required` as HighLevel's forms write it on a required "terms and conditions" box).
+ */
+export function boxRequired(tag: string): boolean {
+  return /\srequired(?=[\s=/>])/i.test(tag) || /\s(aria|data)-required\s*=\s*["']?true/i.test(tag);
 }
 
 /** Does this page carry a visible agreement box a reviewer could point at? */
@@ -269,7 +308,7 @@ const unescapeAttr = (value: string): string =>
     .replace(/&amp;/gi, '&');
 
 /** One attribute of a tag, quoted or not, entities undone; null when it isn't there. */
-function attrOf(tag: string, name: string): string | null {
+export function tagAttr(tag: string, name: string): string | null {
   const m = new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i').exec(tag);
   if (!m) return null;
   return unescapeAttr(m[1] ?? m[2] ?? m[3] ?? '');
@@ -304,9 +343,9 @@ export function framedAddresses(html: string, pageUrl: string, limit = 3): strin
   const read = (markup: string, depth: number) => {
     for (const m of withoutScripts(markup).matchAll(/<iframe\b[^>]*>/gi)) {
       const tag = m[0];
-      add(attrOf(tag, 'src'));
-      add(attrOf(tag, 'data-src'));
-      const doc = attrOf(tag, 'srcdoc');
+      add(tagAttr(tag, 'src'));
+      add(tagAttr(tag, 'data-src'));
+      const doc = tagAttr(tag, 'srcdoc');
       if (doc && depth < 2) read(doc, depth + 1);
     }
   };
@@ -330,13 +369,26 @@ const unreachable = (page: FetchedPage, what: string): string =>
 /**
  * What a check says when the page showed us a robot check instead of itself (`robotCheck`): nothing about the page
  * is known, so it is neither passed nor failed on its words. A reviewer in a browser gets past the check, so the
- * business isn't told to change anything; HandsFreeOS looks at the page for it instead.
+ * business isn't told to change anything on the page. The row names the page in `blocked`, and the last step offers
+ * the ways past (owner, 2026-11-20): finish the check on the site in the person's own browser, let HandsFreeOS in at
+ * the host, or a screenshot of the page.
  */
-function robotChecked(page: FetchedPage, what: string): string | null {
+function robotChecked(
+  page: FetchedPage,
+  what: string,
+): { readonly detail: string; readonly blocked: readonly BlockedPage[] } | null {
   const check = robotCheck(page);
   if (!check) return null;
-  return `${page.finalUrl ?? page.url} showed us a robot check from ${robotCheckWho(check)} instead of ${what}, so we couldn’t check it. A reviewer opening it in a browser gets past the check. Press “Ask HandsFreeOS to check it” below and we’ll look at it ourselves.`;
+  const url = page.finalUrl ?? page.url;
+  return {
+    detail: `${url} showed us a robot check from ${robotCheckWho(check)} instead of ${what}, so we couldn’t check it. A reviewer opening it in a browser gets past the check. ${ROBOT_CHECK_NEXT}`,
+    blocked: [{ url, by: check.by }],
+  };
 }
+
+/** What a row about a page behind a robot check says to do: the ways past it, under the rows. */
+export const ROBOT_CHECK_NEXT =
+  'Press “Finish the check on my site” below, let HandsFreeOS in, or add a screenshot of the page.';
 
 /**
  * Did the business's own website load, is there something on it, and is it this business's?
@@ -367,7 +419,7 @@ export function checkWebsite(
     };
   // Before the status: some checks answer 403 or 503, which would otherwise read as a broken page.
   const blocked = robotChecked(page, 'your website');
-  if (blocked) return { ...base, ok: false, detail: blocked, url: page.finalUrl ?? page.url };
+  if (blocked) return { ...base, ok: false, ...blocked, url: page.finalUrl ?? page.url };
   if (page.status === null || page.status >= 400)
     return {
       ...base,
@@ -430,7 +482,7 @@ export function checkPolicy(page: FetchedPage | null): PreflightCheck {
       url: null,
     };
   const blocked = robotChecked(page, 'your privacy policy');
-  if (blocked) return { ...base, ok: false, detail: blocked, url: page.finalUrl ?? page.url };
+  if (blocked) return { ...base, ok: false, ...blocked, url: page.finalUrl ?? page.url };
   if (page.status === null || page.status >= 400)
     return {
       ...base,
@@ -525,7 +577,7 @@ export function checkTerms(page: FetchedPage | null): PreflightCheck {
       ...base,
       severity: 'warning',
       ok: false,
-      detail: blocked,
+      ...blocked,
       url: page.finalUrl ?? page.url,
     };
   if (page.status === null || page.status >= 400)
@@ -645,7 +697,7 @@ export function checkOptInSurface(
     };
   const url = page.finalUrl ?? page.url;
   const blocked = robotChecked(page, 'the page with your tick box');
-  if (blocked) return { ...base, ok: false, detail: blocked, url };
+  if (blocked) return { ...base, ok: false, ...blocked, url };
   if (page.status === null || page.status >= 400)
     return {
       ...base,
@@ -833,9 +885,12 @@ export function checkChatOnSite(
     ...base,
     ok: false,
     detail: blocked
-      ? `${site ?? 'Your website'} showed us a robot check from ${robotCheckWho(blocked)}, so we couldn’t look for the chat’s code. Open your site in a browser and click the chat button once, and we’ll see it there.`
+      ? `${site ?? 'Your website'} showed us a robot check from ${robotCheckWho(blocked)}, so we couldn’t look for the chat’s code. Press “Finish the check on my site” below, or open your site in a browser and click the chat button once, and we’ll see it there.`
       : `We couldn’t find the chat on ${site ?? 'your website'}. Paste the code from “How customers agree” into your site’s footer and publish, then open your site and click the chat button once.`,
     url,
+    ...(blocked && website
+      ? { blocked: [{ url: website.finalUrl ?? website.url, by: blocked.by }] }
+      : {}),
   };
 }
 

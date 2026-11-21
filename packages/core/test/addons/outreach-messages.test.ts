@@ -23,6 +23,7 @@ import {
   NO_MESSAGE_NOTES,
   ownWordsFor,
   sampleAt,
+  SAMPLES_RULES,
   slotKey,
   slotsOf,
   withMineKept,
@@ -32,6 +33,7 @@ import {
   type SamplesFacts,
 } from '../../src/addons/outreach/conversation';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
+import { startingScript } from '../../src/addons/outreach/script';
 import { todayDraftPrompt } from '../../src/addons/outreach/today';
 import { outreachBusiness, refused, runAs, runAsSystem } from './outreach-fixture';
 
@@ -49,6 +51,8 @@ const kept = {
   checkIn: 'Thought you might like this checklist.',
   at: '2026-10-25T09:00:00.000Z',
   version: 1,
+  // Written from the playbook's own words (decision 164): older ones read as none (`samplesNow`).
+  rules: SAMPLES_RULES,
 };
 const samples = MessageSamples.parse(kept);
 
@@ -64,6 +68,7 @@ const facts: SamplesFacts = {
     disclaimer: null,
     usefulWhat: null,
     hasVideo: false,
+    script: startingScript('demo'),
   },
   offer: { line: null, outcome: 'more booked calls' },
   followUps: 6,
@@ -125,7 +130,7 @@ describe('the person’s own words and notes', () => {
     expect(messageNotesOf({ first: ['Shorter.'] }).first).toEqual(['Shorter.']);
   });
 
-  it('has each kind of real message follow its part: either first message, a follow-up its own number after the first only', () => {
+  it('has each kind of real message follow its part: a follow-up its own number after the first only, and never a first message', () => {
     const mine = withSample(
       withSample(samples, { part: 'first', index: 1 }, 'Hey, open to more calls?', true),
       { part: 'followUps', index: 0 },
@@ -133,9 +138,12 @@ describe('the person’s own words and notes', () => {
       true,
     );
     const notes = withNote(NO_MESSAGE_NOTES, 'followUps', 'Less pushy.');
-    expect(ownWordsFor('opener', mine, notes)).toEqual({
-      notes: [],
-      examples: ['Hey, open to more calls?'],
+    // A first message's words are the playbook's (decision 164): what they wrote of one is no example to keep close
+    // to, but what they told the AI about how theirs read is still followed.
+    expect(ownWordsFor('opener', mine, notes)).toBeNull();
+    expect(ownWordsFor('opener', mine, withNote(notes, 'first', 'Shorter.'))).toEqual({
+      notes: ['Shorter.'],
+      examples: [],
     });
     expect(ownWordsFor('follow_up', mine, notes, { step: 'first', sent: 0 })).toEqual({
       notes: ['Less pushy.'],
@@ -149,6 +157,10 @@ describe('the person’s own words and notes', () => {
     expect(ownWordsFor('pitch', mine, notes)).toBeNull();
     expect(ownWordsFor('reply', mine, notes)).toBeNull();
     expect(ownWordsFor('opener', null, NO_MESSAGE_NOTES)).toBeNull();
+    // Samples written the old way are nobody's example any more.
+    expect(
+      ownWordsFor('follow_up', { ...mine, rules: 0 }, notes, { step: 'first', sent: 0 }),
+    ).toEqual({ notes: ['Less pushy.'], examples: [] });
     // A draft for another playbook follows their notes, never what they wrote for this one.
     expect(
       ownWordsFor(
@@ -210,10 +222,10 @@ describe('what the AI is asked', () => {
     expect(checkedRewrite('Any news — on this one?', f)).not.toContain('—');
   });
 
-  it('tells a real draft what the person said and wrote of its part, but not what they wrote to someone’s Requests', () => {
-    const own = { notes: ['Shorter.'], examples: ['Hey, open to more calls?'] };
+  it('tells a real draft what the person said and wrote of its part, but only what they said of a first message', () => {
+    const own = { notes: ['Shorter.'], examples: ['Did you see this?'] };
     const base = {
-      kind: 'opener' as const,
+      kind: 'follow_up' as const,
       business: 'Pine Roof Leads',
       name: 'Dana Reyes',
       facts: [],
@@ -223,9 +235,21 @@ describe('what the AI is asked', () => {
     };
     const prompt = todayDraftPrompt(base);
     expect(prompt).toContain('<owner_notes>\n- Shorter.\n</owner_notes>');
-    expect(prompt).toContain('<owner_example>\n- Hey, open to more calls?\n</owner_example>');
+    expect(prompt).toContain('<owner_example>\n- Did you see this?\n</owner_example>');
     expect(prompt).toContain('Keep each draft close to it');
-    const requests = todayDraftPrompt({ ...base, platform: 'instagram', requests: true });
+    // The playbook's words for the message come first: notes and examples are followed inside them (decision 164).
+    expect(prompt).toContain('keeping to the playbook’s words for this message');
+    expect(prompt).toContain('Where it and the playbook’s or the offer’s words differ, those win.');
+    // A first message is the playbook's words: their notes are followed, and nothing they wrote of one stands in.
+    const first = todayDraftPrompt({ ...base, kind: 'opener' });
+    expect(first).toContain('<owner_notes>');
+    expect(first).not.toContain('<owner_example>');
+    const requests = todayDraftPrompt({
+      ...base,
+      kind: 'opener',
+      platform: 'instagram',
+      requests: true,
+    });
     expect(requests).toContain('<owner_notes>');
     expect(requests).not.toContain('<owner_example>');
     expect(todayDraftPrompt({ ...base, own: null })).not.toContain('owner_');
@@ -309,10 +333,38 @@ describe('in a business', () => {
     );
     expect(changed.messages.samples.mine).toEqual(['followUps.1']);
 
+    // The first message and the message after a yes are the playbook's own words (decision 164): changed there, for
+    // every message. The owner is told where; a member, who to ask.
+    const worded = (u: TestUser, part: 'first' | 'link') =>
+      runAs(u, ws, 'outreach.messages.edit', { part, index: 0, text: 'Hi! Got a minute?' }).catch(
+        (e: { rule?: string; message: string }) => e,
+      );
+    const ownersFirst = (await worded(owner, 'first')) as { rule?: string; message: string };
+    expect(ownersFirst.rule).toBe('outreach_message_playbook');
+    expect(ownersFirst.message).toContain(
+      'Your first message comes from your playbook’s own words now, so it isn’t changed here.',
+    );
+    expect(ownersFirst.message).toContain(
+      'Change it under Playbooks → “CRM demos” → What it says, and every first message follows it.',
+    );
+    expect(ownersFirst.message).toContain('Not quite right?');
+    const ownersLink = (await worded(owner, 'link')) as { rule?: string; message: string };
+    expect(ownersLink.rule).toBe('outreach_message_playbook');
+    expect(ownersLink.message).toContain('Your message after a yes comes from your playbook’s');
+    const membersFirst = (await worded(member, 'first')) as { rule?: string; message: string };
+    expect(membersFirst.rule).toBe('outreach_message_playbook');
+    expect(membersFirst.message).toContain(
+      'Ask an owner of this business to change it under Playbooks → “CRM demos” → What it says.',
+    );
+    // Nothing of theirs changed.
+    expect((await runAs(owner, ws, 'outreach.readiness', {})).messages.samples.first).toEqual(
+      kept.first,
+    );
+
     // The playbook keeps its words to avoid out of every message: the owner can change them, a member asks.
     const avoided = (u: TestUser) =>
       runAs(u, ws, 'outreach.messages.edit', {
-        part: 'first',
+        part: 'followUps',
         index: 0,
         text: 'A cheap way to more booked calls?',
       }).catch((e: { rule?: string; message: string }) => e);

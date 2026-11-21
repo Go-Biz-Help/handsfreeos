@@ -14,8 +14,17 @@
 import { z } from 'zod';
 import type { SendKind } from './automation';
 
-/** What another teammate's person still gets from the person: a reply they're owed, and a demo booked through them. */
-const STILL_GOES: readonly SendKind[] = ['reply', 'partner_reply', 'demo_reminder', 'rebook'];
+/**
+ * What another teammate's person still gets from the person: a reply they're owed, a demo booked through them, and the
+ * thank-you after a call they had (decision 187).
+ */
+const STILL_GOES: readonly SendKind[] = [
+  'reply',
+  'partner_reply',
+  'demo_reminder',
+  'rebook',
+  'thank_you',
+];
 
 /** Whether a message is outreach that another teammate's person never gets from the person. */
 export const heldForOthers = (kind: SendKind): boolean => !STILL_GOES.includes(kind);

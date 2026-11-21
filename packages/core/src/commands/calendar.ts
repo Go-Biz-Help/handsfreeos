@@ -53,6 +53,7 @@ import {
 import { CALENDAR_PRESETS, configFromPreset } from '../calendar/presets';
 import { hasBlockingIssues, validateCalendar, type CalendarIssue } from '../calendar/rules';
 import { resolveTerms } from '../calendar/terms';
+import { normalizeChatOrigins } from '../chat/origins';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
@@ -64,6 +65,8 @@ import {
   CalendarRestoreRevisionInput,
   CalendarSaveInput,
   CalendarSaveOutput,
+  CalendarSetEmbedSitesInput,
+  CalendarSetEmbedSitesOutput,
   CalendarSetSlugInput,
   CalendarSetSlugOutput,
   CalendarSetStatusInput,
@@ -766,5 +769,59 @@ export const calendarSetSlug = defineCommand({
       after: { name: current.name, slug: input.slug },
     });
     return { calendarId: current.id, slug: input.slug, previousSlug: current.slug };
+  },
+});
+
+/**
+ * The sites allowed to show a calendar's booking page inside them (the owner, 2026-11-18: an embed like forms have).
+ * Typed any way, saved as exact origins with their www twins (chat/origins.ts), as a form's are; an empty list means
+ * it is embedded nowhere. The web's frame rule for the booking page reads this list (apps/web/src/lib/booking/frame.ts).
+ */
+export const calendarSetEmbedSites = defineCommand({
+  name: 'calendar.set_embed_sites',
+  description:
+    'Set the websites allowed to show a calendar’s booking page inside them (the embed). An empty list means it is shown on no other site; the booking link works either way.',
+  risk: 1,
+  input: CalendarSetEmbedSitesInput,
+  output: CalendarSetEmbedSitesOutput,
+  permission: 'calendars.manage',
+  scope: inWorkspace,
+  emits: ['calendar.embed_sites_changed'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const current = await loadCalendar(ctx.tx, ws, input.calendarId, { forUpdate: true });
+    const { origins, issues } = normalizeChatOrigins(input.embedOrigins, {
+      allowNone: true,
+      what: 'A calendar',
+    });
+    if (issues.length)
+      throw HfosError.validation(
+        issues.map((i) => ({
+          path: i.index === null ? 'embedOrigins' : `embedOrigins.${i.index}`,
+          message: i.message,
+        })),
+        // The screen has one box for them all, so the first refusal is the message.
+        issues[0]!.message,
+      );
+    const [row] = await ctx.tx
+      .select({ embedOrigins: calendars.embedOrigins })
+      .from(calendars)
+      .where(eq(calendars.id, current.id));
+    const before = row?.embedOrigins ?? [];
+    if (before.length === origins.length && before.every((o, i) => o === origins[i]))
+      return { calendarId: current.id, embedOrigins: origins };
+    await ctx.tx
+      .update(calendars)
+      .set({ embedOrigins: origins })
+      .where(eq(calendars.id, current.id));
+    await ctx.emit({
+      type: 'calendar.embed_sites_changed',
+      entityType: 'calendar',
+      entityId: current.id,
+      payload: { embedOrigins: origins },
+      before: { name: current.name, sites: before },
+      after: { name: current.name, sites: origins },
+    });
+    return { calendarId: current.id, embedOrigins: origins };
   },
 });

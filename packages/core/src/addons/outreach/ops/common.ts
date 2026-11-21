@@ -461,9 +461,9 @@ export async function countryRuleOf(ctx: Ctx): Promise<CountryRule> {
 }
 
 /**
- * What the business's country setting does with a profile (decisions 61 and 86): `reach`, `look` (waiting for a look
- * first), `ask` (the Not sure list) or `skip`. The SQL copy of `countryFate` in ../countries.ts, the one copy of the
- * rule; `p` is the profile's alias.
+ * What the business's country setting does with a profile (decisions 61, 86 and 169): `reach`, `look` (waiting for a
+ * look first), `ask` (the Not sure list) or `skip`. The SQL copy of `countryFate` (and `countryCantTell`) in
+ * ../countries.ts, the one copy of the rule; `p` is the profile's alias.
  */
 export function countryFateSql(rule: CountryRule, p: string) {
   if (!countryRuleOn(rule)) return sql`'reach'`;
@@ -479,8 +479,9 @@ export function countryFateSql(rule: CountryRule, p: string) {
     when ${a}.country_skip then 'skip'
     when ${a}.country_looked_at is not null or ${a}.country_how = 'seen' then
       case
-        when ${a}.country_unsure or ${a}.country is null
-          or (${a}.country_alt is not null and ${listed('country_alt')} <> ${listed('country')})
+        when ${a}.country is null then ${unsure}
+        when ${a}.country_alt is not null and ${listed('country_alt')} <> ${listed('country')}
+          and (${a}.country_how = 'seen' or ${a}.country_unsure)
           then ${unsure}
         when ${lets} then 'reach'
         else 'skip'

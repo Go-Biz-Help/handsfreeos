@@ -102,6 +102,18 @@ function whyNot(e: HfosError): string {
   return 'the calendar refused it.';
 }
 
+/** Whether their conversation with the person is on a networking call's yes (decision 173). */
+async function onCall(ctx: AddonScopeContext, userId: string, profileId: string): Promise<boolean> {
+  const [row] = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{ call: boolean }>(
+      tx,
+      sql`select call from addon_outreach.follow_ups
+          where workspace_id = ${ctx.scope.workspaceId} and user_id = ${userId} and profile_id = ${profileId}`,
+    ),
+  );
+  return row?.call === true;
+}
+
 /** Books the time a reply confirms (2a), once: a check run again finds the booking it made (`clientId`). */
 async function book(
   ctx: AddonScopeContext,
@@ -117,6 +129,8 @@ async function book(
     if (!open) return { state: 'taken' };
   }
   const [firstName = '', ...rest] = booking.name.trim().split(/\s+/);
+  // A networking call (decision 173) is on the person's own calendar, and never counts as a demo.
+  const call = await onCall(ctx, offer.user_id, offer.profile_id);
   try {
     const { output } = await executeCommand(
       ctx.db,
@@ -137,8 +151,9 @@ async function book(
         smsConsent: false,
         intake: {},
         notes: 'Booked in a Social Outreach chat.',
-        // The person's demo link's: it counts as their demo, and gets its reminder (decisions 24 and 106).
-        linkRef: demoRef(offer.user_id, offer.profile_id),
+        // The person's demo link's: it counts as their demo, and gets its reminder (decisions 24 and 106). A networking
+        // call's doesn't (decision 173).
+        ...(call ? {} : { linkRef: demoRef(offer.user_id, offer.profile_id) }),
         clientId: offer.id,
       },
       ctx.actor,

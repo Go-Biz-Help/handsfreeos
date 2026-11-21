@@ -1,5 +1,6 @@
 'use client';
 import {
+  ADDON_BILLING_WORDS as B,
   ADDON_MOVE_WORDS,
   ADDON_PAGE_WORDS as W,
   addonAgreeWords,
@@ -9,7 +10,7 @@ import {
 } from '@hfos/core';
 import { useEffect, useState } from 'react';
 import { Callout } from '@/components/crm/chips';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonLink } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -25,6 +26,22 @@ export interface MoveTarget {
 
 /** The moves that take something away, confirmed first with what they'd change (`addon.impact`). */
 export type TakingAction = 'disable' | 'uninstall' | 'purge';
+
+/**
+ * Where a paid add-on stands when it's turned off (20261027028500): in its free trial or a paid month that runs until
+ * `stopsAt` (so Turn off on that day comes first), or paid by the month with nothing to stop on (`paid`).
+ */
+export interface TakingBilling {
+  /** In its trial or a month already paid: it can run until then and turn off on its own. */
+  readonly stopsAt: string | null;
+  readonly kind: 'trial' | 'paid';
+}
+
+/** A move that takes something away, with where a paid add-on stands. */
+export type TakingTarget = MoveTarget & {
+  readonly action: TakingAction;
+  readonly billing?: TakingBilling | null;
+};
 
 /**
  * Makes a move: the other add-ons the person agreed to move with it, and for deleting data the name they typed.
@@ -51,12 +68,15 @@ export function ConfirmMoveDialog({
   busy,
   onClose,
   onMove,
+  onStopLater,
 }: {
   workspaceId: string;
-  target: (MoveTarget & { readonly action: TakingAction }) | null;
+  target: TakingTarget | null;
   busy: boolean;
   onClose: () => void;
   onMove: MakeMove;
+  /** Turns a paid add-on off at the end of its trial or paid month instead (`addon_billing.stop`). */
+  onStopLater: (target: MoveTarget) => Promise<void>;
 }) {
   return (
     <Dialog open={target !== null} onOpenChange={(open) => (open ? null : onClose())}>
@@ -68,6 +88,7 @@ export function ConfirmMoveDialog({
           busy={busy}
           onClose={onClose}
           onMove={onMove}
+          onStopLater={onStopLater}
         />
       ) : null}
     </Dialog>
@@ -80,12 +101,14 @@ function ConfirmBody({
   busy,
   onClose,
   onMove,
+  onStopLater,
 }: {
   workspaceId: string;
-  target: MoveTarget & { readonly action: TakingAction };
+  target: TakingTarget;
   busy: boolean;
   onClose: () => void;
   onMove: MakeMove;
+  onStopLater: (target: MoveTarget) => Promise<void>;
 }) {
   const { action, name } = target;
   const words = ADDON_MOVE_WORDS[action];
@@ -122,6 +145,19 @@ function ConfirmBody({
     impact?.outcome === 'plan' ? addonOptionalLine(impact.optionalFor.map((o) => o.name)) : null;
   const holds = impact?.outcome === 'plan' ? addonHoldsLines(action, impact.holds) : [];
   const canGo = impact ? impact.outcome === 'plan' : failed !== null;
+  // A paid add-on in its trial or a paid month: turned off from here, it runs until then (the owner's pick 5a).
+  const billing = target.billing ?? null;
+  const later = action === 'disable' && billing?.stopsAt ? billing.stopsAt : null;
+  const [stopping, setStopping] = useState(false);
+
+  async function stopLater() {
+    setStopping(true);
+    try {
+      await onStopLater(target);
+    } finally {
+      setStopping(false);
+    }
+  }
 
   async function go() {
     setNameError(null);
@@ -140,6 +176,16 @@ function ConfirmBody({
       className="max-h-[calc(100vh-32px)] w-[min(520px,calc(100vw-32px))] overflow-y-auto"
     >
       <div className="mt-4 flex flex-col gap-4" data-testid="addon-confirm" data-action={action}>
+        {later && billing ? (
+          <Callout tone="info" data-testid="addon-confirm-later-detail">
+            {billing.kind === 'trial' ? B.stopTrial(later) : B.stopPaid(later)}
+          </Callout>
+        ) : null}
+        {billing?.kind === 'paid' && action !== 'purge' ? (
+          <p className="text-[13px] text-text-2" data-testid="addon-confirm-no-refund">
+            {B.stopNowNote}
+          </p>
+        ) : null}
         {!settled ? (
           <p className="text-[13px] text-text-3" role="status">
             {W.checking}
@@ -208,13 +254,24 @@ function ConfirmBody({
         </Button>
         {canGo ? (
           <Button
-            variant={action === 'disable' ? 'primary' : 'danger'}
-            loading={busy}
-            disabled={purge && !typedRight}
+            variant={later ? 'secondary' : action === 'disable' ? 'primary' : 'danger'}
+            loading={busy && !stopping}
+            disabled={(purge && !typedRight) || stopping}
             onClick={() => void go()}
             data-testid="addon-confirm-yes"
           >
-            {others.length ? addonAgreeWords(action, others) : words.button}
+            {others.length ? addonAgreeWords(action, others) : later ? B.stopNow : words.button}
+          </Button>
+        ) : null}
+        {canGo && later ? (
+          <Button
+            variant="primary"
+            loading={stopping}
+            disabled={busy && !stopping}
+            onClick={() => void stopLater()}
+            data-testid="addon-confirm-later"
+          >
+            {B.stopLater(later)}
           </Button>
         ) : null}
       </div>
@@ -264,6 +321,85 @@ export function AskMoveDialog({
               data-testid="addon-ask-yes"
             >
               {others.length ? addonAgreeWords(ask.action, others) : words.button}
+            </Button>
+          </div>
+        </DialogContent>
+      ) : null}
+    </Dialog>
+  );
+}
+
+/**
+ * Before adding a paid add-on, or turning one back on, that isn't given free (20261027028500): what it costs and when
+ * it's charged (a free trial, a charge today, or nothing until a month already paid runs out), and the yes that adds
+ * it. Without a card it says where to add one (rule `addon_needs_card`), and stays open.
+ */
+export function StartPayingDialog({
+  start,
+  usageHref,
+  busy,
+  onClose,
+  onMove,
+}: {
+  start:
+    | (MoveTarget & {
+        readonly action: 'install' | 'enable';
+        readonly body: string;
+        readonly button: string;
+        /** Why it couldn't start, said in the dialog: no card yet, or not this person's to pay for. */
+        readonly problem: { readonly message: string; readonly needsCard: boolean } | null;
+      })
+    | null;
+  /** Settings → Billing & Usage, where cards are added. */
+  usageHref: string;
+  busy: boolean;
+  onClose: () => void;
+  onMove: MakeMove;
+}) {
+  return (
+    <Dialog open={start !== null} onOpenChange={(open) => (open ? null : onClose())}>
+      {start ? (
+        <DialogContent title={B.startTitle(start.name)} className="w-[min(480px,calc(100vw-32px))]">
+          <div
+            className="mt-3 flex flex-col gap-3"
+            data-testid="addon-start"
+            data-action={start.action}
+          >
+            <p className="text-[13.5px] leading-relaxed text-text-2" data-testid="addon-start-body">
+              {start.body}
+            </p>
+            <p className="text-[13px] text-text-3">{B.perBusiness}</p>
+            {start.problem ? (
+              <Callout
+                data-testid="addon-start-problem"
+                action={
+                  start.problem.needsCard ? (
+                    <ButtonLink
+                      href={usageHref}
+                      size="sm"
+                      variant="secondary"
+                      data-testid="addon-start-add-card"
+                    >
+                      {B.addCardLink}
+                    </ButtonLink>
+                  ) : undefined
+                }
+              >
+                {start.problem.message}
+              </Callout>
+            ) : null}
+          </div>
+          <div className="mt-6 flex flex-wrap justify-end gap-2">
+            <Button variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              loading={busy}
+              onClick={() => void onMove(start, start.action, [])}
+              data-testid="addon-start-yes"
+            >
+              {start.button}
             </Button>
           </div>
         </DialogContent>

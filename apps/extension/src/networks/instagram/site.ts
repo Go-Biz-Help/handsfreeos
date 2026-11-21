@@ -41,6 +41,7 @@ import {
   openTheirChat,
   storyLikeOf,
   theirComment,
+  theirPostPart,
   theirPosts,
   writeMessage,
   writeTheirComment,
@@ -353,6 +354,9 @@ export const INSTAGRAM: LookingSite = {
     openMessage: openTheirChat,
     message: writeMessage,
     comment: (doc, href, text, on) => writeTheirComment(doc, href, on, text),
+    // The post's own part of its page (decision 166, 0.140.0): where its picture or video is looked at before its
+    // comment is drafted.
+    postPart: theirPostPart,
   },
   host: HOST,
   url: instagramUrl,

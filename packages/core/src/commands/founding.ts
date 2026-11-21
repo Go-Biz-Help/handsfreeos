@@ -900,7 +900,7 @@ export const foundingStartCheckout = defineCommand({
 export const foundingBuy = defineCommand({
   name: 'founding.buy',
   description:
-    'Buy a founding spot for this business, first come, first served: hold one in the offer picked and start paying for it, or pick up the payment already under way. A discount or trial code takes its discount off, or makes the page a free trial that only keeps the card; founding.code_preview says what it takes off first. The worker makes the Stripe page; ask founding.checkout_status for its address. Picking another offer, or another code, before paying gives the first page back.',
+    'Buy a founding spot for this business, first come, first served: hold one in the offer picked and start paying for it, or pick up the payment already under way. A plan with a free trial of its own makes the page a free trial that only keeps the card, once a person and once a business (founding.trials says which). A discount or trial code takes its discount off, or makes the page a free trial, the longer trial winning; founding.code_preview says what it takes off first. The worker makes the Stripe page; ask founding.checkout_status for its address. Picking another offer, or another code, before paying gives the first page back.',
   risk: 3,
   input: FoundingBuyInput,
   output: FoundingStartCheckoutOutput,

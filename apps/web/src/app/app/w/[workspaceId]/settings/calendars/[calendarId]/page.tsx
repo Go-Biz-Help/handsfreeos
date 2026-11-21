@@ -1,10 +1,11 @@
-import { can } from '@hfos/core';
+import { can, lookOf } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CalendarBuilder } from '@/components/calendars/builder';
 import { assigneeOptions } from '@/lib/api/people';
 import { apiServer, unwrap, unwrapPage } from '@/lib/api/server';
 import { brandedOriginFor } from '@/lib/hosting/branded-origin';
+import { logoSrc } from '@/lib/look';
 
 export const metadata: Metadata = { title: 'Calendar settings' };
 
@@ -68,6 +69,9 @@ export default async function CalendarBuilderPage({
       .catch(() => null),
     brandedOriginFor(api, workspaceId),
   ]);
+  // The business's logo, colour and website (Settings → Workspace), which the Design section starts from.
+  const settings = (got.workspace.settings ?? {}) as Record<string, unknown>;
+  const look = lookOf(settings);
   const roles = new Map(members.members.map((m) => [m.userId, m.role]));
   const people = assigneeOptions(members).map((p) => ({
     userId: p.id,
@@ -90,6 +94,13 @@ export default async function CalendarBuilderPage({
       textingReady={textingReady}
       brandedOrigin={brandedOrigin}
       businessZone={got.workspace.timezone}
+      brand={{
+        website: typeof settings['website'] === 'string' ? settings['website'] || null : null,
+        color: look.color?.hex ?? null,
+        logo: look.logo
+          ? { url: logoSrc(look.logo.path), width: look.logo.width, height: look.logo.height }
+          : null,
+      }}
       payments={{
         // Only a live account counts, exactly as the server's `paymentsAvailable` counts it.
         accounts: accounts

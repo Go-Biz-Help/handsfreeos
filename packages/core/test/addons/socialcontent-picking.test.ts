@@ -221,7 +221,7 @@ describe('when it starts writing (decision 32)', () => {
     expect(stepOf(facts({ listsFilled: 9 }), 'write')).toMatchObject({
       state: 'waiting',
       fix: 'main-offer-lists',
-      line: 'Waits for For your content in Settings → Main offer: 9 of 11 lists filled.',
+      line: 'Waits for For your posts and messages in Settings → Main offer: 9 of 11 lists filled.',
     });
     expect(stepOf(facts({ playbookAt: null }), 'write').line).toBe(
       'Starts once the Playbook is written, or in 2 days anyway.',

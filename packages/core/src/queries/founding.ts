@@ -13,6 +13,8 @@
  *   be given to any business on the list. Staff only, like the admin page.
  * - `founding.code_preview` is what a discount or trial code takes off each plan, for the plan page before Pay
  *   (20261027014300), for whoever may buy the business's spot.
+ * - `founding.trials` is the free trial each plan gives this business before any code (20261027027000), for the same
+ *   people: one free trial a person, and a business.
  */
 import { rows, sql } from '@hfos/db/client';
 import { defineQuery } from '../kernel/define';
@@ -33,6 +35,8 @@ import {
   FoundingMineOutput,
   FoundingQueueInput,
   FoundingQueueOutput,
+  FoundingTrialsInput,
+  FoundingTrialsOutput,
 } from '../schemas/founding';
 
 const onPlatform = () => ({ kind: 'platform' as const });
@@ -67,10 +71,12 @@ export const foundingCounts = defineQuery({
   scope: () => ({ kind: 'none' as const }),
   actors: ['human'],
   async handler(ctx) {
-    const found = await rows<CountRow & { show_counter: boolean; superseded: boolean }>(
+    const found = await rows<
+      CountRow & { show_counter: boolean; superseded: boolean; trial_days: number | null }
+    >(
       ctx.tx,
       sql`select id, name, blurb, status::text as status, price_cents, seat_cap, claimed, remaining,
-            billing, show_counter, superseded
+            billing, show_counter, superseded, trial_days
           from platform.founding_counts order by sort, id`,
     );
     return {
@@ -86,9 +92,35 @@ export const foundingCounts = defineQuery({
         billing: o.billing,
         showCounter: o.show_counter,
         superseded: o.superseded,
+        trialDays: o.trial_days,
       })),
       generatedAt: new Date().toISOString(),
     };
+  },
+});
+
+/**
+ * The free trial this person gets on each plan for this business, before any code (20261027027000): the plan's own,
+ * unless they or the business have started a founding plan before. The plan page shows it, and `founding.buy` gives
+ * the same one.
+ */
+export const foundingTrials = defineQuery({
+  name: 'founding.trials',
+  description:
+    'The free trial this business gets on each founding plan on sale before any code: the plan’s own days free, or none when this person or the business has started a founding plan before.',
+  input: FoundingTrialsInput,
+  output: FoundingTrialsOutput,
+  permission: 'money.manage',
+  scope: (i: { workspaceId: string }) => ({
+    kind: 'workspace' as const,
+    workspaceId: i.workspaceId,
+  }),
+  async handler(ctx, input) {
+    const found = await rows<{ offer_id: string; trial_days: number | null }>(
+      ctx.tx,
+      sql`select * from private.founding_trials(${input.workspaceId}::uuid)`,
+    );
+    return { offers: found.map((o) => ({ offerId: o.offer_id, trialDays: o.trial_days })) };
   },
 });
 
@@ -610,4 +642,5 @@ export const foundingQueries = [
   foundingClaimPreview,
   foundingCheckoutStatus,
   foundingCodePreview,
+  foundingTrials,
 ];

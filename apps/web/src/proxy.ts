@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { bookingFrames } from './lib/booking/frame';
 import { chatWindowProxy } from './lib/chat/frame';
 import { brandedHostProxy } from './lib/hosting/branded-host';
 import { formFrameProxy } from './lib/forms/frame';
@@ -17,6 +18,8 @@ const PROTECTED = [
   '/payment',
   '/zoom',
   '/affiliate',
+  // Admin → Try onboarding's practice sign-up (20261027027400), for HandsFreeOS staff who are signed in.
+  '/try',
 ];
 const AUTH_PAGES = ['/sign-in', '/sign-up'];
 
@@ -71,6 +74,10 @@ export async function proxy(request: NextRequest) {
     url.search = '';
     return zoomAppHeaders(request, sameOriginFrames(NextResponse.redirect(url)));
   }
+  // A calendar's booking page can be embedded on the business's own site, asked for with ?embed=1: its frame rule
+  // says which sites (lib/booking/frame.ts). Every other booking page keeps 'self' alone.
+  if (path.startsWith('/book/'))
+    return zoomAppHeaders(request, await bookingFrames(request, response));
   // Nothing else is meant to be embedded: no page of the app can be framed by another site (clickjacking).
   // Inside Zoom, its app pages also carry the headers Zoom requires (lib/zoom-app.ts).
   return zoomAppHeaders(request, sameOriginFrames(response));

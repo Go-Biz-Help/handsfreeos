@@ -218,12 +218,27 @@ describe('the networks a person works', () => {
 
   it('puts every network past its look on Today and the filters, once it’s turned on (decision 78)', () => {
     // Alignable works from its part 3, and on its own from part 5; Instagram from its part 12, and on its own from 14.
-    expect(WORKING_PLATFORMS).toEqual(['facebook', 'linkedin', 'instagram', 'alignable']);
+    expect(WORKING_PLATFORMS).toEqual([
+      'facebook',
+      'linkedin',
+      'instagram',
+      'alignable',
+      'threads',
+      'x',
+    ]);
     expect(PLATFORM_KEYS.filter(isLooking)).toEqual([]);
     const instagram = withNetwork(AUTOMATION_DEFAULTS, 'instagram', { on: true });
     expect(networksOn(instagram)).toEqual(['facebook', 'instagram']);
     expect(networksShown(instagram)).toEqual(['facebook', 'instagram']);
-    expect(NETWORK_FILTERS).toEqual(['all', 'facebook', 'linkedin', 'instagram', 'alignable']);
+    expect(NETWORK_FILTERS).toEqual([
+      'all',
+      'facebook',
+      'linkedin',
+      'instagram',
+      'alignable',
+      'threads',
+      'x',
+    ]);
     expect(networkOfLink('https://www.instagram.com/dana.reyes/')).toBe('instagram');
     expect(networkOfLink('https://www.alignable.com/austin-tx/acme-plumbing')).toBe('alignable');
     expect(NETWORK_WORDS.looking('Instagram')).toContain('press Check Instagram below once');

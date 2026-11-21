@@ -710,6 +710,8 @@ const SITES: Record<Platform, string> = {
   linkedin: 'linkedin.com',
   instagram: 'instagram.com',
   alignable: 'alignable.com',
+  threads: 'threads.com',
+  x: 'x.com',
 };
 
 /** "1 step", "3 steps". */
@@ -951,6 +953,8 @@ export const SETUP_WORDS = {
     linkedin: 'Connections and messages',
     instagram: 'Follows and messages',
     alignable: 'Local business owners near you',
+    threads: 'Comments on posts about your topic, every hour',
+    x: 'Comments on posts about your topic, every hour',
   } satisfies Record<Platform, string>,
   /** Under the switches: what comes next, the goal first while it's left (it counts each network, decision 88). */
   networksNext: (names: readonly string[], goalFirst = false) =>

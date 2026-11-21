@@ -3,9 +3,9 @@
  * once the person lets it, each only on the page it's for, in the runner's tab (../looking/kit.ts):
  *
  * - **Their latest posts**, read off their account's grid, each by its link with what Instagram says it shows.
- * - **Like** on one of their posts, on that post's own page: only a post whose own link names them, only its own Like
- *   (in the bar with its Comment, never a comment's, which sits by its Reply), and only while it says Like. It's liked
- *   once it says Unlike.
+ * - **Like** on one of their posts, on that post's own page: only a post whose own link names them, or one they made
+ *   with its author (from 0.140.2), only its own Like (in the bar with its Comment, never a comment's, which sits by its
+ *   Reply), and only while it says Like. It's liked once it says Unlike.
  * - **Like** on their comment (decision 116, from 0.108.0), the warm-up for someone found by their comment on a good
  *   post: on that post's own page, the first comment its own link (/p/<code>/c/<id>/) says they wrote, and only its
  *   own small Like beside it, never the post's; only while it says Like, and it's liked once it says Unlike.
@@ -46,6 +46,7 @@ import {
   chatOn,
   commentPartsIn,
   linksIn,
+  madeWithOf,
   ownOf,
   postRootOf,
   profileOn,
@@ -172,9 +173,26 @@ function reelAuthorOf(reel: Element, href: string): string | null {
 }
 
 /**
- * Likes the post the tab shows, when it's theirs (its own link names them) and the one picked: `done` once it says
- * Unlike, `already` when it did, `none` when it isn't theirs or has no Like, `not_sent` when Instagram didn't take it.
- * In the reels player, it's the reel it opened on, and its account's links over it name them (`openedReelOf`).
+ * Whether they made the post with its author (`madeWithOf`, from 0.140.2): named beside them, or among the others
+ * behind its button ("and 2 others"), which only a post picked as theirs, by its own address, is taken to be.
+ */
+function madeWithThem(
+  root: Element,
+  href: string,
+  author: string | null,
+  them: ProfileRef,
+  picked: boolean,
+): boolean {
+  if (!author) return false;
+  const made = madeWithOf(root, href, author);
+  return made.names.some((name) => isThem(name, them)) || (made.hidden && picked);
+}
+
+/**
+ * Likes the post the tab shows, when it's theirs (its own link names them, or they made it with its author) and the
+ * one picked: `done` once it says Unlike, `already` when it did, `none` when it isn't theirs or has no Like, `not_sent`
+ * when Instagram didn't take it. In the reels player, it's the reel it opened on, and its account's links over it name
+ * them (`openedReelOf`).
  */
 export async function likeTheirPost(
   doc: Document,
@@ -191,7 +209,8 @@ export async function likeTheirPost(
   const author = reel
     ? reelAuthorOf(reel, href)
     : (authorOf(root, href, partsOf(new URL(url))[1]!)?.username ?? null);
-  if (!isThem(author, them)) return { result: 'none', postUrl: url };
+  if (!isThem(author, them) && !madeWithThem(root, href, author, them, !!pick.url))
+    return { result: 'none', postUrl: url };
   const like = postLikeOf(root);
   if (!like) return { result: 'none', postUrl: url };
   if (LIKED.test(nameOf(like))) return { result: 'already', postUrl: url };
@@ -598,6 +617,62 @@ export function postCommentBoxOf(doc: Document, href: string): HTMLElement | nul
   return boxes.length === 1 ? boxes[0]! : null;
 }
 
+/**
+ * A reel's own Comment in the reels player: the button in its bar whose icon says Comment, named by its count beside
+ * it. Pressing it opens the reel's comments, with their box to comment in (the owner's problem report of 15 Nov 2026:
+ * a comment on a reel found no box, as the player shows none till its comments are open).
+ */
+function reelCommentOf(reel: Element): HTMLElement | null {
+  const like = postLikeOf(reel);
+  const bar = like ? postLikeBar(like) : null;
+  const icon = bar
+    ? [...bar.querySelectorAll('svg[aria-label]')].find((i) =>
+        COMMENT.test(clean(i.getAttribute('aria-label'))),
+      )
+    : undefined;
+  return icon?.closest<HTMLElement>('button, [role="button"]') ?? null;
+}
+
+/** The box to comment on the reel in, once its comments are open: the only one on the page that says so. */
+function reelCommentBoxOf(doc: Document): HTMLElement | null {
+  const boxes = boxesSaying(doc, COMMENT_BOX);
+  return boxes.length === 1 ? boxes[0]! : null;
+}
+
+/**
+ * The post's own part of its page, for a look at its picture or video before its comment is drafted (decision 166,
+ * ../post-look.ts, from 0.140.0): given only on the post asked for, on its own page, when its own link names them, as
+ * a comment goes (`writeTheirComment`). What's there but isn't the post's is ruled out: anything inside a link to
+ * another post (the tiles under "More posts from"). In the reels player it's the reel it opened on, theirs by its
+ * account's links over it or made with them, as a comment goes there, and never the next reel under it (from 0.141.3:
+ * till then a reel's comment was written from its words alone, which for a reel are mostly in its video).
+ */
+export function theirPostPart(
+  doc: Document,
+  href: string,
+  on: CommentOn,
+): { readonly root: Element; readonly skip: (el: Element) => boolean } | null {
+  const page = instagramUrl(href);
+  const url = page && kindOf(page) === 'post' ? postOf(page) : null;
+  const asked = instagramUrl(on.postUrl);
+  if (!url || !asked || postOf(asked) !== url) return null;
+  const code = partsOf(new URL(url))[1]!;
+  const reel = openedReelOf(doc, href);
+  const root = reel ?? postRootOf(doc);
+  if (reel) {
+    const author = reelAuthorOf(reel, href);
+    if (!isThem(author, on.profile) && !madeWithThem(reel, href, author, on.profile, true))
+      return null;
+  } else if (!isThem(namedByItsLink(root, href, code), on.profile)) return null;
+  const skip = (el: Element): boolean => {
+    const link = el.closest('a[href]');
+    const to = link ? instagramUrl(link.getAttribute('href') ?? '', href) : null;
+    const other = to ? postOf(to) : null;
+    return other !== null && other !== url;
+  };
+  return { root, skip };
+}
+
 /** The box's own form's Post, while it's on: in its form, else the nearest part around it that holds one. */
 function postFor(box: Element): HTMLElement | null {
   const form = box.closest('form');
@@ -618,7 +693,9 @@ const writtenIn = (box: Element): string =>
  * post asked for, on its own page, when its own link names them (`on`); only in the post's own box, never one among its
  * comments, and only while that box is empty; typed as a person types (`writeIn`), then sent with that box's own Post.
  * `done` once the box empties; `none` with no such page or box, or no Post by it (what was typed is taken out again);
- * `not_sent` when the box had writing in it already, what was typed didn't take, or Instagram didn't take it.
+ * `not_sent` when the box had writing in it already, what was typed didn't take, or Instagram didn't take it. In the
+ * reels player, the reel it opened on, theirs by its account's links (`openedReelOf`), its comments opened by its own
+ * Comment for their box (from 0.141.1).
  */
 export async function writeTheirComment(
   doc: Document,
@@ -631,9 +708,19 @@ export async function writeTheirComment(
   const asked = instagramUrl(on.postUrl);
   if (!url || !asked || postOf(asked) !== url || !text.trim()) return 'none';
   const code = partsOf(new URL(url))[1]!;
-  if (!isThem(namedByItsLink(postRootOf(doc), href, code), on.profile)) return 'none';
+  // In the reels player, the reel it opened on, theirs by its account's links over it (as a like goes), with its
+  // comments opened by its own Comment to show its box.
+  const reel = openedReelOf(doc, href);
+  if (reel) {
+    const author = reelAuthorOf(reel, href);
+    if (!isThem(author, on.profile) && !madeWithThem(reel, href, author, on.profile, true))
+      return 'none';
+    const opener = reelCommentOf(reel);
+    if (!opener) return 'none';
+    if (opener.getAttribute('aria-expanded') !== 'true') opener.click();
+  } else if (!isThem(namedByItsLink(postRootOf(doc), href, code), on.profile)) return 'none';
   // Instagram draws the form again once its box has the focus (Post shows), so the box is found again each look.
-  const now = () => postCommentBoxOf(doc, href);
+  const now = () => (reel ? reelCommentBoxOf(doc) : postCommentBoxOf(doc, href));
   const box = await waitFor(now, WENT_MS);
   if (!box) return 'none';
   // Something written there already is the person's: left alone.

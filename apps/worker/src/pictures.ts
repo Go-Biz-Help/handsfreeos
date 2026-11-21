@@ -10,8 +10,9 @@
  *
  * **The models** (owner's picks, 11 Nov 2026): OPENAI_IMAGE_MODEL makes every picture, `gpt-image-2.6-sunburst`
  * (made for detail) unless set. When it's busy, down or gone, OPENAI_IMAGE_BACKUP_MODEL (`gpt-image-2.6-flare`, made
- * for speed) tries once before the picture fails. OPENAI_IMAGE_COMPLEXITY (`medium`) is how much the 2.6 models plan
- * a picture before making it: more takes longer, never costs more. `gpt-image-2` is removed from the API on
+ * for speed) tries once before the picture fails. OPENAI_IMAGE_COMPLEXITY (`high`: the owner, 16 Nov, "we don't need
+ * speed we need quality"; `medium` before) is how much the 2.6 models plan a picture before making it: more takes
+ * longer, never costs more. `gpt-image-2` is removed from the API on
  * 10 Feb 2027 and takes no complexity, so it's never sent one.
  *
  * **Null without OPENAI_API_KEY** (local runs, tests): photo-style pictures are then designed instead, and the post
@@ -23,7 +24,7 @@ export const PICTURE_COMPLEXITIES: readonly PictureComplexity[] = ['low', 'mediu
 
 export const DEFAULT_PICTURE_MODEL = 'gpt-image-2.6-sunburst';
 export const DEFAULT_PICTURE_BACKUP_MODEL = 'gpt-image-2.6-flare';
-export const DEFAULT_PICTURE_COMPLEXITY: PictureComplexity = 'medium';
+export const DEFAULT_PICTURE_COMPLEXITY: PictureComplexity = 'high';
 
 /** What OpenAI counted for one picture, and what that costs at its listed prices. */
 export interface PictureUsage {
@@ -49,8 +50,11 @@ export interface PictureMaker {
   readonly model: string;
   /** The model tried once when the first is busy, down or gone; null for none. */
   readonly backupModel: string | null;
-  /** One portrait picture (1024x1536). Throws PictureError. */
-  make(prompt: string, opts?: { readonly signal?: AbortSignal }): Promise<MadePicture>;
+  /** One picture: portrait (1024x1536) unless square (1024x1024) is asked for. Throws PictureError. */
+  make(
+    prompt: string,
+    opts?: { readonly signal?: AbortSignal; readonly square?: boolean },
+  ): Promise<MadePicture>;
 }
 
 export class PictureError extends Error {
@@ -155,6 +159,7 @@ export function createPictures(
     prompt: string,
     signal: AbortSignal | undefined,
     ms: number,
+    square: boolean,
   ): Promise<MadePicture> {
     const timeout = signal
       ? AbortSignal.any([signal, AbortSignal.timeout(ms)])
@@ -167,7 +172,7 @@ export function createPictures(
         body: JSON.stringify({
           model: use,
           prompt: prompt.slice(0, 4000),
-          size: '1024x1536',
+          size: square ? '1024x1024' : '1024x1536',
           quality: 'medium',
           ...(takesComplexity(use) ? { complexity } : {}),
           n: 1,
@@ -210,12 +215,12 @@ export function createPictures(
     backupModel,
     async make(prompt, o = {}) {
       try {
-        return await ask(model, prompt, o.signal, TIMEOUT_MS);
+        return await ask(model, prompt, o.signal, TIMEOUT_MS, o.square === true);
       } catch (e) {
         // A refusal, or a request OpenAI turned down as asked, would be turned down by the backup too.
         const worthBackup = e instanceof PictureError && (e.retryable || e.modelGone);
         if (!backupModel || !worthBackup) throw e;
-        return await ask(backupModel, prompt, o.signal, BACKUP_TIMEOUT_MS);
+        return await ask(backupModel, prompt, o.signal, BACKUP_TIMEOUT_MS, o.square === true);
       }
     },
   };

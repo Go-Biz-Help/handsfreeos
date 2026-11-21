@@ -956,6 +956,49 @@ describe('a calendar’s other sections', () => {
     expect(after.config.payments.mode).toBe('none');
   });
 
+  it('changes how the booking page looks, as the Design section does, and goes back to the business’s colour', async () => {
+    const { card, parsed } = await prepare('update_calendar_settings', {
+      calendarId: ducts,
+      design: { buttonColor: '#0F766E', corners: 'round', font: 'Lora', showName: false },
+    });
+    expect(field(card, 'Design')).toBe('the business’s colour → its own look');
+    await confirm('update_calendar_settings', parsed);
+    expect((await calendarNow(ducts)).config.design).toMatchObject({
+      colors: { button: '#0f766e', background: null },
+      corners: 'round',
+      font: 'Lora',
+      showTitle: false,
+    });
+    const { result } = await read('get_calendar_settings', { calendarId: ducts });
+    expect(result['design']).toMatchObject({
+      buttonColor: '#0f766e',
+      backgroundColor: expect.stringContaining('automatic'),
+      corners: 'round',
+      font: 'Lora',
+      showName: false,
+    });
+    // A change on top of it names the parts that changed.
+    const square = await prepare('update_calendar_settings', {
+      calendarId: ducts,
+      design: { corners: 'square', buttonStyle: 'outline' },
+    });
+    expect(square.card.fields.map((f) => f.value)).toContain('Design: changed the corners, button');
+    // Match my website reads the site with the worker's page reader; without one it says where to do it instead.
+    await expect(
+      prepare('update_calendar_settings', {
+        calendarId: ducts,
+        design: { matchWebsite: 'acme.com' },
+      }),
+    ).rejects.toMatchObject({ rule: 'website_unreadable' });
+    const back = await prepare('update_calendar_settings', {
+      calendarId: ducts,
+      design: { reset: true },
+    });
+    expect(field(back.card, 'Design')).toBe('its own look → the business’s colour');
+    await confirm('update_calendar_settings', back.parsed);
+    expect((await calendarNow(ducts)).config.design).toBeNull();
+  });
+
   it('sets who works it, how long a visit is and the calendar connections, and keeps a weight sent without one', async () => {
     const { card, parsed } = await prepare('update_calendar_settings', {
       calendarId: ducts,

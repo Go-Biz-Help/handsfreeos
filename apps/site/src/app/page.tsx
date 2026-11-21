@@ -15,6 +15,7 @@ import { ProductMock } from '@/components/product-mock';
 import { NightBand } from '@/components/night-band';
 import { StickyCta } from '@/components/sticky-cta';
 import { Reveal } from '@/components/reveal';
+import { RotatingHeadline } from '@/components/rotating-headline';
 import { BillBuilder } from '@/components/bill-builder';
 import { Button, Check, Container, Eyebrow, Section, SectionHeading } from '@/components/ui';
 import {
@@ -23,9 +24,11 @@ import {
   BookingVisual,
   BusyTimesVisual,
   InboxVisual,
+  LeadCallVisual,
   MoneyVisual,
   PaymentsVisual,
   TrustLadderVisual,
+  WebinarVisual,
 } from '@/components/visuals';
 import {
   MissedLeadForYou,
@@ -44,7 +47,15 @@ import {
   usd,
   yearlySavings,
 } from '@/content/savings';
-import { company, moneyBack, signUpFor, spotPrices, typicalUsage, urls } from '@/content/site';
+import {
+  company,
+  freeTrial,
+  moneyBack,
+  signUpFor,
+  spotPrices,
+  typicalUsage,
+  urls,
+} from '@/content/site';
 import {
   foundingCounts,
   foundingSpotsOnSale,
@@ -54,6 +65,12 @@ import {
 } from '@/lib/founding';
 
 /*
+ * Since 18 November 2026 HandsFreeOS is sold as an AI Business Operating System (the owner's positioning): one system
+ * for the customer side of the business, with AI employees that do the work in it rather than wait for someone to
+ * type it in. "CRM" stays where it helps search and where it means the customer records. Every AI employee the
+ * copy names is something the product does today: the AI teammate (answers and calls), the Assistant, and the
+ * automations that follow up and chase.
+ *
  * The page is written to one person: the owner of a service business with 1 to 20 people, great at the trade and
  * worn down by everything around it, who has tried a CRM before and found it was one more job. It runs in the
  * order they decide in: what they get (hero), what it costs them today (the night band), what life looks like
@@ -63,12 +80,14 @@ import {
  * to reach the promise. The copy and the reasons behind each section are in
  * the owner's "Home page copy" doc of 28 October 2026.
  *
- * The headline names both rewards in eight words: winning the job, and the evenings back. Variants worth testing
- * against it, each on a different angle, one at a time:
- *   1. "Stop losing jobs to whoever answers first."            (the fear of losing work)
- *   2. "Cancel ten apps. Keep the one that does the work."     (the money)
- *   3. "You can't answer the phone and do the job at the same time." (the owners' own words)
- *   4. "The CRM that doesn't want you to use it."              (the previous headline, now the footer's tagline)
+ * The headline (the owner's picks of 18 November 2026) says what it is and that it does the work for you: "The AI
+ * Business OS" holds still, and the reason after it changes, written in by a line of light (rotating-headline.tsx):
+ * never misses a lead, follows up for you, gets you paid, gives you time back, replaces your other software, pays
+ * for itself. Earlier headlines, each on a different angle:
+ *   1. "Make more money. Work fewer hours."                    (both rewards; the headline from 2 to 18 November)
+ *   2. "Stop losing jobs to whoever answers first."            (the fear of losing work)
+ *   3. "Cancel ten apps. Keep the one that does the work."     (the money)
+ *   4. "The CRM that doesn't want you to use it."              (the first headline, now the footer's tagline)
  *
  * There are no customers yet, so nothing here quotes one. Trust comes from what can be checked: the competitors'
  * prices, each linked; the AI asking first; and the 30-day money back. The wording leans on the owner's
@@ -77,8 +96,8 @@ import {
  * language only; never put one on the site as a testimonial.
  *
  * The page is meant to feel like the product: calm, with things happening on their own. So it shows rather than
- * tells — the conversation in the hero plays itself, the bills cross themselves off, the lead you lost arrives at
- * 8pm — and everything else holds still. Motion lives in globals.css, each piece beside its reason.
+ * tells — the headline's reason writes itself in, the conversation in the hero plays itself, the bills cross
+ * themselves off, the lead you lost arrives at 8pm — and everything else holds still. Motion lives in globals.css, each piece beside its reason.
  *
  * And it is about the visitor's business, not ours, once they say what it is: "Try it on your business" sits on
  * top of the hero's conversation and asks for its name and trade, then the conversation, the lead lost at 8pm and
@@ -94,7 +113,7 @@ const nth = (index: number) => ({ '--i': index }) as CSSProperties;
 export default async function HomePage() {
   const counts = await foundingCounts();
   const spots = foundingSpotsOnSale(counts);
-  // "Claim my founding spot" only while there is one to claim.
+  // The free trial's button only while there is a spot to start it on.
   const open = spots.some(hasRoom);
   return (
     <>
@@ -133,16 +152,16 @@ function Hero({ counts, open }: { counts: readonly FoundingCount[] | null; open:
              * here, and a wordmark in the nav bar, or a label set in all capitals, is not what it
              * reads. Keep this string identical to the consent screen's app name.
              */}
-            <h1 className="mt-8 text-[2.625rem] leading-[0.98] font-bold tracking-[-0.045em] sm:text-6xl lg:text-[4rem]">
+            <h1 className="mt-8 text-[length:clamp(2rem,calc((100vw_-_2.5rem)/8.6),2.625rem)] leading-[0.98] font-bold tracking-[-0.045em] sm:text-6xl lg:text-[3.5rem] xl:text-[4rem]">
               <span className="text-accent-text mb-5 block text-sm leading-5 font-semibold tracking-normal">
                 HandsFreeOS
               </span>{' '}
-              Make more money. Work fewer hours.
+              <span className="block">The AI Business OS</span> <RotatingHeadline />
             </h1>
             <p className="text-text-2 mt-7 max-w-xl text-lg sm:text-xl">
-              HandsFreeOS answers every call, text and chat in seconds, so you win more jobs. It
-              chases the quote and the invoice, so the money comes in. You step in only when it
-              matters.
+              HandsFreeOS runs your calls, texts, booking, quotes and invoices in one place, and its
+              AI employees do the work. They answer every lead in seconds, book the job and chase
+              the money. You step in only when it matters.
             </p>
             {/* The first fear, answered before it forms: what will the AI say to my customers? */}
             <p className="text-text mt-5 max-w-xl text-lg font-semibold sm:text-xl">
@@ -151,10 +170,10 @@ function Hero({ counts, open }: { counts: readonly FoundingCount[] | null; open:
 
             <div data-cta="hero" className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Button href={urls.signUp} size="lg" arrow>
-                {open ? 'Claim my founding spot' : 'Sign up'}
+                {open ? freeTrial.button : 'Sign up'}
               </Button>
               <Button href="/#tuesday" size="lg" variant="secondary">
-                See a day with HandsFreeOS
+                See a day with your AI team
               </Button>
             </div>
 
@@ -164,7 +183,8 @@ function Hero({ counts, open }: { counts: readonly FoundingCount[] | null; open:
              */}
             <ul className="text-text-2 mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm">
               {[
-                `${spotPrices}, plus what you use`,
+                freeTrial.short,
+                `Then ${spotPrices}, plus what you use`,
                 'No contract',
                 moneyBack.short,
                 'No charge per person',
@@ -235,8 +255,8 @@ function TheProblem() {
       </div>
 
       <p className="text-on-night mt-14 max-w-3xl text-2xl leading-snug font-semibold tracking-[-0.02em] sm:text-[1.75rem]">
-        <span className="text-on-night-accent">HandsFreeOS</span> takes all of it off your plate,
-        and it starts this week.
+        <span className="text-on-night-accent">HandsFreeOS</span> puts an AI team on all of it, in
+        one system, and it starts this week.
       </p>
     </NightBand>
   );
@@ -244,8 +264,8 @@ function TheProblem() {
 
 /**
  * The after, told as one ordinary day so the owner can see themselves in it. Every line is something the product
- * does today: the 7am email is the Morning summary, the 10:15 call is the AI teammate on the phone, the 3pm one is
- * the phone app offline. Keep it that way, and keep the note under it: early on, the 6:30pm answer waits for a tap.
+ * does today: the 7am email is the Morning summary, the 10:15 call is the AI teammate on the phone, the 11:40 one is
+ * Speed to lead by phone calling a lead who said it's OK to call, the 3pm one is the phone app offline. Keep it that way, and keep the note under it: early on, the 6:30pm answer waits for a tap.
  */
 function NextTuesday() {
   const day = [
@@ -256,6 +276,10 @@ function NextTuesday() {
     {
       time: '10:15am',
       body: 'A call comes in while you’re under a sink. The AI picks up, gets the address and books Thursday. You find out when you wash your hands.',
+    },
+    {
+      time: '11:40am',
+      body: 'Someone fills in the form on your website and ticks “OK to call.” The AI calls them within a minute and books Friday, before they’ve tried anyone else.',
     },
     {
       time: '1:30pm',
@@ -274,7 +298,7 @@ function NextTuesday() {
   return (
     <div className="grid gap-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16">
       <div className="lg:sticky lg:top-28 lg:self-start">
-        <PanelHeading sub="Same jobs, same crew. The difference is everything you no longer do.">
+        <PanelHeading sub="Same jobs, same crew. The difference is an AI team doing the work you used to do at night.">
           Picture next Tuesday.
         </PanelHeading>
       </div>
@@ -368,13 +392,15 @@ function TheBill() {
  * The middle of the page, folded into tabs (components/home-tabs.tsx): a day with it, what changes, why the AI can
  * be trusted, how the first week goes, and the phone app. Each was a full section, and folding them brings the
  * bill, the promise, the spots and the questions screens closer to the top. All five are still on the page for
- * anyone, or anything, reading it, and the hero's "See a day with HandsFreeOS" (`/#tuesday`) opens the first.
+ * anyone, or anything, reading it, and the hero's "See a day with your AI team" (`/#tuesday`) opens the first.
  */
 function Inside() {
   return (
     <Section className="border-border border-t">
       <Eyebrow>What it&rsquo;s like</Eyebrow>
-      <SectionHeading className="mb-10">Your business, running on HandsFreeOS.</SectionHeading>
+      <SectionHeading className="mb-10">
+        Your business, with an AI team doing the work.
+      </SectionHeading>
       <HomeTabs
         tabs={[
           { id: 'tuesday', label: 'A day with it', panel: <NextTuesday /> },
@@ -406,7 +432,7 @@ function Outcomes() {
     {
       icon: Icons.bolt,
       title: 'Win the jobs you’ve been losing',
-      body: 'Every call picked up, and every text and chat answered in seconds, at 7pm on a Sunday too. Missed calls get a text back before the phone is down. Quotes get a reminder, then a call when you OK it. Be the one who answers first.',
+      body: 'Every call picked up, and every text and chat answered in seconds, at 7pm on a Sunday too. New leads who say it’s OK get a call from the AI within a minute. Missed calls get a text back before the phone is down. Quotes get a reminder, then a call when you OK it. Be the one who answers first.',
     },
     {
       icon: Icons.card,
@@ -573,6 +599,13 @@ function HowItWorks() {
 function Features() {
   const tour: TourFeature[] = [
     {
+      id: 'calls',
+      icon: <Icons.call />,
+      title: 'New leads get a call in under a minute',
+      body: 'Someone fills in your form and says it’s OK to call. The AI calls them right away, in your open hours, asks what they need and books it. No answer? It tries again tomorrow.',
+      visual: <LeadCallVisual />,
+    },
+    {
       id: 'inbox',
       icon: <Icons.inbox />,
       title: 'Every text, call and email in one thread',
@@ -614,6 +647,13 @@ function Features() {
       body: '"Who hasn’t paid me?" "Book Dale for Thursday morning." "Text everyone whose service is due." It answers from your real data, and shows you what it is about to change first.',
       visual: <AssistantVisual />,
     },
+    {
+      id: 'webinars',
+      icon: <Icons.video />,
+      title: 'Video calls and webinars, no Zoom needed',
+      body: 'Meet customers face to face from a link, with the notes written for you. Run a webinar for up to 500 people with live polls, and see who’s ready to buy when it ends.',
+      visual: <WebinarVisual />,
+    },
   ];
 
   return (
@@ -621,8 +661,8 @@ function Features() {
       <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <Eyebrow>What it does</Eyebrow>
-          <SectionHeading sub="The parts of running a service business that eat your evenings, in one system that already knows who the customer is.">
-            Ten apps and a notepad, replaced by one.
+          <SectionHeading sub="Most software keeps track of the work and waits for you. HandsFreeOS keeps track of it and does it: answering, booking, following up and getting you paid, in one system that already knows who the customer is.">
+            Ten apps and a notepad, replaced by one system that does the work.
           </SectionHeading>
         </div>
         <Button
@@ -638,6 +678,19 @@ function Features() {
       <div className="mt-14">
         <FeatureTour features={tour} />
       </div>
+
+      {/* The add-ons go on top of the plan, never in it (content/addons.ts), so they get a line of their own here. */}
+      <p className="text-text-2 border-border mt-14 border-t pt-8 text-lg">
+        <span className="text-text font-semibold">Want it to go find customers too?</span> Founding
+        members can ask for early access to add-ons that reach out on social media, write your posts
+        and coach your sales calls.{' '}
+        <Link
+          href="/add-ons"
+          className="text-accent-text font-semibold underline underline-offset-2"
+        >
+          See the add-ons
+        </Link>
+      </p>
     </Section>
   );
 }
@@ -871,10 +924,11 @@ function Spots({ spots }: { spots: readonly FoundingSpot[] }) {
                   {content.per}
                 </span>
               </p>
+              <p className="text-success-text mt-2 font-semibold">{freeTrial.then(content)}</p>
               <p className="text-text-2 mt-3">{content.blurb}</p>
               <FoundingCounter count={count} className="mt-6" />
               <span className="text-accent-text mt-auto inline-flex items-center gap-1.5 pt-7 font-semibold">
-                {room ? `Claim my ${content.priceLabel} spot` : 'See which spot has room'}
+                {room ? freeTrial.button : 'See which spot has room'}
                 <svg
                   viewBox="0 0 16 16"
                   aria-hidden="true"
@@ -894,7 +948,7 @@ function Spots({ spots }: { spots: readonly FoundingSpot[] }) {
       </Reveal>
 
       <p className="text-text-2 mt-8">
-        {`Both: plus the texts, calls and AI you use, usually $${typicalUsage.low} to $${typicalUsage.high} a month. ${moneyBack.days} days, or your money back.`}
+        {`Both: ${freeTrial.days} days free to start, plus the texts, calls and AI you use, usually $${typicalUsage.low} to $${typicalUsage.high} a month. ${moneyBack.days} days from your first payment, or your money back.`}
       </p>
     </Section>
   );
@@ -940,12 +994,13 @@ function FinalCta({ open }: { open: boolean }) {
           The next lead texts <YourBusinessName fallback="you" /> at 7pm. Who answers?
         </h2>
         <p className="text-on-night-2 mt-6 text-lg">
-          Set it up this week. Watch every reply before it goes out, and let go of the ones it gets
-          right. If it isn&rsquo;t for you within {moneyBack.days} days, you get your money back.
+          Put your AI team to work this week. Watch every reply before it goes out, and let go of
+          the ones it gets right. If it isn&rsquo;t for you within {moneyBack.days} days, you get
+          your money back.
         </p>
         <div data-cta="final" className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
           <Button href={urls.signUp} size="lg" arrow>
-            {open ? 'Claim my founding spot' : 'Sign up'}
+            {open ? freeTrial.button : 'Sign up'}
           </Button>
           <Button href="/support" size="lg" variant="night">
             Ask us a question first

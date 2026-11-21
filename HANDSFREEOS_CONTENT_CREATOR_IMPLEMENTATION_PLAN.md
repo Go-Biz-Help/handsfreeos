@@ -154,7 +154,7 @@ at 06:34 UTC. Creator research stays on Instagram.
 | 29. Niches                         | **It ticks the business's own niche and the 2 closest**; the rest wait for a person.                                                                                                             |
 | 30. Which creators                 | **The best 10 on each network**: the closest match (the AI reads their bio and recent posts), 5,000+ followers, posted in the last 30 days, and the best likes and comments for their followers. |
 | 31. Keeping the list fresh         | **Once a month it swaps out creators who stopped posting or rarely stand out**, never ones a person ticked or added.                                                                             |
-| 32. When it starts writing         | **Once the Playbook is written, or after 3 days anyway, and only once the main offer is live and its For your content lists are filled.**                                                        |
+| 32. When it starts writing         | **Once the Playbook is written, or after 3 days anyway, and only once the main offer is live and its For your posts and messages lists are filled.**                                             |
 | 33. The OK                         | **Posts still wait for an OK**, as now (decision 15).                                                                                                                                            |
 
 ### The parts
@@ -182,7 +182,7 @@ whole graphics and a check on every picture (decision 40).
 
 | Question                        | Answer                                                                                                                                                                                                |
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 34. What each post is about     | **Its own line from the main offer's For your content lists**, the lists taking turns, the line used longest ago first; the AI sees the business's last 20 posts and never repeats a hook.            |
+| 34. What each post is about     | **Its own line from the main offer's For your posts and messages lists**, the lists taking turns, the line used longest ago first; the AI sees the business's last 20 posts and never repeats a hook. |
 | 35. Ideas                       | **10 more on their own whenever fewer than 5 wait**, each planned as a kind and a line before the AI writes it.                                                                                       |
 | 36. The weekly mix              | **Of every 10 posts, about 4 tips, 2 customer problems, 2 stories and 2 about the offer**, never the same kind twice in a row.                                                                        |
 | 37. The drafts from before      | **Written again** with the variety, on the same days and times, unless a person touched them.                                                                                                         |
@@ -201,3 +201,29 @@ whole graphics and a check on every picture (decision 40).
     whole graphics (`check-ai.ts`). Migration 026500 adds the kind and topic
     to posts and ideas, an idea's source, the search's price, and runs the calendar half an hour later so the drafts
     are written again.
+
+## Threads and X (Chris, 2026-11-13)
+
+The owner asked (14:32 UTC): "I want to add Threads and X to the social media outreach and social media content creator
+add ons". Social Outreach's side is decision 163 in docs/outreach.md. For this add-on three questions went back, and the
+owner picked "9a 10b 11a" (16:xx UTC, beside the outreach picks): posting first, then studying creators there; short
+posts with a picture about half the time and chains of posts for a longer tip; both start off.
+
+| Question                 | Answer                                                                                                                                                                                                                                         |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 41. What comes first     | **Posting the business's own posts on Threads and X first** (part 16), **then studying creators there** (part 17).                                                                                                                             |
+| 41. What a post there is | **X up to 280 characters, Threads up to 500, tags included.** Words alone about half the time and one picture otherwise, never a carousel; one topic tag on Threads, 1 or 2 hashtags on X; **a chain of up to 4 more posts** for a longer tip. |
+| 41. How they start       | **Both off.** A person turns one on in Settings → Posting, where **5 a week** is suggested, still at most 3 a day.                                                                                                                             |
+
+### The parts
+
+16. **Posting on Threads and X.** The networks join the posting plan (off, 5 a week suggested), the writer's ways for
+    each (short, a tag or two, a chain for a longer tip), their own mix of words alone and pictures, a character count
+    and the chain on the post's screen, a refusal to OK words that run past what the network takes, and the extension
+    (0.138.0) putting posts up there, chains included, and reading their likes and replies. Migration 026900 lets
+    every table name the two networks and adds `content.chain`.
+17. **Studying creators on Threads and X.** Threads and X turned on under Settings → Networks (`ready`), and the
+    extension (0.139.0, `follow-read.ts`) finding creators there by the niche's top posts (and X's people search),
+    reading their profiles (followers, bio, when they last posted, their latest posts' likes and replies) and their own
+    posts back 12 months, a pinned one kept as pinned. New niches get searches for both; an older one's name is
+    searched there until it's written again. Needs part 16's migration 026900 for the settings to take the two.

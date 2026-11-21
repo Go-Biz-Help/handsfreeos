@@ -10,12 +10,14 @@
  * (decision 50); and on the 1st of each month it reads their profile for the AI's check (decision 99). From 0.100.0 it
  * reads their friends' birthdays after tidying, for a note on Today that waits for their OK (decision 108); and from
  * 0.105.0, once a week before the day's checks, their followers, whose good fits among those who aren't friends go on
- * Today for a friend request (decision 113); and from 0.106.0, after finding posts, it likes a few recent posts in their
+ * Today for a friend request (decision 113), and from 0.150.0 the events near them before those, for Today's Events
+ * near you and the AI's check of who's hosting and going (decision 188); and from 0.106.0, after finding posts, it likes a few recent posts in their
  * groups and keeps a question there for the day's reply, which the AI writes and waits for their OK at first
  * (decision 114). From 0.121.0 Find posts also searches Facebook's posts with the playbooks' own phrases after the
- * groups, or without any (decision 141). Nothing is pressed or sent on Facebook but Join group and its questions'
- * answers, and only while the person lets it join on its own; the likes in their groups; and on the person's own
- * posts, See who reacted to this.
+ * groups, or without any (decision 141). From 0.144.0, after the helpful posts, HandsFreeOS's own comment research
+ * (decision 172), only for whoever of its staff started one. Nothing is pressed or sent on Facebook but Join group
+ * and its questions' answers, and only while the person lets it join on its own; the likes in their groups; and on the
+ * person's own posts, See who reacted to this.
  * They run while the person lets it work on its own and leaves **Once a day** ticked.
  */
 import type { ReadResult } from '../networks/facebook/types';
@@ -23,7 +25,9 @@ import { CHECKS_PER_DAY } from '@hfos/core/addons/outreach/checks';
 import { GROUP_CHECKS_DAILY } from '@hfos/core/addons/outreach/group-checks';
 import { stayActive } from '../jobs/active';
 import { chatMemory, readChats } from '../jobs/chats';
+import { readFacebookComments } from '../jobs/facebook-research';
 import { checkFriends } from '../jobs/checks';
+import { readFacebookEvents } from '../jobs/events';
 import { readFollowers } from '../jobs/followers';
 import { checkPartners } from '../jobs/partners';
 import { PARTNER_CHECKS_PER_DAY } from '@hfos/core/addons/outreach/partners';
@@ -56,10 +60,12 @@ export const DAILY_DOING: Readonly<Record<DailyJob, string>> = {
   posts: 'Finding posts in your groups and Facebook’s search…',
   active: 'Liking a few recent posts in your groups…',
   chats: 'Reading your chats for the AI…',
+  events: 'Reading the events near you, as it does once a week…',
   followers: 'Reading your followers, as it does once a week…',
   checks: 'Checking your friends for good fits…',
   partners: 'Searching for people who could partner with you, then reading them…',
   helpful: 'Asking for today’s helpful post, and reading who engaged…',
+  comment_research: 'Reading comments under public posts for HandsFreeOS’s comment research…',
   profile: 'Reading your profile, as it does on the 1st of each month…',
 };
 
@@ -74,10 +80,12 @@ export const DAILY_NAMES: Readonly<Record<DailyJob, string>> = {
   posts: 'Find posts',
   active: 'Active in your groups',
   chats: 'Read my chats',
+  events: 'Events near you',
   followers: 'Your followers',
   checks: 'Check my friends',
   partners: 'Find partners',
   helpful: 'Helpful posts',
+  comment_research: 'Comment research',
   profile: 'Read my profile',
 };
 
@@ -178,6 +186,8 @@ export async function runDaily(kind: DailyJob, job: Job): Promise<JobEnd> {
         memory: chatMemory,
         again: 'The rest wait for tomorrow.',
       });
+    case 'events':
+      return readFacebookEvents(job);
     case 'followers':
       return readFollowers(job);
     case 'checks':
@@ -186,6 +196,8 @@ export async function runDaily(kind: DailyJob, job: Job): Promise<JobEnd> {
       return checkPartners(job, PARTNER_CHECKS_PER_DAY);
     case 'helpful':
       return helpfulDaily(job);
+    case 'comment_research':
+      return readFacebookComments(job);
     case 'profile':
       return readProfileOnItsOwn(job, 'facebook', profileRead);
   }

@@ -2,12 +2,15 @@
 import {
   applyFormOps,
   FormOpError,
+  NAME_MAX_LENGTH,
+  NAME_QUESTIONS,
   newChoiceId,
   newPageId,
   newQuestionId,
   QUESTION_CONFIGS,
   type FormDefinition,
   type FormOp,
+  type NameQuestion,
   type QuestionInput,
   type QuestionType,
 } from '@hfos/core';
@@ -169,6 +172,7 @@ const DEFAULT_TITLES: Partial<Record<QuestionType, string>> = {
   video: 'Watch this first',
   booking: 'Pick a time',
   button: 'Ready to take the next step?',
+  quantities: 'How many of each?',
 };
 
 /** A question of that type with the smallest sensible config, ready to drop on a page. */
@@ -196,6 +200,20 @@ export function newSingleCheckbox(): QuestionInput {
   } as QuestionInput;
 }
 
+/**
+ * A First name or Last name box: a short answer saved as the customer's name, so whoever sends the form is saved
+ * under it, as an Email question saves their email. It starts optional, like the Email and Phone questions.
+ */
+export function newNameQuestion(which: NameQuestion): QuestionInput {
+  const question = newQuestion('short_text');
+  return {
+    ...question,
+    title: NAME_QUESTIONS[which].label,
+    mapTo: NAME_QUESTIONS[which].mapTo,
+    config: { ...(question.config as Record<string, unknown>), maxLength: NAME_MAX_LENGTH },
+  } as QuestionInput;
+}
+
 function startingConfig(type: QuestionType): Record<string, unknown> {
   if (type === 'choice' || type === 'checkboxes')
     return {
@@ -207,6 +225,15 @@ function startingConfig(type: QuestionType): Record<string, unknown> {
   if (type === 'signature') return { statement: 'I agree to the work described above.' };
   if (type === 'content') return { body: 'A note for whoever is filling this in.' };
   if (type === 'payment') return { amount: { kind: 'fixed', cents: 5000 }, description: 'Deposit' };
+  // How many of each starts with three rows the business renames: sizes, flavours, or its own products.
+  if (type === 'quantities')
+    return {
+      choices: [
+        { id: newChoiceId(), label: 'Small' },
+        { id: newChoiceId(), label: 'Medium' },
+        { id: newChoiceId(), label: 'Large' },
+      ],
+    };
   return {};
 }
 

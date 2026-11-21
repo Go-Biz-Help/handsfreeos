@@ -32,6 +32,7 @@ import {
   NETWORK_WORDS as NW,
   noRunnerWords,
 } from '@hfos/core/addons/outreach/network-words';
+import { networkStatus, networkTone } from '@hfos/core/addons/outreach/network-status';
 import { PLATFORMS, runsOnItsOwn, type Platform } from '@hfos/core/addons/outreach/networks';
 import { READY_WORDS } from '@hfos/core/addons/outreach/readiness';
 import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
@@ -56,6 +57,14 @@ import {
   type StartRefused,
 } from './start-refused';
 import { useAct } from './use-act';
+
+/** A network's status chip on its card (decision 170): the status card's, at the top of its page in Settings. */
+const CHIP: Record<ReturnType<typeof networkTone>, string> = {
+  good: 'bg-success-soft text-success-text',
+  waiting: 'bg-accent-soft text-accent-text',
+  warn: 'bg-warning-soft text-warning-text',
+  plain: 'bg-card-2 text-text-2',
+};
 
 const DOT: Record<ReturnType<typeof stateTone>, string> = {
   good: 'bg-success shadow-[0_0_0_4px_var(--success-soft)]',
@@ -369,6 +378,15 @@ export function StatusStrip({
           {networks.map((n) => {
             const name = PLATFORMS[n.platform];
             const here = n.platform === shown.platform;
+            // The status card's state (decision 170), without what waits there: Needs you has that.
+            const status = networkStatus({
+              platform: n.platform,
+              live: n.live,
+              level: n.live.sending === 'off' ? 'myself' : null,
+              waiting: 0,
+              people: 0,
+              now,
+            });
             return (
               <li
                 key={n.platform}
@@ -390,6 +408,16 @@ export function StatusStrip({
                     >
                       {name}
                     </Link>
+                    <span
+                      className={cn(
+                        'ml-2 whitespace-nowrap rounded-[6px] px-1.5 py-0.5 text-[11.5px] font-semibold',
+                        CHIP[networkTone(status.state)],
+                      )}
+                      data-testid={`today-network-${n.platform}-status`}
+                      data-state={status.state}
+                    >
+                      {status.chip}
+                    </span>
                     <p className="text-[12.5px] text-text-2" data-testid="live-day">
                       {todayWords(n.live, n.platform, now) || NW.notStarted}
                     </p>
@@ -404,6 +432,14 @@ export function StatusStrip({
                     data-testid={`live-warning-${n.platform}`}
                   >
                     {warningNote(n.live.warning, now, n.platform)}
+                  </p>
+                ) : null}
+                {status.state === 'stuck' ? (
+                  <p
+                    className="text-[12.5px] text-warning-text"
+                    data-testid={`today-network-${n.platform}-stuck`}
+                  >
+                    {status.title}. {status.line}
                   </p>
                 ) : null}
                 {sendingOff(n, `live-sending-off-${n.platform}`)}

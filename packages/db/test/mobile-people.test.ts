@@ -5,6 +5,8 @@
  *     reads and turns off the devices of the people in its scope. private.push_on reads the push switches
  *     (settings.push, a key of their own) with their defaults.
  *   - app.user_phones: a person's own cells; verification is the worker's; one verified cell per person.
+ *   - app.user_about: what a person says of themselves (About you): theirs alone, read by no teammate; the worker
+ *     reads it only for the people of the business it is scoped to; one row a person.
  *   - possible_duplicate_of stays inside its business.
  *   - private.anonymize_user: scrubs the profile, removes memberships (and so access and money visibility), cells,
  *     devices, receipts and Assistant chats, disconnects the person's calendar, keeps their records, refuses a
@@ -12,7 +14,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { rows, sql } from '../src/client';
+import { rows, sql, type Tx } from '../src/client';
 import { workspaceMemberships } from '../src/schema/index';
 import {
   as,
@@ -281,6 +283,178 @@ describe('app.user_phones', () => {
   });
 });
 
+describe('app.user_about', () => {
+  it('is a person’s own: no teammate reads it, and the worker reads it only for its business’s people', async () => {
+    const mine = 'I grew up in Greenville. Big Braves fan.';
+    await as(marco)((tx) =>
+      tx.execute(sql`insert into app.user_about (user_id, about) values (${marco.id}, ${mine})`),
+    );
+    const read = (tx: Tx) =>
+      rows<{ about: string }>(
+        tx,
+        sql`select about from app.user_about where user_id = ${marco.id}`,
+      );
+    expect(await as(marco)(read)).toEqual([{ about: mine }]);
+    // Not the owner of the business they're in, and nobody outside it.
+    expect(await as(dale)(read)).toHaveLength(0);
+    expect(await as(stranger)(read)).toHaveLength(0);
+    // The worker writes as the people of the business it is scoped to, and as nobody else's.
+    expect(await worker(A)(read)).toEqual([{ about: mine }]);
+    expect(await worker(S)(read)).toHaveLength(0);
+
+    // Nobody writes another person's, or changes whose it is.
+    expect(
+      (
+        await expectPgError(() =>
+          as(dale)((tx) =>
+            tx.execute(
+              sql`insert into app.user_about (user_id, about) values (${marco.id}, 'Not mine to say')`,
+            ),
+          ),
+        )
+      ).code,
+    ).toMatch(/^(42501|23505)$/);
+    await as(dale)((tx) =>
+      tx.execute(sql`update app.user_about set about = 'Changed' where user_id = ${marco.id}`),
+    );
+    await as(dale)((tx) => tx.execute(sql`delete from app.user_about where user_id = ${marco.id}`));
+    expect(await as(marco)(read)).toEqual([{ about: mine }]);
+    expect(
+      (
+        await expectPgError(() =>
+          as(marco)((tx) =>
+            tx.execute(
+              sql`update app.user_about set user_id = ${dale.id} where user_id = ${marco.id}`,
+            ),
+          ),
+        )
+      ).code,
+    ).toBe('42501');
+    // The worker only reads.
+    expect(
+      (
+        await expectPgError(() =>
+          worker(A)((tx) =>
+            tx.execute(
+              sql`update app.user_about set about = 'Changed' where user_id = ${marco.id}`,
+            ),
+          ),
+        )
+      ).code,
+    ).toBe('42501');
+
+    // One row a person, never empty and never past its most; theirs to change and to clear.
+    expect(
+      (
+        await expectPgError(() =>
+          as(marco)((tx) =>
+            tx.execute(
+              sql`insert into app.user_about (user_id, about) values (${marco.id}, 'Again')`,
+            ),
+          ),
+        )
+      ).code,
+    ).toBe('23505');
+    expect(
+      (
+        await expectPgError(() =>
+          as(marco)((tx) =>
+            tx.execute(
+              sql`update app.user_about set about = ${'x'.repeat(2001)} where user_id = ${marco.id}`,
+            ),
+          ),
+        )
+      ).code,
+    ).toBe('23514');
+    await as(marco)((tx) =>
+      tx.execute(sql`update app.user_about set about = 'Braves fan.' where user_id = ${marco.id}`),
+    );
+    expect(await as(marco)(read)).toEqual([{ about: 'Braves fan.' }]);
+    await as(marco)((tx) =>
+      tx.execute(sql`delete from app.user_about where user_id = ${marco.id}`),
+    );
+    expect(await as(marco)(read)).toHaveLength(0);
+  });
+});
+
+describe('app.day_starts', () => {
+  it('is read by the person and the business’s owners only, changed by whoever may change their hours', async () => {
+    const read = (tx: Tx) =>
+      rows<{ address: string }>(
+        tx,
+        sql`select address from app.day_starts where workspace_id = ${A.ws} and user_id = ${marco.id}`,
+      );
+    await as(marco)((tx) =>
+      tx.execute(
+        sql`insert into app.day_starts (workspace_id, user_id, address, updated_by) values (${A.ws}, ${marco.id}, '7 Home St, Austin, TX', ${marco.id})`,
+      ),
+    );
+    expect(await as(marco)(read)).toEqual([{ address: '7 Home St, Austin, TX' }]);
+    // The owner reads it (and may change it); nobody outside the business does.
+    expect(await as(dale)(read)).toEqual([{ address: '7 Home St, Austin, TX' }]);
+    expect(await as(stranger)(read)).toHaveLength(0);
+    // The worker reads it for its own business only, and never writes it.
+    expect(await worker(A)(read)).toHaveLength(1);
+    expect(await worker(S)(read)).toHaveLength(0);
+    expect(
+      (
+        await expectPgError(() =>
+          worker(A)((tx) =>
+            tx.execute(
+              sql`update app.day_starts set address = 'Elsewhere' where user_id = ${marco.id}`,
+            ),
+          ),
+        )
+      ).code,
+    ).toBe('42501');
+    // A member can't set the owner's.
+    expect(
+      (
+        await expectPgError(() =>
+          as(marco)((tx) =>
+            tx.execute(
+              sql`insert into app.day_starts (workspace_id, user_id, address, updated_by) values (${A.ws}, ${dale.id}, 'Not mine', ${marco.id})`,
+            ),
+          ),
+        )
+      ).code,
+    ).toBe('42501');
+    // Never empty, and whose it is never changes.
+    expect(
+      (
+        await expectPgError(() =>
+          as(marco)((tx) =>
+            tx.execute(
+              sql`update app.day_starts set address = '  ', updated_by = ${marco.id} where user_id = ${marco.id}`,
+            ),
+          ),
+        )
+      ).code,
+    ).toBe('23514');
+    expect(
+      (
+        await expectPgError(() =>
+          as(marco)((tx) =>
+            tx.execute(
+              sql`update app.day_starts set user_id = ${dale.id} where user_id = ${marco.id}`,
+            ),
+          ),
+        )
+      ).code,
+    ).toBe('42501');
+    await as(dale)((tx) =>
+      tx.execute(
+        sql`update app.day_starts set address = '9 Shop Rd, Austin, TX', updated_by = ${dale.id} where user_id = ${marco.id}`,
+      ),
+    );
+    expect(await as(marco)(read)).toEqual([{ address: '9 Shop Rd, Austin, TX' }]);
+    await as(marco)((tx) =>
+      tx.execute(sql`delete from app.day_starts where user_id = ${marco.id}`),
+    );
+    expect(await as(marco)(read)).toHaveLength(0);
+  });
+});
+
 describe('possible_duplicate_of', () => {
   it('points at a record of the same business, never itself', async () => {
     const person = async (
@@ -343,6 +517,16 @@ describe('private.anonymize_user', () => {
         sql`insert into app.user_phones (user_id, e164) values (${leaver.id}, '+15125550191')`,
       ),
     );
+    await as(leaver)((tx) =>
+      tx.execute(
+        sql`insert into app.user_about (user_id, about) values (${leaver.id}, 'I’m from Tulsa.')`,
+      ),
+    );
+    await as(leaver)((tx) =>
+      tx.execute(
+        sql`insert into app.day_starts (workspace_id, user_id, address, updated_by) values (${A.ws}, ${leaver.id}, '4 Home Ln, Tulsa, OK', ${leaver.id})`,
+      ),
+    );
     const commandId = randomUUID();
     await as(leaver)(async (tx) => {
       await tx.execute(
@@ -403,6 +587,8 @@ describe('private.anonymize_user', () => {
             (select count(*)::int from app.workspace_access where user_id = ${leaver.id}) as access,
             (select count(*)::int from app.push_devices where user_id = ${leaver.id}) as devices,
             (select count(*)::int from app.user_phones where user_id = ${leaver.id}) as cells,
+            (select count(*)::int from app.user_about where user_id = ${leaver.id}) as about,
+            (select count(*)::int from app.day_starts where user_id = ${leaver.id}) as starts,
             (select count(*)::int from app.command_receipts where user_id = ${leaver.id}) as receipts,
             (select count(*)::int from app.assistant_threads where user_id = ${leaver.id}) as chats,
             (select count(*)::int from app.calendar_busy_blocks where user_id = ${leaver.id}) as busy,
@@ -413,6 +599,8 @@ describe('private.anonymize_user', () => {
       access: 0,
       devices: 0,
       cells: 0,
+      about: 0,
+      starts: 0,
       receipts: 0,
       chats: 0,
       busy: 0,

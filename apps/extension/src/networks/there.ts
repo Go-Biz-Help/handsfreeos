@@ -16,7 +16,14 @@ const NOT_THERE: Readonly<Record<Platform, RegExp>> = {
   instagram: /sorry, this page isn[’']t available|the link you followed may be broken/i,
   linkedin: /this page doesn[’']t exist|page not found|profile (is )?not available/i,
   alignable: /page not found|doesn[’']t exist/i,
+  threads:
+    /sorry, this page isn[’']t available|profile isn[’']t available|this page isn[’']t available/i,
+  x: /this account doesn[’']t exist|account suspended|hmm\.\.\.this page doesn[’']t exist/i,
 };
+
+/** Whether these words say the page isn't there, as the network says it ("This content isn't available right now"). */
+export const saysNotThere = (words: string, platform: Platform): boolean =>
+  NOT_THERE[platform].test(words);
 
 const words = (doc: Document) => (doc.body?.textContent ?? '').replace(/\s+/g, ' ');
 
@@ -28,6 +35,6 @@ function hasProfile(doc: Document): boolean {
 }
 
 export function pageThere(doc: Document, platform: Platform): boolean | null {
-  if (NOT_THERE[platform].test(words(doc))) return false;
+  if (saysNotThere(words(doc), platform)) return false;
   return hasProfile(doc) ? true : null;
 }

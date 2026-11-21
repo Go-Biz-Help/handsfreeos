@@ -116,6 +116,11 @@ beforeAll(async () => {
   s = testServices();
   agent = await createTestUser('row-agent', { fullName: 'Dana Reyes' });
   ws = await realestateBusiness(agent, 'Clock Realty');
+  // Staff gave it free, as every business with it on today: a paid add-on turned on again needs that or a card.
+  await rows(
+    admin(),
+    sql`insert into platform.addon_grants (workspace_id, addon_id, note) values (${ws}, 'realestate', 'Testing')`,
+  );
   const client = (
     await executeCommand(
       api(),

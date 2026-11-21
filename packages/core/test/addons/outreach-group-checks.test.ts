@@ -154,7 +154,13 @@ describe('each network’s groups (decision 92)', () => {
     // 3 good groups a day.
     expect(kit('alignable')).toEqual([30, false, 5, 'hold', 3, true]);
     expect(JOINS_PER_DAY).toBe(3);
-    expect(PLATFORM_KEYS.filter(groupsByCheck)).toEqual(['linkedin', 'instagram', 'alignable']);
+    expect(PLATFORM_KEYS.filter(groupsByCheck)).toEqual([
+      'linkedin',
+      'instagram',
+      'alignable',
+      'threads',
+      'x',
+    ]);
   });
 
   it('tells the AI the group’s network, Facebook’s words as they were', () => {

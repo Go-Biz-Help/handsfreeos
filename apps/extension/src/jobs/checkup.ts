@@ -10,14 +10,14 @@
  * person's own comes back. It stops on any warning of the network's.
  *
  * On Facebook: their profile (the bio; with no Edit bio, on the About tab's editor Edit profile leads to), Contact and
- * basic info (adding a link), their feed, their friend requests (confirming; then View sent requests, as
- * Check your friend requests presses it, and cancelling there), their friends, their followers, their groups and one of them
+ * basic info (adding a link), their feed, their friend requests (confirming; then View sent requests, as Check your
+ * friend requests presses it, and cancelling there), their friends, their followers, their groups and one of them
  * (posting, and commenting on one of its posts), a people search (a friend request on someone they aren't friends
  * with), a groups search (joining one they aren't in), their chats, one friend's profile (liking, unfriending and
- * messaging, the last as it may open Messenger), their
- * notifications, their friends' birthdays, Accounts Center's username page for their Facebook profile (the username: no warning is read there
- * while Facebook asks them for something, as its "Confirm it's you" is none), and Download your information (the
- * file).
+ * messaging, the last as it may open Messenger), their notifications, their friends' birthdays, an event search and
+ * its first event (decision 188), Accounts Center's username page for their Facebook profile (the username: no warning
+ * is read there while Facebook asks them for something, as its "Confirm it's you" is none), and Download your
+ * information (the file).
  */
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { REPORT_WORDS, type TryStepName } from '@hfos/core/addons/outreach/reports';
@@ -48,11 +48,14 @@ import {
 import { FRIEND_REQUESTS, VIEW_SENT, YOUR_FRIENDS } from './people';
 import { OWN_PROFILE_URL } from './profile';
 import { BIRTHDAYS_PAGE } from './occasions';
+import { eventSearch } from './events';
 import { YOUR_FOLLOWERS } from './followers';
 import { loadNote, ownProfileNote, tryNote } from './report';
 
 /** What the searches look for: everyday words, to see how the network draws its results. */
 export const SEARCH_WORDS = 'small business';
+/** What the event search looks for (decision 188): events anywhere, to see how Facebook draws them. */
+export const EVENT_SEARCH_WORDS = 'business networking';
 /** Between pages: a person going from one to the next. */
 const BETWEEN_MS = [2_500, 5_000] as const;
 
@@ -449,6 +452,22 @@ async function checkup(job: Job): Promise<JobEnd> {
   const birthdays = await c.open(BIRTHDAYS_PAGE, 'your friends’ birthdays');
   if (isEnd(birthdays)) return birthdays;
   await c.note('your friends’ birthdays', birthdays.people?.length ?? 0);
+  // An event search near nobody in particular, and its first event (decision 188): read, nothing pressed.
+  if (stopped()) return stopped()!;
+  const events = await c.open(eventSearch(EVENT_SEARCH_WORDS), 'the event search');
+  if (isEnd(events)) return events;
+  await c.note('the event search', events.events?.length ?? 0);
+  const firstEvent = events.events?.[0] ?? null;
+  if (firstEvent) {
+    if (stopped()) return stopped()!;
+    const event = await c.open(firstEvent.url, 'an event');
+    if (isEnd(event)) return event;
+    await c.note(
+      'an event',
+      (event.event?.hosts.length ?? 0) + (event.event?.guests.length ?? 0) ||
+        (event.event?.name ? null : 0),
+    );
+  }
   if (stopped()) return stopped()!;
   const ended = await tryUsername(job, c, editors?.id ?? null);
   if (ended) return ended;

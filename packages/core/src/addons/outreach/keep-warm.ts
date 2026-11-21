@@ -12,14 +12,20 @@
  * - **One comment a visit**: the first post a visit liked is kept (`posts.warm_up`) for one comment under it, on Today
  *   as any comment is, counted against the day's comments and waiting for the person's OK as that network's comments
  *   do (the owner's 3a), drafted to congratulate them, praise something real or show interest, as a person would
- *   (`WARM_COMMENT_TASK` in ./today.ts). Nothing real to react to: no comment.
+ *   (`warmCommentTask` in ./today.ts). Nothing real to react to: no comment.
  * - **Then unfollow or withdraw**, after the business's wait (2 weeks to start, their setting "Warm up for, then
  *   unfollow or withdraw"), on its own with the tidying, 20 a day (decision 98). Nothing more from the tool after it
  *   unless they follow back or write first (`friend_ends.after_warm_up`): in People they're Not a fit, "Didn't follow
  *   back" (`noAnswerWhy`), and Back in play takes them back.
  *
  * Everyone already waiting when it began starts a fresh wait then (`friends.warm_up_from`, set by the migration that
- * added it: the owner's 6b), so each gets all 7 visits. Browser-safe: the extension, the web and the phone read these.
+ * added it: the owner's 6b), so each gets all 7 visits.
+ *
+ * **Before the first message, too** (decision 183, the owner's 4b, 20 Nov 2026): someone who accepted fast, or was a
+ * friend already, gets visits the same way, and Say hi waits till their first like is `WARM_BEFORE_HI_DAYS` old, or a
+ * visit found nothing to like (`keepWarm.hi`, `warmBeforeHiWhy`).
+ *
+ * Browser-safe: the extension, the web and the phone read these.
  */
 import { intlTimeZone } from '../../intl/engine-zones';
 import { appVersionAtLeast } from '../../mobile';
@@ -53,6 +59,26 @@ export const keepWarmOn = (version: string | null | undefined): boolean =>
   appVersionAtLeast(version ?? null, KEEP_WARM_SINCE);
 
 const DAY = 86_400_000;
+
+/**
+ * How many days of warm-up a friend gets before Say hi (decision 183, the owner's 4b: "a few days of warm-up for people
+ * who were already friends or accept fast, before the first message"), counted from the first like on them. A request
+ * that waited longer had its warm-up already.
+ */
+export const WARM_BEFORE_HI_DAYS = 3;
+
+/** Why a visit before the first message is on Today: when Say hi comes. */
+export function warmBeforeHiWhy(hiFrom: Date | string): string[] {
+  const day = new Date(hiFrom).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: intlTimeZone('UTC'),
+  });
+  return [
+    'Warming up before your first message',
+    `Like 1 or 2 of their newest posts every few days, then say hi from ${day}`,
+  ];
+}
 
 /**
  * When someone's warm-up ends, for a request that went at `since`: the business's wait (`weeks`) after it, or after
@@ -140,12 +166,14 @@ export function visitPicks(
   return picks;
 }
 
-/** What a visit did, for the runner's activity line. */
-export function visitLine(name: string, platform: Platform, liked: number): string {
+/** What a visit did, for the runner's activity line. `hi` for one before the first message (decision 183). */
+export function visitLine(name: string, platform: Platform, liked: number, hi = false): string {
   const kit = NETWORKS[platform];
-  const deciding = kit.follows
-    ? 'while they decide on following you back'
-    : `while they decide on your ${kit.words.friendRequest}`;
+  const deciding = hi
+    ? 'before your first message'
+    : kit.follows
+      ? 'while they decide on following you back'
+      : `while they decide on your ${kit.words.friendRequest}`;
   return liked > 0
     ? `Liked ${liked === 1 ? 'a post' : `${liked} posts`} of ${name}’s ${deciding}`
     : `No new post of ${name}’s to like on this visit: the next comes in a few days`;

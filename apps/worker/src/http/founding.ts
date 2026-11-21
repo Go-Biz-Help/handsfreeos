@@ -52,6 +52,7 @@ type CountRow = {
   billing: string;
   show_counter: boolean;
   superseded: boolean;
+  trial_days: number | null;
 };
 
 type ApplyRow = { application_id: string; status: string; created: boolean };
@@ -68,7 +69,7 @@ export async function registerFoundingRoutes(app: FastifyInstance, deps: HttpDep
           rows<CountRow>(
             tx,
             sql`select id, name, blurb, status::text as status, price_cents, seat_cap, claimed,
-                  remaining, billing, show_counter, superseded
+                  remaining, billing, show_counter, superseded, trial_days
                 from platform.founding_counts order by sort, id`,
           ),
         );
@@ -93,6 +94,8 @@ export async function registerFoundingRoutes(app: FastifyInstance, deps: HttpDep
             billing: o.billing,
             showCounter: o.show_counter,
             superseded: o.superseded,
+            // Days free before the first charge (20261027027000), so the site never promises a trial it can't give.
+            trialDays: o.trial_days,
           })),
           generatedAt: new Date().toISOString(),
         };

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ABOUT_YOU_MOST } from '../account/about-you';
 import { ATTENTION_KINDS, AUTO_CANCEL_WINDOW_MINUTES } from '../attention/kinds';
 import { isLocalDate } from '../calendar/engine/zoned';
 import { CALENDAR_COLORS, CALENDAR_PRESETS, PRESET_KEYS } from '../calendar/presets';
@@ -545,6 +546,12 @@ export const assistantTools = [
         .max(240)
         .optional()
         .describe('Travel time kept before and after each visit at the customer’s address'),
+      driveBetween: z
+        .boolean()
+        .optional()
+        .describe(
+          'Leave time to drive between visits: the booking page asks for the address first and offers only times the person can drive to, from their visit before or where their day starts',
+        ),
       minNoticeMinutes: z
         .int()
         .min(0)
@@ -1482,9 +1489,17 @@ export const assistantTools = [
   define({
     name: 'update_my_account',
     description:
-      'Change the person’s own account, as Settings → Account does: their name, the web app’s light or dark, and which emails they get from HandsFreeOS, each named as its row on Notifications. Theirs alone — never another teammate’s. The phone app’s light or dark is kept on each phone (More, then Settings, then Appearance), and this never changes it: asked on the phone, say where it is there. The email they sign in with can’t be changed yet.',
+      'Change the person’s own account, as Settings → Account does: their name, About you (what they say of themselves, for the AI that writes as them), the web app’s light or dark, and which emails they get from HandsFreeOS, each named as its row on Notifications. Theirs alone — never another teammate’s. The phone app’s light or dark is kept on each phone (More, then Settings, then Appearance), and this never changes it: asked on the phone, say where it is there. The email they sign in with can’t be changed yet.',
     input: z.object({
       fullName: text(120).optional(),
+      aboutYou: z
+        .string()
+        .trim()
+        .max(ABOUT_YOU_MOST)
+        .optional()
+        .describe(
+          'About you, whole, in their own words: where they’re from, their heritage, family, faith, hobbies, teams, past jobs. It takes the place of what was there, so to add to it, read it first (get_settings my_account) and pass it all with the new part; empty clears it. Only what they said of themselves: never guess or fill anything in. Only they see it.',
+        ),
       appearance: z
         .enum(['light', 'dark', 'system'])
         .optional()
@@ -2174,7 +2189,7 @@ export const assistantTools = [
   define({
     name: 'fill_in_form',
     description:
-      'Fill in a published form for a customer and send it, as the phone’s Fill it in does: for answers they gave in person or on the phone. Sending it does everything their own answers would: it adds or matches the customer and fills in their details, opens the lead or task the form asks for and starts its workflows, so it waits for the person’s OK. answers are by question id from get_form; a choice can be its id or its words, checkboxes a list, yes or no true or false. A file, a signature, a payment, a video or a time to book can’t be filled in for them. The OK to text and OK to call boxes stay unticked: a yes has to come from the customer themselves.',
+      'Fill in a published form for a customer and send it, as the phone’s Fill it in does: for answers they gave in person or on the phone. Sending it does everything their own answers would: it adds or matches the customer and fills in their details, opens the lead or task the form asks for and starts its workflows, so it waits for the person’s OK. answers are by question id from get_form; a choice can be its id or its words, checkboxes a list, yes or no true or false, and a How many of each an object of how many for each row, by the row’s id or its words ({"Adult M": 5, "Adult L": 3}). A file, a signature, a payment, a video or a time to book can’t be filled in for them. The OK to text and OK to call boxes stay unticked: a yes has to come from the customer themselves.',
     input: z.object({
       formId: uuid,
       answers: z

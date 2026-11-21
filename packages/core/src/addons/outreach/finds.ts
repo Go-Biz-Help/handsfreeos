@@ -58,6 +58,8 @@ export const CHECK_VIAS = {
   known: 'Someone you know',
   found: 'Someone found',
   follower: 'Someone who follows you',
+  /** Hosting or going to an event near the person on Facebook (decision 188): checked like a friend. */
+  event: 'Someone at an event near you',
   member: 'Someone in one of your groups',
   /** Asked to be the person's friend, and not one yet (decision 136): their check also says what to do with it. */
   request: 'Someone who asked to be your friend',
@@ -165,6 +167,8 @@ const LIKED: Readonly<Record<Platform, string>> = {
   linkedin: 'Reacted to',
   instagram: 'Liked',
   alignable: 'Liked',
+  threads: 'Liked',
+  x: 'Liked',
 };
 
 /** A post, as where it was found says: "a post under #austinroofing", "a post your search for “roofing” found". */

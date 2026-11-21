@@ -29,6 +29,7 @@ export const QUESTION_TYPES = [
   'video',
   'booking',
   'button',
+  'quantities',
 ] as const;
 export type QuestionType = (typeof QUESTION_TYPES)[number];
 
@@ -54,6 +55,7 @@ export const QUESTION_LABELS: Readonly<Record<QuestionType, string>> = {
   video: 'Video',
   booking: 'Book a time',
   button: 'Button',
+  quantities: 'How many of each',
 };
 
 // ---- Choices ----
@@ -88,6 +90,31 @@ const choices = z
   });
 
 const placeholder = z.string().trim().max(120).default('');
+
+// ---- How many of each ----
+
+/**
+ * One row of a "How many of each" question: a size, a flavour, a colour or a whole product (a T-shirt in Adult M, an
+ * 11 oz mug, a keychain). The rows are kept under `config.choices`, so they're added, reworded, reordered and removed
+ * with the same ops as a pick-one's choices, and an answer already given still points at the right row.
+ */
+export const QuantityRow = z.object({
+  id: ChoiceId,
+  label: z.string().trim().min(1, 'Name the row.').max(160),
+  /** What one of it costs, in dollars. Null: the row only counts, and the total leaves it out. */
+  price: z.number().min(0).max(1_000_000).nullable().default(null),
+  /**
+   * The price-list product this row is (Settings → Payments → Products), when it was added from there. The row keeps
+   * its own copy of the name and price, as an invoice's line does, so repricing a product never reprices a form.
+   */
+  productId: z.uuid().nullable().default(null),
+});
+export type QuantityRow = z.infer<typeof QuantityRow>;
+export type QuantityRowInput = z.input<typeof QuantityRow>;
+
+export const MAX_QUANTITY_ROWS = 60;
+/** The most of one row anybody can ask for on a form. */
+export const MAX_QUANTITY = 10_000;
 
 // ---- The config each type carries ----
 
@@ -156,6 +183,11 @@ export const QUESTION_CONFIGS = {
   address: z.object({
     /** Ask for the street, or just the town and postcode (a service-area check). */
     detail: z.enum(['full', 'city_postal']).default('full'),
+    /**
+     * Suggest real addresses from Google as they type the street (the business's pick, off until it's turned on).
+     * Picking one fills the street, town, state and ZIP; they can still type it all themselves (address.ts).
+     */
+    search: z.boolean().default(false),
   }),
   file: z.object({
     maxFiles: z.int().min(1).max(10).default(3),
@@ -214,6 +246,23 @@ export const QUESTION_CONFIGS = {
     /** For `book`: the calendar whose booking page opens. */
     calendarId: z.string().trim().max(64).default(''),
   }),
+  quantities: z.object({
+    /** The rows, each with a number box beside it ("Youth S", "Adult 2XL", "11 oz mug"). */
+    choices: z
+      .array(QuantityRow)
+      .min(1, 'Add a row.')
+      .max(MAX_QUANTITY_ROWS)
+      .refine((list) => new Set(list.map((r) => r.id)).size === list.length, {
+        error: 'Each row needs its own id.',
+      }),
+    /** The least and the most in all; null is no limit (a 12-shirt minimum). */
+    minTotal: z.int().min(1).max(1_000_000).nullable().default(null),
+    maxTotal: z.int().min(1).max(1_000_000).nullable().default(null),
+    /** What they're counting, for the line under the boxes: "shirts" reads "24 shirts". */
+    unit: z.string().trim().max(24).default(''),
+    /** Show each row's price beside it and what it comes to under the boxes. */
+    showPrices: z.boolean().default(true),
+  }),
 } as const satisfies Record<QuestionType, z.ZodType>;
 
 export type QuestionConfig<T extends QuestionType = QuestionType> = z.infer<
@@ -236,10 +285,16 @@ export const NUMERIC_TYPES: ReadonlySet<QuestionType> = new Set([
 ]);
 
 /**
- * Types the AI teammate can't ask in a conversation: there's nothing to play a video in, and a time is booked
- * with its own booking tools. A form with one is sent as a link instead.
+ * Types the AI teammate can't ask in a conversation: there's nothing to play a video in, a time is booked with its
+ * own booking tools, and a grid of how many of each is easier filled in on the page than said back and forth. A form
+ * with one is sent as a link instead.
  */
-export const NOT_IN_CHAT_TYPES: ReadonlySet<QuestionType> = new Set(['video', 'booking', 'button']);
+export const NOT_IN_CHAT_TYPES: ReadonlySet<QuestionType> = new Set([
+  'video',
+  'booking',
+  'button',
+  'quantities',
+]);
 
 /** Types that can be graded right or wrong. */
 export const GRADEABLE_TYPES: ReadonlySet<QuestionType> = new Set([
@@ -258,9 +313,41 @@ export function isSingleCheckbox(question: { type: string; config?: unknown }): 
   );
 }
 
-/** What kind of question it is, in the editor's words: a yes or no shown as one box is a "Single checkbox". */
-export function questionKindLabel(question: { type: QuestionType; config?: unknown }): string {
-  return isSingleCheckbox(question) ? SINGLE_CHECKBOX_LABEL : QUESTION_LABELS[question.type];
+/**
+ * The name boxes in the add menu: a short answer that saves to the customer's first or last name, so whoever sends
+ * the form is saved under their name the way an Email or a Phone question saves their email or number.
+ */
+export const NAME_QUESTIONS = {
+  first_name: { label: 'First name', mapTo: 'person.first_name', autoComplete: 'given-name' },
+  last_name: { label: 'Last name', mapTo: 'person.last_name', autoComplete: 'family-name' },
+} as const;
+/** The longest name a name box takes: what a customer's name holds (`PERSON_LIMITS.name` in submit.ts). */
+export const NAME_MAX_LENGTH = 80;
+export type NameQuestion = keyof typeof NAME_QUESTIONS;
+
+/** Which name a question asks for: a short answer saved as their first or last name, or null. */
+export function nameQuestionOf(question: {
+  type: string;
+  mapTo?: string | null;
+}): NameQuestion | null {
+  if (question.type !== 'short_text') return null;
+  if (question.mapTo === NAME_QUESTIONS.first_name.mapTo) return 'first_name';
+  if (question.mapTo === NAME_QUESTIONS.last_name.mapTo) return 'last_name';
+  return null;
+}
+
+/**
+ * What kind of question it is, in the editor's words: a yes or no shown as one box is a "Single checkbox", and a
+ * short answer saved as their first or last name is a "First name" or a "Last name".
+ */
+export function questionKindLabel(question: {
+  type: QuestionType;
+  config?: unknown;
+  mapTo?: string | null;
+}): string {
+  if (isSingleCheckbox(question)) return SINGLE_CHECKBOX_LABEL;
+  const name = nameQuestionOf(question);
+  return name ? NAME_QUESTIONS[name].label : QUESTION_LABELS[question.type];
 }
 
 // ---- Where an answer can be written ----
@@ -281,7 +368,7 @@ export const ANSWER_TARGETS = {
   'person.notes': { label: 'Notes', accepts: ['long_text', 'short_text'] },
   'person.source': { label: 'Where they came from', accepts: ['short_text', 'choice'] },
   'lead.title': { label: 'Lead title', accepts: ['short_text', 'choice'] },
-  'lead.value': { label: 'Lead value', accepts: ['money', 'number'] },
+  'lead.value': { label: 'Lead value', accepts: ['money', 'number', 'quantities'] },
 } as const satisfies Record<string, { label: string; accepts: readonly QuestionType[] }>;
 export type AnswerTargetKey = keyof typeof ANSWER_TARGETS;
 export const ANSWER_TARGET_KEYS = Object.keys(ANSWER_TARGETS) as [
@@ -356,13 +443,28 @@ export type AnswerValue =
   | AddressAnswer
   | SignatureAnswer
   | readonly AnswerFile[]
+  | QuantitiesAnswer
   | null;
 
-/** Nothing was answered: no value, an empty string, or an empty list. */
+/**
+ * A "How many of each" answer: how many of each row, by the row's id (`{"c_ab12cd34": 3}`). Rows they left at 0 are
+ * left out, so nothing ordered is `{}`, which is no answer.
+ */
+export type QuantitiesAnswer = Readonly<Record<string, number>>;
+
+/** Whether a value has the shape of a "How many of each" answer: a plain object whose every value is a number. */
+export function isQuantitiesAnswer(value: unknown): value is QuantitiesAnswer {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const values = Object.values(value);
+  return values.length > 0 && values.every((v) => typeof v === 'number');
+}
+
+/** Nothing was answered: no value, an empty string, an empty list, or none of anything. */
 export function answerIsEmpty(value: unknown): boolean {
   if (value === null || value === undefined) return true;
   if (typeof value === 'string') return value.trim() === '';
   if (Array.isArray(value)) return value.length === 0;
+  if (isQuantitiesAnswer(value)) return Object.values(value).every((n) => !(n > 0));
   if (typeof value === 'object') return Object.keys(value).length === 0;
   return false;
 }

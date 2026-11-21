@@ -24,7 +24,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Fragment, useEffect, useRef, useState, type ComponentType } from 'react';
 import { toast } from 'sonner';
 import { CallConsentRow } from '@/components/crm/call-consent';
-import { BIN_WORDS, can } from '@hfos/core';
+import { HandsDetailsRow } from '@/components/crm/hands';
+import { BIN_WORDS, can, type InHandsRow } from '@hfos/core';
 import { AddonSlot } from '@/components/addons/slot';
 import { useBusinessZone } from '@/components/shell/workspace-shell';
 import { PersonFunnelLine } from '@/components/funnels/person-funnel';
@@ -140,6 +141,8 @@ export interface RecordPageProps {
   relationshipTypes: RelationshipType[];
   /** The fields this business invented for customers or companies. */
   fields: CustomField[];
+  /** A person's: whether someone on the team has them, so the AI holds off (core's messaging/hands.ts). */
+  hands?: InHandsRow | null;
 }
 
 /** The Customer 360 for a person or a company. */
@@ -889,6 +892,17 @@ export function RecordPage(props: RecordPageProps) {
                         personId={person.id}
                         consent={person.callConsent.consent}
                         source={person.callConsent.source}
+                        canEdit={!archived && can(permissions, 'inbox.use')}
+                      />
+                    </dd>
+                    <dt className="text-text-2">The AI</dt>
+                    <dd className="font-medium">
+                      <HandsDetailsRow
+                        workspaceId={workspaceId}
+                        personId={person.id}
+                        name={person.fullName}
+                        myUserId={myUserId}
+                        hands={props.hands ?? null}
                         canEdit={!archived && can(permissions, 'inbox.use')}
                       />
                     </dd>

@@ -9,6 +9,7 @@
 import { z } from 'zod';
 import { isClock, isLocalDate, parseClock } from './engine/zoned';
 import { POLL_AI_MODES } from '../meetings/polls';
+import { FormDesign } from '../forms/design';
 
 export const CALENDAR_CONFIG_VERSION = 1;
 
@@ -79,8 +80,16 @@ export const AssignmentMode = z.enum([
 ]);
 export type AssignmentMode = z.infer<typeof AssignmentMode>;
 
-export const LocationKind = z.enum(['customer_address', 'business', 'virtual', 'phone']);
+export const LocationKind = z.enum(['customer_address', 'business', 'virtual', 'phone', 'meetup']);
 export type LocationKind = z.infer<typeof LocationKind>;
+
+/**
+ * Places the team goes out to: the customer's address, or a meet-up spot like a coffee shop (docs/outreach.md,
+ * decision 179: your usual spot, one halfway between you, or one they name). Travel time and drive times apply.
+ */
+export const GOES_OUT: readonly LocationKind[] = ['customer_address', 'meetup'];
+export const goesOut = (kind: LocationKind | null | undefined): boolean =>
+  !!kind && GOES_OUT.includes(kind);
 /**
  * For an online place: a link people type in ('none'), or one made for each appointment: a Google Meet, a Zoom
  * meeting, or a HandsFreeOS video call (`handsfree`, docs/video-calls.md), which needs nothing connected.
@@ -231,6 +240,12 @@ const Buffers = z.object({
   after: bufferMinutes.default(0),
   /** Added on both sides of customer-address visits only. */
   travelMinutes: bufferMinutes.default(0),
+  /**
+   * Leave time to drive between visits (docs/outreach.md, decision 179): the booking page asks for the address first
+   * and offers only times the person can reach, timed by road from their visit before (or from where their day
+   * starts, for the first) and on to their next. Travel time above still applies on top, for parking and setting up.
+   */
+  driveBetween: z.boolean().default(false),
 });
 
 const Territory = z.object({
@@ -404,6 +419,11 @@ export const CalendarConfig = z.object({
   crm: Crm.prefault({}),
   payments: Payments.prefault({}),
   automations: Automations.prefault({}),
+  /**
+   * How the booking page looks, on its own page and on the business's website: the builder's Design section, the
+   * same choices as a form's Design tab. Null: the business's own colour and HandsFreeOS's look, as before.
+   */
+  design: FormDesign.nullable().default(null),
 });
 export type CalendarConfig = z.infer<typeof CalendarConfig>;
 export type CalendarConfigInput = z.input<typeof CalendarConfig>;

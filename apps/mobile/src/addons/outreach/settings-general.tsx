@@ -1,6 +1,8 @@
 import {
+  autopilotOn,
   choicesFor,
   hourWords,
+  hoursProblem,
   OTHER_PLATFORMS,
   POSTING_MODE_KEYS,
   POSTING_MODES,
@@ -23,33 +25,42 @@ import {
 import type { CountryRule } from '@hfos/core/addons/outreach/countries';
 import { AUTOPILOT_WORDS } from '@hfos/core/addons/outreach/autopilot';
 import { FOUND_CHECKS, stepFoundChecks } from '@hfos/core/addons/outreach/finds';
-import { withNetwork } from '@hfos/core/addons/outreach/network-words';
-import { SETTINGS_WORDS } from '@hfos/core/addons/outreach/settings-parts';
+import {
+  handsOffEverywhere,
+  HANDS_OFF_WORDS as H,
+  withHandsOffEverywhere,
+  type HandsOff,
+} from '@hfos/core/addons/outreach/hands-off';
+import { networksOn, withNetwork } from '@hfos/core/addons/outreach/network-words';
+import { isLooking, runsOnItsOwn } from '@hfos/core/addons/outreach/networks';
+import {
+  handsOffGroups,
+  levelsAllowed,
+  SETTINGS_PAGE_WORDS as SP,
+} from '@hfos/core/addons/outreach/settings-pages';
+import { countryRuleWords } from '@hfos/core/addons/outreach/countries';
 import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import * as React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
-import { ChevronDown, ChevronRight } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 import { useAutosave, type Autosave, type Edit, type SaveState } from './autosave';
 import { countriesProblem, CountrySetting } from './country-setting';
-import { Note, Part } from './kit';
+import { Note } from './kit';
+import { ChangeRow, HandsOffPart, MoreSettings, PickRow, RowsCard } from './settings-hands-off';
 import {
-  AutopilotPart,
   Choice,
   ExtensionTicks,
   NetworkModes,
   NetworkTicks,
   PhonePart,
-  Section,
   Stepper,
-  TeamHeading,
   Tick,
   VoicePart,
   WhenPart,
@@ -71,27 +82,68 @@ export function GeneralMine({
   automation,
   form,
   online,
+  manages = false,
+  onHandsOff = null,
 }: {
   automation: AutomationOutput;
   form: Autosave<AutomationSettings>;
   online: boolean;
+  /** An owner or admin: a level the business doesn't allow says they can change that on Team. */
+  manages?: boolean;
+  /** A level picked for every network at once (decision 170); without it, the form changes as any pick does. */
+  onHandsOff?: ((level: HandsOff) => void) | null;
 }) {
   const disabled = !online;
+  const value = form.value;
+  const rules = automation.rules;
+  // The networks it works on its own for them, which the level sets.
+  const networks = networksOn(value, rules.networksAllowed).filter(
+    (p) => runsOnItsOwn(p) && !isLooking(p),
+  );
+  const wheels =
+    (automation.wheels.on && autopilotOn(value, 'facebook')) ||
+    OTHER_PLATFORMS.some(
+      (p) => automation.networkWheels[p].on && value.networks[p].on && autopilotOn(value, p),
+    );
+  const pick = (level: HandsOff) =>
+    onHandsOff
+      ? onHandsOff(level)
+      : form.change((v) => withHandsOffEverywhere(v, level, rules).settings);
   return (
     <>
-      {/* Autopilot first (decision 151, answer 7a): one switch for every network they work. */}
-      <AutopilotPart
-        value={form.value}
-        onChange={form.change}
-        allowed={automation.rules.autopilotAllowed}
-        wheels={
-          automation.wheels.on ||
-          OTHER_PLATFORMS.some((p) => automation.networkWheels[p].on && form.value.networks[p].on)
-        }
-        boxed
-        disabled={disabled}
-        testID="settings-my"
-      />
+      {/* How hands-off, on every network, first (decision 170): each network's page then picks its own. */}
+      {networks.length ? (
+        <HandsOffPart
+          platform={null}
+          level={handsOffEverywhere(value, networks)}
+          onPick={pick}
+          rules={rules}
+          manages={manages}
+          title={H.everywhereTitle}
+          about={H.everywhereAbout}
+          note={wheels ? H.wheels : null}
+          disabled={disabled}
+          testID="settings-my-hands-off"
+        >
+          {networks.length > 1 ? (
+            <View className="rounded-menu bg-card-2 px-3" testID="settings-my-hands-off-networks">
+              {handsOffGroups(value, networks).map((g, i) => (
+                <View
+                  key={g.networks.join(',')}
+                  className={cn(
+                    'flex-row flex-wrap items-center justify-between gap-x-3 py-2',
+                    i > 0 && 'border-t border-border',
+                  )}
+                  testID="settings-my-hands-off-group"
+                >
+                  <Text className="text-[13.5px] font-semibold">{SP.groupNetworks(g)}</Text>
+                  <Text className="text-[13.5px] text-text-2">{SP.groupLine(g)}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </HandsOffPart>
+      ) : null}
       <VoicePart
         value={form.value}
         onChange={form.change}
@@ -99,14 +151,24 @@ export function GeneralMine({
         disabled={disabled}
         testID="settings-my"
       />
-      <WhenPart
-        value={form.value}
-        onChange={form.change}
-        timezone={automation.timezone}
-        boxed
-        disabled={disabled}
-        testID="settings-my"
-      />
+      {/* Working hours as a row that says how they stand, set under Change (decision 170, part 2). */}
+      <RowsCard testID="settings-my-rows">
+        <ChangeRow
+          title={SP.hours}
+          about={SP.hoursAbout(value.hours)}
+          open={hoursProblem(value.hours) !== null}
+          testID="settings-my-hours"
+        >
+          <WhenPart
+            value={form.value}
+            onChange={form.change}
+            timezone={automation.timezone}
+            boxed={false}
+            disabled={disabled}
+            testID="settings-my"
+          />
+        </ChangeRow>
+      </RowsCard>
       <PhonePart
         value={form.value}
         onChange={form.change}
@@ -211,172 +273,211 @@ export function GeneralTeam({
   const link = outreachSettings(business).extensionLink ?? '';
   return (
     <>
-      <TeamHeading title={SETTINGS_WORDS.team} about={SETTINGS_WORDS.teamAbout} />
-      <Section boxed title={W.sections.allowed} about={W.abouts.allowed}>
-        <View className="gap-3">
-          {SENDING_MODE_KEYS.filter((m) => m !== 'off').map((m) => (
+      {/* What people may pick and where a new person starts, each a row behind Change (decision 170, part 2). */}
+      <RowsCard title={SP.picks} testID="settings-team-picks">
+        <ChangeRow
+          title={SP.mayGo}
+          about={SP.mayGoLine(levelsAllowed(d))}
+          testID="settings-team-may-go"
+        >
+          <Note>{W.abouts.allowed}</Note>
+          <View className="gap-3">
+            {SENDING_MODE_KEYS.filter((m) => m !== 'off').map((m) => (
+              <Tick
+                key={m}
+                label={SENDING_MODES[m]}
+                checked={d.sendingAllowed.includes(m)}
+                onChange={(on) => set({ sendingAllowed: toggle(d.sendingAllowed, m, on) })}
+                disabled={disabled}
+                testID={`settings-rules-sending-${m}`}
+              />
+            ))}
+            {REPLY_MODE_KEYS.filter((m) => m !== 'draft').map((m) => (
+              <Tick
+                key={m}
+                label={REPLY_MODES[m]}
+                checked={d.repliesAllowed.includes(m)}
+                onChange={(on) => set({ repliesAllowed: toggle(d.repliesAllowed, m, on) })}
+                disabled={disabled}
+                testID={`settings-rules-replies-${m}`}
+              />
+            ))}
+            {POSTING_MODE_KEYS.filter((m) => m !== 'copy').map((m) => (
+              <Tick
+                key={m}
+                label={POSTING_MODES[m]}
+                checked={d.postingAllowed.includes(m)}
+                onChange={(on) => set({ postingAllowed: toggle(d.postingAllowed, m, on) })}
+                disabled={disabled}
+                testID={`settings-rules-posting-${m}`}
+              />
+            ))}
             <Tick
-              key={m}
-              label={SENDING_MODES[m]}
-              checked={d.sendingAllowed.includes(m)}
-              onChange={(on) => set({ sendingAllowed: toggle(d.sendingAllowed, m, on) })}
+              label={AUTOPILOT_WORDS.allow}
+              about={AUTOPILOT_WORDS.allowAbout}
+              checked={d.autopilotAllowed}
+              onChange={(on) => set({ autopilotAllowed: on })}
               disabled={disabled}
-              testID={`settings-rules-sending-${m}`}
+              testID="settings-rules-autopilot"
             />
-          ))}
-          {REPLY_MODE_KEYS.filter((m) => m !== 'draft').map((m) => (
-            <Tick
-              key={m}
-              label={REPLY_MODES[m]}
-              checked={d.repliesAllowed.includes(m)}
-              onChange={(on) => set({ repliesAllowed: toggle(d.repliesAllowed, m, on) })}
-              disabled={disabled}
-              testID={`settings-rules-replies-${m}`}
-            />
-          ))}
-          {POSTING_MODE_KEYS.filter((m) => m !== 'copy').map((m) => (
-            <Tick
-              key={m}
-              label={POSTING_MODES[m]}
-              checked={d.postingAllowed.includes(m)}
-              onChange={(on) => set({ postingAllowed: toggle(d.postingAllowed, m, on) })}
-              disabled={disabled}
-              testID={`settings-rules-posting-${m}`}
-            />
-          ))}
-          <Tick
-            label={AUTOPILOT_WORDS.allow}
-            about={AUTOPILOT_WORDS.allowAbout}
-            checked={d.autopilotAllowed}
-            onChange={(on) => set({ autopilotAllowed: on })}
+          </View>
+        </ChangeRow>
+        <ChangeRow
+          title={SP.starts}
+          about={SP.startsLine(d.defaults)}
+          testID="settings-defaults-part"
+        >
+          <Defaults
+            value={d}
+            onChange={(change, options) =>
+              team.change((v) => ({ ...v, defaults: change(v.defaults) }), options)
+            }
+            timezone={timezone}
             disabled={disabled}
-            testID="settings-rules-autopilot"
+          />
+        </ChangeRow>
+      </RowsCard>
+      {/* The business's own settings, as short picks with the choice showing. */}
+      <RowsCard title={SP.wholeBusiness} testID="settings-team-business">
+        <ChangeRow
+          title={SP.countries}
+          about={countryRuleWords(d.countries)}
+          open={countriesProblem(d.countries) !== null}
+          testID="settings-countries-row"
+        >
+          <CountrySetting
+            value={d.countries}
+            onChange={(countries) => set({ countries })}
+            disabled={disabled}
+          >
+            {countryLists}
+          </CountrySetting>
+        </ChangeRow>
+        <ChangeRow
+          title={SP.contacts}
+          about={SP.contactsShort[d.contactsFromChats]}
+          testID="settings-contacts-row"
+        >
+          <Note>{W.abouts.contacts}</Note>
+          {CONTACTS_FROM_CHATS.map((k) => (
+            <Choice
+              key={k}
+              label={CONTACTS_FROM_CHATS_WORDS[k]}
+              about={k === 'tagged' ? W.usual : undefined}
+              selected={d.contactsFromChats === k}
+              onPress={() => set({ contactsFromChats: k })}
+              disabled={disabled}
+              testID={`settings-contacts-${k}`}
+            />
+          ))}
+        </ChangeRow>
+        <PickRow title={SP.warmUp} about={SP.warmUpAbout} testID="settings-cancel-weeks-row">
+          <Stepper
+            words={W.weeks(d.cancelRequestsAfterWeeks)}
+            onDown={
+              d.cancelRequestsAfterWeeks > 1 && !disabled
+                ? () => set({ cancelRequestsAfterWeeks: d.cancelRequestsAfterWeeks - 1 }, true)
+                : null
+            }
+            onUp={
+              d.cancelRequestsAfterWeeks < 12 && !disabled
+                ? () => set({ cancelRequestsAfterWeeks: d.cancelRequestsAfterWeeks + 1 }, true)
+                : null
+            }
+            testID="settings-cancel-weeks"
+          />
+        </PickRow>
+        <PickRow title={SP.morning} about={SP.morningAbout} testID="settings-morning-row">
+          <Stepper
+            words={d.morningPushHour === null ? W.off : hourWords(d.morningPushHour)}
+            // Off sits between 11 PM and midnight.
+            onDown={
+              disabled
+                ? null
+                : () =>
+                    set(
+                      {
+                        morningPushHour:
+                          d.morningPushHour === null
+                            ? 23
+                            : d.morningPushHour > 0
+                              ? d.morningPushHour - 1
+                              : null,
+                      },
+                      true,
+                    )
+            }
+            onUp={
+              disabled
+                ? null
+                : () =>
+                    set(
+                      {
+                        morningPushHour:
+                          d.morningPushHour === null
+                            ? 0
+                            : d.morningPushHour < 23
+                              ? d.morningPushHour + 1
+                              : null,
+                      },
+                      true,
+                    )
+            }
+            testID="settings-morning"
+          />
+        </PickRow>
+        <View className="py-3">
+          <Tick
+            label={SP.weekly}
+            about={SP.weeklyAbout}
+            checked={d.weeklyReport}
+            onChange={(on) => set({ weeklyReport: on })}
+            disabled={disabled}
+            testID="settings-weekly"
           />
         </View>
-      </Section>
-      <Defaults
-        value={d}
-        onChange={(change, options) =>
-          team.change((v) => ({ ...v, defaults: change(v.defaults) }), options)
-        }
-        timezone={timezone}
-        disabled={disabled}
-      />
-      <Section boxed title={W.sections.contacts} about={W.abouts.contacts}>
-        {CONTACTS_FROM_CHATS.map((k) => (
-          <Choice
-            key={k}
-            label={CONTACTS_FROM_CHATS_WORDS[k]}
-            about={k === 'tagged' ? W.usual : undefined}
-            selected={d.contactsFromChats === k}
-            onPress={() => set({ contactsFromChats: k })}
-            disabled={disabled}
-            testID={`settings-contacts-${k}`}
+        <ChangeRow
+          title={SP.extension}
+          about={link ? SP.extensionTheirs : SP.extensionOurs}
+          testID="settings-extension-link"
+        >
+          <Note>{L.about}</Note>
+          <ExtensionLink
+            saved={link}
+            online={online}
+            onSave={(extensionLink) => onSave(() => ({ extensionLink }))}
           />
-        ))}
-      </Section>
-      <Section boxed title={W.sections.cancelAfter} about={W.abouts.cancelAfter}>
-        <Stepper
-          words={W.weeks(d.cancelRequestsAfterWeeks)}
-          onDown={
-            d.cancelRequestsAfterWeeks > 1 && !disabled
-              ? () => set({ cancelRequestsAfterWeeks: d.cancelRequestsAfterWeeks - 1 }, true)
-              : null
-          }
-          onUp={
-            d.cancelRequestsAfterWeeks < 12 && !disabled
-              ? () => set({ cancelRequestsAfterWeeks: d.cancelRequestsAfterWeeks + 1 }, true)
-              : null
-          }
-          testID="settings-cancel-weeks"
-        />
-      </Section>
-      <Section boxed title={W.sections.foundChecks} about={W.abouts.foundChecks}>
-        <Stepper
-          words={W.aDay(d.foundChecksPerDay)}
-          onDown={
-            d.foundChecksPerDay > FOUND_CHECKS.least && !disabled
-              ? () => set({ foundChecksPerDay: stepFoundChecks(d.foundChecksPerDay, -1) }, true)
-              : null
-          }
-          onUp={
-            d.foundChecksPerDay < FOUND_CHECKS.most && !disabled
-              ? () => set({ foundChecksPerDay: stepFoundChecks(d.foundChecksPerDay, 1) }, true)
-              : null
-          }
-          testID="settings-found-checks"
-        />
-      </Section>
-      <Section boxed title={W.sections.morning} about={W.abouts.morning}>
-        <Stepper
-          words={d.morningPushHour === null ? W.off : hourWords(d.morningPushHour)}
-          // Off sits between 11 PM and midnight.
-          onDown={
-            disabled
-              ? null
-              : () =>
-                  set(
-                    {
-                      morningPushHour:
-                        d.morningPushHour === null
-                          ? 23
-                          : d.morningPushHour > 0
-                            ? d.morningPushHour - 1
-                            : null,
-                    },
-                    true,
-                  )
-          }
-          onUp={
-            disabled
-              ? null
-              : () =>
-                  set(
-                    {
-                      morningPushHour:
-                        d.morningPushHour === null
-                          ? 0
-                          : d.morningPushHour < 23
-                            ? d.morningPushHour + 1
-                            : null,
-                    },
-                    true,
-                  )
-          }
-          testID="settings-morning"
-        />
-      </Section>
-      <Card className="px-4 py-4">
-        <Tick
-          label={W.sections.weekly}
-          about={W.abouts.weekly}
-          checked={d.weeklyReport}
-          onChange={(on) => set({ weeklyReport: on })}
-          disabled={disabled}
-          testID="settings-weekly"
-        />
-      </Card>
-      <CountrySetting
-        value={d.countries}
-        onChange={(countries) => set({ countries })}
-        disabled={disabled}
-      >
-        {countryLists}
-      </CountrySetting>
-      <Part title={L.title} about={L.about} testID="settings-extension-link">
-        <ExtensionLink
-          saved={link}
-          online={online}
-          onSave={(extensionLink) => onSave(() => ({ extensionLink }))}
-        />
-      </Part>
+        </ChangeRow>
+      </RowsCard>
+      <MoreSettings about={SP.moreAbout} testID="settings-team-more">
+        <PickRow
+          title={W.sections.foundChecks}
+          about={W.abouts.foundChecks}
+          testID="settings-found-checks-row"
+        >
+          <Stepper
+            words={W.aDay(d.foundChecksPerDay)}
+            onDown={
+              d.foundChecksPerDay > FOUND_CHECKS.least && !disabled
+                ? () => set({ foundChecksPerDay: stepFoundChecks(d.foundChecksPerDay, -1) }, true)
+                : null
+            }
+            onUp={
+              d.foundChecksPerDay < FOUND_CHECKS.most && !disabled
+                ? () => set({ foundChecksPerDay: stepFoundChecks(d.foundChecksPerDay, 1) }, true)
+                : null
+            }
+            testID="settings-found-checks"
+          />
+        </PickRow>
+      </MoreSettings>
     </>
   );
 }
 
 /**
- * Where a new person starts (`rules.defaults`): the same choices as each person's, Facebook's and General's, folded to
- * a line until changed (decision 59), and saved with the rest of For your team.
+ * Where a new person starts (`rules.defaults`): the same choices as each person's, Facebook's and You's, opened from
+ * its row on Team (decisions 59 and 170), and saved with the rest of the team's.
  */
 function Defaults({
   value,
@@ -389,81 +490,62 @@ function Defaults({
   timezone: string;
   disabled: boolean;
 }) {
-  const [open, setOpen] = React.useState(false);
   const defaults = value.defaults;
   const facebook = choicesFor(defaults, 'facebook');
   const set = (change: Partial<NetworkChoices>) =>
     onChange((v) => withNetwork(v, 'facebook', change));
   return (
-    <Card className="gap-4 px-4 py-4" testID="settings-defaults-part">
-      <Pressable
-        role="button"
-        aria-expanded={open}
-        onPress={() => setOpen((o) => !o)}
-        className="flex-row items-start gap-3"
-        testID="settings-defaults-open"
-      >
-        <View className="flex-1 gap-0.5">
-          <Text className="text-[15px] font-semibold">{W.sections.defaults}</Text>
-          <Note>{`${SENDING_MODES[defaults.sending]} · ${REPLY_MODES[defaults.replies]}`}</Note>
-        </View>
-        {open ? null : <Text className="text-[13px] font-medium text-accent-text">{W.change}</Text>}
-        <Icon as={open ? ChevronDown : ChevronRight} className="size-4 text-text-3" />
-      </Pressable>
-      {open ? (
-        <View className="gap-5" testID="settings-defaults">
-          <Note>{W.abouts.defaults}</Note>
-          <NetworkModes
-            platform="facebook"
-            value={facebook}
-            onChange={set}
-            sendingAllowed={value.sendingAllowed}
-            repliesAllowed={value.repliesAllowed}
-            postingAllowed={value.postingAllowed}
-            boxed={false}
-            disabled={disabled}
-            testID="settings-defaults"
-          />
-          <NetworkTicks
-            platform="facebook"
-            value={facebook}
-            onChange={set}
-            boxed={false}
-            disabled={disabled}
-            testID="settings-defaults"
-          />
-          <ExtensionTicks
-            value={defaults}
-            onChange={onChange}
-            boxed={false}
-            disabled={disabled}
-            testID="settings-defaults"
-          />
-          <VoicePart
-            value={defaults}
-            onChange={onChange}
-            boxed={false}
-            disabled={disabled}
-            testID="settings-defaults"
-          />
-          <WhenPart
-            value={defaults}
-            onChange={onChange}
-            timezone={timezone}
-            boxed={false}
-            disabled={disabled}
-            testID="settings-defaults"
-          />
-          <PhonePart
-            value={defaults}
-            onChange={onChange}
-            boxed={false}
-            disabled={disabled}
-            testID="settings-defaults"
-          />
-        </View>
-      ) : null}
-    </Card>
+    <View className="gap-5" testID="settings-defaults">
+      <Note>{W.abouts.defaults}</Note>
+      <NetworkModes
+        platform="facebook"
+        value={facebook}
+        onChange={set}
+        sendingAllowed={value.sendingAllowed}
+        repliesAllowed={value.repliesAllowed}
+        postingAllowed={value.postingAllowed}
+        boxed={false}
+        disabled={disabled}
+        testID="settings-defaults"
+      />
+      <NetworkTicks
+        platform="facebook"
+        value={facebook}
+        onChange={set}
+        boxed={false}
+        disabled={disabled}
+        testID="settings-defaults"
+      />
+      <ExtensionTicks
+        value={defaults}
+        onChange={onChange}
+        boxed={false}
+        disabled={disabled}
+        testID="settings-defaults"
+      />
+      <VoicePart
+        value={defaults}
+        onChange={onChange}
+        boxed={false}
+        disabled={disabled}
+        testID="settings-defaults"
+      />
+      <WhenPart
+        value={defaults}
+        onChange={onChange}
+        timezone={timezone}
+        boxed={false}
+        disabled={disabled}
+        testID="settings-defaults"
+      />
+      <PhonePart
+        value={defaults}
+        onChange={onChange}
+        boxed={false}
+        disabled={disabled}
+        testID="settings-defaults"
+      />
+    </View>
   );
 }
 

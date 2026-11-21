@@ -5,9 +5,11 @@
  * the extension's own with what the post said and the comment; and one that couldn't go told to HandsFreeOS as not
  * sent, with why, so it hands it to the person. On made-up people and posts.
  */
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as Looks from '../src/auto/post-look';
 import type { TodayListItem } from '../src/hfos/messages';
-import type { AutoAnswer, AutoAsk } from '../src/messages';
+import type { AutoAnswer, AutoAsk, PostLookAnswer, PostLookAsk } from '../src/messages';
 
 const world = vi.hoisted(() => ({
   asked: [] as { type: string; input?: unknown }[],
@@ -61,6 +63,14 @@ vi.mock('../src/jobs/job', async (original) => ({
   ...(await original<object>()),
   pause: () => Promise.resolve(),
 }));
+// A photo fetched and made small is stood in for: the look's own tests cover it (./post-look.test.ts).
+vi.mock('../src/auto/post-look', async (original) => {
+  const real = await original<typeof Looks>();
+  return {
+    ...real,
+    lookAtPost: (runner: never, on: never) => real.lookAtPost(runner, on, async () => PHOTO),
+  };
+});
 
 const { commentDoing, draftComment, sendComment } = await import('../src/auto/comments');
 
@@ -133,6 +143,49 @@ function runner(wrote: AutoAnswer, pageSays: ({ stop: string } | { again: string
   };
 }
 
+/** A JPEG in base64, as a photo made small and a frame drawn come. */
+const PHOTO = `/9j/${'A'.repeat(4_000)}`;
+const FRAME = `/9j/${'B'.repeat(4_000)}`;
+
+/**
+ * A runner whose tab can look at the post too (decision 166): it answers the look as `seen` says, and its page as
+ * `pageSays` does. `steps` is what happened, in order.
+ */
+function looking(
+  seen: PostLookAnswer,
+  pageSays: ({ stop: string } | { again: string } | null)[] = [],
+  platform: Platform = 'instagram',
+) {
+  const steps: string[] = [];
+  const looks: PostLookAsk[] = [];
+  function ask(message: AutoAsk): Promise<AutoAnswer>;
+  function ask(message: PostLookAsk): Promise<PostLookAnswer>;
+  async function ask(message: AutoAsk | PostLookAsk): Promise<AutoAnswer | PostLookAnswer> {
+    steps.push(message.type);
+    if (message.type !== 'hfos-post-look') return { ok: false, error: 'not asked for here' };
+    looks.push(message);
+    return seen;
+  }
+  return {
+    steps,
+    looks,
+    runner: {
+      platform,
+      tab: {
+        open: async (url: string) => {
+          steps.push(`open ${url}`);
+          return 1;
+        },
+        ask,
+      },
+      onPage: async () => {
+        steps.push('page');
+        return pageSays.shift() ?? null;
+      },
+    },
+  };
+}
+
 const done = () => world.posted.filter((p) => p.path.endsWith('outreach.send.done'));
 
 beforeEach(() => {
@@ -184,12 +237,119 @@ describe('a comment’s draft', () => {
       done: false,
       line: 'Kim Baker’s post: no post kept',
     });
+    // No comment is the right answer with nothing real to say (decision 165): passed over, never reported, as the
+    // owner's problem reports of 13 to 15 Nov 2026 had it (each after the AI wrote, its drafts all checked out).
     world.draft = [];
     expect(await draftComment(item(), BUSINESS)).toEqual({
       done: false,
       line: 'Kim Baker’s post: the AI had nothing to say on it',
+      skip: true,
+    });
+    // A reply to a question asked in their group still says so as before.
+    expect(await draftComment(item({ kind: 'group_reply' }), BUSINESS)).toEqual({
+      done: false,
+      line: 'Kim Baker’s question: the AI had nothing to say on it',
     });
     expect(world.posted).toEqual([]);
+  });
+
+  it('looks at the post on its own page first, and its picture goes with the draft (decision 166)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      async () =>
+        new Response(new Blob([new Uint8Array(100)]), {
+          status: 200,
+          headers: { 'content-type': 'image/jpeg' },
+        }),
+    );
+    const photo = looking({
+      ok: true,
+      seen: { kind: 'photo', url: 'https://scontent.cdninstagram.com/v/loaf.jpg' },
+    });
+    expect(await draftComment(item(), BUSINESS, { runner: photo.runner, them: KIM })).toEqual({
+      done: true,
+      line: 'Wrote a comment on Kim Baker’s post, from its picture: it waits for your OK',
+    });
+    // The post's page is opened and looked at for a warning before anything's read from it.
+    expect(photo.steps).toEqual([`open ${POST}`, 'page', 'hfos-post-look']);
+    expect(photo.looks[0]).toMatchObject({ profile: KIM, postUrl: POST });
+    expect(world.asked).toEqual([
+      {
+        type: 'hfos-draft',
+        workspaceId: BUSINESS,
+        input: {
+          kind: 'comment',
+          profileId: PROFILE_ID,
+          postId: POST_ID,
+          look: { kind: 'photo', jpegs: [PHOTO] },
+        },
+      },
+    ]);
+    // What's queued is the comment and its post: never the picture.
+    expect(JSON.stringify(world.posted)).not.toContain('/9j/');
+    world.asked.length = 0;
+    const video = looking({
+      ok: true,
+      seen: { kind: 'video', jpegs: [FRAME, FRAME], poster: null },
+    });
+    expect(await draftComment(item(), BUSINESS, { runner: video.runner, them: KIM })).toMatchObject(
+      {
+        line: 'Wrote a comment on Kim Baker’s post, from its video: it waits for your OK',
+      },
+    );
+    expect(world.asked[0]!.input).toMatchObject({ look: { kind: 'video', jpegs: [FRAME, FRAME] } });
+    vi.unstubAllGlobals();
+  });
+
+  it('is written from the words, as before, when the post has no picture or it couldn’t be taken', async () => {
+    for (const seen of [
+      { ok: true, seen: null },
+      { ok: false, error: 'The Instagram tab was closed.' },
+      { ok: true, seen: { kind: 'video', jpegs: [], poster: null } },
+    ] as PostLookAnswer[]) {
+      world.asked.length = 0;
+      const none = looking(seen);
+      expect(await draftComment(item(), BUSINESS, { runner: none.runner, them: KIM })).toEqual({
+        done: true,
+        line: 'Wrote a comment on Kim Baker’s post: it waits for your OK',
+      });
+      expect(world.asked[0]!.input).toEqual({
+        kind: 'comment',
+        profileId: PROFILE_ID,
+        postId: POST_ID,
+      });
+    }
+  });
+
+  it('stops before the draft on a warning or a sign-in page, and opens nothing where posts aren’t looked at', async () => {
+    const warned = looking({ ok: true, seen: null }, [{ stop: 'Stopped for today: a warning.' }]);
+    expect(await draftComment(item(), BUSINESS, { runner: warned.runner, them: KIM })).toEqual({
+      stop: 'Stopped for today: a warning.',
+    });
+    const signedOut = looking({ ok: true, seen: null }, [{ again: 'Sign in to Instagram.' }]);
+    expect(await draftComment(item(), BUSINESS, { runner: signedOut.runner, them: KIM })).toEqual({
+      again: 'Sign in to Instagram.',
+    });
+    expect(warned.steps).toEqual([`open ${POST}`, 'page']);
+    expect(world.asked).toEqual([]);
+    expect(world.posted).toEqual([]);
+    // A network whose posts aren't looked at (every network built is, from 0.144.0: one added later till its picture
+    // servers are listed), a post with no link kept, nobody to say whose it is, and a reply in a group: drafted from
+    // the words, and the tab is left where it was.
+    const later = looking({ ok: true, seen: null }, [], 'myspace' as Platform);
+    await draftComment(item(), BUSINESS, { runner: later.runner, them: KIM });
+    const noLink = looking({ ok: true, seen: null });
+    await draftComment(item({ postUrl: null }), BUSINESS, { runner: noLink.runner, them: KIM });
+    const nobody = looking({ ok: true, seen: null });
+    await draftComment(item(), BUSINESS, { runner: nobody.runner, them: null });
+    const reply = looking({ ok: true, seen: null });
+    await draftComment(item({ kind: 'group_reply' }), BUSINESS, {
+      runner: reply.runner,
+      them: KIM,
+    });
+    for (const one of [later, noLink, nobody, reply]) expect(one.steps).toEqual([]);
+    expect(world.asked).toHaveLength(4);
+    for (const asked of world.asked) expect(asked.input).not.toHaveProperty('look');
   });
 
   it('says what the runner’s doing', () => {
@@ -273,6 +433,21 @@ describe('a comment’s send', () => {
       [false, 'couldn’t find the post’s own box to comment in'],
       [false, 'Instagram didn’t take the comment'],
       [false, 'The extension doesn’t comment on Instagram on its own.'],
+    ]);
+    expect(world.noted).toEqual([]);
+  });
+
+  it('passes over a post that doesn’t let them comment, tells HandsFreeOS why, and isn’t a failure', async () => {
+    // The owner's problem report of 15 Nov 2026: a post whose author limited who can comment has no Comment and no box.
+    expect(
+      await sendComment(sending(), KIM, BUSINESS, runner({ ok: true, result: 'closed' }).runner),
+    ).toEqual({
+      done: false,
+      line: 'Kim Baker’s post: it doesn’t let you comment on it',
+      skip: true,
+    });
+    expect(done().map((p) => [p.body.sent, p.body.why])).toEqual([
+      [false, 'it doesn’t let you comment on it'],
     ]);
     expect(world.noted).toEqual([]);
   });

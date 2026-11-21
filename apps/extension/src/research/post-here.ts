@@ -6,13 +6,18 @@
  *   mind…"), types the words into the box Facebook opens over the page (only while it's empty), adds the pictures,
  *   and presses **Next** when Facebook asks for it before **Post**.
  * - **Facebook, the business's Page:** Meta Business Suite's Create post for the Page (business.facebook.com), so the
- *   person's own profile is never switched to the Page: the words go in its text box, the pictures are added, a tick
- *   for Instagram that's on is turned off (Instagram has its own post, part 10), and it presses **Publish**.
+ *   person's own profile is never switched to the Page: the words go in its text box, the pictures are added,
+ *   Instagram is taken off what it posts to (a tick, or the Instagram account under **Post to**, which Business Suite
+ *   picks for a Page with Instagram linked: Instagram has its own post, part 10), and it presses **Publish**. Business
+ *   Suite stays on its page a while, publishing, so it's given up to 90 seconds (the owner's Page posts, 14 Nov 2026,
+ *   0.139.3: still publishing at 30), and then the background looks on the Page for it (./posting.ts).
  * - **LinkedIn:** their feed's **Start a post**, the same way, with LinkedIn's **Next** or **Done** after the pictures
  *   when it shows its picture editor.
  * - **Instagram (part 10):** **Create** in its side menu (then **Post**, when Instagram asks which kind), the pictures
  *   or the person's video into Create new post's file field, **OK** when Instagram says a video goes up as a reel,
- *   **Next** past cropping and editing, then the words in its caption box (only while it's empty) and **Share**.
+ *   **Original** under cropping's **Select crop** (Instagram starts on a square, which cut a 4:5 picture's bottom
+ *   off), **Next** past cropping and editing, then the words in its caption box (only while it's empty) and **Share**.
+ * - **Threads and X (decision 41):** their own box, with each post of a chain in a box of its own (./post-short.ts).
  *
  * Pictures and the person's video come in as files from HandsFreeOS (the background fetches them). They're added the
  * ways a person can: the box's own file field (`input[type=file]`), pasting them into the words, the network's photo
@@ -23,8 +28,10 @@
  * It never presses anything but the box's own controls, and never posts twice: once Post is pressed it says so.
  */
 import { clean, labelOf } from '../networks/facebook/dom';
-import { shown } from '../networks/facebook/fetch';
+import { pause, waitFor as steadyWaitFor } from '../steady';
+import { shown, visible } from '../networks/facebook/fetch';
 import { putPostIn } from '../networks/post-text';
+import { postShort } from './post-short';
 
 /** A file to add, as the background fetched it. */
 export interface PostFileIn {
@@ -33,13 +40,18 @@ export interface PostFileIn {
   readonly base64: string;
 }
 
-/** Which composer: Facebook's over its feed, Business Suite's for a Page, LinkedIn's over its feed, or Instagram's. */
-export type PostWhere = 'facebook' | 'business' | 'linkedin' | 'instagram';
+/**
+ * Which composer: Facebook's over its feed, Business Suite's for a Page, LinkedIn's over its feed, Instagram's, or
+ * Threads' or X's (decision 41, ./post-short.ts).
+ */
+export type PostWhere = 'facebook' | 'business' | 'linkedin' | 'instagram' | 'threads' | 'x';
 
 export interface PostAsk {
   readonly where: PostWhere;
   readonly text: string;
   readonly files: readonly PostFileIn[];
+  /** On Threads and X: the posts that go under the first, each in a box of its own. */
+  readonly chain?: readonly string[];
 }
 
 /**
@@ -54,8 +66,6 @@ export interface PostDone {
   /** What it did, for a problem report: "box", "typed", "media:paste", "next", "post"… */
   readonly steps: readonly string[];
 }
-
-const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
 /** Where a person writes. */
 export const WRITING_BOX = '[role="textbox"], [contenteditable="true"], textarea';
@@ -77,6 +87,11 @@ const PUBLISHED =
   /\b(your post (is|was|has been) (now )?(published|shared|live)|post published|post shared)\b/i;
 /** A box to tick for Instagram in Business Suite's "Post to". */
 const INSTAGRAM = /\binstagram\b/i;
+/** The Instagram badge on an account's picture, in Business Suite's Post to and its list of accounts. */
+const IG_BADGE = 'img[alt="Instagram" i]';
+/** A row in an open list of accounts to post to. */
+const ACCOUNT_ROWS =
+  '[role="option"], [role="menuitemcheckbox"], [role="checkbox"], input[type="checkbox"]';
 /** Instagram's Create in its side menu, and Post in the small menu it opens to ask which kind. */
 export const IG_CREATE = /^(create|new post)$/i;
 const IG_KIND = /^post$/i;
@@ -84,6 +99,15 @@ const IG_KIND = /^post$/i;
 const IG_PICK = /^select (from (your )?computer|photos( and videos)?)$/i;
 /** Instagram's note that a video goes up as a reel, and its OK. */
 const IG_OK = /^ok$/i;
+/**
+ * Cropping's button that shows the shapes, and the shape picked: the picture as it was made, else 4:5. Instagram starts
+ * on a square, so a 4:5 picture went up with its top and bottom cut off, its words with them (the owner, 14 Nov 2026).
+ */
+const IG_CROP = /^select crop$/i;
+const IG_SHAPES: readonly { readonly words: RegExp; readonly step: string }[] = [
+  { words: /^original$/i, step: 'crop:original' },
+  { words: /^4\s*:\s*5$/, step: 'crop:4:5' },
+];
 /** Instagram's words once a post or reel is up, and when it didn't take it. */
 export const IG_SHARED =
   /\b(your (post|reel) (has been|was) shared|(post|reel) shared|shared to your (profile|feed))\b/i;
@@ -93,19 +117,27 @@ const IG_VIDEO_MS = 170_000;
 
 const WAIT_MS = 8_000;
 const POSTING_MS = 30_000;
+/** Business Suite publishes a Page's post with its page still up, for longer (with Instagram ticked, over 30 s). */
+const BUSINESS_POSTING_MS = 90_000;
 const LOOK_MS = 400;
 
-async function waitFor<T>(find: () => T | null, ms = WAIT_MS): Promise<T | null> {
-  for (let waited = 0; waited <= ms; waited += LOOK_MS) {
-    const found = find();
-    if (found) return found;
-    await pause(LOOK_MS);
-  }
-  return null;
-}
+/** Waits by the clock, so a window Chrome hides behind the person's never stretches it (../steady.ts). */
+const waitFor = <T>(find: () => T | null, ms = WAIT_MS): Promise<T | null> =>
+  steadyWaitFor(find, ms, LOOK_MS);
 
-/** What a control says: its label, else its words. */
-const wordsOf = (e: Element) => labelOf(e);
+/**
+ * What a control says: its label, else the words a person sees in it. An icon's hidden title counts only when the
+ * control has nothing else: Instagram draws its icons with one (Create's menu says "Post" beside an icon titled
+ * "Post", which read "PostPost" and was never picked; the owner's first Instagram post, 13 Nov 2026, 0.139.0).
+ */
+function wordsOf(e: Element): string {
+  if (clean(e.getAttribute('aria-label'))) return labelOf(e);
+  let words = '';
+  const walker = e.ownerDocument.createTreeWalker(e, 4 /* text */);
+  for (let node = walker.nextNode(); node; node = walker.nextNode())
+    if (!node.parentElement?.closest('svg')) words += node.nodeValue ?? '';
+  return clean(words) || labelOf(e);
+}
 const says = (e: Element, pattern: RegExp) => pattern.test(wordsOf(e));
 
 /** The main part of the page, where a feed's box is. */
@@ -277,6 +309,8 @@ async function addFiles(
   const button = controlIn(box, MEDIA);
   if (button) {
     const fields = new Set(fileFields(box, doc));
+    // What showed over the page before: a window the button opens may have been there all along, hidden.
+    const opened = new Set([...doc.querySelectorAll(OVER_THE_PAGE)].filter(shown));
     button.click();
     steps.push('media:button');
     // The field the button asked for (held back from opening the picker: ./tab.ts), or one it made.
@@ -294,6 +328,15 @@ async function addFiles(
       steps.push(asked ? 'media:asked' : 'media:field2');
       if (await tookThem(doc, box, before)) return true;
     }
+    // LinkedIn's newer box opens a window of its own for pictures, with Upload from computer and a place to drop
+    // them, then Next back to the box (the owner's first LinkedIn post, 13 Nov 2026, 0.139.0).
+    const media = [...doc.querySelectorAll(OVER_THE_PAGE)]
+      .filter((d) => !opened.has(d) && d !== box && !d.contains(box) && shown(d))
+      .at(-1);
+    if (media && (await addInMediaWindow(doc, media, files, steps))) {
+      const closed = await waitFor(() => (media.isConnected && shown(media) ? null : true), 6_000);
+      return !!closed || mediaCount(box) > before || !!pictureEditor(doc, box);
+    }
   }
   const dropped = transferOf(doc, files);
   if (!win.DragEvent || !dropped) return false;
@@ -308,8 +351,72 @@ async function addFiles(
   return tookThem(doc, box, before);
 }
 
+/** A window's button that opens the computer's file picker for its pictures. */
+const UPLOAD =
+  /^(upload from (your )?(computer|device)|select (files?|from (your )?computer)|choose files?|browse( files)?|upload( (files?|media|photos?))?)$/i;
+/** The place in a window to drop pictures on. */
+const DROP_ZONE = '[data-testid="add-media-drop-zone"], [data-testid*="drop-zone" i]';
+
+/**
+ * Puts the files in a window that's only for pictures (LinkedIn's): its own file field, else its upload button (with
+ * the file picker held back, so the field it asks for takes them), else dropped on its drop place; then its Next,
+ * once it shows them. Whether it took them.
+ */
+async function addInMediaWindow(
+  doc: Document,
+  media: Element,
+  files: readonly File[],
+  steps: string[],
+): Promise<boolean> {
+  const showsThem = () =>
+    mediaCount(media) > 0 || (!media.querySelector(DROP_ZONE) && !!controlIn(media, NEXT));
+  let field: HTMLInputElement | null | undefined = [
+    ...media.querySelectorAll<HTMLInputElement>('input[type="file"]'),
+  ].find(takesMedia);
+  if (!field) {
+    const upload = controlIn(media, UPLOAD);
+    if (upload) {
+      upload.click();
+      steps.push('window:upload');
+      field = await waitFor(
+        () =>
+          doc.querySelector<HTMLInputElement>('input[type="file"][data-hfos-picked]') ??
+          [...media.querySelectorAll<HTMLInputElement>('input[type="file"]')].find(takesMedia) ??
+          null,
+        3_000,
+      );
+    }
+  }
+  let took = false;
+  if (field) {
+    field.removeAttribute('data-hfos-picked');
+    giveFiles(field, files);
+    steps.push('window:field');
+    took = !!(await waitFor(() => (showsThem() ? true : null), 8_000));
+  }
+  const win = windowOf(doc);
+  const zone = media.querySelector(DROP_ZONE);
+  const dropped = !took && zone ? transferOf(doc, files) : null;
+  if (zone && dropped && win.DragEvent) {
+    for (const type of ['dragenter', 'dragover', 'drop']) {
+      zone.dispatchEvent(
+        new win.DragEvent(type, { dataTransfer: dropped, bubbles: true, cancelable: true }),
+      );
+      await pause(150);
+    }
+    steps.push('window:drop');
+    took = !!(await waitFor(() => (showsThem() ? true : null), 8_000));
+  }
+  if (!took) return false;
+  const next = await waitFor(() => controlIn(media, NEXT), 20_000);
+  if (!next) return false;
+  next.click();
+  steps.push('window:next');
+  return true;
+}
+
 /** Turns off a tick for Instagram that's on in Business Suite's "Post to": the Page's post goes to the Page only. */
-function instagramOff(box: Element, steps: string[]): void {
+async function instagramOff(doc: Document, box: Element, steps: string[]): Promise<void> {
   for (const tick of box.querySelectorAll<HTMLElement>(
     'input[type="checkbox"], [role="checkbox"], [role="switch"]',
   )) {
@@ -317,13 +424,55 @@ function instagramOff(box: Element, steps: string[]): void {
       clean(tick.getAttribute('aria-label')) ||
       clean(tick.closest('label')?.textContent) ||
       clean(tick.parentElement?.textContent);
-    const on =
-      (tick as HTMLInputElement).checked === true || tick.getAttribute('aria-checked') === 'true';
-    if (on && INSTAGRAM.test(label)) {
+    if (isOn(tick) && INSTAGRAM.test(label)) {
       tick.click();
       steps.push('instagram:off');
     }
   }
+  // Business Suite's Post to (2026): the accounts it posts to, each picture with its network's badge. With
+  // Instagram linked, Instagram's is there from the start (the owner's Page posts, 14 Nov 2026, 0.139.3).
+  const postTo = [...box.querySelectorAll<HTMLElement>('[role="combobox"]')].find(
+    (c) => c.getAttribute('contenteditable') !== 'true' && !!c.querySelector(IG_BADGE),
+  );
+  if (!postTo) return;
+  postTo.click();
+  steps.push('instagram:list');
+  const rows = await waitFor(() => {
+    const found = instagramRows(doc, postTo);
+    return found.length ? found : null;
+  }, 3_000);
+  for (const row of rows ?? []) {
+    row.click();
+    steps.push('instagram:off');
+    await pause(300);
+  }
+  // The list closes as it opened.
+  if (postTo.isConnected && postTo.getAttribute('aria-expanded') === 'true') postTo.click();
+  await pause(300);
+  if (postTo.isConnected && postTo.querySelector(IG_BADGE)) steps.push('instagram:kept');
+}
+
+/** On: a tick ticked, a switch on, or an account picked in a list. */
+function isOn(e: Element): boolean {
+  return (
+    (e as HTMLInputElement).checked === true ||
+    e.getAttribute('aria-checked') === 'true' ||
+    e.getAttribute('aria-selected') === 'true' ||
+    !!e.querySelector('input[type="checkbox"]:checked, [aria-checked="true"]')
+  );
+}
+
+/** The Instagram accounts picked in Post to's open list: each row once, never the Post to box itself. */
+function instagramRows(doc: Document, postTo: Element): HTMLElement[] {
+  const found: HTMLElement[] = [];
+  for (const e of doc.querySelectorAll<HTMLElement>(ACCOUNT_ROWS)) {
+    if (postTo.contains(e) || !visible(e)) continue;
+    const row = e.closest<HTMLElement>('[role="option"], [role="menuitemcheckbox"], label') ?? e;
+    if (found.some((f) => f === row || f.contains(row) || row.contains(f))) continue;
+    const label = clean(row.getAttribute('aria-label')) || clean(row.textContent);
+    if ((row.querySelector(IG_BADGE) || INSTAGRAM.test(label)) && isOn(row)) found.push(row);
+  }
+  return found;
 }
 
 /** The link to the post just put up, when the network shows one (LinkedIn's View post). */
@@ -386,8 +535,37 @@ export function instagramMe(doc: Document): string | null {
 }
 
 /**
- * Puts the post up on Instagram: Create (then Post), the files into Create new post, OK for a reel, Next past
- * cropping and editing, the words in the caption box, then Share. The words go in last, as Instagram asks for them.
+ * Cropping's Select crop, when this step of Create new post shows it: pressed, then the picture's own shape picked
+ * (`IG_SHAPES`). Says whether the button was there, so it's pressed once; a shape that never shows leaves Instagram's.
+ */
+async function igKeepShape(doc: Document, box: Element, steps: string[]): Promise<boolean> {
+  const button =
+    box.querySelector('svg[aria-label="Select crop" i]')?.closest<HTMLElement>(CONTROLS) ??
+    controlIn(box, IG_CROP);
+  if (!button || !shown(button)) return false;
+  button.click();
+  const shape = await waitFor(() => {
+    const here = igDialog(doc) ?? box;
+    for (const s of IG_SHAPES) {
+      const option = controlIn(here, s.words);
+      if (option) return { option, step: s.step };
+    }
+    return null;
+  }, 3_000);
+  if (!shape) {
+    steps.push('crop:none');
+    return true;
+  }
+  shape.option.click();
+  steps.push(shape.step);
+  await pause(400);
+  return true;
+}
+
+/**
+ * Puts the post up on Instagram: Create (then Post), the files into Create new post, OK for a reel, the picture's own
+ * shape under cropping's Select crop, Next past cropping and editing, the words in the caption box, then Share. The
+ * words go in last, as Instagram asks for them.
  */
 async function instagramPost(
   doc: Document,
@@ -406,10 +584,11 @@ async function instagramPost(
         (says(c, IG_CREATE) || !!c.querySelector('svg[aria-label="New post" i]')),
     );
     if (!create) return end('none');
-    // Anything saying Post before Create was pressed (a comment's) is never the kind to pick.
+    // Anything showing Post before Create was pressed (a comment's) is never the kind to pick. Create's own menu is
+    // on the page already, hidden until it's pressed, so only what showed counts.
     const before = new Set(
-      [...doc.querySelectorAll<HTMLElement>(`${CONTROLS}, a[href]`)].filter((c) =>
-        says(c, IG_KIND),
+      [...doc.querySelectorAll<HTMLElement>(`${CONTROLS}, a[href]`)].filter(
+        (c) => shown(c) && says(c, IG_KIND),
       ),
     );
     create.click();
@@ -472,8 +651,9 @@ async function instagramPost(
   }
   if (!took) return end('no_media');
   steps.push('media');
-  // OK for a reel, then Next past cropping and editing, until the caption box and Share show.
+  // OK for a reel, the picture's own shape, then Next past cropping and editing, until the caption box and Share show.
   let caption: { box: Element; writing: HTMLElement; share: HTMLElement } | null = null;
+  let shaped = false;
   for (let round = 0; round < 8 && !caption; round++) {
     const now = igDialog(doc);
     if (!now) return end('not_sent');
@@ -484,7 +664,9 @@ async function instagramPost(
       break;
     }
     const ok = controlIn(now, IG_OK);
-    const next = ok ? null : controlIn(now, NEXT);
+    if (!ok && !shaped) shaped = await igKeepShape(doc, now, steps);
+    // Next is in the same box as cropping's shapes, which may show over it in a box of their own.
+    const next = ok ? null : controlIn(now.isConnected ? now : (igDialog(doc) ?? now), NEXT);
     if (ok) {
       ok.click();
       steps.push('reel:ok');
@@ -557,6 +739,17 @@ export async function postHere(doc: Document, ask: PostAsk): Promise<PostDone> {
     steps,
   });
   if (ask.where === 'instagram') return instagramPost(doc, ask, steps, end);
+  if (ask.where === 'threads' || ask.where === 'x')
+    return postShort(
+      doc,
+      { where: ask.where, text: ask.text, chain: ask.chain ?? [], files: ask.files },
+      {
+        addFiles: (box, writing, files) => addFiles(doc, box, writing, files, steps),
+        filesOf: (files) => filesOf(doc, files),
+        end,
+        steps,
+      },
+    );
   const find = ask.where === 'business' ? businessComposer : composerIn;
   let box = find(doc);
   if (!box && ask.where !== 'business') {
@@ -600,7 +793,7 @@ export async function postHere(doc: Document, ask: PostAsk): Promise<PostDone> {
     // Facebook uploads the pictures before Post turns on: it's waited on below.
     if (!box.isConnected) box = find(doc) ?? box;
   }
-  if (ask.where === 'business') instagramOff(box, steps);
+  if (ask.where === 'business') await instagramOff(doc, box, steps);
   let post = await waitFor(() => controlIn(box!, POST), ask.files.length ? 20_000 : 4_000);
   if (!post) {
     // The newer Facebook box asks for Next first, then shows its own Post.
@@ -617,45 +810,49 @@ export async function postHere(doc: Document, ask: PostAsk): Promise<PostDone> {
   const posted = box;
   post.click();
   steps.push('post');
+  const business = ask.where === 'business';
   const went = await waitFor(
     () =>
       !posted.isConnected ||
       !shown(posted) ||
-      (ask.where === 'business' && PUBLISHED.test(wordsIn(doc.body))) ||
+      (business && (PUBLISHED.test(wordsIn(doc.body)) || !businessComposer(doc))) ||
       linkShown(doc)
         ? true
         : null,
-    POSTING_MS,
+    business ? BUSINESS_POSTING_MS : POSTING_MS,
   );
   if (!went) return end('not_sent', true);
   return end('done', true, await waitFor(() => linkShown(doc), 4_000));
 }
 
 /**
- * The Page's number, from its own page: what Business Suite opens it by. Facebook says it in the page's app links
- * (`fb://page/?id=…`, `fb://profile/…`) and in the data the page came with.
+ * The numbers Business Suite might open the Page by, likeliest first, from its own page. A Page on Facebook's newer
+ * kind has two: the one in its link (`profile.php?id=…`), which Business Suite says isn't available, and its Page's
+ * own (`delegate_page`), which it opens (the owner's first Page post, 13 Nov 2026, 0.139.0). Facebook says them in
+ * the data the page came with and in its app links (`fb://page/?id=…`, `fb://profile/…`).
  */
-export function pageIdHere(doc: Document, href: string): string | null {
-  try {
-    const id = new URL(href).searchParams.get('id');
-    if (id && /^\d{5,20}$/.test(id)) return id;
-  } catch {
-    // Not a link with its number in it.
-  }
-  for (const meta of doc.querySelectorAll('meta[property^="al:"], meta[content^="fb://"]')) {
-    const m = /fb:\/\/(?:page\/\?id=|page\/|profile\/)(\d{5,20})/.exec(
-      meta.getAttribute('content') ?? '',
-    );
-    if (m) return m[1]!;
-  }
+export function pageIdsHere(doc: Document, href: string): string[] {
+  const found: { id: string; rank: number }[] = [];
+  const add = (id: string | null | undefined, rank: number) => {
+    if (id && /^\d{5,20}$/.test(id)) found.push({ id, rank });
+  };
   for (const script of doc.querySelectorAll('script')) {
     const text = script.textContent ?? '';
     if (text.length > 2_000_000) continue;
-    const m =
-      /"pageID":"(\d{5,20})"/.exec(text) ??
-      /"delegate_page":\{"id":"(\d{5,20})"/.exec(text) ??
-      /"page_id":"(\d{5,20})"/.exec(text);
-    if (m) return m[1]!;
+    add(/"delegate_page":\{[^{}]{0,400}?"id":"(\d{5,20})"/.exec(text)?.[1], 0);
+    add(/"delegate_page_id":"(\d{5,20})"/.exec(text)?.[1], 0);
+    add(/"pageID":"(\d{5,20})"/.exec(text)?.[1], 1);
+    add(/"page_id":"(\d{5,20})"/.exec(text)?.[1], 5);
   }
-  return null;
+  for (const meta of doc.querySelectorAll('meta[property^="al:"], meta[content^="fb://"]')) {
+    const content = meta.getAttribute('content') ?? '';
+    add(/fb:\/\/page\/(?:\?id=)?(\d{5,20})/.exec(content)?.[1], 2);
+    add(/fb:\/\/profile\/(\d{5,20})/.exec(content)?.[1], 4);
+  }
+  try {
+    add(new URL(href).searchParams.get('id'), 3);
+  } catch {
+    // Not a link with its number in it.
+  }
+  return [...new Set(found.sort((a, b) => a.rank - b.rank).map((f) => f.id))];
 }

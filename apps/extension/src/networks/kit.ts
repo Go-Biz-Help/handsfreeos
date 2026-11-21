@@ -102,6 +102,15 @@ export interface Kit {
   readPage(doc: Document, href: string): PageRead;
   /** Its warnings on a page: a block, a limit, a restriction, a security check. */
   readWarnings(doc: Document, href: string): string[];
+  /**
+   * How far a page has drawn its posts, for a page that draws them only once they're scrolled near (Facebook's): how
+   * many it drew, and the first still loading, to scroll to and wait on before a post counts as not there. A network
+   * without it draws its posts with the page.
+   */
+  readonly postsDrawing?: (doc: Document) => {
+    readonly drawn: number;
+    readonly loading: Element | null;
+  };
   /** The chats on a page whose last message is theirs: who, never what they wrote. */
   readReplies(doc: Document, href: string): ReplySighting[];
   /** What to read of the page in front of the person as they go: all of it, or only its warnings. */

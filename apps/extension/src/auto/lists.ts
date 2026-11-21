@@ -43,13 +43,40 @@ import {
 import { checkFriends } from '../jobs/checks';
 import { checkFollowers } from '../jobs/instagram/checks';
 import { saveFollowers } from '../jobs/instagram/people';
+import { saveFollowers as saveFollowFollowers } from '../jobs/follows/people';
 import { saveGroups } from '../jobs/groups';
 import { checkGroups } from '../jobs/groups-check';
 import { valueOf, type Job, type JobEnd } from '../jobs/job';
 import { checkConnections } from '../jobs/linkedin/checks';
 import { saveConnections, saveInvitations } from '../jobs/linkedin/people';
 import { checkRequests, checkSent, FRIENDS_SCROLLS, saveFriends } from '../jobs/people';
+import type { FollowPlatform } from '../networks/follows/types';
 import { counted } from '../words';
+
+/**
+ * Threads' and X's (decision 163): their newest followers, then who to unfollow worked out. Nobody there is checked from
+ * the followers list: good fits are found from their posts and the people who reply to good posts, each checked as
+ * found (../jobs/found-checks.ts), so its kit has no checks of its own and `checks` is never due.
+ */
+function followListsOn(platform: FollowPlatform): ListsOn {
+  const name = NETWORKS[platform].name;
+  return {
+    save: { friends: (job) => saveFollowFollowers(job, platform) },
+    doing: { friends: `Saving your newest ${name} followers first…` },
+    names: { friends: 'Your newest followers' },
+    checks: async () => ({
+      line: `Good fits on ${name} are checked as they’re found.`,
+      warned: false,
+    }),
+    checking: 'Checking your followers for good fits…',
+    checkName: 'Check my followers',
+    tidying: `Working out who to unfollow on ${name}…`,
+    tidied: (cancel) =>
+      cancel
+        ? `Suggested ${counted(cancel, 'person', 'people')} to unfollow who didn’t follow you back. Tick the ones to go under Friends → Tidy up in HandsFreeOS, on ${name}.`
+        : 'Nobody to unfollow for now.',
+  };
+}
 
 /** Each network's way of doing each step before its day: its jobs, and its words. */
 interface ListsOn {
@@ -138,6 +165,8 @@ const LISTS_ON: Readonly<Record<Platform, ListsOn>> = {
     tidying: 'Old connection requests on Alignable are yours to withdraw.',
     tidied: () => 'Old connection requests on Alignable are yours to withdraw.',
   },
+  threads: followListsOn('threads'),
+  x: followListsOn('x'),
 };
 
 /** What to do before the day: save a list, check the groups, work out Tidy up, or check friends once. */

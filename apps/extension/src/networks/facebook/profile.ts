@@ -22,6 +22,7 @@ import {
   tabsIn,
   textLines,
 } from './dom';
+import { saysNotThere } from '../there';
 import { bestName, isNameLike, nameForms, sameName } from './people';
 import { readPosts } from './posts';
 import type { Named, PageAddress, Post, ProfilePage } from './types';
@@ -326,6 +327,14 @@ function pagesIn(
   return found;
 }
 
+/**
+ * Whether the page is Facebook's own for a profile that can't be seen: "This content isn't available right now" as a
+ * heading in the main column, a line on why, Go to Feed and Go back (the problem report of 13 Nov 2026). Only with no
+ * name found, as a post on a profile can carry those words for a shared post that's gone.
+ */
+const unavailableIn = (root: Element): boolean =>
+  [...root.querySelectorAll('h1, h2')].some((h) => saysNotThere(clean(h.textContent), 'facebook'));
+
 export function readProfile(
   root: Element,
   address: PageAddress,
@@ -375,6 +384,7 @@ export function readProfile(
       intro,
       friendship,
       ...(friendship === 'unknown' && noAddFriendIn(top) ? { noAddFriend: true as const } : {}),
+      ...(name === null && unavailableIn(root) ? { unavailable: true as const } : {}),
       mutualFriends,
       ...(followers !== null ? { followers } : {}),
       ...(friends !== null ? { friends } : {}),

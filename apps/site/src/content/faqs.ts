@@ -5,7 +5,7 @@
  * what a search engine or an assistant is told can never drift from what a reader sees.
  */
 
-import { moneyBack, typicalUsage } from './site';
+import { addonPrices, addonTrialDays, freeTrial, moneyBack, typicalUsage } from './site';
 
 export type Faq = { readonly q: string; readonly a: string };
 
@@ -15,8 +15,12 @@ export type Faq = { readonly q: string; readonly a: string };
  */
 export const homeFaqs: readonly Faq[] = [
   {
+    q: 'What is an AI Business Operating System?',
+    a: 'One system that runs the customer side of your business, with AI that does the work in it. A CRM keeps track of your customers and waits for you. HandsFreeOS keeps those records too, and puts your phone, inbox, calendar, quotes, invoices and video calls beside them. Then its AI employees answer the calls and texts, book the jobs and chase the quotes and invoices, and bring you in when it matters.',
+  },
+  {
     q: 'I tried a CRM before. It just became another job.',
-    a: `That is the exact problem this one was built to fix. Most CRMs wait for you to type things in. HandsFreeOS fills itself in from every call, text and payment, and does the follow-ups for you. If it still feels like a job after ${moneyBack.days} days, ask and you get your money back.`,
+    a: `That is the exact problem this one was built to fix. Most CRMs wait for you to type things in. HandsFreeOS is more than a CRM: its AI fills in the records from every call, text and payment, and does the follow-ups for you. If it still feels like a job after ${moneyBack.days} days, ask and you get your money back.`,
   },
   {
     q: 'I don’t have time to switch.',
@@ -32,7 +36,7 @@ export const homeFaqs: readonly Faq[] = [
   },
   {
     q: 'How can it replace ten apps for $97?',
-    a: `It is one system built as one, not ten companies each charging for their slice. The texts, calls and AI you use are billed at what they cost us plus a small margin, usually $${typicalUsage.low} to $${typicalUsage.high} a month, so the plan is not padded for the busiest businesses. And there is no charge per person.`,
+    a: `It is one system built as one, not ten companies each charging for their slice, and its AI does the work those apps leave to you. The texts, calls and AI you use are billed at what they cost us plus a small margin, usually $${typicalUsage.low} to $${typicalUsage.high} a month, so the plan is not padded for the busiest businesses. And there is no charge per person.`,
   },
   {
     q: 'I already pay for Jobber or GoHighLevel.',
@@ -66,7 +70,11 @@ export const homeFaqs: readonly Faq[] = [
 export const pricingFaqs: readonly Faq[] = [
   {
     q: 'How do I get a founding spot?',
-    a: 'Sign up, make your business, and pick a spot: $497 a year or $97 a month. You pay on Stripe’s secure page, and your spot is held for an hour while you do. It is first come, first served, and the counts on this page are read live from our database, so when it says none are left, none are.',
+    a: `Sign up, make your business, and pick a spot: $497 a year or $97 a month, with the first ${freeTrial.days} days free. You add your card on Stripe’s secure page, and your spot is held for an hour while you do. It is first come, first served, and the counts on this page are read live from our database, so when it says none are left, none are.`,
+  },
+  {
+    q: 'How does the free trial work?',
+    a: `${freeTrial.line} We email you ${freeTrial.reminderDays} days before it ends to say when your card is charged and how much. One free trial per person and per business.`,
   },
   {
     q: 'Is there a contract?',
@@ -91,6 +99,10 @@ export const pricingFaqs: readonly Faq[] = [
   {
     q: 'What does a founding spot cover?',
     a: `The software, including the features we add to it later: $497 a year on a yearly spot, or $97 a month on a monthly one, renewed until you stop it. It does not cover texts, calls, phone numbers or AI replies, because those are billed to us by other companies and passed through at what they cost plus a small margin. Most businesses spend $${typicalUsage.low}–$${typicalUsage.high} a month on that.`,
+  },
+  {
+    q: 'Are the add-ons included?',
+    a: `Not in the plan. Each add-on has its own monthly price for your whole business: Social Outreach is $${addonPrices.outreach} a month, and the AI Social Media Content Creator, the AI Sales Coach and Real Estate Agent are $${addonPrices.salescoach} a month each, with ${addonTrialDays} days free the first time you add one. Founding members can ask for early access on our Add-ons page, and an add-on is free while it is in early access. We will tell you before anything changes.`,
   },
   {
     q: 'What happens when the founding spots run out?',

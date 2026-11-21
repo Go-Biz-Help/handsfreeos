@@ -1,10 +1,12 @@
 import {
   AUTOMATION_DEFAULTS,
+  choicesFor,
   NETWORKS_DEFAULTS,
   type AutomationOutput,
   type AutomationSettings,
 } from '@hfos/core/addons/outreach/automation';
 import { outreachSettings, type OutreachSettings } from '@hfos/core/addons/outreach/chat-read';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import * as React from 'react';
 
@@ -62,12 +64,16 @@ const AUTOMATION: AutomationOutput = {
     linkedin: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
     instagram: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
     alignable: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
+    threads: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
+    x: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
   },
   fresh: {
     facebook: { on: false, from: null, until: null, days: 14 },
     linkedin: { on: false, from: null, until: null, days: 14 },
     instagram: { on: false, from: null, until: null, days: 14 },
     alignable: { on: false, from: null, until: null, days: 14 },
+    threads: { on: false, from: null, until: null, days: 14 },
+    x: { on: false, from: null, until: null, days: 14 },
   },
   userId: ME,
   name: 'Dana Reyes',
@@ -116,9 +122,9 @@ describe('The Settings menu on the phone', () => {
     // The networks still to come, on one line nobody can open.
     expect(screen.getByTestId('settings-open-instagram-badge')).toHaveTextContent('Off');
     expect(screen.getByTestId('settings-open-alignable-badge')).toHaveTextContent('Off');
-    expect(screen.getByTestId('settings-networks-coming')).toHaveTextContent(
-      'Threads, X and TikTok are coming',
-    );
+    expect(screen.getByTestId('settings-open-threads-badge')).toHaveTextContent('Off');
+    expect(screen.getByTestId('settings-open-x-badge')).toHaveTextContent('Off');
+    expect(screen.getByTestId('settings-networks-coming')).toHaveTextContent('TikTok is coming');
     expect(screen.getByText('Changes save as you make them.')).toBeTruthy();
     // No Save button anywhere: each page saves as it's changed.
     expect(screen.queryByText('Save')).toBeNull();
@@ -218,7 +224,10 @@ const partProps = () => ({
   manages: false,
   online: true,
   onRetry: jest.fn(),
-  onSaveMine: jest.fn(async (_settings: AutomationSettings): Promise<string | null> => null),
+  onSaveMine: jest.fn(
+    async (_settings: AutomationSettings, _picked: readonly Platform[]): Promise<string | null> =>
+      null,
+  ),
   onSaveBusiness: jest.fn(
     async (_edit: (now: OutreachSettings) => Partial<OutreachSettings>): Promise<string | null> =>
       null,
@@ -226,6 +235,48 @@ const partProps = () => ({
 });
 
 describe('You on the phone, saved as it’s changed', () => {
+  it('sets How hands-off on every network at once, and says when they differ (decision 170)', async () => {
+    const p = partProps();
+    await render(
+      <SettingsPartBody
+        part="general"
+        automation={{ ...AUTOMATION, settings: withLinkedIn(true) }}
+        {...p}
+      />,
+    );
+    expect(screen.getByTestId('settings-my-hands-off-myself')).toBeChecked();
+    await fireEvent.press(screen.getByTestId('settings-my-hands-off-each'));
+    const [saved, picked] = p.onSaveMine.mock.lastCall!;
+    // Every network it works, off ones too, so one turned on later starts there.
+    expect(choicesFor(saved, 'facebook').sending).toBe('steps');
+    expect(choicesFor(saved, 'linkedin').sending).toBe('steps');
+    expect(choicesFor(saved, 'threads').sending).toBe('steps');
+    expect(picked).toEqual(expect.arrayContaining(['facebook', 'linkedin']));
+    expect(screen.getByTestId('settings-my-hands-off-each')).toBeChecked();
+    // Facebook and LinkedIn at different levels: neither is picked, and the line says so.
+    await render(
+      <SettingsPartBody
+        part="general"
+        automation={{
+          ...AUTOMATION,
+          settings: {
+            ...withLinkedIn(true),
+            networks: {
+              ...withLinkedIn(true).networks,
+              linkedin: { ...NETWORKS_DEFAULTS.linkedin, on: true, sending: 'steps' },
+            },
+          },
+        }}
+        {...partProps()}
+      />,
+    );
+    expect(screen.getByTestId('settings-my-hands-off-myself')).not.toBeChecked();
+    expect(screen.getByTestId('settings-my-hands-off-each')).not.toBeChecked();
+    expect(screen.getByTestId('settings-my-hands-off-about')).toHaveTextContent(
+      'Your networks differ. Each network’s page in Settings says its own.',
+    );
+  });
+
   it('saves a change by itself, saying so on the line under the page, with no toast', async () => {
     const p = partProps();
     await render(<SettingsPartBody part="general" automation={AUTOMATION} {...p} />);
@@ -234,27 +285,36 @@ describe('You on the phone, saved as it’s changed', () => {
     );
     await fireEvent.press(screen.getByTestId('settings-my-pushes-each'));
     expect(p.onSaveMine).toHaveBeenCalledTimes(1);
-    expect(p.onSaveMine).toHaveBeenLastCalledWith({ ...AUTOMATION_DEFAULTS, pushes: 'each' });
+    expect(p.onSaveMine).toHaveBeenLastCalledWith({ ...AUTOMATION_DEFAULTS, pushes: 'each' }, []);
     expect(screen.getByTestId('settings-general-saved')).toHaveTextContent(
       'Saved. The extension follows it in a few seconds.',
     );
     expect(toast.show).not.toHaveBeenCalled();
     expect(screen.queryByText('Save')).toBeNull();
-    // A day of the week at once too, and the voice.
+    // A day of the week at once too, behind Working hours' Change (decision 170, part 2), and the voice.
+    expect(screen.getByTestId('settings-my-hours-about')).toHaveTextContent(
+      /^Mon–Fri, 9 AM–5 PM\. /,
+    );
+    expect(screen.queryByTestId('settings-my-day-6')).toBeNull();
+    await fireEvent.press(screen.getByTestId('settings-my-hours-toggle'));
     await fireEvent.press(screen.getByTestId('settings-my-day-6'));
     await fireEvent.press(screen.getByTestId('settings-my-voice-emoji'));
-    expect(p.onSaveMine).toHaveBeenLastCalledWith({
-      ...AUTOMATION_DEFAULTS,
-      pushes: 'each',
-      hours: { ...AUTOMATION_DEFAULTS.hours, days: [1, 2, 3, 4, 5, 6] },
-      voice: { ...AUTOMATION_DEFAULTS.voice, emoji: true },
-    });
+    expect(p.onSaveMine).toHaveBeenLastCalledWith(
+      {
+        ...AUTOMATION_DEFAULTS,
+        pushes: 'each',
+        hours: { ...AUTOMATION_DEFAULTS.hours, days: [1, 2, 3, 4, 5, 6] },
+        voice: { ...AUTOMATION_DEFAULTS.voice, emoji: true },
+      },
+      [],
+    );
   });
 
   it('saves the working hours once the stepper stops for a moment', async () => {
     jest.useFakeTimers();
     const p = partProps();
     await render(<SettingsPartBody part="general" automation={AUTOMATION} {...p} />);
+    await fireEvent.press(screen.getByTestId('settings-my-hours-toggle'));
     await fireEvent.press(screen.getByTestId('settings-my-start-up'));
     await fireEvent.press(screen.getByTestId('settings-my-start-up'));
     expect(screen.getByTestId('settings-my-start-value')).toHaveTextContent('11 AM');
@@ -262,10 +322,13 @@ describe('You on the phone, saved as it’s changed', () => {
     expect(screen.getByTestId('settings-general-saving')).toHaveTextContent('Saving…');
     await act(async () => jest.advanceTimersByTime(SAVE_PAUSE_MS));
     expect(p.onSaveMine).toHaveBeenCalledTimes(1);
-    expect(p.onSaveMine).toHaveBeenLastCalledWith({
-      ...AUTOMATION_DEFAULTS,
-      hours: { ...AUTOMATION_DEFAULTS.hours, start: 11 },
-    });
+    expect(p.onSaveMine).toHaveBeenLastCalledWith(
+      {
+        ...AUTOMATION_DEFAULTS,
+        hours: { ...AUTOMATION_DEFAULTS.hours, start: 11 },
+      },
+      [],
+    );
     expect(screen.getByTestId('settings-general-saved')).toBeTruthy();
   });
 
@@ -287,12 +350,15 @@ describe('You on the phone, saved as it’s changed', () => {
     expect(screen.getByTestId('settings-general-saving')).toBeTruthy();
     await act(async () => answer(null));
     expect(p.onSaveMine).toHaveBeenCalledTimes(2);
-    expect(p.onSaveMine).toHaveBeenLastCalledWith({
-      ...AUTOMATION_DEFAULTS,
-      dayReport: false,
-      pushes: 'each',
-      voice: { ...AUTOMATION_DEFAULTS.voice, split: false },
-    });
+    expect(p.onSaveMine).toHaveBeenLastCalledWith(
+      {
+        ...AUTOMATION_DEFAULTS,
+        dayReport: false,
+        pushes: 'each',
+        voice: { ...AUTOMATION_DEFAULTS.voice, split: false },
+      },
+      [],
+    );
     expect(screen.getByTestId('settings-general-saved')).toBeTruthy();
   });
 
@@ -303,7 +369,10 @@ describe('You on the phone, saved as it’s changed', () => {
     expect(tick).not.toBeChecked();
     expect(screen.getByText('When someone accepts')).toBeTruthy();
     await fireEvent.press(tick);
-    expect(p.onSaveMine).toHaveBeenLastCalledWith({ ...AUTOMATION_DEFAULTS, acceptedPush: true });
+    expect(p.onSaveMine).toHaveBeenLastCalledWith(
+      { ...AUTOMATION_DEFAULTS, acceptedPush: true },
+      [],
+    );
   });
 
   it('goes back to what’s kept when a save is refused, saying why in the server’s words', async () => {
@@ -317,7 +386,7 @@ describe('You on the phone, saved as it’s changed', () => {
     expect(screen.getByTestId('settings-my-pushes-bundled')).toBeChecked();
     // The next change starts from what's kept, the refused one not with it.
     await fireEvent.press(screen.getByTestId('settings-my-dayReport'));
-    expect(p.onSaveMine).toHaveBeenLastCalledWith({ ...AUTOMATION_DEFAULTS, dayReport: false });
+    expect(p.onSaveMine).toHaveBeenLastCalledWith({ ...AUTOMATION_DEFAULTS, dayReport: false }, []);
   });
 
   it('starts again from a change saved somewhere else, unless one of its own is waiting', async () => {
@@ -336,6 +405,7 @@ describe('You on the phone, saved as it’s changed', () => {
     );
     expect(screen.getByTestId('settings-my-pushes-each')).toBeChecked();
     // A stepper's change waits for its pause: another change saved elsewhere meanwhile doesn't undo it.
+    await fireEvent.press(screen.getByTestId('settings-my-hours-toggle'));
     await fireEvent.press(screen.getByTestId('settings-my-end-up'));
     await rerender(
       <SettingsPartBody
@@ -346,11 +416,14 @@ describe('You on the phone, saved as it’s changed', () => {
     );
     expect(screen.getByTestId('settings-my-end-value')).toHaveTextContent('6 PM');
     await act(async () => jest.advanceTimersByTime(SAVE_PAUSE_MS));
-    expect(p.onSaveMine).toHaveBeenLastCalledWith({
-      ...AUTOMATION_DEFAULTS,
-      pushes: 'each',
-      hours: { ...AUTOMATION_DEFAULTS.hours, end: 18 },
-    });
+    expect(p.onSaveMine).toHaveBeenLastCalledWith(
+      {
+        ...AUTOMATION_DEFAULTS,
+        pushes: 'each',
+        hours: { ...AUTOMATION_DEFAULTS.hours, end: 18 },
+      },
+      [],
+    );
   });
 
   it('needs signal: with none, every control waits and the line says why', async () => {
@@ -368,6 +441,7 @@ describe('You on the phone, saved as it’s changed', () => {
     expect(
       screen.getByText('Settings needs signal. Try again when you’re back online.'),
     ).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('settings-my-hours-toggle'));
     for (const testID of [
       'settings-my-pushes-each',
       'settings-my-dayReport',
@@ -391,6 +465,8 @@ describe('You on the phone, saved as it’s changed', () => {
         online={false}
       />,
     );
+    for (const row of ['settings-team-may-go', 'settings-contacts-row', 'settings-extension-link'])
+      await fireEvent.press(screen.getByTestId(`${row}-toggle`));
     for (const testID of [
       'settings-rules-sending-steps',
       'settings-contacts-everyone',
@@ -468,6 +544,7 @@ describe('Team, for owners and admins', () => {
               sending: 'steps',
               replies: 'draft',
               wheels: false,
+              networks: ['facebook', 'linkedin'],
             },
             {
               userId: id(7),
@@ -476,6 +553,7 @@ describe('Team, for owners and admins', () => {
               sending: 'off',
               replies: 'draft',
               wheels: true,
+              networks: [],
             },
           ],
         }}
@@ -497,16 +575,15 @@ describe('Team, for owners and admins', () => {
     expect(mine).toHaveTextContent(/Dana Reyes \(you\)/);
     expect(theirs).toHaveTextContent(/Riley Member.*Hasn’t saved their own yet/);
     expect(within(theirs!).getByTestId('settings-person-wheels')).toHaveTextContent(
-      /Training wheels on LinkedIn · 4 of 25 OK’d · 3 days to go/,
+      /Training wheels.*LinkedIn · 4 of 25 OK’d · 3 days to go/,
     );
     await fireEvent.press(within(theirs!).getByTestId('settings-person-wheels-end'));
     expect(onEnd).toHaveBeenCalledWith(id(7), 'linkedin');
     await fireEvent.press(within(theirs!).getByTestId('settings-person-open'));
     expect(onTheirs).toHaveBeenCalledWith(id(7));
-    // Each network's say for everyone, in one place.
-    expect(screen.getByTestId('settings-team-networks')).toHaveTextContent(
-      /Each network, for everyone/,
-    );
+    // Each network's say for everyone, in one list, and the networks each person works.
+    expect(screen.getByTestId('settings-team-networks')).toHaveTextContent(/^Networks/);
+    expect(mine).toHaveTextContent(/Facebook, LinkedIn/);
   });
 
   it('saves the business’s settings as they’re changed, keeping each network’s own', async () => {
@@ -515,13 +592,19 @@ describe('Team, for owners and admins', () => {
     await render(
       <SettingsPartBody part="team" automation={AUTOMATION} {...p} manages business={BUSINESS} />,
     );
-    expect(screen.getByText('For your team')).toBeTruthy();
-    expect(screen.getAllByText('Owners and admins').length).toBeGreaterThan(0);
+    expect(screen.getByText('For the whole business')).toBeTruthy();
     expect(screen.queryByText(/An owner or admin of this business sets/)).toBeNull();
+    // Each a row that says how it stands, with Change for the ones that need more room (decision 170, part 2).
+    expect(screen.getByTestId('settings-contacts-row-about')).toHaveTextContent(
+      'Tagged or a prospect',
+    );
+    await fireEvent.press(screen.getByTestId('settings-contacts-row-toggle'));
     await fireEvent.press(screen.getByTestId('settings-contacts-everyone'));
     expect(p.onSaveBusiness).toHaveBeenCalledTimes(1);
     expect(savedOn(p)).toMatchObject({ contactsFromChats: 'everyone', weeklyReport: true });
     expect(screen.getByTestId('settings-team-saved')).toBeTruthy();
+    expect(screen.getByTestId('settings-team-may-go-about')).toHaveTextContent('Any of the four.');
+    await fireEvent.press(screen.getByTestId('settings-team-may-go-toggle'));
     await fireEvent.press(screen.getByTestId('settings-rules-sending-everything'));
     // LinkedIn's limits, set on its own page, stay as they're kept.
     expect(savedOn(p).rules).toMatchObject({
@@ -543,9 +626,11 @@ describe('Team, for owners and admins', () => {
     await render(
       <SettingsPartBody part="team" automation={AUTOMATION} {...p} manages business={BUSINESS} />,
     );
-    expect(screen.getByText('You do everything · Every reply waits for you')).toBeTruthy();
+    expect(screen.getByTestId('settings-defaults-part-about')).toHaveTextContent(
+      /, Mon–Fri, 9 AM–5 PM\.$/,
+    );
     expect(screen.queryByTestId('settings-defaults-sending-steps')).toBeNull();
-    await fireEvent.press(screen.getByTestId('settings-defaults-open'));
+    await fireEvent.press(screen.getByTestId('settings-defaults-part-toggle'));
     await fireEvent.press(screen.getByTestId('settings-defaults-sending-steps'));
     expect(savedOn(p).rules?.defaults).toEqual({ ...AUTOMATION_DEFAULTS, sending: 'steps' });
   });
@@ -576,6 +661,10 @@ describe('Team, for owners and admins', () => {
     );
     const part = screen.getByTestId('settings-extension-link');
     expect(within(part).getByText('Where your team gets the extension')).toBeTruthy();
+    expect(screen.getByTestId('settings-extension-link-about')).toHaveTextContent(
+      'HandsFreeOS’s own download.',
+    );
+    await fireEvent.press(screen.getByTestId('settings-extension-link-toggle'));
     // A stored link that stopped passing reads as none.
     expect(screen.getByTestId('settings-extension-link-input').props.value).toBe('');
     // Typing isn't saved at each letter.

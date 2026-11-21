@@ -11,6 +11,9 @@
  *   never puts it up twice there. Nothing pressed (a warning, signed out) puts it back to waiting.
  * - `socialcontent.content.post_now` (a person, or the Assistant on a Confirm card): puts an OK'd post, or one that
  *   didn't post, up now. It's an OK too: nothing goes up without one (decision 15).
+ * - `socialcontent.content.redo` (the owner, 15 Nov): posts that went up wrong or didn't go up, put up again in one go,
+ *   one at a time on each network. One that went up goes up again everywhere it went (its old numbers go with the old
+ *   post, which the person deletes on the network); one that didn't is tried again where it hadn't. An OK too.
  */
 import { rows, sql } from '@hfos/db/client';
 import { eq } from 'drizzle-orm';
@@ -20,12 +23,16 @@ import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand } from '../../server';
 import {
+  canRedo,
+  chainFor,
   hasPictures,
   isPostingNetwork,
+  LOOK,
   placesFor,
   placesLeft,
   POSTING,
   postText,
+  redoTimes,
   stillNeeds,
   type PostedTo,
   type PostPlace,
@@ -33,6 +40,8 @@ import {
 import {
   Content as ContentShape,
   ContentPostNowInput,
+  ContentRedoInput,
+  ContentRedoOutput,
   PostNextInput,
   PostNextOutput,
   PostWentInput,
@@ -43,7 +52,14 @@ import { networkName } from '../networks';
 import { content } from '../tables';
 import { SOCIALCONTENT_WORDS as W } from '../words';
 import { inWorkspace, settingsOf } from './common';
-import { contentOut, loadContent, needChangeable, POST_REFUSALS, type ContentRow } from './content';
+import {
+  contentOut,
+  loadContent,
+  needChangeable,
+  NOT_HIDDEN_OR_LOOKED,
+  POST_REFUSALS,
+  type ContentRow,
+} from './content';
 import { needReader } from './reading';
 
 const PATH = 'a/socialcontent/calendar';
@@ -80,7 +96,7 @@ async function markFailed(ctx: CommandContext, c: ContentRow, why: string): Prom
 export const postNext = defineAddonCommand(socialcontentAddon, {
   name: 'socialcontent.post.next',
   description:
-    'Extension: the next of the business’s own posts to put up now, on the networks the extension posts on: OK’d, its time come, within a day of it, soonest first. It’s taken, so it goes up once. What a computer took and never said how it went is marked as didn’t post (it may have gone up), and what waited more than a day past its time too. Null when nothing is due.',
+    'Extension: the next of the business’s own posts to put up now, on the networks the extension posts on: OK’d, its time come, within a day of it, soonest first, Facebook last of those due at the same time. It’s taken, so it goes up once. What a computer took and never said how it went is marked as didn’t post (it may have gone up), and what waited more than a day past its time too. Null when nothing is due.',
   risk: 0,
   input: PostNextInput,
   output: PostNextOutput,
@@ -100,9 +116,12 @@ export const postNext = defineAddonCommand(socialcontentAddon, {
     const stuck = await rows<{ record_id: string; network: string }>(
       ctx.tx,
       sql`update addon_socialcontent.content set state = 'failed', posting_at = null, updated_at = now(),
+            look_due_at = now() + make_interval(secs => ${LOOK.afterFailMs / 1000}), look_asked = false,
             failure = case network
               when 'facebook' then ${W.posting.unsure(networkName('facebook'))}
               when 'linkedin' then ${W.posting.unsure(networkName('linkedin'))}
+              when 'threads' then ${W.posting.unsure(networkName('threads'))}
+              when 'x' then ${W.posting.unsure(networkName('x'))}
               else ${W.posting.unsure(networkName('instagram'))} end
           where workspace_id = ${ws} and state = 'posting'
             and coalesce(posting_at, updated_at) < now() - make_interval(secs => ${POSTING.postingForMs / 1000})
@@ -127,7 +146,9 @@ export const postNext = defineAddonCommand(socialcontentAddon, {
             join app.custom_records r on r.id = c.record_id and r.archived_at is null
             where c.workspace_id = ${ws} and c.state = 'ready' and c.post_at <= now()
               and c.network = any(${`{${networks.join(',')}}`}::text[])
-            order by c.post_at, c.created_at limit 1
+            -- Facebook last of the posts due at the same time: it goes to two places and waits on Business Suite,
+            -- so the rest never queue behind it (the owner's 12 PM posts of 16 Nov 2026).
+            order by c.post_at, c.network = 'facebook', c.created_at limit 1
             for update of c skip locked`,
       );
       if (!due) return { post: null };
@@ -177,6 +198,8 @@ export const postNext = defineAddonCommand(socialcontentAddon, {
           network,
           format: c.format,
           text: postText(network, c.words, c.hashtags),
+          // Threads and X (decision 41): the posts under it, as a chain.
+          chain: chainFor(network, c.chain ?? []),
           // A video post sends its video; the rest send their pictures, in order.
           files: (c.format === 'video'
             ? files.filter((f) => f.mimeType?.startsWith('video/')).slice(0, 1)
@@ -257,6 +280,16 @@ export const postWent = defineAddonCommand(socialcontentAddon, {
         failure,
         postingAt: null,
         ...(state === 'posted' ? { postedAt: at } : {}),
+        // It may have gone up all the same (Facebook was still publishing two Page posts on 14 Nov): looked for on
+        // the network on its own, once, 10 minutes on (the owner, 15 Nov).
+        ...(state === 'failed'
+          ? {
+              lookDueAt: new Date(at.getTime() + LOOK.afterFailMs),
+              lookedAt: null,
+              lookFailure: null,
+              lookAsked: false,
+            }
+          : { lookDueAt: null, lookAsked: false }),
         // Its numbers are read 2 and 7 days after it first went up (part 11).
         checksDueAt: c.checksDueAt ?? nextCheckAt(postedTo, c.numbers),
         updatedAt: at,
@@ -316,6 +349,8 @@ export const contentPostNow = defineAddonCommand(socialcontentAddon, {
       network: c.network,
       format: c.format,
       words: c.words,
+      hashtags: c.hashtags,
+      chain: c.chain ?? [],
       slides: Array.isArray(c.slides) ? c.slides : [],
       fileIds: shown!.pictures.map((p) => p.fileId),
       videos: shown!.pictures.filter((p) => p.mimeType?.startsWith('video/')).length,
@@ -333,6 +368,7 @@ export const contentPostNow = defineAddonCommand(socialcontentAddon, {
         approvedAt: at,
         failure: null,
         postingAt: null,
+        ...NOT_HIDDEN_OR_LOOKED,
         updatedAt: at,
       })
       .where(eq(content.recordId, c.recordId));
@@ -347,7 +383,135 @@ export const contentPostNow = defineAddonCommand(socialcontentAddon, {
   },
 });
 
+export const contentRedo = defineAddonCommand(socialcontentAddon, {
+  name: 'socialcontent.content.redo',
+  description:
+    'Redo several of the business’s own posts at once (the owner, 15 Nov; up to 500 a time): ones that went up wrong, or didn’t go up, put up again from the computer that posts, the first on each network now and the rest one every 30 minutes on that network. A hidden one is shown again. One that went up goes up again everywhere it went (its old numbers go, and the person deletes the old post on the network, since HandsFreeOS can’t take posts down); one that didn’t go up is tried again only where it hadn’t. It counts as the OK (decision 15). Says how many it redid, and which it couldn’t and why.',
+  risk: 2,
+  input: ContentRedoInput,
+  output: ContentRedoOutput,
+  permission: 'socialcontent.use',
+  scope: inWorkspace,
+  ai: {
+    tool: 'socialcontent_redo_own_posts',
+    autonomy: 'confirm',
+    what: (input) => {
+      const n = (input as { postIds?: unknown[] }).postIds?.length ?? 0;
+      return n === 1 ? 'Put this post up again' : `Put these ${n} posts up again`;
+    },
+    outcome: (output) => {
+      const o = output as { redone?: number; notRedone?: unknown[] };
+      return { words: W.calendar.redone(o.redone ?? 0, o.notRedone?.length ?? 0), path: PATH };
+    },
+  },
+  emits: ['socialcontent.content.approved'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const s = await settingsOf(ctx);
+    const now = changeMoment(ctx.meta).getTime();
+    const notRedone: { postId: string; title: string; why: string }[] = [];
+    const going: ContentRow[] = [];
+    for (const postId of [...new Set(input.postIds)]) {
+      // One removed meanwhile is left out; the rest are still redone.
+      const c = await loadContent(ctx, postId, { lock: true }).catch((e: unknown) => {
+        if (e instanceof HfosError && e.code === 'not_found') return null;
+        throw e;
+      });
+      if (!c) {
+        notRedone.push({ postId, title: '', why: POST_REFUSALS.gone });
+        continue;
+      }
+      const why =
+        c.state === 'posting'
+          ? POST_REFUSALS.posting
+          : c.state === 'skipped'
+            ? POST_REFUSALS.skipped
+            : !isPostingNetwork(c.network) || !POSTING.networks.includes(c.network)
+              ? W.posting.notOn(networkName(c.network))
+              : !canRedo(c)
+                ? POST_REFUSALS.notRedoable
+                : null;
+      if (why) notRedone.push({ postId, title: c.title, why });
+      else going.push(c);
+    }
+    const shown = await contentOut(ctx, going);
+    const times = redoTimes(
+      going.map((c) => c.network),
+      now,
+    );
+    let redone = 0;
+    let lastAt: number | null = null;
+    for (const [i, c] of going.entries()) {
+      const at = new Date(times[i]!);
+      const pictures = shown[i]!.pictures;
+      const needs = stillNeeds({
+        network: c.network,
+        format: c.format,
+        words: c.words,
+        hashtags: c.hashtags,
+        chain: c.chain ?? [],
+        slides: Array.isArray(c.slides) ? c.slides : [],
+        fileIds: pictures.map((p) => p.fileId),
+        videos: pictures.filter((p) => p.mimeType?.startsWith('video/')).length,
+        postAt: at,
+        facebookWhere: c.facebookWhere,
+        facebookPage: s.facebookPage,
+      });
+      if (needs) {
+        notRedone.push({ postId: c.recordId, title: c.title, why: needs });
+        continue;
+      }
+      const again = c.state === 'posted';
+      await ctx.tx
+        .update(content)
+        .set({
+          state: 'ready',
+          postAt: at,
+          // The person set its time, so AI picks never moves it (decision 27).
+          placedBy: 'person',
+          approvedBy: me,
+          approvedAt: new Date(now),
+          failure: null,
+          postingAt: null,
+          ...NOT_HIDDEN_OR_LOOKED,
+          // One that went up goes up again everywhere: what it had is the old post's.
+          ...(again
+            ? {
+                postedTo: [],
+                postedAt: null,
+                postLink: null,
+                numbers: {},
+                checksDueAt: null,
+                doneWell: null,
+              }
+            : {}),
+          updatedAt: new Date(now),
+        })
+        .where(eq(content.recordId, c.recordId));
+      await ctx.emit({
+        type: 'socialcontent.content.approved',
+        entityType: 'custom_record',
+        entityId: c.recordId,
+        payload: {
+          postId: c.recordId,
+          network: c.network,
+          postAt: at.toISOString(),
+          redo: true,
+          again,
+        },
+      });
+      redone++;
+      lastAt = Math.max(lastAt ?? 0, at.getTime());
+    }
+    return {
+      redone,
+      lastAt: lastAt === null ? null : new Date(lastAt).toISOString(),
+      notRedone,
+    };
+  },
+});
+
 export const POSTING_EXTENSION =
   'The HandsFreeOS Social extension sends this in from the computer that posts, as it puts the business’s OK’d posts up; a person never does.';
 
-export const postingCommands = [postNext, postWent, contentPostNow] as const;
+export const postingCommands = [postNext, postWent, contentPostNow, contentRedo] as const;

@@ -18,7 +18,7 @@ import { HfosError } from '../../../errors';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
-import { businessDay } from '../automation';
+import { autopilotNetworks, businessDay } from '../automation';
 import {
   AutopilotAnswerInput,
   AutopilotAnswerOutput,
@@ -78,7 +78,8 @@ export const autopilotPlan = defineAddonCommand(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     const now = Date.now();
     const { settings, rules } = await automationOf(ctx, me, now);
-    if (!settings.autopilot) return { day: null, made: false, waiting: 0 };
+    const piloted = autopilotNetworks(settings);
+    if (piloted.length === 0) return { day: null, made: false, waiting: 0 };
     const { day } = await dayOf(ctx, now);
     // Their settings row, held while the list is made: two at once make it once.
     const [row] = await ctx.tx
@@ -94,7 +95,10 @@ export const autopilotPlan = defineAddonCommand(outreachAddon, {
       string,
       { platform: Platform; kind: TodayKind; why: string[]; spare: boolean }
     >();
-    for (const platform of networksShown(settings, rules.networksAllowed)) {
+    // Only the networks Autopilot is on for (decision 170): the others ask as they always have.
+    for (const platform of networksShown(settings, rules.networksAllowed).filter((p) =>
+      piloted.includes(p),
+    )) {
       const { list, most } = await todayFor(
         ctx,
         { workspaceId: input.workspaceId, platform },
@@ -194,6 +198,7 @@ export const autopilotList = defineAddonQuery(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     const now = Date.now();
     const { settings, rules, saved } = await automationOf(ctx, me, now);
+    const piloted = autopilotNetworks(settings);
     const { day, timeZone } = await dayOf(ctx, now);
     const [row] = saved
       ? await ctx.tx
@@ -204,7 +209,7 @@ export const autopilotList = defineAddonQuery(outreachAddon, {
     const made = row?.listedOn === day;
     // Before it's made: when it comes today, or on the next day it works. Due now, it's being made.
     const comes =
-      made || !settings.autopilot || autopilotDayDue(settings.hours, timeZone, now) === day
+      made || piloted.length === 0 || autopilotDayDue(settings.hours, timeZone, now) === day
         ? null
         : nextAutopilotList(settings.hours, timeZone, now).getTime();
     const listed = made
@@ -244,7 +249,8 @@ export const autopilotList = defineAddonQuery(outreachAddon, {
       personId: p.person_id,
     }));
     return {
-      on: settings.autopilot,
+      on: piloted.length > 0,
+      networks: piloted,
       allowed: rules.autopilotAllowed,
       day,
       timezone: timeZone,

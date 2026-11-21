@@ -6,7 +6,7 @@
  */
 import { JSDOM } from 'jsdom';
 import { describe, expect, it, vi } from 'vitest';
-import { instagramMe, pageIdHere, postHere, type PostAsk } from '../src/research/post-here';
+import { instagramMe, pageIdsHere, postHere, type PostAsk } from '../src/research/post-here';
 import { failureFor } from '../src/research/posting';
 
 vi.useFakeTimers({ shouldAdvanceTime: true, advanceTimeDelta: 50 });
@@ -143,14 +143,222 @@ describe('putting one of the business’s posts up', () => {
   });
 });
 
+/**
+ * Business Suite's Create post for a Page (2026): the page itself, with Post to's accounts (the Page's and, with
+ * Instagram linked, Instagram's, each picture badged with its network, as Business Suite picks them), the text box,
+ * a file field for the pictures, and Publish. Publish shows it's publishing for `publishMs`, then leaves for the posts
+ * list; `stuck` never does.
+ */
+function businessSuite(opts: { publishMs?: number; stuck?: boolean } = {}) {
+  const { window } = new JSDOM(
+    `<body><div role="main">
+      <div role="heading" aria-level="3">Post to</div>
+      <div role="combobox" aria-expanded="false" id="post-to"><span id="picked"></span><div>Pipe Dreams</div></div>
+      <div role="heading" aria-level="3">Media</div>
+      <input type="file" accept="image/*,video/*" id="field">
+      <div id="media"></div>
+      <div role="combobox" aria-label="Write into the dialog box to include text with your post." contenteditable="true" id="words"></div>
+      <div role="button" id="cancel">Cancel</div>
+      <div role="button" id="publish">Publish</div>
+    </div></body>`,
+    { url: 'https://business.facebook.com/latest/composer/?asset_id=109876543210987' },
+  );
+  const doc = window.document;
+  (window as unknown as { DataTransfer: unknown }).DataTransfer = FakeTransfer;
+  const main = doc.querySelector('[role="main"]')!;
+  const words = doc.getElementById('words')!;
+  doc.execCommand = (_c: string, _u?: boolean, text?: string) => {
+    words.textContent = text ?? '';
+    return true;
+  };
+  doc.getElementById('field')!.addEventListener('change', () => {
+    const img = doc.createElement('img');
+    img.setAttribute('src', 'blob:https://business.facebook.com/1');
+    doc.getElementById('media')!.append(img);
+  });
+  const picked = new Set(['instagram', 'facebook']);
+  const postTo = doc.getElementById('post-to')!;
+  const badges = () => {
+    doc.getElementById('picked')!.innerHTML = [...picked]
+      .map((n) => `<img alt=""><img alt="${n === 'instagram' ? 'Instagram' : 'Facebook'}">`)
+      .join('');
+  };
+  badges();
+  postTo.addEventListener('click', () => {
+    const open = doc.getElementById('accounts');
+    if (open) {
+      open.remove();
+      postTo.setAttribute('aria-expanded', 'false');
+      return;
+    }
+    const list = doc.createElement('div');
+    list.id = 'accounts';
+    list.setAttribute('role', 'listbox');
+    list.innerHTML = `
+      <div role="option" data-net="facebook" aria-selected="true"><img alt=""><img alt="Facebook"><span>Pipe Dreams</span></div>
+      <div role="option" data-net="instagram" aria-selected="true"><img alt=""><img alt="Instagram"><span>pipedreams</span></div>`;
+    for (const row of list.querySelectorAll<HTMLElement>('[role="option"]'))
+      row.addEventListener('click', () => {
+        const net = row.dataset.net!;
+        if (picked.has(net)) picked.delete(net);
+        else picked.add(net);
+        row.setAttribute('aria-selected', String(picked.has(net)));
+        badges();
+      });
+    doc.body.append(list);
+    postTo.setAttribute('aria-expanded', 'true');
+  });
+  const published: { words: string; to: string[] }[] = [];
+  doc.getElementById('publish')!.addEventListener('click', () => {
+    published.push({ words: words.textContent ?? '', to: [...picked] });
+    const busy = doc.createElement('div');
+    busy.innerHTML = `<span role="progressbar"></span><div role="heading" aria-level="4">Publishing your post</div>`;
+    doc.body.append(busy);
+    if (opts.stuck) return;
+    setTimeout(() => {
+      busy.remove();
+      main.innerHTML = '<div role="heading" aria-level="1">Posts</div>';
+    }, opts.publishMs ?? 1_000);
+  });
+  return { doc, published };
+}
+
+describe('putting a post up on a Page with Business Suite', () => {
+  it('takes Instagram off Post to, waits while it publishes, and knows it went up (the owner, 14 Nov)', async () => {
+    const suite = businessSuite({ publishMs: 45_000 });
+    const going = postHere(suite.doc, ask('business'));
+    await vi.advanceTimersByTimeAsync(60_000);
+    const done = await going;
+    expect(done).toMatchObject({ result: 'done', pressed: true });
+    expect(done.steps).toEqual(
+      expect.arrayContaining(['box', 'typed', 'media', 'instagram:list', 'instagram:off', 'post']),
+    );
+    expect(done.steps).not.toContain('instagram:kept');
+    // Only the Page: Instagram has its own post.
+    expect(suite.published).toEqual([
+      { words: 'Three ways to save time.\n\n#crm', to: ['facebook'] },
+    ]);
+    expect(suite.doc.getElementById('accounts')).toBeNull();
+  });
+
+  it('says it pressed Publish when Business Suite never finished, so the Page is looked at', async () => {
+    const suite = businessSuite({ stuck: true });
+    const going = postHere(suite.doc, ask('business'));
+    await vi.advanceTimersByTimeAsync(100_000);
+    const done = await going;
+    expect(done).toMatchObject({ result: 'not_sent', pressed: true });
+    expect(suite.published).toHaveLength(1);
+    expect(failureFor('facebook', 'page', done)).toMatch(
+      /pressed Publish for your Page in Meta Business Suite, but didn’t find the post on your Page/,
+    );
+  });
+});
+
+/**
+ * LinkedIn's newer box: Add media opens a window of its own over it, with a place to drop pictures and Upload from
+ * computer (which asks for a file field), then Next back to the box with the pictures. `drop`: the window takes only
+ * what's dropped on it.
+ */
+function linkedin(opts: { drop?: boolean } = {}) {
+  const made = page('https://www.linkedin.com/feed/', 'Start a post');
+  const { doc } = made;
+  const win = doc.defaultView as unknown as { DragEvent: unknown; Event: typeof Event };
+  // jsdom has no DragEvent: this one carries its files as Chrome's does.
+  win.DragEvent = class extends win.Event {
+    readonly dataTransfer: FakeTransfer | null;
+    constructor(type: string, init: EventInit & { dataTransfer?: FakeTransfer } = {}) {
+      super(type, init);
+      this.dataTransfer = init.dataTransfer ?? null;
+    }
+  };
+  doc.getElementById('start')!.addEventListener('click', () => {
+    const box = doc.querySelector('[role="dialog"]')!;
+    box.setAttribute('data-testid', 'dialog');
+    // The newer box has no file field, and pasting and dropping on it do nothing.
+    const photo = box.querySelector('#photo')!;
+    const media = photo.cloneNode() as HTMLElement;
+    media.setAttribute('aria-label', 'Add media');
+    photo.replaceWith(media);
+    media.addEventListener('click', () => {
+      const window = doc.createElement('div');
+      window.setAttribute('role', 'dialog');
+      window.setAttribute('data-testid', 'dialog');
+      window.innerHTML = `<h2>Editor</h2>
+        <div role="region" data-testid="add-media-drop-zone">
+          <h2>Select files to begin</h2><div>Share images or a single video in your post.</div>
+          <button type="button" id="upload"><span>Upload from computer</span></button>
+        </div>
+        <button type="button">Back</button><button type="button" id="next" disabled>Next</button>`;
+      doc.body.append(window);
+      const took = (count: number) => {
+        window.querySelector('[data-testid="add-media-drop-zone"]')!.remove();
+        for (let i = 0; i < count; i++) {
+          const img = doc.createElement('img');
+          img.setAttribute('src', 'blob:https://www.linkedin.com/2');
+          window.prepend(img);
+        }
+        window.querySelector('#next')!.removeAttribute('disabled');
+      };
+      window.querySelector('#upload')!.addEventListener('click', () => {
+        if (opts.drop) return;
+        const input = doc.createElement('input');
+        input.type = 'file';
+        input.setAttribute('data-hfos-picked', '1');
+        input.addEventListener('change', () => took(1));
+        doc.body.append(input);
+      });
+      window
+        .querySelector('[data-testid="add-media-drop-zone"]')!
+        .addEventListener('drop', (e) =>
+          took((e as unknown as { dataTransfer: FakeTransfer }).dataTransfer.files.length),
+        );
+      window.querySelector('#next')!.addEventListener('click', () => {
+        const pictures = window.querySelectorAll('img');
+        window.remove();
+        box.querySelector('#media')!.append(...pictures);
+      });
+    });
+  });
+  return made;
+}
+
+describe('putting a post up in LinkedIn’s newer box', () => {
+  it('adds the pictures in its own window with Upload from computer, presses Next, then Post', async () => {
+    const li = linkedin();
+    const done = await postHere(li.doc, ask('linkedin'));
+    expect(done).toMatchObject({ result: 'done', pressed: true });
+    expect(done.steps).toEqual(
+      expect.arrayContaining(['media:button', 'window:upload', 'window:field', 'window:next']),
+    );
+    expect(li.posted).toEqual(['Three ways to save time.\n\n#crm']);
+    expect(li.pictures()).toBe(1);
+  });
+
+  it('drops them on the window when its button asks for no file field', async () => {
+    const li = linkedin({ drop: true });
+    const done = await postHere(li.doc, ask('linkedin'));
+    expect(done.result).toBe('done');
+    expect(done.steps).toEqual(expect.arrayContaining(['window:drop', 'window:next']));
+    expect(li.pictures()).toBe(1);
+  });
+});
+
 const VIDEO = { name: 'reel.mp4', type: 'video/mp4', base64: btoa('mp4 bytes') };
 
 /**
  * A page shaped like Instagram's home: Create in its side menu opens a small menu (Post, AI), Post opens Create new
  * post with its file field; the files lead to a note about reels (a video), cropping and editing, each with Next, then
- * the caption box and Share. `menu`: whether Create asks which kind first.
+ * the caption box and Share. Cropping starts on a square, as Instagram's does, with Select crop showing the shapes
+ * (`shapes`). `menu`: whether Create asks which kind first.
  */
-function instagram(opts: { menu?: boolean; written?: string; fails?: boolean } = {}) {
+function instagram(
+  opts: {
+    menu?: boolean | 'hidden';
+    written?: string;
+    fails?: boolean;
+    shapes?: readonly string[];
+  } = {},
+) {
   const { window } = new JSDOM(
     `<body>
       <div role="navigation">
@@ -163,7 +371,7 @@ function instagram(opts: { menu?: boolean; written?: string; fails?: boolean } =
   );
   const doc = window.document;
   (window as unknown as { DataTransfer: unknown }).DataTransfer = FakeTransfer;
-  const shared: { text: string; files: string[] }[] = [];
+  const shared: { text: string; files: string[]; shape: string }[] = [];
   let commentPressed = false;
   doc.getElementById('comment-post')!.addEventListener('click', () => {
     commentPressed = true;
@@ -186,6 +394,7 @@ function instagram(opts: { menu?: boolean; written?: string; fails?: boolean } =
     });
     input.addEventListener('change', () => {
       const files = given;
+      let shape = '1:1';
       const step = (header: string, then: () => void) => {
         box.innerHTML = `<h1>${header}</h1><img src="blob:https://www.instagram.com/1"><div role="button" id="next">Next</div>`;
         box.querySelector('#next')!.addEventListener('click', then);
@@ -200,7 +409,7 @@ function instagram(opts: { menu?: boolean; written?: string; fails?: boolean } =
           return true;
         };
         box.querySelector('#share')!.addEventListener('click', () => {
-          shared.push({ text: words.textContent ?? '', files: files.map((f) => f.type) });
+          shared.push({ text: words.textContent ?? '', files: files.map((f) => f.type), shape });
           box.innerHTML = '<h1>Sharing</h1>';
           setTimeout(() => {
             box.innerHTML = opts.fails
@@ -209,7 +418,28 @@ function instagram(opts: { menu?: boolean; written?: string; fails?: boolean } =
           }, 1_000);
         });
       };
-      const crop = () => step('Crop', () => step('Edit', caption));
+      const crop = () => {
+        step('Crop', () => step('Edit', caption));
+        // Select crop: an icon with no words, showing the shapes, each an icon titled as it reads beside its words.
+        const select = doc.createElement('div');
+        select.innerHTML =
+          '<div role="button" id="crop"><svg aria-label="Select crop"></svg></div>';
+        box.append(select);
+        select.querySelector('#crop')!.addEventListener('click', () => {
+          const menu = doc.createElement('div');
+          menu.innerHTML = (opts.shapes ?? ['Original', '1:1', '4:5', '16:9'])
+            .map(
+              (s) =>
+                `<div role="button" data-shape="${s}"><span>${s}</span><svg aria-label="${s} icon"><title>${s} icon</title></svg></div>`,
+            )
+            .join('');
+          box.append(menu);
+          for (const o of menu.querySelectorAll('[data-shape]'))
+            o.addEventListener('click', () => {
+              shape = o.getAttribute('data-shape')!.toLowerCase();
+            });
+        });
+      };
       if (files.some((f) => f.type.startsWith('video/'))) {
         const note = doc.createElement('div');
         note.setAttribute('role', 'dialog');
@@ -222,6 +452,22 @@ function instagram(opts: { menu?: boolean; written?: string; fails?: boolean } =
       } else crop();
     });
   };
+  if (opts.menu === 'hidden') {
+    // Instagram's own: on the page from the start, hidden till Create is pressed, its icons titled as they read.
+    const menu = doc.createElement('div');
+    menu.setAttribute('aria-hidden', 'true');
+    menu.innerHTML = `<a href="#" role="link" id="kind"><svg aria-label="Post"><title>Post</title></svg><span>Post</span></a>
+      <a href="#" role="link"><svg aria-label="AI"><title>AI</title></svg><span>AI</span></a>`;
+    doc.querySelector('[role="navigation"]')!.append(menu);
+    menu.querySelector('#kind')!.addEventListener('click', () => {
+      menu.setAttribute('aria-hidden', 'true');
+      dialog();
+    });
+    doc
+      .getElementById('create')!
+      .addEventListener('click', () => menu.setAttribute('aria-hidden', 'false'));
+    return { doc, shared, commentPressed: () => commentPressed };
+  }
   doc.getElementById('create')!.addEventListener('click', () => {
     if (!opts.menu) return dialog();
     const menu = doc.createElement('div');
@@ -240,12 +486,41 @@ describe('putting one of the business’s posts up on Instagram (part 10)', () =
     const ig = instagram({ menu: true });
     const done = await postHere(ig.doc, ask('instagram'));
     expect(done).toMatchObject({ result: 'done', pressed: true });
-    expect(ig.shared).toEqual([{ text: 'Three ways to save time.\n\n#crm', files: ['image/png'] }]);
+    expect(ig.shared).toEqual([
+      { text: 'Three ways to save time.\n\n#crm', files: ['image/png'], shape: 'original' },
+    ]);
     expect(ig.commentPressed()).toBe(false);
     expect(done.steps).toEqual(
       expect.arrayContaining(['start', 'kind', 'media:field', 'next', 'typed', 'post']),
     );
     expect(done.steps.filter((s) => s === 'next')).toHaveLength(2);
+  });
+
+  it('keeps the picture’s own shape, not Instagram’s square, so nothing is cut off (the owner, 14 Nov)', async () => {
+    const ig = instagram();
+    const done = await postHere(ig.doc, ask('instagram'));
+    expect(done.steps).toContain('crop:original');
+    expect(ig.shared[0]!.shape).toBe('original');
+    // With no Original among the shapes, 4:5, the shape its pictures are made in.
+    const portrait = instagram({ shapes: ['1:1', '4:5', '16:9'] });
+    const four = await postHere(portrait.doc, ask('instagram'));
+    expect(four.steps).toContain('crop:4:5');
+    expect(portrait.shared[0]!.shape).toBe('4:5');
+    // With neither, it goes on with Instagram's.
+    const square = instagram({ shapes: ['1:1'] });
+    const kept = await postHere(square.doc, ask('instagram'));
+    expect(kept).toMatchObject({ result: 'done', pressed: true });
+    expect(kept.steps).toContain('crop:none');
+    expect(kept.steps.filter((s) => s.startsWith('crop:'))).toHaveLength(1);
+  });
+
+  it('picks Post from a menu that was on the page all along, hidden, with icons titled Post', async () => {
+    const ig = instagram({ menu: 'hidden' });
+    const done = await postHere(ig.doc, ask('instagram'));
+    expect(done).toMatchObject({ result: 'done', pressed: true });
+    expect(done.steps).toEqual(expect.arrayContaining(['start', 'kind', 'media:field', 'post']));
+    expect(ig.shared).toHaveLength(1);
+    expect(ig.commentPressed()).toBe(false);
   });
 
   it('presses OK when Instagram says a video goes up as a reel', async () => {
@@ -283,32 +558,38 @@ describe('putting one of the business’s posts up on Instagram (part 10)', () =
   });
 });
 
-describe('a Facebook Page’s number', () => {
-  it('comes from the link, the page’s app links, or its own data', () => {
-    const at = (html: string, url: string) => new JSDOM(html, { url }).window.document;
+describe('a Facebook Page’s numbers', () => {
+  const at = (html: string, url: string) => new JSDOM(html, { url }).window.document;
+  it('come from the link, the page’s app links, or its own data', () => {
+    const link = 'https://www.facebook.com/profile.php?id=61550000000001';
+    expect(pageIdsHere(at('', link), link)).toEqual(['61550000000001']);
     expect(
-      pageIdHere(
-        at('', 'https://www.facebook.com/profile.php?id=61550000000001'),
-        'https://www.facebook.com/profile.php?id=61550000000001',
-      ),
-    ).toBe('61550000000001');
-    expect(
-      pageIdHere(
+      pageIdsHere(
         at(
           '<head><meta property="al:android:url" content="fb://profile/100064000000002"></head>',
           'https://www.facebook.com/example',
         ),
         'https://www.facebook.com/example',
       ),
-    ).toBe('100064000000002');
+    ).toEqual(['100064000000002']);
     expect(
-      pageIdHere(
+      pageIdsHere(
         at('<script>{"pageID":"123456789012"}</script>', 'https://www.facebook.com/example'),
         'https://www.facebook.com/example',
       ),
-    ).toBe('123456789012');
+    ).toEqual(['123456789012']);
     expect(
-      pageIdHere(at('', 'https://www.facebook.com/example'), 'https://www.facebook.com/example'),
-    ).toBeNull();
+      pageIdsHere(at('', 'https://www.facebook.com/example'), 'https://www.facebook.com/example'),
+    ).toEqual([]);
+  });
+
+  it('put a newer Page’s own number before the one in its link, once each', () => {
+    const link = 'https://www.facebook.com/profile.php?id=61550000000001';
+    const doc = at(
+      `<head><meta property="al:android:url" content="fb://profile/61550000000001"></head>
+      <script>{"delegate_page":{"is_business_page_active":true,"id":"109876543210987"},"page_id":"55555555555"}</script>`,
+      link,
+    );
+    expect(pageIdsHere(doc, link)).toEqual(['109876543210987', '61550000000001', '55555555555']);
   });
 });

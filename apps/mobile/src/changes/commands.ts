@@ -7,6 +7,10 @@ import {
   PartnerReferralSetOutput,
   PartnerUpdateInput,
   PartnerUpdateOutput,
+  PersonHandBackInput,
+  PersonHandBackOutput,
+  PersonTakeOverInput,
+  PersonTakeOverOutput,
   ExtensionSignInAnswerInput,
   ExtensionSignInAnswerOutput,
   ActivityLogInput,
@@ -188,6 +192,8 @@ import {
   TeammateLessonApplyOutput,
   TeammateLessonDismissInput,
   TeammateLessonDismissOutput,
+  UserAboutSetInput,
+  UserAboutSetOutput,
   UserPhoneStartVerificationInput,
   UserPhoneStartVerificationOutput,
   UserUpdateProfileInput,
@@ -370,6 +376,14 @@ import {
   DayInput,
   DayOutput,
 } from '@hfos/core/addons/outreach/live';
+import {
+  HandsGiveBackInput,
+  HandsGiveBackOutput,
+  HandsKeepInput,
+  HandsKeepOutput,
+  HandsTakeInput,
+  HandsTakeOutput,
+} from '@hfos/core/addons/outreach/in-hands';
 import { OwnerMoveInput, OwnerMoveOutput } from '@hfos/core/addons/outreach/owners';
 import {
   PartnerMarkInput,
@@ -415,6 +429,15 @@ import {
   HelpfulPostedInput,
   HelpfulSkipInput,
 } from '@hfos/core/addons/outreach/helpful';
+import { EventSkipInput, EventSkipOutput } from '@hfos/core/addons/outreach/events-near';
+import {
+  ReferAskAnswerInput,
+  ReferAskChangeOutput,
+  ReferralApproveInput,
+  ReferralChangeOutput,
+  ReferralDoneInput,
+  ReferralSkipInput,
+} from '@hfos/core/addons/outreach/referrals';
 import {
   LikeYoursAddInput,
   LikeYoursChangeOutput,
@@ -471,10 +494,22 @@ import {
 import {
   Content as SocialcontentContent,
   ContentApproveInput as SocialcontentContentApproveInput,
+  ContentApproveManyInput as SocialcontentContentApproveManyInput,
+  ContentApproveManyOutput as SocialcontentContentApproveManyOutput,
   ContentApproveWeekInput as SocialcontentContentApproveWeekInput,
   ContentApproveWeekOutput as SocialcontentContentApproveWeekOutput,
+  ContentHideInput as SocialcontentContentHideInput,
+  ContentHideOutput as SocialcontentContentHideOutput,
+  ContentLookInput as SocialcontentContentLookInput,
+  ContentLookOutput as SocialcontentContentLookOutput,
+  ContentMarkPostedInput as SocialcontentContentMarkPostedInput,
+  ContentMarkPostedOutput as SocialcontentContentMarkPostedOutput,
   ContentPostNowInput as SocialcontentContentPostNowInput,
+  ContentRedoInput as SocialcontentContentRedoInput,
+  ContentRedoOutput as SocialcontentContentRedoOutput,
   ContentRemoveInput as SocialcontentContentRemoveInput,
+  ContentRemoveManyInput as SocialcontentContentRemoveManyInput,
+  ContentRemoveManyOutput as SocialcontentContentRemoveManyOutput,
   ContentRemoveOutput as SocialcontentContentRemoveOutput,
   ContentSaveInput as SocialcontentContentSaveInput,
   ContentSkipInput as SocialcontentContentSkipInput,
@@ -694,13 +729,17 @@ export const PHONE_COMMANDS = {
     MainOfferSaveDirectionOutput,
   ),
   'main_offer.save_draft': command(ONLINE, MainOfferSaveDraftInput, MainOfferSaveDraftOutput),
-  // For your content (the owner's pick 6b): one list saved whole, online as the rest of the offer is.
+  // For your posts and messages (the owner's pick 6b): one list saved whole, online as the rest of the offer is.
   'main_offer.save_list': command(ONLINE, MainOfferSaveListInput, MainOfferSaveListOutput),
   // A partner's page and a customer's Partner card (the partners plan, stage 2d): online, since each is for the
   // partner as HandsFreeOS has them now, and promises the business's money.
   'partner.add': command(ONLINE, PartnerAddInput, PartnerAddOutput),
   'partner.referral_set': command(ONLINE, PartnerReferralSetInput, PartnerReferralSetOutput),
   'partner.update': command(ONLINE, PartnerUpdateInput, PartnerUpdateOutput),
+  // In your hands, on a customer's page and Contacts → In your hands: online, since each is for who has them now, and
+  // giving back has the AI answer what they're waiting on.
+  'person.take_over': command(ONLINE, PersonTakeOverInput, PersonTakeOverOutput),
+  'person.hand_back': command(ONLINE, PersonHandBackInput, PersonHandBackOutput),
   'message.cancel_scheduled': command(
     ANYTIME,
     MessageCancelScheduledInput,
@@ -753,8 +792,18 @@ export const PHONE_COMMANDS = {
   'outreach.helpful.ok': command(ONLINE, HelpfulOkInput, HelpfulChangeOutput),
   'outreach.helpful.posted': command(ONLINE, HelpfulPostedInput, HelpfulChangeOutput),
   'outreach.helpful.skip': command(ONLINE, HelpfulSkipInput, HelpfulChangeOutput),
+  // Refer someone on Today (decision 174): done by hand, or put aside, with signal.
+  'outreach.referral.done': command(ONLINE, ReferralDoneInput, ReferralChangeOutput),
+  'outreach.referral.skip': command(ONLINE, ReferralSkipInput, ReferralChangeOutput),
+  'outreach.referral.approve': command(ONLINE, ReferralApproveInput, ReferralChangeOutput),
+  // Not going: an event near them off Today (decision 188).
+  'outreach.event.skip': command(ONLINE, EventSkipInput, EventSkipOutput),
+  'outreach.refer_ask.answer': command(ONLINE, ReferAskAnswerInput, ReferAskChangeOutput),
   // Later, or Take off Later, from the person menu on a name (decision 100): with signal, as Mark as client is.
   'outreach.later.set': command(ONLINE, LaterSetInput, LaterSetOutput),
+  'outreach.hands.take': command(ONLINE, HandsTakeInput, HandsTakeOutput),
+  'outreach.hands.give_back': command(ONLINE, HandsGiveBackInput, HandsGiveBackOutput),
+  'outreach.hands.keep': command(ONLINE, HandsKeepInput, HandsKeepOutput),
   // Settings → Instagram's accounts like yours (decision 110): added or removed by an owner or admin, with signal.
   'outreach.like_yours.add': command(ONLINE, LikeYoursAddInput, LikeYoursChangeOutput),
   'outreach.like_yours.remove': command(ONLINE, LikeYoursRemoveInput, LikeYoursChangeOutput),
@@ -946,11 +995,32 @@ export const PHONE_COMMANDS = {
   'safety_contact.save': command(ONLINE, SafetyContactSaveInput, SafetyContactOutput),
   // AI Social Media Content Creator's screens (part 5), with signal: niches and creators picked, added and found,
   // reading someone again, its settings, trying watching, stopping work, and an idea saved, used or skipped. Its
-  // Calendar (part 12): a post saved, OK'd or its OK taken back, the week OK'd, skipped or brought back, and Post it now.
+  // Calendar (part 12): a post saved, OK'd or its OK taken back, the week OK'd, skipped or brought back, Post it now,
+  // Redo posts, and picked posts OK'd, hidden or shown again, deleted, marked as posted or looked for (the owner, 15 Nov).
   'socialcontent.content.approve': command(
     ONLINE,
     SocialcontentContentApproveInput,
     SocialcontentContent,
+  ),
+  'socialcontent.content.approve_many': command(
+    ONLINE,
+    SocialcontentContentApproveManyInput,
+    SocialcontentContentApproveManyOutput,
+  ),
+  'socialcontent.content.hide': command(
+    ONLINE,
+    SocialcontentContentHideInput,
+    SocialcontentContentHideOutput,
+  ),
+  'socialcontent.content.look': command(
+    ONLINE,
+    SocialcontentContentLookInput,
+    SocialcontentContentLookOutput,
+  ),
+  'socialcontent.content.mark_posted': command(
+    ONLINE,
+    SocialcontentContentMarkPostedInput,
+    SocialcontentContentMarkPostedOutput,
   ),
   'socialcontent.content.approve_week': command(
     ONLINE,
@@ -962,10 +1032,20 @@ export const PHONE_COMMANDS = {
     SocialcontentContentPostNowInput,
     SocialcontentContent,
   ),
+  'socialcontent.content.redo': command(
+    ONLINE,
+    SocialcontentContentRedoInput,
+    SocialcontentContentRedoOutput,
+  ),
   'socialcontent.content.remove': command(
     ONLINE,
     SocialcontentContentRemoveInput,
     SocialcontentContentRemoveOutput,
+  ),
+  'socialcontent.content.remove_many': command(
+    ONLINE,
+    SocialcontentContentRemoveManyInput,
+    SocialcontentContentRemoveManyOutput,
   ),
   'socialcontent.content.save': command(
     ONLINE,
@@ -1020,6 +1100,8 @@ export const PHONE_COMMANDS = {
     UserPhoneStartVerificationInput,
     UserPhoneStartVerificationOutput,
   ),
+  // About you (decision 165 in docs/outreach.md): each person's own, saved from Settings → About you with a signal.
+  'user_about.set': command(ONLINE, UserAboutSetInput, UserAboutSetOutput),
   'user.update_profile': command(ONLINE, UserUpdateProfileInput, UserUpdateProfileOutput),
   'workflow.decide_approval': command(
     FRESH,

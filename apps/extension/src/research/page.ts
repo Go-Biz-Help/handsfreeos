@@ -9,12 +9,14 @@
  *   signed-in account, as the page asks for it. Nothing else: it never asks another site.
  * - `post`: puts up one of the business's own posts, OK'd by a person (part 9, ./post-here.ts): its words and its
  *   pictures in the network's own box, then Post. It's the only thing these hands post, and only when the
- *   background asks with a post HandsFreeOS handed it (./posting.ts). `pageId`: a Facebook Page's number, from its
- *   page, for Business Suite. `me`: the signed-in person's Instagram name, from their Profile link, to find the link
+ *   background asks with a post HandsFreeOS handed it (./posting.ts). `pageIds`: the numbers Business Suite might open
+ *   a Facebook Page by, from its page. `me`: the signed-in person's Instagram name, from their Profile link, to find the link
  *   of a post just put up among their own (part 10).
  * - `read`: the page as its network's readers see it (Facebook's and LinkedIn's: a profile, its posts, a search's
  *   people and posts), for the reads that go by the page itself (./page-read.ts). `scroll`: one screen further down,
- *   as a person scrolls, for the network to load more.
+ *   as a person scrolls, for the network to load more. `drawPosts`: on a page that draws its posts only once they're
+ *   scrolled near (Facebook's), the first still loading scrolled into view, or the page scrolled on while fewer than
+ *   asked for are drawn and it hasn't ended, for a post to be looked for among the newest (./posting.ts).
  * - `warnings`: the network's warnings on the page now ("Try again later"), which stop the network for the day.
  * - `outline`: the page, read by its network's readers, with its outline (everything a person wrote as "[2 words]"),
  *   for the read's problem report.
@@ -30,7 +32,7 @@
 import { kitHere } from '../networks';
 import { HelperHands, type HelperMoveAsk, type HelperMoveDone } from '../networks/helper-view';
 import { heldOn, profileHeldOn, type ResearchHeld } from './held';
-import { instagramMe, pageIdHere, postHere, type PostAsk, type PostDone } from './post-here';
+import { instagramMe, pageIdsHere, postHere, type PostAsk, type PostDone } from './post-here';
 import type { InstagramPageProfile } from './instagram';
 import { INSTAGRAM_APP_ID, INSTAGRAM_READS } from './instagram';
 import { watchVideo, type WatchAsk, type Watched } from './watch';
@@ -59,11 +61,23 @@ export interface ResearchScrolled {
   readonly atEnd: boolean;
 }
 
+/**
+ * How far `drawPosts` found the page's posts drawn: how many, and whether it's still drawing the newest (one scrolled
+ * into view to load); whether Chrome shows the page, as it draws nothing in a window hidden behind another.
+ */
+export interface ResearchDrawing {
+  readonly drawn: number;
+  readonly loading: boolean;
+  readonly shown: boolean;
+}
+
 export interface ResearchHands {
   get(path: string): Promise<ResearchGot>;
   /** The page as its network's readers see it (a kit's `readPage`). */
   read(): unknown;
   scroll(): ResearchScrolled;
+  /** Until `most` posts are drawn: the first still loading scrolled into view (or one screen down while none shows). */
+  drawPosts(most: number): ResearchDrawing;
   outline(): ResearchOutline;
   /** The network's warnings on the page now. */
   warnings(): string[];
@@ -75,8 +89,8 @@ export interface ResearchHands {
   profileHeld(username: string): InstagramPageProfile;
   /** Puts up one of the business's own OK'd posts in the box the page shows. */
   post(ask: PostAsk): Promise<PostDone>;
-  /** On a Facebook Page: its number. */
-  pageId(): string | null;
+  /** On a Facebook Page: the numbers Business Suite might open it by, likeliest first. */
+  pageIds(): string[];
   /** On Instagram: the signed-in person's name. */
   me(): string | null;
 }
@@ -151,6 +165,20 @@ if (kit && !here.hfosResearch) {
         atEnd: innerHeight + scrollY >= document.documentElement.scrollHeight - 40,
       };
     },
+    drawPosts(most) {
+      const shown = document.visibilityState === 'visible';
+      const now = kit.postsDrawing?.(document);
+      if (!now) return { drawn: 0, loading: false, shown };
+      // Fewer drawn than asked for and none loading: more come once it's scrolled down, until the page ends.
+      const ended =
+        innerHeight + scrollY >= (document.documentElement?.scrollHeight ?? 0) - 2 && now.drawn > 0;
+      // None drawn and none loading yet: its posts are further down, below what the page says about itself.
+      const loading = now.drawn < most && (now.loading !== null || now.drawn === 0 || !ended);
+      if (loading && now.loading)
+        (now.loading as HTMLElement).scrollIntoView?.({ block: 'center' });
+      else if (loading) scrollBy({ top: Math.round(innerHeight * 0.9) });
+      return { drawn: now.drawn, loading, shown };
+    },
     warnings: () => kit.readWarnings(document, location.href),
     view: (fresh) => hands.look(document, location.href, fresh),
     move: (ask) => hands.move(document, { ...ask, do: ask.do === 'press' ? 'wait' : ask.do }, null),
@@ -166,7 +194,7 @@ if (kit && !here.hfosResearch) {
     },
     profileHeld: (username) => profileHeldOn(document, username),
     post: (ask) => postHere(document, ask),
-    pageId: () => pageIdHere(document, location.href),
+    pageIds: () => pageIdsHere(document, location.href),
     me: () => instagramMe(document),
   };
 }

@@ -908,6 +908,33 @@ describe('a post’s people on Instagram (decision 92)', () => {
     );
     const newer = NEWER_POST();
     expect(likesOpenerIn(postRootOf(newer), newer.location.href)?.textContent).toBe('36.5K');
+    // A post the person liked already: its Like is an Unlike (the owner's problem report of 13 Nov 2026).
+    const liked = NEWER_POST();
+    liked.querySelector('section svg[aria-label="Like"]')!.setAttribute('aria-label', 'Unlike');
+    expect(likesOpenerIn(postRootOf(liked), liked.location.href)?.textContent).toBe('36.5K');
+    expect(read(liked).post?.likes).toBe(36_500);
+    // The reels player (the owner's problem report of 14 Nov 2026): no article, the reel it opened on first and the next
+    // under it, and each bar's Comment named by its own count beside its icon.
+    const reelBar = (like: string, likes: string, id: string) => `<div><div>
+        <div role="button"><svg role="img" aria-label="${like}"></svg></div>
+        <div role="button" id="${id}"><span dir="auto"><span>${likes}</span></span></div></div>
+      <div role="button" aria-expanded="false"><div><svg role="img" aria-label="Comment"></svg>
+        <span dir="auto"><span>3</span></span></div></div>
+      <div><div role="button"><svg role="img" aria-label="Repost"></svg></div>
+        <div role="button"><span dir="auto"><span>3</span></span></div></div>
+      <div><div role="button"><svg role="img" aria-label="Share"></svg></div>
+        <div role="button"><span dir="auto"><span>2</span></span></div></div>
+      <div role="button"><div role="button"><svg role="img" aria-label="Save"></svg></div></div></div>`;
+    const reels = page(
+      '/reels/C4ddddddd/',
+      `<main role="main"><div><div><video></video>${reelBar('Unlike', '36', 'opened')}</div>
+        <div><video></video>${reelBar('Like', '74', 'next')}</div></div></main>`,
+    );
+    expect(likesOpenerIn(postRootOf(reels), reels.location.href)?.id).toBe('opened');
+    let pressed = 0;
+    reels.getElementById('opened')!.addEventListener('click', () => pressed++);
+    expect(openLikers(reels, reels.location.href)).toBe(true);
+    expect(pressed).toBe(1);
     // With its likes hidden there's nothing to open it by: a comment's own likes are never pressed for it.
     const hidden = page(
       '/p/C3xyzabcd/',

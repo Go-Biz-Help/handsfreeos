@@ -1138,6 +1138,10 @@ export function memberBusiness(url: URL): ProfileRef | null {
 /** A heading that starts a section of a group's people: its leaders, or its members. */
 const peopleSection = (words: string) => LEADERS.test(words) || PEOPLE_SECTION.test(words);
 
+/** A business once, however the page links to it. */
+const businessKey = (profile: ProfileRef) =>
+  (profile.username ?? profile.id ?? profile.url).toLowerCase();
+
 /**
  * A member's row: the largest part around their links that links to nobody else's business, a few steps up, never
  * past a heading that starts a section of people (`sectionAt`: a group's leaders or members, an event's hosts or
@@ -1149,8 +1153,7 @@ function rowsOf(
   sectionAt: (words: string) => boolean = peopleSection,
 ): { row: Element; profile: ProfileRef; anchors: HTMLAnchorElement[] }[] {
   const byBusiness = new Map<string, { profile: ProfileRef; anchors: HTMLAnchorElement[] }>();
-  const keyOf = (profile: ProfileRef) =>
-    (profile.username ?? profile.id ?? profile.url).toLowerCase();
+  const keyOf = businessKey;
   for (const { a, url } of linksIn(main, base)) {
     if (inMenu(a) || a.closest(PART('discussion-comment'))) continue;
     const profile = memberBusiness(url);
@@ -1358,15 +1361,26 @@ export interface EventPage {
 const eventsListAt = (url: URL) =>
   eventOf(url) === null && parts(url).some((part) => part.toLowerCase() === 'events');
 
+/**
+ * Whether a page at what looks like an event's address lists events instead: Alignable's own search of them, by kind
+ * (/events/<kind>), with its filters and a tile for each event, and no event's details (the problem check of 13 Nov
+ * 2026, where one was opened as an event and showed nobody).
+ */
+const listsEvents = (main: Element) =>
+  main.querySelector(PART('event-details')) === null &&
+  main.querySelector(PART('wide-event-tile')) !== null;
+
 /** The events a list of them shows (the person's town's events), each once by its own page, in the page's order. */
 export function eventCards(doc: Document, base: string): EventCard[] {
   const here = urlOf(base, base);
-  if (!here || !eventsListAt(here)) return [];
+  if (!here) return [];
   const main = mainOf(doc);
+  const self = eventOf(here);
+  if (!eventsListAt(here) && !(self && listsEvents(main))) return [];
   const byEvent = new Map<string, HTMLAnchorElement[]>();
   for (const { a, url } of linksIn(main, base)) {
     const event = inMenu(a) ? null : eventOf(url);
-    if (!event) continue;
+    if (!event || event === self) continue;
     const seen = byEvent.get(event);
     if (seen) seen.push(a);
     else byEvent.set(event, [a]);
@@ -1402,20 +1416,74 @@ export function eventCards(doc: Document, base: string): EventCard[] {
 }
 
 /**
- * An event's own page: its name (its first heading), who's hosting it (under a heading of its hosts, or marked as one)
- * and who's going (under a heading of its guests), each once by their business. Nobody elsewhere on the page (other
- * events, suggestions beside it) is either. Nothing on the page is pressed.
+ * Who an event's page shows in Alignable's own part for its hosts (`hosts`), each once by their business: their name
+ * (its title), their business and the lines under it, and their business's id from their Connect. Alignable draws the
+ * part twice, a wide screen's and a narrow one's, under a one-word label that isn't a heading, so a row around a host's
+ * links spanned both copies and took in the event's name with them (the problem check of 13 Nov 2026: five events read
+ * as showing nobody). Only with the event's details shown: a list of events has a part like it on each one's tile.
+ */
+function hostsShown(main: Element, base: string): Omit<Member, 'leader'>[] {
+  if (!main.querySelector(PART('event-details'))) return [];
+  const hosts = new Map<string, Omit<Member, 'leader'>>();
+  for (const part of main.querySelectorAll(PART('hosts'))) {
+    if (inMenu(part)) continue;
+    const linked = new Map<string, { profile: ProfileRef; anchors: HTMLAnchorElement[] }>();
+    for (const { a, url } of linksIn(part, base)) {
+      const profile = memberBusiness(url);
+      if (!profile) continue;
+      const key = businessKey(profile);
+      const seen = linked.get(key);
+      if (seen) seen.anchors.push(a);
+      else linked.set(key, { profile, anchors: [a] });
+    }
+    for (const [key, { profile, anchors }] of linked) {
+      // Their own part: their picture, their name, and their Connect.
+      const row = around(anchors);
+      if (hosts.has(key) || !row || row === part) continue;
+      const shown = leafLines(row).filter(
+        (line) =>
+          !pageWords(line) &&
+          !HOST_MARK.test(line) &&
+          !EVENT_HOSTS.test(line) &&
+          !ROW_CONTROLS.test(line),
+      );
+      const name =
+        anchors
+          .map((a) => clean(a.querySelector('[title]')?.getAttribute('title')))
+          .find(Boolean) ?? shown[0];
+      if (!name) continue;
+      const [business = null, ...lines] = shown.filter((line) => line !== name);
+      hosts.set(key, {
+        name,
+        profile: { ...profile, id: profile.id ?? idAround(row, base) },
+        business,
+        lines,
+      });
+    }
+  }
+  return [...hosts.values()];
+}
+
+/**
+ * An event's own page: its name (the heading of its details, else its first heading), who's hosting it (in
+ * Alignable's own part for them, under a heading of its hosts, or marked as one) and who's going (under a heading of
+ * its guests), each once by their business. Nobody elsewhere on the page (other events, suggestions beside it) is
+ * either. Nothing on the page is pressed. Null at an event's address that lists events instead.
  */
 export function eventPage(doc: Document, base: string): EventPage | null {
   const here = urlOf(base, base);
   const url = here ? eventOf(here) : null;
   if (!url) return null;
   const main = mainOf(doc);
-  const rows = rowsOf(main, base, eventSection);
+  if (listsEvents(main)) return null;
+  const hosts = hostsShown(main, base);
+  const taken = new Set(hosts.map((host) => businessKey(host.profile)));
+  const rows = rowsOf(main, base, eventSection).filter(
+    ({ profile }) => !taken.has(businessKey(profile)),
+  );
   const headings = [...main.querySelectorAll(HEADINGS)].filter(
     (h) => !rows.some(({ row }) => row.contains(h)) && !inMenu(h),
   );
-  const hosts: Omit<Member, 'leader'>[] = [];
   const guests: Omit<Member, 'leader'>[] = [];
   for (const found of rows.slice(0, MEMBERS_MOST)) {
     const person = personIn(found, base, HOST_MARK);
@@ -1424,7 +1492,9 @@ export function eventPage(doc: Document, base: string): EventPage | null {
     if (person.marked || (under !== null && EVENT_HOSTS.test(under))) hosts.push(person.member);
     else if (under !== null && EVENT_GUESTS.test(under)) guests.push(person.member);
   }
-  const named = headings.find((h) => !eventSection(clean(h.textContent)));
+  const named =
+    main.querySelector(PART('event-details'))?.querySelector(HEADINGS) ??
+    headings.find((h) => !eventSection(clean(h.textContent)));
   return { url, name: clean(named?.textContent) || null, hosts, guests };
 }
 

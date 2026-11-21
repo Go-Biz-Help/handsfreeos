@@ -27,10 +27,15 @@ import {
   queueFill,
   queueTimes,
   REWRITE_ACTION,
+  REWRITE_JOB,
+  REWRITE_MANY_ACTION,
+  rewriteManyNow,
   rewritePostNow,
   runCalendar,
   runPictures,
+  runRewrite,
   runTimes,
+  remakeLeft,
   TIMES_JOB,
   WRITE_ACTION,
   writePostNow,
@@ -98,6 +103,9 @@ async function armChecks(ctx: AddonScopeContext): Promise<void> {
 async function onEnable(ctx: AddonScopeContext): Promise<void> {
   await armChecks(ctx);
   await queueSetup(ctx);
+  // Pictures made before Instagram's shape, or before the check looked for a photo's mistakes, are made again (the
+  // owner, 15 Nov).
+  await remakeLeft(ctx);
   const [s] = await asWorker(ctx.db, ctx.scope, (tx) =>
     rows<{ filled_at: Date | null; auto_fill: boolean }>(
       tx,
@@ -147,8 +155,12 @@ const onOwnNumbersRead: AddonSubscriber = async (ctx) => {
   await queueTimes(ctx, TIMES_LATER_MS);
 };
 
-/** Each studied creator's posts read again; then the next week's. */
+/**
+ * Each studied creator's posts read again; then the next week's. Any pictures still not in Instagram's shape, or
+ * made before the check looked for a photo's mistakes, are made again too (the owner, 15 Nov).
+ */
 const readWeekly: AddonJobHandler = async (ctx) => {
+  await remakeLeft(ctx);
   await executeCommand(
     ctx.db,
     workQueue,
@@ -201,6 +213,7 @@ export const socialcontentAddonWorker: AddonWorkerModule = {
     [NOTES_JOB]: runNotes,
     [CALENDAR_JOB]: runCalendar,
     [PICTURES_JOB]: runPictures,
+    [REWRITE_JOB]: runRewrite,
     [TIMES_JOB]: runTimes,
     [SETUP_JOB]: runSetup,
     [RESEARCH_JOB]: runResearch,
@@ -214,6 +227,7 @@ export const socialcontentAddonWorker: AddonWorkerModule = {
     [WATCH_ACTION]: watchPost,
     [WRITE_ACTION]: writePostNow,
     [REWRITE_ACTION]: rewritePostNow,
+    [REWRITE_MANY_ACTION]: rewriteManyNow,
     [FILL_ACTION]: fillCalendarNow,
     [PICTURE_ACTION]: makePictureNow,
   },

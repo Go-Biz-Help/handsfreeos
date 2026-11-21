@@ -54,6 +54,11 @@ export const BillingStatusOutput = z.strictObject({
   canManage: z.boolean(),
   /** Who to ask, when they can't: an owner's name. */
   askWho: z.string().nullable(),
+  /**
+   * A free trial that ends within `TRIAL_ENDING_DAYS` and will be charged (20261027027000), for whoever manages money:
+   * when, and what the card is charged then. Null otherwise, and always for everyone else.
+   */
+  trialEnding: z.strictObject({ endsAt: z.iso.datetime(), chargeCents: z.int() }).nullable(),
 });
 
 export const BillingGetInput = z.strictObject({ workspaceId: uuid });

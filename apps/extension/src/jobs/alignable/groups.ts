@@ -86,7 +86,9 @@ const stopped = (job: Job): JobEnd | null =>
   job.stopped() ? { line: 'Stopped.', warned: false } : null;
 
 /** A group HandsFreeOS keeps, as the saves take it: its name in its address, its page, and its name. */
-function cardOf(group: Pick<WorkGroup, 'url' | 'name' | 'members'>): AlignableGroupCard | null {
+export function cardOf(
+  group: Pick<WorkGroup, 'url' | 'name' | 'members'>,
+): AlignableGroupCard | null {
   let url: URL;
   try {
     url = new URL(group.url);
@@ -149,7 +151,7 @@ export async function readMyGroups(job: Job): Promise<JobEnd> {
   if (!groups.length) {
     await job.report?.({ note: 'Alignable didn’t show any groups of yours.', outline: true });
     return {
-      line: 'Alignable didn’t show any groups of yours. Check you’re signed in to Alignable in this browser; groups found for your niche come next.',
+      line: 'Alignable didn’t show any groups of yours. Groups found for your niche come next.',
       warned: false,
     };
   }
@@ -455,7 +457,7 @@ export async function joinGroupsOn(job: Job): Promise<JobEnd> {
 // ------------------------------------------------------------------------------------------------ members and posts
 
 /** The Alignable groups the person is in, marked Work these, else Maybe, as HandsFreeOS picks them. */
-async function groupsToWorkOn(job: Job, most: number): Promise<WorkGroup[]> {
+export async function groupsToWorkOn(job: Job, most: number): Promise<WorkGroup[]> {
   const [work, maybe] = await Promise.all(
     (['work', 'maybe'] as const).map(
       async (view) =>
@@ -539,15 +541,25 @@ export async function readMembers(job: Job): Promise<JobEnd> {
     const theirs = got.items.filter((m) => someoneElse(m.profile));
     const leaders = theirs.filter((m) => m.leader);
     const others = theirs.filter((m) => !m.leader);
-    if (!got.items.length) {
-      await job.report?.({ note: 'Alignable showed no members of a group.', outline: true });
-      continue;
-    }
     const facts = {
       ...card,
       name: card.name ?? shown?.name ?? null,
       members: shown?.members ?? card.members,
     };
+    if (!got.items.length) {
+      // The list ran out while it scrolled past what the last read got to: that read got to its end, so there's no one
+      // past it, and the next read starts at the top (decision 148). No failure, and the depth goes back to the top,
+      // or every read after would scroll past the end again (the owner's problem report of 16 Nov 2026, from 0.147.1).
+      if (from > 0 && got.whole && got.screens < from) {
+        const back = alignableGroupSave(facts, [], job.businessId, false, 0);
+        if (back.ok)
+          for (const input of back.input)
+            valueOf(await job.hfos({ type: 'hfos-save-group', input }));
+        continue;
+      }
+      await job.report?.({ note: 'Alignable showed no members of a group.', outline: true });
+      continue;
+    }
     const built = alignableGroupSave(
       facts,
       [...leaders, ...others].map((m) => ({

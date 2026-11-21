@@ -26,6 +26,7 @@
 import type {
   AutoAnswer,
   AutoAsk,
+  TagCommentAsk,
   BrowseAnswer,
   BrowseAsk,
   CancelSentAnswer,
@@ -44,6 +45,8 @@ import type {
   OwnEditorsAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
+  PostLookAnswer,
+  PostLookAsk,
   PostsAnswer,
   TryAnswer,
   TryAsk,
@@ -52,16 +55,20 @@ import type {
   WritePartAnswer,
   WritePartAsk,
 } from '../../messages';
+import type { ProfileRef } from './types';
 import { usernamePageOf } from '../accounts-center/username';
 import { CENTER_ASKS, centerWork, type CenterAsk } from '../accounts-center/work';
 import {
+  closeChatWindows,
   likeGroupPost,
   likeTheirPost,
+  noneLikeable,
   openMessage,
   readGroupFeed,
   readTheirPosts,
   saysNoPosts,
   writeComment,
+  writeTaggedComment,
   writeMessage,
   type ChatsBefore,
 } from './auto';
@@ -74,6 +81,8 @@ import { linksPage, writeLink } from './links';
 import { ownEditorsOf, readOwnProfile, writeBioSteps } from './own-profile';
 import { writeFacebookPart } from './parts';
 import { mainOf } from './dom';
+import { seePost } from '../post-look';
+import { commentAround, postBoxes, readPost } from './posts';
 import { readProfile } from './profile';
 import { cancelSent } from './sent';
 import { tidyPage } from './tidy';
@@ -123,13 +132,19 @@ async function cancelSentStep(ask: CancelSentAsk): Promise<CancelSentAnswer> {
 }
 
 /** One of the runner's steps (./auto.ts): a like on someone's profile, a comment on a post, or a message. */
-async function autoStep(ask: AutoAsk): Promise<AutoAnswer | PostsAnswer> {
+async function autoStep(ask: AutoAsk | TagCommentAsk): Promise<AutoAnswer | PostsAnswer> {
   const kind = classifyUrl(location.href).kind;
   if (ask.type === 'hfos-their-posts' || ask.type === 'hfos-like-post') {
     if (kind !== 'profile') return { ok: false, error: 'Facebook didn’t open their profile.' };
+    // Chat windows left open over the page are closed first (the owner's pick of 13 Nov 2026).
+    await closeChatWindows(document);
     if (ask.type === 'hfos-their-posts') {
       const posts = await readTheirPosts(document, location.href, ask.profile, window, ask.most);
-      return { ok: true, posts, ...(!posts.length && saysNoPosts(document) ? { none: true } : {}) };
+      // Nothing to like and nothing wrong: Facebook says they have no posts, or shows none with a Like to press.
+      const none =
+        !posts.length &&
+        (saysNoPosts(document) || noneLikeable(document, location.href, ask.profile));
+      return { ok: true, posts, ...(none ? { none: true as const } : {}) };
     }
     return {
       ok: true,
@@ -161,6 +176,8 @@ async function autoStep(ask: AutoAsk): Promise<AutoAnswer | PostsAnswer> {
     };
   }
   if (kind !== 'post') return { ok: false, error: 'Facebook didn’t open the post.' };
+  if (ask.type === 'hfos-tag-comment')
+    return { ok: true, ...(await writeTaggedComment(document, ask.tag)) };
   return { ok: true, result: await writeComment(document, ask.text) };
 }
 
@@ -175,6 +192,8 @@ async function groupFeedStep(
     return { ok: false, error: 'Facebook didn’t open the group.' };
   if (ask.type === 'hfos-group-feed')
     return { ok: true, posts: await readGroupFeed(document, location.href, window, ask.most) };
+  // Chat windows left open over the page are closed before a like (the owner's pick of 13 Nov 2026).
+  await closeChatWindows(document);
   return { ok: true, ...(await likeGroupPost(document, location.href, ask, window)) };
 }
 
@@ -184,9 +203,13 @@ async function groupFeedStep(
  */
 let chatsBefore: ChatsBefore | null = null;
 
-/** Their profile's Message, for the runner, once the chats open before it are noted: whether it could press it. */
+/**
+ * Their profile's Message, for the runner, once the chat windows left open over the page are closed (the owner's pick
+ * of 13 Nov 2026) and the chats open before it are noted: whether it could press it.
+ */
 async function openMessageStep(): Promise<BrowseAnswer> {
   if (classifyUrl(location.href).kind !== 'profile') return { ok: false };
+  await closeChatWindows(document);
   const opened = await openMessage(document);
   chatsBefore = opened.before;
   return { ok: opened.pressed };
@@ -211,7 +234,31 @@ async function groupPostStep(ask: GroupPostAsk): Promise<GroupPostAnswer> {
   return {
     ok: true,
     comments: readComments(document, location.href),
-    reactions: await readReactions(document, location.href),
+    // The comment research reads the comments alone, pressing nothing (decision 172).
+    reactions: ask.reactions === false ? [] : await readReactions(document, location.href),
+  };
+}
+
+/** The same person, by the number or the username both links have. */
+const samePerson = (a: ProfileRef, b: ProfileRef): boolean =>
+  (a.id !== null && a.id === b.id) ||
+  (a.username !== null &&
+    b.username !== null &&
+    a.username.toLowerCase() === b.username.toLowerCase());
+
+/**
+ * A look at their post before its comment is drafted (decisions 166 and 172, ../post-look.ts): only on a post's own
+ * page whose post is theirs, by its writer's link, from that post's own box; nothing in a comment under it is the
+ * post's. Nothing seen on any other page.
+ */
+async function lookStep(ask: PostLookAsk): Promise<PostLookAnswer> {
+  if (classifyUrl(location.href).kind !== 'post') return { ok: true, seen: null };
+  const box = postBoxes(mainOf(document))[0];
+  const writer = box ? readPost(box, location.href)?.author?.profile : null;
+  if (!box || !writer || !samePerson(writer, ask.profile)) return { ok: true, seen: null };
+  return {
+    ok: true,
+    seen: await seePost(box, ask.want, { skip: (el) => commentAround(el, box) !== null }),
   };
 }
 
@@ -371,12 +418,14 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-group-feed',
   'hfos-like-group-post',
   'hfos-comment',
+  'hfos-tag-comment',
   'hfos-message',
   'hfos-open-message',
   'hfos-join',
   'hfos-join-answer',
   'hfos-group-post',
   'hfos-engaged',
+  'hfos-post-look',
   'hfos-own-profile',
   'hfos-write-bio',
   'hfos-own-editors',
@@ -391,11 +440,13 @@ type WorkAsk =
   | CancelSentAsk
   | BrowseAsk
   | AutoAsk
+  | TagCommentAsk
   | GroupFeedAsk
   | GroupLikeAsk
   | OpenMessageAsk
   | JoinAsk
   | GroupPostAsk
+  | PostLookAsk
   | OwnProfileAsk
   | OwnEditorsAsk
   | WriteLinkAsk
@@ -430,9 +481,12 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-group-post':
     case 'hfos-engaged':
       return groupPostStep(known);
+    case 'hfos-post-look':
+      return lookStep(known);
     case 'hfos-their-posts':
     case 'hfos-like-post':
     case 'hfos-comment':
+    case 'hfos-tag-comment':
     case 'hfos-message':
       return autoStep(known);
     case 'hfos-group-feed':

@@ -22,6 +22,7 @@ import { PHONE_ADDONS } from '@/addons/registry';
 import { DeleteSheet } from '@/components/bin/delete-sheet';
 import { AttributionCard } from '@/components/customers/attribution';
 import { FunnelCard } from '@/components/customers/funnel-card';
+import { HandsCard } from '@/components/customers/hands-card';
 import { PartnerCard } from '@/components/customers/partner-card';
 import { RecordBody, nextVisitLine } from '@/components/customers/record-screen';
 import { EditSheet, RECORD_SHEET_WORDS } from '@/components/customers/sheets';
@@ -44,8 +45,8 @@ import { useSendsDocuments } from '@/documents/calls';
  * signal: the head with what they owe and their next visit, the timeline, their leads, tasks, files and details, and
  * the buttons a truck needs (Call through the person's own cell, Text, Email, Book, Note, Photo, Task, Lead, a
  * Video call where the business has them, which sends them their own link and opens the call, and a Document to sign
- * for whoever sends them). The ads that brought them, their Partner card and the documents sent to them show while
- * there's signal.
+ * for whoever sends them). The ads that brought them, their Partner card, whether the AI answers them or they're in
+ * someone's hands (Take over, Give back to the AI) and the documents sent to them show while there's signal.
  *
  * Editing follows the field-merge rules: only what changed is sent, with what the screen showed, so a teammate's
  * change to another detail stays. An owner deletes them for good from Details, with signal (the Deleted bin,
@@ -271,6 +272,9 @@ export default function PersonScreen() {
         archived={!!person.archivedAt}
       />
       {person.archivedAt ? null : <FunnelCard workspaceId={business.id} personId={personId} />}
+      {person.archivedAt ? null : (
+        <HandsCard workspaceId={business.id} personId={personId} name={person.fullName} />
+      )}
       <DocumentsCard workspaceId={business.id} personId={personId} />
       <AddonPersonPanels workspaceId={business.id} personId={personId} />
 

@@ -19,12 +19,18 @@ import {
   numbersPace,
   numbersVerdict,
   PROFILE_ITEMS,
+  profileWordsOn,
   READY_WORDS,
   readinessOf,
   tickCounts,
   type ReadyFacts,
 } from '../../src/addons/outreach/readiness';
-import { checkCounts, type ProfileCheck } from '../../src/addons/outreach/profile-check';
+import { PLATFORM_KEYS } from '../../src/addons/outreach/networks';
+import {
+  checkCounts,
+  PROFILE_ITEMS_ON,
+  type ProfileCheck,
+} from '../../src/addons/outreach/profile-check';
 import { MainOfferParts } from '../../src/main-offer/parts';
 
 const parts = MainOfferParts.parse({
@@ -289,7 +295,8 @@ describe('your numbers', () => {
     expect(numbersPace(facebookOnly, NO_RULES)).toEqual({
       canSend: 15,
       networks: [{ platform: 'facebook', canSend: 15 }],
-      more: ['linkedin', 'instagram', 'alignable'],
+      // Threads sends first messages too (decision 167); X doesn't.
+      more: ['linkedin', 'instagram', 'alignable', 'threads'],
     });
     const three = {
       networks: {
@@ -305,7 +312,7 @@ describe('your numbers', () => {
         { platform: 'linkedin', canSend: 15 },
         { platform: 'instagram', canSend: 10 },
       ],
-      more: ['alignable'],
+      more: ['alignable', 'threads'],
     });
     // The business's own limits on each, and only the networks it allows.
     const rules = {
@@ -324,7 +331,11 @@ describe('your numbers', () => {
     });
     // A network whose first messages the business set to none isn't one to turn on.
     const noInstagram = { ...NO_RULES, networkLimits: { instagram: { first_message: 0 } } };
-    expect(numbersPace(facebookOnly, noInstagram).more).toEqual(['linkedin', 'alignable']);
+    expect(numbersPace(facebookOnly, noInstagram).more).toEqual([
+      'linkedin',
+      'alignable',
+      'threads',
+    ]);
     // Working no network at all counts Facebook, as it's on to start.
     const none = {
       networks: {
@@ -372,5 +383,26 @@ describe('your numbers', () => {
     expect(numbersVerdict(linkedIn)).toBe(
       `Facebook’s safe pace is 15 first messages a day, about 4 to 8 calls a month. Your goal is more than one Facebook account can reach. ${READY_WORDS.numbersHelps}`,
     );
+  });
+});
+
+describe('each network’s profile part', () => {
+  it('has its own words for every item it’s checked for, so its Settings page loads (Threads and X, 13 Nov 2026)', () => {
+    for (const platform of PLATFORM_KEYS) {
+      const P = profileWordsOn(platform);
+      expect(P.items.map((i) => i.item)).toEqual([...PROFILE_ITEMS_ON[platform]]);
+      for (const { label, tip } of P.items) {
+        expect(label, platform).toBeTruthy();
+        expect(tip, platform).toBeTruthy();
+      }
+      // Its own name in its own words, never Facebook's.
+      if (platform !== 'facebook') {
+        for (const text of [P.title, P.hint, P.readHint, P.notRead, P.biosHint])
+          expect(text, platform).not.toContain('Facebook');
+      }
+    }
+    expect(profileWordsOn('threads').title).toBe('Check your Threads profile');
+    expect(profileWordsOn('x').items.find((i) => i.item === 'cover')!.label).toContain('header');
+    expect(profileWordsOn('x').biosHint).toContain('up to 160 characters');
   });
 });

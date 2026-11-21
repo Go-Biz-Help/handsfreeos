@@ -14,6 +14,7 @@
  */
 import {
   ATTENTION_KIND_LABELS,
+  inHands,
   loadTeammate,
   moneyRounded,
   teammateConfigOf,
@@ -131,13 +132,20 @@ export async function queueUrgentPush(tx: Tx, scope: TenantScope, u: UrgentPush)
 
   const ai = await aiCanTake(tx, ws, conv ?? null);
   if (u.kind === 'customer_waiting' && conv) {
+    // In someone's hands (core's messaging/hands.ts), the AI waits for their go-ahead: the push asks for it.
+    const held = ai && conv.handledBy === 'person' && (await inHands(tx, conv.personId));
     return queuePush(tx, scope, {
       key,
       category: ai ? 'customer_waiting' : 'customer_waiting_no_ai',
       userIds: u.userIds,
       title: `${ATTENTION_KIND_LABELS.customer_waiting} · ${u.customer}`,
       about: CHANNEL_WORD[conv.channel] ?? null,
-      body: said || 'Waiting for a reply.',
+      body: held
+        ? sentences(
+            said || 'Waiting for a reply',
+            'You have them, so the AI is waiting. Let AI handle it, or reply yourself.',
+          )
+        : said || 'Waiting for a reply.',
       path: `/app/w/${ws}/inbox/${conv.id}`,
       refs,
       collapseId: conversationCollapseId(conv.id),

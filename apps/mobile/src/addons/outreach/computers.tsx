@@ -1,28 +1,33 @@
 import {
   ComputerRenameInput,
   COMPUTER_NAME_MOST,
+  isOffline,
   seenWords,
   type ComputerShown,
 } from '@hfos/core/addons/outreach/live';
+import { SETTINGS_PAGE_WORDS as SP } from '@hfos/core/addons/outreach/settings-pages';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import * as React from 'react';
 import { View } from 'react-native';
 
 import { Laptop, Pencil, Trash } from '@/components/icons';
 import { useKeyboardHeight } from '@/components/shell/keyboard';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Sheet } from '@/components/ui/sheet';
 import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 import { Part } from './kit';
 import { PHONE_WORDS } from './phone-words';
 
 /**
  * The person's computers the extension runs on, on the Live screen, where Settings → Your computer opens, as the web's
- * Settings has them (live-view.tsx's `ComputersCard`): each with how it stands and when it was last seen, to rename
+ * Settings has them (live-view.tsx's `ComputerMain`, decision 170, part 2): the one that works first, whether it's
+ * online, its build and when it was last seen, and the others standing by folded under it. Each is to rename
  * (`outreach.computer.rename`) or, for one standing by, to remove (`outreach.computer.remove`); with more than one
  * standing by, all of them at once, after asking. The one that works stays: HandsFreeOS refuses it too. Both need
  * signal.
@@ -59,6 +64,7 @@ export function ComputersPart({
   const [renaming, setRenaming] = React.useState<ComputerShown | null>(null);
   const [clearing, setClearing] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
+  const [others, setOthers] = React.useState(false);
   if (!computers.length) return null;
   const standingBy = computers.filter((c) => !c.working);
   const remove = async (key: string, ids: readonly string[], done: string) => {
@@ -70,107 +76,169 @@ export function ComputersPart({
     }
   };
   const off = !online || busy !== null;
+  // The one that works first, as on the web (decision 170, part 2); the others fold under it.
+  const main = computers.find((c) => c.working) ?? computers[0]!;
+  const rest = computers.filter((c) => c.id !== main.id);
+  const signedOut = main.state === 'signed_out';
+  const offline = !signedOut && isOffline(main.lastSeenAt, now);
+  const good = !signedOut && !offline;
+  const removeButton = (c: ComputerShown) => (
+    <Button
+      size="sm"
+      variant="ghostDanger"
+      icon={Trash}
+      loading={busy === `remove:${c.id}`}
+      disabled={off}
+      onPress={() => void remove(`remove:${c.id}`, [c.id], P.removed(c.name))}
+      accessibilityLabel={`${P.remove} ${c.name}`}
+      testID="live-computer-remove"
+    >
+      {P.remove}
+    </Button>
+  );
+  const renameButton = (c: ComputerShown, variant: 'ghost' | 'secondary' = 'ghost') => (
+    <Button
+      size="sm"
+      variant={variant}
+      icon={Pencil}
+      disabled={off}
+      onPress={() => setRenaming(c)}
+      accessibilityLabel={`${P.rename} ${c.name}`}
+      testID="live-computer-rename"
+    >
+      {P.rename}
+    </Button>
+  );
   return (
     <Part title={P.title} about={P.about} testID="live-computers">
-      {standingBy.length > 1 ? (
-        clearing ? (
-          <Card
-            className="gap-2.5 bg-card-2 px-4 py-3"
-            accessibilityRole="alert"
-            testID="live-computers-clearing"
-          >
-            <Text className="text-[14px] leading-[20px]">
-              {P.removeStandingByAsk(standingBy.length)}
-            </Text>
-            <View className="flex-row gap-2">
-              <Button
-                size="sm"
-                variant="danger"
-                loading={busy === 'remove:standing'}
-                disabled={off}
-                onPress={() =>
-                  void remove(
-                    'remove:standing',
-                    standingBy.map((c) => c.id),
-                    P.removedMany(standingBy.length),
-                  )
-                }
-                testID="live-computers-clear-yes"
-              >
-                {P.removeThem}
-              </Button>
-              <Button size="sm" variant="ghost" onPress={() => setClearing(false)}>
-                {P.cancel}
-              </Button>
-            </View>
-          </Card>
-        ) : (
-          <Button
-            size="sm"
-            variant="secondary"
-            className="self-start"
-            disabled={off}
-            onPress={() => setClearing(true)}
-            testID="live-computers-clear"
-          >
-            {P.removeStandingBy(standingBy.length)}
-          </Button>
-        )
-      ) : null}
-      <Card className="px-0 py-0">
-        {computers.map((c, i) => (
+      <Card className="gap-3 px-4 py-3.5" testID="live-computer-main">
+        <View className="flex-row items-start gap-3">
           <View
-            key={c.id}
-            className={i ? 'gap-1.5 border-t border-border px-4 py-3' : 'gap-1.5 px-4 py-3'}
-            testID="live-computer-row"
+            className={cn(
+              'size-9 items-center justify-center rounded-[10px]',
+              good ? 'bg-success-soft' : 'bg-warning-soft',
+            )}
           >
-            <View className="flex-row items-center gap-3">
-              <Icon as={Laptop} className="size-5 text-text-2" />
-              <View className="min-w-0 flex-1">
-                <Text className="text-[15px] font-medium" numberOfLines={1}>
-                  {c.name}
-                </Text>
-                <Text className="text-[13px] leading-[18px] text-text-3">
-                  {P.line(
-                    c.state === 'signed_out'
-                      ? W.computerStates.signedOut
-                      : c.working
-                        ? W.computerStates.working
-                        : W.computerStates.standingBy,
-                    seenWords(c.lastSeenAt, timeZone, now),
-                  )}
-                </Text>
-              </View>
+            <Icon
+              as={Laptop}
+              className={cn('size-5', good ? 'text-success-text' : 'text-warning-text')}
+            />
+          </View>
+          <View className="min-w-0 flex-1 gap-1">
+            <View className="flex-row flex-wrap items-center justify-between gap-x-3 gap-y-1">
+              <Text className="shrink text-[16px] font-semibold" testID="live-computer-main-title">
+                {signedOut
+                  ? SP.signedOut(main.name)
+                  : offline
+                    ? SP.offline(main.name)
+                    : SP.working(main.name)}
+              </Text>
+              <Badge variant={good ? 'ok' : 'pending'} testID="live-computer-main-chip">
+                {signedOut ? SP.chips.signedOut : offline ? SP.chips.offline : SP.chips.online}
+              </Badge>
             </View>
-            <View className="flex-row gap-1.5 pl-8">
+            <Text
+              className="text-[13px] leading-[18px] text-text-2"
+              testID="live-computer-main-line"
+            >
+              {SP.computerLine(main.version, seenWords(main.lastSeenAt, timeZone, now))}
+            </Text>
+          </View>
+        </View>
+        <View className="flex-row gap-1.5">
+          {renameButton(main, 'secondary')}
+          {main.working ? null : removeButton(main)}
+        </View>
+        {rest.length ? (
+          <View className="gap-3 border-t border-border pt-3">
+            <View className="flex-row items-center justify-between gap-3">
+              <Text className="flex-1 text-[13px] text-text-2">{SP.standingBy(rest.length)}</Text>
               <Button
                 size="sm"
                 variant="ghost"
-                icon={Pencil}
-                disabled={off}
-                onPress={() => setRenaming(c)}
-                accessibilityLabel={`${P.rename} ${c.name}`}
-                testID="live-computer-rename"
+                aria-expanded={others}
+                onPress={() => setOthers((o) => !o)}
+                testID="live-computers-others"
               >
-                {P.rename}
+                {others ? SP.hide : SP.show}
               </Button>
-              {c.working ? null : (
-                <Button
-                  size="sm"
-                  variant="ghostDanger"
-                  icon={Trash}
-                  loading={busy === `remove:${c.id}`}
-                  disabled={off}
-                  onPress={() => void remove(`remove:${c.id}`, [c.id], P.removed(c.name))}
-                  accessibilityLabel={`${P.remove} ${c.name}`}
-                  testID="live-computer-remove"
-                >
-                  {P.remove}
-                </Button>
-              )}
             </View>
+            {others ? (
+              <>
+                {standingBy.length > 1 ? (
+                  clearing ? (
+                    <Card
+                      className="gap-2.5 bg-card-2 px-4 py-3"
+                      accessibilityRole="alert"
+                      testID="live-computers-clearing"
+                    >
+                      <Text className="text-[14px] leading-[20px]">
+                        {P.removeStandingByAsk(standingBy.length)}
+                      </Text>
+                      <View className="flex-row gap-2">
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          loading={busy === 'remove:standing'}
+                          disabled={off}
+                          onPress={() =>
+                            void remove(
+                              'remove:standing',
+                              standingBy.map((c) => c.id),
+                              P.removedMany(standingBy.length),
+                            )
+                          }
+                          testID="live-computers-clear-yes"
+                        >
+                          {P.removeThem}
+                        </Button>
+                        <Button size="sm" variant="ghost" onPress={() => setClearing(false)}>
+                          {P.cancel}
+                        </Button>
+                      </View>
+                    </Card>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="self-start"
+                      disabled={off}
+                      onPress={() => setClearing(true)}
+                      testID="live-computers-clear"
+                    >
+                      {P.removeStandingBy(standingBy.length)}
+                    </Button>
+                  )
+                ) : null}
+                {rest.map((c) => (
+                  <View
+                    key={c.id}
+                    className="gap-1.5 rounded-menu bg-card-2 px-3 py-2.5"
+                    testID="live-computer-row"
+                  >
+                    <Text className="text-[15px] font-medium" numberOfLines={1}>
+                      {c.name}
+                    </Text>
+                    <Text className="text-[13px] leading-[18px] text-text-3">
+                      {P.line(
+                        c.state === 'signed_out'
+                          ? W.computerStates.signedOut
+                          : c.working
+                            ? W.computerStates.working
+                            : W.computerStates.standingBy,
+                        seenWords(c.lastSeenAt, timeZone, now),
+                      )}
+                    </Text>
+                    <View className="flex-row gap-1.5">
+                      {renameButton(c)}
+                      {c.working ? null : removeButton(c)}
+                    </View>
+                  </View>
+                ))}
+              </>
+            ) : null}
           </View>
-        ))}
+        ) : null}
       </Card>
       <RenameSheet
         computer={renaming}

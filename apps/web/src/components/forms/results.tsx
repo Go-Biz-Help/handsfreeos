@@ -169,6 +169,19 @@ function QuestionSummary({ question }: { question: FormQuestionSummary }) {
         </div>
       ) : null}
 
+      {question.type === 'quantities' && question.choices.length ? (
+        // How many of each: the bars count what was ordered, so say the total and the usual order's size.
+        <p className="mt-3 text-[13px] text-text-2" data-testid="quantity-results">
+          <span className="font-medium text-text">{total}</span> ordered in all
+          {question.average !== null ? (
+            <>
+              {' · '}about{' '}
+              <span className="font-medium text-text">{Math.round(question.average)}</span> an order
+            </>
+          ) : null}
+        </p>
+      ) : null}
+
       {question.average !== null && !question.choices.length ? (
         <p className="mt-2 text-[13px] text-text-2">
           Average <span className="font-medium text-text">{question.average}</span>

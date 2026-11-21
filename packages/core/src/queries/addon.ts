@@ -12,12 +12,16 @@ import {
 } from '@hfos/db/schema';
 import { addonRuns, capabilitySets, grantedHere } from '../addons/capabilities';
 import { findAddon, type Catalog } from '../addons/graph';
+import { addonPriceOf, addonStandingOf } from '../addons/billing';
 import {
   capabilityContextOf,
+  giftOf,
+  loadAddonBilling,
   loadGrants,
   loadInstallations,
   loadKept,
   loadOverrides,
+  type AddonBillingFacts,
 } from '../addons/load';
 import { planTransition } from '../addons/plan';
 import { suggestAddon, type SuggestionChoice } from '../addons/suggest';
@@ -26,6 +30,8 @@ import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
 import {
+  AddonBillingListInput,
+  AddonBillingListOutput,
   AddonImpactInput,
   AddonImpactOutput,
   AddonListInput,
@@ -46,6 +52,20 @@ function failedChecks(verification: Record<string, unknown> | null): string[] {
     : [];
 }
 
+/** What an add-on costs and where the business stands paying for it (20261027028500), for `addon.list`'s rows. */
+function moneyOf(catalog: Catalog, billing: AddonBillingFacts, addonId: string, now: Date) {
+  const price = addonPriceOf(findAddon(catalog, addonId));
+  return {
+    price,
+    standing: addonStandingOf(
+      price,
+      giftOf(billing, addonId),
+      billing.subscriptions[addonId] ?? null,
+      now,
+    ),
+  };
+}
+
 /** The add-on queries, over a catalogue. */
 export function addonQueries(catalog: Catalog) {
   const scope = (i: { workspaceId: string }) => ({
@@ -62,14 +82,16 @@ export function addonQueries(catalog: Catalog) {
     permission: 'workspace.read',
     scope,
     async handler(ctx, input) {
-      const [installations, overrides, grants] = await Promise.all([
+      const [installations, overrides, grants, billing] = await Promise.all([
         loadInstallations(ctx.tx, input.workspaceId),
         loadOverrides(ctx.tx),
         loadGrants(ctx.tx, input.workspaceId),
+        loadAddonBilling(ctx.tx, input.workspaceId),
       ]);
       const permissions = ctx.scope.workspacePermissions ?? [];
       const cctx = capabilityContextOf(catalog, installations, overrides, permissions, grants);
       const sets = capabilitySets(cctx);
+      const now = new Date();
       // Suggestions only ever reach people who could act on them (the owner's decision, 2026-09-28).
       const manages = permissions.includes('addons.manage');
       return {
@@ -91,6 +113,7 @@ export function addonQueries(catalog: Catalog) {
             retired: !m,
             status: m ? (overrides[m.id] ?? m.catalog.status) : null,
             running: addonRuns(cctx, i.addonId),
+            ...moneyOf(catalog, billing, i.addonId, now),
           };
         }),
         capabilities: {
@@ -113,8 +136,71 @@ export function addonQueries(catalog: Catalog) {
                 category: m.category,
                 status: overrides[m.id] ?? m.catalog.status,
                 testing: grantedHere(cctx, m.id),
+                ...moneyOf(catalog, billing, m.id, now),
               }))
           : [],
+      };
+    },
+  });
+
+  const billingList = defineQuery({
+    name: 'addon_billing.list',
+    description:
+      'What this business pays for add-ons: each paid add-on it has, pays for or was given free, with where it stands (trial, next payment, payment failed, turning off), and the most recent monthly payments.',
+    input: AddonBillingListInput,
+    output: AddonBillingListOutput,
+    permission: 'money.manage',
+    scope,
+    async handler(ctx, input) {
+      const [installations, overrides, billing, charges] = await Promise.all([
+        loadInstallations(ctx.tx, input.workspaceId),
+        loadOverrides(ctx.tx),
+        loadAddonBilling(ctx.tx, input.workspaceId),
+        rows<{
+          addon_id: string;
+          amount_cents: number;
+          period_from: Date | string;
+          period_to: Date | string;
+          charged_at: Date | string;
+        }>(
+          ctx.tx,
+          sql`select addon_id, amount_cents, period_from, period_to, charged_at from app.addon_charges
+              where workspace_id = ${input.workspaceId}::uuid order by charged_at desc limit 24`,
+        ),
+      ]);
+      const cctx = capabilityContextOf(catalog, installations, overrides, null, []);
+      const now = new Date();
+      const nameOf = (id: string) => findAddon(catalog, id)?.name ?? id;
+      const ids = new Set([
+        ...installations
+          .filter((i) => i.state !== 'uninstalled' && i.state !== 'purged')
+          .map((i) => i.addonId),
+        ...Object.keys(billing.subscriptions),
+        ...Object.keys(billing.gifts),
+      ]);
+      return {
+        addons: [...ids]
+          .map((id) => ({
+            addonId: id,
+            name: nameOf(id),
+            running: addonRuns(cctx, id),
+            ...moneyOf(catalog, billing, id, now),
+          }))
+          // Only what costs or was given: a free add-on has nothing to say here.
+          .filter((a) => a.price !== null || a.standing.kind === 'gift')
+          // Nothing to say either for one that's gone and has nothing paid left.
+          .filter(
+            (a) => a.running || a.standing.kind !== 'unpaid' || a.standing.paidThrough !== null,
+          )
+          .sort((a, b) => a.name.localeCompare(b.name)),
+        charges: charges.map((c) => ({
+          addonId: c.addon_id,
+          name: nameOf(c.addon_id),
+          amountCents: c.amount_cents,
+          periodFrom: new Date(c.period_from).toISOString(),
+          periodTo: new Date(c.period_to).toISOString(),
+          chargedAt: new Date(c.charged_at).toISOString(),
+        })),
       };
     },
   });
@@ -331,5 +417,5 @@ export function addonQueries(catalog: Catalog) {
     },
   });
 
-  return { list, impact, settings, suggestion };
+  return { list, impact, settings, suggestion, billingList };
 }

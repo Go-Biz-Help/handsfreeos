@@ -102,14 +102,17 @@ export function SoftwareApplicationJsonLd({ spots }: { spots: readonly FoundingS
         url: urls.site,
         publisher: { '@id': `${urls.site}/#organization` },
         description:
-          'One place for the calls, texts, email, calendar, quotes and invoices of a small service business, with an AI teammate that answers new leads and books them in.',
+          'An AI Business Operating System for small service businesses: one place for calls, texts, email, calendar, quotes and invoices, with AI employees that answer new leads, book them in and follow up.',
         featureList: [
           'Business phone number with shared inbox for texts, calls and email',
-          'AI teammate that answers leads by text, email and website chat',
-          'Customers, leads and pipeline',
+          'AI employees that answer leads by phone, text, email and website chat, and book them in',
+          'AI Assistant that does what you ask in plain English, showing you each change first',
+          'CRM: customers, leads and pipeline, filled in automatically',
           'Online booking and appointment reminders',
           'Estimates, invoices, deposits and recurring plans',
           'Automatic follow-up workflows',
+          'Video calls and webinars',
+          'Documents to sign online',
           'iPhone and Android app that works offline',
         ],
         ...(monthly

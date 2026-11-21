@@ -8,15 +8,18 @@
  * latest posts and how many follow them, and sends that for the AI's partner check, on Facebook and on LinkedIn.
  * Nothing is pressed. It goes at a person's pace and stops for the day on any warning.
  */
-import { CHECK_PACE_SECONDS } from '@hfos/core/addons/outreach/checks';
+import { checkPaceOf } from '@hfos/core/addons/outreach/checks';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { counted } from '../words';
 import { readThem, type ReadThem, type Who } from './checks';
 import { paced, pause, valueOf, type Job, type JobEnd } from './job';
 import { searchedLine, searchFacebook, searchPartners, type PartnerSearch } from './partner-search';
 
-/** Between people, a steady pace like a person's, as the checks of friends go. */
-const PACE_MS = [CHECK_PACE_SECONDS[0] * 1000, CHECK_PACE_SECONDS[1] * 1000] as const;
+/** Between people, the pace the checks go at on that network: LinkedIn's slower (decision 184). */
+const paceOf = (platform: Platform) => {
+  const [least, most] = checkPaceOf(platform);
+  return [least * 1000, most * 1000] as const;
+};
 
 /** How it went, in words for the person. */
 function summary(sent: number, missing: number, platform: Platform): string {
@@ -93,7 +96,7 @@ export async function checkPartners(
     else sent++;
     if (i < next.people.length - 1 && !job.stopped()) {
       job.progress(`Read ${counted(sent, 'possible partner')}. Waiting a moment before the next…`);
-      await pause(paced(PACE_MS));
+      await pause(paced(paceOf(on.platform)));
     }
   }
   return { line: `Done. ${done(sent, missing)}`, warned: false };

@@ -26,9 +26,10 @@ import { foundingQueries } from './founding';
 import { billingQueries } from './billing';
 import { affiliateQueries } from './affiliates';
 import { supportQueries } from './support';
+import { practiceQueries } from './practice';
 import { ideaQueries } from './ideas';
 import { onboardingClients, onboardingStatus, platformOnboardingCounts } from './onboarding';
-import { accountDeletionCheck, pushDeviceList, userPhoneGet } from './account';
+import { accountDeletionCheck, pushDeviceList, userAboutGet, userPhoneGet } from './account';
 import { notificationList, notificationQueries } from './notification';
 import { aiTeammateActivity, aiTeammateDraftList, aiTeammateGet } from './ai-team';
 import {
@@ -66,6 +67,7 @@ import {
   calendarList,
   resourceList,
   scheduleTeam,
+  dayStartGet,
   serviceList,
   territoryList,
   waitlistList,
@@ -113,6 +115,7 @@ import { leadBoard, leadGet, leadList } from './lead';
 import { me } from './me';
 import { extensionSignInPending } from './extension-sign-in';
 import { personGet, personList } from './person';
+import { personInHands } from './person-hands';
 import { pipelineList } from './pipeline.list';
 import { taskList } from './task.list';
 import { timelineList } from './timeline.list';
@@ -176,6 +179,7 @@ export {
   pushDeviceList,
   notificationList,
   userPhoneGet,
+  userAboutGet,
   conversationGet,
   conversationThread,
   callLog,
@@ -213,6 +217,7 @@ export {
   me,
   personGet,
   personList,
+  personInHands,
   pipelineList,
   tagList,
   taskList,
@@ -229,6 +234,7 @@ export {
   appointmentGet,
   waitlistList,
   scheduleTeam,
+  dayStartGet,
   serviceList,
   resourceList,
   territoryList,
@@ -252,6 +258,7 @@ export const {
   impact: addonImpact,
   settings: addonSettings,
   suggestion: addonSuggestion,
+  billingList: addonBillingList,
 } = addonQueryDefs;
 export { addonQueries } from './addon';
 
@@ -284,6 +291,8 @@ export const queries: readonly QueryDef[] = [
   ...videoCallLeadQueries,
   ...videoCallChatQueries,
   ...supportQueries,
+  // Practice businesses for Admin → Try onboarding (20261027027400).
+  ...practiceQueries,
   ...platformQueries,
   // What our own tools saw when something didn't go (20261027008100).
   ...problemReportQueries,
@@ -303,6 +312,7 @@ export const queries: readonly QueryDef[] = [
   // Approving an extension sign-in from the phone or the web (20261027002910).
   extensionSignInPending,
   userPhoneGet,
+  userAboutGet,
   workspaceGet,
   workspaceMembers,
   permissionSettings,
@@ -314,6 +324,7 @@ export const queries: readonly QueryDef[] = [
   companyGet,
   personList,
   personGet,
+  personInHands,
   tagList,
   leadBoard,
   leadList,
@@ -362,6 +373,7 @@ export const queries: readonly QueryDef[] = [
   appointmentGet,
   waitlistList,
   scheduleTeam,
+  dayStartGet,
   serviceList,
   resourceList,
   territoryList,
@@ -451,6 +463,8 @@ export const queries: readonly QueryDef[] = [
   addonList,
   addonImpact,
   addonSettings,
+  // What a business pays for add-ons (20261027028500).
+  addonBillingList,
   addonConnectionList,
   addonSuggestion,
   // Voting on what's next (0109).
@@ -552,3 +566,4 @@ export * from './record-hold';
 export * from './safety';
 export * from './onboarding';
 export * from './ideas';
+export * from './person-hands';

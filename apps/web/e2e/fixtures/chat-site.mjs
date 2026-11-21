@@ -1,11 +1,12 @@
 /**
- * A stand-in business website for the website chat specs: `node e2e/fixtures/chat-site.mjs <port>`. Playwright
- * serves one on 127.0.0.1:4191 (a site the widget allows) and one on 127.0.0.1:4192 (a site it doesn't). They're on
- * 127.0.0.1, a different site from the app's localhost, so the chat window runs as a third party, as on a real site.
+ * A stand-in business website for the website chat specs, and for a calendar's embed (booking-embed.spec.ts):
+ * `node e2e/fixtures/chat-site.mjs <port>`. Playwright serves one on 127.0.0.1:4191 (a site the widget or calendar
+ * allows) and one on 127.0.0.1:4192 (a site it doesn't). They're on 127.0.0.1, a different site from the app's
+ * localhost, so the chat window and the calendar run as a third party, as on a real site.
  *
- * Every page pastes the snippet it's given (?snippet=) before </body>, exactly as a business would. Only our own
- * snippet's shape is accepted, so a link can't make the page run anything else. Any path works
- * (/services/ac-tune-up), and the page is long enough to scroll.
+ * Every page pastes the snippet it's given (?snippet=) before </body>, as a business would. Only our own snippets'
+ * shapes are accepted, and the page writes the snippet out again from its checked parts, escaped, so a link can't make
+ * the page run anything else. Any path works (/services/ac-tune-up), and the page is long enough to scroll.
  */
 import { createServer } from 'node:http';
 
@@ -13,8 +14,28 @@ const port = Number(process.argv[2] ?? process.env.PORT ?? 4191);
 if (!Number.isInteger(port) || port < 1 || port > 65535)
   throw new Error(`Invalid port: ${process.argv[2] ?? process.env.PORT}`);
 
-const SNIPPET =
-  /^<script async src="http:\/\/localhost:3000\/embed\/v1\/wk_[A-Za-z0-9]{20}\.js(\?[^"<>]*)?"><\/script>$/;
+const APP = 'http://localhost:3000';
+/** The website chat's snippet: its key, and any query after it. */
+const CHAT_SNIPPET =
+  /^<script async src="http:\/\/localhost:3000\/embed\/v1\/wk_([A-Za-z0-9]{20})\.js(\?[^"<>]*)?"><\/script>$/;
+/** A calendar's embed (its Booking link → Embed): the booking page in a frame, and the line that fits the frame to it. */
+const BOOKING_SNIPPET =
+  /^<iframe src="http:\/\/localhost:3000\/book\/([a-z0-9-]+)\/([a-z0-9-]+)\?embed=1" title="([^"<>]*)" width="100%" height="(\d+)" style="border:0" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"><\/iframe>\n<script src="http:\/\/localhost:3000\/embed\/v1\/book\.js" async><\/script>$/;
+
+/** A value inside an attribute: the browser reads the entities back, so links and names come out as they went in. */
+const attr = (v) =>
+  v.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/** Our own snippet written out again from its parts, or nothing for anything else. */
+function pasted(snippet) {
+  const chat = CHAT_SNIPPET.exec(snippet);
+  if (chat)
+    return `<script async src="${APP}/embed/v1/wk_${attr(chat[1])}.js${attr(chat[2] ?? '')}"></script>`;
+  const booking = BOOKING_SNIPPET.exec(snippet);
+  if (booking)
+    return `<iframe src="${APP}/book/${attr(booking[1])}/${attr(booking[2])}?embed=1" title="${attr(booking[3])}" width="100%" height="${Number(booking[4])}" style="border:0" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>\n<script src="${APP}/embed/v1/book.js" async></script>`;
+  return '';
+}
 
 const section = (title, text) => `<section><h2>${title}</h2><p>${text}</p></section>`;
 
@@ -61,7 +82,7 @@ createServer((req, res) => {
   }
   const snippet = url.searchParams.get('snippet') ?? '';
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
-  res.end(page(SNIPPET.test(snippet) ? snippet : ''));
+  res.end(page(pasted(snippet)));
 }).listen(port, '127.0.0.1', () => {
   console.log(`Chat test site at http://127.0.0.1:${port}`);
 });

@@ -27,7 +27,7 @@ const playbook = (over: Partial<PlaybookDetails> = {}): PlaybookDetails => ({
 describe('the lists the AI writes', () => {
   it('are a customers’ playbook’s empty lists on its networks, with works online while nobody has said', () => {
     expect(wordsDue(playbook())).toEqual({
-      networks: ['facebook', 'instagram', 'linkedin', 'alignable'],
+      networks: ['facebook', 'instagram', 'linkedin', 'alignable', 'threads', 'x'],
       askOnline: true,
     });
     expect(wordsDue(playbook({ platforms: ['facebook', 'linkedin'] }))).toEqual({
@@ -51,11 +51,11 @@ describe('the lists the AI writes', () => {
           wordsWritten: ['linkedin'],
         }),
       ).networks,
-    ).toEqual(['alignable']);
+    ).toEqual(['alignable', 'threads', 'x']);
     expect(wordsDue(playbook({ goal: 'partner' }))).toEqual({ networks: [], askOnline: false });
     // Nothing to write from yet: it waits for who it's for.
     expect(wordsDue(playbook({ niche: null }))).toEqual({ networks: [], askOnline: false });
-    expect(wordsDue(playbook({ niche: null, problem: 'Missed calls' })).networks).toHaveLength(4);
+    expect(wordsDue(playbook({ niche: null, problem: 'Missed calls' })).networks).toHaveLength(6);
   });
 
   it('leave out a network nobody in the business works', () => {
@@ -150,11 +150,20 @@ describe('what the AI wrote', () => {
       hashtags: ['austinroofing'],
       postSearches: ['missed calls'],
       businessKinds: ['instagood'],
+      threadsSearches: ['#missed calls', 'anyone use a CRM'],
+      xSearches: ['recommend a CRM', 'a phrase far too long for any search to find'],
       worksOnline: true,
     };
     expect(
       checkedFindWords(answer, { networks: ['instagram', 'linkedin'], askOnline: false }, 'Acme'),
     ).toEqual({ hashtags: ['austinroofing'], postSearches: ['missed calls'] });
+    // Threads' and X's phrases (decision 163): cleaned as Facebook's are, no hashtags, within the words a search finds.
+    expect(
+      checkedFindWords(answer, { networks: ['threads', 'x'], askOnline: false }, 'Acme'),
+    ).toEqual({
+      threadsSearches: ['missed calls', 'anyone use a CRM'],
+      xSearches: ['recommend a CRM'],
+    });
     // Facebook's phrases (decision 141): cleaned as LinkedIn's are, within the words a search finds anything with.
     expect(checkedFindWords(answer, { networks: ['facebook'], askOnline: false }, 'Acme')).toEqual({
       facebookSearches: ['anyone use a CRM'],

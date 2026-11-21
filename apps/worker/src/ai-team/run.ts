@@ -25,6 +25,7 @@
 import { eq } from 'drizzle-orm';
 import type { AiContent, AiMessage, AiUsage } from '@hfos/ai';
 import {
+  inHands,
   ADDON_SERVER_MODULES,
   AI_TEAMMATE_GOALS,
   asksForPerson,
@@ -469,7 +470,9 @@ async function startRun(
     if (!conv || !answersChannel(config, conv.channel)) return null;
     if (!(await widgetAnswers(tx, conv, teammate.id))) return null;
     const mine = conv.handledBy === 'ai' && conv.aiTeammateId === teammate.id;
-    const free = conv.handledBy === 'none' && !conv.assigneeUserId;
+    // Nobody's, and its customer isn't in someone's hands (core's messaging/hands.ts).
+    const free =
+      conv.handledBy === 'none' && !conv.assigneeUserId && !(await inHands(tx, conv.personId));
     // A nudge or a workflow's first message is only ever for a conversation that's already the teammate's; a funnel's
     // message may pick up one nobody has.
     if (!mine && (!free || (spec.kind !== 'reply' && spec.kind !== 'funnel'))) return null;

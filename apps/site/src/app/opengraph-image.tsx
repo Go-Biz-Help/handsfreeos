@@ -58,12 +58,12 @@ export default function OpengraphImage() {
             maxWidth: 940,
           }}
         >
-          <div>Make more money.</div>
-          <div>Work fewer hours.</div>
+          <div>The AI Business OS</div>
+          <div>that never misses a lead.</div>
         </div>
         <div style={{ fontSize: 30, color: '#5b616a', maxWidth: 900, lineHeight: 1.35 }}>
-          It answers every lead in seconds, so you win more jobs, and chases the invoice, so the
-          money comes in.
+          AI employees answer every lead in seconds, book the job and chase the invoice. One system
+          instead of ten apps.
         </div>
       </div>
 

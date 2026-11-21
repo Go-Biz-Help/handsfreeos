@@ -18,7 +18,9 @@
  * - on phones turns the window into a full-screen sheet, clear of the notch and home bar, and locks the page's
  *   scroll while it's open;
  * - removes itself when the window never answers: the browser refused to show it (frame-ancestors), so this
- *   isn't one of the widget's sites. The console says so, for whoever is installing it.
+ *   isn't one of the widget's sites. The console says so, for whoever is installing it;
+ * - loads the texting registration's browser check (/embed/v1/site-check.js) when the address ends in
+ *   `#hfos-check=<code>`, which only HandsFreeOS's "Finish the check on my site" opens (lib/site-check/script.ts).
  * The host element, <hfos-chat>, has an `open` attribute while the chat is open.
  */
 import { chatColorsOf, chatPlacementOf, type ChatPlacement } from '@hfos/core';
@@ -111,6 +113,8 @@ const BODY =
   'a("message",x=>{let q=x.data,n;if(x.source!=f?.contentWindow||x.origin!=A||!q?.hfos)return;y=1;clearTimeout(t);' +
   'if(q.hfos=="close")cl();if(q.hfos=="unread")n=+q.n||0,g.textContent=n,g.hidden=!n||o});' +
   'a("keydown",x=>x.key=="Escape"&&cl());a("hashchange",hs);' +
+  // The texting registration's browser check, only when the address carries its code (lib/site-check/script.ts).
+  '/hfos-check=/.test(z.hash)&&d.head.append(Object.assign(c("script"),{src:A+"/embed/v1/site-check.js"}));' +
   'd.readyState=="complete"?go():a("load",go)})(window,document)';
 
 const json = (v: string) => JSON.stringify(v);

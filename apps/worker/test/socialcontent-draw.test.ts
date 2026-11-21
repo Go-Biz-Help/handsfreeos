@@ -1,6 +1,7 @@
 /**
  * Drawing the AI's designs (apps/worker/src/addons/socialcontent/draw.ts): words the shipped fonts can draw, and a
- * picture of the right size for each page, in every layout and font, over a photo or not (decision 39). No database.
+ * picture of the right size for each page, in every layout and font, over a photo or not (decision 39), 4:5 or, on
+ * Instagram, 3:4 (the owner, 15 Nov), and square. No database.
  */
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
@@ -13,11 +14,14 @@ import {
   type DesignStyle,
 } from '@hfos/core/addons/socialcontent/posts-ai';
 import {
-  drawable,
-  drawDesign,
-  PICTURE_HEIGHT,
-  PICTURE_WIDTH,
-} from '../src/addons/socialcontent/draw';
+  PICTURE_SIZES,
+  pictureShapeOf,
+  type PictureShape,
+} from '@hfos/core/addons/socialcontent/calendar';
+import { drawable, drawDesign } from '../src/addons/socialcontent/draw';
+
+const PICTURE_WIDTH = PICTURE_SIZES['4:5'].width;
+const PICTURE_HEIGHT = PICTURE_SIZES['4:5'].height;
 
 describe('words the font can draw', () => {
   it('turns arrows into ›, and leaves out emoji', () => {
@@ -96,6 +100,30 @@ describe('drawing a design', () => {
       });
     });
 
+  it('makes Instagram’s pictures 3:4 and every other network’s 4:5', () => {
+    expect(pictureShapeOf('instagram')).toBe('3:4');
+    for (const n of ['facebook', 'linkedin', 'threads', 'x']) expect(pictureShapeOf(n)).toBe('4:5');
+    expect(PICTURE_SIZES['3:4']).toEqual({ width: 1080, height: 1440 });
+    expect(PICTURE_SIZES['1:1']).toEqual({ width: 1080, height: 1080 });
+  });
+
+  for (const shape of ['3:4', '1:1'] as const)
+    for (const [i, layout] of DESIGN_STYLES.entries()) {
+      const font = DESIGN_FONTS[(i + 1) % DESIGN_FONTS.length]!;
+      const { width, height } = PICTURE_SIZES[shape];
+      it(`draws each ${layout} page in the ${font} font at ${shape}, ${width} by ${height}`, async () => {
+        const withPhoto = layout === 'photo' || layout === 'framed';
+        const photo = withPhoto
+          ? await sharp({ create: { width, height, channels: 3, background: '#88aa66' } })
+              .jpeg()
+              .toBuffer()
+          : null;
+        const pics = await drawDesign(design(layout, font, withPhoto), photo, shape);
+        expect(pics).toHaveLength(2);
+        for (const pic of pics) expect((await sizeOf(pic.bytes)).size).toEqual([width, height]);
+      });
+    }
+
   it('draws a photo layout without its photo as a bold page', async () => {
     const pics = await drawDesign(design('photo', 'loud', true), null);
     expect(pics.map((p) => p.mimeType)).toEqual(['image/png', 'image/png']);
@@ -104,26 +132,34 @@ describe('drawing a design', () => {
 
 // 13 Nov: list and before and after pages left their body out, and the check failed them for it.
 describe('fitting every word', () => {
-  const one = (p: Partial<DesignPage> & { layout: DesignStyle }, font: DesignFont = 'modern') =>
-    drawDesign({
-      style: p.layout,
-      font,
-      background: '#f1f5fb',
-      text: '#0b1f3a',
-      accent: '#1a73f5',
-      photo: false,
-      pages: [
-        {
-          kicker: 'What we do instead',
-          heading: 'Unlimited contacts, unlimited users',
-          body: null,
-          items: ['Before: capped contacts, pay per seat', 'After: unlimited contacts and users'],
-          mark: '78%',
-          footer: 'Example Co',
-          ...p,
-        },
-      ],
-    }).then(([pic]) => pic!);
+  const one = (
+    p: Partial<DesignPage> & { layout: DesignStyle },
+    font: DesignFont = 'modern',
+    shape: PictureShape = '4:5',
+  ) =>
+    drawDesign(
+      {
+        style: p.layout,
+        font,
+        background: '#f1f5fb',
+        text: '#0b1f3a',
+        accent: '#1a73f5',
+        photo: false,
+        pages: [
+          {
+            kicker: 'What we do instead',
+            heading: 'Unlimited contacts, unlimited users',
+            body: null,
+            items: ['Before: capped contacts, pay per seat', 'After: unlimited contacts and users'],
+            mark: '78%',
+            footer: 'Example Co',
+            ...p,
+          },
+        ],
+      },
+      null,
+      shape,
+    ).then(([pic]) => pic!);
   const body =
     'Add a tech, add a location, take on more leads. Your plan stays the same, no per seat fees.';
 
@@ -135,37 +171,39 @@ describe('fitting every word', () => {
       expect(withBody.cut).toBe(false);
     });
 
-  it('shrinks the longest words a design can have rather than leave any out, in every layout and font', async () => {
-    const longest = {
-      kicker: 'K'.repeat(4) + ' a small line of forty characters',
-      heading: 'A heading as long as a design can have, '.repeat(3).slice(0, 110),
-      body: 'A body as long as a design can have, with every word of it drawn on the page. '
-        .repeat(4)
-        .slice(0, 280),
-      items: Array.from({ length: 5 }, (_, i) =>
-        `Item ${i + 1} is as long as an item can be, seventy characters`.slice(0, 70),
-      ),
-      mark: 'every lead',
-      footer: 'A footer as long as a design can have, sixty characters long',
-    };
-    const plain = DESIGN_STYLES.filter((s) => s !== 'photo' && s !== 'framed');
-    for (const font of DESIGN_FONTS)
-      for (const layout of plain) {
-        const pic = await one(
-          {
-            layout,
-            ...longest,
-            mark: layout === 'number' ? '12,500' : longest.mark,
-            heading:
-              layout === 'highlight'
-                ? `Never miss every lead ${longest.heading}`.slice(0, 110)
-                : longest.heading,
-          },
-          font,
-        );
-        expect({ layout, font, cut: pic.cut }).toEqual({ layout, font, cut: false });
-      }
-  });
+  for (const shape of ['4:5', '3:4', '1:1'] as const)
+    it(`shrinks the longest words a design can have rather than leave any out, in every layout and font (${shape})`, async () => {
+      const longest = {
+        kicker: 'K'.repeat(4) + ' a small line of forty characters',
+        heading: 'A heading as long as a design can have, '.repeat(3).slice(0, 110),
+        body: 'A body as long as a design can have, with every word of it drawn on the page. '
+          .repeat(4)
+          .slice(0, 280),
+        items: Array.from({ length: 5 }, (_, i) =>
+          `Item ${i + 1} is as long as an item can be, seventy characters`.slice(0, 70),
+        ),
+        mark: 'every lead',
+        footer: 'A footer as long as a design can have, sixty characters long',
+      };
+      const plain = DESIGN_STYLES.filter((s) => s !== 'photo' && s !== 'framed');
+      for (const font of DESIGN_FONTS)
+        for (const layout of plain) {
+          const pic = await one(
+            {
+              layout,
+              ...longest,
+              mark: layout === 'number' ? '12,500' : longest.mark,
+              heading:
+                layout === 'highlight'
+                  ? `Never miss every lead ${longest.heading}`.slice(0, 110)
+                  : longest.heading,
+            },
+            font,
+            shape,
+          );
+          expect({ layout, font, cut: pic.cut }).toEqual({ layout, font, cut: false });
+        }
+    });
 
   it('says so when words are left out because they can’t fit', async () => {
     const pic = await one({ layout: 'clean', body: 'Far too many words to fit. '.repeat(120) });

@@ -10,8 +10,10 @@ They are deployed as **two separate Vercel projects** so a copy change never reb
   belongs in `apps/web`.
 - **Company facts, addresses and prices live in `src/content/site.ts`**, not in the pages.
 - **HandsFreeOS is sold as founding spots, first come, first served** (2026-10-27): $497 a year or $97 a
-  month, each with its own live count. Nobody applies. Every sign-up button goes to the app's sign-up, which
-  goes straight on to picking a spot and paying; a spot's own button adds `?plan=yearly` or `?plan=monthly`
+  month, each with its own live count, and since 2026-11-13 the first 14 days are free (`freeTrial` in
+  `src/content/site.ts`; the database's `founding_offers.trial_days` gives it, so change both). Nobody
+  applies. Every sign-up button goes to the app's sign-up, which goes straight on to picking a spot and
+  starting the trial; a spot's own button adds `?plan=yearly` or `?plan=monthly`
   so that spot is picked to start with. Which spots are on sale and how many are left come from the database
   (`src/lib/founding.ts`), never from this repo. `/founding`, the old application page, redirects to
   `/pricing`.
@@ -25,6 +27,12 @@ They are deployed as **two separate Vercel projects** so a copy change never reb
   and the most a code takes off are read live from the worker (`src/lib/affiliate-program.ts`), since staff change
   them; the page says "a share" without them. The terms page's date is the version affiliates agree to: change it
   with `AFFILIATE_TERMS_VERSION` in `packages/core/src/affiliates/terms.ts`, and every affiliate agrees again.
+- **`/add-ons` offers the add-ons as early access for founding members** (the owner, 2026-11-17), from
+  `src/content/addons.ts`. In the product they're still handed out by staff (Admin → Businesses), so the page asks
+  people to request one in the chat (`components/ask-chat.tsx`) or by email, and never says an add-on is included in
+  the plan. Each card shows what it costs a month after early access (`addonPrices` in `src/content/site.ts`, the
+  owner's picks of 2026-11-17), which must match its manifest's price in `packages/core`. Each line is only what that
+  add-on's doc says is built; Contractor Operations stays off the page until the owner offers it.
 - **The design tokens are copied from `apps/web/src/app/globals.css`** so the site and the app look
   like one product. If the accent colour changes there, change it here.
 - **Three pages exist because somebody reviews them**, and their wording is not decoration:
@@ -35,6 +43,13 @@ They are deployed as **two separate Vercel projects** so a copy change never reb
     `chatScript` only for another widget of that workspace.
   - `/terms` and `/support` — Microsoft's publisher verification and Apple's support URL.
     `docs/operations.md` points reviewers at these; change one and check that guide still matches.
+- **HandsFreeOS is sold as an AI Business Operating System** (the owner, 2026-11-18): one system for the customer side
+  of a business, with AI employees that do the work rather than wait for someone to type it in. Lead with that;
+  keep "CRM" where it helps search and where it means the customer records. Every AI employee the copy names must be
+  something the product does today: the AI teammate (answers and calls), the Assistant, and the automations.
+- **The home page's headline rotates** (`components/rotating-headline.tsx`): "The AI Business OS" holds still and
+  the owner's six reasons are written in after it, in their order, by a thin glowing line, never a solid bar. The
+  first reason is the one in the HTML, the box is two lines tall at every width, and reduced motion fades instead.
 - **The home page's `<title>`, `<h1>` and share title all start with `HandsFreeOS`**, written
   exactly so, unlike every other page's title. Google's OAuth review checks them against the
   consent screen's app name, and flagged a mismatch while the name came last.

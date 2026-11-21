@@ -17,20 +17,24 @@ import {
   AnswerNoteInput,
   AnswerNoteOutput,
   checkInAfter,
+  checkInsOnly,
   ConversationNoteInput,
   ConversationNoteOutput,
   ConversationStopInput,
   ConversationStopOutput,
+  introSent,
   JUDGE_AFTER_MESSAGES,
   nextAfter,
   OfferVersionsInput,
   OfferVersionsOutput,
   STEP_OF_KIND,
   type Answer,
+  type Took,
 } from '../conversation';
 import { outreachAddon } from '../manifest';
 import { PARTNER_GOAL, paceOf, type Pace } from '../playbooks';
-import { followUps, playbooks, profiles, stages } from '../tables';
+import { kindStartsAChat } from '../openers';
+import { followUps, openerUses, playbooks, profiles, stages } from '../tables';
 import { EVER } from './activity';
 import { inWorkspace, type Ctx } from './common';
 import { wantLead } from './leads';
@@ -105,7 +109,9 @@ async function kept(ctx: Ctx, me: string, profileId: string) {
  * no, goes on with a conversation the person stopped (`outreach.conversation.stop`). Reconnect asks the first
  * message's question after its catch-up (decision 152), so it starts a conversation at the first step for someone in
  * none yet, unless they turned the offer down, when it only caught up; a demo's reminder, another time after a no-show
- * and a birthday or new-job note leave it be.
+ * and a birthday or new-job note leave it be. A playbook's introduction in place of the first message (decision 168),
+ * or any other way that starts a chat (decision 183), starts it at `intro`, with one nudge to come and then check-ins
+ * (decision 173), and a reply there waits for the check-in.
  */
 export async function noteSent(
   ctx: Ctx,
@@ -115,14 +121,21 @@ export async function noteSent(
     readonly kind: MessageKind;
     readonly at: Date;
     readonly offerVersion: number | null;
+    /**
+     * For a first message: whether it started a chat (the playbook's introduction, decision 168, or another way that
+     * starts one, decision 183), as its draft's opener says. Left out, the first message noted for them says
+     * (`opener_uses`).
+     */
+    readonly intro?: boolean;
   },
 ): Promise<void> {
   // A partner's messages are the Partners list's (./partners.ts), never a customer conversation; a demo's reminder and
-  // another time after a no-show (decision 106) are about the booking, and a birthday or new-job note (decision 108)
-  // about them, and leave it be too.
+  // another time after a no-show (decision 106) are about the booking, as is the thank-you after a networking call
+  // (decision 187), and a birthday or new-job note (decision 108) about them, and leave it be too.
   if (
     sent.kind === 'demo_reminder' ||
     sent.kind === 'rebook' ||
+    sent.kind === 'thank_you' ||
     sent.kind === 'birthday' ||
     sent.kind === 'new_job' ||
     sent.kind.startsWith('partner_')
@@ -151,15 +164,22 @@ export async function noteSent(
       .onConflictDoNothing();
     return;
   }
-  const step = STEP_OF_KIND[sent.kind];
   const pace = await conversationPace(ctx);
+  // An introduction in place of the first message (decision 168) gets one nudge if they stay quiet, at the last
+  // follow-up's gap, then check-ins (decision 173): never the follow-ups.
+  const intro =
+    sent.kind === 'opener' && (sent.intro ?? (await introducedTo(ctx, me, sent.profileId)));
+  const step = intro ? ('intro' as const) : STEP_OF_KIND[sent.kind];
   if (step) {
+    const from = intro ? introSent(pace) : 0;
     const set = {
       step,
       stepAt: at,
-      sent: 0,
+      sent: from,
       lastAt: at,
-      ...nextAfter(pace, 0, at),
+      ...nextAfter(pace, from, at),
+      // A networking call's yes (decision 173) holds for the ask for a time it led to, and nothing before it.
+      call: step === 'link' ? (row?.call ?? false) : false,
       answer: null,
       answeredAt: null,
       // A step sent goes on with a conversation the person stopped.
@@ -209,7 +229,9 @@ export async function noteSent(
     return;
   }
   if (sent.kind === 'reply') {
-    const later = row.answer === 'later';
+    // Not now waits for the monthly check-in; so does any reply after an introduction (decision 168), which never
+    // follows up.
+    const later = row.answer === 'later' || checkInsOnly(row.step);
     await ctx.tx
       .update(followUps)
       .set({
@@ -223,6 +245,24 @@ export async function noteSent(
       })
       .where(eq(followUps.id, row.id));
   }
+}
+
+/**
+ * Whether the first message noted for them started a chat (./sends.ts `noteOpener`): the playbook's introduction
+ * (decision 168), or another way that starts one (decision 183).
+ */
+async function introducedTo(ctx: Ctx, me: string, profileId: string): Promise<boolean> {
+  const [use] = await ctx.tx
+    .select({ kind: openerUses.kind })
+    .from(openerUses)
+    .where(
+      and(
+        eq(openerUses.workspaceId, ctx.scope.workspaceId!),
+        eq(openerUses.userId, me),
+        eq(openerUses.profileId, profileId),
+      ),
+    );
+  return use ? kindStartsAChat(use.kind) : false;
 }
 
 /**
@@ -270,6 +310,8 @@ export async function noteAnswer(
     readonly at: Date;
     /** When they wrote it, when known: an answer older than the person's last message, or read before, is let be. */
     readonly writtenAt?: Date | null;
+    /** A yes in the networking chat after an introduction (decision 173): to a demo or a networking call. */
+    readonly took?: Took | null;
   },
 ): Promise<void> {
   const at = read.at;
@@ -287,6 +329,8 @@ export async function noteAnswer(
         next: null,
         dueAt: null,
         ...(read.answer === 'no' ? { stoppedAt: at } : {}),
+        // A yes after an introduction says what it's to (decision 173): a call goes on the person's own calendar.
+        ...(read.answer === 'yes' && row.step === 'intro' ? { call: read.took === 'call' } : {}),
         updatedAt: at,
       })
       .where(eq(followUps.id, row.id));
@@ -360,6 +404,8 @@ export const conversationNote = defineAddonCommand(outreachAddon, {
     if (!profile)
       throw HfosError.notFound('That person isn’t kept here anymore. Reload your list.');
     const at = changeMoment(ctx.meta);
+    // The AI's draft, copied to send: read in the chat later, it stays the AI's (decision 182).
+    await ctx.tx.update(profiles).set({ copiedAt: at }).where(eq(profiles.id, profile.id));
     // A partner's moves them along the Partners list, never a customer conversation (decision 81).
     if (input.kind.startsWith('partner_')) {
       await notePartnerSent(ctx, me, { profileId: profile.id, kind: input.kind, at });
@@ -378,7 +424,7 @@ export const conversationNote = defineAddonCommand(outreachAddon, {
 export const answerNote = defineAddonCommand(outreachAddon, {
   name: 'outreach.answer.note',
   description:
-    'Worker: what the AI read in someone’s answer to the person’s last step while drafting the reply (yes, a question, not now, no). A yes is a positive reply and moves them to the next step; a no ends the conversation and marks them not a fit.',
+    'Worker: what the AI read in someone’s answer to the person’s last step while drafting the reply (yes, a question, not now, no). A yes is a positive reply and moves them to the next step, and after an introduction says whether it was to a demo or a networking call; a no ends the conversation and marks them not a fit.',
   risk: 0,
   input: AnswerNoteInput,
   output: AnswerNoteOutput,
@@ -399,6 +445,7 @@ export const answerNote = defineAddonCommand(outreachAddon, {
       answer: input.answer,
       at: changeMoment(ctx.meta),
       writtenAt: input.writtenAt ? new Date(input.writtenAt) : null,
+      took: input.took,
     });
     // The yes before the link puts them in the pipeline (decision 105).
     if (input.answer === 'yes') await wantLead(ctx, input.userId, profile.id);

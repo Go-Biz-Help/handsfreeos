@@ -33,7 +33,8 @@ import { EVER, keepGroup, reachedPeople, resultsByGroup } from './activity';
 import { inWorkspace, keptProfile, once } from './common';
 import { tally } from './tallies';
 import { playbooksInUse } from './friends';
-import { groupFitOf, peopleLeft, prospectsOf } from './group-checks';
+import { groupFitOf, peopleLeft, prospectsOf, withLocalArea } from './group-checks';
+import { localTowns } from './local';
 
 type Facts = Pick<GroupSaveInput, 'group' | 'privacy' | 'members' | 'detail' | 'joined'>;
 
@@ -247,8 +248,10 @@ export const groupsList = defineAddonQuery(outreachAddon, {
     );
     const playbooks = await playbooksInUse(ctx, input.platform);
     const results = resultsByGroup(await reachedPeople(ctx, { from: EVER, me, everyone: true }));
-    // The AI's read of a group goes over what its name says (decision 48).
-    const fitted = listed.map((g) => ({ g, fit: groupFitOf(playbooks, g) }));
+    // The AI's read of a group goes over what its name says (decision 48). A group named for one of the person's towns
+    // is in their area while they focus on local groups (decision 177).
+    const local = withLocalArea(playbooks, await localTowns(ctx, me));
+    const fitted = listed.map((g) => ({ g, fit: groupFitOf(local, g) }));
     const choices = choicesFor((await automationOf(ctx, me)).settings, input.platform);
     // Working only their own groups, the people left to reach are the ones in those groups (decision 148).
     const left = await peopleLeft(ctx, me, playbooks, input.platform, onlyMyGroups(choices));

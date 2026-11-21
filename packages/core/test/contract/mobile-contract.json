@@ -1412,7 +1412,7 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "enum": ["customer_address", "business", "virtual", "phone"]
+                    "enum": ["customer_address", "business", "virtual", "phone", "meetup"]
                   },
                   {
                     "type": "null"
@@ -1665,7 +1665,7 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "enum": ["customer_address", "business", "virtual", "phone"]
+                    "enum": ["customer_address", "business", "virtual", "phone", "meetup"]
                   },
                   {
                     "type": "null"
@@ -7949,7 +7949,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
           },
           "ask": {
             "oneOf": [
@@ -8204,6 +8204,7 @@
                           "reply",
                           "demo_reminder",
                           "rebook",
+                          "thank_you",
                           "birthday",
                           "new_job",
                           "comment",
@@ -8772,6 +8773,9 @@
                         "default": "fits",
                         "type": "string",
                         "enum": ["fits", "fits_delete", "all", "delete"]
+                      },
+                      "autopilot": {
+                        "type": "boolean"
                       }
                     }
                   },
@@ -8849,6 +8853,9 @@
                         "default": "fits",
                         "type": "string",
                         "enum": ["fits", "fits_delete", "all", "delete"]
+                      },
+                      "autopilot": {
+                        "type": "boolean"
                       }
                     }
                   },
@@ -8926,6 +8933,139 @@
                         "default": "fits",
                         "type": "string",
                         "enum": ["fits", "fits_delete", "all", "delete"]
+                      },
+                      "autopilot": {
+                        "type": "boolean"
+                      }
+                    }
+                  },
+                  "threads": {
+                    "type": "object",
+                    "properties": {
+                      "on": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "sending": {
+                        "default": "off",
+                        "type": "string",
+                        "enum": ["off", "steps", "approve_all", "everything"]
+                      },
+                      "replies": {
+                        "default": "draft",
+                        "type": "string",
+                        "enum": ["draft", "simple", "everything"]
+                      },
+                      "warmUp": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "confirmRequests": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "collect": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "joinGroups": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "watchPosts": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "posting": {
+                        "default": "after_ok",
+                        "type": "string",
+                        "enum": ["copy", "after_ok", "own"]
+                      },
+                      "young": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "fullSpeed": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "tidy": {
+                        "default": "cancel",
+                        "type": "string",
+                        "enum": ["off", "cancel", "unfriend"]
+                      },
+                      "requests": {
+                        "default": "fits",
+                        "type": "string",
+                        "enum": ["fits", "fits_delete", "all", "delete"]
+                      },
+                      "autopilot": {
+                        "type": "boolean"
+                      }
+                    }
+                  },
+                  "x": {
+                    "type": "object",
+                    "properties": {
+                      "on": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "sending": {
+                        "default": "off",
+                        "type": "string",
+                        "enum": ["off", "steps", "approve_all", "everything"]
+                      },
+                      "replies": {
+                        "default": "draft",
+                        "type": "string",
+                        "enum": ["draft", "simple", "everything"]
+                      },
+                      "warmUp": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "confirmRequests": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "collect": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "joinGroups": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "watchPosts": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "posting": {
+                        "default": "after_ok",
+                        "type": "string",
+                        "enum": ["copy", "after_ok", "own"]
+                      },
+                      "young": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "fullSpeed": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "tidy": {
+                        "default": "cancel",
+                        "type": "string",
+                        "enum": ["off", "cancel", "unfriend"]
+                      },
+                      "requests": {
+                        "default": "fits",
+                        "type": "string",
+                        "enum": ["fits", "fits_delete", "all", "delete"]
+                      },
+                      "autopilot": {
+                        "type": "boolean"
                       }
                     }
                   }
@@ -9103,6 +9243,9 @@
                       "requests": {
                         "type": "string",
                         "enum": ["fits", "fits_delete", "all", "delete"]
+                      },
+                      "autopilot": {
+                        "type": "boolean"
                       }
                     }
                   },
@@ -9152,6 +9295,9 @@
                       "requests": {
                         "type": "string",
                         "enum": ["fits", "fits_delete", "all", "delete"]
+                      },
+                      "autopilot": {
+                        "type": "boolean"
                       }
                     }
                   },
@@ -9201,11 +9347,126 @@
                       "requests": {
                         "type": "string",
                         "enum": ["fits", "fits_delete", "all", "delete"]
+                      },
+                      "autopilot": {
+                        "type": "boolean"
+                      }
+                    }
+                  },
+                  "threads": {
+                    "type": "object",
+                    "properties": {
+                      "on": {
+                        "type": "boolean"
+                      },
+                      "sending": {
+                        "type": "string",
+                        "enum": ["off", "steps", "approve_all", "everything"]
+                      },
+                      "replies": {
+                        "type": "string",
+                        "enum": ["draft", "simple", "everything"]
+                      },
+                      "warmUp": {
+                        "type": "boolean"
+                      },
+                      "confirmRequests": {
+                        "type": "boolean"
+                      },
+                      "collect": {
+                        "type": "boolean"
+                      },
+                      "joinGroups": {
+                        "type": "boolean"
+                      },
+                      "watchPosts": {
+                        "type": "boolean"
+                      },
+                      "posting": {
+                        "type": "string",
+                        "enum": ["copy", "after_ok", "own"]
+                      },
+                      "young": {
+                        "type": "boolean"
+                      },
+                      "fullSpeed": {
+                        "type": "boolean"
+                      },
+                      "tidy": {
+                        "type": "string",
+                        "enum": ["off", "cancel", "unfriend"]
+                      },
+                      "requests": {
+                        "type": "string",
+                        "enum": ["fits", "fits_delete", "all", "delete"]
+                      },
+                      "autopilot": {
+                        "type": "boolean"
+                      }
+                    }
+                  },
+                  "x": {
+                    "type": "object",
+                    "properties": {
+                      "on": {
+                        "type": "boolean"
+                      },
+                      "sending": {
+                        "type": "string",
+                        "enum": ["off", "steps", "approve_all", "everything"]
+                      },
+                      "replies": {
+                        "type": "string",
+                        "enum": ["draft", "simple", "everything"]
+                      },
+                      "warmUp": {
+                        "type": "boolean"
+                      },
+                      "confirmRequests": {
+                        "type": "boolean"
+                      },
+                      "collect": {
+                        "type": "boolean"
+                      },
+                      "joinGroups": {
+                        "type": "boolean"
+                      },
+                      "watchPosts": {
+                        "type": "boolean"
+                      },
+                      "posting": {
+                        "type": "string",
+                        "enum": ["copy", "after_ok", "own"]
+                      },
+                      "young": {
+                        "type": "boolean"
+                      },
+                      "fullSpeed": {
+                        "type": "boolean"
+                      },
+                      "tidy": {
+                        "type": "string",
+                        "enum": ["off", "cancel", "unfriend"]
+                      },
+                      "requests": {
+                        "type": "string",
+                        "enum": ["fits", "fits_delete", "all", "delete"]
+                      },
+                      "autopilot": {
+                        "type": "boolean"
                       }
                     }
                   }
                 }
               }
+            }
+          },
+          "picked": {
+            "maxItems": 6,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
             }
           }
         },
@@ -9366,7 +9627,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
           },
           "installId": {
             "type": "string",
@@ -9388,7 +9649,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
           },
           "installId": {
             "type": "string",
@@ -9410,7 +9671,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
           },
           "profileId": {
             "type": "string",
@@ -9478,6 +9739,23 @@
         "required": ["workspaceId", "profileId", "outcome"]
       }
     },
+    "outreach.event.skip": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "eventId"]
+      }
+    },
     "outreach.friend.set": {
       "offline": "online",
       "input": {
@@ -9490,7 +9768,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
           },
           "profileId": {
             "type": "string",
@@ -9542,7 +9820,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
           },
           "on": {
             "type": "boolean"
@@ -9553,6 +9831,70 @@
           }
         },
         "required": ["workspaceId", "on"]
+      }
+    },
+    "outreach.hands.give_back": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileIds": {
+            "default": [],
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "all": {
+            "default": false,
+            "type": "boolean"
+          },
+          "mine": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.hands.keep": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "profileId"]
+      }
+    },
+    "outreach.hands.take": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "profileId"]
       }
     },
     "outreach.helpful.ask": {
@@ -9567,7 +9909,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
           },
           "groupId": {
             "type": "string",
@@ -10147,6 +10489,24 @@
                   "maxLength": 80
                 }
               },
+              "threadsSearches": {
+                "maxItems": 12,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 60
+                }
+              },
+              "xSearches": {
+                "maxItems": 12,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 60
+                }
+              },
               "worksOnline": {
                 "type": ["boolean", "null"]
               },
@@ -10154,7 +10514,7 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "enum": ["facebook", "instagram", "linkedin", "alignable"]
+                  "enum": ["facebook", "instagram", "linkedin", "alignable", "threads", "x"]
                 }
               },
               "audience": {
@@ -10204,7 +10564,7 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "enum": ["facebook", "linkedin", "instagram", "alignable"]
+                  "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
                 }
               },
               "groupWords": {
@@ -10253,6 +10613,246 @@
                   }
                 },
                 "required": ["messageAfterDays"]
+              },
+              "script": {
+                "type": "object",
+                "properties": {
+                  "first": {
+                    "minItems": 1,
+                    "maxItems": 3,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 600
+                    }
+                  },
+                  "intro": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "valueFirst": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "trigger": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "compliment": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "opinion": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "socialProof": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "permission": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "sharedGround": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "problemCheck": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "nudge": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "demoOffer": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "callOffer": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "sendPeople": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "callYes": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "reconnect": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "yes": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "question": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "later": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "no": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "followUp": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "checkIn": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "reminder": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "missed": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "comment": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "warmUp": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "postReply": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "groupReply": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "referComment": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "referNote": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "referAsk": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "birthday": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "newJob": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  }
+                }
+              },
+              "opens": {
+                "type": "string",
+                "enum": ["pitch", "intro"]
+              },
+              "ways": {
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "pitch",
+                    "intro",
+                    "valueFirst",
+                    "trigger",
+                    "compliment",
+                    "opinion",
+                    "socialProof",
+                    "permission",
+                    "sharedGround",
+                    "problemCheck"
+                  ]
+                }
+              },
+              "networking": {
+                "type": "object",
+                "properties": {
+                  "demo": {
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "call": {
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "sendPeople": {
+                    "default": true,
+                    "type": "boolean"
+                  }
+                }
+              },
+              "chat": {
+                "type": "object",
+                "properties": {
+                  "wrapAfter": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 3
+                  },
+                  "questions": {
+                    "type": "string",
+                    "enum": ["rarely", "sometimes", "often"]
+                  },
+                  "story": {
+                    "type": "string",
+                    "enum": ["often", "fits", "never"]
+                  },
+                  "demoWhen": {
+                    "type": "string",
+                    "enum": ["asked", "problem"]
+                  }
+                }
+              },
+              "refer": {
+                "type": "boolean"
               },
               "tone": {
                 "anyOf": [
@@ -10614,6 +11214,24 @@
                   "maxLength": 80
                 }
               },
+              "threadsSearches": {
+                "maxItems": 12,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 60
+                }
+              },
+              "xSearches": {
+                "maxItems": 12,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 60
+                }
+              },
               "worksOnline": {
                 "type": ["boolean", "null"]
               },
@@ -10621,7 +11239,7 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "enum": ["facebook", "instagram", "linkedin", "alignable"]
+                  "enum": ["facebook", "instagram", "linkedin", "alignable", "threads", "x"]
                 }
               },
               "audience": {
@@ -10671,7 +11289,7 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "enum": ["facebook", "linkedin", "instagram", "alignable"]
+                  "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
                 }
               },
               "groupWords": {
@@ -10720,6 +11338,246 @@
                   }
                 },
                 "required": ["messageAfterDays"]
+              },
+              "script": {
+                "type": "object",
+                "properties": {
+                  "first": {
+                    "minItems": 1,
+                    "maxItems": 3,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 600
+                    }
+                  },
+                  "intro": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "valueFirst": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "trigger": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "compliment": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "opinion": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "socialProof": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "permission": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "sharedGround": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "problemCheck": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "nudge": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "demoOffer": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "callOffer": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "sendPeople": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "callYes": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "reconnect": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "yes": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "question": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "later": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "no": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "followUp": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "checkIn": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "reminder": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "missed": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "comment": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "warmUp": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "postReply": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "groupReply": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "referComment": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "referNote": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "referAsk": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "birthday": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
+                  "newJob": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  }
+                }
+              },
+              "opens": {
+                "type": "string",
+                "enum": ["pitch", "intro"]
+              },
+              "ways": {
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "pitch",
+                    "intro",
+                    "valueFirst",
+                    "trigger",
+                    "compliment",
+                    "opinion",
+                    "socialProof",
+                    "permission",
+                    "sharedGround",
+                    "problemCheck"
+                  ]
+                }
+              },
+              "networking": {
+                "type": "object",
+                "properties": {
+                  "demo": {
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "call": {
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "sendPeople": {
+                    "default": true,
+                    "type": "boolean"
+                  }
+                }
+              },
+              "chat": {
+                "type": "object",
+                "properties": {
+                  "wrapAfter": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 3
+                  },
+                  "questions": {
+                    "type": "string",
+                    "enum": ["rarely", "sometimes", "often"]
+                  },
+                  "story": {
+                    "type": "string",
+                    "enum": ["often", "fits", "never"]
+                  },
+                  "demoWhen": {
+                    "type": "string",
+                    "enum": ["asked", "problem"]
+                  }
+                }
+              },
+              "refer": {
+                "type": "boolean"
               },
               "tone": {
                 "anyOf": [
@@ -10953,7 +11811,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
           },
           "item": {
             "type": "string",
@@ -10974,6 +11832,103 @@
           }
         },
         "required": ["workspaceId", "item", "done"]
+      }
+    },
+    "outreach.refer_ask.answer": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "askId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "answer": {
+            "type": "string",
+            "enum": ["approve", "done", "skip"]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": ["workspaceId", "askId", "answer"]
+      }
+    },
+    "outreach.referral.approve": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "referralId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "comment": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": ["workspaceId", "referralId"]
+      }
+    },
+    "outreach.referral.done": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "referralId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "comment": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": ["workspaceId", "referralId"]
+      }
+    },
+    "outreach.referral.skip": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "referralId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "referralId"]
       }
     },
     "outreach.request.answer": {
@@ -11025,7 +11980,7 @@
           },
           "platform": {
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
           }
         },
         "required": ["workspaceId", "platform"]
@@ -11166,7 +12121,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
           }
         },
         "required": ["workspaceId", "userId"]
@@ -11638,8 +12593,55 @@
         "required": ["workspaceId"]
       }
     },
+    "person.hand_back": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personIds": {
+            "default": [],
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "all": {
+            "default": false,
+            "type": "boolean"
+          },
+          "mine": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
     "person.restore": {
       "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "personId"]
+      }
+    },
+    "person.take_over": {
+      "offline": "online",
       "input": {
         "type": "object",
         "properties": {
@@ -15611,6 +16613,28 @@
         "required": ["workspaceId", "postId"]
       }
     },
+    "socialcontent.content.approve_many": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postIds": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workspaceId", "postIds"]
+      }
+    },
     "socialcontent.content.approve_week": {
       "offline": "online",
       "input": {
@@ -15626,6 +16650,89 @@
           }
         },
         "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.content.hide": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postIds": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "hide": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "postIds"]
+      }
+    },
+    "socialcontent.content.look": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postIds": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workspaceId", "postIds"]
+      }
+    },
+    "socialcontent.content.mark_posted": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postIds": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "link": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "postIds"]
       }
     },
     "socialcontent.content.post_now": {
@@ -15645,6 +16752,28 @@
         "required": ["workspaceId", "postId"]
       }
     },
+    "socialcontent.content.redo": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postIds": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workspaceId", "postIds"]
+      }
+    },
     "socialcontent.content.remove": {
       "offline": "online",
       "input": {
@@ -15660,6 +16789,28 @@
           }
         },
         "required": ["workspaceId", "postId"]
+      }
+    },
+    "socialcontent.content.remove_many": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postIds": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workspaceId", "postIds"]
       }
     },
     "socialcontent.content.save": {
@@ -15682,7 +16833,7 @@
           },
           "network": {
             "type": "string",
-            "enum": ["instagram", "facebook", "linkedin"]
+            "enum": ["instagram", "facebook", "linkedin", "threads", "x"]
           },
           "format": {
             "type": "string",
@@ -15709,6 +16860,14 @@
             "items": {
               "type": "string",
               "maxLength": 41
+            }
+          },
+          "chain": {
+            "maxItems": 4,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 500
             }
           },
           "slides": {
@@ -15837,7 +16996,7 @@
           },
           "network": {
             "type": "string",
-            "enum": ["instagram", "facebook", "linkedin", "tiktok", "youtube"]
+            "enum": ["instagram", "facebook", "linkedin", "threads", "x", "tiktok", "youtube"]
           }
         },
         "required": ["workspaceId", "link"]
@@ -15874,7 +17033,7 @@
           },
           "network": {
             "type": "string",
-            "enum": ["instagram", "facebook", "linkedin", "tiktok", "youtube"]
+            "enum": ["instagram", "facebook", "linkedin", "threads", "x", "tiktok", "youtube"]
           }
         },
         "required": ["workspaceId"]
@@ -15968,11 +17127,11 @@
           },
           "networks": {
             "minItems": 1,
-            "maxItems": 5,
+            "maxItems": 7,
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["instagram", "facebook", "linkedin", "tiktok", "youtube"]
+              "enum": ["instagram", "facebook", "linkedin", "threads", "x", "tiktok", "youtube"]
             }
           },
           "readerUserId": {
@@ -15993,7 +17152,7 @@
             "type": "object",
             "propertyNames": {
               "type": "string",
-              "enum": ["instagram", "facebook", "linkedin"]
+              "enum": ["instagram", "facebook", "linkedin", "threads", "x"]
             },
             "additionalProperties": {
               "type": "object",
@@ -16542,6 +17701,19 @@
         "required": ["workspaceId", "lessonId"]
       }
     },
+    "user_about.set": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "about": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": ["about"]
+      }
+    },
     "user_phone.start_verification": {
       "offline": "online",
       "input": {
@@ -16842,7 +18014,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["customer_address", "business", "virtual", "phone"]
+                "enum": ["customer_address", "business", "virtual", "phone", "meetup"]
               },
               {
                 "type": "null"
@@ -17231,7 +18403,7 @@
           },
           "platform": {
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
           }
         },
         "required": ["workspaceId"]
@@ -17314,7 +18486,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
           },
           "view": {
             "default": "work",
@@ -17335,6 +18507,32 @@
         "required": ["workspaceId"]
       }
     },
+    "outreach.hands": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mine": {
+            "default": false,
+            "type": "boolean"
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "limit": {
+            "default": 100,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
     "outreach.helpful": {
       "input": {
         "type": "object",
@@ -17346,7 +18544,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
           }
         },
         "required": ["workspaceId"]
@@ -17363,7 +18561,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
           }
         },
         "required": ["workspaceId"]
@@ -17380,7 +18578,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
           }
         },
         "required": ["workspaceId"]
@@ -17397,7 +18595,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
           },
           "profiles": {
             "default": [],
@@ -17500,7 +18698,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
           }
         },
         "required": ["workspaceId"]
@@ -17554,7 +18752,7 @@
           },
           "platform": {
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
           }
         },
         "required": ["workspaceId"]
@@ -17571,7 +18769,7 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
           },
           "kind": {
             "type": "string",
@@ -17579,6 +18777,7 @@
               "reply",
               "demo_reminder",
               "rebook",
+              "thank_you",
               "birthday",
               "new_job",
               "warm_lead",
@@ -17684,6 +18883,32 @@
           "workspaceId": {
             "type": "string",
             "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "person.in_hands": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mine": {
+            "default": false,
+            "type": "boolean"
+          },
+          "limit": {
+            "default": 100,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
           }
         },
         "required": ["workspaceId"]
@@ -18290,7 +19515,7 @@
           },
           "network": {
             "type": "string",
-            "enum": ["instagram", "facebook", "linkedin", "tiktok", "youtube"]
+            "enum": ["instagram", "facebook", "linkedin", "threads", "x", "tiktok", "youtube"]
           }
         },
         "required": ["workspaceId"]
@@ -18366,7 +19591,7 @@
           },
           "network": {
             "type": "string",
-            "enum": ["instagram", "facebook", "linkedin", "tiktok", "youtube"]
+            "enum": ["instagram", "facebook", "linkedin", "threads", "x", "tiktok", "youtube"]
           },
           "before": {
             "type": "string",
@@ -18380,6 +19605,12 @@
           }
         },
         "required": ["workspaceId"]
+      }
+    },
+    "user_about.get": {
+      "input": {
+        "type": "object",
+        "properties": {}
       }
     }
   },

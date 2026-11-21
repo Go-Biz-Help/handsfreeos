@@ -10,10 +10,14 @@ import {
   CONTENT_STATES,
   FACEBOOK_WHERE,
   PICTURE_STATES,
+  PICKING,
   PICTURE_WAYS,
   POST_PLACES,
+  POSTING,
   POSTING_NETWORKS,
+  SHORT_POSTS,
 } from './calendar';
+import { PICK_WHICH } from './calendar-looks';
 import { OWN_READS } from './own';
 import { POST_LIMITS } from './posts-ai';
 import { AngleShape, LearnedPlanShape, Network, PlanShape, TopicShape, uuid } from './shapes';
@@ -84,6 +88,8 @@ export const Content = z.object({
   words: z.string(),
   hook: z.string().nullable(),
   hashtags: z.array(z.string()),
+  /** Threads and X (decision 41): the posts under the first in a chain, in order; empty everywhere else. */
+  chain: z.array(z.string()),
   slides: z.array(z.object({ heading: z.string(), body: z.string() })),
   script: z.object({ lines: z.array(z.string()), shots: z.array(z.string()) }).nullable(),
   /** What its picture shows, or what to shoot. */
@@ -92,6 +98,11 @@ export const Content = z.object({
   pictureState: z.enum(PICTURE_STATES),
   pictureFailure: z.string().nullable(),
   pictures: z.array(ContentPicture),
+  /**
+   * What the picture check still found wrong with the pictures kept (the owner's pick, 16 Nov), to show beside them;
+   * empty when they passed or weren't checked. Default for an older API.
+   */
+  pictureFlags: z.array(z.string()).default([]),
   facebookWhere: z.array(FacebookWhere),
   state: z.enum(CONTENT_STATES),
   postAt: z.string().nullable(),
@@ -114,6 +125,16 @@ export const Content = z.object({
   ideaId: uuid.nullable(),
   /** What it still needs before it can be OK'd, in words to show; null when nothing. */
   stillNeeds: z.string().nullable(),
+  /** Hidden from the Calendar, kept under its Hidden filter (the owner, 15 Nov). Default for an older API. */
+  hidden: z.boolean().default(false),
+  /**
+   * Check if it posted (the owner, 15 Nov), for one that didn't post: when the reading computer next looks for it on
+   * the network (null when it won't), when it last looked and didn't find it everywhere, and why it couldn't look.
+   * Defaults for an older API.
+   */
+  lookAt: z.string().nullable().default(null),
+  lookedAt: z.string().nullable().default(null),
+  lookFailure: z.string().nullable().default(null),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -154,7 +175,10 @@ export const CalendarGetOutput = z.object({
   /** Posts going in these days, soonest first, and drafts with no day yet. */
   posts: z.array(Content),
   undated: z.array(Content),
-  /** What went up in the 30 days before these days, newest first, with how each did (part 11). */
+  /**
+   * What went up in the 30 days before these days, newest first, with how each did (part 11), and what didn't go up
+   * (the owner, 15 Nov).
+   */
   recent: z.array(Content),
   /** When it last filled the calendar, and when it fills again on its own (null until it first fills). */
   filledAt: z.string().nullable(),
@@ -207,6 +231,8 @@ export const ContentSaveInput = z.object({
     .array(z.string().max(POST_LIMITS.hashtag + 1))
     .max(30)
     .optional(),
+  /** Threads and X (decision 41): the posts under the first, in order; an empty one is left out. */
+  chain: z.array(z.string().max(POSTING.textMost.threads)).max(SHORT_POSTS.chainMost).optional(),
   slides: z.array(SlideShape).max(CALENDAR.slidesMost).optional(),
   script: ScriptShape.nullable().optional(),
   picture: z.string().trim().max(POST_LIMITS.picture).nullable().optional(),
@@ -249,6 +275,87 @@ export const ContentRemoveOutput = z.object({
 
 export const ContentPostNowInput = z.object({ workspaceId: uuid, postId: uuid });
 
+/**
+ * Redo (the owner, 15 Nov): posts that went up wrong or didn't go up, put up again, spaced out on each network. One
+ * that went up goes up again everywhere it went; one that didn't go up is tried again where it hadn't.
+ */
+export const ContentRedoInput = z.object({
+  workspaceId: uuid,
+  postIds: z.array(uuid).min(1).max(POSTING.redoMost),
+});
+export const ContentRedoOutput = z.object({
+  redone: z.number().int(),
+  /** When the last of them goes. */
+  lastAt: z.string().nullable(),
+  /** Which weren't redone, and why. */
+  notRedone: z.array(z.object({ postId: uuid, title: z.string(), why: z.string() })),
+});
+
+// ------------------------------------------------------------------------------------------------ picking many
+
+/** Picking many posts on the Calendar (the owner, 15 Nov): the posts a person picked. */
+const Picked = z.array(uuid).min(1).max(PICKING.most);
+/** The picked posts a command left alone, and why. */
+const LeftOut = z.array(z.object({ postId: uuid, title: z.string(), why: z.string() }));
+
+/**
+ * Redo on picked posts waiting to go up (the owner, 15 Nov): the worker's `socialcontent.content.rewrite_many` queues
+ * each to be written again by the AI, a little apart, in the background.
+ */
+export const ContentRewriteManyInput = z.object({ postIds: Picked }).strict();
+export const ContentRewriteManyOutput = z.object({ asked: z.number().int(), notAsked: LeftOut });
+
+export const ContentApproveManyInput = z.object({ workspaceId: uuid, postIds: Picked });
+export const ContentApproveManyOutput = z.object({
+  approved: z.number().int(),
+  notApproved: LeftOut,
+});
+/** Hide takes posts off the Calendar, kept under its Hidden filter; hide: false shows them again. */
+export const ContentHideInput = z.object({
+  workspaceId: uuid,
+  postIds: Picked,
+  hide: z.boolean().default(true),
+});
+export const ContentHideOutput = z.object({ changed: z.number().int(), notChanged: LeftOut });
+export const ContentRemoveManyInput = z.object({ workspaceId: uuid, postIds: Picked });
+export const ContentRemoveManyOutput = z.object({ removed: z.number().int(), notRemoved: LeftOut });
+/** Posts that didn't post marked as posted by hand: the person sees them on the network. One may carry its link. */
+export const ContentMarkPostedInput = z.object({
+  workspaceId: uuid,
+  postIds: Picked,
+  link: z.url().max(500).nullable().default(null),
+});
+export const ContentMarkPostedOutput = z.object({ marked: z.number().int(), notMarked: LeftOut });
+/** Check if it posted: the reading computer looks on the network for posts that didn't post. */
+export const ContentLookInput = z.object({ workspaceId: uuid, postIds: Picked });
+export const ContentLookOutput = z.object({ asked: z.number().int(), notAsked: LeftOut });
+
+/**
+ * The Pick menu's "all" picks across any date (or the days given): everything, waiting for an OK, OK'd, past (posted
+ * or didn't post), didn't post, or hidden. Only "everything" and "hidden" take in hidden posts.
+ */
+export const ContentPickInput = z.object({
+  workspaceId: uuid,
+  which: z.enum(PICK_WHICH),
+  /** The first day, in the business's time zone, and how many days; any date when left out. */
+  from: LocalDate.optional(),
+  days: z.number().int().min(1).max(42).optional(),
+});
+export const PickedPost = z.object({
+  id: uuid,
+  title: z.string(),
+  network: Network,
+  state: z.enum(CONTENT_STATES),
+  postAt: z.string().nullable(),
+  hidden: z.boolean(),
+});
+export type PickedPost = z.infer<typeof PickedPost>;
+export const ContentPickOutput = z.object({
+  posts: z.array(PickedPost),
+  /** More matched than were listed. */
+  more: z.boolean(),
+});
+
 // ------------------------------------------------------------------------------------------------ the extension
 
 /** One of a post's files as the extension fetches it to put up: a picture, or the person's video. */
@@ -272,6 +379,8 @@ export const DuePost = z.object({
   format: ContentFormat,
   /** The words as they go up, hashtags at the end. */
   text: z.string(),
+  /** Threads and X (decision 41): the posts that go under it, in order, as a chain. */
+  chain: z.array(z.string()).default([]),
   files: z.array(PostFile),
   /** Where it still goes up, in order: places it went up already are left out. */
   places: z.array(PostPlace),
@@ -302,6 +411,41 @@ export const PostWentInput = z.object({
    */
   again: z.boolean().default(false),
   /** Why, when nothing was tried or it stopped before a place. */
+  failure: z.string().max(300).nullable().default(null),
+});
+
+export const PostLookNextInput = z.object({
+  workspaceId: uuid,
+  /** The networks the extension posts on, with no warning today. */
+  networks: z.array(PostingNetwork).max(POSTING_NETWORKS.length),
+});
+/** A post that didn't post, to look for on the network by its first words (Check if it posted). */
+export const LookPost = z.object({
+  id: uuid,
+  network: PostingNetwork,
+  /** The words as they went up, hashtags at the end: it's found by its first words. */
+  text: z.string(),
+  /** The places to look in: where it hadn't gone up. */
+  places: z.array(PostPlace),
+  facebookPage: z.string().nullable(),
+  postAt: z.string().nullable(),
+  /**
+   * A person pressed Check if it posted (or Check again): its window comes in front for the look right away, as a
+   * Check's does (the owner, 18 Nov). A look on its own, 10 minutes after a post that may have gone up, comes in front
+   * only while they're away (docs/outreach.md, decision 120).
+   */
+  asked: z.boolean().default(false),
+});
+export type LookPost = z.infer<typeof LookPost>;
+export const PostLookNextOutput = z.object({ post: LookPost.nullable() });
+export const PostLookedInput = z.object({
+  workspaceId: uuid,
+  postId: uuid,
+  /** The places it was found in, each with its link when there was one. */
+  found: z
+    .array(z.object({ place: PostPlace, link: z.url().max(500).nullable().default(null) }))
+    .max(POST_PLACES.length),
+  /** Why it couldn't look at all (signed out, a warning); null when it looked. */
   failure: z.string().max(300).nullable().default(null),
 });
 
@@ -351,6 +495,7 @@ export const WrittenPostShape = z.object({
   hook: z.string().max(POST_LIMITS.hook).nullable(),
   words: z.string().max(3000),
   hashtags: z.array(z.string().max(POST_LIMITS.hashtag)).max(30),
+  chain: z.array(z.string().max(POSTING.textMost.threads)).max(SHORT_POSTS.chainMost).default([]),
   slides: z.array(SlideShape).max(CALENDAR.slidesMost),
   script: ScriptShape.nullable(),
   picture: z.string().max(POST_LIMITS.picture).nullable(),

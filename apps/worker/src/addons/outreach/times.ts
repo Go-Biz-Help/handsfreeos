@@ -23,6 +23,7 @@ import {
   type OpenTime,
   type TimeKind,
 } from '@hfos/core/addons/outreach/meeting-times';
+import { callRef, demoLink as withBookingRef } from '@hfos/core/addons/outreach/demos';
 import { timesKeep } from '@hfos/core/addons/outreach/ops/meeting-times';
 import {
   addDays,
@@ -145,6 +146,96 @@ export async function meetingFor(
     open,
     offer,
   };
+}
+
+/**
+ * A calendar of the person's that they picked in Settings → You (decision 178), when it takes bookings online now: on,
+ * public, on the business's booking site, which is on. Null for none, or a pick that stopped taking bookings.
+ */
+async function pickedCalendar(
+  ctx: AddonScopeContext,
+  userId: string,
+  which: 'networking' | 'lead',
+): Promise<{ site: string; calendar: string } | null> {
+  const ws = ctx.scope.workspaceId;
+  const column = which === 'lead' ? sql`a.lead_calendar_id` : sql`a.networking_calendar_id`;
+  const [picked] = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{ site: string; calendar: string }>(
+      tx,
+      sql`select bs.slug::text as site, c.slug as calendar
+          from addon_outreach.automation a
+          join app.calendars c on c.id = ${column} and c.workspace_id = a.workspace_id
+          join app.booking_sites bs on bs.workspace_id = c.workspace_id
+          where a.workspace_id = ${ws} and a.user_id = ${userId}
+            and c.status = 'active' and c.public and bs.enabled`,
+    ),
+  );
+  return picked ?? null;
+}
+
+/** A booking page's link: on the demo page's own address when it's this site's (a business's own domain stays). */
+function pageLink(
+  ctx: AddonScopeContext,
+  page: { site: string; calendar: string },
+  demoLink: string | null | undefined,
+): string {
+  const demo = bookingPageOf(demoLink);
+  const origin =
+    demo && demo.site === page.site.toLowerCase() && demoLink
+      ? new URL(demoLink).origin
+      : ctx.webUrl.replace(/\/+$/, '');
+  return `${origin}/book/${page.site}/${page.calendar}`;
+}
+
+/**
+ * Where a demo books (decision 178, the owner's 5a): the person's own Lead calendar when they picked one that takes
+ * bookings, else the playbook's link, as before.
+ */
+export async function leadLinkFor(
+  ctx: AddonScopeContext,
+  userId: string,
+  playbookLink: string | null | undefined,
+): Promise<string | null> {
+  const lead = await pickedCalendar(ctx, userId, 'lead');
+  return lead ? pageLink(ctx, lead, playbookLink) : (playbookLink ?? null);
+}
+
+/**
+ * Where a networking call books (decision 173, the owner, 16 Nov 2026: "use the chris's calendar for the networking call
+ * and the demo calendar if it's a demo"): the person's own Networking calendar when they picked one that takes bookings
+ * (decision 178); else their own calendar, the oldest one they own that's on, public and isn't the demo page, on the
+ * business's booking site. Its link has no demo ref, so a call booked on it never counts as a demo. Null when there's
+ * none, or the booking site is off: the call's ask then goes with no link.
+ *
+ * For someone in particular it carries a networking call `ref` (decision 187): the call they book through it is known
+ * to be with them, for the prep push before it and the thank-you after.
+ */
+export async function callLinkFor(
+  ctx: AddonScopeContext,
+  userId: string,
+  demoLink: string | null | undefined,
+  profileId?: string | null,
+): Promise<string | null> {
+  const withRef = (link: string) =>
+    profileId ? (withBookingRef(link, callRef(userId, profileId)) ?? link) : link;
+  const picked = await pickedCalendar(ctx, userId, 'networking');
+  if (picked) return withRef(pageLink(ctx, picked, demoLink));
+  const demo = bookingPageOf(demoLink);
+  const ws = ctx.scope.workspaceId;
+  const [own] = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{ site: string; calendar: string }>(
+      tx,
+      sql`select bs.slug::text as site, c.slug as calendar
+          from app.calendars c join app.booking_sites bs on bs.workspace_id = c.workspace_id
+          where c.workspace_id = ${ws} and c.owner_user_id = ${userId} and c.status = 'active' and c.public
+            and bs.enabled
+            and not (lower(bs.slug::text) = ${demo?.site ?? ''} and lower(c.slug) = ${demo?.calendar ?? ''})
+            and c.id::text <> ${demo?.site === 'c' ? demo.calendar : ''}
+          order by c.created_at, c.id
+          limit 1`,
+    ),
+  );
+  return own ? withRef(pageLink(ctx, own, demoLink)) : null;
 }
 
 /** The times a draft offers, in words. */

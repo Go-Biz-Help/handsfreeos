@@ -1,8 +1,9 @@
 /**
- * AI Social Media Content Creator's reading tab (docs/socialcontent.md; ./run.ts): a window of its own beside the
- * person's, on one network's pages (src/tab.ts's `WorkTab`, which refuses any other address), and its hands there
- * (./page.ts, research.js), loaded into it by Chrome's `executeScript` and called the same way, in that script's own
- * world. Social Outreach's script in the tab never hears these.
+ * AI Social Media Content Creator's reading tab (docs/socialcontent.md; ./run.ts): a tab of the work window beside the
+ * person's (src/opened.ts, docs/outreach.md decision 171), on one network's pages (src/tab.ts's `WorkTab`, which
+ * refuses any other address), and its hands there (./page.ts, research.js), loaded into it by Chrome's
+ * `executeScript` and called the same way, in that script's own world. Social Outreach's script in the tab never hears
+ * these.
  */
 import type { Kit } from '../networks';
 import { WorkTab } from '../tab';
@@ -33,10 +34,11 @@ export class ResearchTab {
 
   /**
    * Runs `work` with its window in front, for a page that draws only what's on screen: only once the person has been
-   * away for two minutes (decision 120), else it throws `NotAway` (src/away.ts) and the read goes on without it.
+   * away for two minutes (decision 120), else it throws `NotAway` (src/away.ts) and the read goes on without it. Right
+   * away when the person `asked` for it (Check if it posted), as a Check comes in front.
    */
-  inFront<T>(work: () => Promise<T>): Promise<T> {
-    return this.tab.inFront(work);
+  inFront<T>(work: () => Promise<T>, asked = false): Promise<T> {
+    return this.tab.inFront(work, undefined, asked);
   }
 
   /**

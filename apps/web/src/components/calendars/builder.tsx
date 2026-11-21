@@ -35,6 +35,7 @@ import {
   ListOrdered,
   Map as MapIcon,
   MapPin,
+  Palette,
   Repeat,
   Timer,
   Truck,
@@ -90,6 +91,8 @@ import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { usePublicOrigin } from '@/lib/use-origin';
 import { cn } from '@/lib/utils';
 import { CalendarDot, CalendarStatusBadge, LabelChips } from './chips';
+import type { FormBrand } from '@/components/forms/design-panel';
+import { CalendarEmbed } from './embed-dialog';
 import { HistorySheet } from './history-sheet';
 import { ImpactDialog } from './impact-dialog';
 import { ModuleForm, type BuilderPayments, type BuilderPerson } from './modules';
@@ -113,6 +116,7 @@ const ICONS: Record<ModuleKey, LucideIcon> = {
   crm: Contact,
   payments: CreditCard,
   automations: Workflow,
+  design: Palette,
 };
 
 const COLORS = CALENDAR_COLORS.map((c) => c.hex);
@@ -164,6 +168,8 @@ export interface BuilderProps {
   brandedOrigin: string | null;
   /** The business's time zone, which a calendar without its own follows. */
   businessZone: string;
+  /** The business's colour, logo and website (Settings → Workspace), which the Design section starts from. */
+  brand: FormBrand;
 }
 
 /**
@@ -608,6 +614,7 @@ export function CalendarBuilder(props: BuilderProps) {
             calendarId={calendar.id}
             calendarName={calendar.name}
             payments={props.payments}
+            brand={props.brand}
           />
         </Card>
 
@@ -657,6 +664,14 @@ export function CalendarBuilder(props: BuilderProps) {
                 <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
                 Open
               </a>
+              <CalendarEmbed
+                workspaceId={workspaceId}
+                calendarId={calendar.id}
+                calendarName={calendar.name}
+                bookingUrl={calendar.bookingPath ? `${origin}${calendar.bookingPath}` : null}
+                embedOrigins={calendar.embedOrigins}
+                bookingSiteHref={`${base}/calendars/booking-site`}
+              />
             </div>
             <p className="mt-1.5 text-[12.5px] text-text-3">
               {calendar.bookingPath

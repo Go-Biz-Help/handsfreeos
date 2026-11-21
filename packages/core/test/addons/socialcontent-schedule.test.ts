@@ -111,6 +111,32 @@ describe('AI picks: the days', () => {
 });
 
 describe('I pick', () => {
+  it('shows today’s places on the Calendar only, while there’s half an hour to OK a post there (the owner, 15 Nov)', () => {
+    // Tuesday the 10th at noon: 08:00 is past, 12:20 too soon to OK a post, 17:30 still ahead.
+    const week = [[], [], ['08:00', '12:20', '17:30'], [], [], [], []];
+    const base = {
+      plan: only('facebook', { mode: 'mine', week }),
+      times: {},
+      timeZone: TZ,
+      now: NOW,
+      days: 2,
+    };
+    const today = (taken: Parameters<typeof openSlots>[0]['taken']) =>
+      openSlots({ ...base, taken, today: true })
+        .filter((s) => s.date === '2026-11-10')
+        .map((s) => hourIn(s.at));
+    // Filling never writes today.
+    expect(openSlots({ ...base, taken: [] }).some((s) => s.date === '2026-11-10')).toBe(false);
+    expect(today([])).toEqual([17]);
+    // Today's post there takes it; once it's deleted (gone) or skipped (hidden), the place is back.
+    expect(today([{ network: 'facebook', postAt: at('2026-11-10', 17), state: 'ready' }])).toEqual(
+      [],
+    );
+    expect(
+      today([{ network: 'facebook', postAt: at('2026-11-10', 17), state: 'skipped' }]),
+    ).toEqual([17]);
+  });
+
   it('puts a post at each time picked on each day, less the nearest one for each post that day', () => {
     const week = [[], ['08:00', '17:30'], [], ['12:00'], [], [], ['10:00']];
     const slots = openSlots({

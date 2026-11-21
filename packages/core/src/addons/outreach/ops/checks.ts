@@ -47,12 +47,16 @@ import {
 import { FIND_FRESH_DAYS, FIND_LIKES_BEHIND_DAYS, FOUND_CHECKS, type CheckVia } from '../finds';
 import { bestFit } from '../fit';
 import type { GroupCheckState } from '../group-checks';
+import { EVENT_PEOPLE_KEPT_DAYS } from '../events-near';
 import { FOLLOWERS_KEPT_DAYS } from '../followers';
 import { fewAhead } from '../goal';
 import { limitNow } from '../limits';
 import { answersRequests, NETWORKS, profileMisfit, type Platform } from '../networks';
 import { outreachAddon } from '../manifest';
+import { noteTheirWork } from './local';
 import { partnerReadsPerDay } from '../partners';
+import type { PlaybookDetails } from '../playbooks';
+import { chatsOnly } from '../script';
 import { requestsHeldOn, TODAY_WINDOW_DAYS } from '../today';
 import type { ProfileRef } from '../saves';
 import { checks, finds, profiles } from '../tables';
@@ -133,17 +137,51 @@ export const acceptedMine = (me: string) => sql`exists (select 1 from addon_outr
     where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'friend_request')`;
 
 /**
+ * They connected with the person themselves (decision 168): sent a request the person or the AI confirmed, or followed
+ * the person. `f` is the friend row and `p` its profile.
+ */
+export const connectedToMe = (me: string) => sql`(f.answer = 'confirm'
+    or exists (select 1 from addon_outreach.checks rc
+      where rc.profile_id = p.id and rc.user_id = ${me} and rc.request_answer is not null)
+    or exists (select 1 from addon_outreach.engagements e
+      where e.profile_id = p.id and e.user_id = ${me} and e.kind = 'follow'))`;
+
+/** No check of the person's found them not a fit (decision 168: an introduction skips only those). `p` is the profile. */
+const notMarkedMisfit = (me: string) => sql`not exists (select 1 from addon_outreach.checks nc
+    where nc.profile_id = p.id and nc.user_id = ${me} and nc.verdict = 'not')`;
+
+/**
+ * Whether Say hi takes everyone who connected lately on a network (decision 168, the owner's 3b): only while every
+ * playbook in use there starts chats only ways that start one (an introduction and the like, decision 183), so nobody
+ * a check never found fit is pitched by another way or playbook.
+ */
+export const introsOnly = (inUse: readonly { readonly details: PlaybookDetails }[]): boolean =>
+  inUse.length > 0 && inUse.every((p) => chatsOnly(p.details));
+
+/**
  * A friend of the person's they've never talked to, for Say hi's first message (decisions 65 and 155): no message to
  * them from anyone, no chat of the person's with them, and no conversation started. Either they accepted the person's
  * request since `acceptedFrom` (`acceptedMine`), or a check found them a good fit or one who might fit, however they
  * became friends: the person confirmed their request, connected on the network themselves, or has been friends a while.
- * `f` is the friend row, `p` its profile, `ch` the person's check of them (left joined), and `lets` the business's
- * country setting and the network (or, under Autopilot, the day's OK too).
+ * With `intro` (`introsOnly`, decision 168), also anyone who connected with the person themselves since `acceptedFrom`
+ * (`connectedToMe`) whom no check found not a fit. `f` is the friend row, `p` its profile, `ch` the person's check of
+ * them (left joined), and `lets` the business's country setting and the network (or, under Autopilot, the day's OK
+ * too).
  */
-export const sayHiReady = (me: string, acceptedFrom: string, lets: SQL) => sql`(f.user_id = ${me}
+export const sayHiReady = (
+  me: string,
+  acceptedFrom: string,
+  lets: SQL,
+  intro = false,
+) => sql`(f.user_id = ${me}
   and f.state = 'friends' and p.friendship <> 'self' and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
   and ((${acceptedMine(me)} and f.since >= ${acceptedFrom}::timestamptz)
-    or (ch.user_id = ${me} and ch.verdict in ('good', 'maybe')))
+    or (ch.user_id = ${me} and ch.verdict in ('good', 'maybe'))
+    ${
+      intro
+        ? sql`or (${connectedToMe(me)} and f.since >= ${acceptedFrom}::timestamptz and ${notMarkedMisfit(me)})`
+        : sql``
+    })
   and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id and t.kind = 'message')
   and not exists (select 1 from addon_outreach.file_chats c where c.profile_id = p.id and c.user_id = ${me})
   and not exists (select 1 from addon_outreach.follow_ups fu where fu.profile_id = p.id and fu.user_id = ${me}))`;
@@ -168,6 +206,14 @@ export const foundNotKnown = (me: string) => sql`(exists (select 1 from addon_ou
 export const followsMe = (me: string, now: number, p = 'p') => sql`exists (
     select 1 from addon_outreach.followers fo where fo.profile_id = ${sql.raw(p)}.id and fo.user_id = ${me}
       and fo.seen_at >= ${new Date(now - FOLLOWERS_KEPT_DAYS * DAY).toISOString()}::timestamptz)`;
+
+/**
+ * Hosting or going to an event near the person on Facebook (decision 188): seen on its page in the last month. `p` is
+ * the profile.
+ */
+export const atMyEvent = (me: string, now: number, p = 'p') => sql`exists (
+    select 1 from addon_outreach.event_people ep where ep.profile_id = ${sql.raw(p)}.id and ep.user_id = ${me}
+      and ep.seen_at >= ${new Date(now - EVENT_PEOPLE_KEPT_DAYS * DAY).toISOString()}::timestamptz)`;
 
 /**
  * In one of the business's Facebook groups (decision 116): a member, not someone who runs it, of a group whose admins
@@ -259,7 +305,7 @@ export async function readToday(
   const [done] = await rows<{ checks: number; partners: number; found: number }>(
     ctx.tx,
     sql`select
-          (select count(*) filter (where ch.via in ('known', 'follower', 'member', 'request'))::int from addon_outreach.checks ch
+          (select count(*) filter (where ch.via in ('known', 'follower', 'event', 'member', 'request'))::int from addon_outreach.checks ch
             join addon_outreach.profiles p on p.id = ch.profile_id
             where ch.workspace_id = ${ws} and ch.user_id = ${me} and p.platform = ${platform}
               and ch.looked_at >= ${since}::timestamptz) as checks,
@@ -319,6 +365,8 @@ export async function goalStock(
   const ws = ctx.scope.workspaceId!;
   const ago = (days: number) => new Date(now - days * DAY).toISOString();
   const lets = sql`(${countryLetsSql(await countryRuleOf(ctx), 'p')} and p.platform = ${platform})`;
+  // Everyone who connected lately counts while every playbook in use there starts with an introduction (decision 168).
+  const intro = introsOnly(await playbooksInUse(ctx, platform));
   const [counted] = await rows<{
     reconnect: number;
     accepted: number;
@@ -335,11 +383,11 @@ export async function goalStock(
             join addon_outreach.profiles p on p.id = f.profile_id
             left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
             where f.workspace_id = ${ws}
-              and ${sayHiReady(me, ago(TODAY_WINDOW_DAYS.opener), lets)}) as accepted,
+              and ${sayHiReady(me, ago(TODAY_WINDOW_DAYS.opener), lets, intro)}) as accepted,
           (select count(*)::int from addon_outreach.checks ch
             join addon_outreach.profiles p on p.id = ch.profile_id
             where ch.workspace_id = ${ws} and ch.user_id = ${me} and ch.verdict in ('good', 'maybe')
-              and ch.via in ('found', 'follower', 'member')
+              and ch.via in ('found', 'follower', 'event', 'member')
               and ch.looked_at >= ${ago(FIND_FRESH_DAYS)}::timestamptz
               and ${stillToReach(me)} and ${lets}) as requests,
           (select count(*) filter (where f.state = 'request_sent')::int from addon_outreach.friends f
@@ -434,11 +482,13 @@ export async function perDayFor(
   const warning = await warningOf(ctx, me, platform, todayStart, now);
   const warned = slowsNow(warning, now);
   const read = await readToday(ctx, me, platform, todayStart);
-  // More on a day the goal needs more good fits (decision 126), half that while the person is new there.
-  const more = needsMore ?? (await moreToday(ctx, me, platform, now, warning));
+  const kit = NETWORKS[platform];
+  // More on a day the goal needs more good fits (decision 126), half that while the person is new there; never on a
+  // network whose most is its day's (LinkedIn's 40, decision 184), where being new there halves nothing either.
+  const grows = kit.checksMost > Math.min(CHECKS_PER_DAY, kit.checksPerDay);
+  const more = grows && (needsMore ?? (await moreToday(ctx, me, platform, now, warning)));
   const slowerMore = more && (warned || (await automationOf(ctx, me, now, platform)).slower);
   const reads = readsPerDay(platform, warned || slowerMore, more);
-  const kit = NETWORKS[platform];
   const shared = kit.foundShareReads;
   const used = read.checks + read.partners + (shared ? read.found : 0);
   const left = Math.max(0, reads - used);
@@ -520,7 +570,7 @@ export async function checksSummary(
 export const checksNext = defineAddonQuery(outreachAddon, {
   name: 'outreach.checks.next',
   description:
-    'Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone who sent them a friend request they haven’t answered (for what to do with it), anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, the rest of their friends, their followers on Facebook who aren’t friends yet, then people in the business’s Facebook groups who aren’t friends, the best fit first. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.',
+    'Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone who sent them a friend request they haven’t answered (for what to do with it), anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, the rest of their friends, their followers on Facebook who aren’t friends yet, people hosting or going to events near them on Facebook who aren’t friends, then people in the business’s Facebook groups who aren’t friends, the best fit first. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.',
   input: ChecksNextInput,
   output: ChecksNextOutput,
   permission: 'outreach.use',
@@ -557,6 +607,8 @@ export const checksNext = defineAddonQuery(outreachAddon, {
         : sql`false`;
     // A follower on Facebook who isn't a friend (decision 113), still someone to reach: checked like a friend, after them.
     const follower = sql`(${followsMe(me, now)} and not ${knowsThem(me)} and ${stillToReach(me)})`;
+    // Someone hosting or going to an event near them on Facebook (decision 188), the same way, after the followers.
+    const atEvent = sql`(${atMyEvent(me, now)} and not ${knowsThem(me)} and ${stillToReach(me)})`;
     // Not checked yet, asked to be again, or checked long enough ago. `ch` is their check.
     const due = sql`(ch.id is null
       or (ch.again and ch.verdict <> 'waiting')
@@ -565,7 +617,7 @@ export const checksNext = defineAddonQuery(outreachAddon, {
       or (${asking} and ch.verdict in ('good', 'maybe', 'not') and ch.request_answer is null))`;
     const who = input.profileId
       ? sql`p.id = ${input.profileId} and p.friendship <> 'self' and ${pitchable('p')}`
-      : sql`(${knownToMe(me)} or ${follower}
+      : sql`(${knownToMe(me)} or ${follower} or ${atEvent}
           or (p.friendship <> 'self' and ${pitchable('p')} and (${asked} or ${asking} or ${look})))`;
     const found = await rows<{ id: string; name: string; url: string; reason: CheckReason }>(
       ctx.tx,
@@ -579,6 +631,7 @@ export const checksNext = defineAddonQuery(outreachAddon, {
                 when f.id is not null and c.id is not null then 'chat'
                 when c.id is not null then 'chat_only'
                 when f.id is null and ${follower} then 'follower'
+                when f.id is null and ${atEvent} then 'event'
                 when p.group_id is not null then 'group'
                 else 'friend'
               end as reason
@@ -599,7 +652,7 @@ export const checksNext = defineAddonQuery(outreachAddon, {
           ) x
           order by array_position(
               array['asked', 'request', 'country', 'prospect', 'chat', 'chat_only', 'group', 'friend', 'follower',
-                'member'],
+                'event', 'member'],
               x.reason),
             (x.reason = 'country' and x.friendship = 'request_received') desc,
             x.mutual_friends desc nulls last, x.updated_at desc, x.id
@@ -809,6 +862,7 @@ export const checkLook = defineAddonCommand(outreachAddon, {
       request: boolean;
       found: boolean;
       follower: boolean;
+      event: boolean;
       member: boolean;
     }>(
       ctx.tx,
@@ -820,6 +874,7 @@ export const checkLook = defineAddonCommand(outreachAddon, {
             ${asksMe(me)} as request,
             ${foundNotKnown(me)} as found,
             (${followsMe(me, at.getTime())} and not ${knowsThem(me)}) as follower,
+            (${atMyEvent(me, at.getTime())} and not ${knowsThem(me)}) as event,
             (p.platform = 'facebook' and ${inMyGroups(me)} and not ${knowsThem(me)}) as member
           from addon_outreach.profiles p
           left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
@@ -834,9 +889,11 @@ export const checkLook = defineAddonCommand(outreachAddon, {
             ? 'found'
             : seen.follower
               ? 'follower'
-              : seen.member
-                ? 'member'
-                : 'known';
+              : seen.event
+                ? 'event'
+                : seen.member
+                  ? 'member'
+                  : 'known';
     // Their mutual friends (decision 86), matched to the people the business keeps on the network, for where they live.
     const mutual = input.missing ? null : input.mutual;
     const ids = (mutual ?? []).flatMap((m) => (m.id ? [m.id] : []));
@@ -955,6 +1012,8 @@ export const checkSave = defineAddonCommand(outreachAddon, {
       const lined = linesCountry(check.lines);
       if (lined) await keepCountry(ctx, check.profileId, lined);
     }
+    // What they do and where (decision 177), from their pages: never over what a person set.
+    if (a) await noteTheirWork(ctx, check.profileId, 'page', a.them);
     await ctx.tx
       .update(checks)
       .set({

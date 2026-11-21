@@ -75,6 +75,13 @@ export const organizations = app.table('organizations', {
    * Set when it is made, never by the business; `private.workspace_needs_plan` is the question to ask.
    */
   needsPlan: boolean('needs_plan').notNull().default(false),
+  /**
+   * A practice business, made from Admin → Try onboarding (20261027027400), and when it is deleted. Null for every real
+   * business. Set only by `private.start_practice`, never changed.
+   */
+  practiceEndsAt: ts('practice_ends_at'),
+  /** The HandsFreeOS staff member practising in it, and who its email goes to. */
+  practiceBy: uuid('practice_by'),
   ...timestamps(),
 });
 
@@ -100,8 +107,8 @@ export const workspaces = app.table('workspaces', {
   phoneListener: text('phone_listener'),
   /** HandsFreeOS's own business (M19): the one workspace that may send and receive on handsfreeos.com. */
   isPlatform: boolean('is_platform').notNull().default(false),
-  /** HandsFreeOS video calls are on for it (20261027013000): support turns them on in /admin. */
-  videoCalls: boolean('video_calls').notNull().default(false),
+  /** HandsFreeOS video calls are on for it (20261027013000), for every business since 20261027028400; support can turn one off in /admin. */
+  videoCalls: boolean('video_calls').notNull().default(true),
   ...timestamps(),
 });
 
@@ -1212,6 +1219,53 @@ export const registrationReviews = app.table('registration_reviews', {
   sentAt: ts('sent_at'),
   ...timestamps(),
 });
+
+/**
+ * "Finish the check on my site" (20261027030500): a one-time code that opens the business's site in the person's
+ * browser, where our own chat or form code reads the site's pages for the texting registration's checks. Only the
+ * code's sha-256 is kept; it works for half an hour, for `site` only.
+ */
+export const siteChecks = app.table('site_checks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id')
+    .notNull()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull().unique(),
+  /** The site's host without www (core's siteHost). */
+  site: text('site').notNull(),
+  startUrl: text('start_url').notNull(),
+  /** The pages the registration names, read first. */
+  urls: jsonb('urls').$type<string[]>().notNull().default([]),
+  requestedBy: userRef('requested_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  expiresAt: ts('expires_at').notNull(),
+  pages: integer('pages').notNull().default(0),
+  finishedAt: ts('finished_at'),
+});
+
+/**
+ * A business's page read some other way than by our server (20261027030500): in the person's browser on a site check
+ * ('browser', used for half an hour), or written down from their screenshot ('screenshot', used for a month). Keyed by
+ * core's sitePageKey.
+ */
+export const sitePages = app.table(
+  'site_pages',
+  {
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    key: text('key').notNull(),
+    source: text('source').$type<'browser' | 'screenshot'>().notNull(),
+    url: text('url').notNull(),
+    finalUrl: text('final_url'),
+    status: integer('status'),
+    html: text('html').notNull(),
+    checkId: uuid('check_id').references(() => siteChecks.id, { onDelete: 'cascade' }),
+    readBy: userRef('read_by'),
+    readAt: ts('read_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.key, t.source] })],
+);
 
 /**
  * Milestone 17: moving a number a business already owns to us (0080).
@@ -2340,6 +2394,11 @@ export const calendars = app.table('calendars', {
   /** null: the workspace's zone. */
   timezone: text('timezone'),
   createdBy: userRef('created_by'),
+  /** The sites allowed to frame its booking page (20261027029300). Empty: embedded nowhere. */
+  embedOrigins: text('embed_origins')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
   ...timestamps(),
 });
 
@@ -3119,6 +3178,12 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'assistant',
   // The AI placing the fields on a document template's PDF (20261027017000).
   'documents',
+  // The AI reading a business card scanned on the phone (20261027028700).
+  'business_card',
+  // The AI writing down a screenshot of a page a texting registration's check couldn't open (20261027030500).
+  'site_screenshot',
+  // The AI writing About you from the person's answers to its interview (20261027031600).
+  'about_you',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
   'faq',
@@ -5047,6 +5112,59 @@ export const userPhones = app.table('user_phones', {
   ...timestamps(),
 });
 
+/**
+ * What a person says of themselves, in their own words (20261027027200), for the AI that writes as them. One row a
+ * person, theirs alone: no teammate reads it.
+ */
+export const userAbout = app.table('user_about', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  about: text('about').notNull(),
+  ...timestamps(),
+});
+
+/**
+ * Where a person sets out from each day (20261027029600, docs/outreach.md decision 179): on a calendar that leaves
+ * time to drive between visits, the drive to their first visit of a day is timed from here. None: the business's
+ * address. Only they and owners and admins read it.
+ */
+export const dayStarts = app.table(
+  'day_starts',
+  {
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    address: text('address').notNull(),
+    updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+    ...timestamps(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.userId] })],
+);
+
+/**
+ * In your hands (20261027030900): a customer a person on the team has taken on, by writing or calling them
+ * themselves or with Take over. The AI holds off them everywhere until someone gives them back.
+ */
+export const peopleInHands = app.table('people_in_hands', {
+  personId: uuid('person_id')
+    .primaryKey()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  workspaceId: workspaceRef(),
+  /** Whose hands: null for someone outside HandsFreeOS, and once they leave the business. */
+  userId: userRef('user_id'),
+  /** wrote, called, took_over. */
+  how: text('how').notNull(),
+  /** A channel, 'call', or a network an add-on names; null for Take over. */
+  place: text('place'),
+  since: ts('since').notNull().defaultNow(),
+  lastAt: ts('last_at').notNull().defaultNow(),
+  ...timestamps(),
+});
+
 // ---------- Milestone 11: moving a business here from another CRM (0064-0066) ----------
 export const migrationSource = app.enum('migration_source', [
   'gohighlevel',
@@ -6139,6 +6257,8 @@ export const addonGrants = platform.table(
     note: text('note'),
     grantedBy: userRef('granted_by'),
     grantedAt: ts('granted_at').notNull().defaultNow(),
+    /** When the gift ends (20261027028500): free until then; null until staff take it back. */
+    freeUntil: ts('free_until'),
   },
   (t) => [primaryKey({ columns: [t.workspaceId, t.addonId] })],
 );
@@ -7600,6 +7720,8 @@ export const foundingOffers = platform.table('founding_offers', {
    * (`private.founding_offer_billing`).
    */
   paidYearly: boolean('paid_yearly').notNull().default(false),
+  /** Days free before the first charge, for a plan paid by the month or the year (20261027027000). Null: none. */
+  trialDays: integer('trial_days'),
   /**
    * The offer this one opens after, and how many of that one's seats must be out first — null meaning "when
    * it is full". Opened by a trigger at the seat that crosses the line, only ever from `draft`.
@@ -7798,6 +7920,53 @@ export const planCards = app.table(
     ...timestamps(),
   },
   (t) => [unique().on(t.workspaceId, t.cardRef)],
+);
+
+/** What a business pays for one paid add-on (20261027028500): its trial, the month paid through, the next charge. */
+export const addonSubscriptions = app.table(
+  'addon_subscriptions',
+  {
+    workspaceId: workspaceRef(),
+    organizationId: orgRef(),
+    addonId: text('addon_id').notNull(),
+    status: text('status').notNull(),
+    priceCents: integer('price_cents').notNull(),
+    trialStartedAt: ts('trial_started_at'),
+    trialEndsAt: ts('trial_ends_at'),
+    paidThrough: ts('paid_through'),
+    nextChargeAt: ts('next_charge_at'),
+    stopAt: ts('stop_at'),
+    failedAt: ts('failed_at'),
+    problem: text('problem'),
+    retryCount: integer('retry_count').notNull().default(0),
+    retryFrom: ts('retry_from'),
+    nextRetryAt: ts('next_retry_at'),
+    chargeCount: integer('charge_count').notNull().default(0),
+    startedBy: userRef('started_by'),
+    startedAt: ts('started_at').notNull().defaultNow(),
+    endedAt: ts('ended_at'),
+    endReason: text('end_reason'),
+    ...timestamps(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.addonId] })],
+);
+
+/** Each month a business paid for a paid add-on (20261027028500), once. */
+export const addonCharges = app.table(
+  'addon_charges',
+  {
+    id: id(),
+    workspaceId: workspaceRef(),
+    organizationId: orgRef(),
+    addonId: text('addon_id').notNull(),
+    amountCents: integer('amount_cents').notNull(),
+    periodFrom: ts('period_from').notNull(),
+    periodTo: ts('period_to').notNull(),
+    paymentRef: text('payment_ref'),
+    cardId: uuid('card_id').references(() => planCards.id, { onDelete: 'set null' }),
+    chargedAt: ts('charged_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.addonId, t.periodFrom)],
 );
 
 export const planTimeRequestStatus = app.enum('plan_time_request_status', [
@@ -8883,6 +9052,7 @@ export const tables = {
   calendarAssignmentState,
   schedules,
   scheduleExceptions,
+  dayStarts,
   appointmentSeries,
   appointments,
   appointmentStaff,
@@ -8950,6 +9120,8 @@ export const tables = {
   addonAlerts,
   addonOverrides,
   addonGrants,
+  addonSubscriptions,
+  addonCharges,
   addonVotes,
   addonVoteCounts,
   addonVoteWeeks,

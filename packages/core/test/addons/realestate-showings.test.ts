@@ -312,7 +312,8 @@ describe('a showing asked for on the listing’s page', () => {
     });
     const mine = await asSeller('realestate.portal.showings', { dealId: deal });
     expect(mine.waiting).toEqual([expect.objectContaining({ id: first, agentName: 'Ana Ruiz' })]);
-    expect(JSON.stringify(mine)).not.toMatch(/4417|ana@compass/);
+    // The access words, not a bare 4417: a random id can hold those four digits ("…-830c-44178793b5c2").
+    expect(JSON.stringify(mine)).not.toMatch(/Lockbox|code 4417|ana@compass/);
     const yes = await asSeller('realestate.portal.showing_answer', {
       showingId: first,
       answer: 'yes',

@@ -5,7 +5,7 @@
  * production so a busy page doesn't spend the worker's per-address limits. Open times, bookings and the
  * change-or-cancel page are asked from the customer's own browser, so those limits count per customer.
  */
-import type { BusinessPageParts, PollOnScreen } from '@hfos/core';
+import type { BusinessPageParts, FormDesign, PollOnScreen } from '@hfos/core';
 import { notFound } from 'next/navigation';
 import { publicEnv } from '../env';
 import { ApiError } from './errors';
@@ -54,7 +54,7 @@ export interface PublicSite {
  */
 export type PublicBusinessPage = BusinessPageParts;
 
-export type LocationKind = 'customer_address' | 'business' | 'virtual' | 'phone';
+export type LocationKind = 'customer_address' | 'business' | 'virtual' | 'phone' | 'meetup';
 
 export interface IntakeQuestion {
   readonly id: string;
@@ -112,6 +112,11 @@ export interface BookingInfo {
     readonly postalCodes: readonly string[];
     readonly byAddress?: boolean;
   } | null;
+  /**
+   * Leave time to drive between visits (decision 179 in docs/outreach.md): the times depend on how far the address
+   * is from the team's other visits, so the page asks for it before showing them.
+   */
+  readonly drives?: boolean;
   readonly mode: 'hours' | 'sessions';
   readonly capacity: {
     readonly seats: number;
@@ -153,6 +158,8 @@ export interface PublicCalendarPage {
     readonly id: string;
     readonly name: string;
     readonly description: string | null;
+    /** How the page looks (the calendar's Design section); null: the business's colour, as before. */
+    readonly design: FormDesign | null;
   };
   readonly booking: BookingInfo | null;
 }
@@ -287,6 +294,8 @@ export interface PreparedPay {
     readonly status: 'requires_payment';
     readonly amountCents: number;
     readonly method: PayMethod;
+    /** Whose fields the page shows. Left out by a worker from before it was sent: the hold's session says. */
+    readonly provider?: string;
     readonly flow: 'client_confirm' | 'server_charge';
     readonly publishableKey: string;
     readonly accountId: string;
@@ -479,6 +488,20 @@ export function getOpenTimes(
   if (q.chosenUserId) params.set('chosenUserId', q.chosenUserId);
   if (q.locationKind) params.set('locationKind', q.locationKind);
   return call<OpenTimes>(`${bookPath(site, calendar)}/slots?${params}`, FRESH);
+}
+
+/**
+ * A coffee shop halfway between the customer and the person they'd meet (decision 179 in docs/outreach.md): null
+ * when none can be found, and the page offers the other spots.
+ */
+export function getHalfway(
+  site: string,
+  calendar: string,
+  q: { address: string; chosenUserId?: string | null },
+): Promise<{ spot: { name: string; address: string } | null }> {
+  const params = new URLSearchParams({ address: q.address });
+  if (q.chosenUserId) params.set('chosenUserId', q.chosenUserId);
+  return call(`${bookPath(site, calendar)}/halfway?${params}`, FRESH);
 }
 
 /**

@@ -51,6 +51,9 @@ export const PROFILE_ITEMS_ON: Readonly<Record<Platform, readonly AnyProfileItem
   // and from 0.98.0 one the AI wrote is put in), My Ideal Customer and the ideal partner (its work) and the services
   // (what it features).
   alignable: ['picture', 'about', 'bio', 'work', 'featured'],
+  // Threads and X (decision 163): what a stranger who sees the person's comment and opens their account reads first.
+  threads: ['picture', 'name', 'bio', 'link', 'posts'],
+  x: ['picture', 'cover', 'name', 'bio', 'link', 'posts'],
 };
 
 /** The networks with an About the AI writes whole and the extension puts in, and what each calls it. */
@@ -71,6 +74,8 @@ export const BIO_MOST_ON: Readonly<Record<Platform, number>> = {
   linkedin: 220,
   instagram: 150,
   alignable: 150,
+  threads: 150,
+  x: 160,
 };
 /** The longest bio any network takes: what a kept check allows. */
 export const PROFILE_BIO_MOST = Math.max(...Object.values(BIO_MOST_ON));
@@ -100,6 +105,8 @@ export const PROFILE_CHECK_MAX_TOKENS: Readonly<Record<Platform, number>> = {
   linkedin: 7000,
   instagram: 5000,
   alignable: 6000,
+  threads: 5000,
+  x: 5000,
 };
 
 /** What the extension reads off the person's own profile, each cut to fit before it's sent. */
@@ -1404,6 +1411,28 @@ const PROFILE_CHECK_WORDS_ON: Readonly<Partial<Record<Platform, Partial<ProfileC
     biosHint:
       'Alignable’s Elevator Pitch, up to 150 characters. Pick one, and your computer puts it in.',
     editDone: (bio: string) => `Your Elevator Pitch now says “${bio}”.`,
+  },
+  // Read from decision 163 (0.137.0). Nothing goes in for them yet: the person puts each in.
+  threads: {
+    readHint:
+      'Your computer opens your Threads profile in a window of its own, reads what people see first, and the AI checks it against your main offer.',
+    notRead: 'Have the extension read your Threads profile, and the AI says what to change.',
+    biosHint: 'Threads’ bio, up to 150 characters. Pick one and put it in under Edit profile.',
+    nameHint:
+      'People see your name beside every comment, so it says what you do. Threads takes it from Instagram, so change it there.',
+    nameCopied: 'Copied. Put it in as your name on Instagram, and Threads shows it too.',
+  },
+  x: {
+    readHint:
+      'Your computer opens your X profile in a window of its own, reads what people see first, and the AI checks it against your main offer.',
+    notRead: 'Have the extension read your X profile, and the AI says what to change.',
+    biosHint: 'X’s bio, up to 160 characters. Pick one and put it in under Edit profile.',
+    coverLine: 'A line for your header',
+    coverHint: 'Put it on an image, in big letters, and make it your header under Edit profile.',
+    coverCopied: 'Copied. Put it on your header image.',
+    nameHint:
+      'People see your name beside every reply, so it says what you do. Change it under Edit profile.',
+    nameCopied: 'Copied. Put it in as your name on X.',
   },
 };
 

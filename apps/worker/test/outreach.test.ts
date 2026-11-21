@@ -66,8 +66,20 @@ describe('Social Outreach’s data versions 2 to 9', () => {
       hashtags: ['austinroofing'],
       postSearches: [],
       businessKinds: [],
+      threadsSearches: [],
+      xSearches: [],
       worksOnline: false,
       wordsWritten: ['facebook', 'instagram'],
+      // What it says (decision 164): nothing of its own, so the starting words.
+      script: {},
+      // How the first message goes (decision 168): the pitch, as before.
+      opens: 'pitch',
+      // What the networking chat after an introduction may offer (decision 173): everything, to start.
+      networking: { demo: true, call: true, sendPeople: true },
+      // How that chat goes (decision 180): as it starts.
+      chat: { wrapAfter: 2, questions: 'rarely', story: 'fits', demoWhen: 'asked' },
+      // Refer them on posts (decision 174): on, to start.
+      refer: true,
     });
     // A partner playbook saved before version 7 kept to its own networks already (decision 81).
     const partners = { ...before, goal: 'partner' };
@@ -131,6 +143,9 @@ describe('Social Outreach’s data versions 2 to 9', () => {
       hashtags: [],
       postSearches: [],
       businessKinds: [],
+      // Threads' and X's (decision 163), empty for the AI to write.
+      threadsSearches: [],
+      xSearches: [],
       worksOnline: null,
       wordsWritten: [],
     });

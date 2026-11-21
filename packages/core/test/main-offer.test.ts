@@ -523,7 +523,7 @@ describe('the names the business goes by (docs/outreach.md, decision 84)', () =>
   });
 });
 
-describe('the lists for content (docs/main-offer.md, "For your content")', () => {
+describe('the lists for content (docs/main-offer.md, "For your posts and messages")', () => {
   let t: Team;
   const ws = () => ({ workspaceId: t.wsId });
 

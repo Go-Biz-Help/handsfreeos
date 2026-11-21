@@ -67,6 +67,13 @@ const FRAMED = `<html><body><main><h1>Contact ${NAME}</h1>
 <iframe frameBorder="0" src="javascript: window.frameElement.getAttribute(&quot;srcdoc&quot;);" srcDoc="&lt;body style=&#x27;margin: 0&#x27;&gt;&lt;iframe src=&quot;${SITE}/contact&quot; title=&quot;Contact&quot;&gt;&lt;/iframe&gt;&lt;/body&gt;"></iframe>
 </main></body></html>`;
 
+/** The home page with a link to a quote form the registration never names (Shop Your Solar's /instant-quote, 30923). */
+const WITH_QUOTE = HOME.replace('</main>', `<a href="/quote">Instant quote</a></main>`);
+const QUOTE = `<html><body><h1>Get a quote</h1><form>
+<input name="name"><input name="phone" type="tel">
+<label><input type="checkbox" name="texts" required> Text me special offers and promotions. Reply STOP to opt out.</label>
+<button type="submit">Send</button></form></body></html>`;
+
 const media = standInMedia({
   [`${SITE}/`]: { bytes: Buffer.from(HOME), contentType: 'text/html' },
   [SITE]: { bytes: Buffer.from(HOME), contentType: 'text/html' },
@@ -84,6 +91,8 @@ const media = standInMedia({
   },
   [`${SITE}/contact`]: { bytes: Buffer.from(CONTACT), contentType: 'text/html' },
   [`${SITE}/framed`]: { bytes: Buffer.from(FRAMED), contentType: 'text/html' },
+  [`${SITE}/with-quote`]: { bytes: Buffer.from(WITH_QUOTE), contentType: 'text/html' },
+  [`${SITE}/quote`]: { bytes: Buffer.from(QUOTE), contentType: 'text/html' },
 });
 
 const business = {
@@ -227,10 +236,27 @@ describe('the review step’s checks, written down', () => {
     expect(check?.detail).toContain(`${SITE}/contact`);
   });
 
+  it('goes through the rest of the site and holds a form the registration doesn’t name against it', async () => {
+    const res = await preflight({ website: `${SITE}/with-quote`, useCase: 'customer_care' });
+    expect(res.statusCode, res.body).toBe(200);
+    const checks = res.json().checks as { id: string; ok: boolean; url: string; detail: string }[];
+    const row = checks.find((c) => c.id === 'site_form_0');
+    expect(row?.ok).toBe(false);
+    expect(row?.url).toBe(`${SITE}/quote`);
+    expect(row?.detail).toContain('doesn’t name it');
+    expect(row?.detail).toContain('has to be ticked');
+    expect(row?.detail).toContain('marketing texts');
+    expect(checks.some((c) => c.id === 'site_forms')).toBe(false);
+  });
+
   it('all green: written down, and exactly those details can be sent', async () => {
     const res = await preflight({ submission: { kind: 'a2p_10dlc', business } });
     expect(res.statusCode, res.body).toBe(200);
     expect(res.json().notGreen).toEqual([]);
+    // The rest of the site was looked through too, and nothing else asks for a phone number.
+    expect(
+      (res.json().checks as { id: string; ok: boolean }[]).find((c) => c.id === 'site_forms'),
+    ).toMatchObject({ ok: true });
     const [row] = await rows<{ all_green: boolean }>(
       admin(),
       sql`select all_green from app.registration_checks where workspace_id = ${ws}`,

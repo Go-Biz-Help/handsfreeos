@@ -1,5 +1,10 @@
+import { LANDING_MS, stillUploading, type PhotoUpload } from '@/customers/outbox';
+import { PHOTOS_SQL } from '@/customers/queries';
+
 import { Changes } from '../controller';
+import { Outbox } from '../outbox';
 import { PIECE_BYTES, UPLOAD_ROUNDS } from '../photos';
+import { SENT_KEPT_MS } from '../rules';
 
 import { DALE, LONE_STAR, MARIA, phone, refusal, type Phone } from './harness';
 
@@ -216,6 +221,35 @@ describe('a photo', () => {
     await p.sync();
     await p.settle();
     expect(p.api.ran()).toEqual(['person.create', 'file.begin_upload', 'file.confirm']);
+  });
+
+  it('is on a record’s list only until its file is in the phone’s copy, and its row goes with its change', async () => {
+    const p = phone({ online: false });
+    const photo = await addPhoto(p, MB);
+    const uploads = () => p.db.rows<PhotoUpload>(PHOTOS_SQL);
+
+    // Waiting for signal: on the list, whatever the copy holds.
+    expect(uploads()).toMatchObject([{ id: photo.id, file_id: FILE_ID, change_state: 'waiting' }]);
+    expect(stillUploading(uploads()[0]!, new Set(), p.clock.now)).toBe(true);
+
+    p.setOnline(true);
+    await p.settle();
+    // The row outlives the upload, and says its change is through.
+    const [sent] = uploads();
+    expect(sent).toMatchObject({ id: photo.id, change_state: 'sent' });
+    const sentAt = Date.parse(sent!.change_sent_at!);
+    // Confirmed a moment ago and not in the copy yet: it stands in for its file.
+    expect(stillUploading(sent!, new Set(), sentAt + 5_000)).toBe(true);
+    // The file landed: the upload is off the list, not beside it for good.
+    expect(stillUploading(sent!, new Set([FILE_ID]), sentAt + 5_000)).toBe(false);
+    // It never landed (removed somewhere else straight away): it doesn't come back as an upload.
+    expect(stillUploading(sent!, new Set(), sentAt + LANDING_MS + 1)).toBe(false);
+
+    // A day on, clearing sent changes takes the photo's row too.
+    p.clock.now += SENT_KEPT_MS + 60_000;
+    await new Outbox(p.db as never, () => p.clock.now).prune();
+    expect(p.db.rows('SELECT * FROM outbox WHERE id = ?', [photo.id])).toEqual([]);
+    expect(p.db.rows('SELECT * FROM photo_uploads')).toEqual([]);
   });
 
   it('is deleted from the phone when discarded', async () => {

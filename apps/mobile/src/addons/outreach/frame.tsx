@@ -46,6 +46,8 @@ export function peopleScreenOf(at: PeopleList): {
       return { view: 'chats', more: '' };
     case 'partners':
       return { view: 'partners', more: '' };
+    case 'hands':
+      return { view: 'hands', more: '' };
     case 'country':
       return { view: 'countries', more: 'show=skipped' };
   }

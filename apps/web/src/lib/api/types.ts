@@ -15,6 +15,8 @@ export type NotificationList = Ok<'/v1/queries/notification.list'>;
 export type BellItem = NotificationList['notifications'][number];
 export type CellPhone = NonNullable<Ok<'/v1/queries/user_phone.get'>['phone']>;
 export type WorkspaceSummary = Me['workspaces'][number];
+/** The person's place at HandsFreeOS support (`platform.me`): null for everyone who doesn't work here. */
+export type StaffMe = Ok<'/v1/queries/platform.me'>['staff'];
 export type WorkspaceGet = Ok<'/v1/queries/workspace.get'>;
 export type OnboardingStatus = Ok<'/v1/queries/onboarding.status'>;
 export type OnboardingStep = OnboardingStatus['steps'][number];
@@ -148,6 +150,7 @@ export type AppointmentWarning = Ok<'/v1/commands/appointment.create'>['warnings
 export type ScheduleTeam = Ok<'/v1/queries/schedule.team'>;
 export type TeamSchedule = ScheduleTeam['people'][number];
 export type TimeOffSpan = TeamSchedule['timeOff'][number];
+export type DayStart = Ok<'/v1/queries/day_start.get'>;
 export type CalendarConnection = Ok<'/v1/queries/calendar_connection.list'>['items'][number];
 export type MeetingConnection = Ok<'/v1/queries/meeting_connection.list'>['items'][number];
 export type WeeklyHoursIn = Body<'/v1/commands/schedule.set'>['weekly'];

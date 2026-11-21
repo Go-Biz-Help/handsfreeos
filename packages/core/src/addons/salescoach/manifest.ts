@@ -11,6 +11,7 @@
  * It's in `development`: offered nowhere, and installable only where HandsFreeOS staff hand it out to try.
  */
 import { defineAddon } from '../manifest';
+import { ADDON_TRIAL_DAYS } from '../billing';
 import { SALESCOACH_LOOK_ALIKES, SALESCOACH_PLACES } from './ai-places';
 
 export const salescoachAddon = defineAddon({
@@ -142,7 +143,8 @@ export const salescoachAddon = defineAddon({
   liveCalls: { permission: 'salescoach.use', zoom: { path: '', query: { view: 'zoom' } } },
   // The AI teammate's calls to leads follow its scripts, up to how much it matters, then book a person (round five).
   callScripts: true,
-  billing: { model: 'free' },
+  // $47 a month for the whole business, after 14 days free (the owner's pick, 2026-11-17).
+  billing: { model: 'paid', monthlyCents: 4700, trialDays: ADDON_TRIAL_DAYS },
   ui: {
     // One row in the side menu: the page has the live call, the coached calls, the trends and the playbooks (`?view=`).
     nav: [{ key: 'salescoach', label: 'AI Sales Coach', icon: 'headset', path: '' }],

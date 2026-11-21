@@ -17,16 +17,18 @@ import {
   visitLine,
   visitPicks,
   visitWhy,
+  WARM_BEFORE_HI_DAYS,
   warmPostWhy,
   warmUpEnds,
 } from '../../src/addons/outreach/keep-warm';
 import { endedWarmUp } from '../../src/addons/outreach/ops/keep-warm';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
+import { startingScript } from '../../src/addons/outreach/script';
 import { CANCEL_AFTER_WEEKS } from '../../src/addons/outreach/tidy';
 import {
   todayDraftPrompt,
   todayDraftSystem,
-  WARM_COMMENT_TASK,
+  warmCommentTask,
   type TodayItem,
 } from '../../src/addons/outreach/today';
 import { computerOn, outreachBusiness, runAs, yesterdayNoon } from './outreach-fixture';
@@ -126,7 +128,8 @@ describe('a visit, in words and picks', () => {
       },
       platform: 'instagram',
     });
-    expect(prompt).toContain(WARM_COMMENT_TASK);
+    // In the playbook's own way for a warm-up comment (decision 164), inside the fixed limits.
+    expect(prompt).toContain(warmCommentTask(startingScript('demo').warmUp));
     expect(prompt).not.toContain('https://cal.com/robin/demo');
     expect(prompt).toContain('<owner_comments>');
     expect(prompt).toContain('Congrats on the new truck!');
@@ -141,7 +144,7 @@ describe('a visit, in words and picks', () => {
       post: { text: 'We just opened our second shop on Main Street!', group: null },
       platform: 'instagram',
     });
-    expect(plain).not.toContain(WARM_COMMENT_TASK);
+    expect(plain).not.toContain(warmCommentTask(startingScript('demo').warmUp));
     expect(plain).not.toContain('<owner_comments>');
     expect(todayDraftSystem('instagram', { warm: true })).not.toEqual(
       todayDraftSystem('instagram'),
@@ -334,6 +337,37 @@ describe('warm-ups on Instagram while they decide on following back', () => {
     expect(due.length).toBeLessThan(names.length);
     // The same all day, however often the list is read.
     expect((await visits()).map((v) => v.name).filter((n) => n.startsWith('Spread '))).toEqual(due);
+  });
+
+  it('warms up someone who followed back fast before the first message, then says hi (decision 183, the owner’s 4b)', async () => {
+    await follow('back.fast', 'Back Fast', ago(1));
+    await runAs(owner, ws, 'outreach.friends.save', {
+      platform: 'instagram',
+      list: 'friends',
+      people: [{ profile: account('back.fast'), name: 'Back Fast', mutualFriends: null }],
+    });
+    const items = async () =>
+      ((await runAs(owner, ws, 'outreach.today', { platform: 'instagram' })).items as TodayItem[])
+        .filter((i) => i.name === 'Back Fast')
+        .map((i) => ({ kind: i.kind, hi: i.keepWarm?.hi ?? null }));
+    // No like yet: a visit, and no Say hi.
+    expect(await items()).toEqual([{ kind: 'warm_up', hi: true }]);
+    const [visit] = (await visits()).filter((v) => v.name === 'Back Fast');
+    expect(visit!.why[0]).toBe('Warming up before your first message');
+    // Liked today: no other visit today, and still no Say hi; the post liked is on Today for its one comment.
+    await like('back.fast', 'Back Fast', 'fast1');
+    expect(await items()).toEqual([{ kind: 'comment', hi: null }]);
+    // The first like, the post kept for its one comment, as for someone deciding.
+    expect((await warmPosts('back.fast')).map((p) => p.url)).toEqual([`${IG}/p/fast1/`]);
+    // Three days on from the first like: Say hi.
+    await rows(
+      admin(),
+      sql`update addon_outreach.touches set at = now() - make_interval(days => ${WARM_BEFORE_HI_DAYS})
+          where profile_id = ${await profileOf('back.fast')} and kind = 'like'`,
+    );
+    const kinds = (await items()).map((i) => i.kind);
+    expect(kinds).toContain('opener');
+    expect(kinds).not.toContain('warm_up');
   });
 
   it('marks no warm-up ended for a request Cancel all withdrew sooner', async () => {

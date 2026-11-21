@@ -6,7 +6,12 @@ import { change, changes, newId } from '@/changes';
  * A customer to add on this phone: one picked from the phone's own contacts, or one typed in (New appointment's New
  * contact), which has no source to name.
  */
-export type NewCustomer = Omit<PersonFromContact, 'source'> & { readonly source?: string | null };
+export type NewCustomer = Omit<PersonFromContact, 'source'> & {
+  readonly source?: string | null;
+  /** The company they work at (a business card's), already on this phone. */
+  readonly companyId?: string | null;
+  readonly notes?: string | null;
+};
 
 /** A customer added on this phone, or found here already by one of their numbers or emails. */
 export type AddedCustomer =
@@ -27,8 +32,8 @@ const CUSTOMER_CONTACTS_SQL = `
 const INSERT_PERSON = `
   INSERT INTO people (id, workspace_id, first_name, last_name, email, phone, phone_e164, address_line1,
     address_line2, city, state, postal_code, country, other_emails, other_phones, other_addresses, source,
-    created_at, updated_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    company_id, notes, created_at, updated_at)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
 /** The customer as the phone shows them until HandsFreeOS answers with its own row. */
 function personRow(id: string, workspaceId: string, person: NewCustomer): unknown[] {
@@ -52,26 +57,46 @@ function personRow(id: string, workspaceId: string, person: NewCustomer): unknow
     JSON.stringify(person.otherPhones),
     JSON.stringify(person.otherAddresses.map((o) => ({ ...o, country: o.country ?? 'US' }))),
     person.source ?? null,
+    person.companyId ?? null,
+    person.notes ?? null,
     now,
     now,
   ];
 }
 
+/** The customer on this phone who already has one of these numbers or emails, if anyone does. */
+export async function customerAlreadyHere(
+  workspaceId: string,
+  person: Pick<
+    NewCustomer,
+    'firstName' | 'lastName' | 'phone' | 'email' | 'otherPhones' | 'otherEmails'
+  >,
+): Promise<{ readonly id: string; readonly name: string } | null> {
+  const db = changes.open?.db;
+  if (!db) return null;
+  const rows = await db.getAll<CustomerContactRow>(CUSTOMER_CONTACTS_SQL, [workspaceId]);
+  return alreadyACustomer(rows, person);
+}
+
 /**
  * Adds a customer, or finds them among the business's customers on this phone when one of their numbers or emails is
- * already somebody's. `anyway` adds them all the same: the person said they're someone else. Works with no signal:
- * the customer is on this phone at once, and reaches HandsFreeOS with the next signal.
+ * already somebody's. `anyway` adds them all the same: the person said they're someone else. `checked` skips looking,
+ * for a caller that just looked (`customerAlreadyHere`). Works with no signal: the customer is on this phone at once,
+ * and reaches HandsFreeOS with the next signal.
  */
 export async function addCustomer(
   workspaceId: string,
   person: NewCustomer,
   name: string,
-  options: { readonly anyway?: boolean } = {},
+  options: {
+    readonly anyway?: boolean;
+    readonly checked?: boolean;
+    /** Changes it waits for: the company it's linked to, added just before. */
+    readonly dependsOn?: readonly string[];
+  } = {},
 ): Promise<AddedCustomer> {
-  const db = changes.open?.db;
-  if (db && !options.anyway) {
-    const rows = await db.getAll<CustomerContactRow>(CUSTOMER_CONTACTS_SQL, [workspaceId]);
-    const found = alreadyACustomer(rows, person);
+  if (!options.anyway && !options.checked) {
+    const found = await customerAlreadyHere(workspaceId, person);
     if (found) return { kind: 'already', ...found };
   }
 
@@ -79,7 +104,10 @@ export async function addCustomer(
   const made = await change(
     'person.create',
     { workspaceId, id, ...person, ...(options.anyway ? { ignoreDuplicates: true } : {}) },
-    { optimistic: (tx) => tx.execute(INSERT_PERSON, personRow(id, workspaceId, person)) },
+    {
+      optimistic: (tx) => tx.execute(INSERT_PERSON, personRow(id, workspaceId, person)),
+      ...(options.dependsOn?.length ? { dependsOn: options.dependsOn } : {}),
+    },
   );
   return { kind: 'added', id, name, changeId: made.id };
 }

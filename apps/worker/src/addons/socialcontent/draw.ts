@@ -1,8 +1,9 @@
 /**
  * Drawing the AI's designs (HANDSFREEOS_CONTENT_CREATOR_IMPLEMENTATION_PLAN.md, decisions 14 and 39;
  * docs/socialcontent.md, "Making posts"): each page of a design Claude wrote
- * (packages/core/src/addons/socialcontent/posts-ai.ts) as a 1080x1350 picture, the 4:5 portrait Instagram, Facebook
- * and LinkedIn all show whole. Words are drawn here, never by an image model, so they're spelled right.
+ * (packages/core/src/addons/socialcontent/posts-ai.ts) as a 1080x1350 picture, the 4:5 portrait Facebook and LinkedIn
+ * show whole, or in Instagram's own shape, 1080x1440 (3:4; the owner, 15 Nov; `pictureShapeOf`). Words are drawn here,
+ * never by an image model, so they're spelled right.
  *
  * Twelve layouts, so the pictures look like the owner made them in Canva rather than all alike (the owner, 12 Nov):
  * **bold**, **clean**, **split**, **number** (one big stat), **list** (items with ticks), **quote**, **myth** (crossed
@@ -19,12 +20,11 @@ import {
   type DesignPage,
   type DesignStyle,
 } from '@hfos/core/addons/socialcontent/posts-ai';
+import { PICTURE_SIZES, type PictureShape } from '@hfos/core/addons/socialcontent/calendar';
 import type * as CanvasLib from '@napi-rs/canvas';
 
-export const PICTURE_WIDTH = 1080;
-export const PICTURE_HEIGHT = 1350;
-const W = PICTURE_WIDTH;
-const H = PICTURE_HEIGHT;
+/** Every picture is this wide; its height is its shape's (`PICTURE_SIZES`). */
+const W = PICTURE_SIZES['4:5'].width;
 const PAD = 96;
 const INNER = W - PAD * 2;
 
@@ -268,6 +268,8 @@ interface Page {
   readonly items: readonly string[];
   readonly mark: string;
   readonly seed: number;
+  /** The picture's height: 1350 for the 4:5 portrait, 1440 for Instagram's 3:4, 1080 for a square. */
+  readonly h: number;
 }
 
 /** A kicker as a rounded label: the bottom of it. */
@@ -432,7 +434,7 @@ function footerLine(p: Page, color: string, align: 'left' | 'center' = 'left'): 
   ctx.fillStyle = color;
   ctx.globalAlpha = 0.85;
   ctx.textAlign = align;
-  ctx.fillText(line.lines[0] ?? '', align === 'center' ? W / 2 : PAD, H - PAD + 10);
+  ctx.fillText(line.lines[0] ?? '', align === 'center' ? W / 2 : PAD, p.h - PAD + 10);
   ctx.textAlign = 'left';
   ctx.globalAlpha = 1;
 }
@@ -449,9 +451,9 @@ function pageNumber(p: Page, n: number, of: number, color: string): void {
   ctx.globalAlpha = 1;
 }
 
-function fill(ctx: Ctx2d, color: string): void {
+function fill(ctx: Ctx2d, color: string, h: number): void {
   ctx.fillStyle = color;
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, W, h);
 }
 
 /** The photo, cut to cover the box from its middle. */
@@ -483,18 +485,18 @@ function tick(ctx: Ctx2d, x: number, y: number, size: number, bg: string): void 
 
 function drawBold(p: Page): void {
   const { ctx, d } = p;
-  fill(ctx, d.background);
+  fill(ctx, d.background, p.h);
   // A soft shape in the accent, in one of three places, the way a template would have it.
   ctx.fillStyle = d.accent;
   ctx.globalAlpha = contrast(d.accent, d.background) < 1.4 ? 0.22 : 0.16;
   const where = p.seed % 3;
   ctx.beginPath();
   if (where === 0) ctx.arc(W - 40, 120, 360, 0, Math.PI * 2);
-  else if (where === 1) ctx.arc(80, H - 60, 380, 0, Math.PI * 2);
+  else if (where === 1) ctx.arc(80, p.h - 60, 380, 0, Math.PI * 2);
   else {
-    ctx.moveTo(W, H * 0.55);
-    ctx.lineTo(W, H);
-    ctx.lineTo(W * 0.35, H);
+    ctx.moveTo(W, p.h * 0.55);
+    ctx.lineTo(W, p.h);
+    ctx.lineTo(W * 0.35, p.h);
     ctx.closePath();
   }
   ctx.fill();
@@ -505,7 +507,7 @@ function drawBold(p: Page): void {
     x: PAD,
     width: INNER,
     top: PAD + 70,
-    bottom: H - PAD - 100,
+    bottom: p.h - PAD - 100,
     heading: p.heading,
     kicker: p.kicker,
     body: p.body,
@@ -517,9 +519,9 @@ function drawBold(p: Page): void {
 
 function drawClean(p: Page): void {
   const { ctx, d } = p;
-  fill(ctx, d.background);
+  fill(ctx, d.background, p.h);
   ctx.fillStyle = d.accent;
-  ctx.fillRect(0, 0, 28, H);
+  ctx.fillRect(0, 0, 28, p.h);
   // A small grid of dots in the corner.
   ctx.fillStyle = accentOn(d.accent, d.background, d.text);
   ctx.globalAlpha = 0.35;
@@ -534,7 +536,7 @@ function drawClean(p: Page): void {
     x: PAD,
     width: INNER - 40,
     top: PAD + 60,
-    bottom: H - PAD - 120,
+    bottom: p.h - PAD - 120,
     heading: p.heading,
     kicker: p.kicker,
     body: p.body,
@@ -544,14 +546,14 @@ function drawClean(p: Page): void {
   });
   if (!p.body) {
     ctx.fillStyle = accentOn(d.accent, d.background, d.text);
-    ctx.fillRect(PAD, Math.min(end + 36, H - PAD - 100), 160, 10);
+    ctx.fillRect(PAD, Math.min(end + 36, p.h - PAD - 100), 160, 10);
   }
 }
 
 function drawSplit(p: Page): void {
   const { ctx, d } = p;
-  const cut = Math.round(H * (p.body ? 0.56 : 0.66));
-  fill(ctx, d.background);
+  const cut = Math.round(p.h * (p.body ? 0.56 : 0.66));
+  fill(ctx, d.background, p.h);
   ctx.fillStyle = d.accent;
   ctx.fillRect(0, 0, W, cut);
   const onAccent = wordsOn(d.accent);
@@ -573,7 +575,7 @@ function drawSplit(p: Page): void {
       x: PAD,
       width: INNER,
       top: cut + 64,
-      bottom: H - PAD - (p.footer ? 80 : 0),
+      bottom: p.h - PAD - (p.footer ? 80 : 0),
       heading: p.body,
       headColor: readable(d.text, d.background),
       bodyColor: readable(d.text, d.background),
@@ -589,7 +591,7 @@ function drawSplit(p: Page): void {
 
 function drawNumber(p: Page): void {
   const { ctx, d, type } = p;
-  fill(ctx, d.background);
+  fill(ctx, d.background, p.h);
   const big = accentOn(d.accent, d.background, d.text);
   let y = PAD + 60;
   if (p.kicker) y = pill(ctx, type, p.kicker.toUpperCase(), W / 2, y, d.accent, 'center') + 40;
@@ -609,7 +611,7 @@ function drawNumber(p: Page): void {
   ctx.font = font(type.headWeight, mark.size, type.head);
   ctx.fillStyle = big;
   ctx.textAlign = 'center';
-  const markTop = Math.max(y, H * 0.2);
+  const markTop = Math.max(y, p.h * 0.2);
   ctx.fillText(mark.lines[0] ?? '', W / 2, markTop + mark.size * 0.9);
   const markWidth = Math.min(INNER, ctx.measureText(mark.lines[0] ?? '').width);
   ctx.textAlign = 'left';
@@ -621,7 +623,7 @@ function drawNumber(p: Page): void {
     x: PAD,
     width: INNER,
     top: markTop + mark.size * 1.02 + 60,
-    bottom: H - PAD - 90,
+    bottom: p.h - PAD - 90,
     heading: p.heading,
     body: p.body,
     headColor: d.text,
@@ -636,14 +638,14 @@ function drawNumber(p: Page): void {
 
 function drawList(p: Page): void {
   const { ctx, d, type } = p;
-  fill(ctx, d.background);
+  fill(ctx, d.background, p.h);
   const box = accentOn(d.accent, d.background, d.text);
   const heading = (top: number, dry: boolean) =>
     textBlock(ctx, type, {
       x: PAD,
       width: INNER,
       top,
-      bottom: top + H * (p.body ? 0.42 : 0.34),
+      bottom: top + p.h * (p.body ? 0.42 : 0.34),
       heading: p.heading,
       kicker: p.kicker,
       body: p.body,
@@ -656,7 +658,7 @@ function drawList(p: Page): void {
       dry,
     });
   const headHeight = heading(0, true);
-  const bottom = H - PAD - (p.footer ? 90 : 20);
+  const bottom = p.h - PAD - (p.footer ? 90 : 20);
   const textX = PAD + 84;
   const width = INNER - 84;
   const room = (bottom - (PAD + 40 + headHeight + 64)) / p.items.length;
@@ -694,7 +696,7 @@ function drawList(p: Page): void {
 
 function drawQuote(p: Page): void {
   const { ctx, d, type } = p;
-  fill(ctx, d.background);
+  fill(ctx, d.background, p.h);
   const mark = accentOn(d.accent, d.background, d.text);
   ctx.font = font(800, 420, 'HfosPlayfair');
   ctx.fillStyle = mark;
@@ -705,7 +707,7 @@ function drawQuote(p: Page): void {
     x: PAD,
     width: INNER,
     top: PAD + 300,
-    bottom: H - PAD - 170,
+    bottom: p.h - PAD - 170,
     heading: p.heading,
     body: p.body,
     headColor: d.text,
@@ -727,7 +729,7 @@ function drawQuote(p: Page): void {
 
 function drawMyth(p: Page): void {
   const { ctx, d, type } = p;
-  fill(ctx, d.background);
+  fill(ctx, d.background, p.h);
   const muted = mix(d.text, d.background, 0.45);
   const myth = drawnFit(
     fit(ctx, p.heading, {
@@ -761,7 +763,7 @@ function drawMyth(p: Page): void {
       upper: false,
       dry,
     });
-  const most = H - PAD - (p.footer ? 80 : 0);
+  const most = p.h - PAD - (p.footer ? 80 : 0);
   const mythHeight = 58 + 36 + linesHeight(myth, type.lead) + 70;
   const cardWords = truth(0, most - PAD - mythHeight - 96, true);
   const cardHeight = Math.max(320, cardWords + 96);
@@ -790,12 +792,12 @@ function drawMyth(p: Page): void {
 
 function drawBeforeAfter(p: Page): void {
   const { ctx, d, type } = p;
-  fill(ctx, d.background);
+  fill(ctx, d.background, p.h);
   const end = textBlock(ctx, type, {
     x: PAD,
     width: INNER,
     top: PAD + 30,
-    bottom: H * (p.body ? 0.4 : 0.3),
+    bottom: p.h * (p.body ? 0.4 : 0.3),
     heading: p.heading,
     kicker: p.kicker,
     body: p.body,
@@ -807,7 +809,7 @@ function drawBeforeAfter(p: Page): void {
     bodyMost: 36,
   });
   const top = end + 56;
-  const bottom = H - PAD - (p.footer ? 80 : 0);
+  const bottom = p.h - PAD - (p.footer ? 80 : 0);
   const gap = 90;
   const cardH = (bottom - top - gap) / 2;
   const sides = [
@@ -853,11 +855,11 @@ function drawBeforeAfter(p: Page): void {
 
 function drawNote(p: Page): void {
   const { ctx, d, type } = p;
-  fill(ctx, d.background);
+  fill(ctx, d.background, p.h);
   // Dots on the background, like a desk mat.
   ctx.fillStyle = wordsOn(d.background);
   ctx.globalAlpha = 0.08;
-  for (let y = 40; y < H; y += 54)
+  for (let y = 40; y < p.h; y += 54)
     for (let x = 40; x < W; x += 54) {
       ctx.beginPath();
       ctx.arc(x, y, 4, 0, Math.PI * 2);
@@ -866,8 +868,9 @@ function drawNote(p: Page): void {
   ctx.globalAlpha = 1;
   const yellow = luminance(d.background) > 0.7 && contrast(d.background, '#fff1a6') < 1.15;
   const paper = yellow ? '#ffd6e0' : '#fff1a6';
-  const size = 860;
-  const top = 190;
+  // The note shrinks to fit a shorter picture, with room for the footer under it.
+  const size = Math.min(860, p.h - 290);
+  const top = Math.round(Math.min(190, (p.h - size) / 2 - 10));
   ctx.save();
   ctx.translate(W / 2, top + size / 2);
   ctx.rotate(((p.seed % 2 ? -1 : 1) * 2.5 * Math.PI) / 180);
@@ -904,7 +907,7 @@ function drawNote(p: Page): void {
 
 function drawHighlight(p: Page): void {
   const { ctx, d, type } = p;
-  fill(ctx, d.background);
+  fill(ctx, d.background, p.h);
   const heading = type.upper ? p.heading.toUpperCase() : p.heading;
   const words = heading.split(' ');
   const want = (type.upper ? p.mark.toUpperCase() : p.mark).split(' ').filter(Boolean);
@@ -927,13 +930,13 @@ function drawHighlight(p: Page): void {
       most: 120,
       least: 48,
       width: INNER,
-      height: H - PAD - 90 - y - (p.body ? 340 : 0),
+      height: p.h - PAD - 90 - y - (p.body ? 340 : 0),
       lead: type.lead,
       maxLines: 6,
     }),
   );
   const blockH = linesHeight(h, type.lead) + (p.body ? 300 : 0);
-  y = Math.max(y, (H - blockH) / 2 - 40);
+  y = Math.max(y, (p.h - blockH) / 2 - 40);
   ctx.font = font(type.headWeight, h.size, type.head);
   let w = 0;
   const space = ctx.measureText(' ').width;
@@ -964,7 +967,7 @@ function drawHighlight(p: Page): void {
       x: PAD,
       width: INNER,
       top: y + linesHeight(h, type.lead) + 56,
-      bottom: H - PAD - 90,
+      bottom: p.h - PAD - 90,
       heading: p.body,
       headColor: d.text,
       bodyColor: d.text,
@@ -980,20 +983,20 @@ function drawHighlight(p: Page): void {
 
 function drawPhoto(p: Page, img: Img): void {
   const { ctx, d, type } = p;
-  cover(ctx, img, 0, 0, W, H);
-  const shade = ctx.createLinearGradient(0, H * 0.3, 0, H);
+  cover(ctx, img, 0, 0, W, p.h);
+  const shade = ctx.createLinearGradient(0, p.h * 0.3, 0, p.h);
   shade.addColorStop(0, 'rgba(0,0,0,0)');
   shade.addColorStop(0.55, 'rgba(0,0,0,0.55)');
   shade.addColorStop(1, 'rgba(0,0,0,0.85)');
   ctx.fillStyle = 'rgba(0,0,0,0.08)';
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, W, p.h);
   ctx.fillStyle = shade;
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, W, p.h);
   textBlock(ctx, type, {
     x: PAD,
     width: INNER,
-    top: H * 0.42,
-    bottom: H - PAD - (p.footer ? 80 : 20),
+    top: p.h * 0.42,
+    bottom: p.h - PAD - (p.footer ? 80 : 20),
     heading: p.heading,
     kicker: p.kicker,
     kickerPill: d.accent,
@@ -1009,8 +1012,8 @@ function drawPhoto(p: Page, img: Img): void {
 
 function drawFramed(p: Page, img: Img): void {
   const { ctx, d, type } = p;
-  fill(ctx, d.background);
-  const frame = { x: 56, y: 56, w: W - 112, h: Math.round(H * 0.56) };
+  fill(ctx, d.background, p.h);
+  const frame = { x: 56, y: 56, w: W - 112, h: Math.round(p.h * 0.56) };
   ctx.save();
   ctx.beginPath();
   ctx.roundRect(frame.x, frame.y, frame.w, frame.h, 36);
@@ -1024,7 +1027,7 @@ function drawFramed(p: Page, img: Img): void {
     x: PAD,
     width: INNER,
     top,
-    bottom: H - PAD - (p.footer ? 70 : 0),
+    bottom: p.h - PAD - (p.footer ? 70 : 0),
     heading: p.heading,
     body: p.body,
     headColor: d.text,
@@ -1051,6 +1054,7 @@ function drawPage(
   n: number,
   of: number,
   photo: Img | null,
+  h: number,
 ): void {
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
@@ -1066,6 +1070,7 @@ function drawPage(
     items: page.items.map(drawable).filter(Boolean),
     mark: drawable(page.mark),
     seed: seedOf(page.heading),
+    h,
   };
   // A layout without what it needs (a photo that didn't come, items that were all symbols) is drawn bold.
   const needs: Partial<Record<DesignStyle, boolean>> = {
@@ -1132,15 +1137,23 @@ export interface Drawn {
   readonly cut?: boolean;
 }
 
-/** Each page of the design, in order; `photo` is what OpenAI made, drawn under the first page's words. */
-export async function drawDesign(d: Design, photo: Buffer | null = null): Promise<Drawn[]> {
+/**
+ * Each page of the design, in order, in the shape asked for (Instagram's own); `photo` is what OpenAI made, drawn
+ * under the first page's words.
+ */
+export async function drawDesign(
+  d: Design,
+  photo: Buffer | null = null,
+  shape: PictureShape = '4:5',
+): Promise<Drawn[]> {
   const lib = await canvasLib();
   const img = photo ? await lib.loadImage(photo) : null;
+  const { width, height } = PICTURE_SIZES[shape];
   const out: Drawn[] = [];
   for (const [i, page] of d.pages.entries()) {
-    const canvas = lib.createCanvas(PICTURE_WIDTH, PICTURE_HEIGHT);
+    const canvas = lib.createCanvas(width, height);
     const withPhoto = i === 0 && img && (page.layout === 'photo' || page.layout === 'framed');
-    drawPage(canvas.getContext('2d'), d, page, i + 1, d.pages.length, i === 0 ? img : null);
+    drawPage(canvas.getContext('2d'), d, page, i + 1, d.pages.length, i === 0 ? img : null, height);
     const cut = drawing.cut;
     out.push(
       withPhoto

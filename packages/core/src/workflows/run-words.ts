@@ -243,6 +243,8 @@ export function skipReasonText(reason: string | null | undefined): string {
       return 'they haven’t agreed to calls in writing, and their number isn’t a business landline';
     case 'no_calls':
       return 'they asked not to be called';
+    case 'in_your_hands':
+      return 'someone on the team is talking to them themselves';
     case 'no_teammate':
       return 'the AI teammate is off';
     case 'already_called':

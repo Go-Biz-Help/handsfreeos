@@ -72,7 +72,105 @@ describe('a town’s events', () => {
   });
 });
 
+/** A host as Alignable's part for them draws one: picture, name (its title), business, town, and a Connect. */
+const hostIn = (path: string, name: string, business: string, town: string, id: string) =>
+  `<div><a href="${path}?user=9${id}"><div data-testid="avatar"><img data-testid="avatar-image"></div></a>
+    <a href="${path}?user=9${id}"><div><span title="${name}">${name}</span>
+      <div role="status" aria-label="Premium member badge" data-testid="premium-badge"><svg role="img"></svg></div></div>
+      <span>${business}</span><span>${town}</span></a>
+    <a href="/biz/connection_requests/make_connection?business_id=${id}&amp;cyattr=1"><svg role="img"></svg></a></div>`;
+/** Alignable's part for an event's hosts, under its one-word label (not a heading). */
+const hostsPart = (...hosts: string[]) =>
+  `<div data-testid="hosts"><div><div>Hosts</div><div>${hosts.join('')}</div></div></div>`;
+/**
+ * A group's event as Alignable drew it for the owner (the problem check of 13 Nov 2026): its details with its name,
+ * the same again for a narrow screen, a few faces and a count of who's going, its host's comment on it, and the part
+ * for its hosts twice, a wide screen's and a narrow one's, beside its group's card.
+ */
+const groupEvent = (...hosts: string[]) =>
+  `<header><nav><a href="/biz/events">Events</a></nav></header>
+  <div><section><div><div>
+    <div data-testid="event-details"><div><img><div><h1 title="Spring Business Mixer">Spring Business Mixer</h1>
+      <div role="status">Recurring</div></div></div>
+      <div><div><div data-testid="avatar"><img data-testid="avatar-image" alt="Jamie Pine" title="Jamie Pine"></div></div>
+        <a data-testid="registeredCount" href="/events/5521/attendees/list">5 Attending</a></div></div>
+    <div><img><div><h1>Spring Business Mixer</h1><div role="status">Recurring</div></div></div></div>
+    <div><div><h3 data-testid="about-the-event">About the event</h3><div data-testid="truncate-text"><p>Come meet local owners.</p></div>
+      <div data-testid="discussion-comment"><div><a href="/austin-tx/cole-bakery?user=91">Morgan Cole</a>
+        <div data-testid="discussion-comment-body"><p>See you all there</p></div>
+        <button>Like</button><a href="/biz/connection_requests/make_connection?business_id=4410">Connect</a></div></div></div>
+      <div><div data-testid="groupCard"><a data-testid="groupTitleLink" href="/groups/austin-tx">Austin, TX</a></div>
+        <div>${hostsPart(...hosts)}</div></div></div></div>
+    <div><div data-testid="groupCard"><a data-testid="groupTitleLink" href="/groups/austin-tx">Austin, TX</a></div>
+      <div>${hostsPart(...hosts)}</div></div>
+  </section></div>`;
+
 describe('an event’s page', () => {
+  it('reads its hosts from Alignable’s own part for them, drawn twice, and keeps its name (the problem check of 13 Nov 2026)', () => {
+    const cole = hostIn(
+      '/austin-tx/cole-bakery',
+      'Morgan Cole',
+      'Cole Bakery',
+      'Austin, TX',
+      '4410',
+    );
+    const doc = page(`${AL}/groups/austin-tx/events/88-spring-mixer`, groupEvent(cole));
+    const read = eventPage(doc, doc.location.href);
+    expect(read).toEqual({
+      url: `${AL}/groups/austin-tx/events/88-spring-mixer`,
+      name: 'Spring Business Mixer',
+      hosts: [
+        {
+          name: 'Morgan Cole',
+          profile: {
+            id: '4410',
+            username: 'austin-tx-cole-bakery',
+            url: `${AL}/austin-tx/cole-bakery`,
+          },
+          business: 'Cole Bakery',
+          lines: ['Austin, TX'],
+        },
+      ],
+      guests: [],
+    });
+    // Two hosts: each once, though both copies hold both.
+    const pine = hostIn(
+      '/austin-tx/pine-painting',
+      'Jamie Pine',
+      'Pine Painting',
+      'Austin, TX',
+      '4411',
+    );
+    const two = page(`${AL}/groups/austin-tx/events/88-spring-mixer`, groupEvent(cole, pine));
+    expect(eventPage(two, two.location.href)).toMatchObject({
+      name: 'Spring Business Mixer',
+      hosts: [
+        { name: 'Morgan Cole', business: 'Cole Bakery', profile: { id: '4410' } },
+        { name: 'Jamie Pine', business: 'Pine Painting', profile: { id: '4411' } },
+      ],
+    });
+  });
+
+  it('is no event where its address lists events instead, which a list of them reads', () => {
+    const doc = page(
+      `${AL}/events/networking`,
+      `<section><h2>Networking Events</h2><div data-testid="results">
+        <div data-testid="wide-event-tile"><a href="/groups/austin-tx/events/88-spring-mixer"><img alt="A mixer"></a>
+          <a data-testid="eventTitle" href="/groups/austin-tx/events/88-spring-mixer">Spring Business Mixer</a>
+          <div data-testid="date">Thu, Nov 20 · 5:30 PM</div>
+          <div data-testid="hosts" title="Hosted by Cole Bakery">Hosted by <a href="/austin-tx/cole-bakery">Cole Bakery</a></div></div>
+        <div data-testid="wide-event-tile"><a data-testid="eventTitle" href="/groups/dallas-tx/events/89-coffee">Coffee Connect</a>
+          <div data-testid="date">Fri, Nov 21</div>
+          <div data-testid="hosts" title="Hosted by Pine Painting">Hosted by <a href="/dallas-tx/pine-painting">Pine Painting</a></div></div>
+      </div></section>`,
+    );
+    expect(eventPage(doc, doc.location.href)).toBeNull();
+    expect(eventCards(doc, doc.location.href).map((e) => [e.url, e.name])).toEqual([
+      [`${AL}/groups/austin-tx/events/88-spring-mixer`, 'Spring Business Mixer'],
+      [`${AL}/groups/dallas-tx/events/89-coffee`, 'Coffee Connect'],
+    ]);
+  });
+
   it('reads who’s hosting and who’s going, and nobody beside it', () => {
     const doc = page(
       `${AL}/austin-tx/events/101-spring-mixer`,
@@ -193,6 +291,55 @@ describe('the week’s read of events near them', () => {
     expect(reported).toEqual([]);
     expect(sent.find((s) => s.type === 'hfos-events-read')?.input).toMatchObject({
       urls: [`${AL}/biz/events/4401`],
+    });
+    expect(end.line).toContain(
+      'Read 1 event near you in Columbus, OH: 1 business hosting or going',
+    );
+  });
+
+  it('reads an event’s hosts as Alignable draws them, and passes over a link to a list of events (the problem check of 13 Nov 2026)', async () => {
+    const { tab, opened } = alignableTab({
+      ...town,
+      '/biz/events': () =>
+        page(
+          `${AL}/biz/events`,
+          `<main><h1>Events</h1><div><h3><a href="/events/networking">Networking events</a></h3><span>See all</span></div>
+            <div><h3><a href="/groups/columbus-oh/events/88-spring-mixer">Spring Business Mixer</a></h3>
+            <span>Thu, Nov 20 · 5:30 PM</span></div></main>`,
+        ),
+      '/events/networking': () =>
+        page(
+          `${AL}/events/networking`,
+          `<section><h2>Networking Events</h2><div data-testid="results"><div data-testid="wide-event-tile">
+            <a data-testid="eventTitle" href="/groups/columbus-oh/events/88-spring-mixer">Spring Business Mixer</a>
+            <div data-testid="hosts">Hosted by <a href="/columbus-oh/cole-bakery">Cole Bakery</a></div></div></div></section>`,
+        ),
+      '/groups/columbus-oh/events/88-spring-mixer': () =>
+        page(
+          `${AL}/groups/columbus-oh/events/88-spring-mixer`,
+          groupEvent(
+            hostIn(
+              '/columbus-oh/cole-bakery',
+              'Morgan Cole',
+              'Cole Bakery',
+              'Columbus, OH',
+              '4410',
+            ),
+          ),
+        ),
+    });
+    const { job, sent, reported } = eventsJob(tab);
+    const end = await readEventsNear(job);
+    expect(opened.slice(-2)).toEqual([
+      '/events/networking',
+      '/groups/columbus-oh/events/88-spring-mixer',
+    ]);
+    expect(reported).toEqual([]);
+    expect(sent.find((s) => s.type === 'hfos-events-read')?.input).toMatchObject({
+      urls: [`${AL}/groups/columbus-oh/events/88-spring-mixer`, `${AL}/events/networking`],
+    });
+    expect(sent.find((s) => s.type === 'hfos-finds-save')?.input).toMatchObject({
+      words: 'Spring Business Mixer',
     });
     expect(end.line).toContain(
       'Read 1 event near you in Columbus, OH: 1 business hosting or going',

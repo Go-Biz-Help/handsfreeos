@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { alignable, facebook, instagram, linkedin } from '../src/networks';
+import { alignable, facebook, instagram, linkedin, threads, x } from '../src/networks';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
@@ -55,13 +55,20 @@ describe('the manifest', () => {
     ]);
   });
 
-  it('has LinkedIn’s, Instagram’s and Alignable’s sites from install, never their script or a file it shows', () => {
+  it('has LinkedIn’s, Instagram’s, Alignable’s, Threads’ and X’s sites from install, never their script or a file it shows', () => {
     expect(manifest.host_permissions).toEqual(
-      expect.arrayContaining([...linkedin.hosts, ...instagram.hosts, ...alignable.hosts]),
+      expect.arrayContaining([
+        ...linkedin.hosts,
+        ...instagram.hosts,
+        ...alignable.hosts,
+        ...threads.hosts,
+        ...x.hosts,
+      ]),
     );
     expect(manifest.optional_host_permissions).toBeUndefined();
     const scripts = JSON.stringify(manifest.content_scripts);
-    for (const site of ['linkedin', 'instagram', 'alignable']) expect(scripts).not.toContain(site);
+    for (const site of ['linkedin', 'instagram', 'alignable', 'threads', 'x.com', 'twitter'])
+      expect(scripts).not.toContain(site);
     expect(manifest.web_accessible_resources).toBeUndefined();
     // Registering their script while each is on needs this, which Facebook's tabs already did.
     expect(manifest.permissions).toContain('scripting');
@@ -71,6 +78,21 @@ describe('the manifest', () => {
     expect(manifest.host_permissions).toEqual(
       expect.arrayContaining(['https://*.cdninstagram.com/*', 'https://*.fbcdn.net/*']),
     );
+  });
+
+  it('reaches each network’s picture servers, for the AI to see a post before its comment (decision 172), never with its script', () => {
+    expect(manifest.host_permissions).toEqual(
+      expect.arrayContaining([
+        'https://*.fbcdn.net/*',
+        'https://*.cdninstagram.com/*',
+        'https://*.licdn.com/*',
+        'https://*.twimg.com/*',
+        'https://*.alignable.com/*',
+      ]),
+    );
+    const scripts = JSON.stringify(manifest.content_scripts);
+    for (const host of ['licdn', 'twimg', 'fbcdn', 'cdninstagram'])
+      expect(scripts).not.toContain(host);
   });
 
   it('reaches Meta Business Suite, to put the business’s OK’d posts up on its Facebook Page, never with its script', () => {

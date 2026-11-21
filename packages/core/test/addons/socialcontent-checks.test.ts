@@ -7,18 +7,32 @@ import { describe, expect, it } from 'vitest';
 import {
   CHECKS,
   checkedPictureCheck,
+  designProblems,
   fitsGraphic,
   fixAsk,
   graphicDue,
   graphicPromptFor,
+  graphicToCheck,
   pageToCheck,
+  photoFixAsk,
+  pictureFlags,
+  PICTURE_CHECK_SCHEMA,
   PICTURE_CHECK_SYSTEM,
+  PICTURE_CHECK_VERSION,
+  PictureCheckAnswer,
   pictureCheckPrompt,
   withCutWords,
   wordsOfPage,
   type GraphicTry,
 } from '../../src/addons/socialcontent/check-ai';
-import { withoutSideLabel, type DesignPage } from '../../src/addons/socialcontent/posts-ai';
+import {
+  PHOTO_LOOKS_REAL,
+  withoutSideLabel,
+  type DesignPage,
+} from '../../src/addons/socialcontent/posts-ai';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Any = any;
 
 const page = (over: Partial<DesignPage> = {}): DesignPage => ({
   layout: 'photo',
@@ -161,6 +175,152 @@ describe('checking each picture before it’s kept', () => {
     expect(ask).toContain('brighter');
     expect(ask).toContain('Words cut off; Too small');
   });
+
+  it('looks for the mistakes image AIs make in a photo, like a blank screen in her hand', () => {
+    // The owner, 15 Nov: "the phone in her hand is just a blank white screen".
+    expect(PICTURE_CHECK_SYSTEM).toMatch(
+      /phone, laptop, TV or other screen someone is using that is blank, plain white, grey or black/,
+    );
+    expect(PICTURE_CHECK_SYSTEM).toMatch(/too many, too few or joined fingers/);
+    expect(PICTURE_CHECK_SYSTEM).toMatch(/under photoProblems/);
+    // Words that are part of the photo, faint ones too, are the photo's to fix (the owner's pick, 16 Nov).
+    expect(PICTURE_CHECK_SYSTEM).toMatch(
+      /faint or ghostly ones showing through behind the page’s own words/,
+    );
+    expect(PICTURE_CHECK_SYSTEM).toMatch(
+      /any words, numbers or icons that are part of the photo, on a screen, a sign or faint behind the page’s own words/,
+    );
+    const item = (PICTURE_CHECK_SCHEMA as Any).properties.pages.items;
+    expect(item.required).toContain('photoProblems');
+  });
+
+  it('goes over each thing in a photo for its shape, like a laptop bent out of shape (the owner, 17 Nov)', () => {
+    // "look at the laptop on this image. the ai should have noticed how the shape of it is all wonky"
+    expect(PICTURE_CHECK_SYSTEM).toMatch(
+      /go over the photo one thing at a time before you judge it/,
+    );
+    expect(PICTURE_CHECK_SYSTEM).toMatch(
+      /a laptop’s lid meeting its base along one straight hinge/,
+    );
+    expect(PICTURE_CHECK_SYSTEM).toMatch(
+      /without sinking into it or running on into the thing behind/,
+    );
+    expect(PICTURE_CHECK_SYSTEM).toMatch(/a shape no real one has, even a small one at the edge/);
+    // It lists what it went over before it judges the page, and that's never kept.
+    const item = (PICTURE_CHECK_SCHEMA as Any).properties.pages.items;
+    expect(item.required.indexOf('photoLooked')).toBeLessThan(item.required.indexOf('passes'));
+    expect(Object.keys(item.properties).indexOf('photoLooked')).toBeLessThan(
+      Object.keys(item.properties).indexOf('passes'),
+    );
+    expect(PictureCheckAnswer.parse({ pages: [{ page: 1 }] }).pages[0]!.photoLooked).toEqual([]);
+    const looked = checkedPictureCheck(
+      {
+        pages: [
+          {
+            page: 1,
+            photoLooked: ['laptop: lid bent, base runs into the dash'],
+            passes: false,
+            problems: [],
+            photoProblems: ['The laptop’s lid is bent and its base runs into the dash'],
+          },
+        ],
+      },
+      1,
+    );
+    expect(looked).toEqual({
+      passes: false,
+      problems: ['The laptop’s lid is bent and its base runs into the dash'],
+      photo: ['The laptop’s lid is bent and its base runs into the dash'],
+    });
+    // A photo is looked at whole, at the size it's posted; other pages at half.
+    expect([CHECKS.photoWidth, CHECKS.photoHeight]).toEqual([1080, 1440]);
+    expect(PICTURE_CHECK_VERSION).toBe(4);
+    // Every photo OpenAI makes is told so too.
+    expect(PHOTO_LOOKS_REAL).toMatch(/Every object keeps its real shape and size/);
+    expect(PHOTO_LOOKS_REAL).toMatch(/a laptop’s lid meets its base along one straight hinge/);
+  });
+
+  it('checks OpenAI’s whole graphic for only the words it was asked to put on it', () => {
+    expect(
+      graphicToCheck({
+        layout: 'framed',
+        kicker: 'Myth',
+        heading: 'Just send a message',
+        body: 'The right system does the busywork.',
+        items: [],
+        mark: null,
+        footer: 'HandsFreeOS',
+      } as Any),
+    ).toEqual({ words: ['Myth', 'Just send a message'] });
+  });
+
+  it('keeps a photo’s mistakes apart, since only a new photo fixes them', () => {
+    const one = checkedPictureCheck(
+      {
+        pages: [
+          {
+            page: 1,
+            passes: false,
+            problems: ['Heading cut off'],
+            photoProblems: [' The phone screen is blank '],
+          },
+        ],
+      },
+      1,
+    );
+    expect(one).toEqual({
+      passes: false,
+      problems: ['Heading cut off', 'The phone screen is blank'],
+      photo: ['The phone screen is blank'],
+    });
+    expect(designProblems(one)).toEqual(['Heading cut off']);
+    // A design asked again is told only what a design can fix.
+    expect(fixAsk(one, null)).toContain('Heading cut off');
+    expect(fixAsk(one, null)).not.toContain('phone');
+    expect(fixAsk({ ...one, problems: one.photo! }, 'brighter')).toBe('brighter');
+    // The photo asked again is told what to avoid, without page numbers.
+    const again = photoFixAsk(['Page 1: The phone screen is blank', 'Six fingers'], 'warmer');
+    expect(again).toContain('warmer');
+    expect(again).toContain(
+      'make sure the new one has none of them: The phone screen is blank; Six fingers',
+    );
+    // A passing page that names only a photo problem isn't a pass.
+    expect(
+      checkedPictureCheck(
+        { pages: [{ page: 1, passes: true, problems: [], photoProblems: ['Melted cup'] }] },
+        1,
+      ),
+    ).toEqual({ passes: false, problems: ['Melted cup'], photo: ['Melted cup'] });
+    // Many words problems still leave room for the photo's.
+    const many = checkedPictureCheck(
+      {
+        pages: [
+          {
+            page: 1,
+            passes: false,
+            problems: ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
+            photoProblems: ['Blank screen'],
+          },
+        ],
+      },
+      1,
+    );
+    expect(many.problems).toHaveLength(CHECKS.problems);
+    expect(many.problems.at(-1)).toBe('Blank screen');
+    // Words that didn't fit keep the photo's problems.
+    expect(withCutWords(one, [true])?.photo).toEqual(['The phone screen is blank']);
+  });
+
+  it('shows what the check still found beside pictures that didn’t pass it, and nothing otherwise', () => {
+    expect(
+      pictureFlags({ check: { passes: false, problems: ['Faint text shows through', ' '] } }),
+    ).toEqual(['Faint text shows through']);
+    expect(pictureFlags({ check: { passes: true, problems: [] } })).toEqual([]);
+    expect(pictureFlags({ pages: [] })).toEqual([]);
+    expect(pictureFlags(null)).toEqual([]);
+    expect(pictureFlags({ check: { passes: false, problems: 'no' } })).toEqual([]);
+    expect(CHECKS.retries).toBe(2);
+  });
 });
 
 describe('OpenAI’s whole graphics, depending on how they do', () => {
@@ -202,5 +362,6 @@ describe('OpenAI’s whole graphics, depending on how they do', () => {
     expect(prompt).toMatch(/spelled exactly/);
     expect(prompt).toContain('#2d69d8');
     expect(prompt).toMatch(/No logos, watermarks/);
+    expect(prompt).toMatch(/never a blank white, grey or black screen/);
   });
 });

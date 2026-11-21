@@ -33,9 +33,11 @@ import {
   messageNotesOf,
   MessageSamples,
   ownWordsFor,
+  samplesNow,
   stepAfterYes,
   type Answer,
   type ConversationStep,
+  type OwnWords,
 } from '@hfos/core/addons/outreach/conversation';
 import { outreachSettings } from '@hfos/core/addons/outreach/chat-read';
 import {
@@ -51,16 +53,17 @@ import { bestFit } from '@hfos/core/addons/outreach/fit';
 import type { DownloadMessage } from '@hfos/core/addons/outreach/download';
 import type { PitchRead } from '@hfos/core/addons/outreach/stages';
 import {
-  nextOpener,
+  firstMessageChoices,
+  kindOfWay,
   openerKey,
-  openersOf,
-  ownOpenerFits,
-  ownOpenerText,
-  type Opener,
+  wayOfKind,
   type OpenerKind,
 } from '@hfos/core/addons/outreach/openers';
+import { aboutOwnerFor } from '@hfos/core/addons/outreach/ops/about-owner';
 import { voiceFor } from '@hfos/core/addons/outreach/ops/automation';
 import { answerNote } from '@hfos/core/addons/outreach/ops/conversation';
+import { theirWorkNote, theirWorkShown } from '@hfos/core/addons/outreach/ops/local';
+import { RADIUS_START, theirWorkFact } from '@hfos/core/addons/outreach/local';
 import {
   paceOf,
   PlaybookDetails,
@@ -71,7 +74,11 @@ import { underAPost } from '@hfos/core/addons/outreach/automation';
 import { replyNeedsYou } from '@hfos/core/addons/outreach/sends';
 import {
   answerOf,
+  asksTheirWork,
   checkedDrafts,
+  theirWorkOf,
+  tookOf,
+  connectedLately,
   draftOfferOf,
   demoWhen,
   DRAFTS_FOR,
@@ -90,13 +97,15 @@ import {
   TodayDraftInput,
   todayDraftPrompt,
   unansweredOf,
+  wayOf,
   withoutStockPraise,
   type CustomerDraftKind,
   type DraftOffer,
   type TodayDraftOutput,
 } from '@hfos/core/addons/outreach/today';
+import { realComments } from '@hfos/core/addons/outreach/comment-says';
 import { contactIn, isTimeKind, openTimeOf } from '@hfos/core/addons/outreach/meeting-times';
-import { executeCommand, HfosError, MainOfferParts } from '@hfos/core/server';
+import { executeCommand, HfosError, listsOf, MainOfferParts } from '@hfos/core/server';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import {
@@ -107,11 +116,22 @@ import {
   askedTwice,
   askStructured,
 } from '../../ai/ask';
-import type { AddonWorkerAction } from '../types';
+import type { AddonScopeContext, AddonWorkerAction } from '../types';
+import { hasWays, networkingOf, type OpenWay, waysOf } from '@hfos/core/addons/outreach/script';
+import { introTexts, VOICE_DEFAULTS } from '@hfos/core/addons/outreach/voice';
 import { groupNamesIn, namesAGroup, withoutGroupLines } from '@hfos/core/addons/outreach/no-groups';
 import { businessKnows } from './knows';
 import { partnerDraft } from './partner-drafts';
-import { bookingOf, draftTimes, keepTimes, meetingFor, offeredWords } from './times';
+import {
+  bookingOf,
+  callLinkFor,
+  draftTimes,
+  keepTimes,
+  leadLinkFor,
+  meetingFor,
+  offeredWords,
+  type Meeting,
+} from './times';
 
 export const TODAY_DRAFT_ACTION = 'outreach.today.draft';
 
@@ -124,8 +144,12 @@ type ChatRow = {
   pitch_why: string | null;
 };
 
+/** What a draft's request may hold: a comment's comes with up to three pictures of its post (decision 166). */
+export const DRAFT_BODY_BYTES = 2 * 1024 * 1024;
+
 export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
   permission: 'outreach.use',
+  bodyBytes: DRAFT_BODY_BYTES,
   ai: {
     tool: 'outreach_draft_message',
     description:
@@ -166,10 +190,16 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
             )
           : [];
       const [post] = input.postId
-        ? await rows<{ profile_id: string; body: string; group: string | null; warm_up: boolean }>(
+        ? await rows<{
+            profile_id: string;
+            body: string;
+            group: string | null;
+            warm_up: boolean;
+            strong: boolean;
+          }>(
             tx,
             // The person's own posts only, like their chats.
-            sql`select po.profile_id, po.body, g.name as group, po.warm_up from addon_outreach.posts po
+            sql`select po.profile_id, po.body, g.name as group, po.warm_up, po.strong from addon_outreach.posts po
                 left join addon_outreach.groups g on g.id = po.group_id
                 where po.workspace_id = ${ws} and po.id = ${input.postId} and po.user_id = ${ctx.userId}`,
           )
@@ -210,15 +240,33 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
             group: string | null;
             client: boolean;
             country: string | null;
+            work: string | null;
+            area: string | null;
+            town: string | null;
+            reach: string | null;
+            area_how: string | null;
           }>(
             tx,
             // A client in Contacts (decision 91) gets replies only: no link, no video, and a yes isn't a pitch.
             sql`select p.name, p.platform, p.intro, p.mutual_friends, g.name as group, ${isClient('p')} as client,
-                  p.country
+                  p.country, p.work, p.area, p.town, p.reach, p.area_how
                 from addon_outreach.profiles p left join addon_outreach.groups g on g.id = p.group_id
                 where p.workspace_id = ${ws} and p.id = ${profileId}`,
           )
         : [];
+      // How real comments sound on the post's network, from HandsFreeOS's comment research, once staff put a guide
+      // in use there: for a warm-up's comment (decision 166) and one on a post found by its topic (decision 172's 3b).
+      const commentGuide =
+        post && input.kind === 'comment' && profile
+          ? (
+              await rows<{ guide: string }>(
+                tx,
+                sql`select guide from platform.comment_guides
+                    where platform = ${profile.platform} and stopped_at is null
+                    order by used_at desc limit 1`,
+              )
+            )[0]?.guide?.trim() || null
+          : null;
       const lines = profileId
         ? await rows<{ lines: string[] }>(
             tx,
@@ -259,9 +307,10 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
             sent: number;
             offer_version: number | null;
             answer: Answer | null;
+            call: boolean;
           }>(
             tx,
-            sql`select step, sent, offer_version, answer from addon_outreach.follow_ups
+            sql`select step, sent, offer_version, answer, call from addon_outreach.follow_ups
                 where workspace_id = ${ws} and user_id = ${ctx.userId} and profile_id = ${profileId}`,
           )
         : [];
@@ -277,20 +326,35 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       // Where the person stands with them on their network: on a follow network, someone who hasn't followed back gets
       // their first message in their Requests (core's `TodayItem.requests`).
       const [friend] = profileId
-        ? await rows<{ state: string }>(
+        ? await rows<{ state: string; since: Date | string | null }>(
             tx,
-            sql`select state from addon_outreach.friends
+            sql`select state, since from addon_outreach.friends
                 where workspace_id = ${ws} and user_id = ${ctx.userId} and profile_id = ${profileId}`,
           )
         : [];
+      // The person's own name, for an introduction's [your first name] (decision 168).
+      const [owner] =
+        input.kind === 'opener'
+          ? await rows<{ full_name: string }>(
+              tx,
+              sql`select full_name from app.users where id = ${ctx.userId}`,
+            )
+          : [];
       const [offer] = await rows<{ version: number; parts: unknown }>(
         tx,
         sql`select v.version, v.parts from app.main_offer_versions v
             where v.workspace_id = ${ws} and v.version = coalesce(${conversation?.offer_version ?? null}::int,
               (select live_version from app.main_offers where workspace_id = ${ws}))`,
       );
+      // The offer's lists for content (docs/main-offer.md, "For your posts and messages"): what a reply answers from,
+      // beside the offer (decision 164). They aren't versioned: the lists as they are now.
+      const [content] = await rows<{ lists: unknown }>(
+        tx,
+        sql`select lists from app.main_offers where workspace_id = ${ws}`,
+      );
       // A demo's reminder, or another time after a no-show (decision 106): when their latest booked through the link
       // is, or was.
+      // And the thank-you after a networking call (decision 187): when their latest call was.
       const [demo] =
         profileId && (input.kind === 'demo_reminder' || input.kind === 'rebook')
           ? await rows<{ starts_at: Date | string }>(
@@ -300,7 +364,15 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
                     and d.how = 'link' and d.undone_at is null
                   order by d.at desc limit 1`,
             )
-          : [];
+          : profileId && input.kind === 'thank_you'
+            ? await rows<{ starts_at: Date | string }>(
+                tx,
+                sql`select a.starts_at from addon_outreach.calls k join app.appointments a on a.id = k.appointment_id
+                    where k.workspace_id = ${ws} and k.user_id = ${ctx.userId} and k.profile_id = ${profileId}
+                      and a.starts_at <= now()
+                    order by a.starts_at desc limit 1`,
+              )
+            : [];
       // A new job (decision 108): what LinkedIn's Catch up said of it, the latest seen.
       const [occasion] =
         profileId && input.kind === 'new_job'
@@ -354,29 +426,42 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         sql`select message_samples, message_notes from addon_outreach.setup
             where workspace_id = ${ws} and user_id = ${ctx.userId}`,
       );
+      // The person's own town and radius (decision 177): how far from them they are.
+      const [home] = await rows<{ home_town: string | null; radius_miles: number }>(
+        tx,
+        sql`select home_town, radius_miles from addon_outreach.automation
+            where workspace_id = ${ws} and user_id = ${ctx.userId}`,
+      );
       return {
         business,
         chat,
         post,
         commentedLately,
+        commentGuide,
         engaged,
         profile,
         lines: lines[0]?.lines ?? [],
         playbooks,
         check,
         voice: await voiceFor(tx, ws, ctx.userId),
+        // What they said of themselves on Settings → Account (About you, decision 165): all the AI knows of them.
+        aboutOwner: await aboutOwnerFor(tx, ctx.userId),
         lastAt: last?.at ?? null,
         conversation: conversation ?? null,
         lost: lost ?? null,
         offer: offer ?? null,
+        lists: listsOf(content?.lists),
         friendState: friend?.state ?? null,
+        friendSince: friend?.since ?? null,
+        ownerName: owner?.full_name?.trim() || null,
         demoAt: demo?.starts_at ?? null,
         occasion: occasion?.detail ?? null,
-        samples: MessageSamples.safeParse(said?.message_samples ?? null).data ?? null,
+        samples: samplesNow(MessageSamples.safeParse(said?.message_samples ?? null).data),
         notes: messageNotesOf(said?.message_notes),
         library: installed ? outreachSettings(installed.settings).videos : undefined,
         sentTexts: sentTexts.map((t) => t.text),
         groups: groups.map((g) => g.name),
+        home: { town: home?.home_town ?? null, radiusMiles: home?.radius_miles ?? RADIUS_START },
       };
     });
     const name = found.profile?.name ?? found.chat?.name;
@@ -393,12 +478,15 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         ),
       ),
     ];
+    // What they do and where, and how far from the person (decision 177).
+    const them = found.profile ? theirWorkShown(found.profile, found.home) : null;
     const facts = [
       ...found.lines,
       ...(found.profile?.intro ?? []),
       ...(found.check?.about ? [found.check.about] : []),
       ...(found.check?.why ?? []),
-      // Never in a first message, which is the owner's question and nothing else (decision 152).
+      ...[theirWorkFact(them)].filter((f): f is string => f !== null),
+      // Only for Reconnect's catch-up (decision 164): never a first message, a follow-up or a reply.
       ...[firstStepFact(input.kind, found.check?.next_step)].filter((f): f is string => f !== null),
     ];
     const kept = found.playbooks.flatMap((p) => {
@@ -408,15 +496,21 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     // The playbooks that run on their network (data version 7), or every one when none does: a draft asked for by hand
     // is written all the same.
     const onIt = kept.filter((p) => runsOn(p.details, found.profile?.platform ?? 'facebook'));
-    const playbooks = onIt.length ? onIt : kept;
+    const near = onIt.length ? onIt : kept;
+    // A first message goes from a playbook with a way ticked to start a chat (decision 183), when one has.
+    const playbooks =
+      input.kind === 'opener' && near.some((p) => hasWays(p.details))
+        ? near.filter((p) => hasWays(p.details))
+        : near;
     const fit = bestFit(playbooks, {
       lines: [...facts, ...input.lookup, ...(found.post ? [found.post.body] : [])],
       mutualFriends: found.profile?.mutual_friends ?? null,
       groupName: found.profile?.group ?? null,
     });
     const playbook = playbooks.find((p) => p.id === fit.playbookId) ?? playbooks[0] ?? null;
-    // A first message takes the next of the playbook's openers in turn (decision 23).
-    let opener: Opener | null = null;
+    // A first message picks from the playbook's ways (decision 183), the pitch with the next of its versions in turn
+    // (decisions 23 and 164): how often each was used, counted here, and which can go, below.
+    const counts = new Map<string, number>();
     if (input.kind === 'opener' && playbook) {
       const used = await asWorker(ctx.db, ctx.scope, (tx) =>
         rows<{ kind: OpenerKind; text: string; n: number }>(
@@ -426,51 +520,59 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
               group by kind, text`,
         ),
       );
-      const counts = new Map<string, number>();
       for (const u of used) counts.set(openerKey(u), (counts.get(openerKey(u)) ?? 0) + u.n);
-      opener = nextOpener(openersOf(playbook.details), counts);
     }
+    // The way their first message started the chat (decision 183), for the ask after their yes to what it offered.
+    const whom = input.profileId ?? found.chat?.profile_id ?? found.post?.profile_id ?? null;
+    const opened: OpenWay | null =
+      (input.kind === 'reply' || input.kind === 'pitch') && whom
+        ? await asWorker(ctx.db, ctx.scope, (tx) =>
+            rows<{ kind: OpenerKind }>(
+              tx,
+              sql`select kind from addon_outreach.opener_uses
+                  where workspace_id = ${ws} and user_id = ${ctx.userId} and profile_id = ${whom}
+                  limit 1`,
+            ),
+          ).then((r) => (r[0] ? wayOfKind(r[0].kind) : null))
+        : null;
     // The main offer's words for the conversation: the version they were first pitched with, or the live one.
     const parts = found.offer ? MainOfferParts.safeParse(found.offer.parts) : null;
     const offer: DraftOffer | null =
       found.offer && parts?.success ? draftOfferOf(found.offer.version, parts.data) : null;
     // A first message on a follow network (Instagram's) to someone who hasn't followed the person back lands in their
-    // Requests: one short text, with no link and no video (core's `REQUESTS_TASK`).
+    // Requests: one short text, with no link and no video (core's `requestsTask`).
     const toRequests =
       input.kind === 'opener' &&
       found.profile !== undefined &&
       NETWORKS[found.profile.platform].follows &&
       found.friendState !== 'friends';
-    // One of the business's own openers goes as written, with their first name and the offer's words in: no AI. One
-    // that names the offer's words when there are none is written by the AI instead, and so is one too long for their
-    // Requests, or with a link.
-    if (opener?.kind === 'own' && !ownOpenerFits(opener.text, offer)) opener = null;
-    if (
-      opener?.kind === 'own' &&
-      toRequests &&
-      !fitsRequests(ownOpenerText(opener.text, name, offer))
-    )
-      opener = null;
-    const drafted = opener && playbook ? { playbookId: playbook.id, ...opener } : null;
-    if (opener?.kind === 'own')
-      return {
-        kind: input.kind,
-        answer: null,
-        drafts: [ownOpenerText(opener.text, name, offer)],
-        opener: drafted,
-        simple: false,
-        unanswered: null,
-        meeting: null,
-      };
     // A client in Contacts (decision 91): written to as a client, never pitched.
     const client = found.profile?.client ?? false;
     // The playbook's link, as the person's demo link for them (decision 24).
     const profileId = input.profileId ?? found.chat?.profile_id ?? found.post?.profile_id ?? null;
-    const link = client
+    // Their own Lead calendar first (decision 178, the owner's 5a), the playbook's link as the backup.
+    const bookLink = client ? null : await leadLinkFor(ctx, ctx.userId, playbook?.details.link);
+    const demoLinkFor = client
       ? null
       : playbook && profileId
-        ? demoLink(playbook.details.link, demoRef(ctx.userId, profileId))
-        : (playbook?.details.link ?? null);
+        ? demoLink(bookLink, demoRef(ctx.userId, profileId))
+        : bookLink;
+    // After a yes to a networking call (decision 173, the owner's 5): the ask for a time and what follows it go on the
+    // person's Networking calendar (decision 178) or own calendar, with no demo ref, never the demo page.
+    // With their networking call ref (decision 187), so the call they book is known to be with them.
+    const callLink = () => callLinkFor(ctx, ctx.userId, bookLink, profileId);
+    const onCall =
+      !client && found.conversation?.call === true && found.conversation.step === 'link';
+    const link = onCall ? await callLink() : demoLinkFor;
+    // A reply in the networking chat after an introduction (decision 176): the call it wraps up with goes on the person's
+    // own calendar too, with its link right there.
+    const wrapLink =
+      input.kind === 'reply' &&
+      !client &&
+      found.conversation?.step === 'intro' &&
+      networkingOf(playbook?.details ?? null).call
+        ? await callLink()
+        : null;
     // The short video (decision 66): this playbook's, else the first in use with one, as Today picks it.
     const videoLink = client
       ? null
@@ -491,6 +593,16 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
           ]),
         }
       : null;
+    // The ways the first message may go (decision 183): the playbook's, less those missing what they need (the owner's
+    // 6a), the ones used least first. None can go, the pitch's words do. The AI keeps close to each one's words, fitted to
+    // them (decision 164, the owner's 1a): none goes out word for word.
+    const has = {
+      proof: !!playbook?.details.proof?.length || !!offer?.proof.length,
+      useful: !!playbook?.details.usefulWhat?.trim(),
+      video: library.length > 0 || !!videoLink,
+    };
+    const choices =
+      input.kind === 'opener' && playbook ? firstMessageChoices(playbook.details, counts, has) : [];
     // They told the person no, or not now, before (decision 134): their answer kept for the conversation, their chat
     // read as not interested, or marked not a fit. A chat read since as ready for the offer says they came round.
     const said = found.conversation?.answer;
@@ -512,6 +624,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
           step: found.conversation.step,
           sent: found.conversation.sent,
           followUps: paceOf(playbook?.details.pace ?? null).followUps,
+          call: onCall,
         }
       : null;
     // The network the message goes on: the profile's.
@@ -521,23 +634,28 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     // said no, or their Requests. The email or number they wrote is who a reply books.
     const theirWords = recent.filter((m) => !m.fromMe).map((m) => m.text);
     const contact = contactIn(theirWords);
+    const meetingOn = (on: string | null | undefined) =>
+      meetingFor(ctx, {
+        link: on,
+        userId: ctx.userId,
+        lines: [...found.lines, ...(found.profile?.intro ?? []), ...input.lookup],
+        country: found.profile?.country ?? null,
+      }).catch((e: unknown) => {
+        // No times is no reason to stop the draft: its link goes as before.
+        ctx.log.warn({ err: e }, 'outreach: open times for a draft failed');
+        return null;
+      });
+    // A reply in the networking chat after an introduction (decision 173) offers no times: it's about them. A yes to a
+    // demo or a call there gets them with its ask.
     const meeting =
       profileId &&
       !client &&
       !declined &&
       !toRequests &&
       isTimeKind(input.kind) &&
-      (input.kind !== 'follow_up' || found.conversation?.step === 'link')
-        ? await meetingFor(ctx, {
-            link: playbook?.details.link,
-            userId: ctx.userId,
-            lines: [...found.lines, ...(found.profile?.intro ?? []), ...input.lookup],
-            country: found.profile?.country ?? null,
-          }).catch((e: unknown) => {
-            // No times is no reason to stop the draft: its link goes as before.
-            ctx.log.warn({ err: e }, 'outreach: open times for a draft failed');
-            return null;
-          })
+      (input.kind !== 'follow_up' || found.conversation?.step === 'link') &&
+      !(input.kind === 'reply' && found.conversation?.step === 'intro')
+        ? await meetingOn(onCall ? link : bookLink)
         : null;
     // What the business knows (decision 122): its profile and Knowledge, with what matches their latest words, their
     // post or their comment first. Read once, for the reply and the step after a yes alike.
@@ -554,118 +672,96 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     // What the AI is told of them: nothing that names one of their groups or says they're in one (decision 157).
     const toldFacts = withoutGroupLines(facts, groupNames);
     const toldLookup = withoutGroupLines(input.lookup, groupNames);
-    const draft = async (
-      kind: CustomerDraftKind,
-      again: readonly string[] | null = null,
-    ): Promise<{ value: TodayDraftAnswer; drafts: string[] }> => {
-      const { value } = await askedTwice((last) =>
-        askStructured(ctx, ctx.scope, {
-          system: todayDraftSystem(platform, {
-            warm: found.post?.warm_up === true && kind === 'comment',
-          }),
-          messages: [
-            {
-              role: 'user',
-              content: todayDraftPrompt({
-                kind,
-                business: found.business?.name ?? 'the business',
-                name,
-                facts: toldFacts,
-                recent,
-                playbook: playbook
-                  ? { name: playbook.name, ...playbook.details, link, videoLink }
-                  : null,
-                offer,
-                conversation,
-                post: found.engaged
-                  ? {
-                      text: `Your post: ${found.engaged.body ?? ''}\n\nTheir comment: ${found.engaged.comment}`,
-                      group: found.engaged.group,
-                    }
-                  : found.post
-                    ? {
-                        text: found.post.body,
-                        group: found.post.group,
-                        warm: found.post.warm_up,
-                        said: found.commentedLately,
-                      }
-                    : null,
-                lookup: toldLookup,
-                opener,
-                voice: found.voice,
-                lastAt: found.lastAt,
-                platform,
-                requests: toRequests,
-                demoWhen: found.demoAt
-                  ? demoWhen(found.demoAt, found.business?.timezone ?? 'America/Chicago')
-                  : null,
-                occasion: found.occasion,
-                knows,
-                declined,
-                times: meeting && isTimeKind(kind) ? draftTimes(meeting, kind, contact) : null,
-                videos,
-                own: ownWordsFor(
-                  kind,
-                  found.samples,
-                  found.notes,
-                  found.conversation,
-                  playbook?.id ?? null,
-                ),
-                again,
-              }),
-            },
-          ],
-          schema: TODAY_DRAFT_SCHEMA,
-          zod: TodayDraftAnswer,
-          maxTokens: 800,
-          usage: { source: 'addon', addonId: ctx.manifest.id },
-          backupWhenDeclined: last,
-        }),
-      );
-      // A first message is one text (decision 137), as a comment is.
-      const checked = checkedDrafts(
-        value,
-        [...(playbook?.details.avoid ?? []), ...(knows?.avoid ?? [])],
-        DRAFTS_FOR[kind],
-        found.voice.split && !underAPost(kind) && kind !== 'warm_lead' && kind !== 'opener',
-      );
-      // Never a group (decision 157): a draft that mentions one goes, and when every one did, the AI writes again once,
-      // told which of their groups' names to leave out.
-      const quiet = checked.filter((d) => !namesAGroup(d, groupNames));
-      if (checked.length && !quiet.length && !again)
-        return draft(kind, [...new Set(checked.flatMap((d) => groupNamesIn(d, groupNames)))]);
-      // To their Requests: only one short text with no link goes. A comment opens with no stock praise (decision 141:
-      // a "Great post!" before its point goes), and one that waits to be posted (Instagram's and Alignable's, decision
-      // 92) never carries a link, and on Instagram no hashtag, within its 30 words; nor does a birthday or new-job note
-      // (decision 108), nor a reply in a group (decision 114).
-      const drafts =
-        toRequests && kind === 'opener'
-          ? quiet.filter(fitsRequests)
-          : kind === 'comment'
-            ? quiet.flatMap((d) => {
-                const said = withoutStockPraise(d);
-                return said && fitsComment(said, platform) ? [said] : [];
-              })
-            : kind === 'group_reply'
-              ? quiet.filter(fitsGroupReply)
-              : isOccasionKind(kind)
-                ? quiet.filter(fitsOccasion)
-                : // At most one of the business's videos, and never one they've had (decision 154).
-                  quiet.filter((d) => fitsVideos(d, videos));
-      // The link always goes with the link and the video with the video (decisions 47 and 66), and the link with
-      // another time after a no-show (decision 106): one the AI left out goes on the end.
-      const must =
-        kind === 'pitch' || kind === 'rebook' ? link : kind === 'video' ? videoLink : null;
-      return {
-        value,
-        drafts: must ? drafts.map((d) => (d.includes(must) ? d : `${d}\n\n${must}`)) : drafts,
-      };
+    // The post as the extension just saw it (decision 166): for a comment on a post kept, and nothing else.
+    const look = input.kind === 'comment' && found.post && !found.engaged ? input.look : null;
+    // Everything a draft for them is written from: the same for the kind asked and the step after a yes.
+    let base: DraftBase = {
+      platform,
+      pictures: look?.jpegs ?? [],
+      told: {
+        business: found.business?.name ?? 'the business',
+        aboutOwner: found.aboutOwner,
+        ownerName: found.ownerName,
+        // Connected lately (decision 168): an introduction thanks them for connecting; a friend of a while gets a hello.
+        fresh: connectedLately(found.friendSince),
+        name,
+        facts: toldFacts,
+        recent,
+        playbook: playbook ? { name: playbook.name, ...playbook.details, link, videoLink } : null,
+        offer,
+        lists: found.lists,
+        conversation,
+        callLink: wrapLink,
+        // Someone who works inside the person's radius gets a call or coffee (decision 177, the owner's 4a).
+        local: them?.near ?? false,
+        post: found.engaged
+          ? {
+              text: `Your post: ${found.engaged.body ?? ''}\n\nTheir comment: ${found.engaged.comment}`,
+              group: found.engaged.group,
+            }
+          : found.post
+            ? {
+                text: found.post.body,
+                group: found.post.group,
+                warm: found.post.warm_up,
+                said: found.commentedLately,
+                // How real comments sound there, when a research's guide is in use on its network (decisions 166, 172).
+                guide: found.commentGuide,
+                // The post check's word on whether they ask for what the business offers (decision 163).
+                asking: found.post.strong,
+                // What the extension just took of it on its own page (decision 166): a comment's only.
+                shown: look ? { kind: look.kind, count: look.jpegs.length } : null,
+              }
+            : null,
+        lookup: toldLookup,
+        ways: choices.map((c) => ({ way: c.way, text: c.opener.text })),
+        opened,
+        voice: found.voice,
+        lastAt: found.lastAt,
+        requests: toRequests,
+        demoWhen: found.demoAt
+          ? demoWhen(found.demoAt, found.business?.timezone ?? 'America/Chicago')
+          : null,
+        occasion: found.occasion,
+        knows,
+        declined,
+        videos,
+      },
+      avoid: [...(playbook?.details.avoid ?? []), ...(knows?.avoid ?? [])],
+      groupNames,
+      meeting,
+      contact,
+      link,
+      videoLink,
+      own: (kind) =>
+        ownWordsFor(kind, found.samples, found.notes, found.conversation, playbook?.id ?? null),
     };
+    const draft = (kind: CustomerDraftKind) => writeDrafts(ctx, base, kind);
     try {
       let kind: CustomerDraftKind = input.kind;
       let made = await draft(kind);
-      // A reply: what they answered to the person's last step is kept, and a yes gets the next step instead.
-      const answer = answerOf(kind, made.value, recent);
+      // What they do and where (decision 177): what the draft read of their page or the chat, kept on their profile
+      // unless a person set it.
+      const read = asksTheirWork(kind) ? theirWorkOf(made.value) : null;
+      if (profileId && read && (read.work || read.area || read.reach))
+        await executeCommand(
+          ctx.db,
+          theirWorkNote,
+          {
+            workspaceId: ws,
+            userId: ctx.userId,
+            profileId,
+            how: recent.some((m) => !m.fromMe) ? 'chat' : 'page',
+            them: read,
+          },
+          ctx.actor,
+          ctx.meta,
+        );
+      // A reply: what they answered to the person's last step is kept, and a yes gets the next step instead. After an
+      // introduction (decision 173), only a yes to a demo or a networking call is one, and it says which.
+      const step = found.conversation?.step ?? null;
+      const answer = answerOf(kind, made.value, recent, step);
+      const took = tookOf(made.value, step);
       // A reply where they took one of the open times (decision 149): the booking is the next step, not the link.
       const picked =
         meeting && kind === 'reply'
@@ -681,6 +777,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
             profileId,
             answer,
             writtenAt: recent.at(-1)?.at ?? null,
+            took,
           },
           ctx.actor,
           ctx.meta,
@@ -690,29 +787,60 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
           answer === 'yes' && found.conversation && !client && !picked
             ? stepAfterYes(found.conversation.step)
             : null;
+        if (next && step === 'intro') {
+          // After an introduction (decision 173): a call's ask goes on the person's own calendar, a demo's on the
+          // playbook's link, each with its own open times, since the chat's reply offered none.
+          const nextLink = took === 'call' ? await callLink() : demoLinkFor;
+          const nextMeeting = await meetingOn(took === 'call' ? nextLink : bookLink);
+          base = {
+            ...base,
+            told: {
+              ...base.told,
+              playbook: base.told.playbook ? { ...base.told.playbook, link: nextLink } : null,
+              conversation: base.told.conversation
+                ? { ...base.told.conversation, call: took === 'call' }
+                : null,
+            },
+            meeting: nextMeeting,
+            link: nextLink,
+          };
+        }
         if (next) {
           kind = next;
           made = await draft(kind);
         }
       }
+      // The times the drafts were written with: a yes after an introduction's own (decision 173).
+      const times = base.meeting;
       const theirs = [...recent].reverse().find((m) => !m.fromMe)?.text ?? null;
       // Something they asked that nothing given answers (decision 122): the reply says the owner will check, and waits.
       const unanswered = unansweredOf(kind, made.value, recent);
       // The times the drafts offer, and the time a reply books (decision 149): kept for the message queued from one of
       // them, and checked again before it goes. A reply that books waits for the person unless every reply goes.
-      const booking =
-        meeting && kind === 'reply' ? bookingOf(meeting, picked, name, contact) : null;
+      const booking = times && kind === 'reply' ? bookingOf(times, picked, name, contact) : null;
       // A time the AI says they took that isn't open: the person reads it before it goes.
-      const missed = meeting !== null && kind === 'reply' && !!made.value.time?.trim() && !picked;
+      const missed = times !== null && kind === 'reply' && !!made.value.time?.trim() && !picked;
       const offerId =
-        meeting && profileId && isTimeKind(kind) && made.drafts.length
+        times && profileId && isTimeKind(kind) && made.drafts.length
           ? await keepTimes(ctx, {
               userId: ctx.userId,
               profileId,
-              meeting,
+              meeting: times,
               drafts: made.drafts,
               booking,
             })
+          : null;
+      // The opener the drafts went with (decision 183): the way the AI picked, and the ways the playbook ticked then.
+      const way = kind === 'opener' ? wayOf(made.value, choices) : null;
+      const chosen = way ? choices.find((c) => c.way === way) : undefined;
+      const drafted =
+        chosen && playbook
+          ? {
+              playbookId: playbook.id,
+              kind: kindOfWay(chosen.way),
+              text: chosen.opener.text,
+              ways: waysOf(playbook.details),
+            }
           : null;
       return {
         kind,
@@ -729,10 +857,10 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
           !missed,
         unanswered,
         meeting:
-          meeting && offerId
+          times && offerId
             ? {
                 offerId,
-                offered: booking ? [] : offeredWords(meeting),
+                offered: booking ? [] : offeredWords(times),
                 books: booking?.says ?? null,
               }
             : null,
@@ -743,8 +871,168 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
   },
 };
 
+/**
+ * Everything a draft for one person is written from, whatever its kind: what core's prompt is told, and what its
+ * answer is checked against. Today's drafts build it from what's kept of the person; a playbook's Test console
+ * (./playbook-test.ts) from someone made up, so what it shows is what would go out.
+ */
+export interface DraftBase {
+  readonly platform: Platform;
+  /** What the prompt is told (core's `todayDraftPrompt`), less what changes with the kind. */
+  readonly told: Omit<
+    Parameters<typeof todayDraftPrompt>[0],
+    'kind' | 'platform' | 'times' | 'own' | 'again'
+  >;
+  /**
+   * The post's picture, or frames of its video, as JPEGs in base64 (decision 166, core's `PostLook`): shown to the AI
+   * before a comment's words, as `told.post.shown` says, and never kept. Left out, none.
+   */
+  readonly pictures?: readonly string[];
+  /** The playbook's words to avoid, and the business's. */
+  readonly avoid: readonly string[];
+  /** Their groups, and the post's, never named to them (decision 157). */
+  readonly groupNames: readonly string[];
+  /** The playbook's booking page and its open times (decision 149); null with none. */
+  readonly meeting: Meeting | null;
+  /** The email or number they wrote, for a reply that books. */
+  readonly contact: { readonly email: string | null; readonly phone: string | null };
+  /** The link that always goes with Send the link and another time after a no-show; the video's with the video. */
+  readonly link: string | null;
+  readonly videoLink: string | null;
+  /** What the person said and wrote of this kind's part in Your messages (decision 87). */
+  readonly own: (kind: CustomerDraftKind) => OwnWords | null;
+}
+
+/**
+ * The AI's drafts of one kind for them, checked: no words to avoid, no group named (written again once when every one
+ * names one, decision 157), and what the kind and the network never carry left out.
+ */
+export async function writeDrafts(
+  ctx: AddonScopeContext,
+  base: DraftBase,
+  kind: CustomerDraftKind,
+  again: readonly string[] | null = null,
+): Promise<{ value: TodayDraftAnswer; drafts: string[] }> {
+  const { platform, told, meeting } = base;
+  const warm = told.post?.warm === true && kind === 'comment';
+  const toRequests = told.requests === true;
+  const videos = told.videos ?? null;
+  const voice = told.voice ?? VOICE_DEFAULTS;
+  // A comment shown the post (decision 166): its pictures go before the words, and only while the prompt says so.
+  const pictures = kind === 'comment' && told.post?.shown ? (base.pictures ?? []) : [];
+  const shown = pictures.length > 0;
+  const prompt = todayDraftPrompt({
+    ...told,
+    post: told.post && !shown ? { ...told.post, shown: null } : told.post,
+    kind,
+    platform,
+    times: meeting && isTimeKind(kind) ? draftTimes(meeting, kind, base.contact) : null,
+    own: base.own(kind),
+    again,
+  });
+  const { value } = await askedTwice((last) =>
+    askStructured(ctx, ctx.scope, {
+      system: todayDraftSystem(platform, { warm }),
+      messages: [
+        {
+          role: 'user',
+          content: shown
+            ? [
+                ...pictures.map((data) => ({
+                  type: 'image' as const,
+                  mediaType: 'image/jpeg' as const,
+                  data,
+                })),
+                { type: 'text' as const, text: prompt },
+              ]
+            : prompt,
+        },
+      ],
+      schema: TODAY_DRAFT_SCHEMA,
+      zod: TodayDraftAnswer,
+      maxTokens: 800,
+      usage: { source: 'addon', addonId: ctx.manifest.id },
+      backupWhenDeclined: last,
+    }),
+  );
+  // A first message is one text (decision 137), as a comment is, but an introduction's question about them goes as
+  // its own text right after it when the person sends a few (decision 175).
+  // The way it went (decision 183): the AI's pick, among the ways it was given or the playbook's.
+  const way =
+    kind === 'opener'
+      ? wayOf(value, told.ways?.length ? told.ways : waysOf(told.playbook).map((w) => ({ way: w })))
+      : null;
+  const intro = way === 'intro' && !toRequests;
+  const introTwo = intro && voice.split;
+  const checked = checkedDrafts(
+    value,
+    base.avoid,
+    DRAFTS_FOR[kind],
+    voice.split && !underAPost(kind) && kind !== 'warm_lead' && (kind !== 'opener' || introTwo),
+  ).map((d) => (introTwo ? introTexts(d) : d));
+  // Never a group (decision 157): a draft that mentions one goes, and when every one did, the AI writes again once,
+  // told which of their groups' names to leave out.
+  const quiet = checked.filter((d) => !namesAGroup(d, base.groupNames));
+  if (checked.length && !quiet.length && !again)
+    return writeDrafts(ctx, base, kind, [
+      ...new Set(checked.flatMap((d) => groupNamesIn(d, base.groupNames))),
+    ]);
+  // A comment says something real about the post, in the words people type, and never puts the owner in the other
+  // person's group when the owner hasn't said so of themselves (decision 165): one that doesn't goes, and with none
+  // left there's no comment.
+  const realCommentsOn = (drafts: string[]) =>
+    told.post
+      ? realComments(drafts, {
+          post: told.post.text,
+          about: value.about,
+          warm,
+          aboutOwner: told.aboutOwner,
+          shown,
+          saw: value.saw,
+        })
+      : drafts;
+  // To their Requests: only one short text with no link goes. A comment opens with no stock praise (decision 141:
+  // a "Great post!" before its point goes), and one that waits to be posted (Instagram's and Alignable's, decision
+  // 92) never carries a link, and on Instagram no hashtag, within its 30 words; nor does a birthday or new-job note
+  // (decision 108), nor a reply in a group (decision 114).
+  const drafts =
+    toRequests && kind === 'opener'
+      ? quiet.filter(fitsRequests)
+      : kind === 'comment'
+        ? realCommentsOn(
+            quiet.flatMap((d) => {
+              const said = withoutStockPraise(d);
+              return said && fitsComment(said, platform) ? [said] : [];
+            }),
+          )
+        : kind === 'group_reply'
+          ? quiet.filter(fitsGroupReply)
+          : isOccasionKind(kind)
+            ? quiet.filter(fitsOccasion)
+            : intro
+              ? // An introduction asks them something about themselves (decisions 173 and 175): one that came back
+                // asking nothing goes while another asks.
+                asksThem(quiet.filter((d) => fitsVideos(d, videos)))
+              : // At most one of the business's videos, and never one they've had (decision 154).
+                quiet.filter((d) => fitsVideos(d, videos));
+  // The link always goes with the link and the video with the video (decisions 47 and 66), and the link with
+  // another time after a no-show (decision 106): one the AI left out goes on the end.
+  const must =
+    kind === 'pitch' || kind === 'rebook' ? base.link : kind === 'video' ? base.videoLink : null;
+  return {
+    value,
+    drafts: must ? drafts.map((d) => (d.includes(must) ? d : `${d}\n\n${must}`)) : drafts,
+  };
+}
+
+/** The drafts that ask a question, or all of them when none does. */
+const asksThem = (drafts: string[]): string[] => {
+  const asking = drafts.filter((d) => d.includes('?'));
+  return asking.length ? asking : drafts;
+};
+
 /** What the person reads when the AI couldn't write a draft, and what to do. */
-function draftRefusal(e: unknown): unknown {
+export function draftRefusal(e: unknown): unknown {
   if (!(e instanceof AiAskError)) return e;
   if (e.code === 'budget_reached' || e.code === 'wallet_empty')
     return HfosError.rule('budget_reached', 429, e.message || AI_BUDGET_MESSAGE);

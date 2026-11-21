@@ -38,6 +38,7 @@ import type { JobResult } from '../../jobs';
 import { pushAddonNotice } from '../alerts';
 import { scheduleAddonJob } from '../queue';
 import type { AddonEventContext, AddonJobContext, AddonScopeContext } from '../types';
+import { mondayCallsPush } from './calls';
 import { WAITING_HREF } from './waiting';
 
 export const MORNING_JOB = 'outreach.morning';
@@ -265,5 +266,7 @@ export async function morningJob(ctx: AddonJobContext): Promise<JobResult> {
       }),
     );
   }
+  // Monday's also says last week's 1-on-1s, to whoever had any lately (./calls.ts, decision 187).
+  if (new Date(`${day}T12:00:00Z`).getUTCDay() === 1) await mondayCallsPush(ctx, day);
   return { rescheduleAt: nextMorning(ctx.now + 60_000, tz, hour) };
 }

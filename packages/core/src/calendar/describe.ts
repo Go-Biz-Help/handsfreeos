@@ -5,7 +5,7 @@
  */
 import { money } from '../money/format';
 import { personName, type CalendarCatalogs } from './catalogs';
-import type { CalendarConfig } from './config';
+import { goesOut, type CalendarConfig } from './config';
 import { LOCATION_NAMES } from './diff';
 import { formatDuration, formatHours, formatNotice } from './format';
 import { fmtLength } from './when';
@@ -30,6 +30,7 @@ export const CALENDAR_SECTIONS = [
   { key: 'crm', name: 'CRM' },
   { key: 'payments', name: 'Payments' },
   { key: 'automations', name: 'Automations' },
+  { key: 'design', name: 'Design' },
 ] as const;
 export type CalendarSectionKey = (typeof CALENDAR_SECTIONS)[number]['key'];
 
@@ -55,6 +56,7 @@ const FIELD_MODULE: Record<string, CalendarSectionKey> = {
   crm: 'crm',
   payments: 'payments',
   automations: 'automations',
+  design: 'design',
 };
 
 export function moduleOfField(field: string): CalendarSectionKey | null {
@@ -166,6 +168,11 @@ export function describeCalendar(config: CalendarConfig, catalogs: CalendarCatal
   else if (kinds.includes('business')) {
     const address = config.locations.options.find((o) => o.kind === 'business')?.address;
     out.push(`Customers come to ${address || 'the business'}.`);
+  } else if (kinds.includes('meetup')) {
+    const usual = config.locations.options.find((o) => o.kind === 'meetup')?.address;
+    out.push(
+      `You meet somewhere: ${usual ? `${usual}, ` : ''}a spot halfway between you, or one the customer names.`,
+    );
   } else if (kinds.includes('virtual')) out.push('It happens on a video call.');
   else if (kinds.includes('phone')) out.push('It happens on a phone call.');
   if (kinds.length > 1 && config.locations.customerChooses)
@@ -175,8 +182,12 @@ export function describeCalendar(config: CalendarConfig, catalogs: CalendarCatal
         'or',
       )}.`,
     );
-  const { before, after, travelMinutes } = config.buffers;
-  if (travelMinutes && kinds.includes('customer_address'))
+  const { before, after, travelMinutes, driveBetween } = config.buffers;
+  if (driveBetween && kinds.some(goesOut))
+    out.push(
+      'Customers give their address first and see only times the team can drive to, from the visit before or where their day starts.',
+    );
+  if (travelMinutes && kinds.some(goesOut))
     out.push(`${fmtLength(travelMinutes)} of travel is kept before and after each visit.`);
   if (before || after)
     out.push(
@@ -279,6 +290,10 @@ export function moduleSummary(
         : 'None on the calendar';
     case 'buffers': {
       const b = config.buffers;
+      if (b.driveBetween)
+        return b.travelMinutes
+          ? `Drive times + ${fmtLength(b.travelMinutes)} travel`
+          : 'Drive times between visits';
       if (b.travelMinutes) return `${fmtLength(b.travelMinutes)} travel`;
       if (b.before || b.after) return `${b.before} / ${b.after} min`;
       return 'None';
@@ -349,5 +364,11 @@ export function moduleSummary(
     }
     case 'automations':
       return 'Workflows for its appointments';
+    case 'design': {
+      const d = config.design;
+      if (!d) return 'Your business’s colour';
+      if (d.matched) return `Matches ${d.matched.site}`;
+      return 'Your own look';
+    }
   }
 }

@@ -35,6 +35,8 @@ const world = vi.hoisted(() => ({
   /** The made-up page each address opens, and what LinkedIn does when it's pressed. */
   pages: (_url: string): { fixture: string; at?: string } | null => null,
   behave: (_doc: Document, _url: string): void => undefined,
+  /** Where LinkedIn sends the tab on its own once it's been read this many times: a page that came late. */
+  moves: null as { reads: number; fixture: string; at: string } | null,
   opened: [] as string[],
   noted: [] as { note: unknown; platform: unknown }[],
   needs: [] as unknown[],
@@ -125,6 +127,7 @@ vi.mock('../src/tab', async () => {
     WorkTab: class {
       private doc: Document | null = null;
       private at = '';
+      private reads = 0;
       get tabId() {
         return this.doc ? 9 : null;
       }
@@ -139,15 +142,26 @@ vi.mock('../src/tab', async () => {
         if (!page) throw new Error(`No page for ${url}`);
         this.at = page.at ?? url;
         this.doc = load(page.fixture, this.at);
+        this.reads = 0;
         world.behave(this.doc, url);
         return 9;
+      }
+      private moved() {
+        const moves = world.moves;
+        if (!moves || this.reads++ < moves.reads) return;
+        this.at = moves.at;
+        this.doc = load(moves.fixture, moves.at);
+        world.moves = null;
       }
       async ask(message: Record<string, unknown> & { type: string }) {
         const doc = this.doc;
         if (!doc) return { ok: false, error: 'The LinkedIn tab was closed.' };
         switch (message.type) {
-          case 'hfos-read':
-            return { ok: true, result: readPage(doc, this.at, new Date(), { sideOf: () => null }) };
+          case 'hfos-read': {
+            this.moved();
+            const now = this.doc!;
+            return { ok: true, result: readPage(now, this.at, new Date(), { sideOf: () => null }) };
+          }
           case 'hfos-outline': {
             // As the tab's own (src/content.ts): the page's read, and its outline with what was found.
             const result = readPage(doc, this.at, new Date(), { sideOf: () => null });
@@ -362,6 +376,7 @@ beforeEach(() => {
   world.answers = {};
   world.hfos = {};
   world.behave = () => undefined;
+  world.moves = null;
   world.choices = { on: true, sending: 'steps', collect: false, posting: 'after_ok' };
   world.hours = notToday();
   store.set(NETWORKS_KEY, {
@@ -456,17 +471,20 @@ describe('what it does on LinkedIn’s list', () => {
     const all = { ...asked, engaged: 'e' };
     expect(nextLinkedInDaily({ daily: all })).toBe('post_people');
     expect(nextLinkedInDaily({ daily: { ...all, post_people: 's' } })).toBe('found_checks');
-    // And on the 1st of each month, their own profile read (decision 99).
-    expect(nextLinkedInDaily({ daily: { ...all, post_people: 's', found_checks: 't' } })).toBe(
-      'profile',
-    );
+    // Then HandsFreeOS's own comment research (decision 172), marked done before its turn for anyone who didn't
+    // start one, and on the 1st of each month, their own profile read (decision 99).
+    const found = { ...all, post_people: 's', found_checks: 't' };
+    expect(nextLinkedInDaily({ daily: found })).toBe('comment_research');
+    expect(nextLinkedInDaily({ daily: { ...found, comment_research: 'r' } })).toBe('profile');
     expect(
-      nextLinkedInDaily({ daily: { ...all, post_people: 's', found_checks: 't', profile: 'p' } }),
+      nextLinkedInDaily({ daily: { ...found, comment_research: 'r', profile: 'p' } }),
     ).toBeNull();
     // While the person is at their computer, those put off as they needed the screen are passed over (decision 120).
     const putOff = ['engaged', 'post_people', 'profile'] as const;
     expect(nextLinkedInDaily({ daily: asked }, putOff)).toBe('found_checks');
-    expect(nextLinkedInDaily({ daily: { ...all, found_checks: 't' } }, putOff)).toBeNull();
+    expect(
+      nextLinkedInDaily({ daily: { ...all, found_checks: 't', comment_research: 'r' } }, putOff),
+    ).toBeNull();
   });
 
   it('notes a good post with no reactions count to open, as LinkedIn’s, with the page’s outline', async () => {
@@ -532,6 +550,26 @@ describe('what it does on LinkedIn’s list', () => {
     expect(notedAs()).toEqual([
       { kind: 'friend_request', auto: true, postUrl: null, platform: 'linkedin' },
     ]);
+  });
+
+  it('passes over an invitation to someone you’re connected with, as nothing to report (decision 145)', async () => {
+    world.pages = () => ({ fixture: 'linkedin-profile.html' });
+    let pressed = false;
+    world.behave = (doc) => {
+      for (const degree of doc.querySelectorAll('main span[aria-hidden="true"]'))
+        if (degree.textContent === '· 2nd') degree.textContent = '· 1st';
+      const connect = doc.querySelector('[aria-label="Invite Dana Reyes to connect"]')!;
+      connect.addEventListener('click', () => (pressed = true));
+      connect.remove();
+    };
+    const outcome = await doWork({ do: 'step', item: item({}) }, ME.businessId, false);
+    expect(outcome).toEqual({
+      done: false,
+      line: 'Dana Reyes: you’re connected already',
+      skip: true,
+    });
+    expect(pressed).toBe(false);
+    expect(notedAs()).toEqual([]);
   });
 
   it('opens their profile by member id when the name in their kept address shows someone else, as when they changed it (decision 131)', async () => {
@@ -848,6 +886,7 @@ describe('what it does on LinkedIn’s list', () => {
   const POST_ID = '3c4d5e6f-7081-4293-a4b5-c6d7e8f90a1b';
 
   it('drafts a comment on a good post from the post, to wait for an OK at first (decision 102)', async () => {
+    world.pages = (url) => (url === POST ? { fixture: 'linkedin-post.html' } : null);
     world.hfos['hfos-draft'] = () => ({ drafts: ['Good reminder. Ours went at 12 years.'] });
     world.answers['/v1/commands/outreach.send.queue'] = () => ({ state: 'waiting' });
     const outcome = await doWork(
@@ -871,8 +910,9 @@ describe('what it does on LinkedIn’s list', () => {
       postId: POST_ID,
       text: 'Good reminder. Ours went at 12 years.',
     });
-    // Nothing is written on LinkedIn till it's OK'd.
-    expect(world.opened).toEqual([]);
+    // Nothing is written on LinkedIn till it's OK'd: the post is only opened, for the AI to see its picture (decision
+    // 172, from 0.144.0), and nothing is pressed there.
+    expect(world.opened).toEqual([POST]);
     expect(notedAs()).toEqual([]);
   });
 
@@ -1189,6 +1229,30 @@ describe('what it does on LinkedIn’s list', () => {
     expect(outcome).toMatchObject({
       stop: expect.stringContaining('The extension stops on LinkedIn for today'),
     });
+    expect(world.asked.find((a) => a.type === 'hfos-warning')?.input).toMatchObject({
+      platform: 'linkedin',
+    });
+    expect(store.get(WARNED_KEY)).toMatchObject({ linkedin: { day: expect.any(String) } });
+  });
+
+  it('stops for the day on LinkedIn’s security check that came after its read, never handing the step over', async () => {
+    // The owner's problem reports of 19 Nov 2026: the page read wasn't their profile, then LinkedIn went on to its
+    // check (/checkpoint/challenge/…), and three warm-ups were handed over in turn as "a different page".
+    world.pages = () => ({ fixture: 'linkedin-profile.html', at: `${LI}/in/someone-else-9/` });
+    world.moves = {
+      reads: 1,
+      fixture: 'linkedin-checkpoint.html',
+      at: `${LI}/checkpoint/challenge/AgMadeUp?ut=made-up`,
+    };
+    const outcome = await doWork(
+      { do: 'step', item: item({ kind: 'warm_up' }) },
+      ME.businessId,
+      false,
+    );
+    expect(outcome).toMatchObject({
+      stop: expect.stringContaining('The extension stops on LinkedIn for today'),
+    });
+    expect(world.opened).toEqual([DANA]);
     expect(world.asked.find((a) => a.type === 'hfos-warning')?.input).toMatchObject({
       platform: 'linkedin',
     });

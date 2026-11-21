@@ -13,6 +13,7 @@
  */
 import { and, eq, inArray } from 'drizzle-orm';
 import {
+  inHands,
   definitionOf,
   executeCommandIn,
   fillFunnelText,
@@ -394,6 +395,21 @@ async function planTick(
     }
     if (await somethingWaits(tx, conv)) return { kind: 'wait', at: new Date(now + BUSY_MS) };
     channel = conv.channel as TeammateChannel;
+  } else if (await inHands(tx, row.personId)) {
+    // Someone on the team has them (core's messaging/hands.ts): no first message either, until they're handed back.
+    await executeCommandIn(
+      tx,
+      funnelPausePerson,
+      {
+        workspaceId: scope.workspaceId,
+        funnelPersonId: row.id,
+        paused: true,
+        reason: 'taken_over',
+      },
+      actor,
+      meta,
+    );
+    return done;
   } else {
     const [person] = await rows<{
       phone_e164: string | null;

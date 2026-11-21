@@ -341,12 +341,26 @@ export const BusinessGetOutput = z.object({
   isPlatform: z.boolean(),
   /** HandsFreeOS video calls are on for it (docs/video-calls.md). */
   videoCalls: z.boolean(),
-  /** Add-ons still being built that staff handed this business to try (Real Estate, step 2). */
+  /** Add-ons staff gave this business free (Real Estate, step 2; with an end date since 20261027028500). */
   addonGrants: z.array(
     z.object({
       addonId: z.string(),
       note: z.string().nullable(),
       grantedAt: isoDateTime,
+      /** When the gift ends; null until taken back. A date in the past: it has ended. */
+      freeUntil: isoDateTime.nullable(),
+    }),
+  ),
+  /** What it pays for paid add-ons (20261027028500), one row each it ever started. */
+  addonSubscriptions: z.array(
+    z.object({
+      addonId: z.string(),
+      status: z.enum(['trial', 'active', 'past_due', 'ended']),
+      priceCents: z.number().int(),
+      trialEndsAt: isoDateTime.nullable(),
+      paidThrough: isoDateTime.nullable(),
+      nextChargeAt: isoDateTime.nullable(),
+      stopAt: isoDateTime.nullable(),
     }),
   ),
   people: z.array(
@@ -562,7 +576,7 @@ export const PhoneListenerSetOutput = z.object({
   changed: z.boolean(),
 });
 
-/** Turning HandsFreeOS video calls on for one business (docs/video-calls.md), test businesses first. */
+/** Turning HandsFreeOS video calls on or off for one business (docs/video-calls.md); every business starts with them on. */
 export const VideoCallsSetInput = z.object({ workspaceId: uuid, on: z.boolean() });
 
 export const VideoCallsSetOutput = z.object({

@@ -8,6 +8,7 @@
  */
 
 import {
+  ABOUT_YOU_WORDS,
   APPEARANCE_LABELS,
   EMAIL_ONLY_ROWS,
   HfosError,
@@ -180,6 +181,13 @@ const EMAIL_SWITCHES: Record<string, { key: EmailSwitch; label: string }> = Obje
   ]),
 );
 
+/** About you as the model gave it: their words, an empty box to clear it, or left as it is. */
+const aboutArg = (args: Args): string | undefined =>
+  typeof args['aboutYou'] === 'string' ? args['aboutYou'].trim() : undefined;
+
+/** Said on the card whenever it changes About you: whose it is, and how it's used. */
+const ABOUT_YOU_NOTE = `${ABOUT_YOU_WORDS.private} ${ABOUT_YOU_WORDS.how}`;
+
 /** Said on the card whenever it changes the look: the phone app keeps its own, which this never touches. */
 const WEB_LOOK_ONLY =
   'This changes the web app, for every browser you sign in on. The phone app keeps its own: set it on the phone under More → Settings → Appearance.';
@@ -193,6 +201,10 @@ const updateMyAccount: SettingsConfirmTool = {
       fields.push({ label: 'Your name', value: name });
       if (name !== user.fullName) fields.push({ label: 'Was', value: user.fullName });
     }
+    // About you (decision 165 in docs/outreach.md): the whole box, as they'll see it saved.
+    const about = aboutArg(args);
+    if (about !== undefined)
+      fields.push({ label: ABOUT_YOU_WORDS.title, value: about || 'Cleared: nothing kept' });
     const appearance = str(args['appearance']);
     if (appearance)
       fields.push({
@@ -208,19 +220,25 @@ const updateMyAccount: SettingsConfirmTool = {
     if (!fields.length)
       throw HfosError.validation(
         [],
-        'Nothing would change. Say what to change: your name, the web app’s light or dark, or which emails you get.',
+        'Nothing would change. Say what to change: your name, About you, the web app’s light or dark, or which emails you get.',
       );
+    const notes = [
+      ...(about !== undefined ? [ABOUT_YOU_NOTE] : []),
+      ...(appearance ? [WEB_LOOK_ONLY] : []),
+    ];
     return {
       card: settingsCard(toolCallId, 'update_my_account', {
         title: 'Change your account',
         fields,
         confirmLabel: 'Save the change',
-        ...(appearance ? { warnings: [{ kind: 'note' as const, text: WEB_LOOK_ONLY }] } : {}),
+        ...(notes.length
+          ? { warnings: notes.map((text) => ({ kind: 'note' as const, text })) }
+          : {}),
       }),
       result: {
         waiting: true,
         changes: fields.map((f) => f.label),
-        ...(appearance ? { note: WEB_LOOK_ONLY } : {}),
+        ...(notes.length ? { note: notes.join(' ') } : {}),
       },
     };
   },
@@ -242,15 +260,20 @@ const updateMyAccount: SettingsConfirmTool = {
       ...(str(args['appearance']) ? { theme: str(args['appearance']) } : {}),
       ...(touchedNotifications ? { notifications } : {}),
     };
-    await command(db, ctx, 'user.update_profile', {
+    const profile = {
       ...(str(args['fullName']) ? { fullName: str(args['fullName']) } : {}),
       ...(Object.keys(settings).length ? { settings } : {}),
-    });
+    };
+    const about = aboutArg(args);
+    if (Object.keys(profile).length) await command(db, ctx, 'user.update_profile', profile);
+    if (about !== undefined) await command(db, ctx, 'user_about.set', { about });
+    const onlyAbout = about !== undefined && !Object.keys(profile).length;
     return {
       outcome: 'Saved',
-      // Notifications' own section when only emails changed: the phone opens its Notifications screen for it.
-      href: `/app/w/${ctx.workspaceId}/settings${touchedNotifications && !settings.theme && !str(args['fullName']) ? '#notifications' : ''}`,
-      command: 'user.update_profile',
+      // Notifications' own section when only emails changed (the phone opens its Notifications screen for it), and
+      // About you's own when only it did.
+      href: `/app/w/${ctx.workspaceId}/settings${onlyAbout ? '#about-you' : touchedNotifications && !settings.theme && !str(args['fullName']) ? '#notifications' : ''}`,
+      command: onlyAbout ? 'user_about.set' : 'user.update_profile',
     };
   },
 };

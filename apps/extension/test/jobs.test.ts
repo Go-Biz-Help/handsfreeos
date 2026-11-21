@@ -117,7 +117,7 @@ const group = (id: string, more: Record<string, unknown> = {}) => ({
 });
 
 describe('the once-a-day jobs, in order', () => {
-  it('checks requests, tidies, then groups, joins, members, posts, likes in groups, chats, followers, friends and partners, each once a day', () => {
+  it('checks requests, tidies, then groups, joins, members, posts, likes in groups, chats, events, followers, friends and partners, each once a day', () => {
     expect(DAILY_JOBS).toEqual([
       'requests',
       'tidy',
@@ -128,10 +128,12 @@ describe('the once-a-day jobs, in order', () => {
       'posts',
       'active',
       'chats',
+      'events',
       'followers',
       'checks',
       'partners',
       'helpful',
+      'comment_research',
       'profile',
     ]);
     const fresh = freshState('2026-10-10');
@@ -180,10 +182,34 @@ describe('the once-a-day jobs, in order', () => {
           posts: '',
           active: '',
           chats: '',
+          events: '',
           followers: '',
           checks: '',
           partners: '',
           helpful: '',
+        },
+      }),
+    ).toBe('comment_research');
+    // HandsFreeOS's own comment research (decision 172), then the profile: for anyone who didn't start one, the runner
+    // marks the research done before its turn.
+    expect(
+      nextDaily({
+        daily: {
+          requests: '',
+          tidy: '',
+          occasions: '',
+          group_checks: '',
+          join: '',
+          members: '',
+          posts: '',
+          active: '',
+          chats: '',
+          events: '',
+          followers: '',
+          checks: '',
+          partners: '',
+          helpful: '',
+          comment_research: '',
         },
       }),
     ).toBe('profile');
@@ -199,10 +225,12 @@ describe('the once-a-day jobs, in order', () => {
           posts: '',
           active: '',
           chats: '',
+          events: '',
           followers: '',
           checks: '',
           partners: '',
           helpful: '',
+          comment_research: '',
           profile: '',
         },
       }),
@@ -220,6 +248,7 @@ describe('the once-a-day jobs, in order', () => {
           posts: '',
           active: '',
           chats: '',
+          events: '',
           followers: '',
           checks: '',
           helpful: '',
@@ -239,6 +268,7 @@ describe('the once-a-day jobs, in order', () => {
           posts: '',
           active: '',
           chats: '',
+          events: '',
           checks: '',
           partners: '',
           helpful: '',
@@ -258,6 +288,7 @@ describe('the once-a-day jobs, in order', () => {
           members: '',
           posts: '',
           chats: '',
+          events: '',
           followers: '',
           checks: '',
           partners: '',
@@ -266,6 +297,28 @@ describe('the once-a-day jobs, in order', () => {
         },
       }),
     ).toBe('active');
+    // A state kept before the events near the person (0.150.0, decision 188) reads them next, before the followers.
+    expect(
+      nextDaily({
+        daily: {
+          requests: '',
+          tidy: '',
+          occasions: '',
+          group_checks: '',
+          join: '',
+          members: '',
+          posts: '',
+          active: '',
+          chats: '',
+          followers: '',
+          checks: '',
+          partners: '',
+          helpful: '',
+          comment_research: '',
+          profile: '',
+        },
+      }),
+    ).toBe('events');
     // A state kept by 0.11 has none: it starts from the first.
     expect(nextDaily({})).toBe('requests');
   });

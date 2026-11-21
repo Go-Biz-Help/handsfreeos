@@ -5,7 +5,8 @@
  */
 import { and, eq } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
-import { resources, scheduleExceptions, schedules, services } from '@hfos/db/schema';
+import { dayStarts, resources, scheduleExceptions, schedules, services } from '@hfos/db/schema';
+import { dayStartShown, ownDayStarts } from '../calendar/day-start';
 import { formatHours } from '../calendar/format';
 import {
   ALWAYS_OPEN_HOURS,
@@ -19,6 +20,8 @@ import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import {
+  DayStartSetInput,
+  DayStartShown,
   ScheduleSetInput,
   ScheduleSetOutput,
   TimeOffAddInput,
@@ -311,5 +314,59 @@ export const timeOffRemove = defineCommand({
       },
     });
     return { exceptionId: row.id };
+  },
+});
+
+/**
+ * Where a person's day starts (docs/outreach.md, decision 179): on a calendar that leaves time to drive between
+ * visits, the drive to their first visit of a day is timed from this address. Yourself with appointments.write;
+ * a teammate's with calendars.manage. Null or empty goes back to the business's address. The address is often a
+ * home, so the history says only whose it is and that it changed.
+ */
+export const dayStartSet = defineCommand({
+  name: 'day_start.set',
+  description:
+    'Set where your working day starts (a street address), or (owners and admins) a teammate’s: on calendars that leave time to drive between visits, the drive to the first visit of a day is timed from it. Null starts the day from the business’s address again.',
+  risk: 1,
+  input: DayStartSetInput,
+  output: DayStartShown,
+  permission: 'appointments.write',
+  scope: inWorkspace,
+  emits: ['day_start.updated'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const userId = input.userId ?? me;
+    if (userId !== me && !scopeCan(ctx.scope, 'calendars.manage'))
+      throw HfosError.forbidden(
+        'Only owners and admins change where someone else’s day starts. Ask one of them, or change your own.',
+      );
+    const name = await ownerName(ctx.tx, ws, 'user', userId);
+    const address = input.address?.replace(/\s+/g, ' ').trim() || null;
+    const was = (await ownDayStarts(ctx.tx, ws, [userId])).get(userId) ?? null;
+    if (address === null)
+      await ctx.tx
+        .delete(dayStarts)
+        .where(and(eq(dayStarts.workspaceId, ws), eq(dayStarts.userId, userId)));
+    else
+      await ctx.tx
+        .insert(dayStarts)
+        .values({ workspaceId: ws, userId, address, updatedBy: me })
+        .onConflictDoUpdate({
+          target: [dayStarts.workspaceId, dayStarts.userId],
+          set: { address, updatedBy: me },
+        });
+    if (address !== was) {
+      const from = (a: string | null) => (a ? 'their own address' : 'the business’s address');
+      await ctx.emit({
+        type: 'day_start.updated',
+        entityType: 'user',
+        entityId: userId,
+        payload: { userId },
+        before: { owner: name, dayStart: from(was) },
+        after: { owner: name, dayStart: from(address) },
+      });
+    }
+    return dayStartShown(ctx.tx, ws, userId);
   },
 });

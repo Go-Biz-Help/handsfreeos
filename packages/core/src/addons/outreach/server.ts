@@ -22,6 +22,7 @@ import { helpfulCommands, helpfulQueries } from './ops/helpful';
 import { groupCommands, groupQueries } from './ops/groups';
 import { journeyQueries } from './ops/journey';
 import { leadCommands } from './ops/leads';
+import { commentResearchCommands, commentResearchQueries } from './ops/comment-research';
 import { likeYoursCommands, likeYoursQueries } from './ops/like-yours';
 import { eventsCommands, eventsQueries } from './ops/events-near';
 import { activeCommands, activeQueries } from './ops/active';
@@ -45,11 +46,19 @@ import { setupCommands, setupQueries } from './ops/setup';
 import { stageCommands, stageQueries } from './ops/stages';
 import { tidyCommands, tidyQueries } from './ops/tidy';
 import { townQueries } from './ops/towns';
+import { localCommands, localQueries } from './ops/local';
 import { postCommands, postQueries } from './ops/posts';
+import { referralCommands, referralQueries } from './ops/referrals';
+import { callCommands } from './ops/calls';
+import { handsCommands, handsQueries } from './ops/in-hands';
+import { commentReplyCommands } from './ops/comment-replies';
 import { todayQueries } from './ops/today';
 import { trackingCommands, trackingQueries } from './ops/tracking';
 import { waitingCommands, waitingQueries } from './ops/waiting';
 
+/** Why the Assistant never runs the comment research (decision 166). */
+const RESEARCH =
+  'HandsFreeOS’s own study of how people comment, run by its staff from Social Outreach → Settings: no business’s to run.';
 /** Why the Assistant never runs what the extension sends in. */
 const EXTENSION = 'What the browser extension read, saw or did, as the person’s own browser.';
 
@@ -66,6 +75,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...tidyCommands,
     ...requestPauseCommands,
     ...postCommands,
+    ...commentReplyCommands,
     ...alertCommands,
     ...openerCommands,
     ...demoCommands,
@@ -85,7 +95,11 @@ export const outreachAddonServer: AddonServerModule = {
     ...stageCommands,
     ...groupCheckCommands,
     ...helpfulCommands,
+    ...referralCommands,
+    ...callCommands,
+    ...handsCommands,
     ...countryCommands,
+    ...localCommands,
     ...trackingCommands,
     ...partnerCommands,
     ...personMenuCommands,
@@ -94,6 +108,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...ownerCommands,
     ...occasionCommands,
     ...likeYoursCommands,
+    ...commentResearchCommands,
     ...eventsCommands,
     ...followersCommands,
     ...activeCommands,
@@ -124,6 +139,8 @@ export const outreachAddonServer: AddonServerModule = {
     ...stageQueries,
     ...groupCheckQueries,
     ...helpfulQueries,
+    ...referralQueries,
+    ...handsQueries,
     ...countryQueries,
     ...trackingQueries,
     ...partnerQueries,
@@ -131,10 +148,12 @@ export const outreachAddonServer: AddonServerModule = {
     ...findQueries,
     ...journeyQueries,
     ...likeYoursQueries,
+    ...commentResearchQueries,
     ...eventsQueries,
     ...followersQueries,
     ...activeQueries,
     ...townQueries,
+    ...localQueries,
   ],
   // What the extension sends in: only the person's own browser can see Facebook, Instagram, LinkedIn and Alignable.
   notForTheAssistant: {
@@ -152,6 +171,7 @@ export const outreachAddonServer: AddonServerModule = {
     'outreach.warning.note': EXTENSION,
     'outreach.requests.pause': EXTENSION,
     'outreach.posts.save': EXTENSION,
+    'outreach.comment_replies.save': EXTENSION,
     'outreach.replies.note': EXTENSION,
     'outreach.warm_up.missed': EXTENSION,
     'outreach.request.closed': EXTENSION,
@@ -186,6 +206,15 @@ export const outreachAddonServer: AddonServerModule = {
     'outreach.active.next': EXTENSION,
     'outreach.active.reply': EXTENSION,
     'outreach.finds.towns': EXTENSION,
+    'outreach.referrals.due': EXTENSION,
+    'outreach.referral.posted': EXTENSION,
+    'outreach.refer_ask.sent': EXTENSION,
+    'outreach.comment_research.next': EXTENSION,
+    'outreach.comment_research.save': EXTENSION,
+    'outreach.comment_research.get': RESEARCH,
+    'outreach.comment_research.start': RESEARCH,
+    'outreach.comment_research.stop': RESEARCH,
+    'outreach.comment_research.use': RESEARCH,
     'outreach.live.watch':
       'The ticker saying it’s on screen, so the extension tells what it’s doing every few seconds.',
     'outreach.ticker':

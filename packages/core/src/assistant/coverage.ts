@@ -110,6 +110,16 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'funnel.decide_suggestion': {},
   'funnel.pause_person': {},
   'funnel.remove_person': {},
+  // In your hands (messaging/hands.ts): Take over on a customer's page, and Give back to the AI there and on
+  // Contacts → In your hands.
+  'person.take_over': {
+    about:
+      'As Take over on a customer’s page: the AI stops messaging them anywhere until someone gives them back. Messaging or calling them yourself does the same on its own.',
+  },
+  'person.hand_back': {
+    about:
+      'As Give back to the AI on a customer’s page or Contacts → In your hands: pass personIds from read_person_in_hands, or all (with mine for only the person’s own) for Give all back.',
+  },
   // ---- Calendar and an appointment ----
   'appointment.make_meeting_link': {},
   // Still there, on the "How did it go?" push after a visit: nothing about the visit changes.
@@ -205,6 +215,8 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'calendar_connection.sync_now': {},
   'meeting_connection.check_settings': {},
   'meeting_connection.disconnect': {},
+  // Where your day starts, for drive times between visits (decision 179 in docs/outreach.md).
+  'day_start.set': {},
   'live_meeting_account.disconnect': { offeredTo: 'assistant.use' },
   // ---- Settings → Workspace, Add-ons and Safety ----
   'look.find': {},
@@ -213,6 +225,11 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'addon.save_my_settings': {},
   'addon.vote': {},
   'addon.unvote': {},
+  // Paid add-ons (20261027028500): turned off at the end of what's paid, or kept after all.
+  'addon_billing.stop': {},
+  'addon_billing.keep': {
+    warning: 'This charges the default card for it each month until it’s turned off.',
+  },
   // As its Disconnect and Switch back confirms say it: the key or sign-in can't be read back once it's wiped.
   'addon_connection.disconnect': {
     warning:
@@ -248,7 +265,7 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
     about:
       'to is the web person’s email, name their name if known. fixes is any of form (add the sign-up form), policy (the privacy policy and terms’ part about texts) and chat (the website chat’s code). formId is one of the business’s published forms from list_forms, or null for a form of their own (they get the box and its words); left out, the newest published form. A refusal saying the form or chat isn’t allowed on the website is fixed by adding the website to its sites first.',
     warning:
-      'This emails the person named, from HandsFreeOS in the business’s name, with each change in its own text file. Replies go to you, and you get a copy.',
+      'This emails the person named, from HandsFreeOS support in the business’s name, with each change in its own text file. You get a copy, and replies go to you and to a HandsFreeOS support ticket.',
   },
   'number_import.start': {},
   'number_import.check_now': {},
@@ -312,6 +329,11 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   },
   // ---- Settings → Calendars ----
   'booking_site.set_page': {},
+  // A calendar's Booking link → Embed: the sites allowed to show it. get_calendar_settings gives the code to paste.
+  'calendar.set_embed_sites': {
+    about:
+      'embedOrigins is the whole list: read get_calendar_settings sitesAllowedToShowIt first and pass every site to keep plus the new ones (an empty list stops it showing on any site).',
+  },
   // ---- Settings → Payments and Partners ----
   'payment_connection.set_access': {},
   'partner.payout_forget_card': {
@@ -551,6 +573,11 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'number_port.begin_upload': 'a file from the person’s own computer or phone',
   'number_port.attach_document': 'a file from the person’s own computer or phone',
   'organization.create': 'a new business is set up on its own pages, where it pays',
+  'practice.start':
+    'starting a practice business from Admin → Try onboarding, whose sign-up the person then goes through themselves, as a new customer would',
+  'practice.pay':
+    'the stand-in checkout in a practice business, which the person goes through as a new customer would on Stripe’s page',
+  'practice.end': 'deleting a practice business for good, as Delete business does',
   'platform.view_as.start':
     'looking at a business as support changes this screen, which only the person starts',
   'platform.view_as.end':
@@ -596,6 +623,7 @@ export interface SettingWay {
 export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
   // ---- Account ----
   'account.profile': [{ tool: 'update_my_account', field: 'fullName' }],
+  'account.about_you': [{ tool: 'update_my_account', field: 'aboutYou' }],
   'account.appearance': [{ tool: 'update_my_account', field: 'appearance' }],
   'account.menu': [{ tool: 'arrange_my_menu', field: 'places' }],
   'account.notifications': [
@@ -649,6 +677,7 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'do_calendar_connection_sync_now', field: 'connectionId' },
   ],
   'my_calendar.video': [{ tool: 'do_meeting_connection_disconnect', field: 'connectionId' }],
+  'my_calendar.day_start': [{ tool: 'do_day_start_set', field: 'address' }],
   // ---- Workspace ----
   'workspace.name': [{ tool: 'update_business', field: 'name' }],
   'workspace.time_zone': [{ tool: 'update_business', field: 'timezone' }],

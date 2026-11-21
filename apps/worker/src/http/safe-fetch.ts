@@ -9,6 +9,7 @@ import {
 } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { BlockList, isIP, type LookupFunction } from 'node:net';
+import { SITE_READER_AGENT } from '@hfos/core';
 
 /**
  * Fetching an address someone typed in (a business's website to scan, a workflow's outgoing webhook) without
@@ -84,7 +85,8 @@ export interface SafeFetchPolicy {
   readonly resolve?: Resolver;
 }
 
-const USER_AGENT = 'HandsFreeOS/1.0 (+https://handsfreeos.com)';
+/** How the reader names itself; core's words asking a host to let it in quote the same. */
+const USER_AGENT = SITE_READER_AGENT;
 const REDIRECTS = new Set([301, 302, 303, 307, 308]);
 
 const blocked = new BlockList();

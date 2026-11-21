@@ -9,12 +9,20 @@
  * times — with no invoice to chase and nothing for anyone to explain.
  *
  * Paying runs the worker's two phases (apps/worker/src/http/booking.ts). Phase one asks for a session and
- * hands back whatever the provider needs the browser to do — with the stand-in, a page to go to. The provider
- * sends the customer back to `/hold/<token>`, which names what it did, and phase two reads the answer back
- * from the provider rather than trusting anything in this page.
+ * hands back whatever the provider needs the browser to do: Stripe's or Square's own fields, shown right here
+ * (components/money/provider-fields.tsx), or with the stand-in a page to go to, which sends the customer back to
+ * `/hold/<token>`. Either way phase two names what the provider did, and the worker reads the answer back from
+ * the provider rather than trusting anything in this page.
  */
-import { CircleAlert, CreditCard, Landmark, Lock } from 'lucide-react';
-import { useState } from 'react';
+import { ChevronLeft, CircleAlert, CreditCard, Landmark, Lock } from 'lucide-react';
+import { useRef, useState } from 'react';
+import {
+  canShowProviderFields,
+  ProviderFields,
+  type ProviderAnswer,
+  type ProviderFieldsHandle,
+  type ProviderSession,
+} from '@/components/money/provider-fields';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api/errors';
 import {
@@ -25,6 +33,7 @@ import {
   type RecordedPay,
 } from '@/lib/api/public-booking';
 import { cn } from '@/lib/utils';
+import { useEmbedded } from './embedded';
 import { dayShort, lengthLabel, money, timeOf, timeRange, joinNames, dayLong } from './format';
 import { callPhrase } from './public-shell';
 import { zoneWords } from './viewer-zone';
@@ -73,18 +82,18 @@ export function forgetPress(token: string): void {
   }
 }
 
-/** What the provider sent the customer back with: an intent it confirmed, a card token, or nothing. */
-export type Returned =
-  | { kind: 'confirmed'; providerPaymentId: string }
-  | { kind: 'tokenised'; sourceToken: string; method: PayMethod }
-  | { kind: 'cancelled' }
-  | null;
+/**
+ * What the provider sent the customer back with: an intent it confirmed, a card token, nothing (they gave up),
+ * or a refusal (Stripe's `redirect_status=failed`, when the bank's own check said no).
+ */
+export type Returned = ProviderAnswer | { kind: 'cancelled' } | { kind: 'refused' } | null;
 
 export function readReturn(search: string): Returned {
   const q = new URLSearchParams(search);
   const payment = q.get('payment');
   const sourceToken = q.get('token');
   if (payment === 'cancelled') return { kind: 'cancelled' };
+  if (q.get('redirect_status') === 'failed') return { kind: 'refused' };
   if (payment) return { kind: 'confirmed', providerPaymentId: payment };
   if (sourceToken)
     return { kind: 'tokenised', sourceToken, method: q.get('method') === 'ach' ? 'ach' : 'card' };
@@ -159,8 +168,64 @@ export function DepositStep({
   const [method, setMethod] = useState<PayMethod>(hold.pay.methods[0] ?? 'card');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // On the business's own site: the provider's page, opened in a tab of its own (it refuses to be shown inside
+  // another site), and whether the browser let it open by itself.
+  const embedded = useEmbedded();
+  const [payTab, setPayTab] = useState<{ url: string; opened: boolean } | null>(null);
+  /** Phase one's answer while the provider's own fields are on the page, and whether they can be typed in. */
+  const [fields, setFields] = useState<ProviderSession | null>(null);
+  const [fieldsReady, setFieldsReady] = useState(false);
+  const fieldsRef = useRef<ProviderFieldsHandle>(null);
   const d = hold.deposit;
   const full = d.mode === 'full';
+
+  /** What phase two answered, said the same way whichever way the money was sent. */
+  function landed(answer: RecordedPay) {
+    forgetPress(hold.holdToken);
+    setBusy(false);
+    if (answer.state === 'gone') onLost(answer);
+    else if (answer.payment && answer.payment.status === 'failed') {
+      setFields(null);
+      setError(answer.payment.failureMessage ?? 'That card was refused. Try another one.');
+    } else onPaid(answer);
+  }
+
+  /** The button, once the provider's fields are filled in: confirm or tokenise there, then phase two. */
+  async function confirmFields() {
+    if (busy || !fields || !fieldsRef.current) return;
+    setBusy(true);
+    setError(null);
+    const back = await fieldsRef.current.submit();
+    if (!back) {
+      setBusy(false);
+      return;
+    }
+    try {
+      const answer = await payDeposit(hold.holdToken, {
+        clientId: recallPress(hold.holdToken)?.clientId ?? newClientId(),
+        ...(back.kind === 'confirmed'
+          ? { providerPaymentId: back.providerPaymentId }
+          : { sourceToken: back.sourceToken, method: back.method }),
+        website: '',
+      });
+      if (answer.stage === 'recorded') landed(answer);
+      else setBusy(false);
+    } catch (e) {
+      forgetPress(hold.holdToken);
+      setFields(null);
+      setBusy(false);
+      setError(e instanceof ApiError ? e.message : 'Something went wrong. Please try again.');
+    }
+  }
+
+  /** Back to the ways to pay, maybe with the other one picked. Nothing was taken: the press is dropped. */
+  function leaveFields(next: PayMethod | null) {
+    forgetPress(hold.holdToken);
+    setFields(null);
+    setFieldsReady(false);
+    setError(null);
+    if (next) setMethod(next);
+  }
 
   async function pay() {
     if (busy || !hold.pay.canPay) return;
@@ -171,8 +236,35 @@ export function DepositStep({
     try {
       const answer = await payDeposit(hold.holdToken, { ...press, website: '' });
       if (answer.stage === 'prepared') {
+        if (answer.payment.hostedUrl && embedded) {
+          // The provider sends them back to /hold/<token> in that tab, which finishes the booking there.
+          const tab = window.open(answer.payment.hostedUrl, '_blank');
+          if (tab) tab.opener = null;
+          setPayTab({ url: answer.payment.hostedUrl, opened: !!tab });
+          setBusy(false);
+          return;
+        }
         if (answer.payment.hostedUrl) {
           window.location.assign(answer.payment.hostedUrl);
+          return;
+        }
+        const session: ProviderSession = {
+          provider: answer.payment.provider ?? hold.pay.session?.provider ?? '',
+          flow: answer.payment.flow,
+          publishableKey: answer.payment.publishableKey,
+          accountId: answer.payment.accountId,
+          locationId: answer.payment.locationId,
+          clientSecret: answer.payment.clientSecret,
+          providerPaymentId: answer.payment.providerPaymentId,
+          amountCents: answer.payment.amountCents,
+          method: answer.payment.method,
+          returnUrl: answer.payment.returnUrl,
+        };
+        if (canShowProviderFields(session)) {
+          // The provider's own fields, right here; the press is kept for phase two.
+          setFieldsReady(false);
+          setFields(session);
+          setBusy(false);
           return;
         }
         // Nowhere to send them and no fields of the provider's to show: say so rather than a dead button.
@@ -183,12 +275,7 @@ export function DepositStep({
         setBusy(false);
         return;
       }
-      forgetPress(hold.holdToken);
-      setBusy(false);
-      if (answer.state === 'gone') onLost(answer);
-      else if (answer.payment && answer.payment.status === 'failed')
-        setError(answer.payment.failureMessage ?? 'That card was refused. Try another one.');
-      else onPaid(answer);
+      landed(answer);
     } catch (e) {
       forgetPress(hold.holdToken);
       setBusy(false);
@@ -241,7 +328,36 @@ export function DepositStep({
         {d.dueAfterCents > 0 ? <Row k="Due after the visit" v={money(d.dueAfterCents)} /> : null}
       </div>
 
-      {hold.pay.methods.length > 1 ? (
+      {fields ? (
+        <div className="flex flex-col gap-2" data-testid="deposit-fields">
+          <div className="flex min-h-6 items-center justify-between gap-2">
+            <h2 className="text-[15px] font-semibold">
+              {fields.method === 'ach' ? 'Pay by bank transfer' : 'Pay by card'}
+            </h2>
+            {(() => {
+              const other = hold.pay.methods.find((m) => m !== fields.method) ?? null;
+              return (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => leaveFields(other)}
+                  className="inline-flex min-h-6 items-center gap-0.5 text-xs font-medium text-accent-text hover:underline disabled:opacity-50"
+                  data-testid="deposit-fields-back"
+                >
+                  <ChevronLeft size={14} aria-hidden />
+                  {other ? `${METHODS[other].label} instead` : 'Back'}
+                </button>
+              );
+            })()}
+          </div>
+          <ProviderFields
+            ref={fieldsRef}
+            session={fields}
+            businessName={hold.business.name}
+            onReady={setFieldsReady}
+          />
+        </div>
+      ) : hold.pay.methods.length > 1 ? (
         <div role="radiogroup" aria-label="How to pay" className="flex flex-col gap-2">
           {hold.pay.methods.map((m) => {
             const Icon = METHODS[m].icon;
@@ -286,14 +402,38 @@ export function DepositStep({
         </p>
       ) : null}
 
+      {payTab ? (
+        <div
+          role="status"
+          className="flex flex-col gap-1.5 rounded-[10px] bg-accent-soft px-3.5 py-3 text-[13px] text-accent-text"
+          data-testid="deposit-new-tab"
+        >
+          <span>
+            {payTab.opened
+              ? 'The secure payment page opened in a new tab. Pay there, and your booking is confirmed in that tab.'
+              : 'Open the secure payment page to pay. Your booking is confirmed there once it’s paid.'}
+          </span>
+          <a
+            href={payTab.url}
+            target="_blank"
+            rel="noopener"
+            className="w-fit font-medium underline"
+            data-testid="deposit-open-tab"
+          >
+            {payTab.opened ? 'Open it again' : 'Open the payment page'}
+          </a>
+        </div>
+      ) : null}
+
       <div className="sticky bottom-0 z-10 -mx-4 mt-auto flex flex-col gap-2 border-t border-border bg-card px-4 py-2.5 md:static md:mx-0 md:mt-2 md:border-0 md:bg-transparent md:p-0">
         <Button
           type="button"
           size="lg"
           className="w-full"
           loading={busy}
-          disabled={!hold.pay.canPay}
-          onClick={() => void pay()}
+          // Once the payment page is open in its own tab, paying happens there (Open it again reopens it).
+          disabled={!hold.pay.canPay || !!payTab || (!!fields && !fieldsReady)}
+          onClick={() => void (fields ? confirmFields() : pay())}
           data-testid="pay-deposit"
         >
           <Lock size={16} aria-hidden />
@@ -304,10 +444,12 @@ export function DepositStep({
             ? 'Your card is held, not charged, until the time is confirmed. If the time goes while you’re typing, nothing is taken.'
             : 'A bank transfer can’t be held the way a card can. If the time goes, we send the whole amount back at once.'}
         </p>
-        <p className="text-center text-xs text-text-3">
-          Your card details go straight to our payment provider. {hold.business.name} never sees
-          them.
-        </p>
+        {fields ? null : (
+          <p className="text-center text-xs text-text-3">
+            Your card details go straight to our payment provider. {hold.business.name} never sees
+            them.
+          </p>
+        )}
       </div>
     </div>
   );

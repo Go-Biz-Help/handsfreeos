@@ -446,9 +446,21 @@ export const FoundingCountsOutput = z.strictObject({
        * it is handed out from /admin, not put back on the website. The monthly spots never supersede.
        */
       superseded: z.boolean(),
+      /**
+       * Days free before the first charge on a plan paid by the month or the year (20261027027000), or null. What
+       * one business really gets is `founding.trials`: one free trial a person, and a business.
+       */
+      trialDays: z.int().nullable(),
     }),
   ),
   generatedAt: z.iso.datetime(),
+});
+
+export const FoundingTrialsInput = z.strictObject({ workspaceId: uuid });
+
+export const FoundingTrialsOutput = z.strictObject({
+  /** Each plan on sale, and the free trial this person gets on it for this business before any code, or null. */
+  offers: z.array(z.strictObject({ offerId, trialDays: z.int().nullable() })),
 });
 
 export const FoundingQueueInput = z.strictObject({

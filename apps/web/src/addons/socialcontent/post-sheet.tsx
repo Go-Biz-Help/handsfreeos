@@ -10,12 +10,18 @@ import { localDateOf, localInstant } from '@hfos/core';
 import {
   CONTENT_FORMATS,
   FACEBOOK_WHERE,
+  formatFor,
   hasPictures,
+  isShortNetwork,
+  pictureShapeOf,
   POSTING,
   POSTING_NETWORKS,
+  postLength,
   postText,
+  SHORT_POSTS,
   type ContentFormat,
   type FacebookWhere,
+  type PictureShape,
   type PostingNetwork,
 } from '@hfos/core/addons/socialcontent/calendar';
 import { networkName } from '@hfos/core/addons/socialcontent/networks';
@@ -54,11 +60,19 @@ import { apiBrowser, unwrap } from '@/lib/api/client';
 import { errorMessage } from '@/lib/api/errors';
 import { workerPost } from '@/lib/api/worker';
 import { supabaseBrowser } from '@/lib/supabase/client';
+import { cn } from '@/lib/utils';
+import { DidntPost } from './calendar-picking';
 import type { Content, ContentPicture } from './types';
 import { useAct } from './use-act';
 
 const REWRITE = '/v1/addons/socialcontent/actions/socialcontent.content.rewrite';
 const PICTURE = '/v1/addons/socialcontent/actions/socialcontent.content.picture';
+/** A picture shown in its network's shape (Instagram's own, else 4:5). */
+const ASPECT: Record<PictureShape, string> = {
+  '4:5': 'aspect-[4/5]',
+  '3:4': 'aspect-[3/4]',
+  '1:1': 'aspect-square',
+};
 
 export const STATE_BADGE: Record<Content['state'], BadgeVariant> = {
   draft: 'pending',
@@ -212,6 +226,8 @@ type Draft = {
   hook: string;
   hashtags: string;
   slides: { heading: string; body: string }[];
+  /** The posts under the first on Threads and X (decision 41). */
+  chain: string[];
   lines: string;
   shots: string;
   picture: string;
@@ -231,6 +247,7 @@ function draftOf(p: Content, timeZone: string): Draft {
     hook: p.hook ?? '',
     hashtags: p.hashtags.join(' '),
     slides: p.slides.map((s) => ({ ...s })),
+    chain: [...(p.chain ?? [])],
     lines: p.script?.lines.join('\n') ?? '',
     shots: p.script?.shots.join('\n') ?? '',
     picture: p.picture ?? '',
@@ -276,8 +293,16 @@ export function RemovePostDialog({
   return (
     <Dialog open={post !== null} onOpenChange={(open) => (open || busy ? null : onClose())}>
       {post ? (
-        <DialogContent title={W.post.removeTitle} description={W.post.removeAsk}>
+        <DialogContent
+          title={W.post.removeTitle}
+          description={post.state === 'posted' ? W.post.removeAskPosted : W.post.removeAsk}
+        >
           <p className="mt-3 truncate text-[13.5px] font-medium text-text">{post.title}</p>
+          {post.state === 'posted' ? (
+            <p className="mt-3 rounded-card bg-warning-soft p-3 text-[13px] text-warning-text">
+              {W.picking.removeUp(1, networkName(post.network))}
+            </p>
+          ) : null}
           <div className="mt-5 flex flex-wrap justify-end gap-2">
             <Button variant="secondary" disabled={busy !== null} onClick={onClose}>
               {W.post.removeNo}
@@ -352,6 +377,7 @@ export function PostSheet({
               hook: d.hook.trim() || null,
               hashtags: d.hashtags.split(/[\s,]+/).filter(Boolean),
               slides: d.slides,
+              chain: isShortNetwork(d.network) ? d.chain.filter((t) => t.trim()) : [],
               script:
                 d.format === 'video' ? { lines: lines(d.lines), shots: lines(d.shots) } : null,
               picture: d.picture.trim() || null,
@@ -545,14 +571,20 @@ export function PostSheet({
               ))}
             </div>
           ) : null}
-          {p.failure ? (
+          {p.failure || p.state === 'failed' ? (
             <div
               className="rounded-card bg-danger-soft p-3 text-[13px] text-danger-text"
               data-testid="socialcontent-post-failure"
             >
-              <p>{p.failure}</p>
+              {p.failure ? <p>{p.failure}</p> : null}
+              {/* Try again, Check if it posted, Mark as posted (the owner, 15 Nov). */}
               {p.state === 'failed' && postsHere ? (
-                <p className="mt-1 text-text-2">{W.post.tryAgain}</p>
+                <DidntPost
+                  workspaceId={workspaceId}
+                  post={p}
+                  timeZone={timeZone}
+                  className={p.failure ? 'mt-2' : undefined}
+                />
               ) : null}
             </div>
           ) : null}
@@ -573,7 +605,11 @@ export function PostSheet({
                 id="post-network"
                 value={d.network}
                 disabled={!changeable}
-                onChange={(e) => set('network', e.target.value as PostingNetwork)}
+                onChange={(e) => {
+                  // A format the network doesn't take turns into one it does (no carousel on Threads or X).
+                  const network = e.target.value as PostingNetwork;
+                  setD((x) => ({ ...x, network, format: formatFor(network, x.format) }));
+                }}
               >
                 {POSTING_NETWORKS.map((n) => (
                   <option key={n} value={n}>
@@ -589,13 +625,15 @@ export function PostSheet({
                 disabled={!changeable}
                 onChange={(e) => set('format', e.target.value as ContentFormat)}
               >
-                {CONTENT_FORMATS.filter((f) => !(f === 'text' && d.network === 'instagram')).map(
-                  (f) => (
-                    <option key={f} value={f}>
-                      {W.post.formats[f]}
-                    </option>
-                  ),
-                )}
+                {CONTENT_FORMATS.filter(
+                  (f) =>
+                    !(f === 'text' && d.network === 'instagram') &&
+                    !(f === 'carousel' && isShortNetwork(d.network)),
+                ).map((f) => (
+                  <option key={f} value={f}>
+                    {W.post.formats[f]}
+                  </option>
+                ))}
               </Select>
             </Field>
           </div>
@@ -675,6 +713,16 @@ export function PostSheet({
               onChange={(e) => set('hashtags', e.target.value)}
             />
           </Field>
+          {isShortNetwork(d.network) ? (
+            <ShortChain
+              network={d.network}
+              words={d.words}
+              hashtags={d.hashtags}
+              chain={d.chain}
+              changeable={changeable}
+              onChange={(chain) => set('chain', chain)}
+            />
+          ) : null}
 
           {d.format === 'carousel' ? (
             <div className="space-y-3">
@@ -837,13 +885,19 @@ export function PostSheet({
                         >
                           <PostPicture
                             picture={pic}
-                            className="aspect-[4/5] w-full rounded-md object-cover"
+                            className={cn(
+                              ASPECT[pictureShapeOf(p.network)],
+                              'w-full rounded-md object-cover',
+                            )}
                           />
                         </button>
                       ) : (
                         <PostPicture
                           picture={pic}
-                          className="aspect-[4/5] w-full rounded-md object-cover"
+                          className={cn(
+                            ASPECT[pictureShapeOf(p.network)],
+                            'w-full rounded-md object-cover',
+                          )}
                         />
                       )}
                       {changeable ? (
@@ -874,6 +928,10 @@ export function PostSheet({
               ) : p.pictureState === 'failed' ? (
                 <p className="text-[13px] text-danger-text">
                   {W.post.pictureStates.failed} {p.pictureFailure}
+                </p>
+              ) : p.pictureFlags.length ? (
+                <p className="text-[13px] text-warning-text">
+                  {W.post.pictureFlagged(p.pictureFlags)}
                 </p>
               ) : null}
               <Field label={W.post.pictureShows} htmlFor="post-picture">
@@ -975,7 +1033,8 @@ export function PostSheet({
                   </Button>
                 ) : p.state === 'ready' || p.state === 'failed' ? (
                   <>
-                    {postsHere ? (
+                    {/* A post that didn't post tries again from its box above. */}
+                    {postsHere && p.state === 'ready' ? (
                       <Button
                         loading={busy === 'now'}
                         disabled={other('now') || making}
@@ -1067,5 +1126,84 @@ export function PostSheet({
         />
       </SheetContent>
     </Sheet>
+  );
+}
+
+/**
+ * On Threads and X (decision 41): how many characters the words and tags take of what the network allows, and the
+ * posts that go under the first one for a longer tip, up to 4.
+ */
+function ShortChain({
+  network,
+  words,
+  hashtags,
+  chain,
+  changeable,
+  onChange,
+}: {
+  network: 'threads' | 'x';
+  words: string;
+  hashtags: string;
+  chain: string[];
+  changeable: boolean;
+  onChange: (chain: string[]) => void;
+}) {
+  const most = POSTING.textMost[network];
+  const used = postLength(words, hashtags.split(/[\s,]+/).filter(Boolean));
+  return (
+    <div className="space-y-2" data-testid="socialcontent-post-chain">
+      <p
+        className={`text-[12.5px] ${used > most ? 'text-danger-text' : 'text-text-3'}`}
+        data-testid="socialcontent-post-characters"
+      >
+        {W.post.characters(used, most)}
+      </p>
+      <div>
+        <div className="text-[13px] font-medium">{W.post.chain}</div>
+        <p className="text-[12.5px] text-text-3">{W.post.chainHint(networkName(network))}</p>
+      </div>
+      {chain.map((t, i) => (
+        <div key={i} className="space-y-1 rounded-card border border-border p-3">
+          <div className="flex items-center justify-between text-[12.5px] text-text-3">
+            <span>
+              {W.post.chainPost(i + 2)}
+              {' · '}
+              <span className={t.trim().length > most ? 'text-danger-text' : undefined}>
+                {t.trim().length}/{most}
+              </span>
+            </span>
+            {changeable ? (
+              <button
+                type="button"
+                className="text-text-3 hover:text-danger-text"
+                aria-label={W.post.removeChainPost(i + 2)}
+                onClick={() => onChange(chain.filter((_, j) => j !== i))}
+              >
+                <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+              </button>
+            ) : null}
+          </div>
+          <Textarea
+            value={t}
+            rows={3}
+            maxLength={most}
+            disabled={!changeable}
+            aria-label={W.post.chainPost(i + 2)}
+            data-testid={`socialcontent-post-chain-${i}`}
+            onChange={(e) => onChange(chain.map((x, j) => (j === i ? e.target.value : x)))}
+          />
+        </div>
+      ))}
+      {changeable && chain.length < SHORT_POSTS.chainMost ? (
+        <Button
+          size="sm"
+          variant="ghost"
+          data-testid="socialcontent-post-chain-add"
+          onClick={() => onChange([...chain, ''])}
+        >
+          {W.post.addChainPost}
+        </Button>
+      ) : null}
+    </div>
   );
 }

@@ -32,12 +32,12 @@ import {
   todayKindsOn,
   tidyWordsOn,
 } from '../../src/addons/outreach/network-words';
-import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
+import { CRM_FIRST_MESSAGE, PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { hashtagOf, postLooks, TAG_LOOKS_PER_DAY } from '../../src/addons/outreach/posts';
 import {
   fitsComment,
   fitsRequests,
-  REQUESTS_TASK,
+  requestsTask,
   todayDraftPrompt,
   todayDraftSystem,
   type TodayItem,
@@ -61,7 +61,8 @@ describe('Instagram’s kit and words', () => {
     });
     for (const p of ['facebook', 'linkedin', 'alignable'] as const)
       expect([NETWORKS[p].follows, NETWORKS[p].followBackLooksPerDay]).toEqual([false, null]);
-    expect(FOLLOW_PLATFORMS).toEqual(['instagram']);
+    // Threads and X follow too (decision 163).
+    expect(FOLLOW_PLATFORMS).toEqual(['instagram', 'threads', 'x']);
   });
 
   it('says Follow them, Save my followers and Unfollow on Instagram', () => {
@@ -142,7 +143,7 @@ describe('Instagram’s kit and words', () => {
       platform: 'instagram',
       requests: true,
     });
-    expect(prompt).toContain(REQUESTS_TASK);
+    expect(prompt).toContain(requestsTask(CRM_FIRST_MESSAGE));
     expect(prompt).not.toContain('cal.com');
     expect(prompt).toContain('Write it as one message, with no blank lines.');
     // A first message once they follow back is told so, and carries the link as on any network.
@@ -162,7 +163,7 @@ describe('Instagram’s kit and words', () => {
     expect(back).toContain(
       'They and the owner haven’t talked yet, so this is the owner’s first message to them.',
     );
-    expect(back).not.toContain(REQUESTS_TASK);
+    expect(back).not.toContain(requestsTask(CRM_FIRST_MESSAGE));
     expect(back).toContain('cal.com');
     expect(fitsRequests('Hi Sam, are you open to more booked calls?')).toBe(true);
     expect(fitsRequests('Hi Sam, book here: https://cal.com/bright')).toBe(false);
@@ -193,7 +194,7 @@ describe('Instagram’s kit and words', () => {
       'They posted this on Instagram. Write the owner’s public comment under it, from the owner’s own field:',
     );
     expect(comment('instagram')).toContain(
-      'with no link, no web address and no price. Otherwise offer nothing and pitch nothing. When the owner’s field has nothing real to add',
+      'with no link, no web address and no price. A post that asks for help or tips with the topic, or complains about it, gets a take or a tip and no offer. Otherwise offer nothing and pitch nothing. When the owner’s field has nothing real to add',
     );
     expect(comment('instagram')).toContain('Never open with praise or thanks');
     expect(comment('instagram')).toContain('Under 30 words.');
@@ -219,7 +220,7 @@ describe('Instagram’s kit and words', () => {
       'A comment on LinkedIn reads like someone who does the owner’s own work every day',
     );
     expect(todayDraftSystem('linkedin')).toContain(
-      'an offer to show them only when they want help with it',
+      'an offer to show them only when the post asks for someone who offers what the business does',
     );
     expect(todayDraftSystem('facebook')).not.toContain('A comment on');
     expect(fitsComment('Same here! A shared call list helped our crew.', 'instagram')).toBe(true);
@@ -272,7 +273,8 @@ describe('Today on Instagram', () => {
       owner,
       ws,
       'outreach.touch.save',
-      { platform: 'instagram', kind: 'message', profile: account(username), name },
+      // The extension's own (decision 182: one the person typed would leave them in the person's hands).
+      { platform: 'instagram', kind: 'message', profile: account(username), name, auto: true },
       at,
     );
   /** Their followers, saved from Instagram as its friends list. */

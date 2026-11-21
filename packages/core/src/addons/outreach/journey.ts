@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { JourneyLead } from './leads';
 import { TeamOwner } from './owners';
 import { TOUCH_KIND_KEYS, TOUCH_STEPS, type TouchKind } from './limits';
-import { inNetworkWords, PLATFORM_KEYS, type Platform } from './networks';
+import { inNetworkWords, NETWORKS, PLATFORM_KEYS, type Platform } from './networks';
 import { STAGE_KEYS, STAGES, type Stage } from './stages';
 
 /** The most steps a customer's panel lists, the latest first. */
@@ -87,7 +87,7 @@ export function journeyStepWords(step: JourneyStep, platform: Platform): string 
     switch (step.kind) {
       case 'friend_request':
         // A follow network's request is the follow.
-        return platform === 'instagram'
+        return NETWORKS[platform].follows
           ? 'Followed them'
           : inNetworkWords('Sent a friend request', platform);
       case 'like':

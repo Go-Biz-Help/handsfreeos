@@ -61,7 +61,7 @@ export const competitors: readonly Competitor[] = [
       'HandsFreeOS and Jobber side by side for a five-person crew: plan price, per-person charges, AI phone answering and marketing, from Jobber’s own pricing page.',
     h1: 'HandsFreeOS vs Jobber',
     intro:
-      'Jobber is a well-known way to run quotes, jobs and invoices. HandsFreeOS does those too, and puts an AI teammate in front of them that answers the calls, texts and chats, books the job and chases the money. Here is what each costs a five-person crew, with Jobber’s numbers from its own pricing page.',
+      'Jobber is a well-known way to run quotes, jobs and invoices. HandsFreeOS is an AI Business Operating System: it does those too, and its AI employees answer the calls, texts and chats, book the job and chase the money. Here is what each costs a five-person crew, with Jobber’s numbers from its own pricing page.',
     source: 'https://www.getjobber.com/pricing/',
     example: 'A five-person crew, paying month to month',
     rows: [
@@ -147,7 +147,7 @@ export const competitors: readonly Competitor[] = [
       'HandsFreeOS and GoHighLevel side by side: price, users, AI and who each is built for, from GoHighLevel’s own pricing page.',
     h1: 'HandsFreeOS vs GoHighLevel',
     intro:
-      'GoHighLevel starts at the same $97 a month, and both have unlimited users. The difference is who each is built for. GoHighLevel is built for agencies running accounts for their clients. HandsFreeOS is built for the owner of one service business, and sets itself up from a few questions.',
+      'GoHighLevel starts at the same $97 a month, and both have unlimited users. The difference is who each is built for. GoHighLevel is built for agencies running accounts for their clients. HandsFreeOS is an AI Business Operating System built for the owner of one service business: its AI employees are in the plan, and it sets itself up from a few questions.',
     source: 'https://www.gohighlevel.com/pricing',
     example: 'One service business, paying month to month',
     rows: [

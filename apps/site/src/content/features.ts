@@ -42,7 +42,10 @@ export const featureSections: readonly FeatureSection[] = [
     points: [
       'Answers new leads by text, email and website chat, usually in seconds.',
       'Picks up the phone when you can’t: answers the call, asks what the job is and books it, in English or Spanish.',
-      'Makes calls for you: calls back a missed call, calls to confirm tomorrow’s visit, and asks you before it calls about a quote. It always says it’s an AI.',
+      'Calls new leads who said it’s OK to call, within a minute in your open hours, once you turn it on. It asks what they need and books them. No answer? It tries again the next day, up to three times.',
+      'Makes other calls for you too: calls back a missed call, calls to confirm tomorrow’s visit, and asks you before it calls about a quote. It always says it’s an AI.',
+      'It calls only in the legal calling hours where the lead lives, which are stricter in some states, and only inside your own calling hours.',
+      'Pick the voice it speaks in from ten, and hear each one first. Every voice has a Spanish speaker too.',
       'Asks the questions that qualify a job, then books it straight into the calendar.',
       'Finishes the job in the conversation: checks you cover their address, adds them to the waitlist, books repeat visits and looks up what they owe. Anything about money waits for you.',
       'Hands the conversation to a person the moment someone asks for one, sounds unhappy, or it is not sure.',
@@ -73,7 +76,7 @@ export const featureSections: readonly FeatureSection[] = [
   {
     id: 'customers',
     nav: 'Customers',
-    title: 'A customer record that fills itself in',
+    title: 'A CRM that fills itself in',
     intro:
       'Not a contact list you keep up to date. Every text, call, email, appointment, quote and invoice lands on the customer’s page by itself, in the order it happened, with your notes and photos beside it.',
     points: [
@@ -141,13 +144,31 @@ export const featureSections: readonly FeatureSection[] = [
     nav: 'Video calls',
     title: 'Video calls with the notes already written',
     intro:
-      'Meet a customer face to face without Zoom. They join from a link in their browser, with nothing to install or sign up for, and the AI writes up the call while you talk. We’re turning calls on business by business: ask, and we’ll switch yours on.',
+      'Meet a customer face to face without Zoom. They join from a link in their browser, with nothing to install or sign up for, and the AI writes up the call while you talk. You pay only for the minutes you use.',
     points: [
       'Start a call from a customer’s page or a conversation, or switch a phone call to video.',
       'Each online appointment gets its own call, with nothing to set up.',
-      'Live captions for everyone on the call.',
+      'Up to 10 people on camera, with screen sharing, chat and live captions for everyone.',
+      'Customers see your name, logo and colours.',
       'After the call, a summary, tasks and a follow-up email wait on the customer’s record for your OK.',
+      'Join from the phone app too.',
       'Prefer Zoom or Google Meet? Booked meetings get their link on their own, and a Zoom transcript becomes notes the same way.',
+    ],
+  },
+  {
+    id: 'webinars',
+    nav: 'Webinars',
+    title: 'Webinars that tell you who is ready to buy',
+    intro:
+      'Run a live webinar for up to 500 people without a webinar tool. People sign up from a link, get reminded, and join in their browser. When it ends, you know who to call first.',
+    points: [
+      'Schedule one webinar, or one that repeats every week, every two weeks or every month. The calendar for it is made for you.',
+      'A sign-up link anyone can use. Each person gets their own join link, and a text or email when it starts.',
+      'You present big, with your slides or your screen. Bring up to three people on stage to talk.',
+      'Live polls pop up on everyone’s screen. The AI can ask each question for you when it hears you get to it.',
+      'Every answer lands on that person’s record, and a Book button lets them pick a time right there.',
+      'Afterwards, everyone who came is rated Hot, Warm or Cold, so you know who to follow up with first.',
+      'Missed it? They’re told when the next one is, with the link.',
     ],
   },
   {
@@ -158,6 +179,7 @@ export const featureSections: readonly FeatureSection[] = [
       'Campaigns, reviews, forms and funnels, written with the AI and sent from the same place your customers already are. Nothing goes out to a crowd until you approve it.',
     points: [
       'Text, email and call campaigns: say what it’s for in a line, and the AI writes each customer their own text.',
+      'Call campaigns where the AI phones each person and books the ones who are ready. Leave one running and it keeps adding new people who fit.',
       'Review requests after a good job, and your Google and Facebook reviews answered from one place.',
       'Forms, surveys and quizzes, built by describing what you want. Every answer lands on the customer’s record.',
       'Funnels the AI runs: describe the steps you want people taken through, and it sends each message and moves them on.',
@@ -402,6 +424,10 @@ export const automationGroups: readonly AutomationGroup[] = [
         does: 'Fills in or fixes a customer’s name, email, number or address when they tell you.',
       },
       {
+        label: 'Add tasks from what you say',
+        does: 'The AI adds a task for what you tell a customer you’ll do, on calls and in your own messages.',
+      },
+      {
         label: 'Deal in the wrong stage',
         does: 'Flags a deal whose stage is behind what happened, with a one-tap move.',
       },
@@ -507,7 +533,10 @@ export const automationGroups: readonly AutomationGroup[] = [
   },
 ];
 
-/** What is on its way, said plainly, so nothing above has to pretend. Move a line up into its section when it ships. */
+/**
+ * What is on its way, said plainly, so nothing above has to pretend. Move a line up into its section when it ships.
+ * Add-ons in early access are on /add-ons (content/addons.ts), not here.
+ */
 export const comingSoon = [
   {
     title: 'Gmail',
@@ -520,23 +549,8 @@ export const comingSoon = [
     body: 'DMs in the same inbox, with the ad that brought each one. Facebook lead ads come in through Zapier until then.',
   },
   {
-    title: 'AI Sales Coach',
-    when: 'In testing',
-    body: 'Tells your rep what to say next during a call, then writes the notes, the follow-up and a score.',
-  },
-  {
-    title: 'Social Outreach',
-    when: 'In testing',
-    body: 'A browser extension that finds and follows up with prospects on Facebook, Instagram, LinkedIn and Alignable.',
-  },
-  {
     title: 'Partners',
     when: 'In testing',
     body: 'Find people whose audience is your buyers, and pay them a share of what they bring.',
-  },
-  {
-    title: 'Real Estate Agent add-on',
-    when: 'In testing',
-    body: 'Every duty and deadline on a home sale, tracked from offer to closing.',
   },
 ] as const;

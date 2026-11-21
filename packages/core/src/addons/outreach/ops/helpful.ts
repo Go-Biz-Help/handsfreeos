@@ -9,8 +9,10 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
+import { scopeCan } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
 import { EXTENSION_CLIENT } from '../../../mobile';
+import type { Permission } from '../../../permissions';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import type { GroupCheckState } from '../group-checks';
 import {
@@ -42,6 +44,7 @@ import {
 } from '../helpful';
 import { outreachAddon } from '../manifest';
 import { outreachWay } from '../pages';
+import { PLAYBOOK_STEPS, takesStep } from '../playbooks';
 import { OUTREACH_WORDS } from '../words';
 import { engagements, helpful } from '../tables';
 import { automationOf } from './automation';
@@ -210,10 +213,24 @@ export const helpfulAsk = defineAddonCommand(outreachAddon, {
             : `Today’s helpful post on ${name} is up. The next one comes tomorrow: one a day keeps your feed welcome.`,
         );
       }
+      // Posting is a step (decision 164): a post is written only while a playbook in use here ticks it.
+      const inUse = await playbooksInUse(ctx, input.platform);
+      if (!takesStep(inUse, 'post')) {
+        const tick = `“${PLAYBOOK_STEPS.post.label}” under ${outreachWay('playbooks', inUse.length === 1 ? `“${inUse[0]!.name}”` : 'a playbook', 'Steps and pace')}`;
+        throw HfosError.rule(
+          'outreach_helpful_step_off',
+          409,
+          `None of your playbooks on ${NETWORKS[input.platform].name} posts, so no helpful post is written there. ${
+            scopeCan(ctx.scope, 'outreach.manage' as Permission)
+              ? `To turn it on, tick ${tick}.`
+              : `To turn it on, ask an owner of this business to tick ${tick}.`
+          }`,
+        );
+      }
       // Off Facebook it goes on the person's own account: no group to pick, the playbook in use first. Instagram's
       // goes up from their phone, and Alignable's never on its own (decision 109).
       if (input.platform !== 'facebook') {
-        const playbooks = await playbooksInUse(ctx, input.platform);
+        const playbooks = inUse;
         const { choices } = await automationOf(ctx, me, now, input.platform);
         const [row] = await ctx.tx
           .insert(helpful)
@@ -280,7 +297,7 @@ export const helpfulAsk = defineAddonCommand(outreachAddon, {
           409,
           `You posted in ${named.name ?? 'that group'} in the last week. Pick another group: one post a week in each keeps its people glad to see you.`,
         );
-      const playbooks = await playbooksInUse(ctx, 'facebook');
+      const playbooks = inUse;
       // Picked by the AI: only the person's own groups, or nobody's yet (decision 107); a group named is theirs to pick.
       const ours = input.groupId ? candidates : candidates.filter((g) => g.free);
       const ranked = ours

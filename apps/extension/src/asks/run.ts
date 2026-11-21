@@ -90,6 +90,7 @@ import { postHelpful } from '../jobs/helpful';
 import type { HandOverReply, Hfos, Job, JobEnd } from '../jobs/job';
 import { reporter, type Reporter, type ReportNote } from '../jobs/report';
 import { alignableAsk } from '../jobs/alignable';
+import { followAsk } from '../jobs/follows';
 import { instagramAsk } from '../jobs/instagram';
 import { linkedInAsk } from '../jobs/linkedin';
 import { lookupAndDraft } from '../jobs/lookup';
@@ -445,6 +446,9 @@ const JOBS_ON: Readonly<Record<Platform, (task: AskTaken['task'], job: Job) => P
   // Its followers saved (part 12), beside its Check and profile.
   instagram: instagramAsk,
   alignable: alignableAsk,
+  // Followers, unfollowing, Find posts, their profile and Check (decision 163).
+  threads: followAsk('threads'),
+  x: followAsk('x'),
 };
 
 /** Does the ask with the job that does it on its network (Facebook's unless said). */

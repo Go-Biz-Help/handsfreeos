@@ -3,6 +3,7 @@
  * saved Facebook pages: these tests hold the readers' logic still, and the page outlines testers send back are what
  * tune them to the real thing.
  */
+import { WORDLESS } from '@hfos/core/addons/outreach/chat-collect';
 import { describe, expect, it } from 'vitest';
 import { measuredSide, readChat } from '../src/networks/facebook/chat';
 import { friendListOf, mutualFriendsIn, yourProfile } from '../src/networks/facebook/friends';
@@ -13,6 +14,9 @@ import { runsGroup } from '../src/networks/facebook/people';
 import { classifyUrl, mutualFriendsUrl } from '../src/networks/facebook/urls';
 import { readWarnings } from '../src/networks/facebook/warnings';
 import { load } from './load';
+
+/** Facebook's main column for a profile it won't show (the problem report of 13 Nov 2026), its words as shown. */
+const CONTENT_UNAVAILABLE = `<div><div><svg aria-hidden="true"></svg><div><h2 dir="auto"><span dir="auto">This content isn’t available right now</span></h2><span dir="auto">When this happens, it’s usually because the owner only shared it with a small group of people, changed who can see it or it’s been deleted.</span></div><a role="link" aria-label="Go to Feed" href="/"><div role="none"><div role="none"><span dir="auto"><span>Go to Feed</span></span></div></div></a></div><div><div role="button"><span dir="auto">Go back</span></div><a role="link" href="/help"><span dir="auto">Visit Help Center</span></a></div></div>`;
 
 const NOW = new Date('2026-10-05T12:00:00Z');
 
@@ -342,6 +346,36 @@ describe('a profile, as Facebook drew it in 2026', () => {
     });
   });
 
+  describe('a profile Facebook won’t show', () => {
+    // The owner's problem report of 13 Nov 2026 (0.139.0): a message's profile showed "This content isn’t available
+    // right now", a line on why, Go to Feed and Go back, with no name, so it said it couldn't find Message there.
+    const unavailable = (main: string) => {
+      const doc = load('profile-2026.html', url);
+      doc.title = '(2) Facebook';
+      doc.querySelector('[role="main"]')!.innerHTML = main;
+      return readPage(doc, url, NOW).profile;
+    };
+
+    it('says so, with no name', () => {
+      const profile = unavailable(CONTENT_UNAVAILABLE);
+      expect(profile?.unavailable).toBe(true);
+      expect(profile?.name).toBeNull();
+    });
+
+    it('never says so on a profile with its name, though a shared post that’s gone carries the words', () => {
+      const doc = load('profile-2026.html', url);
+      doc
+        .querySelector('[role="main"]')!
+        .insertAdjacentHTML(
+          'beforeend',
+          '<h2><span>This content isn’t available right now</span></h2>',
+        );
+      const profile = readPage(doc, url, NOW).profile;
+      expect(profile?.name).toBe('Dana Reyes');
+      expect(profile?.unavailable).toBeUndefined();
+    });
+  });
+
   it('reads a post that isn’t an article, without the hidden words around it or the empty ones loading', () => {
     expect(result.posts).toEqual([
       {
@@ -576,6 +610,27 @@ describe('a chat, as Facebook drew it in 2026', () => {
       { from: 'me', sender: null, text: 'yeah that works', when: sep25 },
       { from: 'me', sender: null, text: 'We still on in an hour?', when: 'Wed 11:02 AM' },
     ]);
+  });
+
+  // Under your last message Messenger says whether it went and when. Read as part of it, each read brought the same
+  // message with new words (the owner's screenshots, 17 Nov 2026: one check-in, sent once, kept six times over).
+  it('leaves off the line under your last message, and reads one with only that as yours with no words', () => {
+    const doc = load('chat-2026.html', url);
+    const articles = doc.querySelectorAll('[role="article"]');
+    const lastOne = articles[articles.length - 1]!.querySelector('[data-scope="messages_table"]')!;
+    const status = doc.createElement('span');
+    status.setAttribute('dir', 'auto');
+    status.textContent = 'Sent 33m ago';
+    lastOne.append(status);
+    const said = { from: 'me', sender: null, when: 'Wed 11:02 AM' };
+    expect(readIt(doc).messages.at(-1)).toEqual({ ...said, text: 'We still on in an hour?' });
+    // A picture, a sticker or a like: nothing said, only the line under it, and on any side.
+    lastOne.querySelector('div[dir="auto"]')!.remove();
+    for (const side of ['left', 'right', null] as const)
+      expect(readIt(doc, () => side).messages.at(-1), String(side)).toEqual({
+        ...said,
+        text: WORDLESS,
+      });
   });
 
   it('goes by the line that repeats each message, wherever the message seems to sit', () => {
@@ -844,6 +899,58 @@ describe('Facebook’s warnings', () => {
       'You’re Temporarily Blocked',
       'It looks like you were misusing this feature by going too fast. You’ve been temporarily blocked from using it.',
     ]);
+  });
+
+  describe('a post with a song called “Good Times Go By Too Fast” on it (18 Nov 2026)', () => {
+    const url = 'https://www.facebook.com/sam.rivera.77/posts/pfbid0abc';
+    const song = () => load('warning-song-post.html', url);
+    const block = (doc: Document) => {
+      const dialog = doc.createElement('div');
+      dialog.setAttribute('role', 'dialog');
+      dialog.innerHTML =
+        '<h2><span>You’re Temporarily Blocked</span></h2><div><span>It looks like you were misusing this feature by going too fast.</span></div>';
+      doc.body.append(dialog);
+    };
+
+    it('isn’t a warning, opened over the page', () => {
+      expect(readWarnings(song(), url)).toEqual([]);
+    });
+
+    it('isn’t a warning on the page either, where the post is neither an article nor in a dialog', () => {
+      const doc = song();
+      const dialog = doc.querySelector('[role="dialog"]')!;
+      doc.querySelector('[role="main"]')!.append(...dialog.childNodes);
+      dialog.remove();
+      expect(readWarnings(doc, url)).toEqual([]);
+    });
+
+    it('isn’t a warning in a box of its own: Facebook’s scrambled letters are never one, nor a song’s “too fast”', () => {
+      const doc = song();
+      const line = doc.querySelector('[role="heading"] div')!;
+      const alert = doc.createElement('div');
+      alert.setAttribute('role', 'alert');
+      alert.append(line.cloneNode(true));
+      doc.body.append(alert);
+      const tooFast = doc.createElement('div');
+      tooFast.setAttribute('role', 'alert');
+      tooFast.textContent = 'Good Times Go By Too Fast';
+      doc.body.append(tooFast);
+      expect(readWarnings(doc, url)).toEqual([]);
+    });
+
+    it('still finds a real block shown with it, and one under the post’s comment box', () => {
+      const doc = song();
+      block(doc);
+      const alert = doc.createElement('div');
+      alert.setAttribute('role', 'alert');
+      alert.textContent = 'You can’t comment right now.';
+      doc.querySelector('[data-post]')!.append(alert);
+      expect(readWarnings(doc, url)).toEqual([
+        'You can’t comment right now.',
+        'You’re Temporarily Blocked',
+        'It looks like you were misusing this feature by going too fast.',
+      ]);
+    });
   });
 
   it('counts a checkpoint page as a warning', () => {

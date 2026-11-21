@@ -5,7 +5,13 @@
  */
 import { describe, expect, it } from 'vitest';
 import { checkedNiches, cleanSearches } from '../../src/addons/socialcontent/niches-ai';
-import { creatorFromLink, handleShown } from '../../src/addons/socialcontent/networks';
+import {
+  CONTENT_NETWORKS,
+  creatorFromLink,
+  handleShown,
+  networkName,
+  type ContentNetwork,
+} from '../../src/addons/socialcontent/networks';
 import {
   doneWell,
   median,
@@ -136,6 +142,15 @@ describe('creators who did well', () => {
   });
 });
 
+describe('a network’s name', () => {
+  it('names each, and shows one it doesn’t know as sent rather than breaking (the owner’s Calendar, 13 Nov)', () => {
+    for (const n of CONTENT_NETWORKS) expect(networkName(n)).toBeTruthy();
+    expect(networkName('threads')).toBe('Threads');
+    expect(networkName('x')).toBe('X');
+    expect(networkName('bluesky' as ContentNetwork)).toBe('bluesky');
+  });
+});
+
 describe('a link to someone’s page', () => {
   it('reads each network’s pages', () => {
     expect(creatorFromLink('https://www.instagram.com/Some.Creator/?hl=en')).toEqual({
@@ -186,11 +201,18 @@ describe('what the AI says about niches', () => {
 
   it('keeps clean searches for the networks read', () => {
     expect(
-      cleanSearches({ ...searches, linkedin: ['plumbing coach'], tiktok: ['#plumbing'] }),
+      cleanSearches({
+        ...searches,
+        linkedin: ['plumbing coach'],
+        x: ['plumbing tips', '#plumbing'],
+        tiktok: ['#plumbing'],
+      }),
     ).toEqual({
       instagram: ['#plumbingtips', 'plumber'],
       facebook: [],
       linkedin: ['plumbing coach'],
+      threads: [],
+      x: ['plumbing tips', '#plumbing'],
     });
   });
 

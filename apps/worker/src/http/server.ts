@@ -9,6 +9,7 @@ import {
   checkOptInSurface,
   checkOtherWay,
   checkPolicy,
+  checkSiteForms,
   checkTerms,
   checkWebsite,
   dispositionOf,
@@ -67,6 +68,7 @@ import { registerPortalRoutes } from './portal';
 import { formOrigins, registerIntakeRoutes } from './intake';
 import { registerFormRoutes } from './forms';
 import { registerWebsiteStyleRoutes } from './website-style';
+import { registerAboutYouRoutes } from './about-you';
 import { registerAddonActionRoutes } from './addon-actions';
 import { registerAddonConnectionRoutes } from './addon-connections';
 import { registerAddonSealedRoutes } from './addon-sealed';
@@ -83,6 +85,10 @@ import { registerLegalRoutes } from './legal';
 import { registerPolicyUpdateRoutes } from './policy-update';
 import { registerFunnelRoutes } from '../funnels/draft';
 import { SafeFetchError } from './safe-fetch';
+import { registerSiteCheckRoutes, storedSitePages, withSitePages } from './site-check';
+import { scanSiteForms } from './site-forms';
+import { practiceAware } from '../practice/kit';
+import { inPractice, practiceRunFor, type PracticeRun } from '../practice/scope';
 import { registerSiteRoutes } from './sites';
 import { registerSpeechRoutes } from './speech';
 import { registerEmailRoutes } from './email';
@@ -99,6 +105,7 @@ import { registerVideoCallRoutes } from '../video-calls/routes';
 import { registerDocumentRoutes } from '../documents/routes';
 import { registerDocumentPagesRoutes } from '../documents/pages';
 import { registerPlaceFieldsRoutes } from '../documents/place';
+import { registerReadCardRoutes } from '../contacts/read-card';
 
 export type { HttpDeps } from './common';
 
@@ -242,6 +249,11 @@ const PreflightInput = z.strictObject({
     .max(3)
     .default([]),
   /**
+   * What the texts are about, as "What you will text about" has it: a marketing box anywhere on the site is held
+   * against a registration for customer care only (`checkSiteForms`).
+   */
+  useCase: z.enum(['customer_care', 'mixed', 'marketing']).optional(),
+  /**
    * The registration exactly as Send would send it. When it reads as one, the pages checked are the ones it names, and
    * what was found is written down against its fingerprint (`registration.record_check`): `registration.submit` lets
    * through only details found all green, whoever sends them.
@@ -269,6 +281,22 @@ function hostedKind(
   }
 }
 
+/** The practice business each request is about, once its pre-handler has looked (null for a real one). */
+const practiceOf = new WeakMap<FastifyRequest, PracticeRun | null>();
+
+/** The business a request names: its body's, its address's or its path's `workspaceId` or `organizationId`. */
+function idsNamedIn(req: FastifyRequest): { organizationId?: unknown; workspaceId?: unknown } {
+  const pick = (v: unknown, key: 'workspaceId' | 'organizationId'): unknown =>
+    v && typeof v === 'object' ? (v as Record<string, unknown>)[key] : undefined;
+  return {
+    organizationId: pick(req.body, 'organizationId') ?? pick(req.query, 'organizationId'),
+    workspaceId:
+      pick(req.body, 'workspaceId') ??
+      pick(req.query, 'workspaceId') ??
+      pick(req.params, 'workspaceId'),
+  };
+}
+
 export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> {
   // Fly's proxy is the one hop in front, so request.ip is the caller's own address (the booking page's
   // per-address limits); signatures still use WORKER_PUBLIC_URL, never forwarded headers.
@@ -276,6 +304,20 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
     logger: false,
     bodyLimit: 1_048_576,
     trustProxy: (_address: string, hop: number) => hop < 1,
+  });
+  // Practice businesses (Admin → Try onboarding): a request about one is answered with its stand-ins, so nothing it
+  // does reaches the outside world (practice/kit.ts). The business is the one the request names; every route runs
+  // inside that answer, and `deps` gives each route the practice services while it does.
+  deps = practiceAware(deps);
+  const httpDb = deps.httpDb;
+  app.addHook('preHandler', async (req) => {
+    practiceOf.set(req, await practiceRunFor(httpDb, idsNamedIn(req)));
+  });
+  app.addHook('onRoute', (route) => {
+    const handler = route.handler;
+    route.handler = function (this: FastifyInstance, req, reply) {
+      return inPractice(practiceOf.get(req) ?? null, () => handler.call(this, req, reply));
+    };
   });
   await app.register(formbody);
   // One CORS rule for the app's own screens, and one for a business's own website posting a lead in: a
@@ -293,6 +335,15 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
       req: FastifyRequest,
       done: (err: Error | null, opts: Record<string, unknown>) => void,
     ) => {
+      // A business's own site reading its pages for its texting registration's checks (http/site-check.ts): any
+      // site may ask, holding the check's one-time code, and the route itself takes only the code's own site.
+      if (req.url.startsWith('/public/site-check/'))
+        return done(null, {
+          ...corsBase,
+          methods: ['GET', 'POST', 'OPTIONS'],
+          allowedHeaders: ['content-type'],
+          origin: true,
+        });
       const form = /^\/intake\/f\/(ik_[A-Za-z0-9]{20})/.exec(req.url);
       if (!form) return done(null, { ...corsBase, origin: [...deps.webOrigins] });
       void formOrigins(deps, form[1]!).then(
@@ -394,12 +445,15 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerFormRoutes(app, deps);
   // A form's Match my website: a website's colours, font and corners, for its Design tab.
   await registerWebsiteStyleRoutes(app, deps);
+  await registerAboutYouRoutes(app, deps);
   // Documents: a signer's page (`/d/…`), their code, signing and declining, and the team's copy of a link.
   await registerDocumentRoutes(app, deps);
   // The AI placing the fields on a template's PDF, for the editor.
   await registerPlaceFieldsRoutes(app, deps);
   // A document's pages drawn for the phone, which has no PDF reader of its own.
   await registerDocumentPagesRoutes(app, deps);
+  // A business card scanned on the phone: read by the AI, and straightened (Contacts → + → Scan a business card).
+  await registerReadCardRoutes(app, deps);
   // Add-ons' public pages: a listing's page, an open house's sign-in.
   await registerAddonPublicRoutes(app, deps);
   // Signing in to the browser extension with a prompt on the phone or the web (20261027002910).
@@ -425,6 +479,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerPolicyUpdateRoutes(app, deps);
   // "Email your web person": the files as they'd go, before they're sent (2026-11-12).
   registerWebPersonRoutes(app, deps);
+  // The registration's checks reading pages in the business's own browser, or from its screenshots (2026-11-20).
+  await registerSiteCheckRoutes(app, deps);
   // Teammate funnels: the AI's draft from a description (funnels/draft.ts).
   await registerFunnelRoutes(app, deps);
   await registerFoundingRoutes(app, deps);
@@ -484,6 +540,9 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
     const actor = await authenticate(deps, req);
     const input = parseBody(PreflightInput, req.body);
     await requirePermission(deps, actor.userId, input.workspaceId, 'channels.manage');
+    // Pages the business's own browser read on its site in the last half hour ("Finish the check on my site"), and its
+    // screenshots of pages its website's security wouldn't show us (http/site-check.ts): read before, or instead of, ours.
+    const fetchUrl = withSitePages(deps.fetchUrl, await storedSitePages(deps, input.workspaceId));
 
     // The registration as Send would send it, when it reads as one: then its own pages are the ones checked, so what
     // is written down as all green is what was looked at.
@@ -511,8 +570,15 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
       if (!url) return null;
       const full = /^https?:\/\//i.test(url) ? url : `https://${url}`;
       try {
-        const res = await deps.fetchUrl(full, { timeoutMs: 8000, maxBytes: 512_000 });
-        return { url: full, status: res.status, html: res.body, finalUrl: res.finalUrl };
+        const res = await fetchUrl(full, { timeoutMs: 8000, maxBytes: 512_000 });
+        return {
+          url: full,
+          status: res.status,
+          html: res.body,
+          finalUrl: res.finalUrl,
+          headers: res.headers,
+          source: res.source ?? null,
+        };
       } catch (err) {
         const code = err instanceof SafeFetchError ? err.code : 'network';
         return { url: full, status: null, html: '', error: code };
@@ -599,7 +665,40 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
         : []),
       ...targets.otherWays.map((w, i) => checkOtherWay(others[i] ?? null, w, i, names)),
     ];
-    if (!input.submission) return { checks, notGreen: null };
+
+    // Then every other page of the site, for forms the registration doesn't name (owner, 2026-11-18: Shop Your Solar
+    // was turned down over a form on /instant-quote it never mentioned). After the reads above, reusing what they got,
+    // so the site isn't asked for the same pages twice at once. Not when the site didn't open: its row says so.
+    if (website && website.status !== null && website.status < 400 && targets.website) {
+      const scan = await scanSiteForms({ fetchUrl }, targets.website, [website, optIn, ...others]);
+      const named = [
+        optInPath === 'in_person' ? null : targets.optInUrl,
+        optIn?.framedUrl,
+        ...targets.otherWays.flatMap((w, i) =>
+          w.path === 'in_person' ? [] : [w.url, others[i]?.framedUrl],
+        ),
+      ];
+      const site = checkSiteForms(scan, { named, useCase: sent?.useCase ?? input.useCase });
+      const via = scan.via?.includes('browser') ? 'browser' : scan.via?.[0];
+      checks.push(...(via ? site.map((c) => ({ ...c, via })) : site));
+    }
+    // Which rows read a page the business gave us, said beside them (for HandsFreeOS too, on a check by hand).
+    const viaOf = (page: FetchedPage | null | undefined) => page?.source ?? null;
+    const pageOf: Record<string, FetchedPage | null | undefined> = {
+      website,
+      policy,
+      terms,
+      opt_in_surface: optIn,
+      chat_on_site: website,
+      ...Object.fromEntries(targets.otherWays.map((_, i) => [`other_way_${i}`, others[i]])),
+    };
+    for (const [i, check] of checks.entries()) {
+      const via = check.id in pageOf ? viaOf(pageOf[check.id]) : null;
+      if (via && !check.via) checks[i] = { ...check, via };
+    }
+    // The fixed addresses our reads come from, for the steps that let HandsFreeOS in (core's robotCheckAllow).
+    const readerIps = deps.siteReaderIps ?? [];
+    if (!input.submission) return { checks, notGreen: null, readerIps };
 
     // What stands between these details and all green: the form's own check of them (questions only the business
     // can answer are its ticks, checked at the send), and every look above that didn't pass.
@@ -610,6 +709,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
         notGreen: [
           `Some details can’t be sent as they are${first ? `: ${first}` : '.'} Go back through the steps and fix the one marked.`,
         ],
+        readerIps,
       };
     }
     const [ws] = await asWorker(deps.httpDb, { workspaceId: input.workspaceId }, (tx) =>
@@ -636,7 +736,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
       ),
       workerMeta(),
     );
-    return { checks, notGreen: left };
+    return { checks, notGreen: left, readerIps };
   });
 
   return app;

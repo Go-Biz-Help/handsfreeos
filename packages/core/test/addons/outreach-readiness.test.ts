@@ -10,6 +10,7 @@ import { rows, sql } from '@hfos/db/client';
 import { workspaceMemberships } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { SAMPLES_RULES } from '../../src/addons/outreach/conversation';
 import { withNetwork } from '../../src/addons/outreach/network-words';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { PROFILE_ITEMS } from '../../src/addons/outreach/readiness';
@@ -45,6 +46,8 @@ const samplesSeen = (userId: string, playbookId: string, version: number) =>
       checkIn: 'Here’s a checklist you might like.',
       at: new Date().toISOString(),
       version,
+      // Written from the playbook's own words (decision 164), as the worker stamps them.
+      rules: SAMPLES_RULES,
     },
   });
 
@@ -142,7 +145,7 @@ describe('before they’re ready', () => {
       days: [1, 2, 3, 4, 5],
       canSend: 15,
       networks: [{ platform: 'facebook', canSend: 15 }],
-      more: ['linkedin', 'instagram', 'alignable'],
+      more: ['linkedin', 'instagram', 'alignable', 'threads'],
     });
     expect(await refused(runAs(member, ws, 'outreach.day.start', {}))).toBe('outreach_not_ready');
   });
@@ -282,7 +285,7 @@ describe('the goal across networks', () => {
         { platform: 'facebook', canSend: 15 },
         { platform: 'linkedin', canSend: 15 },
       ],
-      more: ['instagram', 'alignable'],
+      more: ['instagram', 'alignable', 'threads'],
     });
     // 20 calls a month take 35 to 69 first messages a day: a day's target is all 30 the two send safely.
     const today = await runAs(member, ws, 'outreach.tracking', { period: 'today' });

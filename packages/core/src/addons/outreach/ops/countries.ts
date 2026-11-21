@@ -21,9 +21,11 @@ import {
   CountryDecideOutput,
   CountryUnskipInput,
   CountryUnskipOutput,
+  countryCantTell,
   countryName,
   countryReason,
   countryRuleOn,
+  countryUnsureWhy,
   SKIPPED_PAGE,
   type CountryHow,
   type MutualCountries,
@@ -192,12 +194,15 @@ export const countriesSkipped = defineAddonQuery(outreachAddon, {
       country_alt: string | null;
       country_why: string | null;
       country_mutual: MutualCountries | null;
+      country_unsure: boolean;
+      country_looked: boolean;
       country_skip: boolean;
       country_at: Date | string | null;
     }>(
       ctx.tx,
       sql`select p.id, p.name, p.url, p.country, p.country_how, p.country_from, p.country_alt, p.country_why,
-            p.country_mutual, p.country_skip, greatest(p.country_at, p.country_looked_at) as country_at
+            p.country_mutual, p.country_unsure, p.country_looked_at is not null as country_looked, p.country_skip,
+            greatest(p.country_at, p.country_looked_at) as country_at
           from addon_outreach.profiles p where ${where}
           order by greatest(p.country_at, p.country_looked_at) desc nulls last, lower(p.name), p.id
           limit ${SKIPPED_PAGE} offset ${(page - 1) * SKIPPED_PAGE}`,
@@ -211,6 +216,24 @@ export const countriesSkipped = defineAddonQuery(outreachAddon, {
         country: p.country,
         countryName: p.country ? countryName(p.country) : null,
         how: p.country_how,
+        unsure: p.country_unsure,
+        // On the Not sure list, or skipped by When we can't tell: why it can't tell, at the top of the row.
+        whyUnsure:
+          !p.country_skip &&
+          (input.list === 'unsure' ||
+            (rule.unsure === 'skip' &&
+              (p.country_looked || p.country_how === 'seen') &&
+              countryCantTell(rule, {
+                country: p.country,
+                how: p.country_how,
+                alt: p.country_alt,
+                unsure: p.country_unsure,
+                looked: p.country_looked,
+                through: false,
+                skip: false,
+              })))
+            ? countryUnsureWhy({ how: p.country_how, country: p.country, alt: p.country_alt })
+            : null,
         reason: p.country_how
           ? countryReason({
               how: p.country_how,

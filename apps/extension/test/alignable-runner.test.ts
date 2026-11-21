@@ -10,6 +10,7 @@
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { EventsReadInput } from '@hfos/core/addons/outreach/events-near';
 import type { TodayListItem } from '../src/hfos/messages';
 import type { Hfos, Job } from '../src/jobs/job';
 
@@ -481,9 +482,12 @@ describe('what it does on Alignable’s list', () => {
     );
     const all = { ...daily, helpful: 'v', weekly_post: 'q', events: 'e' };
     expect(nextAlignableDaily({ daily: all })).toBe('found_checks');
-    // And on the 1st of each month, their own profile read (decision 99).
-    expect(nextAlignableDaily({ daily: { ...all, found_checks: 'u' } })).toBe('profile');
-    expect(nextAlignableDaily({ daily: { ...all, found_checks: 'u', profile: 'p' } })).toBeNull();
+    // Then HandsFreeOS's own comment research (decision 172), marked done before its turn for anyone who didn't
+    // start one, and on the 1st of each month, their own profile read (decision 99).
+    expect(nextAlignableDaily({ daily: { ...all, found_checks: 'u' } })).toBe('comment_research');
+    const researched = { ...all, found_checks: 'u', comment_research: 'r' };
+    expect(nextAlignableDaily({ daily: researched })).toBe('profile');
+    expect(nextAlignableDaily({ daily: { ...researched, profile: 'p' } })).toBeNull();
   });
 
   it('sends a message only once it’s OK’d: one waiting for the person isn’t sent', () => {
@@ -1871,6 +1875,41 @@ describe('Alignable’s groups', () => {
     });
   });
 
+  it('starts at the top next time, with nothing reported, when the list ends before where the last read got to', async () => {
+    // The owner's problem report of 16 Nov 2026: "Alignable showed no members of a group." on a members page showing 79.
+    // The last read stopped 4 screens down just as the list ended, so this read scrolled past the end with nothing kept
+    // (decision 148) and said there were no members, and with no depth saved every read after would do the same.
+    world.hfos['hfos-groups'] = (ask) =>
+      (ask['input'] as { view: string }).view === 'work'
+        ? { groups: [{ ...workGroup(GROUPS[0]!), membersDepth: 4 }] }
+        : { groups: [] };
+    world.hfos['hfos-save-group'] = (ask) => ({ people: peopleIn(ask) });
+    world.pages = (url) =>
+      url === MINE
+        ? myProfile()
+        : url === `${AL}/biz/groups/home-pros-network/members`
+          ? {
+              html: `<main><h1>Home Pros Network</h1><span>79 members</span>
+              <h2>Members (79)</h2>
+              <div><a href="/boise-id/pine-painting/jamie-pine">Jamie Pine</a><a href="/boise-id/pine-painting">Pine Painting</a>
+                <span>Painter in Boise</span></div></main>`,
+            }
+          : null;
+    const reported: unknown[] = [];
+    const end = await runAlignableDaily('members', {
+      ...dailyJob(),
+      report: async (r) => void reported.push(r),
+    });
+    expect(reported).toEqual([]);
+    expect(inputsOf('hfos-save-group')).toMatchObject([
+      { group: { url: GROUPS[0]!.url }, people: [], adminsPage: false, readTo: 0 },
+    ]);
+    expect(inputsOf('hfos-finds-save')).toEqual([]);
+    expect(end.line).toBe(
+      'Saved 0 businesses from 1 Alignable group, 0 new to check. Group leaders are kept as partner leads, never reached.',
+    );
+  });
+
   it('reads the posts of their groups other than their town’s, each saved with its group', async () => {
     world.hfos['hfos-groups'] = (ask) =>
       (ask['input'] as { view: string }).view === 'work'
@@ -2207,10 +2246,16 @@ describe('a comment on a good post on Alignable', () => {
       sendId: SEND_ID,
       state: 'waiting',
     });
+    // The post opens first, for the AI to see its picture (decision 172): nothing's written there till it's OK'd.
+    world.pages = (url) => (url === DISCUSSION ? discussionAt(discussionHtml()) : null);
+    const drafting: string[] = [];
+    world.behave = sending(drafting);
     expect(await doWork({ do: 'draft', item: comment(null) }, ME.businessId, false)).toEqual({
       done: true,
       line: 'Wrote a comment on Dana Reyes’s post: it waits for your OK',
     });
+    expect(world.opened).toEqual([DISCUSSION]);
+    expect(drafting).toEqual([]);
     // Waiting for their OK: nothing to do.
     expect(alignableWorkLeft(list('waiting'), [])).toEqual([]);
     // Once OK'd, it goes.
@@ -2518,8 +2563,25 @@ describe('the events near them on Alignable (decision 112)', () => {
     // Never their own business, nor anyone beside another event.
     expect((saves[0]!['people'] as unknown[]).length).toBe(3);
     expect(inputsOf('hfos-events-read')).toEqual([
-      { workspaceId: ME.businessId, platform: 'alignable', urls: [mixer, lunch] },
+      {
+        workspaceId: ME.businessId,
+        platform: 'alignable',
+        urls: [mixer, lunch],
+        // Each for Today's Events near you (decision 188): its card's line read as when it is.
+        events: [
+          expect.objectContaining({
+            url: mixer,
+            name: 'Spring Business Mixer',
+            when: 'Thu, Nov 6 · 5:30 PM',
+            startsAt: expect.any(String),
+            place: null,
+            hosts: [expect.objectContaining({ name: 'Morgan Cole' })],
+          }),
+          expect.objectContaining({ url: lunch, name: 'Lunch and Learn' }),
+        ],
+      },
     ]);
+    expect(EventsReadInput.safeParse(inputsOf('hfos-events-read')[0]).success).toBe(true);
     expect(presses).toEqual([]);
     expect(end).toEqual({
       line: 'Read 2 events near you in Austin, TX: 6 businesses hosting or going, 6 new to check. The good fits come onto Today once the AI has read their pages. Nothing on an event was pressed, so you’re never signed up.',
@@ -2548,7 +2610,7 @@ describe('the events near them on Alignable (decision 112)', () => {
     const end = await runAlignableDaily('events', dailyJob());
     expect(world.opened).toEqual([MINE, EVENTS]);
     expect(inputsOf('hfos-events-read')).toEqual([
-      { workspaceId: ME.businessId, platform: 'alignable', urls: [] },
+      { workspaceId: ME.businessId, platform: 'alignable', urls: [], events: [] },
     ]);
     expect(end.line).toBe(
       'No new events near you in Austin, TX: every one listed was read before. They’re read again next week.',

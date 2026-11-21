@@ -11,6 +11,7 @@ import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
+import { CALENDAR } from '../../src/addons/socialcontent/calendar';
 import { socialcontentAddon } from '../../src/addons/socialcontent/manifest';
 import { socialcontentAddonServer } from '../../src/addons/socialcontent/server';
 import { SOCIALCONTENT_TABLES } from '../../src/addons/socialcontent/tables';
@@ -169,6 +170,12 @@ describe('studying creators', () => {
         as(owner, 'socialcontent.settings.save', { networks: ['instagram', 'tiktok'] }),
       ),
     ).toBe('socialcontent_network_not_ready');
+    // Threads and X are read from extension 0.139.0 (decision 41, part 17).
+    expect(
+      (await as(owner, 'socialcontent.settings.save', { networks: ['instagram', 'threads', 'x'] }))
+        .networks,
+    ).toEqual(['instagram', 'threads', 'x']);
+    await as(owner, 'socialcontent.settings.save', { networks: ['instagram'] });
     const saved = await as(owner, 'socialcontent.settings.save', { readerUserId: owner.id });
     expect(saved).toMatchObject({ readerUserId: owner.id, networks: ['instagram'] });
     expect((await as(owner, 'socialcontent.overview')).readerIsMe).toBe(true);
@@ -690,10 +697,12 @@ describe('the business’s own posts', () => {
     // None of its own posts went up yet: what it knows comes from the creators' posts read above.
     expect(cal.learned.linkedin).toMatchObject({ own: 0 });
     expect(cal.filledAt).toBeNull();
-    // Five a week on LinkedIn is every weekday in the two weeks shown, none of them today, between its hours.
+    // Five a week on LinkedIn is every weekday in the two weeks shown, between its hours. Today's shows only while
+    // it's at least half an hour off (`CALENDAR.todayLeadMs`), so a place there can still be written and OK'd.
     const linkedin = cal.open.filter((o: Any) => o.network === 'linkedin');
     expect(linkedin.length).toBeGreaterThanOrEqual(9);
-    expect(linkedin.some((o: Any) => o.date === cal.today)).toBe(false);
+    for (const o of linkedin.filter((o: Any) => o.date === cal.today))
+      expect(Date.parse(o.at) - Date.now()).toBeGreaterThan(CALENDAR.todayLeadMs - 60_000);
     for (const o of linkedin) {
       const hour = Number(clockOf(o.at, cal.timeZone).slice(0, 2));
       expect(hour).toBeGreaterThanOrEqual(8);
@@ -1084,7 +1093,17 @@ describe('the business’s own posts', () => {
     expect(half.state).toBe('failed');
     expect(half.failure).toMatch(/^On your Page: Business Suite/);
     expect(half.postedTo.map((p: Any) => p.place)).toEqual(['profile']);
+    // It may have gone up all the same: it's looked for on its own, once, 10 minutes on (the owner, 15 Nov).
+    expect(Date.parse(half.lookAt) - Date.now()).toBeGreaterThan(9 * 60_000);
+    expect(Date.parse(half.lookAt) - Date.now()).toBeLessThanOrEqual(10 * 60_000);
+    // Nobody asked for that look: its window comes in front only while the person is away (decision 120).
+    const [onItsOwn] = await rows<{ look_asked: boolean }>(
+      admin(),
+      sql`select look_asked from addon_socialcontent.content where record_id = ${id}`,
+    );
+    expect(onItsOwn!.look_asked).toBe(false);
     await as(member, 'socialcontent.content.post_now', { postId: id });
+    expect((await as(member, 'socialcontent.content.get', { postId: id })).lookAt).toBeNull();
     const again = await as(owner, 'socialcontent.post.next', { networks: ['facebook'] });
     expect(again.post).toMatchObject({ id, places: ['page'] });
     const done = await as(owner, 'socialcontent.post.went', {
@@ -1096,6 +1115,138 @@ describe('the business’s own posts', () => {
       postLink: 'https://www.facebook.com/pipedreams/posts/1',
     });
     expect(done.postedTo.map((p: Any) => p.place)).toEqual(['profile', 'page']);
+  });
+
+  it('puts Facebook last of the posts due at the same time, so the rest never wait behind it (16 Nov)', async () => {
+    const make = async (network: 'linkedin' | 'facebook', title: string) =>
+      (
+        await worker('socialcontent.content.put', {
+          network,
+          post: written({ title, words: `${title}: a tip.` }),
+        })
+      ).postId as string;
+    // Facebook's was written first, which used to put it first.
+    const facebook = await make('facebook', 'Same time on Facebook');
+    const linkedin = await make('linkedin', 'Same time on LinkedIn');
+    const earlier = await make('facebook', 'Earlier on Facebook');
+    const ids = `{${facebook},${linkedin},${earlier}}`;
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content set state = 'ready',
+            post_at = case when record_id = ${earlier} then now() - interval '2 minutes'
+                           else now() - interval '1 minute' end,
+            approved_at = now(), approved_by = ${member.id}::uuid
+          where record_id = any(${ids}::uuid[])`,
+    );
+    const order: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const { post } = await as(owner, 'socialcontent.post.next', {
+        networks: ['facebook', 'linkedin'],
+      });
+      order.push(post.id);
+    }
+    // Soonest first still: only a tie puts Facebook after the rest.
+    expect(order).toEqual([earlier, linkedin, facebook]);
+    // Out of the way of the posting tests after this one.
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content set state = 'skipped', posting_at = null,
+            approved_at = null, approved_by = null
+          where record_id = any(${ids}::uuid[])`,
+    );
+  });
+
+  it('redoes posts that went up wrong or didn’t go up, one at a time on each network (the owner, 15 Nov)', async () => {
+    const make = async (network: 'linkedin' | 'facebook', title: string) =>
+      (
+        await worker('socialcontent.content.put', {
+          network,
+          post: written({ title, words: `${title}: a tip.` }),
+        })
+      ).postId as string;
+    const up = await make('linkedin', 'Went up square');
+    const missed = await make('linkedin', 'Never went up');
+    const half = await make('facebook', 'Profile only');
+    const draft = await make('linkedin', 'Still a draft');
+    const hidden = await make('linkedin', 'Missed days ago');
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content set state = 'posted', post_at = now() - interval '1 day',
+            approved_at = now() - interval '2 days', approved_by = ${member.id}::uuid,
+            posted_at = now() - interval '1 day', checks_due_at = now() + interval '1 day',
+            post_link = 'https://www.linkedin.com/feed/update/urn:li:activity:7300000000000000009/',
+            posted_to = jsonb_build_array(jsonb_build_object('place', 'feed', 'link', null, 'at', now()))
+          where record_id = ${up}`,
+    );
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content set state = 'failed', failure = 'LinkedIn didn’t take it.',
+            post_at = now() - interval '3 days'
+          where record_id = any(${`{${missed},${hidden}}`}::uuid[])`,
+    );
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content set state = 'failed', post_at = now() - interval '1 day',
+            failure = 'On your Page: Business Suite didn’t show Create post.',
+            posted_to = jsonb_build_array(jsonb_build_object('place', 'profile', 'link', null, 'at', now()))
+          where record_id = ${half}`,
+    );
+    // What didn't go up shows under Lately, so it can be redone, even with nothing up and its day gone.
+    const before = await as(member, 'socialcontent.calendar.get');
+    expect(before.recent.map((p: Any) => p.id)).toEqual(
+      expect.arrayContaining([up, missed, half, hidden]),
+    );
+
+    const out = await as(member, 'socialcontent.content.redo', {
+      postIds: [up, missed, half, draft],
+    });
+    expect(out.redone).toBe(3);
+    expect(out.notRedone).toEqual([
+      { postId: draft, title: 'Still a draft', why: expect.stringMatching(/nothing to redo/) },
+    ]);
+    const [a, b, c] = await Promise.all(
+      [up, missed, half].map((postId) => as(member, 'socialcontent.content.get', { postId })),
+    );
+    // The one that went up goes up again everywhere: what it had was the old post's.
+    expect(a).toMatchObject({
+      state: 'ready',
+      postedTo: [],
+      postedAt: null,
+      postLink: null,
+      placedBy: 'person',
+      failure: null,
+    });
+    expect(a.approvedAt).not.toBeNull();
+    // The second on LinkedIn goes 30 minutes after the first; Facebook's first goes now too.
+    expect(b).toMatchObject({ state: 'ready', failure: null });
+    expect(Date.parse(b.postAt) - Date.parse(a.postAt)).toBe(30 * 60_000);
+    expect(c.postAt).toBe(a.postAt);
+    expect(Date.parse(a.postAt)).toBeLessThanOrEqual(Date.now());
+    // The one half up keeps where it went, so only the Page is tried again.
+    expect(c.postedTo.map((p: Any) => p.place)).toEqual(['profile']);
+    const [due] = await rows<{ checks_due_at: unknown }>(
+      admin(),
+      sql`select checks_due_at from addon_socialcontent.content where record_id = ${up}`,
+    );
+    expect(due!.checks_due_at).toBeNull();
+    // Going up now, it's not redone again until it's done.
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content set state = 'posting', posting_at = now() where record_id = ${b.id}`,
+    );
+    const again = await as(member, 'socialcontent.content.redo', { postIds: [missed] });
+    expect(again).toMatchObject({ redone: 0, lastAt: null });
+    expect(again.notRedone[0].why).toMatch(/going up right now/);
+    expect(await refused(as(member, 'socialcontent.content.redo', { postIds: [] }))).toBe(
+      'validation',
+    );
+    // Out of the way of the posting tests after this one.
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content set state = 'skipped', posting_at = null,
+            approved_at = null, approved_by = null
+          where record_id = any(${`{${up},${missed},${half},${hidden}}`}::uuid[])`,
+    );
   });
 
   it('puts one back when nothing was pressed, and marks as didn’t post one that never said or waited too long', async () => {
@@ -1146,6 +1297,229 @@ describe('the business’s own posts', () => {
     expect(said.state).toBe('posted');
   });
 
+  it('acts on many picked posts: OKs, hides and shows, deletes, and redoes any number (the owner, 15 Nov)', async () => {
+    const make = async (title: string, set: ReturnType<typeof sql>) => {
+      const { postId } = await worker('socialcontent.content.put', {
+        network: 'linkedin',
+        post: written({ title, words: `${title}: a tip.` }),
+      });
+      await rows(
+        admin(),
+        sql`update addon_socialcontent.content set ${set} where record_id = ${postId as string}`,
+      );
+      return postId as string;
+    };
+    const soon = sql`post_at = now() + interval '3 days'`;
+    const a = await make('Picked one', soon);
+    const b = await make('Picked two', soon);
+    const up = await make(
+      'Went up last week',
+      sql`state = 'posted', post_at = now() - interval '7 days', posted_at = now() - interval '7 days',
+          approved_at = now() - interval '8 days',
+          posted_to = jsonb_build_array(jsonb_build_object('place', 'feed', 'link', null, 'at', now()))`,
+    );
+
+    // OK: only the ones waiting for an OK.
+    const ok = await as(member, 'socialcontent.content.approve_many', { postIds: [a, b, up] });
+    expect(ok.approved).toBe(2);
+    expect(ok.notApproved).toEqual([
+      {
+        postId: up,
+        title: 'Went up last week',
+        why: expect.stringMatching(/isn’t waiting for an OK/),
+      },
+    ]);
+    expect((await as(member, 'socialcontent.content.get', { postId: a })).state).toBe('ready');
+
+    // Hide: kept under Hidden, and one not up yet is skipped, so it never goes up while hidden.
+    expect(await as(member, 'socialcontent.content.hide', { postIds: [a, up] })).toEqual({
+      changed: 2,
+      notChanged: [],
+    });
+    const hidden = await as(member, 'socialcontent.content.get', { postId: a });
+    expect(hidden).toMatchObject({ hidden: true, state: 'skipped', approvedAt: null });
+    expect(await as(member, 'socialcontent.content.get', { postId: up })).toMatchObject({
+      hidden: true,
+      state: 'posted',
+    });
+    // Hiding it again changes nothing.
+    expect((await as(member, 'socialcontent.content.hide', { postIds: [a] })).changed).toBe(0);
+    // The Calendar still has it, marked, so its Hidden filter can show it.
+    const cal = await as(member, 'socialcontent.calendar.get', { days: 7 });
+    expect(cal.posts.find((p: Any) => p.id === a)).toMatchObject({ hidden: true });
+    // The Pick menu's picks across any date: hidden ones only under everything and Hidden.
+    const pick = async (which: string) =>
+      (await as(member, 'socialcontent.content.pick', { which })).posts.map((p: Any) => p.id);
+    expect(await pick('hidden')).toEqual(expect.arrayContaining([a, up]));
+    expect(await pick('all')).toEqual(expect.arrayContaining([a, b, up]));
+    expect(await pick('okd')).toContain(b);
+    expect(await pick('okd')).not.toContain(a);
+    expect(await pick('past')).not.toContain(up);
+    // Showing it again brings a skipped one back as waiting for an OK.
+    expect(
+      (await as(member, 'socialcontent.content.hide', { postIds: [a], hide: false })).changed,
+    ).toBe(1);
+    expect(await as(member, 'socialcontent.content.get', { postId: a })).toMatchObject({
+      hidden: false,
+      state: 'draft',
+    });
+    expect(await pick('waiting')).toContain(a);
+
+    // Delete: owners and admins, and one that went up comes off the Calendar too.
+    expect(
+      await refused(as(member, 'socialcontent.content.remove_many', { postIds: [a, up] })),
+    ).toBe('socialcontent_remove_forbidden');
+    expect(await as(owner, 'socialcontent.content.remove_many', { postIds: [a, up] })).toEqual({
+      removed: 2,
+      notRemoved: [],
+    });
+    expect(await refused(as(member, 'socialcontent.content.get', { postId: up }))).toBe(
+      'not_found',
+    );
+
+    // Redo has no 30 cap now: the screens send any number, up to 500 at a time.
+    const many = Array.from({ length: 31 }, () => randomUUID());
+    const redo = await as(member, 'socialcontent.content.redo', { postIds: many });
+    expect(redo.redone).toBe(0);
+    expect(redo.notRedone).toHaveLength(31);
+    expect(
+      await refused(
+        as(member, 'socialcontent.content.hide', {
+          postIds: Array.from({ length: 501 }, () => randomUUID()),
+        }),
+      ),
+    ).toBe('validation');
+    // Out of the way of the posting tests after this one.
+    await as(member, 'socialcontent.content.hide', { postIds: [b] });
+  });
+
+  it('marks a post that didn’t post as posted, or looks for it on the network (the owner, 15 Nov)', async () => {
+    const failed = async (network: 'linkedin' | 'facebook', title: string, extra = sql``) => {
+      const { postId } = await worker('socialcontent.content.put', {
+        network,
+        post: written({ title, words: `${title}: a tip.` }),
+      });
+      await rows(
+        admin(),
+        sql`update addon_socialcontent.content set state = 'failed', failure = 'It didn’t show it going up.',
+              post_at = now() - interval '1 hour' ${extra}
+            where record_id = ${postId as string}`,
+      );
+      return postId as string;
+    };
+    const one = await failed('linkedin', 'Marked by hand');
+    const two = await failed('linkedin', 'Another one');
+
+    // Mark as posted: a link goes with one post, and has to be that network's.
+    expect(
+      await refused(
+        as(member, 'socialcontent.content.mark_posted', {
+          postIds: [one, two],
+          link: 'https://www.linkedin.com/feed/update/urn:li:activity:1/',
+        }),
+      ),
+    ).toBe('socialcontent_link_one');
+    expect(
+      await refused(
+        as(member, 'socialcontent.content.mark_posted', {
+          postIds: [one],
+          link: 'https://www.facebook.com/pipedreams/posts/9',
+        }),
+      ),
+    ).toBe('socialcontent_link_elsewhere');
+    const link = 'https://www.linkedin.com/feed/update/urn:li:activity:7300000000000000042/';
+    const marked = await as(member, 'socialcontent.content.mark_posted', { postIds: [one], link });
+    expect(marked).toEqual({ marked: 1, notMarked: [] });
+    const got = await as(member, 'socialcontent.content.get', { postId: one });
+    expect(got).toMatchObject({ state: 'posted', postLink: link, failure: null, lookAt: null });
+    expect(got.postedTo).toEqual([{ place: 'feed', link, at: expect.any(String) }]);
+    // Its numbers are read from about its time, as with any post that went up with a link.
+    const [due] = await rows<{ checks_due_at: unknown }>(
+      admin(),
+      sql`select checks_due_at from addon_socialcontent.content where record_id = ${one}`,
+    );
+    expect(due!.checks_due_at).not.toBeNull();
+    // Only one that didn't post can be.
+    const again = await as(member, 'socialcontent.content.mark_posted', { postIds: [one] });
+    expect(again.notMarked[0].why).toMatch(/Only a post that didn’t post/);
+
+    // Check if it posted: the reading computer looks where it hadn't gone up, by its first words.
+    const half = await failed(
+      'facebook',
+      'Half up',
+      sql`, facebook_where = '{profile,page}',
+          posted_to = jsonb_build_array(jsonb_build_object('place', 'profile', 'link', null, 'at', now()))`,
+    );
+    expect(await as(member, 'socialcontent.content.look', { postIds: [half, one] })).toEqual({
+      asked: 1,
+      notAsked: [
+        { postId: one, title: 'Marked by hand', why: expect.stringMatching(/didn’t post/) },
+      ],
+    });
+    expect((await as(member, 'socialcontent.content.get', { postId: half })).lookAt).not.toBeNull();
+    // Only the reading computer takes the look.
+    expect(
+      await refused(as(member, 'socialcontent.post.look_next', { networks: ['facebook'] })),
+    ).toBe('socialcontent_not_reader');
+    const look = await as(owner, 'socialcontent.post.look_next', { networks: ['facebook'] });
+    expect(look.post).toMatchObject({
+      id: half,
+      network: 'facebook',
+      places: ['page'],
+      facebookPage: 'https://www.facebook.com/pipedreams',
+      // A person asked: its window comes in front for the look right away (the owner, 18 Nov).
+      asked: true,
+    });
+    expect(look.post.text).toMatch(/^Half up: a tip\./);
+    // Handed out, it's put off half an hour.
+    expect(
+      (await as(owner, 'socialcontent.post.look_next', { networks: ['facebook'] })).post,
+    ).toBeNull();
+    const found = await as(owner, 'socialcontent.post.looked', {
+      postId: half,
+      found: [{ place: 'page', link: 'https://www.facebook.com/pipedreams/posts/2' }],
+    });
+    expect(found).toMatchObject({ state: 'posted', failure: null, lookAt: null });
+    expect(found.postedTo.map((p: Any) => p.place)).toEqual(['profile', 'page']);
+    const [answered] = await rows<{ look_asked: boolean }>(
+      admin(),
+      sql`select look_asked from addon_socialcontent.content where record_id = ${half}`,
+    );
+    expect(answered!.look_asked).toBe(false);
+
+    // Not found: it stays as didn't post, saying when it looked; couldn't look: it says why.
+    await as(member, 'socialcontent.content.look', { postIds: [two] });
+    expect(
+      (await as(owner, 'socialcontent.post.look_next', { networks: ['linkedin'] })).post.id,
+    ).toBe(two);
+    const missing = await as(owner, 'socialcontent.post.looked', { postId: two, found: [] });
+    expect(missing).toMatchObject({ state: 'failed', lookAt: null, lookFailure: null });
+    expect(missing.lookedAt).not.toBeNull();
+    await as(member, 'socialcontent.content.look', { postIds: [two] });
+    // A look left over from posting, not asked for, says so to the extension.
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content set look_asked = false where record_id = ${two}`,
+    );
+    expect(
+      (await as(owner, 'socialcontent.post.look_next', { networks: ['linkedin'] })).post,
+    ).toMatchObject({ id: two, asked: false });
+    const couldnt = await as(owner, 'socialcontent.post.looked', {
+      postId: two,
+      found: [],
+      failure: 'LinkedIn showed its sign-in page.',
+    });
+    expect(couldnt).toMatchObject({
+      state: 'failed',
+      lookFailure: 'LinkedIn showed its sign-in page.',
+    });
+    // Out of the way of the posting tests after this one.
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content set state = 'skipped', look_due_at = null where record_id = ${two}`,
+    );
+  });
+
   it('won’t put a video up before its video is added (part 10), and says whose computer posts', async () => {
     const reel = await worker('socialcontent.content.put', {
       network: 'instagram',
@@ -1157,7 +1531,7 @@ describe('the business’s own posts', () => {
     const shown = await as(member, 'socialcontent.content.get', { postId: reel.postId });
     expect(shown.stillNeeds).toMatch(/no video yet/);
     const cal = await as(member, 'socialcontent.calendar.get');
-    expect(cal.postsOn).toEqual(['facebook', 'linkedin', 'instagram']);
+    expect(cal.postsOn).toEqual(['facebook', 'linkedin', 'instagram', 'threads', 'x']);
     expect(cal.poster).toMatchObject({ mine: false, version: '0.132.0' });
     expect(cal.poster.seenAt).not.toBeNull();
     expect((await as(owner, 'socialcontent.calendar.get')).poster.mine).toBe(true);

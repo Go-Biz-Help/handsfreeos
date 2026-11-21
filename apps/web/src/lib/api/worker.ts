@@ -256,6 +256,8 @@ export function registrationPreflight(input: {
   };
   /** Every other way customers agree, each opened and checked like the main one. */
   otherWays?: { path: 'hosted' | 'own_site' | 'in_person'; url: string }[];
+  /** What the texts are about: a marketing box anywhere on the site fails a customer care registration. */
+  useCase?: 'customer_care' | 'mixed' | 'marketing';
   /**
    * The registration exactly as Send would send it. The worker checks the pages it names and writes down what it
    * found against it: the send goes through only for details found all green.
@@ -265,6 +267,8 @@ export function registrationPreflight(input: {
   checks: PreflightCheck[];
   /** With a submission: everything standing between it and all green (empty when it may go). */
   notGreen: string[] | null;
+  /** The fixed addresses our reads come from, for letting HandsFreeOS in at the host; empty until set up. */
+  readerIps?: string[];
 }> {
   return workerPost('/v1/telephony/registration-preflight', input);
 }
@@ -466,4 +470,47 @@ export function startVideoCall(input: {
   acknowledgeQuietHours?: boolean;
 }): Promise<StartedVideoCall> {
   return workerPost('/v1/video-calls/start', input);
+}
+
+/**
+ * "Finish the check on my site" (2026-11-20): a one-time code for the business's own browser to read its site's pages
+ * for the registration's checks, and the address to open with it. Our chat or form code on that page does the
+ * reading (embed/v1/site-check.js), so the page should be one it's on.
+ */
+export function siteCheckStart(input: {
+  workspaceId: string;
+  website: string;
+  start?: string;
+  urls: string[];
+}): Promise<{ checkId: string; open: string; expiresAt: string }> {
+  return workerPost('/v1/telephony/site-check/start', input);
+}
+
+/** How far the browser check has got: pages read so far, and whether it's done or has run out. */
+export function siteCheckStatus(input: {
+  workspaceId: string;
+  checkId: string;
+}): Promise<{ pages: number; finished: boolean; expired: boolean }> {
+  return workerPost('/v1/telephony/site-check/status', input);
+}
+
+/** A screenshot of a page the checks couldn't open, written down by the AI for the checks to read instead. */
+export function siteScreenshot(input: {
+  workspaceId: string;
+  url: string;
+  images: string[];
+}): Promise<{ saved: true }> {
+  return workerPost('/v1/telephony/site-check/screenshot', input);
+}
+
+/**
+ * About you as the AI writes it from the person's answers to its interview (decision 186), keeping what's in the box:
+ * handed back unsaved, for them to read and Save. Anyone in the business may; the worker asks the AI.
+ */
+export function aboutYouWrite(input: {
+  workspaceId: string;
+  answers: { key: string; said: string }[];
+  about: string;
+}): Promise<{ about: string }> {
+  return workerPost('/v1/about-you/write', input);
 }

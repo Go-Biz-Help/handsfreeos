@@ -12,17 +12,18 @@ import {
   MoneyVisual,
   PipelineVisual,
   TrustLadderVisual,
+  WebinarVisual,
   WorkflowVisual,
 } from '@/components/visuals';
 import { automationGroups, comingSoon, featureSections, foundations } from '@/content/features';
-import { moneyBack, spotPrices, urls } from '@/content/site';
+import { freeTrial, moneyBack, spotPrices, urls } from '@/content/site';
 
 /** How many things it does on its own: the same list as Settings → Automations in the app. */
 const automationCount = automationGroups.reduce((sum, group) => sum + group.items.length, 0);
 
 export const metadata: Metadata = {
-  title: 'What it does: AI answering, CRM and invoicing',
-  description: `AI that answers calls and texts, one inbox, online booking, quotes and invoices, video calls, campaigns, reviews, forms and ${automationCount} automations, on one plan.`,
+  title: 'Features: AI employees, CRM and invoicing',
+  description: `AI employees that answer and call leads, a CRM that fills itself in, booking, quotes, invoices, video calls, webinars and ${automationCount} automations, on one plan.`,
   alternates: { canonical: '/features' },
 };
 
@@ -33,6 +34,7 @@ const visuals: Record<string, ReactNode> = {
   calendar: <BookingVisual />,
   money: <MoneyVisual />,
   ai: <TrustLadderVisual />,
+  webinars: <WebinarVisual />,
   assistant: <AssistantVisual />,
   workflows: <WorkflowVisual />,
   'action-center': <ActionCenterVisual />,
@@ -63,7 +65,7 @@ export default function FeaturesPage() {
     <>
       <Container className="py-16 sm:py-20">
         <SectionHeading
-          sub="Ten apps’ worth, in one system that notices what needs doing, does it, and brings you in when it matters. It answers, books, quotes, chases, meets and markets, and keeps every record current on its own."
+          sub={`Your AI Business Operating System: ten apps’ worth in one system, and an AI team that notices what needs doing, does it, and brings you in when it matters. An AI teammate answers and calls your customers, the Assistant does what you ask, and ${automationCount} automations follow up on their own.`}
           as="h1"
         >
           Everything HandsFreeOS does, so you don&rsquo;t have to.
@@ -72,7 +74,7 @@ export default function FeaturesPage() {
         <ul className="mt-8 flex flex-wrap gap-x-8 gap-y-3 text-base">
           {[
             { strong: String(automationCount), rest: 'automations, each with its own switch' },
-            { strong: 'One AI', rest: 'across every part, asking first' },
+            { strong: 'One AI team', rest: 'across every part, asking first' },
             { strong: 'One plan', rest: 'with every feature and unlimited people' },
           ].map((item) => (
             <li key={item.rest} className="text-text-2">
@@ -214,6 +216,16 @@ export default function FeaturesPage() {
             </li>
           ))}
         </ul>
+        <p className="text-text-2 mt-12 text-lg">
+          Looking for Social Outreach, the AI Social Media Content Creator, the AI Sales Coach or
+          Real Estate Agent? They&rsquo;re add-ons, in early access for founding members.{' '}
+          <Link
+            href="/add-ons"
+            className="text-accent-text font-semibold underline underline-offset-2"
+          >
+            See the add-ons
+          </Link>
+        </p>
       </Section>
 
       <Section className="bg-card-2 border-border border-t">
@@ -221,8 +233,9 @@ export default function FeaturesPage() {
           <h2 className="text-3xl font-bold sm:text-4xl">All of that is on one plan.</h2>
           <p className="text-text-2 mt-5 text-lg">
             Every feature above the coming-soon list, and as many people as work there, for{' '}
-            {spotPrices}. Nothing is held back for a bigger plan, because there is no bigger plan.
-            And if it isn&rsquo;t for you within {moneyBack.days} days, you get your money back.
+            {spotPrices}, with the first {freeTrial.days} days free. Nothing is held back for a
+            bigger plan, because there is no bigger plan. And if it isn&rsquo;t for you within{' '}
+            {moneyBack.days} days of your first payment, you get your money back.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Button href={urls.signUp} size="lg">

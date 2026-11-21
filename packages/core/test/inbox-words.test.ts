@@ -520,10 +520,12 @@ describe('the AI teammate', () => {
     expect(
       handedLine('Ava', null, ME, '2026-09-17T20:10:00Z', TZ, new Date('2026-09-17T21:00:00Z')),
     ).toBe('Ava handed this to a person at 3:10 PM.');
-    expect(takeOverToast('Ava', false)).toBe('It’s yours. Ava stays quiet until you hand it back.');
+    expect(takeOverToast('Ava', false)).toBe(
+      'They’re in your hands. Ava stays quiet with them everywhere until you hand them back.',
+    );
     expect(handBackQuestion('Ava', 'Mike').title).toBe('Hand Mike back to Ava?');
     expect(handoverNote('ai', 'Ava')).toBe(
-      'Sending takes this conversation over from Ava. It stays quiet until someone hands it back.',
+      'Sending puts them in your hands. Ava stays quiet with them everywhere until someone hands them back.',
     );
     expect(handoverNote('person', 'Ava')).toBeNull();
   });

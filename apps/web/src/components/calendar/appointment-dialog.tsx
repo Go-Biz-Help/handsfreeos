@@ -63,6 +63,7 @@ const LOCATION_LABEL: Record<LocationKind, string> = {
   business: 'Business',
   virtual: 'Video call',
   phone: 'Phone call',
+  meetup: 'Meet-up spot',
 };
 
 /** The open times offered after a 409 resource_full; picking one fills in the date and start. */
@@ -361,7 +362,9 @@ export function AppointmentDialog({
               ? address.trim() || null
               : place.kind === 'business'
                 ? place.address
-                : null,
+                : place.kind === 'meetup'
+                  ? address.trim() || place.address
+                  : null,
           meetingUrl: place.kind === 'virtual' ? place.meetingUrl : null,
           postalCode: place.kind === 'customer_address' ? postalCode : null,
         }
@@ -762,6 +765,14 @@ export function AppointmentDialog({
                       value={address}
                       placeholder="Street, city, ZIP"
                       aria-label="Customer’s address"
+                      onChange={(e) => change(setAddress)(e.target.value)}
+                    />
+                  ) : place?.kind === 'meetup' ? (
+                    <Input
+                      id={places.length > 1 ? undefined : 'appt-place'}
+                      value={address}
+                      placeholder={place.address || 'Where you’re meeting'}
+                      aria-label="Where you’re meeting"
                       onChange={(e) => change(setAddress)(e.target.value)}
                     />
                   ) : (

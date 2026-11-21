@@ -86,8 +86,8 @@ export const MainOfferSaveNamesInput = z.object({
 export const MainOfferSaveNamesOutput = z.object({ names: z.array(z.string()) });
 
 /**
- * One of the lists for content (docs/main-offer.md, "For your content"): what makes the business different, its
- * features and benefits, and the rest the Content Creator writes from. Saved as it is, not scored.
+ * One of the lists for content (docs/main-offer.md, "For your posts and messages"): what makes the business different,
+ * its features and benefits, and the rest the Content Creator writes from. Saved as it is, not scored.
  */
 export const MainOfferSaveListInput = z.object({
   workspaceId: uuid,

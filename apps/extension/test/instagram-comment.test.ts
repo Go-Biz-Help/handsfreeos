@@ -57,7 +57,7 @@ const postPage = ({
 function postable(doc: Document, takes = true): string[] {
   const posted: string[] = [];
   const form = doc.querySelector('#own');
-  const box = form?.querySelector('textarea');
+  const box = form?.querySelector<HTMLTextAreaElement | HTMLInputElement>('textarea, input');
   if (!form || !box) return posted;
   const draw = () => {
     form.querySelector('[data-post]')?.remove();
@@ -157,5 +157,103 @@ describe('a comment on their post on Instagram', () => {
     const posted = postable(doc, false);
     expect(await commenting(doc)).toBe('not_sent');
     expect(posted).toEqual([TEXT]);
+  });
+});
+
+describe('a comment on their reel in the reels player on Instagram', () => {
+  // The owner's problem report of 15 Nov 2026: a comment on a reel opened the reels player (/reels/<code>/), which draws
+  // the reel and the next one under it with no link to the reel itself and no box to comment in till the reel's own
+  // Comment opens its comments, so it said "couldn’t find the post’s own box to comment in". Here as the report
+  // outlined it: each reel's account over its video (with Verified, "and" and its button naming others on the first),
+  // and its bar with Like, its count, Comment named by its count, Repost and Share, each with their own.
+  const REEL: CommentOn = { ...ON, postUrl: `${IG}/reel/C4ddddddd/` };
+  const reelPart = (by: string, id: string, others = '') => `<div>
+    <div><img aria-hidden="true" alt=""><div><video></video><div role="group" aria-label="Video player">
+      <div role="presentation"><div role="button"><div><div><div>
+        <a role="link" aria-label="${by} reels" href="/${by}/reels/"><div>
+          <span role="link"><img alt="${by}'s profile picture"></span></div></a>
+        <div><span dir="auto"><a role="link" aria-label="${by} reels" href="/${by}/reels/">${by}</a>
+          <svg role="img" aria-label="Verified"></svg>${others}</span>
+          <div><a role="link" href="/explore/locations/123/austin-texas/"><span>Austin, Texas</span></a></div></div></div>
+        <div role="button">Follow</div></div></div></div></div></div></div>
+    <div><div><div role="button"><svg role="img" aria-label="Like"></svg></div>
+        <div role="button"><span dir="auto"><span>218</span></span></div></div>
+      <div role="button" aria-expanded="false" id="${id}"><div><svg role="img" aria-label="Comment"></svg>
+        <span dir="auto"><span>77</span></span></div></div>
+      <div><div role="button"><svg role="img" aria-label="Repost"></svg></div>
+        <div role="button"><span dir="auto"><span>3</span></span></div></div>
+      <div><div role="button"><svg role="img" aria-label="Share"></svg></div>
+        <div role="button"><span dir="auto"><span>1</span></span></div></div>
+      <div role="button"><div role="button"><svg role="img" aria-label="Save"></svg></div></div>
+      <div role="button" aria-expanded="false"><svg role="img" aria-label="More"></svg></div>
+      <a role="link" href="/reels/audio/1234567/"><div><img alt="Original audio"></div></a></div>
+  </div>`;
+
+  /** The comments' own box: in its form with Post (as the post's page draws it), or a bare input beside Emoji. */
+  const BOXES = {
+    form: '<form id="own"><textarea aria-label="Add a comment…" placeholder="Add a comment…"></textarea></form>',
+    input: `<div><img alt=""><div id="own"><input placeholder="Add a comment…">
+      <div role="button" aria-expanded="false"><svg role="img" aria-label="Emoji"></svg></div></div></div>`,
+  };
+
+  /**
+   * The player opened on `first`, `next` under it. A reel's Comment opens its comments beside the player, with their
+   * box to comment in (`box`); `opened` says whose were opened.
+   */
+  function player(first: string, next: string, others = '', box: keyof typeof BOXES = 'form') {
+    const doc = new JSDOM(
+      `<!doctype html><html><body><main role="main"><div>${reelPart(first, 'first', others)}${reelPart(next, 'next')}</div></main></body></html>`,
+      { url: `${IG}/reels/C4ddddddd/` },
+    ).window.document;
+    const opened: string[] = [];
+    let posted: string[] = [];
+    for (const id of ['first', 'next'])
+      doc.getElementById(id)!.addEventListener('click', () => {
+        opened.push(id);
+        doc.getElementById(id)!.setAttribute('aria-expanded', 'true');
+        doc.body.insertAdjacentHTML(
+          'beforeend',
+          `<div role="dialog"><div><h2>Comments</h2>${comment('sam.lee', '17900000000000001', 'Great work!')}</div>
+            ${BOXES[box]}</div>`,
+        );
+        posted = postable(doc);
+      });
+    return { doc, opened, posted: () => posted };
+  }
+
+  it('opens the reel’s own comments with its Comment, then writes in their box and presses Post', async () => {
+    const { doc, opened, posted } = player('dana.reyes', 'sam.lee');
+    expect(await commenting(doc, REEL)).toBe('done');
+    expect(opened).toEqual(['first']);
+    expect(posted()).toEqual([TEXT]);
+    expect(doc.querySelector<HTMLTextAreaElement>('#own textarea')!.value).toBe('');
+  });
+
+  it('writes in the comments’ box when it’s a bare input, with no type, no form and Post only once written', async () => {
+    // The owner's problem report of 18 Nov 2026 (0.147.11): the reel's Comment opened its comments, and their box
+    // ("Add a comment…") was an input with no type beside Emoji, not in a form, so no box was found to comment in.
+    const { doc, opened, posted } = player('dana.reyes', 'sam.lee', '', 'input');
+    expect(await commenting(doc, REEL)).toBe('done');
+    expect(opened).toEqual(['first']);
+    expect(posted()).toEqual([TEXT]);
+    expect(doc.querySelector<HTMLInputElement>('#own input')!.value).toBe('');
+  });
+
+  it('comments on a reel of theirs they made with another account, its others behind a button', async () => {
+    const { doc, opened, posted } = player(
+      'sam.lee',
+      'kim_bakes',
+      '<span>and</span><div role="button">2 others</div>',
+    );
+    expect(await commenting(doc, REEL)).toBe('done');
+    expect(opened).toEqual(['first']);
+    expect(posted()).toEqual([TEXT]);
+  });
+
+  it('opens nothing and writes nothing when the reel it opened on isn’t theirs, even with theirs next', async () => {
+    const { doc, opened } = player('sam.lee', 'dana.reyes');
+    expect(await commenting(doc, REEL)).toBe('none');
+    expect(opened).toEqual([]);
+    expect(doc.querySelector('#own')).toBeNull();
   });
 });

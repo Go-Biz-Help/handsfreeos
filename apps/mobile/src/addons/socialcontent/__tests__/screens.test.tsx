@@ -194,7 +194,7 @@ describe('Creators', () => {
       /Picking the best 10\s*Instagram 4 of 10\. More after the next search\./,
     );
     expect(screen.getByTestId('socialcontent-setup-write')).toHaveTextContent(
-      /For your content in Settings → Main offer: 8 of 11 lists filled/,
+      /For your posts and messages in Settings → Main offer: 8 of 11 lists filled/,
     );
     await fireEvent.press(screen.getByTestId('socialcontent-setup-fix-write'));
     expect(actions.openFix).toHaveBeenCalledWith('main-offer-lists');
@@ -660,6 +660,8 @@ describe('Settings', () => {
             instagram: { best: ['18:00', '09:00'], from: 'creators', own: 0, creators: 24 },
             facebook: { best: [], from: 'none', own: 0, creators: 0 },
             linkedin: { best: [], from: 'none', own: 0, creators: 0 },
+            threads: { best: [], from: 'none', own: 0, creators: 0 },
+            x: { best: [], from: 'none', own: 0, creators: 0 },
           },
         }),
       }),
@@ -680,6 +682,18 @@ describe('Settings', () => {
     expect(actions.setPlan).toHaveBeenCalledWith('linkedin', { mode: 'mine' });
     await fireEvent.press(screen.getByTestId('socialcontent-auto-fill'));
     expect(actions.autoFill).toHaveBeenCalledWith(false);
+  });
+
+  it('starts Threads and X off, and turns one on at the 5 a week suggested (decision 41)', async () => {
+    const actions = settingsActionsMock();
+    await render(body({ actions }));
+    expect(screen.getByTestId('socialcontent-plan-x-off')).toHaveTextContent(
+      /^Off for now\. About 5 a week works well on X: short posts/,
+    );
+    expect(screen.getByTestId('socialcontent-plan-threads-off')).toBeTruthy();
+    expect(screen.queryByTestId('socialcontent-plan-instagram-off')).toBeNull();
+    await fireEvent.press(screen.getByTestId('socialcontent-plan-x-on'));
+    expect(actions.setPlan).toHaveBeenCalledWith('x', { mode: 'ai', perWeek: 5 });
   });
 
   it('turns picking niches and creators on its own off (decisions 29 to 31)', async () => {
@@ -760,6 +774,16 @@ describe('the Calendar', () => {
       onAutoFill={jest.fn()}
       onOkWeek={jest.fn()}
       onWrite={jest.fn()}
+      onWriteFor={jest.fn()}
+      look="list"
+      day={null}
+      canRemove
+      onGo={jest.fn()}
+      onAct={jest.fn().mockResolvedValue({ done: 1, left: 0 })}
+      onAsk={jest.fn().mockResolvedValue([])}
+      onTryAgain={jest.fn()}
+      onLookOne={jest.fn()}
+      onMarkOne={jest.fn().mockResolvedValue({ done: 1, left: 0 })}
       {...props}
     />
   );
@@ -789,21 +813,265 @@ describe('the Calendar', () => {
       `${tomorrow}T12:00:00.000Z`,
       `open:facebook:${tomorrow}`,
     );
+    // A tap anywhere on an open place writes it too (the owner, 15 Nov).
+    onWrite.mockClear();
+    await fireEvent.press(screen.getByTestId(`socialcontent-open-facebook-${tomorrow}`));
+    expect(onWrite).toHaveBeenCalledWith(
+      'facebook',
+      `${tomorrow}T12:00:00.000Z`,
+      `open:facebook:${tomorrow}`,
+    );
   });
 
-  it('fills, OKs the week while there are drafts, and writes one', async () => {
+  it('shows Threads’ and X’s posts and open days (decision 41; the owner’s Calendar, 13 Nov)', async () => {
+    await render(
+      body({
+        data: calendarView({
+          posts: [
+            content(33, { title: 'A thread on pricing', network: 'threads', format: 'text' }),
+            content(34, { title: 'One quick tip', network: 'x', format: 'text', chain: ['More.'] }),
+          ],
+          open: [
+            { network: 'threads', date: tomorrow, at: `${tomorrow}T15:00:00.000Z`, trying: false },
+            { network: 'x', date: tomorrow, at: `${tomorrow}T16:00:00.000Z`, trying: false },
+          ],
+          postsOn: ['facebook', 'linkedin', 'instagram', 'threads', 'x'],
+        }),
+      }),
+    );
+    const day = screen.getByTestId(`socialcontent-day-${tomorrow}`);
+    expect(within(day).getByText('A thread on pricing')).toBeTruthy();
+    expect(within(day).getByText('One quick tip')).toBeTruthy();
+    expect(within(day).getByText('Threads at 3:00 PM')).toBeTruthy();
+    expect(within(day).getByText('X at 4:00 PM')).toBeTruthy();
+  });
+
+  it('fills, and OKs the week while there are drafts', async () => {
     const onFill = jest.fn();
     const onOkWeek = jest.fn();
-    const onWrite = jest.fn();
-    await render(body({ onFill, onOkWeek, onWrite }));
+    await render(body({ onFill, onOkWeek }));
     await fireEvent.press(screen.getByTestId('socialcontent-calendar-fill'));
     expect(onFill).toHaveBeenCalled();
     await fireEvent.press(screen.getByTestId('socialcontent-calendar-ok-week'));
     expect(onOkWeek).toHaveBeenCalled();
-    await fireEvent.press(screen.getByTestId('socialcontent-calendar-write'));
-    expect(onWrite).toHaveBeenCalledWith(null, null, 'write');
     await render(body({ data: calendarView({ posts: [content(30, { state: 'ready' })] }) }));
     expect(screen.queryByTestId('socialcontent-calendar-ok-week')).toBeNull();
+  });
+
+  it('asks which networks and how before writing a post, one for each network (the owner, 14 Nov)', async () => {
+    const onWriteFor = jest.fn().mockResolvedValue({ postId: id(40) });
+    await render(body({ onWriteFor }));
+    await fireEvent.press(screen.getByTestId('socialcontent-calendar-write'));
+    expect(onWriteFor).not.toHaveBeenCalled();
+    expect(screen.getByTestId('socialcontent-write-sheet')).toHaveTextContent(
+      /Which networks\?.*Threads keeps to 500 characters.*Instagram always gets a picture.*How should the AI write it\?/,
+    );
+    // It starts on the first network with posts in the plan, with the AI writing on its own.
+    expect(screen.getByTestId('socialcontent-write-network-instagram')).toBeSelected();
+    expect(screen.getByTestId('socialcontent-write-network-threads')).not.toBeSelected();
+    expect(screen.getByTestId('socialcontent-write-auto')).toBeSelected();
+    expect(screen.getByTestId('socialcontent-write-go')).toHaveTextContent('Write it');
+    // Several at once: a post for each, in the networks' order.
+    await fireEvent.press(screen.getByTestId('socialcontent-write-network-threads'));
+    await fireEvent.press(screen.getByTestId('socialcontent-write-network-facebook'));
+    expect(screen.getByTestId('socialcontent-write-go')).toHaveTextContent('Write 3 posts');
+    await fireEvent.press(screen.getByTestId('socialcontent-write-go'));
+    expect(onWriteFor).toHaveBeenCalledWith(['instagram', 'facebook', 'threads'], null);
+
+    // With the person's direction, it needs what the post is about first.
+    await render(body({ onWriteFor }));
+    await fireEvent.press(screen.getByTestId('socialcontent-calendar-write'));
+    await fireEvent.press(screen.getByTestId('socialcontent-write-network-instagram'));
+    expect(screen.getByTestId('socialcontent-write-go')).toBeDisabled();
+    await fireEvent.press(screen.getByTestId('socialcontent-write-network-x'));
+    await fireEvent.press(screen.getByTestId('socialcontent-write-mine'));
+    expect(screen.getByTestId('socialcontent-write-go')).toBeDisabled();
+    await fireEvent.changeText(
+      screen.getByTestId('socialcontent-write-about'),
+      '  Our spring tune-up special  ',
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-write-go'));
+    expect(onWriteFor).toHaveBeenLastCalledWith(['x'], 'Our spring tune-up special');
+  });
+
+  it('picks many posts and acts on them from the bar: OK, Redo, Check, Hide, More (the owner, 15 Nov)', async () => {
+    const onAct = jest.fn().mockResolvedValue({ done: 2, left: 0 });
+    const missed = content(33, {
+      title: 'Leak or drip',
+      network: 'facebook',
+      state: 'failed',
+      postAt: ago(2 * 24 * 60),
+      failure: 'Facebook didn’t show the post going up.',
+    });
+    const waiting = content(30, { title: 'Porch season' });
+    await render(body({ onAct, data: calendarView({ posts: [waiting], recent: [went, missed] }) }));
+    // No ticks, and no bar, until Select is pressed.
+    expect(screen.queryByTestId(`socialcontent-post-${went.id}-pick`)).toBeNull();
+    expect(screen.queryByTestId('socialcontent-pick-bar')).toBeNull();
+    await fireEvent.press(screen.getByTestId('socialcontent-calendar-select'));
+    expect(screen.getByTestId('socialcontent-pick-count')).toHaveTextContent('0 picked');
+    expect(screen.getByTestId('socialcontent-pick-ok')).toBeDisabled();
+    // Everything under Lately, in one tick.
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-recent'));
+    expect(screen.getByTestId(`socialcontent-post-${missed.id}-pick`)).toBeChecked();
+    expect(screen.getByTestId('socialcontent-pick-count')).toHaveTextContent('2 picked');
+    expect(screen.getByTestId('socialcontent-pick-summary')).toHaveTextContent(
+      '2 past, 1 didn’t post',
+    );
+    // Redoing one that went up warns its old one is the person's to delete.
+    expect(screen.getByTestId('socialcontent-pick-redo-posted')).toHaveTextContent(
+      /Delete the old ones on Instagram yourself/,
+    );
+    // Each button takes only those it can act on.
+    expect(screen.getByTestId('socialcontent-pick-ok')).toBeDisabled();
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-look'));
+    expect(onAct).toHaveBeenLastCalledWith('look', [missed.id], undefined);
+    // Done, what's picked is cleared; the day's own tick picks the one waiting.
+    expect(await screen.findByText('0 picked')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId(`socialcontent-pick-day-${tomorrow}`));
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-ok'));
+    expect(onAct).toHaveBeenLastCalledWith('ok', [waiting.id], undefined);
+    // Delete is under More, and asks first, with Hide instead.
+    await fireEvent.press(screen.getByTestId(`socialcontent-post-${went.id}-pick`));
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-more'));
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-remove'));
+    expect(screen.getByTestId('socialcontent-pick-remove-sheet')).toHaveTextContent(
+      /already up on Instagram\. Deleting here doesn’t take it down there/,
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-remove-go'));
+    expect(onAct).toHaveBeenLastCalledWith('remove', [went.id], undefined);
+    // Cancel ends picking.
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-cancel'));
+    expect(screen.queryByTestId('socialcontent-pick-bar')).toBeNull();
+  });
+
+  it('redoes waiting posts by having the AI write them again, after asking (the owner, 15 Nov)', async () => {
+    const onAct = jest.fn().mockResolvedValue({ done: 1, left: 0 });
+    const waiting = content(30, { title: 'Porch season' });
+    await render(body({ onAct, data: calendarView({ posts: [waiting], recent: [went] }) }));
+    await fireEvent.press(screen.getByTestId('socialcontent-calendar-select'));
+    await fireEvent.press(screen.getByTestId(`socialcontent-pick-day-${tomorrow}`));
+    await fireEvent.press(screen.getByTestId(`socialcontent-post-${went.id}-pick`));
+    // One waiting and one that went up: Redo takes both.
+    expect(screen.getByTestId('socialcontent-pick-redo')).toHaveTextContent(/2/);
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-redo'));
+    expect(onAct).not.toHaveBeenCalled();
+    expect(screen.getByTestId('socialcontent-pick-redo-sheet')).toHaveTextContent(
+      /The AI writes it again in new words\. It waits for your OK again\./,
+    );
+    expect(screen.getByTestId('socialcontent-pick-redo-sheet')).toHaveTextContent(
+      /1 post that went up or didn’t go up goes up again/,
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-redo-go'));
+    expect(onAct).toHaveBeenCalledWith('redo', [went.id]);
+    expect(onAct).toHaveBeenLastCalledWith('rewrite', [waiting.id]);
+    expect(await screen.findByText('0 picked')).toBeTruthy();
+  });
+
+  it('leaves Delete to owners and admins, and picks across any date from Pick', async () => {
+    const onAsk = jest
+      .fn()
+      .mockResolvedValue([
+        { id: id(70), title: 'Old one', state: 'posted', network: 'linkedin', hidden: false },
+      ]);
+    await render(body({ onAsk, canRemove: false }));
+    await fireEvent.press(screen.getByTestId('socialcontent-calendar-select'));
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-menu'));
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-where-any'));
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-any-past'));
+    expect(onAsk).toHaveBeenCalledWith('past', undefined);
+    expect(await screen.findByText('1 picked')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('socialcontent-pick-more'));
+    expect(screen.queryByTestId('socialcontent-pick-remove')).toBeNull();
+    expect(screen.getByTestId('socialcontent-pick-more-sheet')).toHaveTextContent(
+      /Only an owner or admin can delete posts/,
+    );
+  });
+
+  it('shows a filter’s posts only, and hidden ones only under Hidden', async () => {
+    const hidden = content(35, { title: 'Tucked away', hidden: true });
+    await render(
+      body({ data: calendarView({ posts: [content(30, { title: 'Porch season' }), hidden] }) }),
+    );
+    expect(screen.queryByText('Tucked away')).toBeNull();
+    expect(screen.getByTestId('socialcontent-show-hidden')).toHaveTextContent('Hidden1');
+    await fireEvent.press(screen.getByTestId('socialcontent-show-hidden'));
+    expect(screen.getByText('Tucked away')).toBeTruthy();
+    expect(screen.queryByText('Porch season')).toBeNull();
+  });
+
+  it('moves between List, Week and Month, a week or month at a time, and a Month day opens its week', async () => {
+    const onGo = jest.fn();
+    await render(body({ onGo }));
+    await fireEvent.press(screen.getByTestId('socialcontent-look-week'));
+    expect(onGo).toHaveBeenLastCalledWith('week', today);
+    const monday = '2026-11-09';
+    const week = calendarView({
+      from: monday,
+      days: 7,
+      posts: [content(30, { title: 'Porch season' })],
+    });
+    await render(body({ onGo, look: 'week', day: monday, data: week }));
+    expect(screen.getByTestId('socialcontent-week')).toBeTruthy();
+    expect(screen.getByTestId('socialcontent-calendar-range')).toHaveTextContent('Nov 9 – 15');
+    await fireEvent.press(screen.getByTestId('socialcontent-calendar-ahead'));
+    expect(onGo).toHaveBeenLastCalledWith('week', '2026-11-16');
+    const month = calendarView({ from: '2026-10-26', days: 42 });
+    await render(body({ onGo, look: 'month', day: '2026-11-01', data: month }));
+    expect(screen.getByTestId('socialcontent-calendar-range')).toHaveTextContent('November 2026');
+    await fireEvent.press(screen.getByTestId('socialcontent-month-2026-11-18'));
+    expect(onGo).toHaveBeenLastCalledWith('week', '2026-11-18');
+    await fireEvent.press(screen.getByTestId('socialcontent-calendar-back'));
+    expect(onGo).toHaveBeenLastCalledWith('month', '2026-10-01');
+  });
+
+  it('offers Try again, Check if it posted and Mark as posted on a post that didn’t post', async () => {
+    const onTryAgain = jest.fn();
+    const onLookOne = jest.fn();
+    const onMarkOne = jest.fn().mockResolvedValue({ done: 1, left: 0 });
+    const missed = content(33, {
+      title: 'Leak or drip',
+      network: 'facebook',
+      state: 'failed',
+      postAt: ago(2 * 24 * 60),
+      failure: 'Facebook didn’t show the post going up.',
+      lookAt: new Date(NOW + 8 * 60_000).toISOString(),
+    });
+    await render(
+      body({ onTryAgain, onLookOne, onMarkOne, data: calendarView({ recent: [missed] }) }),
+    );
+    expect(screen.getByTestId(`socialcontent-post-${missed.id}-look-line`)).toHaveTextContent(
+      /^It looks for it on its own at /,
+    );
+    await fireEvent.press(screen.getByTestId(`socialcontent-post-${missed.id}-again`));
+    expect(onTryAgain).toHaveBeenCalledWith(missed.id);
+    await fireEvent.press(screen.getByTestId(`socialcontent-post-${missed.id}-look`));
+    expect(onLookOne).toHaveBeenCalledWith(missed.id);
+    await fireEvent.press(screen.getByTestId(`socialcontent-post-${missed.id}-mark`));
+    await fireEvent.changeText(
+      screen.getByTestId('socialcontent-mark-link'),
+      ' https://www.facebook.com/123 ',
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-mark-go'));
+    expect(onMarkOne).toHaveBeenCalledWith(missed.id, 'https://www.facebook.com/123');
+    // Looked for and not found: try again, check again, or mark it anyway.
+    await render(
+      body({
+        data: calendarView({
+          recent: [{ ...missed, lookAt: null, lookedAt: ago(5) }],
+        }),
+      }),
+    );
+    expect(screen.getByTestId(`socialcontent-post-${missed.id}-look-line`)).toHaveTextContent(
+      /^It isn’t on Facebook\. Checked at /,
+    );
+    // It can look again (the owner, 17 Nov: posts the old check had missed showed no way to).
+    expect(screen.getByTestId(`socialcontent-post-${missed.id}-look`)).toHaveTextContent(
+      'Check again',
+    );
+    expect(screen.getByTestId(`socialcontent-post-${missed.id}-mark`)).toHaveTextContent(
+      'Mark as posted anyway',
+    );
   });
 
   it('stops filling on its own with its switch, and starts again (the owner, 11 Nov)', async () => {
@@ -846,6 +1114,7 @@ describe('the Calendar', () => {
     );
     expect(screen.getByTestId('socialcontent-calendar-fill')).toBeDisabled();
     expect(screen.getByTestId('socialcontent-calendar-write')).toBeDisabled();
+    expect(screen.queryByTestId('socialcontent-write-about')).toBeNull();
   });
 
   it('says it needs signal with none, with Try again', async () => {
@@ -865,6 +1134,8 @@ describe('one of its posts', () => {
       save: jest.fn(async (_d: PostDraft): Promise<unknown> => undefined),
       approve: jest.fn(),
       postNow: jest.fn(),
+      look: jest.fn(),
+      mark: jest.fn(async (_link: string | null): Promise<unknown> => undefined),
       skip: jest.fn(),
       rewrite: jest.fn(),
       makePicture: jest.fn(),
@@ -903,6 +1174,33 @@ describe('one of its posts', () => {
     expect(screen.queryByTestId('socialcontent-post-ok')).toBeNull();
     await fireEvent.press(screen.getByTestId('socialcontent-post-save'));
     expect(actions.save).toHaveBeenCalledWith(expect.objectContaining({ words: 'New words.' }));
+  });
+
+  it('counts an X post’s characters, edits the posts under it, and never offers a carousel there (decision 41)', async () => {
+    const actions = actionsMock();
+    await render(
+      body({
+        actions,
+        post: content(41, { network: 'x', format: 'text', words: 'Short tip.', chain: ['More.'] }),
+      }),
+    );
+    expect(screen.getByTestId('socialcontent-post-characters')).toHaveTextContent(
+      '18 of 280 characters, with the tags',
+    );
+    expect(screen.queryByTestId('socialcontent-post-format-carousel')).toBeNull();
+    expect(screen.getByTestId('socialcontent-post-chain-0')).toHaveProp('value', 'More.');
+    await fireEvent.press(screen.getByTestId('socialcontent-post-chain-add'));
+    await fireEvent.changeText(screen.getByTestId('socialcontent-post-chain-1'), 'Even more.');
+    await fireEvent.press(screen.getByTestId('socialcontent-post-save'));
+    expect(actions.save).toHaveBeenCalledWith(
+      expect.objectContaining({ chain: ['More.', 'Even more.'] }),
+    );
+    const p = content(41, { network: 'x', chain: ['More.'] });
+    expect(saveInput(p, { ...draftOf(p, 'UTC'), chain: ['More.', '  '] }, 'UTC').chain).toEqual([
+      'More.',
+    ]);
+    const onInstagram = content(42, { chain: [] });
+    expect(saveInput(onInstagram, draftOf(onInstagram, 'UTC'), 'UTC').chain).toEqual([]);
   });
 
   it('puts an OK’d post up now or takes the OK back, and skips or brings one back', async () => {

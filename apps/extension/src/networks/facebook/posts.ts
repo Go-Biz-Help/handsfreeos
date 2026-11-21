@@ -4,7 +4,7 @@
  * and the 2026 News Feed, each is found by its "Actions for this post" button. Comments are articles inside a post,
  * labelled "Comment by …" or "Reply by …", and are left out of what the post says.
  */
-import { clean, inTopBar, isAfter, isBefore, outermost, textLines } from './dom';
+import { clean, inTopBar, isAfter, isBefore, mainOf, outermost, textLines } from './dom';
 import { bestName } from './people';
 import type { Named, Post } from './types';
 import { facebookUrl, postUrlFrom, profileFromUrl } from './urls';
@@ -20,15 +20,19 @@ export const COMMENT = /^(comment|reply) by\b/i;
 /** A count on its own, as 2026 posts show them on their buttons: "6", "1.2K". */
 const COUNT = /^[\d.,]+\s*[km]?$/i;
 /**
- * The Like button: "Like", or since 30 Oct 2026 "React with Like to Dana Reyes's post" (decision 138); "Remove Like"
- * (or Love, Haha…), since then "Remove Like from Dana Reyes's post", once you've reacted. Never the "Change Like
- * reaction" beside it, or the count of reactions ("Like: 8 people").
+ * The Like button: "Like", or since 30 Oct 2026 "React with Like to Dana Reyes's post" (decision 138), or on a post
+ * with no count in it "Like Dana Reyes's post" (the owner's problem reports of 10 to 13 Nov 2026: its only button, so
+ * its Like wasn't known and was never pressed); "Remove Like" (or Love, Haha…), since then "Remove Like from Dana
+ * Reyes's post", or "Unlike Dana Reyes's post", once you've reacted. Never the "Change Like reaction" beside it, the
+ * count of reactions ("Like: 8 people"), or a comment's ("Like Dana Reyes's comment").
  */
-export const LIKE = /^(like|react with like\b.*|remove (like|love|care|haha|wow|sad|angry)\b.*)$/i;
+export const LIKE =
+  /^(like|react with like\b.*|remove (like|love|care|haha|wow|sad|angry)\b.*|(un)?like\s+\S.*['’]s (post|photo|video|reel))$/i;
 /** A Like button not pressed yet. */
-export const NOT_LIKED = /^(like|react with like\b.*)$/i;
-/** One pressed: "Remove Like", "Change Love reaction". */
-const LIKED = /^(remove|change) (like|love|care|haha|wow|sad|angry)\b/i;
+export const NOT_LIKED = /^(like|react with like\b.*|like\s+\S.*['’]s (post|photo|video|reel))$/i;
+/** One pressed: "Remove Like", "Change Love reaction", "Unlike Dana Reyes's post". */
+const LIKED =
+  /^((remove|change) (like|love|care|haha|wow|sad|angry)\b|unlike\s+\S.*['’]s (post|photo|video|reel)$)/i;
 /** Facebook's own mark on a post's Like button since 2026 (decision 138): it holds when the words change. */
 export const LIKE_HOOK = '[data-ad-rendering-role="like_button"]';
 /** Whether a post's Like button is pressed already, or not, or says something it doesn't know. */
@@ -39,6 +43,26 @@ export function likeStateOf(button: Element): 'like' | 'liked' | 'unknown' {
 }
 
 const hasWords = (element: Element) => clean(element.textContent) !== '';
+
+/**
+ * A post Facebook is still loading: a post's box with nothing in it but its "Loading..." mark, as Facebook shows below
+ * the posts it has drawn, and in their place while it hasn't drawn any yet. It draws one only once it's scrolled near.
+ */
+export function postLoading(doc: Document): Element | null {
+  return (
+    [...mainOf(doc).querySelectorAll('[role="article"]')].find(
+      (box) => box.querySelector('[role="status"]') !== null && clean(box.textContent) === '',
+    ) ?? null
+  );
+}
+
+/** How far the page has drawn its posts: how many it drew, and the first still loading (`postLoading`). */
+export function postsDrawing(doc: Document): {
+  readonly drawn: number;
+  readonly loading: Element | null;
+} {
+  return { drawn: postBoxes(mainOf(doc)).length, loading: postLoading(doc) };
+}
 
 /**
  * The boxes that are posts, in page order: a feed's children, or else the top-level articles that aren't comments
@@ -88,6 +112,18 @@ function byActions(root: Element): Element[] {
       boxes.push(box);
   });
   return boxes;
+}
+
+/**
+ * Whether a part of the page holds a post's own controls: its Like, its "Actions for this post" menu, its comment
+ * button or the box to write a comment in. A dialog that does is a post opened over the page (./warnings.ts).
+ */
+export function holdsPost(element: Element): boolean {
+  if (element.querySelector(LIKE_HOOK)) return true;
+  return [...element.querySelectorAll('[aria-label]')].some((e) => {
+    const label = clean(e.getAttribute('aria-label'));
+    return ACTIONS.test(label) || POST_END.test(label) || LIKE.test(label);
+  });
 }
 
 /** The box of the post something on the page is in, when it's in one: a button, a comment, the box to comment in. */

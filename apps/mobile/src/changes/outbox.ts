@@ -304,9 +304,10 @@ export class Outbox {
     );
   }
 
-  /** Clears sent changes older than a day. */
+  /** Clears sent changes older than a day, and the upload rows of photos whose change is gone. */
   async prune(): Promise<void> {
     const before = new Date(this.now() - SENT_KEPT_MS).toISOString();
     await this.db.execute(`DELETE FROM outbox WHERE state = 'sent' AND sent_at < ?`, [before]);
+    await this.db.execute('DELETE FROM photo_uploads WHERE id NOT IN (SELECT id FROM outbox)');
   }
 }

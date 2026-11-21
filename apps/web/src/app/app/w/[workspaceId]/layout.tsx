@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { ViewAsBanner } from '@/components/admin/view-as-banner';
 import { PaymentGuard } from '@/components/billing/payment-guard';
+import { TrialEndingNote } from '@/components/billing/trial-ending-note';
 import { ForgetStaleView, TeammateViewBanner } from '@/components/view-as/teammate-view-banner';
 import { ExtensionSignInPrompt } from '@/components/account/extension-sign-in-prompt';
 import { AssistantPanel } from '@/components/assistant/assistant-panel';
@@ -11,6 +12,7 @@ import { CallOverlays } from '@/components/calls/call-overlays';
 import { DemoDirector } from '@/components/demo/demo-director';
 import { Tour } from '@/components/onboarding/tour';
 import { SearchProvider } from '@/components/search/search-provider';
+import { PracticeBanner } from '@/components/practice/practice-banner';
 import { MenuEditor } from '@/components/shell/menu-editor';
 import { MenuProvider } from '@/components/shell/menu-provider';
 import { MobileShell } from '@/components/shell/mobile-shell';
@@ -42,7 +44,7 @@ export default async function WorkspaceLayout({
 }) {
   const { workspaceId } = await params;
   // Recent searches are the signed-in person's own, even while they view the app as a teammate.
-  const { api, signedInAs } = await apiServer();
+  const { api, signedInAs, userId } = await apiServer();
   const [me, { current, viewingAs, teammateView, staleView }, platform, workspace] =
     await Promise.all([
       getMe(),
@@ -65,7 +67,7 @@ export default async function WorkspaceLayout({
   // A business made while founding spots are on sale picks one and pays before anything in it opens (20261027012700).
   // Its own people only: support looking in, and anyone viewing as a teammate, see it as it is.
   if (current.needsPlan && !viewingAs && !teammateView) redirect(foundingPlanHref(workspaceId));
-  const staff = platform?.staff?.role ?? null;
+  const staff = platform?.staff ?? null;
   return (
     <LiveProvider workspaceId={workspaceId}>
       {/* Inside LiveProvider: the shell is drawn again when an add-on is turned on or off (0108). */}
@@ -77,6 +79,7 @@ export default async function WorkspaceLayout({
         videoCalls={workspace?.workspace.videoCalls ?? false}
         staffPermissions={platform?.staff?.permissions ?? []}
         timeZone={current.timezone}
+        userId={userId}
       >
         <UnreadProvider workspaceId={workspaceId}>
           {/* The urgent count on Home, in the sidebar and the phone's bottom bar. */}
@@ -126,6 +129,19 @@ export default async function WorkspaceLayout({
                           <TeammateViewBanner workspaceId={workspaceId} view={teammateView} />
                         ) : null}
                         {staleView ? <ForgetStaleView workspaceId={workspaceId} /> : null}
+                        {/* A practice business (Admin → Try onboarding, 20261027027400): not real, when it goes,
+                            and End practice. */}
+                        {current.practiceEndsAt ? (
+                          <PracticeBanner
+                            workspaceId={workspaceId}
+                            name={current.name}
+                            endsAt={current.practiceEndsAt}
+                          />
+                        ) : null}
+                        {/* A free trial's last days (20261027027000): when the card is charged, for whoever pays. */}
+                        {!viewingAs && !teammateView ? (
+                          <TrialEndingNote workspaceId={workspaceId} />
+                        ) : null}
                         <div className="flex min-h-0 flex-1">
                           <Sidebar me={me} current={current} staff={staff} />
                           <div className="flex min-w-0 flex-1 flex-col">

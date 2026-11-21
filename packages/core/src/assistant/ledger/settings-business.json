@@ -1,7 +1,7 @@
 {
   "area": "settings-business",
   "title": "Settings: the business, branded domain, pipelines, tags, fields, relationships, Deleted bin, usage, action center and automations",
-  "checkedOn": "2026-11-08",
+  "checkedOn": "2026-11-17",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/businesses.tsx": "7ec6af7d1307",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "de243d485f3e",
@@ -19,13 +19,14 @@
     "apps/web/src/app/app/w/[workspaceId]/settings/pipelines/page.tsx": "5dc2d6298fdc",
     "apps/web/src/app/app/w/[workspaceId]/settings/relationships/page.tsx": "39b0ec6d7b9c",
     "apps/web/src/app/app/w/[workspaceId]/settings/tags/page.tsx": "cb53a156c454",
-    "apps/web/src/app/app/w/[workspaceId]/settings/usage/page.tsx": "1d266080d375",
+    "apps/web/src/app/app/w/[workspaceId]/settings/usage/page.tsx": "fde009c0648a",
     "apps/web/src/app/app/w/[workspaceId]/settings/workspace/page.tsx": "d9d4ba2f5c51",
     "apps/web/src/app/payment/[workspaceId]/page.tsx": "69c8d793ff8b",
     "apps/web/src/components/account/delete-account.tsx": "cf83035f8e5d",
     "apps/web/src/components/billing/billing-bits.tsx": "5d79de48bea1",
     "apps/web/src/components/billing/payment-guard.tsx": "be553439de05",
     "apps/web/src/components/billing/payment-wall.tsx": "1c6605cb569f",
+    "apps/web/src/components/billing/trial-ending-note.tsx": "c0ac2a413875",
     "apps/web/src/components/bin/delete-dialog.tsx": "45a1e5064d40",
     "apps/web/src/components/bin/deleted-bin.tsx": "ac059400cae4",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
@@ -38,7 +39,7 @@
     "apps/web/src/components/settings/appearance-section.tsx": "383c3fcbfc5b",
     "apps/web/src/components/settings/automations/automations-page.tsx": "57d10fa29ef1",
     "apps/web/src/components/settings/automations/panels.tsx": "5bcff013300f",
-    "apps/web/src/components/settings/billing-page.tsx": "c8a3b96c0761",
+    "apps/web/src/components/settings/billing-page.tsx": "480282be3d3a",
     "apps/web/src/components/settings/branded-domain-card.tsx": "d6e2b0af323b",
     "apps/web/src/components/settings/delete-workspace.tsx": "fe6ed95a9d1f",
     "apps/web/src/components/settings/fields-settings.tsx": "60503c06ceb7",
@@ -1943,7 +1944,7 @@
     {
       "path": "Phone Settings → search box",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:139",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:141",
       "covered": "partly",
       "by": "settings map + get_settings; no search tool"
     },
@@ -1964,21 +1965,21 @@
     {
       "path": "Phone Settings → This phone → My cell row",
       "kind": "see",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:156",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:158",
       "covered": "yes",
       "by": "read_user_phone_get"
     },
     {
       "path": "Phone Settings → This phone → Face ID / passcode lock",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:170",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:172",
       "covered": "never",
       "by": "SETTINGS_NEVER phone.lock"
     },
     {
       "path": "Phone Settings → This phone → Businesses on this phone",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:189",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:191",
       "covered": "never",
       "by": "SETTINGS_NEVER phone.businesses"
     },
@@ -1992,84 +1993,84 @@
     {
       "path": "Phone Settings → This phone → Documents on mobile data",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:198",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:200",
       "covered": "never",
       "by": "SETTINGS_NEVER phone.documents_mobile_data"
     },
     {
       "path": "Phone Settings → This phone → Changes waiting to send",
       "kind": "see",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:213",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:215",
       "covered": "never",
       "by": "SETTINGS_NEVER phone.changes"
     },
     {
       "path": "Phone Settings → This business → Balance row",
       "kind": "see",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:228",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:230",
       "covered": "yes",
       "by": "get_settings usage"
     },
     {
       "path": "Phone Settings → This business → Main offer row",
       "kind": "see",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:237",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:239",
       "covered": "yes",
       "by": "manage_main_offer / edit_main_offer (own area)"
     },
     {
       "path": "Phone Settings → This business → Partners row",
       "kind": "see",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:246",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:248",
       "covered": "yes",
       "by": "get_settings partners; manage_partner (own area)"
     },
     {
       "path": "Phone Settings → You → My safety",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:260",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:262",
       "covered": "never",
       "by": "SETTINGS_NEVER phone.my_safety"
     },
     {
       "path": "Phone Settings → You → Notifications",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:268",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:270",
       "covered": "yes",
       "by": "update_my_alerts"
     },
     {
       "path": "Phone Settings → You → Profile (opens web)",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:275",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:277",
       "covered": "yes",
       "by": "update_my_account fullName"
     },
     {
       "path": "Phone Settings → You → Appearance sheet",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:316",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:326",
       "covered": "partly",
       "by": "phone keeps its own; update_my_account sets the account's"
     },
     {
       "path": "Phone Settings → You → Sign out",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:295",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:305",
       "covered": "person",
       "by": "signing in and out is the person's"
     },
     {
       "path": "Phone Settings → You → Delete account",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:301",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:311",
       "covered": "never",
       "by": "NEVER account.delete"
     },
     {
       "path": "Phone Settings → footnote (rest is on the web)",
       "kind": "see",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:309",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:319",
       "covered": "yes",
       "by": "prompt: phone Settings holds only own things"
     },
@@ -2214,6 +2215,27 @@
       "by": "do_founding_set_renewing true"
     },
     {
+      "path": "Free trial ending note → when the card is charged, and what (last 3 days, whoever pays)",
+      "kind": "see",
+      "file": "apps/web/src/components/billing/trial-ending-note.tsx:38",
+      "covered": "yes",
+      "by": "read_billing_status trialEnding; get_settings usage → founding (founding.mine trialEndsAt)"
+    },
+    {
+      "path": "Free trial ending note → Billing & Usage link",
+      "kind": "do",
+      "file": "apps/web/src/components/billing/trial-ending-note.tsx:44",
+      "covered": "yes",
+      "by": "the Billing tools; do_founding_set_renewing to stop it"
+    },
+    {
+      "path": "Free trial ending note → Hide",
+      "kind": "do",
+      "file": "apps/web/src/components/billing/trial-ending-note.tsx:51",
+      "covered": "never",
+      "by": "hiding is this device’s own, kept in the browser"
+    },
+    {
       "path": "Failed-payment page → what’s owed and the ways out (as Billing & Usage)",
       "kind": "see",
       "file": "apps/web/src/components/billing/payment-wall.tsx:50",
@@ -2247,6 +2269,13 @@
       "file": "apps/mobile/src/components/billing/fix-on-web.tsx:99",
       "covered": "never",
       "by": "the phone’s own screen in front of the business; nothing to change from the Assistant"
+    },
+    {
+      "path": "Billing & Usage → Add-ons: each paid add-on with where it stands, recent add-on payments, Turn add-ons on and off in Add-ons",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/billing-page.tsx:550",
+      "covered": "yes",
+      "by": "get_settings usage addOnBilling: each paid add-on with its price line, recent payments (addon_billing.list)"
     }
   ],
   "gaps": [

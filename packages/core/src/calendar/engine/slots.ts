@@ -15,8 +15,9 @@
  */
 import { areaCovers } from '../areas';
 import { zip5 } from '../catalogs';
-import type { CalendarConfig } from '../config';
+import { goesOut, type CalendarConfig } from '../config';
 import { bookableDurations, defaultLocationKind, resolveTerms, type Terms } from '../terms';
+import { withDrives } from './drives';
 import { containsPoint, intersect, normalize, subtract, type Interval } from './intervals';
 import type { Booking, ResourceInput, SessionInput, Slot, SlotInput, StaffInput } from './types';
 import { addDays, localDateOf, startOfLocalDay } from './zoned';
@@ -225,7 +226,7 @@ export function computeSlots(input: SlotInput): Slot[] {
   const step = config.durations.step * MIN;
   const location =
     input.locationKind === undefined ? defaultLocationKind(config) : input.locationKind;
-  const travel = location === 'customer_address' ? terms.travelMinutes : 0;
+  const travel = goesOut(location) ? terms.travelMinutes : 0;
   const spans: Spans = {
     d,
     before: (terms.bufferBefore + travel) * MIN,
@@ -256,7 +257,10 @@ export function computeSlots(input: SlotInput): Slot[] {
   }
 
   const pool = candidatePool(input, terms);
-  const staffById = new Map(input.staff.map((s) => [s.userId, s]));
+  const staffList = input.drives
+    ? withDrives(input.staff, input.drives, input.timeZone)
+    : input.staff;
+  const staffById = new Map(staffList.map((s) => [s.userId, s]));
   const mode = config.team.assignment;
   const k = config.team.crewSize;
   let host: string | null = null;

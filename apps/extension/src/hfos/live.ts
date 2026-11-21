@@ -66,7 +66,7 @@ export interface Kept extends Omit<LiveBeatOutput, 'days' | 'watched'>, Place {
 export interface Unsent extends Place {
   readonly id: string;
   readonly at: string;
-  readonly kind: 'done' | 'passed' | 'job';
+  readonly kind: 'done' | 'passed' | 'job' | 'failed';
   readonly line: string;
 }
 
@@ -547,6 +547,22 @@ export async function markActive(): Promise<void> {
   await write({ [LIVE_ACTIVE_KEY]: { ...place, at: Date.now() } });
   beatSoon();
 }
+
+/**
+ * A job's line for the feed: one that couldn't go is `failed`, so HandsFreeOS can tell a network stuck on the same one
+ * (decision 170).
+ */
+export const jobKind = (end: { readonly failed?: boolean }): Unsent['kind'] =>
+  end.failed ? 'failed' : 'job';
+
+/**
+ * A step's line for the feed: done, `failed` when it's one handed to the person (a button or box it couldn't find, a
+ * different page), or passed over (decision 170).
+ */
+export const outcomeKind = (outcome: {
+  readonly done: boolean;
+  readonly need?: true;
+}): Unsent['kind'] => (outcome.done ? 'done' : outcome.need ? 'failed' : 'passed');
 
 /** A step for the feed. */
 export async function feed(kind: Unsent['kind'], line: string): Promise<void> {

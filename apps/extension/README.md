@@ -1,7 +1,7 @@
 # HandsFreeOS Social: the browser extension
 
-The extension that works beside a person on Facebook, and on LinkedIn, Instagram and Alignable once they turn each on,
-for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
+The extension that works beside a person on Facebook, and on LinkedIn, Instagram, Alignable, Threads and X once they
+turn each on, for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
 **This is a test build (0.112.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
@@ -25,9 +25,9 @@ it do.
 On LinkedIn, once you turn it on in HandsFreeOS, it notes the invitations to
 connect, likes, comments and messages you send yourself, and your answers to invitations; it tells HandsFreeOS who
 wrote back, and stops on LinkedIn for the day on any LinkedIn warning. Since 0.40.0 it also does what you ask of it
-there from HandsFreeOS, at a person's pace in a window of its own: saving your connections and invitations, checking
-your connections for good fits, reading your chats, looking someone up before drafting, reading your profile and
-putting your headline in, withdrawing the old invitations you tick, and finding posts with LinkedIn's post search.
+there from HandsFreeOS, at a person's pace in a tab of its work window: saving your connections and invitations,
+checking your connections for good fits, reading your chats, looking someone up before drafting, reading your profile
+and putting your headline in, withdrawing the old invitations you tick, and finding posts with LinkedIn's post search.
 Since 0.41.0, once you let it and start your day on LinkedIn, it works your LinkedIn list on its own too, beside
 Facebook's and never waiting on it (below, "On its own on LinkedIn"). Since 0.42.0 it gets LinkedIn's copy of your
 data (your connections, invitations and messages) and brings it in, as it does Facebook's file. Since 0.43.0 it
@@ -56,6 +56,8 @@ next is in its kit, never in an `if`.
 | LinkedIn  | `src/networks/linkedin/`  | Yes           | Reads its pages, notes your steps and who wrote back, looks for its warnings, does what you ask, and works its list on its own once you let it, and finds people by topic: who reacted to and commented on good posts its search found, each checked by the AI first (0.95.0)                                                                                                                                                                                                                                                                                                                                                                  |
 | Instagram | `src/networks/instagram/` | Yes           | Reads its pages (0.80.0), notes your steps there, saves your followers and unfollows the ones you tick, checks them, reads your chats and looks people up (0.81.0), works its list on its own once you let it (0.82.0), and grows it from your area's hashtags and places and your notifications (0.83.0); its **Check Instagram** (0.58.0) tries each step up to its last press; it puts your bio in (0.62.0), and your username and name in its Accounts Center (0.94.0); from 0.95.0 it looks at your playbooks' own hashtags, reads who liked and commented on good posts, has each checked by the AI first, and posts the comments you OK |
 | Alignable | `src/networks/alignable/` | Yes           | Reads its pages, notes your steps, does what you ask, works its list on its own once you let it (0.77.0), and reads your chats (0.84.0); **Check Alignable** reads its pages at /biz; from 0.95.0 it searches for businesses like your clients, reads your groups and joins good ones, has everyone found checked by the AI first, and posts the comments you OK                                                                                                                                                                                                                                                                               |
+| Threads   | `src/networks/threads/`   | Yes           | From 0.137.0 (decision 163): searches its newest posts on your topic every hour and posts the comments you OK, reads replies to them, warms up the good fits it finds (likes, then a follow), saves your followers and unfollows who didn't follow back; **Check Threads** reads its pages, pressing nothing. From 0.141.0 (decision 167) it messages as on Instagram: a first message once they follow back, follow-ups, and answers to whoever writes back, with your messages kept open and read every minute                                                                                                                               |
+| X         | `src/networks/x/`         | Yes           | From 0.137.0 (decision 163): the same as Threads, on X; **Check X** reads its pages, pressing nothing                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 **A network that's off runs nothing, reads nothing and shows nothing** (`src/networks/on.ts`). Two things say a network
 is on, and both must:
@@ -74,7 +76,9 @@ is on, and both must:
   registered only while it's on in HandsFreeOS, so the extension never runs on a site you don't use. If you take a
   site back under the extension's **Site access** in Chrome, the panel says so in a line with **Allow on LinkedIn**
   (or Instagram, or Alignable), which asks Chrome (Chrome asks only from your own click). Before 0.88.0 they were
-  optional host permissions, asked for with that button once each was turned on.
+  optional host permissions, asked for with that button once each was turned on. From 0.137.0 (decision 163) Threads'
+  (`https://www.threads.com/*`, and its old threads.net, with or without `www.`) and X's (`https://x.com/*`, and
+  twitter.com and their `mobile.` sites) are the extension's from install too: reloading the build grants them.
 
 **A network still looked at** (Instagram and Alignable, decision 78) is read only for its Check, from one reader for
 both (`src/networks/looking/`) and each network's site (its addresses, its own words, its warnings and the buttons each
@@ -233,7 +237,8 @@ them:
   says who's next (writers first, then commenters, likers, members and search results) and how many today has room
   for: 30 on Instagram and Alignable, and up to 30 inside LinkedIn's 40 profiles read, half on training wheels or for a
   week after a warning. It opens each one's page, checks it's theirs, reads it as that network's checks do, and sends
-  it for the AI's check, 15 to 30 seconds apart. Only a good check puts them on your list.
+  it for the AI's check, 15 to 30 seconds apart (a minute or two on LinkedIn, 10 at a time). Only a good check puts
+  them on your list.
 - **Their warm-up is a like on every network.** A post's writer gets it on the post it found, on that post's own page,
   and on their latest only when that post is gone or isn't one to like. Anyone else gets it on a recent post of
   theirs, or the look alone when there's none.
@@ -464,7 +469,8 @@ tab whose network was turned off since it loaded notes nothing, reads nothing, a
 | A group's People tab                        | The group, and each member with the list they're in; admins and moderators are marked to leave alone |
 | A group                                     | The group (public or private, members, joined or not) and its posts                                  |
 | Your groups                                 | Each group, with the line under its name                                                             |
-| Search results                              | People, groups and posts                                                                             |
+| Search results                              | People, groups and posts; on an event search, each event with when and where its card says           |
+| An event's page                             | Its name, day, place, hosts and the guests it shows, nothing pressed (decision 188)                  |
 | Chats, and an open chat                     | Each chat with its last message; an open chat's messages, who sent each, when                        |
 | Notifications                               | Who accepted your request, reacted, commented or mentioned you                                       |
 | Any page                                    | Facebook's warnings: a temporary block, a limit, a security check                                    |
@@ -765,7 +771,8 @@ and how. A build that's handed a kind it doesn't know ends it saying so, and goe
   ("Stopped: you pressed Stop for today. Requests cancelled: 2 people.").
 - **Only its network's pages:** an ask's tab opens only https addresses of its own network: on Facebook
   www.facebook.com, web.facebook.com and accountscenter.facebook.com, on LinkedIn www.linkedin.com, on Instagram
-  www.instagram.com and, from 0.94.0, accountscenter.instagram.com (each kit's
+  www.instagram.com and, from 0.94.0, accountscenter.instagram.com, and from 0.137.0 threads.com (or threads.net) on
+  Threads and x.com (or twitter.com) on X (each kit's
   `workUrl`, checked in `src/tab.ts`, whose tab goes by its kit), so a bad link kept in HandsFreeOS or read off a page
   is refused with plain words and never opened. A tab does only its own network's steps (its kit's `work`); asked
   another's, it says so.
@@ -774,6 +781,22 @@ and how. A build that's handed a kind it doesn't know ends it saying so, and goe
 - **What it keeps:** `hfos.ask`, `hfos.ask.linkedin` and `hfos.ask.ends` above, and `hfos.facebookFile` and
   `hfos.linkedinFile`: when you asked each network for your file, and which zips were brought in. The offscreen page
   (the `offscreen` permission) is opened only to read the zips and closed once they're in.
+
+### On Threads and X (0.137.0)
+
+Threads' and X's rules are Instagram's (decision 163, `src/jobs/follows/`): a person's pace, a window of its own, a
+stop on that network for the day on any warning there, and nothing to get around its limits or checks. Nothing is ever
+written in anyone's messages on X; on Threads, from 0.141.0, only as on Instagram (decision 167). Each kit is built from the site's own words, roles and test ids (`src/networks/threads/`
+and `src/networks/x/`, read by `src/networks/follows/`), a post found by the time inside the link to it.
+
+| Ask (`kind`)                       | What it does                                                                                                                                                                                                     |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Save my followers (`friends`)      | Your newest followers saved, then the accounts you followed looked at for who follows you back (`people.ts`)                                                                                                     |
+| Unfollow the ticked (`cancel`)     | The ones you ticked who didn't follow back, each unfollowed on their own profile in a tab you can see, 20 a day at most (`unfollow.ts`)                                                                          |
+| Find posts (`posts`)               | The network's search, newest first, with the words given (or the hour's phrases from your playbooks), the posts under 2 days old sent for the AI's check (`search.ts`)                                           |
+| Read my profile (`profile_read`)   | Your own profile, from your feed's own link to it, read and sent for the AI's check                                                                                                                              |
+| Check Threads, Check X (`checkup`) | Your feed, profile, a search, a few authors' profiles (Follow looked for), one post (Like and the box to reply in looked for), notifications and followers, each read and sent with its outline; nothing pressed |
+| Read my chats (`chats`), Threads   | From 0.141.0: your chats, opened one at a time at a person's pace, each one's latest messages sent for the AI, and who wrote last told to HandsFreeOS (`chats.ts`); nothing typed or sent                        |
 
 ### On LinkedIn (0.40.0)
 
@@ -785,7 +808,7 @@ and nothing to get around LinkedIn's limits or checks (`src/jobs/linkedin/`, `sr
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | Save my connections (`friends`)            | Scrolls My Network's connections slowly to the end (LinkedIn's own **Show more results** where the list stops loading) and saves them as your friends list, as LinkedIn's (`people.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | A window of its own, 6 to 12 seconds a screen, up to 150 screens                            |
 | Check my invitations (`requests`)          | Manage invitations: the ones you've got, then the ones you've sent, each saved as Facebook's friend requests are                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | The same, up to 30 screens each                                                             |
-| Check my connections (`checks`), Research  | Asks HandsFreeOS who's next on LinkedIn (`outreach.checks.next`, `platform: 'linkedin'`), opens each profile, checks it's them by the name in its address or LinkedIn's id, reads it and sends the lines (`outreach.check.look`); one page each (`checks.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | A window of its own, one every 15 to 30 seconds, on LinkedIn's own 40 a day: a look is seen |
+| Check my connections (`checks`), Research  | Asks HandsFreeOS who's next on LinkedIn (`outreach.checks.next`, `platform: 'linkedin'`), opens each profile, checks it's them by the name in its address or LinkedIn's id, reads it and sends the lines (`outreach.check.look`); one page each (`checks.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | A window of its own, one every 1 to 2 minutes, 10 at a time, inside LinkedIn's own 40 a day |
 | Read my chats (`chats`)                    | Opens your conversations in LinkedIn messaging one at a time from its list, and sends each as LinkedIn's, with its thread id (`../chats.ts`, `LINKEDIN_MESSAGING`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | A window of its own, 7 to 14 seconds a chat, up to 150                                      |
 | Draft a message (`lookup`)                 | Their profile, then the About of the company their role links to: two pages, then the window closes before the AI drafts (`lookup.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | A window of its own, closed after                                                           |
 | Read my profile (`profile_read`)           | linkedin.com/in/me/, checked it's yours, scrolled to its foot and back so LinkedIn draws every part (0.45.0), each part it still holds an empty place for kept in view till it's drawn, up to 6 seconds each (0.50.0: its newer layout fetches About, Experience and the rest only once their places are seen), with its window in front while it's read, then yours back (0.47.0: Chrome draws nothing in a window hidden behind another), read as `outreach.profile.check` takes it: the headline as the bio, the About, Experience as the intro (every role), Featured and the latest posts, and whether it shows a photo and a banner; in LinkedIn's newer layout too (0.46.0, "What it reads"), pressing nothing (`profile.ts`, `src/networks/linkedin/own-profile.ts`)                                                    | A window of its own, one read                                                               |
@@ -1078,6 +1101,36 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
 Each step is noted as the extension's own (`auto`), as Instagram's. A step its page doesn't let it do goes to your
 Needs you; it never guesses.
 
+### On its own on Threads and X (0.137.0)
+
+Threads' and X's runners (`src/auto/follows.ts`, decision 163) are built once for both and kept apart, each with its
+own line and turn with its network's asks, its own window, alarm (`hfos-auto-threads`, `hfos-auto-x`) and state
+(`hfos.auto.threads`, `hfos.auto.x`). Your choices for each in HandsFreeOS say what it does.
+
+- **When:** in your working hours, or once you start its day, while it's on for you and Chrome allows it, noting is on,
+  this computer is the one that works, and its Sending choice isn't Off. Stop for today ends it at its next page.
+- **Lists first:** before its first day it saves your newest followers (the newest 200) and works out who to unfollow
+  (`src/auto/lists.ts`).
+- **Every hour, its main work,** while **Every hour: search … for posts on your topic** is on (the `collect` choice):
+  its search with the hour's phrases from your playbooks (**Words to search Threads with**, **Words to search X with**,
+  through `outreach.posts.words`), newest first, the posts under 2 days old and not your own sent for the AI's check
+  (`src/jobs/follows/search.ts`), then your notifications read for replies to your comments (`replies.ts`), each kept
+  for an answer the AI drafts. The next search is 54 to 66 minutes on (`watchAt`), and the search and the list take
+  turns, so neither waits the whole hour.
+- **Once a day,** with the same choice on: your newest followers, the accounts you followed looked at for who followed
+  back, unfollowing who didn't once the wait is over as you chose (decision 98), who replied to good posts
+  (`post-people.ts`), the people found checked from their own profiles for good fits, and your own profile on the 1st.
+- **Your list for today** (`outreach.today` for the network): the warm-up (decision 161: a look at their profile and a
+  like on the post they were found by, or on their reply to a good post on the reply's own page, then one of their
+  latest while the day's likes have room; the visits after, while they decide), a follow a day after with their
+  profile's own Follow, and comments on good posts and answers to replies, drafted by the AI and posted once OK'd or past
+  the hold, only in that post's own box (`src/auto/comments.ts`). A comment pitches only when a post asks for what the
+  business offers. On X, message drafts are never taken up (`followWorkLeft`); on Threads, from 0.141.0, they are, as
+  on Instagram (decision 167, below).
+- **At a careful pace:** 3 to 8 minutes between steps, inside the kit's limits (30 comments and 80 likes a day, halved
+  while the account is new and for a week after a warning), which HandsFreeOS keeps.
+- **A warning** stops that network for the day, and only it. If it asks you to sign in, it stops and says so.
+
 ### The day's first messages, nearly guaranteed (0.114.0)
 
 Before 0.114.0 it checked 40 people a day on Facebook and LinkedIn, all at once in the morning, and searched once a day
@@ -1085,7 +1138,8 @@ whatever the day needed (the owner's report of 29 Oct 2026: 12 first messages in
 From 0.114.0 (docs/outreach.md, decision 126):
 
 - **Checks a batch at a time.** While a network needs more good fits, HandsFreeOS lets it check up to that network's
-  most (150 a day on Facebook and LinkedIn, 60 on Instagram and Alignable). The once-a-day checks take their usual
+  most (150 a day on Facebook, 60 on Instagram and Alignable; LinkedIn stays at its 40, decision 184). The once-a-day
+  checks take their usual
   batch, and when HandsFreeOS gave all it asked for and today has room for more, the job ends with `again`: it isn't done
   for the day, and the next batch goes 35 to 60 minutes later (`afterDaily`, `againAt` in the runner's state,
   `moreToCome` in `src/jobs/checks.ts`). The day's last line says more checks come later.
@@ -1105,10 +1159,11 @@ hour late). From 0.113.0 (docs/outreach.md, decision 125, `src/auto/watch.ts`):
 
 - **A window of its own keeps your messages open.** While Chrome is open, you're signed in, this is the computer that
   works and noting is on, a window opens beside yours and minimizes itself, with one tab for each network that's on and
-  works on its own (not Off): Messenger, LinkedIn's messaging, Instagram's messages and Alignable's. Its tabs are kept
+  works on its own (not Off): Messenger, LinkedIn's messaging, Instagram's messages, Alignable's and, from 0.141.0,
+  Threads'. Its tabs are kept
   from being put to sleep (`autoDiscardable`).
-- **Read every minute, where it stands.** Nothing is pressed, scrolled or typed there. On Facebook, LinkedIn and
-  Instagram the tab's script says who wrote last (`hfos-replies-now`, the same reader as any tab's, decision 22), and
+- **Read every minute, where it stands.** Nothing is pressed, scrolled or typed there. On Facebook, LinkedIn,
+  Instagram and Threads the tab's script says who wrote last (`hfos-replies-now`, the same reader as any tab's, decision 22), and
   the background sends it to HandsFreeOS as that network's (`src/hfos/replies.ts`), so your phone hears who wrote back.
   Alignable's list doesn't say who wrote last, so when a conversation's last line changes, Alignable's runner reads
   its chats again at their next turn, opening only the ones that changed (`alignableChatsAgain`).
@@ -1219,6 +1274,488 @@ was reported. From 0.126.2:
   Before, it was read and never kept, as Instagram shows no times on its messages.
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
+
+### Events near you on Facebook, once a week (0.150.0)
+
+The owner's pick 7a of 20 Nov 2026 (docs/outreach.md, decision 188): "Local Facebook events: read once a week like
+Alignable's, and the hosts and people going get the AI's check, with nothing pressed, plus a Today card listing the
+events so you can go in person."
+
+- **Once a week, before the followers and the day's checks** (`events` in `DAILY_JOBS`, `readFacebookEvents` in
+  `src/jobs/events.ts`): HandsFreeOS says whether it's due and what to search for (core's `outreach.events.next` with
+  `platform: 'facebook'`: "networking Boise, ID", then "business Boise, ID", from the person's town or the business's
+  address). With no town known it says how to set one and tries next time.
+- **Facebook's event search** (`/search/events/?q=…`, `readEventCards` in `src/networks/facebook/events.ts`): each event
+  once by its own page (`eventFromUrl`), with its name and what its card says of when and where. Up to 5 coming up that
+  weren't read before are opened, 15 to 30 seconds apart.
+- **Each event's page** (`readEventPage`, page kind `event`): its name, its day's line in everyday capitals with the
+  moment it starts (`src/networks/event-when.ts`), its place, its hosts (the "Event by …" line and Meet your hosts) and
+  the guests its page shows, read a screen or two down. Nothing is pressed: no Going, Interested, Invite or Share, and no
+  See all.
+- **Sent to HandsFreeOS** (`outreach.events.read` with `events`): the events go on Today's Events near you, and the
+  people who aren't the person's friends are checked by the AI like friends, the good fits going on Today for a friend
+  request. A search with no events, or an event that showed nobody, is noted with its outline.
+- **Alignable's weekly read sends its events too** (`alignableEventSeen` in `src/jobs/alignable/events.ts`): name, its
+  card's line as when or where, and its hosts, so Alignable's events show on Today the same way.
+- **Check Facebook** opens an event search and its first event, and notes how many events and people each showed.
+
+### Referrals done for you on Facebook (0.149.0)
+
+The owner's picks of 18 and 20 Nov 2026 (docs/outreach.md, decision 185): under Autopilot, a referral on a Facebook post
+goes without an OK, and one the person OK'd with **Do it for me** on Today goes the same way.
+
+- **One a go, in the working hours** (`referNext` in `src/auto/run.ts`): the runner asks HandsFreeOS for what's due
+  (core's `outreach.referrals.due`) every half hour (`REFER_AGAIN_MS`, `referDue` in `src/auto/plan.ts`) and does the
+  first: a referral, else an ask after two. One done is a step, with a person's pace after it.
+- **The comment tags whom it names** (`writeTaggedComment` and `typeTagging` in `src/networks/facebook/auto.ts`, the
+  tab's `hfos-tag-comment`): the words before their name, then @ and their whole name, and the row of Facebook's list
+  that shows it is picked; then the rest. When no row shows their name, or picking it didn't take, what was typed for
+  the tag is taken back out a character at a time and their name goes as the comment said it (the owner's 1a). Where
+  in the comment their name is comes from core's `mentionParts`.
+- **Noted as a comment** on the post's writer, so it counts toward the day's comments (2a); HandsFreeOS keeps it as
+  posted at once (`more`), so a computer that stops before the heads-up never posts the comment twice.
+- **The heads-up, then** in their chat, typed as an OK'd message is (`typeMessage`, shared with `sendMessage` now), and
+  noted as a message. None when they had one this week.
+- **How it went** goes to HandsFreeOS (`outreach.referral.posted`, `outreach.refer_ask.sent`): what couldn't go waits on
+  Today for the person, with why; a post that doesn't let them comment is put aside.
+
+### LinkedIn reads 40 profiles a day at most, a minute or two apart (0.148.1)
+
+The owner asked why LinkedIn showed its security check on 19 Nov 2026. That day the extension read 98 LinkedIn
+profiles (97 the day before), and the check came 2 minutes after it read 42 people found, 15 to 30 seconds apart: on a
+day short of good fits, decision 126 let LinkedIn's checks go to 150. The owner picked "40 a day, and slower"
+(docs/outreach.md, decision 184):
+
+- **40 a day at most** (`checksMost: 40` in LinkedIn's kit), even on a day short of good fits. The checks of
+  connections, the people found and the partners share them, as before.
+- **A minute or two between profiles** (`checkPaceOf('linkedin')` in core's `checks.ts`), in the checks of connections
+  (`src/jobs/linkedin/checks.ts`), the people found (`src/jobs/found-checks.ts`) and the partners
+  (`src/jobs/partners.ts`). The other networks keep their 15 to 30 seconds.
+- **10 at a time** (`checksBatchOf`). Check my connections and Check the people found each read 10, then end with
+  `again` while today has room, so the next 10 go 35 to 60 minutes later and the day's 40 spread through it. The day's
+  last line says "It reads more profiles later today, a few at a time."
+
+Likes, comments, invitations and messages keep their own limits.
+
+### LinkedIn's security check that came late, and a hashtag search still loading (0.148.1)
+
+Two of the owner's problem reports of 19 Nov 2026 (0.147.11):
+
+- **LinkedIn's security check.** Three warm-ups in 40 minutes said "LinkedIn showed a different page" and were handed
+  over, each with LinkedIn's security check (/checkpoint/challenge/…) in the window by the time it was outlined. The
+  step had read the page before LinkedIn went on to its check, so the check's warning never stopped LinkedIn for the
+  day, and the next step met it again. From 0.148.1 a step that didn't go reads the page once more after a moment
+  (`warnedLate` in `src/auto/linkedin.ts`): a LinkedIn warning there stops LinkedIn for the day, noted as LinkedIn's,
+  as one read in time does, and the step isn't handed over.
+- **A hashtag's search still loading.** A hashtag's page, which Instagram sends to a search
+  (/explore/search/keyword/?q=%23…), showed nothing but Instagram's loading mark when it was read, and was noted as
+  "No posts on the page." (also on 1 and 3 Nov). Its list ended at once, as the page had nowhere to scroll. From
+  0.148.1 a page whose main part shows only the loading mark has more to come (`scrollDialog` in
+  `src/networks/instagram/browse.ts`), so it's read again after the list's pause, up to its usual screens.
+
+The third report that day, "Nobody read in the post’s Likes box.", isn't changed: the box showed only the person
+themselves, who liked the post, with Instagram's line about two more it didn't list.
+
+### Warm-up visits before the first message (0.148.0)
+
+A playbook now ticks the ways it may start a chat, and the AI picks one for each person (decision 183 in
+`docs/outreach.md`). With Warm up on, someone who accepts fast, or was a friend already, gets a few days of visits
+before Say hi, as someone deciding on a request does: Today lists a `warm_up` with `keepWarm.hi`, and the extension
+visits their page and likes 1 or 2 of their newest posts. From 0.148.0 the activity line says "before your first
+message" for those, not "while they decide on your request" (`visitLine` in core's `keep-warm.ts`). An older build does
+the same visits with the old line.
+
+### A song on a post read as a Facebook warning (0.147.14)
+
+On 18 Nov 2026 (0.147.11) the extension liked a friend's post and stopped on Facebook for the day, with "Facebook warned
+you" and the owner's limits halved for a week. There was no warning: the post had the song "Good Times Go By Too
+Fast" on it, and the line under its author (the date, which Facebook scrambles letter by letter with an invisible
+U+034F between them, then the song and its artist) matched "too fast". The post was neither an article nor in a feed,
+as 2026 posts often aren't, so the reader (`src/networks/facebook/warnings.ts`) didn't know it was a post. From
+0.147.14:
+
+- A post is left out wherever it is: an article or a feed's as before, a 2026 post found by its own controls
+  (`postBoxes`), or a post opened in a dialog over the page, which holds its Like, its menu or its box to comment in
+  (`holdsPost` in `src/networks/facebook/posts.ts`). An alert inside a post, under its comment box, is still read.
+- A phrase needs Facebook's own wording: "going too fast" or "doing this too often", never "too fast" or "too often"
+  on their own.
+- A line with Facebook's scrambled letters in it is never a warning.
+
+The owner chose to have the false warning cleared in HandsFreeOS (19 Nov). It was the only Facebook warning ever noted,
+for any business.
+
+### A reel's comments' box found when it's an input with no type (0.147.13)
+
+On 0.147.11 a comment on a reel of 18 Nov 2026 stopped at "couldn’t find the post’s own box to comment in". Its
+problem report's outline showed the reels player with the reel's Comment pressed (open) and its comments drawn in a
+box over the page, ending in "Add a comment…": an input beside Emoji, in no form, where the post's page has a textarea
+in its form. The boxes `boxesSaying` looks through (`src/networks/looking/looks.ts`) took an input only when it says
+it's a text box (`type="text"`), though an input with no type is one too. The outline doesn't show an input's type, so
+that's the likely cause rather than a sure one. From 0.147.13 an input with no type counts, as the reader's own count
+of boxes already did, on every network. Post shows beside the box once something's written, and is found there as
+before. If a reel's comment still stops there on 0.147.13, the box was found and its Post wasn't.
+
+### LinkedIn posts keep their blank lines, typed in again (0.147.12)
+
+The owner's Content Creator posts on LinkedIn still went up with no blank lines after 0.141.5 (18 Nov 2026: "linkedin
+is still not adding line breaks to the posts"). A test in LinkedIn's own Start a post box, closed without posting,
+showed why. The box is Tiptap, on ProseMirror, and drops the blank lines from pasted words, as 0.141.5 guessed. But
+LinkedIn's page lets no script but its own read pasted HTML (Trusted Types): the box threw the web page's copy away
+(ProseMirror's "ProseMirrorClipboard" policy is refused), so the plain words went back in, without their blank lines.
+Chrome's own typing (`insertText`) kept every one there, each an empty paragraph, as pressing Enter twice makes.
+
+From 0.147.12, when a box shows the pasted words but none of their blank lines (`lostBlankLines`), it's emptied and
+the words typed in (`typeAgain` in `src/networks/post-text.ts`); the web page's copy is gone (`postHtml`). A box that
+won't empty keeps the words as they went in. One that takes no typing, or shows fewer lines from it than the paste
+gave, gets the plain words pasted back, so a post never goes in twice, empty, or worse than the paste. Boxes that kept
+the blank lines get one paste, as before: Facebook's and Instagram's (Lexical), X's (Draft.js) and Quill's, tried
+again in Chromium.
+
+### What the first Check X found (0.147.11)
+
+The owner's first Check X (18 Nov 2026, 0.147.9) read 7 pages and found Follow and Like, but "Not working: commenting":
+the box to reply in under a post took the word written in it, and no Reply was found beside it. X wraps that box more
+than 14 parts deep below its Reply, and `sendFor` (`src/networks/x/spec.ts`) looked only 14 parts up, so the runner
+would never have sent a comment on X either. From 0.147.11 it looks up from the box as far as it takes, never past the
+box over the page, the post's own cell or the column, so it's never another box's Reply.
+
+The same Check found nobody on the person's page of followers: the account is new, and X shows "Looking for
+followers?" (its `emptyState`) where the list would be. That read as a list that didn't show, so the first save of
+their followers, which holds X's whole day (`holdsTheDay`), would have failed every 15 minutes, as Threads' did from 13
+to 16 Nov. From 0.147.11 the reader says so (`listEmpty`, `listEmptyIn` in the spec): the save says "No followers on X
+yet, so nobody to save." and the day starts, and Check X no longer lists the page as one it read nothing on.
+
+X names each picture's part for whose it is (`UserAvatar-Container-<username>`), and the outline kept those test ids as
+they were. From 0.147.11 a network's spec can name such test ids (`testIdName`): the username is hidden as {1}, {2}…,
+the same number as a link to them.
+
+### A LinkedIn profile that says "1st" beside the real degree, read as not connected (0.147.9)
+
+On 0.147.5 an invitation of 17 Nov 2026 was passed over as "you’re connected already", and reported. Its problem
+report's outline showed a profile whose main button is Follow, then Message and More, with "· 1st" and "· 2nd" both
+under the name: LinkedIn's newer top card can say "· 1st" beside the real one. That was known from the owner's Check
+LinkedIn of 17 Oct 2026, but only where Connect shows in the top card. Here Connect is under More, whose menu isn't on
+the page until it's pressed, so the "· 1st" was taken as theirs. From 0.147.9 (`readProfile` in
+`src/networks/linkedin/profile.ts`) the other degree is theirs whenever both show, so the runner opens More and sends
+the invitation, and Check LinkedIn tries Connect there too. Someone truly connected (only "· 1st", or Remove connection)
+is passed over as before, and from 0.147.9 never reported: there's nothing left to do (decision 145), as on Facebook
+and Alignable. Their own profile is passed over the same way. Their invitation waiting is still the person's to
+accept.
+
+### A Facebook chat's messages without the "Sent 33m ago" under them (0.147.8)
+
+The owner's screenshots of 17 Nov 2026 showed Facebook chats on Needs you with one check-in six times over, each
+saying "Sent 18h ago", "Sent 23h ago" and on, though it went once. Messenger puts that line under the person's last
+message, and `messageIn` (`src/networks/facebook/chat.ts`) read it as part of the message, so each read brought the
+same message with new words and core kept it again. Facebook's line at the top of an encrypted chat now starts "New
+messages and calls are secured…", and it was kept as theirs.
+
+From 0.147.8 `NOTICE` leaves off "Sent …", "Seen …" and "Delivered …" lines and the new encryption line. A row with
+only that line is the person's message with no words in it (a picture, a sticker, a like or a file): it's read as
+theirs, as core's `WORDLESS`, so their chat still ends with them (`yoursLast`) and nothing of theirs is answered twice.
+Core's `withoutStatus` does the same for what an older extension sends, and migration 028800 cleaned what was kept.
+
+### Check if it posted, pressed by the person, comes in front right away (0.147.10)
+
+On 0.147.9, 18 Nov 2026, the owner pressed Check if it posted on two Facebook Page posts. The newer one, the Page's
+first post, was found; the one under it came back "Facebook didn’t load your Page’s posts, so it couldn’t check". Its
+Page post report of the evening before (0.147.5) showed why: the posting window was behind the owner's (`shown`
+false), and there Facebook draws its newest post and leaves the rest "Loading..." however long it's scrolled and
+waited on. Looking in front was kept to while the person is away (decision 120), and they were at their computer,
+having just pressed it.
+
+From 0.147.10 a look the person asked for (core's `asked` on the post `socialcontent.post.look_next` hands out, set by
+Check if it posted and Check again) comes in front right away, as a Check does: `lookOn` passes it to the research
+tab's `inFront`, and `WorkTab.inFront` takes `now` for that one read, then puts their window back. A look on its own,
+10 minutes after a post that may have gone up, still waits for them to be away. `lookDrawn` waits 10 seconds
+(`POSTS_HIDDEN_MS`) rather than 30 on a window Chrome doesn't show, as nothing more draws there.
+
+### A Facebook post found by its words, with no link and cut short with "…" (0.147.6)
+
+On 0.147.5 the owner's Page post of 17 Nov 2026 (12 PM Chicago) was still marked "didn’t find the post on your Page
+after", though it was the first post on the Page. Its problem report's outline showed the Page's four newest posts
+drawn, the first with the post's five pictures and its first sentence (15 words), then "…" and See more. Two things
+kept it from counting:
+
+- **No link.** Facebook leaves a new post's own time link empty until it's pointed at, and a new post has no comments
+  whose time links give it away, so the post read had no link. `foundPost` passed any post without a link by. The
+  profile's posts never had links for the same reason (every one kept as `link: null`).
+- **The "…".** The first 60 letters of the post were compared with the start of the words Facebook showed, and those
+  ended "lead?…", so neither started the other.
+
+From 0.147.6 a post is found by its words alone (`postShown` in `src/jobs/helpful.ts`, used by `lookOn` in
+`src/research/posting.ts`), with its link when the page shows one. The "…" Facebook ends cut-short words with is left
+off before comparing (`startsLike`). `PostLook` says `found` apart from `link`, so a Page post found without a link
+counts as posted after Publish, and Check if it posted marks it found. Check if it posted looks further back than the
+look after posting (`POSTS_LOOKED_BACK`, 12, against 4), for a post that failed days ago. The tab's `drawPosts` hand
+scrolls on while fewer than asked for are drawn and the page hasn't ended.
+
+### Every way Threads shows to open its box, tried in turn (0.147.5)
+
+On 0.147.4 two Threads posts of 17 Nov 2026 (05:38 and 05:44 UTC) still stopped at "Threads didn’t show the box to write
+a post", this time with nothing pressed. Threads shows several ways to start a post, and which a page shows varies: on
+16 Nov the box at the top of the feed, **New thread** in the side menu, and **Create** at the page's foot; on 17 Nov no
+Create. The extension knew only two of them: the feed's box by a label it doesn't have (it's labelled "Empty text field.
+Type to compose a new post." while it shows "What's new?"), and Create. So on 16 Nov it pressed Create, and on 17 Nov
+nothing. From 0.147.5 (`threadsStarts` in `src/research/post-short.ts`) each way is found by its label or the words it
+shows, and they're tried in turn, best first (the feed's box, New thread, Create): the next only when the one before
+opened nothing to write in, closing what it did open, as Escape does.
+
+### Threads' New thread box found when it opens as a menu (0.147.4)
+
+The problem check of 17 Nov 2026 (01:23 UTC) found two Threads posts of 16 Nov (19:54 and 23:19 UTC, on 0.142.0) that
+stopped at "Threads didn’t show the box to write a post". Each page showed the box open: Create, at the page's foot, had
+opened New thread with its box to write in, Add to thread and Post. Threads now draws that box as a menu, not as a box
+over the page (a dialog), so the posting hands never found it. From 0.147.4 a menu holding a box to write in counts as
+the box over the page; a menu without one, such as More's, never does (`dialogOf` in `src/research/post-short.ts`).
+
+### A Facebook Page's posts waited on before a post counts as not there (0.147.3)
+
+Four of the owner's Facebook Page posts (15 Nov 2026, 11:03 AM and 4:17 PM; 16 Nov, noon and 5:15 PM CT) were marked
+"It pressed Publish for your Page in Meta Business Suite, but didn't find the post on your Page after." Every report's
+outline showed the Page's posts as two empty boxes saying only "Loading...": the Page was read the moment it opened,
+and Facebook draws a profile's or a Page's posts only once they're scrolled near, and nothing at all in a window hidden
+behind another (two of the four were hidden). None of the six Facebook profile posts ever made had its link found
+either, for the same reason. So a post that may well have gone up was marked as not, inviting Post it now and a second
+copy. From 0.147.3 (`lookOn` in `src/research/posting.ts`, the tab's `drawPosts` hand, Facebook's `postsDrawing`):
+
+- **The posts are drawn first.** While the post isn't among those drawn, the first post still loading is scrolled into
+  view (or the page one screen down while none shows yet), and the page is read again every 1.5 seconds, by the clock,
+  until the newest four are drawn, for up to 30 seconds.
+- **Then in front, while the person is away.** When they never drew, it looks once more with its window in front, only
+  once the person has been away two minutes (decision 120); otherwise it goes on without.
+- **"Couldn't check", not "not there".** When it still couldn't see them, the post says Facebook didn't load the
+  Page's posts after Publish, so it couldn't check. Check if it posted (`src/research/look.ts`) says the same, and
+  marks nothing found.
+- LinkedIn's own posts and the other networks are read as before: their pages draw their posts with the page.
+
+### Alignable group members read from the top once the list ran out (0.147.1)
+
+The problem check of 16 Nov 2026 (19:24 UTC) found "Alignable showed no members of a group." on a members page that
+showed 79. Each read of a group's members carries on from where the last got to (decision 148), scrolling past those
+screens first and keeping nothing from them. The last read had stopped 4 screens down just as the list ended, so this
+one scrolled past the end with nothing kept, said there were no members, and saved no depth, so every read after would
+have done the same. From 0.147.1, when the list runs out before where the last read got to, nothing is reported and the
+group's depth goes back to the top for the next read (`readMembers` in `src/jobs/alignable/groups.ts`). A members page
+that really shows no one still says so.
+
+### Posts on time with the posting window behind yours (0.146.0)
+
+The owner's 12 PM posts of 16 Nov 2026 went up nearly two hours late: LinkedIn at 1:52 PM and Instagram at 1:53 PM.
+They waited behind the 12 PM Facebook post, which took 1 hour 50 minutes, as Facebook posts had taken 44, 43 and 198
+minutes on 14 and 15 Nov while the computer was on and Social Outreach worked all along. The posting window sits beside
+the person's, mostly behind it while they work, and Chrome slows the timers of a page it hides: to once a second, and
+once it has been hidden five minutes, to once a minute. The posting hands counted their waits in looks, so Business
+Suite's 90 seconds after Publish were 225 looks of 400 ms, and at one look a minute nearly four hours. Posts go up one
+at a time, so every post due after it waited too.
+
+From 0.146.0 (`src/steady.ts`):
+
+- **Waits go by the clock** (`waitFor`, `within`) in the posting hands (`src/research/post-here.ts`,
+  `src/research/post-short.ts`) and in `putPostIn` (`src/networks/post-text.ts`): a wait is never longer than it says by
+  more than one slowed look, however Chrome paces the page.
+- **The background wakes a hidden posting window** (`pause`): while the page is hidden it asks the background as well
+  (`hfos-wake`), whose timers Chrome doesn't slow, and goes on at whichever wakes it first. The background answers only
+  for the posting and reading window's own tabs; anywhere else, or in view, the page's own timer wakes it as before.
+- **Facebook goes last of the posts due at the same time** (`socialcontent.post.next` in core): it goes to two places
+  and waits on Business Suite, so the rest never wait behind it. Soonest first is unchanged.
+
+### The look at a post, and the comment research, on every network (0.144.0)
+
+Decision 172 in docs/outreach.md, the owner's picks of 16 Nov 2026 ("1a 2a 3b 4a"): what decision 166 started on
+Instagram goes on every network built: Facebook, LinkedIn, Alignable, Threads and X.
+
+**The AI sees the post on every network.** A comment's draft opens the post's own page first and its picture, or its
+video's frames, go with the draft, as on Instagram (above, 0.140.0):
+
+- **The post's own part of its page**, as a comment there goes: Facebook's and LinkedIn's first post box on the post's
+  own page, theirs by its writer's link (`lookStep` in each one's `work.ts`), never a comment under it; Alignable's
+  discussion's post, by its id, never an answer; and on Threads and X the post the page is, by its address, never one
+  it quotes (`theirPostPart` in `src/networks/alignable/auto.ts` and `src/networks/follows/auto.ts`).
+- **Each network's own picture servers**, the only places a photo is fetched from (`PICTURE_HOSTS`): Meta's for
+  Facebook and Threads, `licdn.com` for LinkedIn, `twimg.com` for X, and Alignable's own addresses. The manifest lists
+  the new ones (`PICTURES` in `scripts/build.mjs`). A picture Alignable keeps anywhere else isn't looked at.
+- **Facebook's comment** on a good post now opens the post before the AI writes, not after (`comment` in
+  `src/auto/run.ts`). Warm-up comments are written by the like picker, from what it reads of their posts, as before.
+- **Nothing else changes:** it's kept nowhere, nothing is pressed, and anything that doesn't work gives none, so the
+  comment is written from the post's words as before.
+
+**The comment research on every network** (`comment_research`, one of each network's once-a-day jobs, before the
+profile read). One **Start the research** in Social Outreach → Settings → General → **Comment research** starts all six,
+each with its own row, its own about 2,000 comments over 3 days, and its own guide that staff use on its own.
+
+- **One driver for all** (`readCommentsFor` in `src/jobs/comment-research.ts`): asks HandsFreeOS for the batch, reads
+  each search's posts, sorts each post's comments (core's `sortComments`) and sends the words alone, then the next batch
+  35 to 60 minutes later (`again`). For anyone who didn't start one it does nothing and says nothing (`researchRuns`,
+  asked by each runner before the job's turn).
+- **What each network reads** (each one's `comment-research.ts`):
+  - Instagram: everyday hashtags, as before.
+  - Facebook, Threads and X: everyday search words (dinner, my dog, road trip and so on), each searched as the network
+    ranks it, the busiest posts first, and the posts with comments opened.
+  - LinkedIn: work search words (new jobs, wins, tips, hiring, events, asking for a recommendation), each post's own
+    link from its menu's Copy link to post, caught on the page (`withLinks`).
+  - Alignable: the posts in your town's group and in the groups you're in, a few screens of each.
+- **A post read once isn't read again** for that research, in a later batch or day: which posts were read is kept in
+  the extension's storage as short numbers made from their addresses (`postKey`), never the addresses, up to 1,000.
+- **Only the comments are read.** Facebook's and LinkedIn's box of who reacted is never opened (`hfos-engaged` with
+  `reactions: false`); Instagram's View more comments is pressed once, as before; nothing else is pressed, and nothing
+  is written. Never the post writer's own comments, nor yours.
+
+### LinkedIn posts keep their blank lines (0.141.5)
+
+The owner's Content Creator post on LinkedIn of 15 Nov 2026 went up with every paragraph straight under the one before,
+the hashtags too, though its words had a blank line between each (`postText`). LinkedIn's box takes pasted words a
+line to a paragraph but drops the blank lines, as a ProseMirror box does; Facebook's and Instagram's (Lexical), X's
+(Draft.js) and a Quill box keep them, which a test in Chromium with each showed. The same words copied from a web page
+come with its paragraphs (HTML), an empty one for each blank line, and LinkedIn's kind of box keeps those.
+
+From 0.141.5, when a box shows the pasted words but none of their blank lines (`lostBlankLines` in
+`src/networks/post-text.ts`, reading the box's lines as a person sees them), it's emptied and the words are pasted
+again with a web page's paragraphs (`postHtml`). A box that won't empty keeps the words as they went in, and one that
+ignores the second paste gets the plain words back, so a post never goes in twice or empty. Boxes that kept the blank
+lines get one paste, as before. It's every post `putPostIn` puts up: the Content Creator's on LinkedIn, and helpful
+posts on LinkedIn, as well as anywhere else a box turns out to drop them. LinkedIn's real box ignored that second
+paste, so from 0.147.12 the words are typed in instead: "LinkedIn posts keep their blank lines, typed in again".
+
+### A look at reels before their comment, and no report when there's nothing to say (0.141.3)
+
+The problem check of 16 Nov 2026 (01:23 UTC) looked again at "the AI had nothing to say on it", on Facebook's comments
+and Instagram's drafts (10 from 13 to 15 Nov). Each came right after the AI wrote, its drafts all taken out by the
+checks (decision 165), and no comment is the right answer when there's nothing real to say:
+
+- From 0.141.3 a comment the AI had nothing to say on is passed over (`skip`, `NOTHING_TO_SAY` in
+  `src/auto/comments.ts`, and Facebook's group posts in `src/auto/run.ts`): nothing reported, and one tried again is
+  cleared. A reply to a question in a group still says so as before.
+- **Instagram reels**: the look before a comment's draft (decision 166) found no part on the reels player
+  (/reels/<code>/), which has no article and no link to the reel itself, so the AI had only the reel's words, which
+  for a reel are mostly in its video. From 0.141.3 `theirPostPart` (`src/networks/instagram/auto.ts`) gives the reel
+  the player opened on, while its account's links name them or they made it with its author (`openedReelOf`, as a
+  comment goes there), and never the next reel under it.
+
+### Comments on reels in the reels player, and Facebook posts closed to comments (0.141.1)
+
+The problem check of 15 Nov 2026 (19:23 UTC) found two comments that couldn’t go:
+
+- **Instagram**: "couldn’t find the post’s own box to comment in", on a reel. A reel's link opens the reels player
+  (/reels/<code>/), which has no link to the reel itself and shows no box to comment in till the reel's own Comment
+  opens its comments. From 0.141.1 a comment there goes on the reel the player opened on, while its account's links
+  name them or they made it with its author (as a like goes, `openedReelOf`), by pressing its Comment (known by its
+  icon, named by its count) and writing in the one box to comment in that shows (`writeTheirComment` in
+  `src/networks/instagram/auto.ts`). The next reel is never touched.
+- **Facebook**: "couldn’t find the box to comment in". The post's bar had its Like, React and Share but no Comment, and
+  there was no box anywhere: Facebook draws a post that way when whoever posted it limited who can comment. From
+  0.141.1 `writeComment` says `closed` then (`commentsClosed` in `src/networks/facebook/auto.ts`), and the step passes
+  the post over ("it doesn’t let you comment on it") with nothing handed over or reported; a comment the person OK'd
+  is told to HandsFreeOS as not sent, with that why. A post with its Comment but no box still says it couldn't find
+  one.
+
+### A reel's Likes box in the reels player (0.140.4)
+
+The problem check of 15 Nov 2026 found a good post's likers that weren't read: "Couldn’t open the post’s Likes box." It
+was a reel, which opens in the reels player (/reels/<code>/), the next reel drawn under it. Its bar reads Unlike (or
+Like), its count of likes, then its Comment, Repost and Share, each with its own count. The Comment's count is in the
+same button as its icon, so the button was named "3", not Comment, and the count of likes before it was never taken
+for one. From 0.140.4 a bar's Comment is known by its own icon too (`isCommentControl` in
+`src/networks/instagram/read.ts`), so the reel it opened on has its count of likes pressed, and read, as a post's is.
+
+### Posts made with others on Instagram, and Facebook posts with no Like (0.140.2)
+
+The problem check of 14 Nov 2026 found warm-up likes that never went, two on each network:
+
+- **Instagram, a post made together.** Both posts on their grid were made with other accounts: Instagram writes
+  "(someone) and 2 others" over them, the others behind a button or a link that lists them, and its own link names
+  nobody. The like looked only at the first account, someone else, so it never pressed. From 0.140.2 a post is theirs
+  too when they made it with its author (`madeWithOf` in `src/networks/instagram/read.ts`): named beside the author's
+  link ("sam.lee and dana.reyes"), or among the others behind its button while the post is the one picked as theirs by
+  its own address. In the reels player as well. A post that names someone else beside its author still isn't liked.
+- **Facebook, a post with no Like.** The 0.139.1 outlines keep the words on a post's buttons, and they showed what the
+  13 Nov guess ("Like (name)'s post") got wrong: the only button was "Share (name)'s post", beside who reacted, on a
+  cover photo update with no Like or Comment at all. From 0.140.2 a post whose bar shows its Share and no Like is never
+  offered to pick (`noLikeShown` in `src/networks/facebook/auto.ts`); a post whose bar isn't drawn yet still is, as its
+  Like may come. When every post of theirs the page drew has no Like, the posts answer says there's nothing to like
+  (`none`, as for Facebook's no-posts line): the warm-up passes as a skip with nothing reported, and a visit counts as
+  one with no new post to like.
+
+### A look at the post before its comment, and the comment research (0.140.0)
+
+Decision 166 in docs/outreach.md, the owner's picks of 14 Nov 2026. Two things, both Instagram's till 0.144.0 took them
+to every network (above).
+
+**The AI sees the post.** A comment used to be written from a post's words alone, so a post whose words lean on its
+picture or video ("It be like that 😂") got a comment about nothing in it, or none. From 0.140.0, with the post's own
+page open for its comment (`draftComment` in `src/auto/comments.ts`, through the runner's `see`):
+
+- **The tab finds the post's own picture or video** (`hfos-post-look`, `src/networks/post-look.ts`): the biggest one
+  drawn in the post's own part of the page (Instagram's `theirPostPart`), never a face beside a name or a tile that
+  opens another post.
+- **A photo** comes back as its address. The background fetches it from Instagram's own picture servers and nowhere
+  else (`PICTURE_HOSTS` in `src/auto/post-look.ts`: `cdninstagram.com` and `fbcdn.net`, which the manifest lists), with
+  no cookies, and makes it a small JPEG, about 768 wide.
+- **A video** gives up to 3 frames drawn from the page's own player: where it is now, then two fifths and four fifths
+  of the way through, and it's put back where it was. A player that can't be read gives its cover instead.
+- **It goes with the draft's request** (`hfos-draft`'s `look`) and is kept nowhere: not in the extension's storage,
+  not in HandsFreeOS. Nothing is pressed and nothing is shown.
+- **A look never stops a comment.** Anything that doesn't work gives none, and the comment is written from the post's
+  words as before. A network whose picture servers aren't in `PICTURE_HOSTS` is never looked at.
+
+**The comment research** (`comment_research`, `src/jobs/instagram/comment-research.ts`) is HandsFreeOS's own study of
+how real people comment. HandsFreeOS staff start it in Social Outreach → Settings → General → **Comment research**,
+and only the browser of whoever started it reads for it:
+
+- **For everyone else it does nothing and says nothing.** The runner asks HandsFreeOS whether there's one to read for
+  (`hfos-comment-research-next`) before the job gets a turn; with none, the job is marked done for the day with no
+  line, no window and no step (`researchRuns` in `src/auto/instagram.ts`).
+- **Where it sits in the day:** one of Instagram's once-a-day jobs, after **Check the people found** and before the
+  profile read, in batches 35 to 60 minutes apart (`again`) until the day's share is read: a third of about 2,000
+  comments a day, for 3 days.
+- **A batch** is 2 everyday hashtags HandsFreeOS names (food, pets, cars, trips and so on: none about the business),
+  5 posts on each opened in turn, and the comments each shows, with its **View more comments** pressed once. Nothing
+  else is pressed, and nothing is written.
+- **What leaves the browser** is each comment's words alone, sorted here first (core's `sortComments`) and again in
+  HandsFreeOS: never who wrote it, the post, its caption or its address; no @name, link, email or phone number; never
+  the post writer's own comments, nor yours; and nothing that reads like a bot's or an advert's ("DM me", "link in
+  bio", promos, giveaways, crypto). How many were left out is sent as a number (`hfos-comment-research-save`).
+- **At a person's pace,** with its window in front only while you're away from your computer (decision 120), and it
+  stops for the day on any Instagram warning.
+- **When it's read all it set out to,** HandsFreeOS sums it up and the card shows what it found. Nothing changes in
+  anyone's comments until staff press **Use in everyone’s comments** there.
+
+### A profile Facebook won't show (0.139.3)
+
+The problem check of 14 Nov 2026 found a message that said it "couldn’t find “Message” on their profile". Their
+profile showed Facebook's own page for something it won't show: "This content isn't available right now", a line on
+why, Go to Feed and Go back, and no name. That's what someone sees after the person blocked them, or closed or hid
+their profile. From 0.139.3 the profile reader says so (`unavailable`, from a heading in the main column with those
+words, only when no name was found, as a shared post that's gone carries them too), and every step that opens their
+profile (a message, a like, a friend request) passes them over with "Facebook says their profile isn’t available right
+now", as a skip: nothing went wrong, so nothing is reported, and a message OK'd for them isn't sent.
+
+### Event hosts, Facebook's new Like, a liked post's Likes box, and chat windows closed first (0.139.1)
+
+The problem check of 13 Nov 2026 found three things the readers didn't know yet, and one the owner picked a fix for:
+
+- **An Alignable event showed nobody** (five events in one week's read). A group's event draws its hosts in a part of
+  their own (`hosts`), twice (a wide screen's and a narrow one's), under a one-word label that isn't a heading, and its
+  guests only as faces and a count. A row around a host's links spanned both copies and took in the event's name, so
+  no host was read and the event had no name. From 0.139.1 (`hostsShown` in `src/networks/alignable/read.ts`) each
+  host is read from that part once, by their business: their name from its title, their business and town under it,
+  and their business's id from their Connect; the event's name is its details' heading. Only with the event's details
+  shown, as a list of events has a part like it on each tile. A link that opened Alignable's own search of events
+  (/events/<kind>, with its filters and a tile for each) is no event: the week's read passes over it without a report,
+  and keeps it as read.
+- **A Facebook like on a visit didn't go** (three on 13 Nov, more from 10 Nov). On a post with no count in it,
+  Facebook labels the post's Like with whose post it is, "Like Dana Reyes's post" (the outlines showed three or four
+  words before "'s post", the post's only button), which wasn't a Like the reader knew, so it was never pressed. From
+  0.139.1 it's a Like ("Unlike Dana Reyes's post" once pressed), never a comment's ("Like Dana Reyes's comment"). Page
+  outlines keep the words around a name on a post's buttons now ("React with Like to [2 words]'s post"), and
+  Facebook's own mark on its Like, so the next change of words shows.
+- **An Instagram post's Likes box wasn't opened** on a post the person had liked: its bar says Unlike, then the count,
+  and only a Like before the count was looked for. From 0.139.1 an Unlike counts too.
+- **A Facebook message found five chat windows open, none theirs**, so nothing was sent, and chat windows left open sat
+  over the posts a like went to. From 0.139.1 (the owner's pick, noted under decision 26 in `docs/outreach.md`),
+  `closeChatWindows` in `src/networks/facebook/auto.ts` closes every small chat window left open over the page, by its
+  own Close chat, before their profile's Message is pressed and before a like (on their profile, or a group's post).
+  The chats stay in Messenger. A window with writing in its box is left open, as the person may be writing there.
 
 ### Likes on reels, in the reels player on Instagram (0.136.1)
 
@@ -1335,6 +1872,230 @@ minute after posting and before any reading:
   link"). A warning keeps the network's words for the day, for both social add-ons, and says nothing: the read is
   asked for again later, since one handed out is put off half an hour.
 
+### One work window, a tab for each network (0.147.0)
+
+Decision 171 (the owner: "limit it to only what it needs"). With every network and Content Creator on, a build before
+this one could have about 19 windows open: a runner window per network, kept between steps when the next was under 5
+minutes away, another for each ask beside it, one per network for Content Creator, and windows nothing remembered
+after Chrome restarted the background or a new build loaded. Now two at most (`src/opened.ts`):
+
+- **The work window.** Each runner's tab, each ask's (but those in your own window: getting your file, cancelling old
+  requests) and Content Creator's are tabs of one window beside yours, opened when it isn't open (one at a time, so two
+  networks starting at once never open two). The working tab is the one shown while no other network's page is read
+  in front; a read that needs the screen brings the window in front with its tab, as before (decision 120).
+- **The messages window,** minimized, as before (decision 125).
+- **Each tab closes the moment its work is done:** a runner's at the end of each go (no more `KEEP_WINDOW_MS`),
+  Content Creator's after each thing it does, an ask's at its end. The window closes with its last tab.
+- **Nothing left open.** Closing a work tab closes the tabs and pop-ups its pages opened (`closeWorkTab`, by Chrome's
+  opener). A tab of yours in the work window keeps it open, and the next work opens a window of its own. Each window
+  and tab is kept in Chrome's storage with a mark for this run (`hfos.run`, in session storage, which Chrome forgets
+  when it starts again and when a new build loads), so a background Chrome stopped while idle finds its window again;
+  and a new run first closes what an earlier one left (`ready`, `leftovers`): a window it kept that still holds a tab
+  it opened, or one at the size it opens its own at (1100 wide, up to 900 tall), only when every tab in it is a
+  network's page and you're not in it. That also closes what builds before this one left, once this one loads.
+- A runner takes over a tab after its background restarted only when this run opened it (`isOurs`), never one of
+  yours that came to have its number after Chrome started again.
+
+### Steps that couldn't go, and sign-in lines only on a sign-in page (0.142.0)
+
+Decision 170's status card says when a network is stuck on one step, so the feed now tells a step that couldn't go
+from one passed over:
+
+- A job's line (a list saved, the day's reading, an hour's search, newest posts) goes to HandsFreeOS as `failed` when
+  it couldn't do what it set out to (`jobKind`), else as `job`.
+- A step handed to the person (a button or box it couldn't find, a different page) goes as `failed` (`outcomeKind`),
+  one passed over (a profile it can't open, found done already) as `passed`. A helpful post that couldn't go up is
+  `failed`.
+- HandsFreeOS takes `failed` from migration `20261027027900`; an older API refuses it, so this build goes on a
+  computer only once the API that takes it is live.
+
+"Check you're signed in" now goes only with a page that really asked the person to sign in (`signedOutEnd`, Instagram's
+and Alignable's "asked you to sign in"), or one that sent the window somewhere else. A page that didn't show a menu,
+a profile or a list says what it didn't show, then "Ask again in a few minutes" (`ASK_AGAIN`), or that it tries again
+on its own; a list that showed nobody asks again only if the person has some.
+
+### The person's followers on Threads open now (0.141.4)
+
+The owner's Check Threads on 16 Nov 2026 (0.141.3) found Follow and pressed their count of followers, and still no box
+showed. Tried in the owner's own Chrome that night, with their OK: a click on the button around the count opens the
+box of their followers (with Followers and Following tabs, a search box, and a row for each person with Following or
+Follow back), and scrolling it draws more. But Threads wraps that button in two parts whose words are just the same
+("441 followers"), and those come first on the page, so `followersIn` took the outer one and the press landed around the
+button, which opens nothing. From 0.141.4 it takes the innermost part that says it, and presses the button around that.
+
+This mattered more than Check showed: Threads' first day waits on its first save of the person's followers
+(`holdsTheDay`), so since Threads was turned on it had searched, followed and liked nothing, and only tried that save
+again every 15 minutes. Its line no longer tells a signed-in person to check they're signed in: it says the box didn't
+open from their count. And a profile with 0 followers has nobody to save, so its day starts.
+
+### Following, and the person's followers, on Threads (0.141.2)
+
+The owner's Check Threads on 15 Nov 2026 (0.141.1) said each profile it looked at was followed already, so Follow
+was never tried, and read none of the person's 441 followers; the runner's Your newest followers had failed every 15
+minutes that day. Threads' side menu now lists the person's feeds, Following among them, as a link like the rest, and
+the profile reader took the first control saying Following anywhere on the page for the profile's own. So the header
+was the whole page: every profile read as followed, its bio took in the posts under it, and its name was the bar's.
+From 0.141.2 the header (`headerOf` in `src/networks/threads/spec.ts`) starts from a button that isn't a link, never
+takes in a side menu, and its controls and words leave out side menus and posts (`NOT_HEADER`). "Follows you" beside
+their name, which Threads shows (its `BarcelonaProfileFollowsYouPill`), says they follow back, as Follow back does.
+
+The count of followers is a button that opens their box. After a click alone on it nothing showed, so it's now pressed
+as a pointer presses (over, down, up, then the click), and Check Threads brings its window in front first and waits
+longer for the box. If it still doesn't show, Check notes `checkup.followers` with whether the count was there to
+press, beside the page's outline.
+
+### Messages on Threads (0.141.0)
+
+The owner, 15 Nov 2026: "i want threads to work like instagram where if they follow back then we can message them and
+we warm up for 2 weeks and then unfollow if they don’t follow back". The follow, the warm-up and the unfollow after the
+wait were there already; Threads has had messages on the web since May 2026 (`/messages/`, a chat at
+`/messages/t/<number>/`), so from 0.141.0 it messages there as on Instagram (docs/outreach.md, decision 167; the
+owner's picks 1a 2a 3a):
+
+- **Its first message once they follow back,** or to a good fit who follows you already, written by the AI from their
+  profile and sent as your Sending choice says, then follow-ups, within 10 first messages and 15 follow-ups a day
+  (halved while the account is new and after a warning). Never to someone who doesn't follow you: HandsFreeOS refuses
+  one (decision 159).
+- **Only in their own chat:** opened by its number when it's kept, else by Message on their profile, which Threads
+  shows once they follow you. It types only in that chat's own box while it's empty, sends with Send (or Enter where
+  none shows), and takes out what it typed when anything's off (`src/networks/follows/chats.ts`).
+- **Replies read every minute,** in the window that keeps your messages open (`src/auto/watch.ts`), and answered any
+  time of day, as on every network (decision 133). Once a day, while Collect is on, your chats are read for the AI
+  (**Read my chats**, `src/jobs/follows/chats.ts`, 60 a day).
+- **Check Threads** opens your messages and the newest chat too, and looks for its box and who it's with, never typing
+  in it: the other person would see you typing.
+
+The readers were built from Threads' code and Messenger's usual markup, before anyone's Check outlined them, so the
+first Check Threads tunes them. Nothing changes on X.
+
+### The reply box emptied on Threads (0.140.8)
+
+The owner's second Check Threads (15 Nov 2026, 0.140.7) found the Like and the box under the post, wrote its word
+there and found the arrow to send it, then said "the reply box didn't empty again". Threads' editor (Lexical) ignores
+Chrome's select-all-and-delete, and takes a replacing only once it has seen the selection, a moment after it's made.
+Now a box is emptied with `emptyIn` (`src/networks/looking/looks.ts`): Chrome's delete first, then, while there's still
+writing, all of it selected again and replaced with nothing 150 milliseconds on (longer each try, three tries), only
+ever with the focus in the box. Check Threads and X take their word out with it, and the runner takes out what it typed
+with it when there's no button to send it by. Instagram's boxes, plain ones, are emptied as before.
+
+### Liking and replying on Threads (0.140.7)
+
+The owner's Check Threads on 15 Nov 2026 (0.140.5) said liking and commenting weren't working: "no Like on the post"
+and "no box to reply in, and no Reply on the post". Its outline showed why. Threads names its posts' Like, Reply,
+Repost and Share icons by a `title` on the icon with a <title> inside, not an aria-label, and the kit looked only for
+aria-labels, so no post's Like or Reply was found (nor its counts). It also draws a box to reply in under a post on
+the post's own page, named only "Empty text field. Type to compose a new post.", its "Reply to …" a placeholder beside
+it, so it wasn't taken for one. Now (`src/networks/threads/spec.ts`):
+
+- **An icon's name** is its aria-label, else the `title` on it, else the <title> inside it (`iconName`). A post's
+  Reply is named Reply, or Comment where Threads shows that (signed out).
+- **The box under the post** is the one to reply in on a post's own page: the box drawn to write in there, outside any
+  box over the page. What's written is sent with the arrow beside it named Reply, which shows once it has words, and
+  never with anything past the box's own part (the post's own Reply only opens another box). With no box under the
+  post, its own Reply opens one over it, sent with its Post, as before.
+
+### Check if it posted (0.140.6)
+
+A post marked as didn't post may have gone up all the same: Facebook was still publishing two Page posts on 14 Nov
+2026 when the extension gave up. From 0.140.6 the reading window looks for it on the network, where it hadn't gone
+up, by its first words (`src/research/look.ts`): the top of the person's Facebook profile or the business's Page,
+their own LinkedIn posts, their newest Instagram posts as Instagram's page loads them, or the top of their Threads or
+X profile.
+
+- Each minute, after posting and before reading its own posts' numbers, it asks for the next post to look for
+  (`socialcontent.post.look_next`): one a person pressed **Check if it posted** on in HandsFreeOS, or one that may
+  have gone up, once, 10 minutes after it was marked as didn't post.
+- It says what it found (`socialcontent.post.looked`). Found everywhere, the post is marked as posted, with its
+  links, so its numbers are read. Not found, HandsFreeOS says so and when it looked, and the person can try again or
+  mark it as posted.
+- A network's warning stops it there for the day, for both social add-ons, as posting does. A Facebook Page post with
+  no Page link in Settings → Posting says to add it.
+
+### A Page's posts: Instagram off, and looked for on the Page (0.140.5)
+
+Twice on 14 Nov 2026 (0.139.3) a post for the owner's Page was marked as didn't post: "It pressed Post on your Page,
+but Facebook didn't show the post going up". Its problem reports showed Business Suite still on Create post 30 seconds
+after Publish, with its "publishing" spinner up, and Post to holding the Page's Instagram account as well as the Page:
+Business Suite picks Instagram for a Page that has it linked, and Post to (2026) is a list of accounts with each
+picture badged by its network, not the tick `instagramOff` looked for. Now:
+
+- **Instagram comes off Post to** before Publish: the list is opened, each picked account badged Instagram (or named
+  so) is unpicked, and the list is closed (`instagramOff` in `src/research/post-here.ts`, steps `instagram:list` and
+  `instagram:off`, or `instagram:kept` when it's still there). Instagram has its own post (part 10), so nothing goes
+  up there twice.
+- **Business Suite gets 90 seconds** after Publish, and it counts as gone up once its Create post is gone too (it
+  leaves for the posts list).
+- **Still unsure, it looks on the Page**, as a person would: the Page's newest posts are read for the post's first
+  words, at once and again 45 seconds later (`putUpAt` in `src/research/posting.ts`). Found, it's posted, with its link.
+  Not found, it says it pressed Publish and didn't find the post on the Page, so the person looks before Post it now.
+
+### Instagram posts keep their shape (0.140.1)
+
+The owner's Instagram carousel went up on 14 Nov 2026 with its slides cut to squares: the words at the bottom of the
+first slide were cut off. The pictures are made 1080 by 1350 (4:5, the tallest Instagram shows in full), but Create
+new post's cropping starts on a square, and Next was pressed straight past it. Now, on the step that shows cropping's
+**Select crop** (an icon with no words, found by its label), it's pressed and **Original** picked, else **4:5**
+(`igKeepShape` in `src/research/post-here.ts`), once, before Next. A shape that never shows leaves Instagram's
+square and goes on. Posts already made need nothing new: their pictures are 4:5 already, and the next one that goes up
+keeps its shape.
+
+### The first posts on Instagram, LinkedIn and a Facebook Page (0.139.2)
+
+The owner's first OK'd posts, on 13 Nov 2026 with 0.139.0, went up only on their Facebook profile. The problem
+reports' outlines said why each of the others stopped, and each is fixed in `src/research/post-here.ts`:
+
+- **Instagram:** Create's menu is on the page all along, hidden till Create is pressed, and its icons carry a title
+  that reads as they do, so its Post read "PostPost" and was never picked. A control's words are now what a person
+  sees in it, with an icon's title only when it has nothing else (`wordsOf`), and only what showed before Create
+  counts as not the kind to pick.
+- **LinkedIn:** its newer box's **Add media** opens a window of its own, with a place to drop pictures and **Upload
+  from computer**, then **Next** back to the box. The window that opens is found (`addInMediaWindow`): the files go
+  in through the field its button asks for (the picker held back, as ever), else dropped on its drop place, then
+  **Next**.
+- **The Page:** a Page of Facebook's newer kind has two numbers, the one in its link (`profile.php?id=…`), which
+  Business Suite said wasn't available, and the Page's own (`delegate_page`). The `pageIds` hand gives every number
+  the page says, the Page's own first (`pageIdsHere`), and `posting.ts` tries Business Suite with each in turn, up to
+  three, while it shows no box at all; nothing is typed in one that didn't open.
+
+### Studying creators on Threads and X (0.139.0)
+
+AI Social Media Content Creator's part 17 (`docs/socialcontent.md`, "How it works"; decision 41 in
+`HANDSFREEOS_CONTENT_CREATOR_IMPLEMENTATION_PLAN.md`). Threads and X join the networks it reads (`RESEARCH_NETWORKS`
+in `src/research/run.ts`), by their pages and the readers their kits already have for Social Outreach
+(`src/networks/follows`, the `found` of the tab's `read`), in `src/research/follow-read.ts`:
+
+- **Find creators:** for each of the niche's searches, the network's top posts for it (X's Top, not Latest; Threads'
+  default search), scrolled twice, whose writers are gathered with when they posted; then on X its people search
+  (`&f=user`). Those known and the person's own account are passed over. Up to `most` profiles are then opened and
+  read, and sent ten at a time.
+- **A profile:** its name (none when it's the username), its bio with its link, its followers, when they last posted
+  (from the posts it shows) and their latest posts' likes and replies (`recent`, as Instagram's are sent).
+- **Their posts,** back to `since`: their profile, scrolled until the last of their posts on screen is older than
+  `since`, or three screens bring nothing new. Only their own posts, never a repost or a reply to someone else. The
+  first post is taken as pinned when it went up before the one under it, and never stops the scrolling. A post's key
+  is its number on X (`status/<id>`) and its code on Threads (`post/<code>`); its likes and replies are kept, views
+  aren't read.
+- A sign-in page says to sign in; a page that doesn't show what's read has the AI helper look, then a report, as on
+  Facebook and LinkedIn. Older builds never take Threads or X work: they ask only for the networks they read.
+
+### Putting the business's own posts up on Threads and X (0.138.0)
+
+AI Social Media Content Creator's part 16 (`docs/socialcontent.md`, "Posting"; decision 41 in
+`HANDSFREEOS_CONTENT_CREATOR_IMPLEMENTATION_PLAN.md`). Threads and X join the networks it posts on, from the reading
+window on that network (`src/research/post-short.ts`, called from `postHere`):
+
+- **X:** x.com/compose/post opens X's box over the page: the words in its first box (`tweetTextarea_0`, only while
+  it's empty), the pictures in its file field, then each post of the chain after **Add post** (`addButton`;
+  `tweetTextarea_1`, `_2`…), then **Post** (**Post all** with a chain; `tweetButton`). Its link comes from the note
+  "Your post was sent" (its **View**).
+- **Threads:** its home page's "What's new?" (else **Create** in the side menu) opens its box over the page: the words
+  in its first box, the pictures, each post of the chain after **Add to thread**, then its own **Post**. Its link comes
+  from the note that it posted (its **View**).
+- **Else its link** comes from the top of the person's own profile (their name from the menu's link to it) by its
+  first words. A **Post** the network keeps off (the words run past what it takes) is never pressed: it's said.
+- **How it did** (`src/research/own.ts`): the post's own page, by the network's reader, gives its likes and replies.
+- Older builds never take a Threads or X post: they ask only for the networks they post on.
+
 ### Putting the business's own posts up on Instagram (0.133.0)
 
 AI Social Media Content Creator's part 10 (`docs/socialcontent.md`, "Posting"). Instagram joins Facebook and LinkedIn:
@@ -1365,7 +2126,8 @@ its reading window (`src/research/posting.ts`):
   handed to the tab as files.
 - **Facebook, the profile:** the home feed's "What's on your mind" box; words typed, pictures added, **Next** when
   Facebook asks for it, then **Post**. Its link comes from the top of their own profile, by its first words.
-- **Facebook, the Page:** the Page's number from its page, then Meta Business Suite's Create post for it
+- **Facebook, the Page:** the Page's numbers from its page (its own first, from 0.139.2), then Meta Business Suite's
+  Create post for it
   (`business.facebook.com`, in the manifest from 0.132.0), so the person's own profile is never switched to the Page
   while Social Outreach works as them. A tick for Instagram that's on there is turned off (Instagram has its own post).
 - **LinkedIn:** the feed's **Start a post**, then LinkedIn's **Next** or **Done** after its picture editor, then
@@ -2229,8 +2991,12 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   answers `hfos-comment` and `hfos-join` only for a site whose kit declares them (`auto.comment`, `auto.join`):
   Instagram's comment, and Alignable's comment and Join. Anywhere else it says the extension doesn't do that there.
 - **Each network on its own.** A warning or a stop on one network never affects another: each network's warnings are
-  kept apart (`hfos.warned`), each network's asks and runner have their own line, window and turn, and each runner
+  kept apart (`hfos.warned`), each network's asks and runner have their own line, tab and turn, and each runner
   looks only at its own network's.
+- **Two windows at most** (decision 171, `src/opened.ts`). Work goes in a tab of the one work window, never a window of
+  its own (`WorkTab` placed `window`), and the tab closes the moment that work is done. The messages window is the only
+  other. Every window and tab it opens is noted (`noteWindow`, `noteTab`) so a new run can close what it left, and
+  nothing closes a window the person is in or one holding a page that isn't a network's.
 - **Addresses first.** Each kit's `urls.ts` (`src/networks/facebook/urls.ts`, `src/networks/linkedin/urls.ts`)
   decides what kind of page it is and what each link points to. The networks change their page code every week and
   their addresses hardly ever, so anything a link can tell, a link tells.
@@ -2433,31 +3199,31 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
 
 ## Where things are
 
-| Path                                        | What it is                                                                                                                                                                                                                                                                                                                                                               |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `src/networks/`                             | A kit per network (`kit.ts`, `index.ts`), which are on (`on.ts`), each network's script kept in step, an older registration moved onto the kit's current sites (`scripts.ts`), the outline (`outline.ts`)                                                                                                                                                                |
-| `src/networks/facebook/`                    | Facebook's kit: one reader per kind of page, the steps, the addresses, its words, the outline, the download steps, the runner's and asks' (`work.ts`)                                                                                                                                                                                                                    |
-| `src/networks/accounts-center/`             | Accounts Center's username and name pages for your own Facebook and Instagram profiles: the addresses, your profile among Profiles, what Meta asks first and its warnings (`pages.ts`), the writers (`username.ts`, `name.ts`) and the tab's asks there (`work.ts`)                                                                                                      |
-| `src/networks/linkedin/`                    | LinkedIn's kit: its readers, the steps you take there (`actions.ts`), who wrote back, its words, its warnings, its outline, and the asks' steps (`work.ts`)                                                                                                                                                                                                              |
-| `src/content.ts`                            | The script in each tab of a network that's on, by its kit: reads the page when asked, looks at the tab in front of you, and notices your steps                                                                                                                                                                                                                           |
-| `src/panel/`, `public/`                     | The side panel: `account.ts` signing in, `status.ts` Next up and Done today, `networks.ts` Allow on LinkedIn and its warning, `needs.ts` how many things need you in HandsFreeOS                                                                                                                                                                                         |
-| `src/asks/run.ts`                           | What you ask of it from HandsFreeOS: taking each ask, doing it with its job, handing steps to you, and how it ended                                                                                                                                                                                                                                                      |
-| `src/hfos/asks.ts`                          | The asks' side of HandsFreeOS: take, progress, end (waiting with no connection), reply and stop                                                                                                                                                                                                                                                                          |
-| `src/jobs/`                                 | The jobs that go page by page: the file and bringing it in, tidying, the look-up, friends, groups and members, Find posts, Read my chats, checks (also of those found: `found-checks.ts`); LinkedIn's in `linkedin/`, Alignable's in `alignable/`, Instagram's in `instagram/` (hashtags in `posts.ts`, warm leads in `engaged.ts`, `follow-backs.ts`, `post-people.ts`) |
-| `src/jobs/accounts-center.ts`               | Put these in's username and name on Accounts Center, for Facebook's job (`profile.ts`) and Instagram's (`looking.ts`): finding your profile, waiting while Meta asks you something, its refusals in words, and each hand-over                                                                                                                                            |
-| `src/offscreen.ts`, `public/offscreen.html` | The offscreen page that opens the zips in your downloads for Bring them in                                                                                                                                                                                                                                                                                               |
-| `src/hfos/looked.ts`                        | What the tab in front of you read as you went: warnings noted, chats and posts sent                                                                                                                                                                                                                                                                                      |
-| `src/auto/`                                 | On its own: what it does next and when (`plan.ts`), each network's runner (`run.ts`, `linkedin.ts`, `alignable.ts`, `instagram.ts`), the once-a-day jobs (`daily.ts`), lists first (`lists.ts`), taking turns with asks (`turns.ts`), and comments through `sends` (`comments.ts`)                                                                                       |
-| `src/hfos/`                                 | HandsFreeOS: the sign-in and calls (background), the saves, the steps noted, Facebook's times, its zips in downloads                                                                                                                                                                                                                                                     |
-| `src/hfos/follow.ts`                        | Your settings from HandsFreeOS, and the live channel's news: loaded at sign-in and each step, and followed live                                                                                                                                                                                                                                                          |
-| `src/hfos/setup.ts`                         | The first run: telling HandsFreeOS it's signed in, and opening HandsFreeOS's setup for a first-timer                                                                                                                                                                                                                                                                     |
-| `src/hfos/live.ts`                          | What it tells HandsFreeOS: this computer, the beat, the feed of steps, Start my day and Stop for today, and which computer works                                                                                                                                                                                                                                         |
-| `src/hfos/waiting.ts`                       | What needs you: the number on the icon and Chrome's pop-ups, which open Needs you in HandsFreeOS (its address and words in `src/hfos/needs-you.ts`)                                                                                                                                                                                                                      |
-| `src/tab.ts`, `src/away.ts`                 | The tab a job works in, in view or in a window of its own, and whether you're away, for a read that needs the screen (decision 120)                                                                                                                                                                                                                                      |
-| `src/research/`                             | AI Social Media Content Creator's reading (0.127.0): the runner (`run.ts`), its tab and hands there (`tab.ts`, `page.ts`), its calls (`hfos.ts`), pace, warnings, the AI helper and reports (`read.ts`), Instagram's answers and reads (`instagram.ts`, `instagram-read.ts`), Facebook's and LinkedIn's pages (`page-read.ts`) and watching a video (`watch.ts`)         |
-| `src/background.ts`                         | Opens the side panel, answers its asks, notes the steps the tabs tell it, follows your settings and your day, beats, and wakes the runner and the asks                                                                                                                                                                                                                   |
-| `scripts/build.mjs`                         | Bundles with esbuild and writes `manifest.json`, with the version from `package.json` and LinkedIn's site as optional                                                                                                                                                                                                                                                    |
-| `test/`                                     | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves, the jobs and the asks                                                                                                                                                                                                                                                   |
+| Path                                        | What it is                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/networks/`                             | A kit per network (`kit.ts`, `index.ts`), which are on (`on.ts`), each network's script kept in step, an older registration moved onto the kit's current sites (`scripts.ts`), the outline (`outline.ts`)                                                                                                                                                                                                                         |
+| `src/networks/facebook/`                    | Facebook's kit: one reader per kind of page, the steps, the addresses, its words, the outline, the download steps, the runner's and asks' (`work.ts`)                                                                                                                                                                                                                                                                             |
+| `src/networks/accounts-center/`             | Accounts Center's username and name pages for your own Facebook and Instagram profiles: the addresses, your profile among Profiles, what Meta asks first and its warnings (`pages.ts`), the writers (`username.ts`, `name.ts`) and the tab's asks there (`work.ts`)                                                                                                                                                               |
+| `src/networks/linkedin/`                    | LinkedIn's kit: its readers, the steps you take there (`actions.ts`), who wrote back, its words, its warnings, its outline, and the asks' steps (`work.ts`)                                                                                                                                                                                                                                                                       |
+| `src/content.ts`                            | The script in each tab of a network that's on, by its kit: reads the page when asked, looks at the tab in front of you, and notices your steps                                                                                                                                                                                                                                                                                    |
+| `src/panel/`, `public/`                     | The side panel: `account.ts` signing in, `status.ts` Next up and Done today, `networks.ts` Allow on LinkedIn and its warning, `needs.ts` how many things need you in HandsFreeOS                                                                                                                                                                                                                                                  |
+| `src/asks/run.ts`                           | What you ask of it from HandsFreeOS: taking each ask, doing it with its job, handing steps to you, and how it ended                                                                                                                                                                                                                                                                                                               |
+| `src/hfos/asks.ts`                          | The asks' side of HandsFreeOS: take, progress, end (waiting with no connection), reply and stop                                                                                                                                                                                                                                                                                                                                   |
+| `src/jobs/`                                 | The jobs that go page by page: the file and bringing it in, tidying, the look-up, friends, groups and members, Find posts, Read my chats, checks (also of those found: `found-checks.ts`); LinkedIn's in `linkedin/`, Alignable's in `alignable/`, Instagram's in `instagram/` (hashtags in `posts.ts`, warm leads in `engaged.ts`, `follow-backs.ts`, `post-people.ts`, the comment research's reading in `comment-research.ts`) |
+| `src/jobs/accounts-center.ts`               | Put these in's username and name on Accounts Center, for Facebook's job (`profile.ts`) and Instagram's (`looking.ts`): finding your profile, waiting while Meta asks you something, its refusals in words, and each hand-over                                                                                                                                                                                                     |
+| `src/offscreen.ts`, `public/offscreen.html` | The offscreen page that opens the zips in your downloads for Bring them in                                                                                                                                                                                                                                                                                                                                                        |
+| `src/hfos/looked.ts`                        | What the tab in front of you read as you went: warnings noted, chats and posts sent                                                                                                                                                                                                                                                                                                                                               |
+| `src/auto/`                                 | On its own: what it does next and when (`plan.ts`), each network's runner (`run.ts`, `linkedin.ts`, `alignable.ts`, `instagram.ts`), the once-a-day jobs (`daily.ts`), lists first (`lists.ts`), taking turns with asks (`turns.ts`), comments through `sends` (`comments.ts`), and the look at a post before one (`post-look.ts`, with the tab's half in `src/networks/post-look.ts`)                                            |
+| `src/hfos/`                                 | HandsFreeOS: the sign-in and calls (background), the saves, the steps noted, Facebook's times, its zips in downloads                                                                                                                                                                                                                                                                                                              |
+| `src/hfos/follow.ts`                        | Your settings from HandsFreeOS, and the live channel's news: loaded at sign-in and each step, and followed live                                                                                                                                                                                                                                                                                                                   |
+| `src/hfos/setup.ts`                         | The first run: telling HandsFreeOS it's signed in, and opening HandsFreeOS's setup for a first-timer                                                                                                                                                                                                                                                                                                                              |
+| `src/hfos/live.ts`                          | What it tells HandsFreeOS: this computer, the beat, the feed of steps, Start my day and Stop for today, and which computer works                                                                                                                                                                                                                                                                                                  |
+| `src/hfos/waiting.ts`                       | What needs you: the number on the icon and Chrome's pop-ups, which open Needs you in HandsFreeOS (its address and words in `src/hfos/needs-you.ts`)                                                                                                                                                                                                                                                                               |
+| `src/tab.ts`, `src/away.ts`                 | The tab a job works in, in view or in a window of its own, and whether you're away, for a read that needs the screen (decision 120)                                                                                                                                                                                                                                                                                               |
+| `src/research/`                             | AI Social Media Content Creator's reading (0.127.0): the runner (`run.ts`), its tab and hands there (`tab.ts`, `page.ts`), its calls (`hfos.ts`), pace, warnings, the AI helper and reports (`read.ts`), Instagram's answers and reads (`instagram.ts`, `instagram-read.ts`), Facebook's and LinkedIn's pages (`page-read.ts`) and watching a video (`watch.ts`)                                                                  |
+| `src/background.ts`                         | Opens the side panel, answers its asks, notes the steps the tabs tell it, follows your settings and your day, beats, and wakes the runner and the asks                                                                                                                                                                                                                                                                            |
+| `scripts/build.mjs`                         | Bundles with esbuild and writes `manifest.json`, with the version from `package.json` and LinkedIn's site as optional                                                                                                                                                                                                                                                                                                             |
+| `test/`                                     | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves, the jobs and the asks                                                                                                                                                                                                                                                                                                            |
 
 ## Next
 
@@ -2477,7 +3243,8 @@ till you're away (decisions 119 and 120, 0.109.0), and Cancel all and deleting r
 (decision 122, 0.111.0), and the list taking turns with the morning's reading and a post's link on LinkedIn's
 post search from its menu (decision 123, 0.112.0), and your messages kept open and read every minute, a reply drafted
 first (decision 125, 0.113.0), and checks in batches and searching again while a network is short of the day's first
-messages (decision 126, 0.114.0); Social
+messages (decision 126, 0.114.0), and the AI's look at a post before its comment and HandsFreeOS's comment
+research (decision 166, 0.140.0); Social
 Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.
 

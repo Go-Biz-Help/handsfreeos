@@ -14,7 +14,7 @@ import {
   YourBusinessProvider,
 } from '@/components/your-business';
 import { pricesCheckedOn, stackSources } from '@/content/savings';
-import { moneyBack, spotPrices, urls } from '@/content/site';
+import { freeTrial, moneyBack, spotPrices, urls } from '@/content/site';
 import { tradePageBySlug, tradePages } from '@/content/trade-pages';
 import { foundingCounts, foundingSpotsOnSale, hasRoom } from '@/lib/founding';
 
@@ -26,7 +26,7 @@ import { foundingCounts, foundingSpotsOnSale, hasRoom } from '@/lib/founding';
 
 type Props = { params: Promise<{ trade: string }> };
 
-/** The sign-up button says "Claim my founding spot" only while one is open, so it reads the live counts. */
+/** The sign-up button starts the free trial only while a spot is open, so it reads the live counts. */
 export const revalidate = 60;
 export const dynamicParams = false;
 
@@ -48,7 +48,7 @@ export default async function TradePage({ params }: Props) {
   const page = tradePageBySlug((await params).trade);
   if (!page) notFound();
   const open = foundingSpotsOnSale(await foundingCounts()).some(hasRoom);
-  const signUp = open ? 'Claim my founding spot' : 'Sign up';
+  const signUp = open ? freeTrial.button : 'Sign up';
 
   return (
     <>
@@ -78,7 +78,7 @@ export default async function TradePage({ params }: Props) {
                   </Button>
                 </div>
                 <ul className="text-text-2 mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm">
-                  {[`${spotPrices}, plus what you use`, 'No contract', moneyBack.short].map(
+                  {[freeTrial.short, `Then ${spotPrices}, plus what you use`, 'No contract'].map(
                     (item) => (
                       <li key={item} className="flex items-center gap-1.5">
                         <Check className="text-success" />
@@ -117,7 +117,7 @@ export default async function TradePage({ params }: Props) {
 
         <Section>
           <Eyebrow>What it takes off you</Eyebrow>
-          <SectionHeading sub="The parts of the week that eat your evenings, done on their own. Every one of them is in the plan.">
+          <SectionHeading sub="The parts of the week that eat your evenings, done by your AI team. Every one of them is in the plan.">
             Built around the way {page.who.toLowerCase()} work.
           </SectionHeading>
           <div className="mt-12 grid gap-5 sm:grid-cols-2 sm:gap-6">
@@ -175,9 +175,9 @@ export default async function TradePage({ params }: Props) {
               The next lead texts <YourBusinessName fallback="you" /> tonight. Who answers?
             </h2>
             <p className="text-on-night-2 mt-6 text-lg">
-              Set it up this week. Watch every reply before it goes out, and let go of the ones it
-              gets right. If it isn&rsquo;t for you within {moneyBack.days} days, you get your money
-              back.
+              Put your AI team to work this week. Watch every reply before it goes out, and let go
+              of the ones it gets right. If it isn&rsquo;t for you within {moneyBack.days} days, you
+              get your money back.
             </p>
             <div data-cta="final" className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
               <Button href={urls.signUp} size="lg" arrow>

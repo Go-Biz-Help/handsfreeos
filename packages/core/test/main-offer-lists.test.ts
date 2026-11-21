@@ -1,6 +1,7 @@
 /**
- * The main offer's lists for content, without the model (docs/main-offer.md, "For your content"): how lines are kept,
- * what the model is told for each kind of help, how its answers are checked, and how the Content Creator reads them.
+ * The main offer's lists for content, without the model (docs/main-offer.md, "For your posts and messages"): how lines
+ * are kept, what the model is told for each kind of help, how its answers are checked, and how the Content Creator
+ * reads them.
  */
 import { describe, expect, it } from 'vitest';
 import { offerForContent, OFFER_FOR_CONTENT } from '../src/addons/socialcontent/offer-ai';

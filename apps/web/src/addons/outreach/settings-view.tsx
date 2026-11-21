@@ -25,6 +25,7 @@ import {
   OTHER_PLATFORMS,
   PUSH_MODE_KEYS,
   PUSH_MODES,
+  type PushMode,
   REPLY_MODE_KEYS,
   REPLY_MODES,
   POSTING_MODE_KEYS,
@@ -63,7 +64,6 @@ import {
   sendingModesOn,
   ticksOn,
   ticksShownOn,
-  tidyChoiceOn,
   withNetwork,
 } from '@hfos/core/addons/outreach/network-words';
 import {
@@ -80,6 +80,7 @@ import { HELPFUL_MODES_ON, helpfulHowOn } from '@hfos/core/addons/outreach/helpf
 import { dayReportWords } from '@hfos/core/addons/outreach/tracking';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
+import { SETTINGS_PAGE_WORDS as SP } from '@hfos/core/addons/outreach/settings-pages';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -222,6 +223,7 @@ export function NetworkModes({
   wheelsStart = false,
   sendingPart = true,
   piloted = false,
+  repliesAbout,
   testId,
 }: Allowed & {
   platform: Platform;
@@ -233,6 +235,8 @@ export function NetworkModes({
   sendingPart?: boolean;
   /** Autopilot is on (decision 151): these are its picks, shown but not to change. */
   piloted?: boolean;
+  /** Replies' line in place of its own: under More settings, that How hands-off? sets it (decision 170). */
+  repliesAbout?: string;
   testId: string;
 }) {
   const modes = sendingModesOn(platform);
@@ -288,7 +292,7 @@ export function NetworkModes({
       {runs ? (
         <Part
           title={W.sections.replies}
-          about={value.sending === 'off' ? W.abouts.repliesOff : W.abouts.replies}
+          about={repliesAbout ?? (value.sending === 'off' ? W.abouts.repliesOff : W.abouts.replies)}
           card={card}
         >
           <Piloted on={piloted}>
@@ -344,6 +348,8 @@ export function NetworkTicks({
   onChange,
   card = false,
   piloted = false,
+  only,
+  title,
   testId,
 }: {
   platform: Platform;
@@ -352,13 +358,17 @@ export function NetworkTicks({
   card?: boolean;
   /** Autopilot is on (decision 151): how the requests they get are answered is its pick. */
   piloted?: boolean;
+  /** Only how the requests they get are answered: under More settings on a network's page (decision 170). */
+  only?: 'requests';
+  /** That pick's title in place of its own. */
+  title?: string;
   testId: string;
 }) {
   const ticks = ticksOn(platform);
   // None on a network whose runner reads none yet.
-  const shown = ticksShownOn(platform);
+  const shown = only ? [] : ticksShownOn(platform);
   const requests = requestsChoiceOn(platform);
-  const groups = groupsChoiceOn(platform);
+  const groups = only ? null : groupsChoiceOn(platform);
   if (!shown.length && !requests && !groups) return null;
   const answering = requestModeOf(value);
   const grouping = groupModeOf(value);
@@ -379,7 +389,7 @@ export function NetworkTicks({
       ) : null}
       {requests ? (
         <Part
-          title={requests.label}
+          title={title ?? requests.label}
           about={requests.about}
           card={card}
           testId={`${testId}-requests`}
@@ -420,44 +430,6 @@ export function NetworkTicks({
   );
 }
 
-/**
- * Tidying up on its own on one network (decision 98), in its words: only who the person ticks, the old requests, or on
- * Facebook those and friends to unfriend. Only where the extension works on its own.
- */
-export function NetworkTidy({
-  platform,
-  value,
-  onChange,
-  card = false,
-  testId,
-}: {
-  platform: Platform;
-  value: NetworkChoices;
-  onChange: (change: Partial<NetworkChoices>) => void;
-  card?: boolean;
-  testId: string;
-}) {
-  if (!runsOnItsOwn(platform)) return null;
-  const choice = tidyChoiceOn(platform);
-  // A server from before it says nothing: old requests, as it starts.
-  const picked = value.tidy ?? 'cancel';
-  return (
-    <Part title={choice.label} about={choice.about} card={card} testId={`${testId}-tidy`}>
-      <div role="radiogroup" aria-label={choice.label} className="flex flex-col gap-2">
-        {choice.options.map((o) => (
-          <RadioCard
-            key={o.key}
-            selected={picked === o.key}
-            onSelect={() => onChange({ tidy: o.key })}
-            title={o.label}
-            testId={`${testId}-tidy-${o.key}`}
-          />
-        ))}
-      </div>
-    </Part>
-  );
-}
-
 /** The person's own on every network: one part of their settings, changed as a whole. */
 interface Own {
   value: AutomationSettings;
@@ -466,55 +438,40 @@ interface Own {
   testId: string;
 }
 
-/**
- * Autopilot (decision 151, answer 7a): one switch for every network the person works, first on Settings → You. Shown
- * while the business allows it, or while it's on, so it can be turned off.
- */
-export function AutopilotPart({
+/** How the AI writes for them (decision 53), with a sample of how a message from them reads. */
+export function VoicePart({
   value,
   onChange,
-  allowed,
-  wheels,
   card = false,
+  switches = false,
   testId,
-}: Own & { allowed: boolean; wheels: boolean }) {
-  if (!allowed && !value.autopilot) return null;
+}: Own & { switches?: boolean }) {
   return (
-    <Part title={AUTOPILOT_WORDS.name} about={AUTOPILOT_WORDS.about} card={card} testId={testId}>
-      <Tick
-        words={[
-          AUTOPILOT_WORDS.name,
-          value.autopilot ? AUTOPILOT_WORDS.howItAsks : AUTOPILOT_WORDS.offPutsBack,
-        ]}
-        checked={value.autopilot}
-        onChange={(on) => onChange({ ...value, autopilot: on })}
-        switches
-        testId={`${testId}-switch`}
-      />
-      {value.autopilot && wheels ? (
-        <p className="text-[13px] text-text-2" data-testid={`${testId}-wheels`}>
-          {AUTOPILOT_WORDS.wheels}
-        </p>
-      ) : null}
-    </Part>
-  );
-}
-
-/** How the AI writes for them (decision 53), with a sample of how a message from them reads. */
-export function VoicePart({ value, onChange, card = false, testId }: Own) {
-  return (
-    <Part title={VOICE_WORDS.title} about={VOICE_WORDS.note} card={card}>
-      {VOICE_KEYS.map((key) => (
-        <Checkbox
-          key={key}
-          label={<span className="text-[14px]">{VOICE_WORDS[key]}</span>}
-          checked={value.voice[key]}
-          onChange={(e) =>
-            onChange({ ...value, voice: { ...value.voice, [key]: e.target.checked } })
-          }
-          data-testid={`${testId}-voice-${key}`}
-        />
-      ))}
+    <Part title={VOICE_WORDS.title} about={VOICE_WORDS.note} card={card} testId={`${testId}-voice`}>
+      {VOICE_KEYS.map((key) =>
+        switches ? (
+          // On Settings → You (decision 170): a switch for each, saved the moment it's flipped.
+          <div key={key} className="flex items-center justify-between gap-4">
+            <span className="min-w-0 text-[14px] font-medium">{VOICE_WORDS[key]}</span>
+            <Switch
+              checked={value.voice[key]}
+              onChange={(on) => onChange({ ...value, voice: { ...value.voice, [key]: on } })}
+              label={VOICE_WORDS[key]}
+              testId={`${testId}-voice-${key}`}
+            />
+          </div>
+        ) : (
+          <Checkbox
+            key={key}
+            label={<span className="text-[14px]">{VOICE_WORDS[key]}</span>}
+            checked={value.voice[key]}
+            onChange={(e) =>
+              onChange({ ...value, voice: { ...value.voice, [key]: e.target.checked } })
+            }
+            data-testid={`${testId}-voice-${key}`}
+          />
+        ),
+      )}
       <ChatBubbles
         bubbles={voiceSample(value.voice).map((text) => ({ fromMe: true, text }))}
         label="How a message from you might read"
@@ -557,8 +514,69 @@ export function PushesPart({
   onChange,
   card = false,
   switches = false,
+  compact = false,
   testId,
-}: Own & { switches?: boolean }) {
+}: Own & {
+  switches?: boolean;
+  /** Settings → You's Alerts (decision 170): what waits as a short pick, then the switches. */
+  compact?: boolean;
+}) {
+  if (compact)
+    return (
+      <Part title={SP.alerts} about={SP.alertsAbout} card={card} testId={`${testId}-alerts`}>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div className="min-w-0 flex-[1_1_220px]">
+            <div className="text-[14px] font-medium">{SP.waiting}</div>
+            <div className="text-[13px] text-text-2">{SP.waitingAbout}</div>
+          </div>
+          <select
+            className={select}
+            value={value.pushes}
+            onChange={(e) => onChange({ ...value, pushes: e.target.value as PushMode })}
+            aria-label={SP.waiting}
+            data-testid={`${testId}-pushes`}
+          >
+            {PUSH_MODE_KEYS.map((m) => (
+              <option key={m} value={m}>
+                {SP.pushModes[m]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="border-t border-border pt-3">
+          <Tick
+            switches
+            words={[W.ticks.dayReport[0], SP.dayReportAbout]}
+            checked={value.dayReport}
+            onChange={(dayReport) => onChange({ ...value, dayReport })}
+            testId={`${testId}-dayReport`}
+          />
+        </div>
+        {value.dayReport ? (
+          <PushSample
+            title={dayReportSample.title}
+            body={dayReportSample.body}
+            testId={`${testId}-day-report-sample`}
+          />
+        ) : null}
+        <div className="border-t border-border pt-3">
+          <Tick
+            switches
+            words={[W.ticks.acceptedPush[0], SP.acceptedAbout]}
+            checked={value.acceptedPush}
+            onChange={(acceptedPush) => onChange({ ...value, acceptedPush })}
+            testId={`${testId}-acceptedPush`}
+          />
+        </div>
+        {value.acceptedPush ? (
+          <PushSample
+            title={acceptedSample.title}
+            body={acceptedSample.body}
+            testId={`${testId}-accepted-sample`}
+          />
+        ) : null}
+      </Part>
+    );
   return (
     <Part title={W.sections.pushes} about={W.abouts.pushes} card={card}>
       <div role="radiogroup" aria-label="Pushes" className="flex flex-col gap-2">
@@ -1128,7 +1146,15 @@ const dayReportSample = dayReportWords({ messages: 14, positive: 2, booked: 1 },
 const acceptedSample = acceptedPushWords(['Dana Reyes'], 'facebook');
 
 /** A push as it shows on a phone: the add-on's name, its title and its words. */
-function PushSample({ title, body, testId }: { title: string; body: string; testId: string }) {
+export function PushSample({
+  title,
+  body,
+  testId,
+}: {
+  title: string;
+  body: string;
+  testId: string;
+}) {
   return (
     <div
       className="grid max-w-[420px] grid-cols-[36px_minmax(0,1fr)] gap-2.5 rounded-[14px] border border-border bg-card-2 px-3.5 py-3"

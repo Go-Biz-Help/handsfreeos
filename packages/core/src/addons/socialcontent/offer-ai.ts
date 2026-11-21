@@ -1,8 +1,8 @@
 /**
  * The business's main offer and its lists for content, as AI Social Media Content Creator's AI reads them
- * (docs/main-offer.md, "For your content"; the owner, 11 Nov 2026): who it helps, the result, how and the guarantee
- * (never the price), then the lists the person wrote with the AI's help. Every post, idea and Playbook is written
- * from them, beside the business profile and its Knowledge.
+ * (docs/main-offer.md, "For your posts and messages"; the owner, 11 Nov 2026): who it helps, the result, how and the
+ * guarantee (never the price), then the lists the person wrote with the AI's help. Every post, idea and Playbook is
+ * written from them, beside the business profile and its Knowledge.
  */
 import { quoteData } from '../../knowledge/prompt';
 import { listsText, offerForLists, type MainOfferLists } from '../../main-offer/lists';

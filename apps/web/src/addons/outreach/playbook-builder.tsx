@@ -15,7 +15,6 @@
 import { NETWORK_WORDS as NW } from '@hfos/core/addons/outreach/network-words';
 import { PLATFORM_KEYS, PLATFORMS, WORKING_PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import { NICHE_FIT_WORDS, type NicheFitOutput } from '@hfos/core/addons/outreach/niche-fit';
-import { FIRST_NAME } from '@hfos/core/addons/outreach/openers';
 import type {
   AssistDraft,
   AssistQuestion,
@@ -25,6 +24,8 @@ import {
   ANSWER_NEXTS,
   answerNextLabel,
   blankPlaybook,
+  NEW_PLAYBOOK_WAYS,
+  PLAYBOOK_SAVE_WORDS as SAVE,
   FIND_WORDS_PARTS,
   forPartners,
   hasWordsOn,
@@ -37,6 +38,7 @@ import {
   PLAYBOOK_LIMITS,
   PLAYBOOK_STEP_KEYS,
   PLAYBOOK_STEPS,
+  STEPS_HINT,
   PLAYBOOK_SUGGESTIONS,
   PLAYBOOK_TEMPLATES,
   PlaybookDetails,
@@ -49,6 +51,46 @@ import {
   type WordsPlatform,
 } from '@hfos/core/addons/outreach/playbooks';
 import { hashtagLetters, hashtagOf } from '@hfos/core/addons/outreach/posts';
+import {
+  CHAT_DEMO,
+  CHAT_QUESTIONS,
+  CHAT_STORY,
+  CHAT_WRAP_AFTER,
+  chatOf,
+  LOCKED_RULES,
+  NETWORKING_KEYS,
+  NETWORKING_ON,
+  partChanged,
+  partShown,
+  partsChanged,
+  PLAYBOOK_CHAT,
+  PLAYBOOK_NETWORKING,
+  opensFor,
+  PLAYBOOK_REFER,
+  refersOf,
+  SCRIPT_BLANKS,
+  SCRIPT_GROUPS,
+  SCRIPT_INFO,
+  SCRIPT_LIMITS,
+  SCRIPT_WORDS as SW,
+  scriptDraftOf,
+  scriptToSave,
+  typedFirsts,
+  typedPart,
+  wayRows,
+  waysIssue,
+  waysOf,
+  WAYS_WORDS,
+  withFirsts,
+  withPart,
+  withWay,
+  OPEN_WAYS,
+  type OpenWay,
+  type PlaybookChat,
+  type PlaybookNetworking,
+  type ScriptDraft,
+  type WayHas,
+} from '@hfos/core/addons/outreach/script';
 import {
   scriptMinutes,
   VIDEO_LIMITS,
@@ -67,31 +109,37 @@ import {
   playbookSectionTitle,
 } from '@hfos/core/addons/outreach/words';
 import {
+  AlertCircle,
   ArrowDown,
   ArrowLeft,
   ArrowRight,
   ArrowUp,
   Check,
   CheckCircle2,
+  Loader2,
   ExternalLink,
-  Info,
+  FlaskConical,
+  Lock,
   MessageCircleQuestion,
   Plus,
+  RotateCcw,
   Sparkles,
   Video,
   X,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
 import { PageHeader } from '@/components/shell/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button, ButtonLink, buttonClassName } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Field, FieldError, Hint, Label } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
 import { RadioCard } from '@/components/ui/radio-card';
+import { Segmented } from '@/components/ui/segmented';
 import { Stepper } from '@/components/ui/stepper';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
@@ -101,6 +149,7 @@ import { usePublicOrigin } from '@/lib/use-origin';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
 import { AiHelp } from './ai-help';
+import { PlaybookTest } from './playbook-test';
 import type { Playbook } from './types';
 
 // ---------- the answers ----------
@@ -132,13 +181,27 @@ interface Draft {
   hashtags: string[];
   postSearches: string[];
   businessKinds: string[];
+  /** Threads' and X's hourly searches (decision 163). */
+  threadsSearches: string[];
+  xSearches: string[];
   worksOnline: boolean | null;
   steps: PlaybookStep[];
   pace: PlaybookDetails['pace'];
   tone: string;
   samples: string[];
-  openerStyles: string[];
-  ownOpeners: string[];
+  /** What it says for each message (decision 164): the business's own words as typed, the rest the starting words. */
+  script: ScriptDraft;
+  /**
+   * The ways it may start a chat (decision 183): the AI picks one for each person. None for a new one till they're
+   * ticked, and it won't carry on without one.
+   */
+  ways: OpenWay[];
+  /** What the networking chat after an introduction may offer (decision 173). */
+  networking: PlaybookNetworking;
+  /** How that chat goes (decision 180). */
+  chat: PlaybookChat;
+  /** Whether its people may be referred on posts asking for a recommendation (decision 174). */
+  refer: boolean;
   questions: PlaybookQuestion[];
   avoid: string[];
   disclaimer: string;
@@ -167,13 +230,18 @@ const fromDetails = (name: string, d: PlaybookDetails): Draft => ({
   hashtags: d.hashtags ?? [],
   postSearches: d.postSearches ?? [],
   businessKinds: d.businessKinds ?? [],
+  threadsSearches: d.threadsSearches ?? [],
+  xSearches: d.xSearches ?? [],
   worksOnline: d.worksOnline ?? null,
   steps: d.steps,
   pace: d.pace,
   tone: d.tone ?? '',
   samples: d.samples,
-  openerStyles: d.openerStyles,
-  ownOpeners: d.ownOpeners,
+  script: scriptDraftOf(d.script),
+  ways: waysOf(d),
+  networking: { ...NETWORKING_ON, ...(d.networking ?? {}) },
+  chat: chatOf(d),
+  refer: refersOf(d),
   questions: d.questions,
   avoid: d.avoid,
   disclaimer: d.disclaimer ?? '',
@@ -192,13 +260,14 @@ const LIST_KEYS = [
   'hashtags',
   'postSearches',
   'businessKinds',
+  'threadsSearches',
+  'xSearches',
   'tags',
   'avoid',
-  'openerStyles',
 ] as const;
 type ListKey = (typeof LIST_KEYS)[number];
 /** The lists of whole messages, each in its own box. */
-type MessageKey = 'samples' | 'ownOpeners';
+type MessageKey = 'samples';
 type MultiKey = ListKey | MessageKey;
 /** What's typed in a list's box and not added yet. */
 type Typing = Partial<Record<ListKey, string>>;
@@ -226,6 +295,8 @@ const FIND_PARTS = [
   'postSearches',
   'businessKinds',
   'worksOnline',
+  'threadsSearches',
+  'xSearches',
 ] as const;
 type FindPart = (typeof FIND_PARTS)[number];
 /** The network whose part it is: the works-online switch is Alignable's, as its search goes by it. */
@@ -235,6 +306,8 @@ const FIND_PART_ON: Readonly<Record<FindPart, WordsPlatform>> = {
   postSearches: 'linkedin',
   businessKinds: 'alignable',
   worksOnline: 'alignable',
+  threadsSearches: 'threads',
+  xSearches: 'x',
 };
 
 /** The parts of `FIND_PARTS` the person changed from where the builder started, on a network that shows them. */
@@ -269,12 +342,23 @@ const toDetails = (d: Draft, sent: readonly FindPart[] = FIND_PARTS): PlaybookDe
   ...(sent.includes('postSearches') ? { postSearches: d.postSearches } : {}),
   ...(sent.includes('businessKinds') ? { businessKinds: d.businessKinds } : {}),
   ...(sent.includes('worksOnline') ? { worksOnline: d.worksOnline } : {}),
+  ...(sent.includes('threadsSearches') ? { threadsSearches: d.threadsSearches } : {}),
+  ...(sent.includes('xSearches') ? { xSearches: d.xSearches } : {}),
   steps: PLAYBOOK_STEP_KEYS.filter((s) => d.steps.includes(s)),
   pace: d.pace,
   tone: orNull(d.tone),
   samples: d.samples.map((s) => s.trim()).filter(Boolean),
-  openerStyles: d.openerStyles,
-  ownOpeners: d.ownOpeners.map((s) => s.trim()).filter(Boolean),
+  // Only the parts in the business's own words: the rest keep following the starting words (decision 164).
+  script: scriptToSave(d.goal, d.script),
+  ways: d.ways,
+  // For a phone built before the ways (decision 168's choice).
+  opens: opensFor(d.ways),
+  networking: d.networking,
+  chat: d.chat,
+  refer: d.refer,
+  // The styles and openers from before decision 164 are its first message's versions now.
+  openerStyles: [],
+  ownOpeners: [],
   questions: d.questions,
   avoid: d.avoid,
   disclaimer: orNull(d.disclaimer),
@@ -335,11 +419,11 @@ export type StepKey =
   | 'skip'
   | 'where'
   | 'steps'
+  | 'script'
   | 'video'
   | 'tags'
   | 'conversation'
   | 'voice'
-  | 'openers'
   | 'review';
 
 interface Step {
@@ -406,6 +490,13 @@ const STEPS: readonly Step[] = [
     fields: ['steps', 'pace'],
   },
   {
+    key: 'script',
+    part: SW.title,
+    title: 'What does it say?',
+    blurb: SW.blurb,
+    fields: ['ways', 'script'],
+  },
+  {
     key: 'video',
     part: 'Short video',
     title: V.title,
@@ -421,10 +512,10 @@ const STEPS: readonly Step[] = [
   },
   {
     key: 'conversation',
-    part: 'Conversation',
-    title: 'The conversation',
+    part: 'Questions it may ask',
+    title: 'Questions it may ask',
     blurb:
-      'The questions you work into a chat. Each answer can add a tag, and says what happens next.',
+      'Optional. Your messages already ask what What it says tells them to. Add a question here only for when one fits a chat, like when someone’s unsure. Each answer can add a tag, and says what happens next.',
     fields: ['questions'],
   },
   {
@@ -435,13 +526,6 @@ const STEPS: readonly Step[] = [
     fields: ['tone', 'samples', 'avoid', 'disclaimer'],
   },
   {
-    key: 'openers',
-    part: 'Openers',
-    title: 'How do you start a chat?',
-    blurb: 'First messages take turns with these, so you can see which ones get replies and demos.',
-    fields: ['openerStyles', 'ownOpeners'],
-  },
-  {
     key: 'review',
     part: 'Check it',
     title: 'Check it and save',
@@ -450,6 +534,39 @@ const STEPS: readonly Step[] = [
   },
 ];
 const REVIEW = STEPS.length - 1;
+
+/** How long a saved playbook waits after a change before it saves it, so typing saves once it stops. */
+const SAVE_PAUSE_MS = 700;
+
+/** A new playbook as it's being written, kept in the browser till it's made: its words, and the step it's on. */
+interface LocalDraft {
+  readonly draft: Partial<Draft>;
+  readonly at: number;
+}
+
+/** The new playbook kept in this browser, if any. A browser that keeps nothing (a private window) has none. */
+function readLocal(key: string): LocalDraft | null {
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const kept = JSON.parse(raw) as Partial<LocalDraft> | null;
+    return kept && typeof kept.draft === 'object' && kept.draft && typeof kept.at === 'number'
+      ? { draft: kept.draft, at: kept.at }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Keeps the new playbook in this browser, or forgets it (null). */
+function writeLocal(key: string, kept: LocalDraft | null): void {
+  try {
+    if (kept) window.localStorage.setItem(key, JSON.stringify(kept));
+    else window.localStorage.removeItem(key);
+  } catch {
+    // A browser that keeps nothing: the playbook is still made at the end.
+  }
+}
 
 interface Issue {
   /** Where, as dots: `questions.0.answers.1.tag`. */
@@ -468,6 +585,7 @@ export function PlaybookBuilder({
   brandedOrigin,
   mainOffer,
   mainOfferVersion = null,
+  videos = 0,
   doneHref,
   openAt,
 }: {
@@ -486,6 +604,8 @@ export function PlaybookBuilder({
   mainOffer: PlaybookOffer | null;
   /** Its live version, which the short video's script was written for or not. */
   mainOfferVersion?: number | null;
+  /** How many videos the business's library has (decision 154): Permission ask needs one (decision 183). */
+  videos?: number;
   /** Where saving or leaving goes: the Playbooks tab, or the setup it was started from. */
   doneHref?: string;
   /** A playbook opened on one of its steps (the setup's video step), carrying on to its summary. */
@@ -496,9 +616,12 @@ export function PlaybookBuilder({
   const home = doneHref ?? outreachHref(workspaceId, { view: 'playbooks' });
   const [start] = useState<Draft>(() => {
     if (playbook) return fromDetails(playbook.name, playbook.details as PlaybookDetails);
-    const d = template
+    const made = template
       ? fromDetails(PLAYBOOK_TEMPLATES[template].name, PLAYBOOK_TEMPLATES[template].details)
       : fromDetails('', blankPlaybook());
+    // A new one starts with no way ticked to start a chat (decision 183, the owner: "they all start unticked and have to
+    // choose which ones they want to move forward").
+    const d = { ...made, ways: [...NEW_PLAYBOOK_WAYS] };
     // A new one's offer starts as the main offer's outcome, in a few words, to change if it needs to.
     return d.offer || !mainOffer?.outcome ? d : { ...d, offer: mainOffer.outcome };
   });
@@ -514,6 +637,8 @@ export function PlaybookBuilder({
   const [saved, setSaved] = useState(false);
   /** The AI's word on whether the niche fits the main offer, for the niche it read. */
   const [fit, setFit] = useState<{ niche: string; out: NicheFitOutput } | null>(null);
+  /** The Test console, open over the builder with the playbook as it is on screen. */
+  const [testing, setTesting] = useState(false);
   const [checking, setChecking] = useState(false);
   const offerHref = `/app/w/${workspaceId}/settings/main-offer`;
   /** Typed in a list's box and not added yet: it counts as added, and is added on moving to another step. */
@@ -531,13 +656,15 @@ export function PlaybookBuilder({
     top.current?.scrollIntoView({ block: 'start' });
   }, [at]);
 
-  // Closing the tab with changes not saved asks first.
+  // Closing the tab with changes not saved asks first: a saved playbook's changes not saved yet. A new one's are kept in
+  // the browser (`LocalDraft`), so closing it loses nothing.
   const dirty = useMemo(
     () =>
       !saved &&
+      !!playbook &&
       (JSON.stringify(draft) !== JSON.stringify(start) ||
         Object.values(typing).some((t) => t?.trim())),
-    [draft, saved, start, typing],
+    [draft, playbook, saved, start, typing],
   );
   useEffect(() => {
     if (!dirty) return;
@@ -565,7 +692,9 @@ export function PlaybookBuilder({
     );
     // A network's own words that don't show (its network unticked, or a partner playbook) aren't sent: nothing to fix.
     const hidden = FIND_PARTS.filter((k) => !hasWordsOn(kept, FIND_PART_ON[k]));
-    return [...found, ...tags].filter(
+    // At least one way to start a chat (decision 183): it won't carry on, or save, without one.
+    const none = waysIssue(kept.ways);
+    return [...found, ...tags, ...(none ? [{ path: 'ways', message: none }] : [])].filter(
       (i) => !hidden.some((k) => i.path === k || i.path.startsWith(`${k}.`)),
     );
   }, [draft, typing]);
@@ -615,11 +744,14 @@ export function PlaybookBuilder({
       hashtags: d.hashtags,
       postSearches: d.postSearches,
       businessKinds: d.businessKinds,
+      threadsSearches: d.threadsSearches,
+      xSearches: d.xSearches,
       worksOnline: d.worksOnline,
       tags: d.tags,
       samples: d.samples.filter((m) => m.trim()),
-      openerStyles: d.openerStyles,
-      ownOpeners: d.ownOpeners.filter((m) => m.trim()),
+      firsts: typedFirsts(d.goal, d.script).filter((m) => m.trim()),
+      openerStyles: [],
+      ownOpeners: [],
       avoid: d.avoid,
       questions: d.questions.map((q) => ({
         text: q.text,
@@ -643,7 +775,7 @@ export function PlaybookBuilder({
   const replaceLines = (k: MultiKey, lines: string[]) => {
     if (k === 'tags') setTags(lines);
     else set(k, lines);
-    if (k !== 'samples' && k !== 'ownOpeners') setTyping((x) => ({ ...x, [k]: '' }));
+    if (k !== 'samples') setTyping((x) => ({ ...x, [k]: '' }));
   };
   const addQuestion = (q: AssistQuestion) =>
     setDraft((d) =>
@@ -719,22 +851,117 @@ export function PlaybookBuilder({
   };
   const fitShown = fit && fit.niche === draft.niche.trim() ? fit.out : null;
 
+  /** What a save of the playbook as it stands sends: what's typed in a list's box counts as added. */
+  const toSave = useMemo(() => {
+    const kept = withTyping(draft, typing);
+    return { name: draft.name.trim(), details: toDetails(kept, changedFindParts(kept, start)) };
+  }, [draft, start, typing]);
+  const bodyKey = useMemo(() => JSON.stringify(toSave), [toSave]);
+  const ready = issues.length === 0 && nameIssue === null;
+
+  // ---- A saved playbook saves itself as changes are made (the owner, 20 Nov 2026), once it has no problem ----
+  const [saveState, setSaveState] = useState<
+    | { readonly state: 'idle' | 'saving' | 'saved' }
+    | { readonly state: 'failed'; readonly words: string }
+  >({ state: 'idle' });
+  /** What was last saved, as sent. It starts as the playbook opened. */
+  const lastSaved = useRef(bodyKey);
+  const latest = useRef({ body: toSave, bodyKey, ready });
+  useEffect(() => {
+    latest.current = { body: toSave, bodyKey, ready };
+  });
+  const running = useRef<Promise<boolean> | null>(null);
+  /** Saves what's on screen now, one save at a time: true once nothing is left to save. */
+  const push = useCallback(async (): Promise<boolean> => {
+    if (!playbook) return false;
+    while (running.current) await running.current;
+    const now = latest.current;
+    if (now.bodyKey === lastSaved.current) return true;
+    if (!now.ready) return false;
+    const run = (async () => {
+      setSaveState({ state: 'saving' });
+      try {
+        unwrap(
+          await apiBrowser().POST('/v1/commands/outreach.playbook.save', {
+            body: { workspaceId, playbookId: playbook.id, ...now.body },
+          }),
+        );
+        lastSaved.current = now.bodyKey;
+        setSaveState({ state: 'saved' });
+        return true;
+      } catch (e) {
+        if (e instanceof ApiError && e.rule === 'outreach_playbook_name_taken') setTaken(e.message);
+        setSaveState({ state: 'failed', words: errorMessage(e) });
+        return false;
+      }
+    })();
+    running.current = run;
+    try {
+      return await run;
+    } finally {
+      running.current = null;
+    }
+  }, [playbook, workspaceId]);
+  // A change saves after a short pause, so typing saves once it stops.
+  useEffect(() => {
+    if (!playbook || bodyKey === lastSaved.current || !ready) return;
+    const wait = setTimeout(() => void push(), SAVE_PAUSE_MS);
+    return () => clearTimeout(wait);
+  }, [bodyKey, playbook, push, ready]);
+  // Leaving inside the app saves what's waiting.
+  useEffect(() => () => void push(), [push]);
+  const unsaved = !!playbook && bodyKey !== lastSaved.current;
+
+  // ---- A new playbook is kept in the browser as it's written, and made at the end of its steps ----
+  const localKey = playbook
+    ? null
+    : `hfos:outreach:new-playbook:${workspaceId}:${template ?? 'blank'}`;
+  const [pickedUp, setPickedUp] = useState(false);
+  const restored = useRef(false);
+  useEffect(() => {
+    if (!localKey || restored.current) return;
+    restored.current = true;
+    const kept = readLocal(localKey);
+    if (!kept) return;
+    setDraft({ ...start, ...kept.draft });
+    setAt(Math.min(Math.max(kept.at, 0), REVIEW));
+    setPickedUp(true);
+  }, [localKey, start]);
+  useEffect(() => {
+    if (!localKey || !restored.current || saved) return;
+    if (JSON.stringify(draft) === JSON.stringify(start) && at === 0)
+      return writeLocal(localKey, null);
+    writeLocal(localKey, { draft, at });
+  }, [at, draft, localKey, saved, start]);
+  const startOver = () => {
+    if (localKey) writeLocal(localKey, null);
+    setDraft(start);
+    setTyping({});
+    setAt(0);
+    setFromReview(false);
+    setPickedUp(false);
+  };
+
+  /** The last step's button: makes a new one, or for a saved one saves what's waiting and goes back. */
   const save = async () => {
     setBusy(true);
     try {
-      const kept = withTyping(draft, typing);
+      if (playbook) {
+        if (await push()) {
+          setSaved(true);
+          router.push(home);
+          router.refresh();
+        }
+        return;
+      }
       const out = unwrap(
         await apiBrowser().POST('/v1/commands/outreach.playbook.save', {
-          body: {
-            workspaceId,
-            ...(playbook ? { playbookId: playbook.id } : { template }),
-            name: draft.name.trim(),
-            details: toDetails(kept, changedFindParts(kept, start)),
-          },
+          body: { workspaceId, template, ...toSave },
         }),
       );
       setSaved(true);
-      toast.success(playbook ? `${out.name} is saved.` : `${out.name} is ready.`);
+      if (localKey) writeLocal(localKey, null);
+      toast.success(`${out.name} is ready.`);
       router.push(home);
       router.refresh();
     } catch (e) {
@@ -1216,6 +1443,9 @@ export function PlaybookBuilder({
               <FieldError>{issueIn('steps') ?? issueIn('pace')}</FieldError>
             </div>
           ) : null}
+          <div className="p-3.5 text-[13px] text-text-2" data-testid="playbook-steps-hint">
+            {STEPS_HINT}
+          </div>
         </div>
       );
       break;
@@ -1352,46 +1582,59 @@ export function PlaybookBuilder({
         </div>
       );
       break;
-    case 'openers':
+    case 'script':
       body = (
-        <div className="space-y-6">
-          <div>
-            <ListField
-              id="pb-opener-styles"
-              {...typed('openerStyles')}
-              label={W.openerStyles}
-              hint="Two or three different ones, so you can see which works. Each is how a first message starts."
-              placeholder="Like “Ask about something real on their profile”"
-              items={draft.openerStyles}
-              onChange={(v) => set('openerStyles', v)}
-              suggestions={[{ label: 'Ideas', options: PLAYBOOK_SUGGESTIONS.openerStyles }]}
-              limits={PLAYBOOK_LIMITS.openerStyles}
-              error={issueIn('openerStyles')}
-              testId="playbook-opener-styles"
+        <ScriptStep
+          goal={draft.goal}
+          script={draft.script}
+          onChange={(script) => set('script', script)}
+          ways={draft.ways}
+          onWays={(ways) => set('ways', ways)}
+          has={{
+            proof: draft.proof.length > 0 || !!mainOffer?.proof.length,
+            useful: !!draft.usefulWhat.trim(),
+            video: !!draft.videoLink.trim() || videos > 0,
+          }}
+          warmUp={draft.steps.includes('engage')}
+          onWarmUp={(on) =>
+            set(
+              'steps',
+              PLAYBOOK_STEP_KEYS.filter((k) => (k === 'engage' ? on : draft.steps.includes(k))),
+            )
+          }
+          waysIssue={issueAt('ways')}
+          networking={draft.networking}
+          onNetworking={(networking) => set('networking', networking)}
+          chat={draft.chat}
+          onChat={(chat) => set('chat', chat)}
+          refer={draft.refer}
+          onRefer={(refer) => set('refer', refer)}
+          issueAt={(path) => issueIn(`script.${path}`)}
+          firstsHelp={
+            <AiHelp
+              workspaceId={workspaceId}
+              part="firsts"
+              draft={assistDraft}
+              written={assistDraft.firsts.length > 0}
+              onAdd={(line) => {
+                const firsts = typedFirsts(draft.goal, draft.script).filter((m) => m.trim());
+                if (firsts.some((m) => m.toLowerCase() === line.toLowerCase())) return true;
+                if (firsts.length >= SCRIPT_LIMITS.first.most) {
+                  toast.error(
+                    `That’s ${SCRIPT_LIMITS.first.most} versions, the most it takes. Take one out first.`,
+                  );
+                  return false;
+                }
+                set('script', withFirsts(draft.script, [...firsts, line]));
+                return true;
+              }}
+              onReplace={(lines) =>
+                set('script', withFirsts(draft.script, lines.slice(0, SCRIPT_LIMITS.first.most)))
+              }
             />
-            {listHelp('openerStyles')}
-          </div>
-          <div>
-            <MessageList
-              label="Your own openers (optional)"
-              hint={`Sent as you write them. Put ${FIRST_NAME} where their first name goes.`}
-              name="opener"
-              items={draft.ownOpeners}
-              most={PLAYBOOK_LIMITS.ownOpeners.most}
-              maxLength={PLAYBOOK_LIMITS.ownOpeners.line}
-              onChange={(v) => set('ownOpeners', v)}
-              error={issueIn('ownOpeners')}
-              placeholder={`Hi ${FIRST_NAME}! …`}
-              testId="playbook-own-openers"
-            />
-            {listHelp('ownOpeners')}
-          </div>
-          {draft.openerStyles.length + draft.ownOpeners.filter((m) => m.trim()).length === 0 ? (
-            <Callout tone="neutral" icon={Info}>
-              With none, first messages are written as before, and there’s nothing to compare.
-            </Callout>
-          ) : null}
-        </div>
+          }
+          onTest={() => setTesting(true)}
+        />
       );
       break;
     case 'review':
@@ -1413,7 +1656,24 @@ export function PlaybookBuilder({
             <Callout tone="danger">
               Some parts need a fix before it’s saved. Press Change beside each one marked in red.
             </Callout>
-          ) : null}
+          ) : (
+            <Callout
+              tone="neutral"
+              icon={FlaskConical}
+              action={
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setTesting(true)}
+                  data-testid="playbook-test-open"
+                >
+                  {SW.test}
+                </Button>
+              }
+            >
+              See what it would send someone, and how the chat goes from there, before you save.
+            </Callout>
+          )}
           <div className="divide-y divide-border rounded-card border border-border bg-card">
             {STEPS.slice(0, REVIEW).map((s, i) => {
               const wrong = problems(s)[0]?.message;
@@ -1468,6 +1728,20 @@ export function PlaybookBuilder({
         description="The extension and the AI follow it: who to look for, how to sound, and which of your tags to use."
       />
       <div className="mx-auto max-w-[760px]" data-testid={`playbook-step-${step.key}`}>
+        {pickedUp ? (
+          <Callout
+            className="mb-4"
+            tone="neutral"
+            data-testid="playbook-picked-up"
+            action={
+              <Button variant="secondary" size="sm" onClick={startOver}>
+                {SAVE.startOver}
+              </Button>
+            }
+          >
+            {SAVE.pickedUp}
+          </Callout>
+        ) : null}
         <Progress current={at} total={STEPS.length} />
         <h2 className="text-[19px] font-semibold">{step.title}</h2>
         <p className="mb-5 mt-1 text-[13.5px] text-text-2">{step.blurb}</p>
@@ -1490,7 +1764,7 @@ export function PlaybookBuilder({
               disabled={issues.length > 0 || nameIssue !== null}
               data-testid="playbook-save"
             >
-              {playbook ? 'Save changes' : 'Make the playbook'}
+              {playbook ? SAVE.done : 'Make the playbook'}
             </Button>
           ) : (
             <Button
@@ -1506,7 +1780,498 @@ export function PlaybookBuilder({
         {at < REVIEW && stuck.length > 0 ? (
           <p className="mt-2 text-right text-[13px] text-text-3">Fix the above to carry on.</p>
         ) : null}
+        <div className="mt-3 flex justify-end">
+          {playbook ? (
+            <SaveLine state={saveState} unsaved={unsaved} ready={ready} />
+          ) : (
+            <p className="text-[12.5px] text-text-3" data-testid="playbook-kept-here">
+              {SAVE.kept}
+            </p>
+          )}
+        </div>
       </div>
+      {testing ? (
+        <PlaybookTest
+          workspaceId={workspaceId}
+          playbookId={playbook?.id ?? null}
+          name={draft.name.trim() || PLAYBOOK_GOALS[draft.goal]}
+          details={toDetails(withTyping(draft, typing))}
+          versions={
+            draft.ways.includes('pitch')
+              ? typedFirsts(draft.goal, draft.script).filter((m) => m.trim()).length
+              : 1
+          }
+          platforms={draft.platforms}
+          open
+          onClose={() => setTesting(false)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+// ---------- what it says ----------
+
+/**
+ * The ways it may start a chat (decision 183, the owner, 20 Nov 2026): tick the ones the AI may use, and for each person
+ * it picks the one that fits best. Each says what follows it, whom it suits, and what it needs that isn't there yet.
+ * The Warm up switch sits beside them (the owner's 4b). None ticked, it won't carry on.
+ */
+function WaysList({
+  ways,
+  onWays,
+  has,
+  warmUp,
+  onWarmUp,
+  issue,
+}: {
+  ways: readonly OpenWay[];
+  onWays: (ways: OpenWay[]) => void;
+  has: WayHas;
+  warmUp: boolean;
+  onWarmUp: (on: boolean) => void;
+  issue: string | undefined;
+}) {
+  return (
+    <div data-testid="playbook-ways">
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-[13.5px] font-medium">{WAYS_WORDS.title}</p>
+        <span className="text-[12.5px] text-text-3" data-testid="playbook-ways-count">
+          {WAYS_WORDS.picked(ways.length)}
+        </span>
+      </div>
+      <p className="mb-2 text-[12.5px] text-text-3">{WAYS_WORDS.blurb}</p>
+      <div
+        className={cn(
+          'divide-y divide-border rounded-card border bg-card',
+          issue ? 'border-danger' : 'border-border',
+        )}
+        role="group"
+        aria-label={WAYS_WORDS.title}
+      >
+        {wayRows(ways, has).map((row) => (
+          <div key={row.way} className="p-3.5" data-testid={`playbook-way-${row.way}`}>
+            <Checkbox
+              checked={row.on}
+              onChange={(e) => onWays(withWay(ways, row.way, e.target.checked))}
+              label={<span className="text-[14px] font-medium">{row.label}</span>}
+              data-testid={`playbook-way-${row.way}-tick`}
+            />
+            <div className="ml-[28px] mt-0.5 space-y-1 text-[13px] text-text-2">
+              <p>{row.hint}</p>
+              <p className="text-[12.5px] text-text-3">{row.flow}</p>
+              {row.tags.length ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {row.tags.map((t) => (
+                    <Badge key={t}>{t}</Badge>
+                  ))}
+                </div>
+              ) : null}
+              {row.missing ? (
+                <p
+                  className="text-[12.5px] text-warning-text"
+                  data-testid={`playbook-way-${row.way}-missing`}
+                >
+                  {row.missing}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ))}
+      </div>
+      <FieldError>{issue}</FieldError>
+      <div className="mt-3 flex items-start justify-between gap-3 rounded-card border border-border bg-card p-3.5">
+        <div>
+          <div className="text-[14px] font-medium">{WAYS_WORDS.warmUp}</div>
+          <div className="text-[13px] text-text-2">{WAYS_WORDS.warmUpHint}</div>
+        </div>
+        <Switch
+          checked={warmUp}
+          onChange={onWarmUp}
+          label={WAYS_WORDS.warmUp}
+          testId="playbook-ways-warm-up"
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * How the networking chat goes (decision 180): the most times they write back before it wraps up, how often it asks and
+ * shares your story, and when it offers the demo. Within those, it follows how keen they are.
+ */
+function ChatChoices({
+  chat,
+  onChat,
+  demo,
+}: {
+  chat: PlaybookChat;
+  onChat: (chat: PlaybookChat) => void;
+  /** Whether Offer a demo is on: when to offer it shows only then. */
+  demo: boolean;
+}) {
+  const C = PLAYBOOK_CHAT;
+  const wraps = Array.from(
+    { length: CHAT_WRAP_AFTER.max - CHAT_WRAP_AFTER.min + 1 },
+    (_, i) => CHAT_WRAP_AFTER.min + i,
+  );
+  const row = (key: string, label: string, hint: string, control: ReactNode) => (
+    <div
+      key={key}
+      className="flex flex-col gap-2 p-3.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
+    >
+      <div className="min-w-0">
+        <div className="text-[14px] font-medium">{label}</div>
+        <div className="text-[13px] text-text-2">{hint}</div>
+      </div>
+      <div className="shrink-0">{control}</div>
+    </div>
+  );
+  return (
+    <div className="mt-5" data-testid="playbook-chat">
+      <p className="mb-0.5 text-[13.5px] font-medium">{C.title}</p>
+      <p className="mb-2 text-[12.5px] text-text-3">{C.blurb}</p>
+      <div className="divide-y divide-border rounded-card border border-border bg-card">
+        {row(
+          'wrapAfter',
+          C.wrapAfter.label,
+          C.wrapAfter.hint,
+          <Segmented
+            ariaLabel={C.wrapAfter.label}
+            value={String(chat.wrapAfter)}
+            onChange={(v) => onChat({ ...chat, wrapAfter: Number(v) })}
+            options={wraps.map((n) => ({
+              value: String(n),
+              label: C.wrapAfter.option(n),
+              testId: `playbook-chat-wrap-${n}`,
+            }))}
+          />,
+        )}
+        {row(
+          'questions',
+          C.questions.label,
+          `${C.questions.options[chat.questions].hint}. ${C.questions.hint}`,
+          <Segmented
+            ariaLabel={C.questions.label}
+            value={chat.questions}
+            onChange={(questions) => onChat({ ...chat, questions })}
+            options={CHAT_QUESTIONS.map((k) => ({
+              value: k,
+              label: C.questions.options[k].label,
+              testId: `playbook-chat-questions-${k}`,
+            }))}
+          />,
+        )}
+        {row(
+          'story',
+          C.story.label,
+          `${C.story.options[chat.story].hint}. ${C.story.hint}`,
+          <Segmented
+            ariaLabel={C.story.label}
+            value={chat.story}
+            onChange={(story) => onChat({ ...chat, story })}
+            options={CHAT_STORY.map((k) => ({
+              value: k,
+              label: C.story.options[k].label,
+              testId: `playbook-chat-story-${k}`,
+            }))}
+          />,
+        )}
+        {demo
+          ? row(
+              'demoWhen',
+              C.demoWhen.label,
+              `${C.demoWhen.options[chat.demoWhen].hint}. ${C.demoWhen.hint}`,
+              <Segmented
+                ariaLabel={C.demoWhen.label}
+                value={chat.demoWhen}
+                onChange={(demoWhen) => onChat({ ...chat, demoWhen })}
+                options={CHAT_DEMO.map((k) => ({
+                  value: k,
+                  label: C.demoWhen.options[k].label,
+                  testId: `playbook-chat-demo-${k}`,
+                }))}
+              />,
+            )
+          : null}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * What it says (decision 164): the playbook's own words for every message, by where in a chat each goes. The first
+ * message has up to three versions that take turns. A part left as it came follows the starting words for the
+ * playbook's goal; one changed says so, with a way back. Under them, what the words in brackets become, and the rules
+ * no playbook changes.
+ */
+function ScriptStep({
+  goal,
+  script,
+  onChange,
+  ways,
+  onWays,
+  has,
+  warmUp,
+  onWarmUp,
+  waysIssue: noWays,
+  networking,
+  onNetworking,
+  chat,
+  onChat,
+  refer,
+  onRefer,
+  issueAt,
+  firstsHelp,
+  onTest,
+}: {
+  goal: PlaybookGoal;
+  script: ScriptDraft;
+  onChange: (script: ScriptDraft) => void;
+  /** The ways it may start a chat (decision 183). */
+  ways: readonly OpenWay[];
+  onWays: (ways: OpenWay[]) => void;
+  /** What the business has given that some ways need (the owner's 6a). */
+  has: WayHas;
+  /** The Warm up step (decision 161), shown beside the ways (the owner's 4b). */
+  warmUp: boolean;
+  onWarmUp: (on: boolean) => void;
+  /** None ticked: it won't carry on. */
+  waysIssue: string | undefined;
+  /** What the networking chat after an introduction may offer (decision 173). */
+  networking: PlaybookNetworking;
+  onNetworking: (networking: PlaybookNetworking) => void;
+  /** How that chat goes (decision 180). */
+  chat: PlaybookChat;
+  onChat: (chat: PlaybookChat) => void;
+  /** Whether its people may be referred on posts (decision 174). */
+  refer: boolean;
+  onRefer: (refer: boolean) => void;
+  /** The problem with a part, by its path in the script: "first.1", "yes". */
+  issueAt: (path: string) => string | undefined;
+  firstsHelp: ReactNode;
+  onTest: () => void;
+}) {
+  const firsts = typedFirsts(goal, script);
+  // Direct pitch isn't ticked: the first message's words are only Reconnect's question.
+  const noPitch = !ways.includes('pitch');
+  return (
+    <div className="space-y-7" data-testid="playbook-script">
+      <Callout
+        tone="neutral"
+        icon={FlaskConical}
+        action={
+          <Button variant="secondary" size="sm" onClick={onTest} data-testid="playbook-test-open">
+            {SW.test}
+          </Button>
+        }
+      >
+        See what these words would send someone, and how the chat goes from there.
+      </Callout>
+      {SCRIPT_GROUPS.filter((g) => g.parts.some((part) => partShown(part, ways))).map((g) => (
+        <section key={g.key} className="space-y-4">
+          <h3 className="text-[12.5px] font-semibold uppercase tracking-wide text-text-3">
+            {g.title}
+          </h3>
+          {g.key === 'networking' ? (
+            // What the networking chat may offer, each once, when it fits (decision 173).
+            <div data-testid="playbook-networking">
+              <p className="mb-0.5 text-[13.5px] font-medium">{SW.networkingTitle}</p>
+              <p className="mb-2 text-[12.5px] text-text-3">{SW.networkingBlurb}</p>
+              <div className="divide-y divide-border rounded-card border border-border bg-card">
+                {NETWORKING_KEYS.map((k) => (
+                  <div key={k} className="flex items-start justify-between gap-3 p-3.5">
+                    <div>
+                      <div className="text-[14px] font-medium">{PLAYBOOK_NETWORKING[k].label}</div>
+                      <div className="text-[13px] text-text-2">{PLAYBOOK_NETWORKING[k].hint}</div>
+                    </div>
+                    <Switch
+                      checked={networking[k]}
+                      onChange={(v) => onNetworking({ ...networking, [k]: v })}
+                      label={PLAYBOOK_NETWORKING[k].label}
+                      testId={`playbook-networking-${k}`}
+                    />
+                  </div>
+                ))}
+              </div>
+              <ChatChoices chat={chat} onChat={onChat} demo={networking.demo} />
+            </div>
+          ) : null}
+          {g.key === 'refer' ? (
+            // Refer them on posts asking for a recommendation (decision 174): both wait for an OK on Today.
+            <div className="flex items-start justify-between gap-3 rounded-card border border-border bg-card p-3.5">
+              <div>
+                <div className="text-[14px] font-medium">{PLAYBOOK_REFER.label}</div>
+                <div className="text-[13px] text-text-2">{PLAYBOOK_REFER.hint}</div>
+              </div>
+              <Switch
+                checked={refer}
+                onChange={onRefer}
+                label={PLAYBOOK_REFER.label}
+                testId="playbook-refer"
+              />
+            </div>
+          ) : null}
+          {g.key === 'start' ? (
+            <WaysList
+              ways={ways}
+              onWays={onWays}
+              has={has}
+              warmUp={warmUp}
+              onWarmUp={onWarmUp}
+              issue={noWays}
+            />
+          ) : null}
+          {g.parts.map((part) => {
+            // A way's words show only while it's ticked, and the networking chat's only while a way that starts a chat
+            // is (decision 183).
+            if (!partShown(part, ways)) return null;
+            const info = SCRIPT_INFO[part];
+            const changed = partChanged(goal, script, part);
+            const head = (
+              <div className="mb-1 flex flex-wrap items-center gap-2">
+                <Label htmlFor={`pb-script-${part}`} className="mb-0">
+                  {part === 'first' && noPitch ? SW.pitchInIntro : info.label}
+                </Label>
+                {changed ? <Badge variant="accent">{SW.changed}</Badge> : null}
+                {changed ? (
+                  <button
+                    type="button"
+                    className="ml-auto inline-flex items-center gap-1 text-[12.5px] text-accent-text hover:underline"
+                    onClick={() =>
+                      onChange(
+                        part === 'first' ? withFirsts(script, null) : withPart(script, part, null),
+                      )
+                    }
+                    data-testid={`playbook-script-reset-${part}`}
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    {SW.starting}
+                  </button>
+                ) : null}
+              </div>
+            );
+            const when = (
+              <p className="mb-2 text-[12.5px] text-text-3">
+                <span className="font-medium">{SW.when}:</span>{' '}
+                {part === 'first' && noPitch ? SW.pitchInIntroWhen : info.when}{' '}
+                {info.says === 'message' ? SW.messageHint : ''}
+              </p>
+            );
+            if (part === 'first')
+              return (
+                <div key={part} data-testid="playbook-script-first">
+                  {head}
+                  {when}
+                  <div className="space-y-2">
+                    {firsts.map((m, i) => (
+                      <div key={i}>
+                        <div className="flex items-start gap-2">
+                          <Textarea
+                            id={i === 0 ? 'pb-script-first' : undefined}
+                            aria-label={`First message, version ${i + 1}`}
+                            rows={3}
+                            maxLength={SCRIPT_LIMITS.first.line}
+                            value={m}
+                            invalid={!!issueAt(`first.${i}`)}
+                            onChange={(e) =>
+                              onChange(
+                                withFirsts(
+                                  script,
+                                  firsts.map((x, j) => (j === i ? e.target.value : x)),
+                                ),
+                              )
+                            }
+                            data-testid={`playbook-script-first-${i}`}
+                          />
+                          {firsts.length > 1 ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={SW.removeFirst(i + 1)}
+                              onClick={() =>
+                                onChange(
+                                  withFirsts(
+                                    script,
+                                    firsts.filter((_, j) => j !== i),
+                                  ),
+                                )
+                              }
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          ) : null}
+                        </div>
+                        <FieldError>{issueAt(`first.${i}`)}</FieldError>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    {firsts.length < SCRIPT_LIMITS.first.most ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => onChange(withFirsts(script, [...firsts, '']))}
+                        data-testid="playbook-script-first-add"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        {SW.addFirst}
+                      </Button>
+                    ) : null}
+                    <span className="text-[12.5px] text-text-3">
+                      {SW.firstHint(SCRIPT_LIMITS.first.most)}
+                    </span>
+                  </div>
+                  <FieldError>{issueAt('first')}</FieldError>
+                  {firstsHelp}
+                </div>
+              );
+            const words = typedPart(goal, script, part);
+            return (
+              <div key={part}>
+                {head}
+                {when}
+                <Textarea
+                  id={`pb-script-${part}`}
+                  rows={words.length > 260 ? 5 : 3}
+                  maxLength={SCRIPT_LIMITS.text}
+                  value={words}
+                  invalid={!!issueAt(part)}
+                  onChange={(e) => onChange(withPart(script, part, e.target.value))}
+                  data-testid={`playbook-script-${part}`}
+                />
+                <FieldError>{issueAt(part)}</FieldError>
+              </div>
+            );
+          })}
+        </section>
+      ))}
+      <section className="rounded-card border border-border bg-card-2 p-4">
+        <h3 className="text-[13.5px] font-semibold">{SW.blanksTitle}</h3>
+        <dl className="mt-2 grid gap-x-4 gap-y-1 text-[13px] sm:grid-cols-[auto_1fr]">
+          {SCRIPT_BLANKS.map((b) => (
+            <div key={b.blank} className="contents">
+              <dt className="font-mono text-[12.5px] text-text">{b.blank}</dt>
+              <dd className="text-text-2">{b.fills}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+      <section
+        className="rounded-card border border-border bg-card-2 p-4"
+        data-testid="playbook-locked-rules"
+      >
+        <h3 className="flex items-center gap-1.5 text-[13.5px] font-semibold">
+          <Lock className="h-3.5 w-3.5 text-text-3" strokeWidth={1.75} />
+          {SW.lockedTitle}
+        </h3>
+        <p className="mt-0.5 text-[12.5px] text-text-3">{SW.lockedBlurb}</p>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-[13px] text-text-2">
+          {LOCKED_RULES.map((r) => (
+            <li key={r}>{r}</li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
 }
@@ -1957,25 +2722,32 @@ function Summary({
         </>
       );
     }
-    case 'openers': {
-      const own = d.ownOpeners.filter((s) => s.trim());
-      if (!d.openerStyles.length && !own.length)
-        return <Missing>None, so first messages aren’t compared</Missing>;
+    case 'script': {
+      // The ways it may start a chat (decision 183), and the pitch's first messages while it's one of them.
+      const firsts = d.ways.includes('pitch')
+        ? typedFirsts(d.goal, d.script).filter((m) => m.trim())
+        : [];
+      const changed = partsChanged(d.goal, d.script);
       return (
         <>
-          {d.openerStyles.length ? (
-            <ul className="space-y-0.5">
-              {d.openerStyles.map((o) => (
-                <li key={o}>{short(o, 90)}</li>
-              ))}
-            </ul>
-          ) : null}
-          {own.length ? (
-            <div className="text-[13px] text-text-2">
-              {plural(own.length, 'opener')} of your own:{' '}
-              {own.map((o) => `“${short(o.trim(), 40)}”`).join(' · ')}
-            </div>
-          ) : null}
+          <div data-testid="playbook-summary-ways">
+            {d.ways.length ? (
+              `${WAYS_WORDS.title}: ${d.ways.map((w) => OPEN_WAYS[w].label).join(', ')}`
+            ) : (
+              <Missing>{WAYS_WORDS.none}</Missing>
+            )}
+          </div>
+          <ul className="space-y-0.5">
+            {firsts.map((m, i) => (
+              <li key={i}>“{short(m.trim(), 110)}”</li>
+            ))}
+          </ul>
+          <div className="text-[13px] text-text-2">
+            {firsts.length > 1 ? `${plural(firsts.length, 'first message')} taking turns. ` : ''}
+            {changed
+              ? `${plural(changed, 'part')} in your own words, the rest in the starting words.`
+              : 'Every part is in the starting words.'}
+          </div>
         </>
       );
     }
@@ -1985,6 +2757,71 @@ function Summary({
 }
 
 // ---------- small pieces ----------
+
+/**
+ * How a saved playbook's saving stands (the owner, 20 Nov 2026: it saves as changes are made): Saving…, Saved, what's
+ * marked to fix first, or the server's words when one was refused.
+ */
+function SaveLine({
+  state,
+  unsaved,
+  ready,
+}: {
+  state:
+    | { readonly state: 'idle' | 'saving' | 'saved' }
+    | { readonly state: 'failed'; readonly words: string };
+  unsaved: boolean;
+  ready: boolean;
+}) {
+  if (state.state === 'failed' && unsaved)
+    return (
+      <p
+        role="alert"
+        className="flex items-start gap-2 rounded-menu bg-danger-soft px-3 py-2 text-[13px] text-danger-text"
+        data-testid="playbook-save-status"
+        data-state="failed"
+      >
+        <AlertCircle className="mt-0.5 h-4 w-4 flex-none" strokeWidth={1.75} aria-hidden />
+        {state.words}
+      </p>
+    );
+  const shown =
+    state.state === 'saving'
+      ? 'saving'
+      : unsaved && !ready
+        ? 'fix'
+        : state.state === 'saved' && !unsaved
+          ? 'saved'
+          : 'idle';
+  return (
+    <p
+      role="status"
+      className={cn(
+        'inline-flex min-h-7 items-center gap-1.5 rounded-full px-2.5 py-1 text-[12.5px] font-medium',
+        shown === 'saved'
+          ? 'bg-success-soft text-success-text'
+          : shown === 'fix'
+            ? 'bg-warning-soft text-warning-text'
+            : 'bg-card-2 text-text-2',
+      )}
+      data-testid="playbook-save-status"
+      data-state={shown}
+    >
+      {shown === 'saving' ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} aria-hidden />
+      ) : shown === 'saved' ? (
+        <Check className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+      ) : null}
+      {shown === 'saving'
+        ? SAVE.saving
+        : shown === 'fix'
+          ? SAVE.fix
+          : shown === 'saved'
+            ? SAVE.saved
+            : SAVE.autosaves}
+    </p>
+  );
+}
 
 function Progress({ current, total }: { current: number; total: number }) {
   const done = ((current + 1) / total) * 100;

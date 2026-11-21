@@ -5,6 +5,7 @@ import {
   type WheelsListOutput,
 } from '@hfos/core/addons/outreach/automation';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
+import { CALL_WORDS } from '@hfos/core/addons/outreach/calls';
 import {
   helpfulOn,
   requestsAgainWords,
@@ -33,6 +34,11 @@ import {
   type HelpfulListOutput,
 } from '@hfos/core/addons/outreach/helpful';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
+import {
+  REFER_WORDS as RW,
+  type ReferAsk,
+  type Referral,
+} from '@hfos/core/addons/outreach/referrals';
 import { goalTryPlace, type GoalTry } from '@hfos/core/addons/outreach/goal';
 import { PROFILE_PART_WORDS } from '@hfos/core/addons/outreach/profile-parts';
 import { recentBubbles, RECENT_WORDS } from '@hfos/core/addons/outreach/sends';
@@ -65,6 +71,8 @@ import {
 } from './kit';
 import { PersonName } from './person-menu';
 import { PostQuote } from './post-quote';
+import { EventsPart } from './events';
+import { ReferralsPart, type ReferralActions } from './referrals';
 
 /**
  * Today on the phone (decision 44): the person's list for today, kind by kind, what the extension does on its own,
@@ -108,6 +116,24 @@ export function useTodayProps(
     `helpful:${ws}:${platform}`,
     H.title,
   );
+  // Referrals waiting for the person on this network (decision 174): none while they load or can't be had.
+  const referrals = useOutreachAnswer(
+    async () =>
+      unwrap(
+        await api.POST('/v1/queries/outreach.referrals', { body: { workspaceId: ws, platform } }),
+      ),
+    `referrals:${ws}:${platform}`,
+    RW.title,
+  );
+  const referralChange = async (run: () => Promise<unknown>, said: string) => {
+    try {
+      await run();
+      toast.show(said);
+      referrals.reload();
+    } catch (e) {
+      failed(e);
+    }
+  };
   const helpfulChange = async (run: () => Promise<unknown>, said: string) => {
     try {
       await run();
@@ -139,6 +165,42 @@ export function useTodayProps(
     platform,
     today: today.data,
     helpful: helpful.data,
+    referrals: referrals.data?.referrals ?? null,
+    referAsks: referrals.data?.asks ?? null,
+    onReferral: {
+      done: (referralId, name) =>
+        referralChange(
+          () => change('outreach.referral.done', { workspaceId: ws, referralId }),
+          RW.doneSaid(name),
+        ),
+      skip: (referralId) =>
+        referralChange(
+          () => change('outreach.referral.skip', { workspaceId: ws, referralId }),
+          RW.skipSaid,
+        ),
+      forMe: (referralId, name, note) =>
+        referralChange(
+          () => change('outreach.referral.approve', { workspaceId: ws, referralId }),
+          RW.forYouSaid(name, note),
+        ),
+      ask: (askId, name, answer) =>
+        referralChange(
+          () => change('outreach.refer_ask.answer', { workspaceId: ws, askId, answer }),
+          answer === 'approve'
+            ? RW.askForYouSaid(name)
+            : answer === 'done'
+              ? RW.askDoneSaid(name)
+              : RW.askSkipSaid,
+        ),
+    },
+    onEventSkip: async (eventId) => {
+      try {
+        await change('outreach.event.skip', { workspaceId: ws, eventId });
+        after(W.skipped);
+      } catch (e) {
+        failed(e);
+      }
+    },
     onHelpful: {
       write: () =>
         helpfulChange(
@@ -272,6 +334,10 @@ export function TodayBody({
   today,
   helpful = null,
   onHelpful,
+  referrals = null,
+  referAsks = null,
+  onReferral,
+  onEventSkip,
   error,
   wheels,
   onRetry,
@@ -293,6 +359,13 @@ export function TodayBody({
   /** Today's helpful post, and those up lately: none while it loads. */
   helpful?: HelpfulListOutput | null;
   onHelpful?: HelpfulActions;
+  /** Referrals waiting for the person on this network (decision 174): none while they load. */
+  referrals?: readonly Referral[] | null;
+  /** The asks after two on this network (decision 185): none while they load. */
+  referAsks?: readonly ReferAsk[] | null;
+  onReferral?: ReferralActions;
+  /** Not going: an event near them off the list (decision 188). */
+  onEventSkip?: (eventId: string) => void;
   error: string | null;
   wheels: WheelsListOutput | null;
   onRetry: () => void;
@@ -384,6 +457,12 @@ export function TodayBody({
       ) : null}
       {/* Short of today's first messages, why, and what to try (decision 126): none from a server before it. */}
       {list.goal ? <GoalNote platform={platform} goal={list.goal} onTry={onGoalTry} /> : null}
+      {/* The week's 1-on-1s and last week's (decision 187): none from a server before it. */}
+      {list.oneOnOnes ? (
+        <Text className="text-[13px] leading-[18px] text-text-2" testID="today-one-on-ones">
+          {CALL_WORDS.week(list.oneOnOnes.week, list.oneOnOnes.lastWeek)}
+        </Text>
+      ) : null}
       {/* Their profile, read on its own on the 1st: what the AI suggests waits for their OK (decision 99). */}
       {list.profileOwn ? (
         <View className="gap-2 rounded-menu bg-card-2 px-3 py-2.5" testID="today-profile-own">
@@ -406,6 +485,11 @@ export function TodayBody({
       {helpful && onHelpful && helpfulOn(platform) ? (
         <HelpfulPart platform={platform} helpful={helpful} on={onHelpful} />
       ) : null}
+      {referrals && onReferral ? (
+        <ReferralsPart referrals={referrals} asks={referAsks ?? []} on={onReferral} />
+      ) : null}
+      {/* The events near them coming up (decision 188): none from a server before it. */}
+      <EventsPart events={list.events ?? []} onSkip={onEventSkip} />
       {asking.length ? (
         <Part
           title={`${W.asking} · ${asking.length.toLocaleString('en-US')}`}
@@ -608,10 +692,10 @@ function ItemCard({
   // A comment or a group reply drafted to wait (decisions 92 and 114): it goes under the post; skipping it puts the
   // post aside.
   const comment = underAPost(item.kind) && item.send !== null;
-  // It waits for an OK of its own, said under it: a comment's, another time after a no-show (decision 106), and a
-  // birthday or new-job note (decision 108).
+  // It waits for an OK of its own, said under it: a comment's, another time after a no-show (decision 106), a
+  // birthday or new-job note (decision 108), and a thank-you after a call (decision 187).
   const alone =
-    (comment || item.kind === 'rebook' || isOccasionKind(item.kind)) &&
+    (comment || item.kind === 'rebook' || item.kind === 'thank_you' || isOccasionKind(item.kind)) &&
     item.send?.state === 'waiting'
       ? oneByOneWords(item.send)
       : null;

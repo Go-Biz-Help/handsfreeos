@@ -6,13 +6,16 @@
  * HandsFreeOS's storage on the person's own sign-in, and puts it up in each place it goes:
  *
  * - **Facebook, the person's profile:** their home feed's box (./post-here.ts); then its link, from the top of their
- *   own profile by its first words.
+ *   own profile by its first words, once Facebook has drawn its newest posts there (`lookOn`).
  * - **Facebook, the business's Page:** the Page's number from its page, then Meta Business Suite's Create post for it,
  *   so the person's own profile is never switched to the Page (Social Outreach works as them meanwhile); then its link,
  *   from the top of the Page by its first words.
  * - **LinkedIn:** their feed's Start a post; its link from LinkedIn's View post, else from their own posts.
  * - **Instagram (part 10):** Create on their home page, with the pictures or the person's video; then its link, from
  *   their own newest posts as Instagram's page loads them, by its first words.
+ * - **Threads and X (decision 41):** X's compose page, or Threads' home page, with the posts of its chain under it;
+ *   then its link, from the note the network shows once it went, else from the top of their own profile by its first
+ *   words.
  *
  * Then it says how each place went (`socialcontent.post.went`). Once Post is pressed it's never pressed again for that
  * place: a post that may have gone up is the person's to look at. A network's warning stops it there for the day (for
@@ -25,27 +28,52 @@ import type { PostingNetwork, PostPlace } from '@hfos/core/addons/socialcontent/
 import { POSTING } from '@hfos/core/addons/socialcontent/calendar';
 import { networkName } from '@hfos/core/addons/socialcontent/networks';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { NotAway } from '../away';
 import { config } from '../hfos/config';
 import { token } from '../hfos/session';
 import { keepWarning, warnedNow } from '../hfos/warned';
-import { foundPost } from '../jobs/helpful';
+import { foundPost, postShown } from '../jobs/helpful';
 import { postNext, postWent, reportProblem, ResearchRefused } from './hfos';
 import { postsByNamePath, postsFrom } from './instagram';
 import type { PostDone, PostFileIn, PostWhere } from './post-here';
 import { pause, paced, RESEARCH_PACE } from './read';
 import type { ResearchTab } from './tab';
 
-/** The networks this build posts on: Facebook and LinkedIn (part 9), and Instagram (part 10). */
+/** The networks this build posts on: Facebook and LinkedIn (part 9), Instagram (part 10), Threads and X (decision 41). */
 export const POSTS_ON = POSTING.networks;
 
-const FACEBOOK_HOME = 'https://www.facebook.com/';
-const FACEBOOK_ME = 'https://www.facebook.com/me';
+export const FACEBOOK_HOME = 'https://www.facebook.com/';
+export const FACEBOOK_ME = 'https://www.facebook.com/me';
 const BUSINESS_COMPOSER = 'https://business.facebook.com/latest/composer/';
+/** How many of a Page's numbers Business Suite is tried with, likeliest first. */
+const PAGE_IDS_TRIED = 3;
 const LINKEDIN_FEED = 'https://www.linkedin.com/feed/';
-const LINKEDIN_OWN_POSTS = 'https://www.linkedin.com/in/me/recent-activity/all/';
-const INSTAGRAM_HOME = 'https://www.instagram.com/';
+export const LINKEDIN_OWN_POSTS = 'https://www.linkedin.com/in/me/recent-activity/all/';
+export const INSTAGRAM_HOME = 'https://www.instagram.com/';
+const X_COMPOSE = 'https://x.com/compose/post';
+export const THREADS_HOME = 'https://www.threads.com/';
 /** While the network puts the post at the top before its link is looked for. */
 const SETTLE_MS = 5_000;
+/** How long after an unsure Publish the Page is looked at for the post, and again: Facebook can take a while. */
+const PAGE_LOOKS_MS = [0, 45_000] as const;
+/**
+ * The newest posts a page that draws its posts only once they're scrolled near (Facebook's) is waited on to draw before
+ * the post counts as not there: one it pinned may come first. How long it waits for them, by the clock, and between
+ * looks.
+ */
+export const POSTS_NEWEST = 4;
+/**
+ * How far back Check if it posted looks among a page's newest posts: a post that failed days ago has others above it
+ * by then (the owner's Page posts of 15 and 16 Nov, looked for again on 17 Nov).
+ */
+export const POSTS_LOOKED_BACK = 12;
+export const POSTS_DRAW_MS = 30_000;
+/**
+ * How long a page in a window Chrome doesn't show is waited on: Facebook draws its newest post there and nothing past it
+ * however long it's given (the owner's Page, 17 Nov 2026), so it's looked at in front sooner, when it can be.
+ */
+export const POSTS_HIDDEN_MS = 10_000;
+const POSTS_LOOK_MS = 1_500;
 /**
  * The most a post's files may weigh together, as they're handed to the tab: within what Chrome passes to a page in one
  * go once written out (a video can be up to 25 MB, core's most for a file).
@@ -114,6 +142,7 @@ export function failureFor(
   place: PostPlace,
   done: PostDone | null,
   video = false,
+  unseen = false,
 ): string {
   const name = networkName(network);
   const where =
@@ -130,30 +159,121 @@ export function failureFor(
   if (done.result === 'none')
     return place === 'page'
       ? `Meta Business Suite didn’t show Create post for your Page. Check you’re an admin of the Page in Settings → Posting’s link, then press Post it now.`
-      : `${name} didn’t show the box to write a post on ${where}. Check you’re signed in to ${name} in Chrome on the computer that posts, then press Post it now.`;
+      : `${name} didn’t show the box to write a post on ${where}. Press Post it now to try again.`;
   if (done.result === 'no_media')
     return `${name} didn’t take its ${video ? 'video' : 'pictures'} on ${where}, so nothing went up. Press Post it now to try again, or copy the words and post it yourself.`;
+  if (done.pressed && place === 'page')
+    return unseen
+      ? `It pressed Publish for your Page in Meta Business Suite, but Facebook didn’t load your Page’s posts after, so it couldn’t check. Look on your Page: if it isn’t there, press Post it now.`
+      : `It pressed Publish for your Page in Meta Business Suite, but didn’t find the post on your Page after. Look on your Page: if it isn’t there, press Post it now.`;
   return done.pressed
     ? `It pressed ${press} on ${where}, but ${name} didn’t show the post going up. Look on ${where}: if it isn’t there, press Post it now.`
     : `${name} didn’t take the post on ${where}. Press Post it now to try again, or copy the words and post it yourself.`;
 }
 
 /** Opens a page in the window, at a person's pace, and says the network's warning when there's one. */
-async function openAt(tab: ResearchTab, url: string): Promise<string[]> {
+export async function openAt(tab: ResearchTab, url: string): Promise<string[]> {
   await pause(paced(RESEARCH_PACE.answerMs));
   await tab.open(url);
   return (await tab.hands('warnings')) ?? [];
 }
 
-/** The post's link, from the top of a page that lists it (the person's profile, the Page, their own posts). */
-async function linkFrom(tab: ResearchTab, url: string, text: string): Promise<string | null> {
+/**
+ * What looking for a post on a page that lists it found: whether it's there, its link when the page showed one (a new
+ * Facebook post's often isn't), and whether the page showed its newest posts.
+ */
+export interface PostLook {
+  readonly found: boolean;
+  readonly link: string | null;
+  readonly seen: boolean;
+}
+
+const UNSEEN: PostLook = { found: false, link: null, seen: false };
+
+/**
+ * Looks for the post at the top of a page that lists it (the person's profile, the Page, their own posts), by its first
+ * words. Facebook draws a profile's or a Page's posts only once they're scrolled near, and nothing at all in a window
+ * hidden behind another: its posts were all still "Loading..." when the owner's Page posts of 15 and 16 Nov 2026 were
+ * looked for, so four that may have gone up were marked as not. So while the post isn't among those drawn, the first
+ * still loading is scrolled into view and waited on, till its newest few are drawn (`POSTS_NEWEST`), for up to
+ * `POSTS_DRAW_MS` (`POSTS_HIDDEN_MS` while Chrome doesn't show its window). When they never drew, it looks once more
+ * with its window in front: only while the person is away (decision 120), or right away when they `asked` (Check if it
+ * posted, as a Check comes in front: the owner's look on 18 Nov at a Page post second from the top said Facebook
+ * didn't load the Page's posts, as its window was behind theirs). `seen` is false when it still couldn't see them, so
+ * "not there" isn't said for sure.
+ */
+export async function lookOn(
+  tab: ResearchTab,
+  url: string,
+  text: string,
+  most: number = POSTS_NEWEST,
+  asked = false,
+): Promise<PostLook> {
   await pause(SETTLE_MS);
   try {
     await tab.open(url);
+    const look = await lookDrawn(tab, text, most);
+    if (look.found || look.seen) return look;
+    try {
+      return await tab.inFront(() => lookDrawn(tab, text, most), asked);
+    } catch (error) {
+      if (error instanceof NotAway) return look;
+      throw error;
+    }
+  } catch {
+    return UNSEEN;
+  }
+}
+
+/** The post's link, from the top of a page that lists it (`lookOn`). Null when it isn't there, or couldn't be seen. */
+export async function linkFrom(
+  tab: ResearchTab,
+  url: string,
+  text: string,
+): Promise<string | null> {
+  return (await lookOn(tab, url, text)).link;
+}
+
+/** Reads the open page for the post, waiting by the clock while it still draws its newest posts. */
+async function lookDrawn(tab: ResearchTab, text: string, most: number): Promise<PostLook> {
+  const started = Date.now();
+  const until = started + POSTS_DRAW_MS;
+  for (;;) {
     const read = (await tab.hands('read')) as {
       posts?: { text: string; url: string | null }[];
     } | null;
-    return read ? foundPost(read, text) : null;
+    if (!read) return UNSEEN;
+    const shown = postShown(read, text);
+    if (shown) return { found: true, link: shown.link, seen: true };
+    const drawing = await tab.hands('drawPosts', most);
+    if (!drawing) return UNSEEN;
+    if (!drawing.loading) return { found: false, link: null, seen: true };
+    if (Date.now() >= until) return UNSEEN;
+    if (!drawing.shown && Date.now() >= started + POSTS_HIDDEN_MS) return UNSEEN;
+    await pause(POSTS_LOOK_MS);
+  }
+}
+
+/**
+ * A Threads or X post's link, from the top of the person's own profile (their name from the menu's link to it, on the
+ * page it posted from) by its first words. Null when it isn't there yet.
+ */
+export async function shortLink(
+  tab: ResearchTab,
+  network: 'threads' | 'x',
+  text: string,
+): Promise<string | null> {
+  try {
+    // Their kits' reads carry what their readers found under `found` (src/networks/follows/read.ts).
+    const here = (await tab.hands('read')) as { found?: { me?: string | null } } | null;
+    const me = here?.found?.me;
+    if (!me || !/^[A-Za-z0-9._]{1,30}$/.test(me)) return null;
+    await pause(SETTLE_MS);
+    await tab.open(network === 'x' ? `https://x.com/${me}` : `https://www.threads.com/@${me}`);
+    const read = (await tab.hands('read')) as {
+      found?: { posts?: { text: string; url: string | null }[] };
+    } | null;
+    return foundPost({ posts: read?.found?.posts ?? [] }, text);
   } catch {
     return null;
   }
@@ -163,7 +283,7 @@ async function linkFrom(tab: ResearchTab, url: string, text: string): Promise<st
  * An Instagram post's link, from the person's own newest posts as Instagram's page loads them (their name from the
  * Profile link in its side menu), by its first words. Null when it isn't among them yet.
  */
-async function instagramLink(tab: ResearchTab, text: string): Promise<string | null> {
+export async function instagramLink(tab: ResearchTab, text: string): Promise<string | null> {
   await pause(SETTLE_MS);
   try {
     const me = await tab.hands('me');
@@ -226,10 +346,16 @@ async function putUpAt(
   const name = networkName(network);
   let where: PostWhere;
   let url: string;
+  // A Page's other numbers, tried in turn while Business Suite shows no box for the one before.
+  let others: string[] = [];
   let listed: string | null;
   if (network === 'instagram') {
     where = 'instagram';
     url = INSTAGRAM_HOME;
+    listed = null;
+  } else if (network === 'threads' || network === 'x') {
+    where = network;
+    url = network === 'x' ? X_COMPOSE : THREADS_HOME;
     listed = null;
   } else if (network === 'linkedin') {
     where = 'linkedin';
@@ -247,25 +373,49 @@ async function putUpAt(
       };
     const warnings = await openAt(tab, post.facebookPage);
     if (warnings.length) return warnedEnd(place, network, warnings);
-    const id = await tab.hands('pageId');
+    const ids = ((await tab.hands('pageIds')) ?? []).slice(0, PAGE_IDS_TRIED);
     where = 'business';
-    url = id ? `${BUSINESS_COMPOSER}?asset_id=${id}` : BUSINESS_COMPOSER;
+    [url = BUSINESS_COMPOSER, ...others] = ids.map((id) => `${BUSINESS_COMPOSER}?asset_id=${id}`);
     listed = post.facebookPage;
   } else {
     where = 'facebook';
     url = FACEBOOK_HOME;
     listed = FACEBOOK_ME;
   }
-  const warnings = await openAt(tab, url);
-  if (warnings.length) return warnedEnd(place, network, warnings);
-  await tab.holdPicker();
-  const done = await tab.hands('post', { where, text: post.text, files: [...files] });
+  let done: PostDone | null = null;
+  for (const at of [url, ...others]) {
+    const warnings = await openAt(tab, at);
+    if (warnings.length) return warnedEnd(place, network, warnings);
+    await tab.holdPicker();
+    done = await tab.hands('post', {
+      where,
+      text: post.text,
+      files: [...files],
+      ...(where === 'threads' || where === 'x' ? { chain: [...post.chain] } : {}),
+    });
+    // Only a Business Suite that showed no box at all goes on to the Page's next number: nothing was typed there.
+    if (done?.result !== 'none' || done.pressed || done.steps.length) break;
+  }
+  // Publish pressed but Business Suite never showed it going up: it's looked for on the Page itself, as a person
+  // would (the owner's Page posts, 14 Nov 2026: still publishing when the hands gave up).
+  let unseen = false;
+  if (done?.result === 'not_sent' && done.pressed && where === 'business' && listed) {
+    let seen = false;
+    for (const wait of PAGE_LOOKS_MS) {
+      await pause(wait);
+      const look = await lookOn(tab, listed, post.text);
+      if (look.found) return { place, posted: true, pressed: true, link: look.link, failure: null };
+      seen ||= look.seen;
+    }
+    unseen = !seen;
+  }
   if (done?.result !== 'done') {
     const failure = failureFor(
       network,
       place,
       done,
       files.some((f) => f.type.startsWith('video/')),
+      unseen,
     );
     await report(businessId, tab, post, place, failure, done);
     // Nothing pressed and no box at all: most often signed out, so it's said, not tried again on its own.
@@ -273,7 +423,11 @@ async function putUpAt(
   }
   const link =
     done.url ??
-    (listed ? await linkFrom(tab, listed, post.text) : await instagramLink(tab, post.text));
+    (listed
+      ? await linkFrom(tab, listed, post.text)
+      : network === 'threads' || network === 'x'
+        ? await shortLink(tab, network, post.text)
+        : await instagramLink(tab, post.text));
   return { place, posted: true, pressed: true, link, failure: null };
 
   async function warnedEnd(

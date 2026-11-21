@@ -29,6 +29,7 @@ import {
   saveSheet,
   sendSheet,
   startSheet,
+  uploadFormFile,
   type SentForm,
 } from '@/lib/api/public-forms';
 import { PublicFormContext } from './booking-picker';
@@ -104,8 +105,26 @@ export function PublicForm({
   const [askAgain, setAskAgain] = useState(false);
   /** Goes up when a "Book a time" question should read its times again (one filled up). */
   const [timesRefresh, setTimesRefresh] = useState(0);
+  /** The sheet, started if it must be, for a file picked before anything was typed (file-field.tsx). */
+  const sheetForFiles = useRef<(() => Promise<{ responseId: string; token: string }>) | null>(null);
   const pageContext = useMemo(
-    () => ({ site, slug, refresh: timesRefresh }),
+    () => ({
+      site,
+      slug,
+      refresh: timesRefresh,
+      upload: async (questionId: string, file: File, onProgress: (percent: number) => void) => {
+        const open = await sheetForFiles.current!();
+        return uploadFormFile(
+          site,
+          slug,
+          open.responseId,
+          open.token,
+          questionId,
+          file,
+          onProgress,
+        );
+      },
+    }),
     [site, slug, timesRefresh],
   );
   // The box links to the business's privacy policy and terms: that they are findable is one of the six
@@ -168,6 +187,10 @@ export function PublicForm({
     });
     return starting.current;
   }
+
+  useEffect(() => {
+    sheetForFiles.current = sheetNow;
+  });
 
   /** Saves the answers so far, and (one page at a time) the page they're on, for "stopped partway". */
   async function save(sheetAnswers: AnswerSheet, pageId = steps.page?.page.id) {

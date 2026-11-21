@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { PracticeBanner } from '@/components/practice/practice-banner';
 import { ThemeSync } from '@/components/shell/theme-sync';
 import { WorkspaceShellProvider } from '@/components/shell/workspace-shell';
 import { getMe, getWorkspaceShell } from '@/lib/api/server';
@@ -29,6 +30,14 @@ export default async function BusinessSetupLayout({
         permissions={current.permissions}
       >
         <ThemeSync theme={parseTheme((me.user.settings as { theme?: unknown }).theme)} />
+        {/* A practice business (Admin → Try onboarding) says so on every screen of its setup, with End practice. */}
+        {current.practiceEndsAt ? (
+          <PracticeBanner
+            workspaceId={workspaceId}
+            name={current.name}
+            endsAt={current.practiceEndsAt}
+          />
+        ) : null}
         {children}
       </WorkspaceShellProvider>
     </LiveProvider>

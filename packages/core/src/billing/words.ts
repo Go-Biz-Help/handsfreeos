@@ -145,6 +145,12 @@ export const BILLING_WORDS = {
       .filter((l) => l !== null)
       .join('\n'),
 
+  // ---- a free trial about to end (20261027027000): the note at the top of the web app ----
+  trialEndingNote: (iso: string, cents: number) =>
+    `Your free trial ends ${day(iso)}. Your card is charged ${money(cents)} then, and your plan renews from there.`,
+  trialEndingLink: 'Billing & Usage',
+  trialEndingHide: 'Hide',
+
   // ---- Admin, a business's page ----
   adminTitle: 'Plan payments',
   adminNothingOwed: 'Nothing owed on their plan.',

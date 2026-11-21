@@ -307,14 +307,15 @@ export const COUNTRY_WORDS = {
 } as const;
 
 /**
- * When we can't tell (decision 86): what happens to someone whose country a look couldn't work out: only a name to go
- * on, the AI not sure, or their profile and friends pointing to two countries the setting treats differently.
+ * When we can't tell (decisions 86 and 169): what happens to someone whose country a look couldn't work out: nothing
+ * to go on, a "Lives in" the AI's look disagrees with, or an AI not sure between two countries the setting treats
+ * differently. An AI that's not sure but leans one way decides by its best guess (decision 169).
  */
 export const COUNTRY_UNSURE = ['through', 'ask', 'skip'] as const;
 export type CountryUnsure = (typeof COUNTRY_UNSURE)[number];
 export const COUNTRY_UNSURE_WORDS = {
   title: 'When we can’t tell where someone lives',
-  note: 'After a look at their profile and mutual friends, when there’s nothing to go on but a name, or their profile and their friends don’t agree.',
+  note: 'After a look at their profile and mutual friends, when there’s nothing to go on, or the AI can’t tell which of two countries it is.',
   through: 'Let them through',
   ask: 'Ask me',
   skip: 'Skip them',
@@ -357,6 +358,15 @@ export const COUNTRY_HOW_WORDS: Record<CountryHow, string> = {
   unknown: 'Couldn’t tell',
 };
 
+/**
+ * A row's tag for how its country is known (decision 169): a look the AI wasn't sure of is its best guess, never
+ * "worked out", and only a "Lives in" or a sure look is shown as known (`sure`).
+ */
+export function countryTag(how: CountryHow, unsure: boolean): { words: string; sure: boolean } {
+  if (how === 'friends' && unsure) return { words: 'Best guess, not sure', sure: false };
+  return { words: COUNTRY_HOW_WORDS[how], sure: how === 'seen' || how === 'friends' };
+}
+
 /** Whether the setting skips anyone at all. */
 export const countryRuleOn = (rule: CountryRule): boolean =>
   rule.mode !== 'anywhere' && (rule.mode === 'only' || rule.codes.length > 0);
@@ -373,9 +383,12 @@ export interface CountryPerson {
   readonly country: string | null;
   /** Null until it's worked out. */
   readonly how: CountryHow | null;
-  /** The other country a look pointed to too, when the evidence split. */
+  /**
+   * The other country a look pointed to too, when the evidence split. Beside a "Lives in", only the country the AI
+   * thinks they really live in, never where they're from (decision 169).
+   */
   readonly alt: string | null;
-  /** A look couldn't tell: only a name to go on, or the AI wasn't sure. */
+  /** The AI wasn't sure, or there was nothing to go on. */
   readonly unsure: boolean;
   /** A look has weighed them. */
   readonly looked: boolean;
@@ -384,26 +397,43 @@ export interface CountryPerson {
   readonly skip: boolean;
 }
 
+/** Whether the setting reaches people who live in a country. */
+const reaches = (rule: CountryRule, code: string) =>
+  rule.codes.includes(code) === (rule.mode === 'only');
+
 /**
- * What the business's setting does with someone (decision 86; `countryFateSql` in ./ops/common.ts is its copy for the
- * queries):
+ * Whether a look (or a "Lives in") leaves the setting unable to tell (decisions 86 and 169), so When we can't tell
+ * decides:
+ *
+ * - nothing to go on;
+ * - a "Lives in" the AI's look disagrees with, where the setting treats the two countries differently;
+ * - an AI not sure, between two countries the setting treats differently.
+ *
+ * An AI that's sure decides, whatever second country it named, and so does one that isn't sure but leans one way: its
+ * best guess. A From the AI named beside a "Lives in" never counts (`lookedCountry` doesn't keep it).
+ */
+export function countryCantTell(rule: CountryRule, person: CountryPerson): boolean {
+  if (!person.country) return true;
+  const split = person.alt !== null && reaches(rule, person.alt) !== reaches(rule, person.country);
+  return split && (person.how === 'seen' || person.unsure);
+}
+
+/**
+ * What the business's setting does with someone (decisions 86 and 169; `countryFateSql` in ./ops/common.ts is its copy
+ * for the queries):
  *
  * - a person's own call wins: Unskip reaches them, Skip skips them;
- * - a "Lives in", or a look, decides; unless the look couldn't tell, when When we can't tell does;
+ * - a "Lives in", or a look, decides; unless the look couldn't tell (`countryCantTell`), when When we can't tell does;
  * - a From or a guess the setting would skip waits for a look, as does someone not worked out at all, unless When we
  *   can't tell lets them through.
  */
 export function countryFate(rule: CountryRule, person: CountryPerson): CountryFate {
   if (!countryRuleOn(rule) || person.through) return 'reach';
   if (person.skip) return 'skip';
-  const lets = (code: string) => rule.codes.includes(code) === (rule.mode === 'only');
+  const lets = (code: string) => reaches(rule, code);
   const unsure: CountryFate = rule.unsure === 'through' ? 'reach' : rule.unsure;
   if (person.looked || person.how === 'seen') {
-    const cantTell =
-      person.unsure ||
-      !person.country ||
-      (person.alt !== null && lets(person.alt) !== lets(person.country));
-    if (cantTell) return unsure;
+    if (countryCantTell(rule, person)) return unsure;
     return lets(person.country!) ? 'reach' : 'skip';
   }
   if (person.country) return lets(person.country) ? 'reach' : 'look';
@@ -805,9 +835,11 @@ const whyLine = (text: string | null): string | null => {
 };
 
 /**
- * What a look comes to (decision 86): a "Lives in" stays seen, with the country the AI pointed to as well when it's
- * another, so a profile and friends that disagree can be told; else the AI's country, worked out from their friends,
- * and whether it was sure; else nothing, and it couldn't tell.
+ * What a look comes to (decisions 86 and 169): a "Lives in" stays seen, with the country the AI says they live in as
+ * well when it's another, so a profile and friends that disagree can be told. The AI's second country beside a "Lives
+ * in" it agrees with is let go: it's mostly where they're from ("Lives in Brookings, South Dakota; originally from
+ * Honduras"), which never counts against where they live. Else the AI's country, worked out from their friends, and
+ * whether it was sure; else nothing, and it couldn't tell.
  */
 export function lookedCountry(lines: readonly string[], said: WhereAnswer): LookedCountry {
   const { lives, from } = placesFromLines(lines);
@@ -815,11 +847,29 @@ export function lookedCountry(lines: readonly string[], said: WhereAnswer): Look
   const other = ((o) => (o && o !== code ? o : null))(checkedCountry(said.other));
   const why = whyLine(said.why);
   if (lives) {
-    const alt = code && code !== lives ? code : other && other !== lives ? other : null;
+    const alt = code && code !== lives ? code : null;
     return { country: lives, how: 'seen', alt, unsure: false, from, why };
   }
   if (code) return { country: code, how: 'friends', alt: other, unsure: !said.sure, from, why };
   return { country: null, how: 'unknown', alt: null, unsure: true, from, why };
+}
+
+/**
+ * Why the setting can't tell where someone lives, in a line, for the top of their row on the Not sure list (decision
+ * 169): nothing to go on, a "Lives in" the AI disagrees with, or two countries and an AI not sure which.
+ */
+export function countryUnsureWhy(p: {
+  readonly how: CountryHow | null;
+  readonly country: string | null;
+  readonly alt: string | null;
+}): string {
+  if (!p.country)
+    return 'Nothing on their profile or from their mutual friends says where they live.';
+  const here = countryName(p.country);
+  if (p.alt && p.how === 'seen')
+    return `Their profile says they live in ${here}, but the AI thinks it’s ${countryName(p.alt)}.`;
+  if (p.alt) return `It could be ${here} or ${countryName(p.alt)}, and the AI isn’t sure which.`;
+  return `${here} is the AI’s best guess, but it isn’t sure.`;
 }
 
 /** Why someone is on a list, in a line: what the profile says, then what their friends say. */
@@ -906,7 +956,7 @@ export type CountryList = (typeof COUNTRY_LISTS)[number];
 export const COUNTRY_LIST_WORDS = {
   unsureTitle: 'Not sure where they live',
   unsureNote:
-    'Their profile and their friends don’t agree, or there’s too little to go on. Nobody here is reached until you pick.',
+    'The AI can’t tell where these people live: there’s nothing to go on, or it’s torn between two countries. Each one says why. Nobody here is reached until you pick.',
   through: 'Let through',
   skip: 'Skip',
   undo: 'Undo',
@@ -950,6 +1000,10 @@ export const CountriesSkippedOutput = z.object({
       country: z.string().nullable(),
       countryName: z.string().nullable(),
       how: z.enum(COUNTRY_HOWS).nullable(),
+      /** The AI wasn't sure: its country is a best guess (decision 169). */
+      unsure: z.boolean(),
+      /** Why the setting can't tell where they live, in a line, for anyone it asks or skips for that; else null. */
+      whyUnsure: z.string().nullable(),
       /** Why, in short lines: what the profile says, what their friends say. */
       reason: z.array(z.string()),
       /** The AI's line, after a look. */

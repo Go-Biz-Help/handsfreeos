@@ -82,16 +82,11 @@ export function planTransition(
       const status = effectiveStatus(m, ctx.overrides);
       return {
         kind: 'refused',
-        rule:
-          m.billing.model === 'paid' && status === 'available'
-            ? 'addon_needs_billing'
-            : 'addon_not_available',
+        rule: 'addon_not_available',
         message:
           status === 'planned'
             ? `${m.name} isn’t available yet.`
-            : m.billing.model === 'paid' && status === 'available'
-              ? `${m.name} is a paid add-on; HandsFreeOS support can turn it on for you.`
-              : `${m.name} can’t be installed here.`,
+            : `${m.name} can’t be added here yet. Ask HandsFreeOS support if you’d like to try it.`,
       };
     }
     // Everything it needs that isn't running here yet: installed (and off) ones are turned on, the rest installed.

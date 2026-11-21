@@ -32,6 +32,13 @@ describe('maskText', () => {
       '[2 words] accepted your friend request[1 word]',
     );
     expect(maskText('Profile picture of Jane Doe')).toBe('Profile picture of [2 words]');
+    // A post's buttons keep what they do (the problem reports of 10 to 13 Nov 2026 showed only "[3 words]'s post").
+    expect(maskText('React with Like to Jane Doe’s post')).toBe(
+      'React with Like to [2 words]’s post',
+    );
+    expect(maskText('Like Jane Doe’s post')).toBe('Like [2 words]’s post');
+    expect(maskText('Comment on Jane Doe’s post')).toBe('Comment on [2 words]’s post');
+    expect(maskText('Jane Doe’s post')).toBe('[2 words]’s post');
   });
 
   it('keeps the words on the profile’s editors and Accounts Center’s username page, and hides the username', () => {

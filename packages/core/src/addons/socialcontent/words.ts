@@ -133,7 +133,7 @@ export function planShown(
 }
 
 /** "9:00 AM, 12:00 PM and 6:00 PM". */
-const listShown = (items: readonly string[]) =>
+export const listShown = (items: readonly string[]) =>
   items.length > 1 ? `${items.slice(0, -1).join(', ')} and ${items.at(-1)}` : (items[0] ?? '');
 
 /**
@@ -320,7 +320,7 @@ export const SOCIALCONTENT_WORDS = {
    */
   offer: {
     notLive:
-      'Your main offer isn’t live yet, so the AI doesn’t write posts or ideas. Put it live in Settings → Main offer, and fill in For your content there too: every post is written from them.',
+      'Your main offer isn’t live yet, so the AI doesn’t write posts or ideas. Put it live in Settings → Main offer, and fill in For your posts and messages there too: every post is written from them.',
     open: 'Open Main offer',
   },
   needsReader:
@@ -435,7 +435,7 @@ export const SOCIALCONTENT_WORDS = {
   ideas: {
     title: 'Ideas',
     intro:
-      'Ideas for your own posts, from the Playbook and what HandsFreeOS knows about your business. Each is a tip, a customer problem, a story or your offer, about a line from your lists in Main offer → For your content. Write the post from one, and it goes on your Calendar. Saved ideas are written first when the calendar fills, and 10 more come on their own whenever fewer than 5 wait.',
+      'Ideas for your own posts, from the Playbook and what HandsFreeOS knows about your business. Each is a tip, a customer problem, a story or your offer, about a line from your lists in Main offer → For your posts and messages. Write the post from one, and it goes on your Calendar. Saved ideas are written first when the calendar fills, and 10 more come on their own whenever fewer than 5 wait.',
     none: 'No ideas yet. Get ideas once there’s a Playbook.',
     get: 'Get ideas',
     getting: 'Thinking…',
@@ -516,6 +516,10 @@ export const SOCIALCONTENT_WORDS = {
       'How many of your own posts the AI writes for each network, and when they go, in your business’s time zone. The Calendar fills two weeks ahead from this. Posts go up from the reading computer, so a time only works while Chrome is open there.',
     perWeek: (network: string) => `Posts a week on ${network}`,
     perWeekOption: (n: number) => (n ? `${n} a week` : 'Off'),
+    /** Threads and X start off, with 5 a week suggested (decision 41). */
+    shortOff: (network: string, n: number) =>
+      `Off for now. About ${n} a week works well on ${network}: short posts, words alone about half the time.`,
+    shortOn: (n: number) => `Post ${n} a week`,
     at: 'at',
     timeFor: (network: string) => `Time for ${network}`,
     /** AI picks or I pick, on each network (decision 21). */
@@ -569,7 +573,7 @@ export const SOCIALCONTENT_WORDS = {
       settings: 'Open Settings',
       niches: 'See niches',
       'main-offer': 'Open Main offer',
-      'main-offer-lists': 'Open For your content',
+      'main-offer-lists': 'Open For your posts and messages',
     } as const,
   },
   activity: {
@@ -628,9 +632,39 @@ export const SOCIALCONTENT_WORDS = {
     write: 'Write a post',
     writing: 'Writing…',
     written: 'Written. It’s waiting for your OK.',
+    /** Several networks at once: one post for each, about the same thing (the owner, 14 Nov). */
+    writtenMany: (n: number, missed: readonly string[]) =>
+      [
+        `Written ${count(n, 'post')}, one for each network. They’re waiting for your OK.`,
+        missed.length
+          ? `${listShown(missed)} didn’t work this time. Press Write a post to try ${missed.length === 1 ? 'it' : 'them'} again.`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' '),
+    /**
+     * Write a post asks two things first (the owner, 14 Nov): which networks, one or more, and the AI on its own or
+     * your direction.
+     */
+    writeAsk: 'Each goes on the next open day in your plan for its network, and waits for your OK.',
+    writeNetwork: 'Which networks?',
+    writeNetworkHint:
+      'Pick one or more. Each gets its own post about the same thing, written to fit it: Threads keeps to 500 characters, X to 280, and Instagram always gets a picture.',
+    writeHow: 'How should the AI write it?',
+    writeAuto: 'AI on its own',
+    writeAutoHint:
+      'It picks what to post about from your Playbook, ideas and business, the same way Fill the calendar does.',
+    writeMine: 'My direction',
+    writeMineHint: 'Tell the AI what the post is about, and it writes it from that.',
+    writeAbout: 'What should the post be about?',
+    writeAboutPlaceholder: 'For example: our spring tune-up special, 20% off through May',
+    writeGo: (n: number) => (n > 1 ? `Write ${n} posts` : 'Write it'),
+    writeCancel: 'Cancel',
     open: 'Open day',
     openHint: (network: string, time: string) => `${network} at ${time}`,
     writeFor: 'Write one',
+    /** An open place, pressed anywhere (the owner, 15 Nov). */
+    writeOpen: (network: string, time: string) => `Write the ${network} post for ${time}`,
     undated: 'No day yet',
     plan: 'Your plan',
     planEdit: 'Change the plan in Settings.',
@@ -659,9 +693,249 @@ export const SOCIALCONTENT_WORDS = {
     laterOn: (networks: string) =>
       `Posting on ${networks} comes in a later update: copy those and post them yourself until then.`,
     empty: 'No posts yet. Fill the calendar, or write one from an idea under Ideas.',
-    recent: 'Went up lately',
+    /** What went up in the 30 days before, and what didn't go up (the owner, 15 Nov). */
+    recent: 'Lately',
+    /** Redo (the owner, 15 Nov): picked posts put up again, one every 30 minutes on each network. */
+    redoPosted: (networks: readonly string[]) =>
+      `The ones that went up go up again. Delete the old ones on ${listShown(networks)} yourself, since HandsFreeOS can’t take posts down.`,
+    redone: (n: number, notRedone: number) =>
+      [
+        n
+          ? n === 1
+            ? 'It goes up again in a minute or two, from the computer that posts.'
+            : `${count(n, 'post')} go up again from the computer that posts: the first in a minute or two, then one every 30 minutes on each network.`
+          : null,
+        notRedone
+          ? `${count(notRedone, 'post')} couldn’t be redone. Open ${notRedone === 1 ? 'it' : 'them'} to see what ${notRedone === 1 ? 'it needs' : 'they need'}.`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' '),
     today: 'Today',
     tomorrow: 'Tomorrow',
+  },
+  /**
+   * Picking many posts on the Calendar, its List, Week and Month looks, and what a post that didn't post can do (the
+   * owner, 15 Nov; the design they OK'd).
+   */
+  picking: {
+    looks: { list: 'List', week: 'Week', month: 'Month' },
+    looksLabel: 'How the calendar looks',
+    listTitle: 'Today and the next 2 weeks',
+    today: 'Today',
+    back: { week: 'Last week', month: 'Last month' },
+    ahead: { week: 'Next week', month: 'Next month' },
+    select: 'Select',
+    pick: 'Pick',
+    shows: {
+      all: 'All',
+      waiting: 'Waiting for your OK',
+      okd: 'OK’d',
+      posted: 'Posted',
+      failed: 'Didn’t post',
+      hidden: 'Hidden',
+    },
+    showsLabel: 'Show',
+    pickWeek: 'Pick the whole week',
+    pickMonth: (month: string) => `Pick all of ${month}`,
+    pickShown: 'Pick everything shown',
+    pickDay: (day: string) => `Pick all of ${day}`,
+    pickWeekOf: (range: string) => `Pick the whole week of ${range}`,
+    pickLately: 'Pick everything under Lately',
+    pickPost: (title: string) => `Pick “${title}”`,
+    dayPicked: (n: number, of: number) => (n && n === of ? `All ${of}` : `${n} of ${of}`),
+    menu: {
+      quick: 'Quick picks',
+      today: (day: string) => `Today, ${day}`,
+      thisWeek: (range: string) => `This week, ${range}`,
+      thisMonth: (month: string) => `All of ${month}`,
+      inRange: (range: string) => `All in ${range}`,
+      everythingIn: (range: string) => `Everything in ${range}`,
+      anyDate: 'Any date',
+      everything: 'Everything',
+      allWaiting: 'All waiting for your OK',
+      allPast: 'All past posts',
+      allFailed: 'All that didn’t post',
+      allHidden: 'All hidden',
+      waiting: 'Waiting for your OK',
+      okd: 'OK’d',
+      past: 'Past posts',
+      failed: 'Didn’t post',
+      hidden: 'Hidden',
+      clear: 'Clear what’s picked',
+      adds: 'Each pick adds to what’s already picked.',
+      finding: 'Finding them…',
+      more: (n: number) =>
+        `Picked the first ${n.toLocaleString('en-US')}. Act on these, then pick again for the rest.`,
+    },
+    picked: (n: number) => `${n.toLocaleString('en-US')} picked`,
+    pickedIn: (n: number, range: string) => `${n.toLocaleString('en-US')} picked · ${range}`,
+    summary: (s: { waiting: number; okd: number; past: number; failed: number; hidden: number }) =>
+      [
+        s.waiting ? `${s.waiting} waiting for your OK` : null,
+        s.okd ? `${s.okd} OK’d` : null,
+        s.past
+          ? s.failed
+            ? `${s.past} past, ${s.failed === s.past ? (s.past === 1 ? 'it' : 'all') : s.failed} didn’t post`
+            : `${s.past} past`
+          : null,
+        s.hidden ? `${s.hidden} already hidden` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ') || 'Nothing these can do yet',
+    ok: 'OK',
+    redo: 'Redo',
+    look: 'Check if posted',
+    lookShort: 'Check',
+    mark: 'Mark posted',
+    hide: 'Hide',
+    show: 'Show again',
+    remove: 'Delete',
+    cancel: 'Cancel',
+    more: 'More',
+    actionsLabel: 'What to do with the picked posts',
+    lookHint: 'Looks on the network to see if it went up after all',
+    markHint: 'For posts you can see on the network',
+    /** What each did, in the bar after it's pressed. */
+    approved: (n: number, left: number) =>
+      [
+        n ? `OK’d ${count(n, 'post')}. They go up at their times.` : null,
+        left
+          ? `${count(left, 'post')} couldn’t be OK’d. Open ${left === 1 ? 'it' : 'them'} to see what ${left === 1 ? 'it needs' : 'they need'}.`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' ') || 'Nothing to OK.',
+    hidden: (n: number) =>
+      n
+        ? `Hid ${count(n, 'post')}. ${n === 1 ? 'It stays' : 'They stay'} under Hidden, and ${n === 1 ? 'it won’t' : 'none of them will'} go up while hidden.`
+        : 'Nothing new to hide.',
+    shown: (n: number) =>
+      n ? `${count(n, 'post')} back on the Calendar.` : 'Nothing hidden to show again.',
+    removed: (n: number, left: number) =>
+      [
+        n ? `Deleted ${count(n, 'post')} from the Calendar.` : null,
+        left
+          ? `${count(left, 'post')} couldn’t be deleted: one going up right now waits till it’s done.`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' ') || 'Nothing to delete.',
+    marked: (n: number, left: number) =>
+      [
+        n ? `Marked ${count(n, 'post')} as posted.` : null,
+        left ? `${count(left, 'post')} weren’t marked: only a post that didn’t post can be.` : null,
+      ]
+        .filter(Boolean)
+        .join(' ') || 'Nothing to mark.',
+    lookAsked: (n: number, left: number) =>
+      [
+        n
+          ? `Looking for ${count(n, 'post')} on the networks, from the computer that posts. Each found is marked as posted.`
+          : null,
+        left
+          ? `${count(left, 'post')} weren’t looked for: only a post that didn’t post can be.`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' ') || 'Nothing to look for.',
+    /** Delete asks first. */
+    removeTitle: (n: number) => (n === 1 ? 'Delete this post?' : `Delete ${count(n, 'post')}?`),
+    removeSays: (upcoming: number) =>
+      upcoming
+        ? `They come off the Calendar. ${upcoming === 1 ? 'The 1 that hasn’t gone up yet won’t post, and its day opens' : `The ${upcoming} that haven’t gone up yet won’t post, and their days open`} up for Fill the calendar.`
+        : 'They come off the Calendar.',
+    removeUp: (n: number, networks: string) =>
+      `${n === 1 ? '1 of them is' : `${n} of them are`} already up on ${networks}. Deleting here doesn’t take ${n === 1 ? 'it' : 'them'} down there. To take one down, delete it on that network.`,
+    removeHideInstead:
+      'Want them out of sight but kept? Hide them instead. You can show hidden posts again any time.',
+    removeKeep: 'Keep them',
+    removeHide: 'Hide instead',
+    removeGo: (n: number) => (n === 1 ? 'Delete it' : `Delete ${count(n, 'post')}`),
+    removeWho: 'Only an owner or admin can delete posts. Hide them instead, or ask one of them.',
+    /** Mark as posted asks first. */
+    markTitle: (title: string | null, n: number) =>
+      title ? `Mark “${title}” as posted?` : `Mark ${count(n, 'post')} as posted?`,
+    markSays: (network: string) =>
+      `Do this when you can see it on ${network}. It moves to Posted and won’t go up again.`,
+    markLink: 'Link to the post',
+    markLinkOptional: '(you can skip this)',
+    markLinkHint:
+      'With the link, its likes and views show on the Calendar. Don’t have it? Press Check if it posted instead, and Chrome finds it for you.',
+    markMany: 'Marking several at once skips the links. Each one can get its link later.',
+    markGo: 'Mark as posted',
+    markCancel: 'Cancel',
+    /** A post that didn't post. */
+    tryAgain: 'Try again',
+    lookOne: 'Check if it posted',
+    /** After a check that didn't find it: look again (the owner, 17 Nov, on posts the old, blind check had missed). */
+    lookAgain: 'Check again',
+    markOne: 'Mark as posted',
+    markAnyway: 'Mark as posted anyway',
+    lookSoon: (time: string) => `It looks for it on its own at ${time}.`,
+    looking: (network: string) =>
+      `Looking on ${network} for it. Chrome does this on the computer that posts, usually in under a minute. If Chrome is closed, it looks once Chrome opens.`,
+    notFound: (network: string, time: string) => `It isn’t on ${network}. Checked at ${time}.`,
+    lookCouldnt: (why: string) => `It couldn’t look: ${why}`,
+    openNoPick: 'Can’t be picked: there’s no post yet.',
+    /** An open place on the Month look: pressing it writes its post. */
+    openChip: 'Open',
+    moreOn: (n: number) => `+${n} more`,
+    legendLabel: 'What the colors mean',
+    monthHint: 'Tick a day to pick it. Tick the box left of a week to pick the whole week.',
+    olderHint: 'To pick every past post, even older ones, use Pick → All past posts.',
+    weekdays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    weekdaysShort: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+    /** A network in a few letters, on the Week and Month looks. */
+    short: {
+      instagram: 'IG',
+      facebook: 'FB',
+      linkedin: 'LI',
+      threads: 'TH',
+      x: 'X',
+      tiktok: 'TT',
+      youtube: 'YT',
+    } as Readonly<Record<string, string>>,
+    listRange: 'today and the next 2 weeks',
+    latelyHint: 'What posted, or didn’t, before today',
+    pickedOfShown: (n: number, of: number) => (n && n === of ? `All ${of} shown` : `${n} of ${of}`),
+    openWeek: (day: string) => `Open the week of ${day}`,
+    hiddenBadge: 'Hidden',
+    nothingShown: 'Nothing here under this filter.',
+    /**
+     * Redo on posts waiting to go up (the owner, 15 Nov): the AI writes them again. Past ones still go up again.
+     */
+    redoHint: 'Waiting posts are written again by the AI. Past posts go up again.',
+    redoTitle: (n: number) => (n === 1 ? 'Redo this post?' : `Redo ${count(n, 'post')}?`),
+    redoRewrite: (n: number) =>
+      n === 1
+        ? 'The AI writes it again in new words. It waits for your OK again.'
+        : `The AI writes ${n === 2 ? 'both' : `these ${n}`} again in new words, a few at a time. Each waits for your OK again.`,
+    redoPast: (n: number) =>
+      `${count(n, 'post')} that went up or didn’t go up ${n === 1 ? 'goes' : 'go'} up again, 30 minutes apart on each network.`,
+    redoGo: (n: number) => (n === 1 ? 'Redo it' : `Redo ${count(n, 'post')}`),
+    redoCancel: 'Cancel',
+    rewritten: (n: number, left: number) =>
+      [
+        n
+          ? n === 1
+            ? 'The AI is writing it again. Its new words show in a minute or two, waiting for your OK.'
+            : `The AI is writing ${count(n, 'post')} again, a few at a time. Each shows its new words in a minute or two, waiting for your OK.`
+          : null,
+        left
+          ? `${count(left, 'post')} couldn’t be written again. Open ${left === 1 ? 'it' : 'them'} to see why.`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' ') || 'Nothing to write again.',
+    /** Why Redo didn't write a picked post again. */
+    rewriteWhy: {
+      gone: 'It isn’t on the Calendar anymore.',
+      up: 'It went up or is going up. Redo puts a post that went up up again instead.',
+      failed: 'It didn’t post. Redo puts it up again instead.',
+      hidden: 'It’s hidden. Show it again first.',
+      network: 'The AI doesn’t write posts for this network.',
+    },
   },
   post: {
     /** The line from the lists a post is about (decision 34). */
@@ -698,10 +972,19 @@ export const SOCIALCONTENT_WORDS = {
     words: 'Words',
     hook: 'Hook',
     hashtags: 'Hashtags',
-    hashtagsHint: 'Without the #, separated by spaces. They’re added at the end when it goes up.',
+    hashtagsHint:
+      'Without the #, separated by spaces. They’re added at the end when it goes up. Instagram takes 5 at most, so only the first 5 go up there.',
     slides: 'Slides',
     slide: (n: number) => `Slide ${n}`,
     addSlide: 'Add a slide',
+    /** What a post on Threads or X takes, with its tags (decision 41). */
+    characters: (used: number, most: number) => `${used} of ${most} characters, with the tags`,
+    chain: 'More posts under it',
+    chainHint: (network: string) =>
+      `For a longer tip: each goes under the one before, as a thread on ${network}. Up to 4.`,
+    chainPost: (n: number) => `Post ${n}`,
+    addChainPost: 'Add a post under it',
+    removeChainPost: (n: number) => `Remove post ${n}`,
     script: 'Script',
     lines: 'What to say',
     shots: 'What to film',
@@ -716,6 +999,9 @@ export const SOCIALCONTENT_WORDS = {
     pictureShows: 'What it shows',
     makePicture: 'Make the picture',
     makeAgain: 'Make it again',
+    /** What the picture check still found wrong with the pictures kept (the owner's pick, 16 Nov). */
+    pictureFlagged: (problems: readonly string[]) =>
+      `The picture check still found: ${problems.map((x) => x.replace(/[.\s]+$/, '')).join('; ')}. Press Make it again for a new one, or look closely before you OK it.`,
     makeAsk: 'What to change (optional)',
     makeAsked: 'Making it. It shows here in a minute.',
     switchTo: (way: string) => `Switch to ${way.toLowerCase()}`,
@@ -777,6 +1063,8 @@ export const SOCIALCONTENT_WORDS = {
     removeTitle: 'Remove this post?',
     removeAsk:
       'It comes off the calendar and isn’t posted. Its day opens up, so Fill the calendar or Write one puts a new post there.',
+    /** One that went up: it comes off the Calendar but stays up on the network. */
+    removeAskPosted: 'It comes off the Calendar. Nothing goes up again.',
     removeYes: 'Remove it',
     removeNo: 'Keep it',
     removed: (hadDay: boolean) =>

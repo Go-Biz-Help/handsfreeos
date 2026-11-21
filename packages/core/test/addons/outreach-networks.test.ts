@@ -14,6 +14,7 @@ import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/t
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   AUTOMATION_DEFAULTS,
+  autopilotSaid,
   NETWORK_CHOICES_DEFAULTS,
   NETWORKS_DEFAULTS,
 } from '../../src/addons/outreach/automation';
@@ -359,7 +360,10 @@ describe('each network’s own choices', () => {
   it('keep LinkedIn off to start, and its choices apart from Facebook’s', async () => {
     const dana = await teammate('Jesse Park');
     const fresh = await runAs(dana, ws, 'outreach.automation', {});
-    expect(fresh.settings.networks).toEqual(NETWORKS_DEFAULTS);
+    // Each network's Autopilot comes said (decision 170): off, as Facebook's is.
+    expect(fresh.settings.networks).toEqual(
+      autopilotSaid({ ...AUTOMATION_DEFAULTS, networks: NETWORKS_DEFAULTS }).networks,
+    );
     expect(fresh.settings.networks.linkedin.on).toBe(false);
     // Off, LinkedIn has no day to start, and the extension does nothing there on its own.
     expect(await refused(runAs(dana, ws, 'outreach.day.start', { platform: 'linkedin' }))).toBe(
@@ -490,7 +494,8 @@ describe('each network’s own lists, asks and Today', () => {
       dana,
       ws,
       'outreach.touch.save',
-      { platform: 'linkedin', kind: 'message', profile: sam, name: 'Sam Lee' },
+      // The extension's own: one the person typed would leave Sam in their hands (decision 182).
+      { platform: 'linkedin', kind: 'message', profile: sam, name: 'Sam Lee', auto: true },
       new Date(Date.now() - HOUR),
     );
     const seen = await runAs(dana, ws, 'outreach.replies.note', {
@@ -518,7 +523,14 @@ describe('each network’s own lists, asks and Today', () => {
         dana,
         ws,
         'outreach.touch.save',
-        { platform: 'instagram', kind: 'message', profile: ig(username), name, threadKey },
+        {
+          platform: 'instagram',
+          kind: 'message',
+          profile: ig(username),
+          name,
+          threadKey,
+          auto: true,
+        },
         new Date(Date.now() - HOUR),
       );
     const seen = (name: string) =>

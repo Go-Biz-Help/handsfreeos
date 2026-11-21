@@ -15,12 +15,19 @@ import type { AboutResult, CodeResult } from './networks/alignable/own-profile';
 import type { EditorSteps } from './networks/facebook/editors';
 import type { LinkResult } from './networks/facebook/links';
 import type { PartWrite, PartWrote } from './networks/fill';
+import type { LookWant, PostSeen } from './networks/post-look';
 import type { BioResult, OwnEditors } from './networks/facebook/own-profile';
 import type { FormSteps } from './networks/instagram/own-profile';
 import type { NameWrote } from './networks/accounts-center/name';
 import type { Asking } from './networks/accounts-center/pages';
 import type { UsernameWrote } from './networks/accounts-center/username';
-import type { AutoResult, GroupFeedPost, MessageWrote, TheirPost } from './networks/facebook/auto';
+import type {
+  AutoResult,
+  GroupFeedPost,
+  MessageWrote,
+  TagAsk,
+  TheirPost,
+} from './networks/facebook/auto';
 import type { StepAsk, StepResult } from './networks/facebook/fetch';
 import type { Engaged, PostResult } from './networks/facebook/compose';
 import type { JoinStep } from './networks/facebook/join';
@@ -214,10 +221,12 @@ export type JoinAnswer =
 
 /**
  * Helpful posts (src/networks/facebook/compose.ts, decision 50): on a group's page, put one up; on the person's own post, read
- * who commented and reacted.
+ * who commented and reacted. With `reactions` false only the comments are read and nothing is pressed: the comment
+ * research's, on anyone's post (decision 172, src/jobs/facebook-research.ts, src/jobs/linkedin/comment-research.ts).
  */
 export type GroupPostAsk =
-  { readonly type: 'hfos-group-post'; readonly text: string } | { readonly type: 'hfos-engaged' };
+  | { readonly type: 'hfos-group-post'; readonly text: string }
+  | { readonly type: 'hfos-engaged'; readonly reactions?: boolean };
 
 export type GroupPostAnswer =
   | { readonly ok: true; readonly result: PostResult }
@@ -258,6 +267,21 @@ export interface TheirComment {
 }
 export type TheirCommentAnswer =
   | { readonly ok: true; readonly comment: TheirComment | null }
+  | { readonly ok: false; readonly error: string };
+/**
+ * A look at their post on its own page, before its comment is drafted (decision 166, ./networks/post-look.ts): its
+ * photo's address, or frames of its video, for the AI to see with the post's words. Only on a site that says which
+ * part of the page is the post's (`auto.postPart`); `seen` is null on any other, on a page that isn't that post, and
+ * for a post with no picture. Nothing is pressed.
+ */
+export type PostLookAsk = {
+  readonly type: 'hfos-post-look';
+  readonly profile: ProfileRef;
+  readonly postUrl: string;
+  readonly want: LookWant;
+};
+export type PostLookAnswer =
+  | { readonly ok: true; readonly seen: PostSeen | null }
   | { readonly ok: false; readonly error: string };
 export interface CommentLiked {
   readonly result: AutoResult;
@@ -554,6 +578,13 @@ export type UnfollowAnswer =
   | { readonly ok: true; readonly result: 'done' | 'not_found' | 'none' }
   | { readonly ok: false; readonly error: string };
 
+/**
+ * A referral's comment on Facebook (decision 185, from 0.149.0): the name in it typed as a tag, @ and their whole name
+ * picked from Facebook's list, else their name as plain words. Its answer is an `AutoAnswer` that says which
+ * (`tagged`).
+ */
+export type TagCommentAsk = { readonly type: 'hfos-tag-comment'; readonly tag: TagAsk };
+
 export type AutoAnswer =
   | {
       readonly ok: true;
@@ -563,6 +594,8 @@ export type AutoAnswer =
       readonly left?: MessageWrote['left'];
       /** With `none`: who the window their profile's Message opened links to, for the runner to check (Facebook's). */
       readonly linksTo?: MessageWrote['linksTo'];
+      /** A referral's comment (`hfos-tag-comment`): whether Facebook took the tag, else the name went as words. */
+      readonly tagged?: boolean;
     }
   | { readonly ok: false; readonly error: string };
 
@@ -572,7 +605,10 @@ export type PostsAnswer =
   | {
       readonly ok: true;
       readonly posts: readonly TheirPost[];
-      /** None read, and the network says they have no posts to show: nothing went wrong. */
+      /**
+       * None read, and the network says they have no posts to show, or shows none with a Like to press (Facebook's,
+       * from 0.140.2): nothing went wrong.
+       */
       readonly none?: true;
     }
   | { readonly ok: false; readonly error: string };

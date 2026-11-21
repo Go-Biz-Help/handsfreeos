@@ -355,9 +355,9 @@ export const mainOfferSaveNames = defineCommand({
 });
 
 /**
- * One of the lists for content (docs/main-offer.md, "For your content"): what makes the business different, its
- * features and benefits, and the rest the AI Social Media Content Creator writes from. Saved as it is: not scored, so
- * no revision moves, and never holds the offer back from going live.
+ * One of the lists for content (docs/main-offer.md, "For your posts and messages"): what makes the business different,
+ * its features and benefits, and the rest the AI Social Media Content Creator writes from. Saved as it is: not scored,
+ * so no revision moves, and never holds the offer back from going live.
  */
 export const mainOfferSaveList = defineCommand({
   name: 'main_offer.save_list',

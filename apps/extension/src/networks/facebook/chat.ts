@@ -11,6 +11,7 @@
  * The times between runs of messages ("Today at 10:12 AM") sit between the messages, and each message carries the
  * last one above it.
  */
+import { STATUS_LINE, WORDLESS } from '@hfos/core/addons/outreach/chat-collect';
 import {
   clean,
   closestWithin,
@@ -36,9 +37,14 @@ const MINE = /^you (sent|replied|forwarded|unsent|reacted)\b/i;
 const REPLIED = /^(.+?) replied to\b/i;
 /** The label Facebook puts on the conversation: "Messages in conversation with Jane Doe". */
 const CONVERSATION = /^(?:messages in )?conversation (?:with|titled) (.+)$/i;
-/** Lines that are Facebook talking, not anyone in the chat. */
+/**
+ * Lines that are Facebook talking, not anyone in the chat. Under your last message it says whether it went and when:
+ * "Sent 33m ago", "Seen 2h ago", "Delivered". Read as part of the message, that line made it a new one with each read,
+ * so one message sent once was kept again and again (the owner's screenshots, 17 Nov 2026). Facebook's line about an
+ * encrypted chat starts "New messages and calls are secured…" now, and was kept as theirs.
+ */
 const NOTICE =
-  /^(seen( by .+)?|delivered|sending…?|.+ is typing…?|you are now connected on messenger\.?|you['’]re now friends on facebook\.?|say hi to your new facebook friend.*|messages and calls are secured with end-to-end encryption.*|.+ unsent a message)$/i;
+  /^((sent|seen|delivered)( by .+| just now| \d+\s*[a-z]+ ago)?|sending…?|.+ is typing…?|you are now connected on messenger\.?|you['’]re now friends on facebook\.?|say hi to your new facebook friend.*|(new )?messages and calls are secured with end-to-end encryption.*|.+ unsent a message)$/i;
 /** Writing that is never a message: headings, buttons, and the box you type in. */
 const NOT_SAID =
   'h1, h2, h3, h4, h5, h6, [role="heading"], [role="button"], button, [role="textbox"], [contenteditable="true"]';
@@ -136,20 +142,30 @@ function isSenderLabel(text: string): boolean {
 
 /**
  * What a message says: the writing in its row that isn't a time, a button or Facebook's own words. A line like
- * "You sent" is a label when the row has other writing, and the message itself when it's all there is.
+ * "You sent" is a label when the row has other writing, and the message itself when it's all there is. A row with only
+ * the line Messenger puts under the person's own last message ("Sent 33m ago") is theirs with no words in it: a picture,
+ * a sticker, a like or a file. It stays, as `WORDLESS`, so their chat still ends with them.
  */
-function messageIn(row: Element): { readonly text: string; readonly element: Element } | null {
-  const said = outermost(row, '[dir="auto"]')
+function messageIn(
+  row: Element,
+): { readonly text: string; readonly element: Element; readonly wordless: boolean } | null {
+  const pieces = outermost(row, '[dir="auto"]')
     .filter((element) => !closestWithin(element, NOT_SAID, row))
-    .map((element) => ({ element, text: textWithEmoji(element) }))
-    .filter(
-      ({ text }) =>
-        text && !isWhen(text) && !UI_WORDS.has(text.toLowerCase()) && !NOTICE.test(text),
-    );
+    .map((element) => ({ element, text: textWithEmoji(element) }));
+  const said = pieces.filter(
+    ({ text }) => text && !isWhen(text) && !UI_WORDS.has(text.toLowerCase()) && !NOTICE.test(text),
+  );
   const words = said.filter(({ text }) => !isSenderLabel(text));
   const kept = words.length > 0 ? words : said;
   const first = kept[0];
-  return first ? { element: first.element, text: kept.map(({ text }) => text).join('\n') } : null;
+  if (first)
+    return {
+      element: first.element,
+      text: kept.map(({ text }) => text).join('\n'),
+      wordless: false,
+    };
+  const status = pieces.find(({ text }) => STATUS_LINE.test(text));
+  return status ? { element: status.element, text: WORDLESS, wordless: true } : null;
 }
 
 /** The labels in a row: its headings above the message, and any line that says who sent it. */
@@ -259,6 +275,8 @@ export function readChatIn(
       if (side) from = side === 'right' ? 'me' : 'them';
     }
     if (from === 'unknown') from = previous.from;
+    // Only the line under the person's own message says it went.
+    if (message.wordless) [from, sender] = ['me', null];
     if (from === 'them' && !sender && previous.from === 'them') sender = previous.sender;
     messages.push({ from, sender: from === 'me' ? null : sender, text: message.text, when });
     previous = { from, sender };

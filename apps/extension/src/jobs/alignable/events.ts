@@ -8,12 +8,18 @@
  * events not read before are opened in turn, at a person's pace, and each one's hosts and guests go to HandsFreeOS as
  * found (`event`, with the event's name and the town) for the AI's found check (../found-checks.ts): only a good check
  * puts one on Today. Never the person's own business. Nothing is pressed on an event, so they're never signed up: no
- * RSVP, Going or Interested. It stops on any Alignable warning.
+ * RSVP, Going or Interested. It stops on any Alignable warning. From 0.150.0 each event read goes with its name, its
+ * card's line and its hosts, for Today's Events near you (decision 188), as Facebook's do (../events.ts).
  *
  * The events page's address and its readers are guesses till the owner's next Check Alignable outlines them: a page
  * that showed no events, or an event that showed nobody, is noted with its outline so they can be tuned.
  */
-import { EVENTS_READ_MOST } from '@hfos/core/addons/outreach/events-near';
+import {
+  EVENTS_READ_MOST,
+  EventPerson,
+  type EventSeen,
+} from '@hfos/core/addons/outreach/events-near';
+import { calmCase, isWhenLine, startsAtOf } from '../../networks/event-when';
 import { findsSave } from '../../hfos/saves';
 import type { EventCard, Member } from '../../networks/alignable/read';
 import { townOf } from '../../networks/alignable/site';
@@ -53,6 +59,30 @@ const placeOf = (m: Person) => {
   const town = townOf(m.profile.url);
   return town ? townPlace(town) : null;
 };
+
+/**
+ * What an event showed, for Today's Events near you (decision 188, from 0.150.0): its name, its card's line as when it
+ * is when it reads as a day, else as where, and its hosts by name. Its guests stay with the found checks.
+ */
+export function alignableEventSeen(
+  card: EventCard,
+  name: string,
+  hosts: readonly Person[],
+): EventSeen {
+  const detail = card.detail?.trim() || null;
+  const when = detail && isWhenLine(detail) ? detail : null;
+  return {
+    url: card.url,
+    name,
+    when: when ? calmCase(when) : null,
+    startsAt: startsAtOf(when),
+    place: when ? null : detail,
+    hosts: hosts
+      .map((h) => ({ profile: h.profile, name: h.name.slice(0, 80) }))
+      .filter((h) => EventPerson.safeParse(h).success)
+      .slice(0, 10),
+  };
+}
 
 /** This week's events near the person, if it's due: up to 5 not read before, and who's hosting and going to each. */
 export async function readEventsNear(job: Job): Promise<JobEnd> {
@@ -96,6 +126,9 @@ export async function readEventsNear(job: Job): Promise<JobEnd> {
   const before = new Set(next.read);
   const fresh = listed.filter((e) => !before.has(e.url)).slice(0, EVENTS_READ_MOST);
   const read: string[] = [];
+  const seen: EventSeen[] = [];
+  // Links that led to one of Alignable's own lists of events (its search, by kind), not an event: kept as read too.
+  const lists: string[] = [];
   let shown = 0;
   let added = 0;
   for (const event of fresh) {
@@ -113,7 +146,18 @@ export async function readEventsNear(job: Job): Promise<JobEnd> {
         `Reading who’s hosting and going to “${event.name}”… ${counted(n, 'business', 'businesses')} so far.`,
     );
     if (ended(got)) return got;
+    if (!got.page.found.event && got.page.found.events?.length) {
+      lists.push(event.url);
+      continue;
+    }
     read.push(event.url);
+    seen.push(
+      alignableEventSeen(
+        event,
+        got.page.found.event?.name || event.name,
+        got.page.found.event?.hosts ?? [],
+      ),
+    );
     const theirs = got.items.filter((m) => someoneElse(m.profile));
     if (!got.items.length) {
       await job.report?.({
@@ -144,7 +188,12 @@ export async function readEventsNear(job: Job): Promise<JobEnd> {
     valueOf(
       await job.hfos({
         type: 'hfos-events-read',
-        input: { workspaceId: job.businessId, platform: 'alignable', urls: read },
+        input: {
+          workspaceId: job.businessId,
+          platform: 'alignable',
+          urls: [...read, ...lists],
+          events: seen,
+        },
       }),
     );
   const stopped = job.stopped() ? 'Stopped. ' : '';

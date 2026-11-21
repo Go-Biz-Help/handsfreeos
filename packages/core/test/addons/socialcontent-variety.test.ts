@@ -440,7 +440,7 @@ describe('how each post is shown (decision 39)', () => {
     const before: PostBefore[] = [];
     for (let k = 0; k < n; k++) {
       const look = nextLook(before, network, photos);
-      before.unshift({ angle: null, topic: null, format: look.format, photo: look.photo });
+      before.unshift({ angle: null, topic: null, format: look.format, photo: look.photo, network });
     }
     return before.reverse();
   };
@@ -471,6 +471,25 @@ describe('how each post is shown (decision 39)', () => {
       photo: false,
     }));
     expect(nextLook(carousels, 'instagram', true)).toEqual({ format: 'photo', photo: true });
+  });
+
+  it('puts words alone on Threads and X about half the time, one picture otherwise, never a carousel (decision 41)', () => {
+    for (const network of ['threads', 'x']) {
+      const looks = run(10, network);
+      expect(looks.filter((l) => l.format === 'text')).toHaveLength(5);
+      expect(looks.filter((l) => l.format === 'photo')).toHaveLength(5);
+      expect(looks.some((l) => l.format === 'carousel')).toBe(false);
+    }
+    // Their posts don't count in another network's mix: LinkedIn still gets its words-alone post.
+    const shortTexts: PostBefore[] = Array.from({ length: 4 }, () => ({
+      angle: null,
+      topic: null,
+      format: 'text',
+      photo: false,
+      network: 'x',
+    }));
+    expect(nextLook(shortTexts, 'linkedin', true).format).toBe('text');
+    expect(nextLook(shortTexts, 'x', true).format).toBe('photo');
   });
 
   it('plans a look with each post, and tells the writer how to show it', () => {

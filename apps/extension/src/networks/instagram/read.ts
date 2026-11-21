@@ -629,6 +629,46 @@ export function authorOf(root: Element, base: string, code: string): Account | n
   return null;
 }
 
+/** The word between a post's accounts when they made it together, as its header writes it: "<name> and <name>". */
+const AND = /^and$/i;
+/** How far out from its author's link the "and" after it is looked for. */
+const MADE_WITH_STEPS = 3;
+
+/**
+ * Who made the post with its author, as its header writes it beside their name (the owner's problem reports of 14 Nov
+ * 2026: a post made together, on their own grid, never took a like, as only the first account was looked at):
+ * "<author> and <name>", the other linked, or "<author> and 2 others", the others behind a button or a link that lists
+ * them, which `hidden` says. Icons between, such as Verified, are passed over. Nothing for a post one account made.
+ */
+export function madeWithOf(
+  root: Element,
+  base: string,
+  author: string,
+): { readonly names: readonly string[]; readonly hidden: boolean } {
+  const names: string[] = [];
+  let hidden = false;
+  for (const { a, url } of linksIn(root, base)) {
+    if (profileOf(url)?.username.toLowerCase() !== author.toLowerCase()) continue;
+    for (
+      let at: Element | null = a, steps = 0;
+      at && at !== root && steps < MADE_WITH_STEPS;
+      at = at.parentElement, steps++
+    ) {
+      let next = at.nextElementSibling;
+      while (next && !clean(next.textContent)) next = next.nextElementSibling;
+      if (!next || next.children.length || !AND.test(clean(next.textContent))) continue;
+      let other = next.nextElementSibling;
+      while (other && !clean(other.textContent)) other = other.nextElementSibling;
+      const link = other?.matches('a[href]') ? other : other?.querySelector('a[href]');
+      const named = link ? accountLinked(link, base) : null;
+      if (named) names.push(named.username);
+      else if (other?.matches('button, [role="button"], a[href="#"]')) hidden = true;
+      break;
+    }
+  }
+  return { names, hidden };
+}
+
 /** A comment on a post, as its page shows it: who wrote it and what it says, its own link, and its part of the page. */
 export interface CommentPart {
   readonly comment: Comment;
@@ -724,17 +764,33 @@ function inACommentOf(root: Element, comments: readonly Element[]): (el: Element
 }
 
 /**
+ * Whether a control is a post's Comment: by its name, or by its own icon where its count names it, as the reels
+ * player's does ("3" beside the icon, in the same button; the owner's problem report of 14 Nov 2026).
+ */
+const isCommentControl = (c: Element, name: string): boolean =>
+  /^comment$/i.test(name) ||
+  [...c.querySelectorAll('svg[aria-label]')].some(
+    (icon) =>
+      /^comment$/i.test(clean(icon.getAttribute('aria-label'))) &&
+      icon.closest('button, [role="button"], a[href]') === c,
+  );
+
+/**
  * The control in a post's bar after its own Like that's its count of likes ("36.5K"), when its likes show: the bar's
  * Comment comes after the count (the owner's Check, 21 Oct 2026: Like, "36.5K", Comment, "1.1K", Share), and straight
- * after the Like when its likes are hidden.
+ * after the Like when its likes are hidden. Its Like is an Unlike on a post the person liked (the owner's problem
+ * report of 13 Nov 2026: a post liked on a warm-up, so its Likes box was never opened). In the reels player its
+ * Comment is named by its own count, so it's known by its icon (from 0.140.4).
  */
 function barCountOf(root: Element): Element | null {
   const controls = controlsIn(root);
   for (const [i, { name }] of controls.entries()) {
-    if (!/^like$/i.test(name)) continue;
+    if (!/^(like|unlike)$/i.test(name)) continue;
     const after = controls.slice(i + 1);
-    const count = after.findIndex(({ name: n }) => countOf(n) === null);
-    if (count < 0 || !/^comment$/i.test(after[count]!.name)) continue;
+    const count = after.findIndex(
+      ({ c, name: n }) => isCommentControl(c, n) || countOf(n) === null,
+    );
+    if (count < 0 || !isCommentControl(after[count]!.c, after[count]!.name)) continue;
     return count > 0 ? after[0]!.c : null;
   }
   return null;

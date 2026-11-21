@@ -9,6 +9,10 @@
  *   HandsFreeOS queues it with its post (`outreach.send.queue`). It waits for the person's OK while that network's
  *   comment hold or training wheels are on, then goes on its own; an answer to a post asking for exactly what the
  *   business offers always waits for an OK of its own (decision 79).
+ * - **Looked at first** (decision 166, from 0.140.0, ./post-look.ts): where the network's posts are looked at
+ *   (Instagram's), the runner opens the post's own page before the draft and takes its picture, or a few frames of
+ *   its video, which go with the draft's request for the AI to see and are kept nowhere. A post with no picture, or
+ *   one that couldn't be taken, is drafted from its words as before.
  * - **Sent once OK'd** (`sendComment`): on the post's own page, by the link kept, its warnings looked at first; written
  *   only in the post's own box (the site's `auto.comment`, ../networks/looking/kit.ts, told whose post and which), then
  *   HandsFreeOS hears how it went (`outreach.send.done`) and the comment is noted as the extension's own, with what the
@@ -17,16 +21,29 @@
  */
 import { underAPost } from '@hfos/core/addons/outreach/automation';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
+import type { PostLook } from '@hfos/core/addons/outreach/today';
 import type { Drafts, TodayListItem } from '../hfos/messages';
 import { takeNote } from '../hfos/noting';
 import { answer, api, call, Refused } from '../hfos/session';
 import { pause } from '../jobs/job';
-import type { AutoAnswer, AutoAsk } from '../messages';
+import type { AutoAnswer, AutoAsk, PostLookAnswer, PostLookAsk } from '../messages';
 import type { ProfileRef } from '../networks/facebook/types';
 import type { Work } from './plan';
+import { lookAtPost, looksAtPosts } from './post-look';
+
+/** Said when the post doesn't let them comment: whoever posted it limited who can (from 0.141.1). */
+export const COMMENTS_CLOSED = 'it doesn’t let you comment on it';
+
+/**
+ * Said when the AI wrote no comment on a post, or none that passed the checks: no comment is the right answer when
+ * there's nothing real to say (decision 165), so it's no failure, and the next visit picks another post (from 0.141.3).
+ */
+export const NOTHING_TO_SAY = 'the AI had nothing to say on it';
 
 /** While the network draws what a press sent. */
 const SETTLE_MS = 2_000;
+/** While a post's picture comes, or its video starts, before it's looked at (decision 166). */
+export const LOOK_MS = 2_500;
 
 /**
  * What a comment's draft or send came to, as the runners' own outcomes say it: done, not done (the line says why), a
@@ -34,7 +51,11 @@ const SETTLE_MS = 2_000;
  */
 export type CommentOutcome =
   | { readonly done: true; readonly line: string }
-  | { readonly done: false; readonly line: string }
+  /**
+   * `skip`: nothing could be done there (the post doesn't let them comment), or nothing should (the AI had nothing real
+   * to say on it), so it's no failure (decision 145).
+   */
+  | { readonly done: false; readonly line: string; readonly skip?: true }
   | { readonly stop: string }
   | { readonly again: string };
 
@@ -53,6 +74,11 @@ export interface CommentRunner {
     businessId: string,
   ) => Promise<{ readonly stop: string } | { readonly again: string } | null>;
 }
+
+/** A runner whose tab can look at a post too, before its comment is drafted (decision 166, ./post-look.ts). */
+export type LookingRunner = CommentRunner & {
+  readonly tab: { ask(message: PostLookAsk): Promise<PostLookAnswer> };
+};
 
 /**
  * Whether a piece of work on the list is a comment through `sends`, or the day's reply in a group: drafted, or sent
@@ -79,23 +105,37 @@ export function commentDoing(work: Work): string | null {
 
 /**
  * Drafts a comment on a good post with the AI, from the post, and hands it to HandsFreeOS with its post to wait for an
- * OK or go (decision 92).
+ * OK or go (decision 92). With `see` (the runner's tab, and whose post it is), on a network whose posts are looked at,
+ * the post's own page is opened first and its picture or its video's frames go with the draft (decision 166): a
+ * warning there stops the day and a sign-in page stops for now, as before a comment is sent.
  */
 export async function draftComment(
   item: TodayListItem,
   businessId: string,
+  see: { readonly runner: LookingRunner; readonly them: ProfileRef | null } | null = null,
 ): Promise<CommentOutcome> {
   const lead = postOf(item);
   const kind = item.kind === 'group_reply' ? 'group_reply' : 'comment';
   if (!item.profileId || !item.postId) return { done: false, line: `${lead}: no post kept` };
+  let look: PostLook | null = null;
+  if (see?.them && kind === 'comment' && item.postUrl && looksAtPosts(see.runner.platform)) {
+    await see.runner.tab.open(item.postUrl);
+    const stopped = await see.runner.onPage(businessId);
+    if (stopped) return stopped;
+    await pause(LOOK_MS);
+    look = await lookAtPost(see.runner, { profile: see.them, postUrl: item.postUrl });
+  }
   const drafted = await answer({
     type: 'hfos-draft',
     workspaceId: businessId,
-    input: { kind, profileId: item.profileId, postId: item.postId },
+    input: { kind, profileId: item.profileId, postId: item.postId, ...(look ? { look } : {}) },
   });
   if (!drafted.ok) return { done: false, line: `${lead}: ${drafted.problem.message}` };
   const text = (drafted.value as Drafts).drafts[0];
-  if (!text) return { done: false, line: `${lead}: the AI had nothing to say on it` };
+  if (!text)
+    return kind === 'comment'
+      ? { done: false, line: `${lead}: ${NOTHING_TO_SAY}`, skip: true }
+      : { done: false, line: `${lead}: ${NOTHING_TO_SAY}` };
   const queued = await call(
     api().POST('/v1/commands/outreach.send.queue', {
       body: {
@@ -112,7 +152,9 @@ export async function draftComment(
     }),
     businessId,
   );
-  const wrote = kind === 'group_reply' ? `Wrote a reply to ${lead}` : `Wrote a comment on ${lead}`;
+  const from = look ? (look.kind === 'video' ? ', from its video' : ', from its picture') : '';
+  const wrote =
+    kind === 'group_reply' ? `Wrote a reply to ${lead}` : `Wrote a comment on ${lead}${from}`;
   return {
     done: true,
     line: queued.state === 'approved' ? `${wrote}: it goes soon` : `${wrote}: it waits for your OK`,
@@ -147,9 +189,11 @@ export async function sendComment(
 ): Promise<CommentOutcome> {
   const send = item.send!;
   const lead = `${postOf(item)}: `;
-  const failed = async (why: string): Promise<CommentOutcome> => {
+  const failed = async (why: string, skip = false): Promise<CommentOutcome> => {
     await sendDone(send.sendId, businessId, false, why);
-    return { done: false, line: `${lead}${why}` };
+    return skip
+      ? { done: false, line: `${lead}${why}`, skip }
+      : { done: false, line: `${lead}${why}` };
   };
   if (!them || !item.postUrl) return failed('no link to it kept');
   await runner.tab.open(item.postUrl);
@@ -164,6 +208,7 @@ export async function sendComment(
   });
   if (!wrote.ok) return failed(wrote.error);
   if (wrote.result === 'none') return failed('couldn’t find the post’s own box to comment in');
+  if (wrote.result === 'closed') return failed(COMMENTS_CLOSED, true);
   if (wrote.result !== 'done') return failed(`${name} didn’t take the comment`);
   await takeNote(
     {

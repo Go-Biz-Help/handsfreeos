@@ -124,7 +124,14 @@ describe('every network’s profile, kept', () => {
     const mine = await runAs(owner, ws, 'outreach.profiles', {});
     expect(mine.checks.instagram.seen.username).toBe('caseyskates22');
     expect(mine.checks.linkedin).toBeNull();
-    expect(Object.keys(mine.booking)).toEqual(['facebook', 'linkedin', 'instagram', 'alignable']);
+    expect(Object.keys(mine.booking)).toEqual([
+      'facebook',
+      'linkedin',
+      'instagram',
+      'alignable',
+      'threads',
+      'x',
+    ]);
     const theirs = await runAs(other, ws, 'outreach.profiles', {});
     expect(theirs.checks.instagram).toBeNull();
   });

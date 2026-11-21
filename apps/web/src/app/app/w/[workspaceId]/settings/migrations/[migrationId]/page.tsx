@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import { MigrationWizard } from '@/components/migrations/wizard';
 import { PageHeader } from '@/components/shell/page-header';
 import { loadMigration } from '@/lib/agency/migrations';
-import { apiServer, getMe, getWorkspaceShell } from '@/lib/api/server';
+import { apiServer, getWorkspaceShell } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Migration' };
 
@@ -21,13 +21,12 @@ export default async function WorkspaceMigrationPage({
 }) {
   const { workspaceId, migrationId } = await params;
   const { api } = await apiServer();
-  const me = await getMe();
-  // Viewing as a teammate (20261018000100), it's their business the page is for.
+  // The business as the shell draws it: the person's own, one they view as a teammate (20261018000100), or one
+  // the founder is working in as its owner (20261013002100), which is never in their own list of businesses.
   const shell = await getWorkspaceShell(workspaceId);
-  const current = shell.teammateView
-    ? shell.current
-    : me.workspaces.find((w) => w.id === workspaceId);
-  if (!current) notFound();
+  const current = shell.current;
+  // A support look reads nothing here (the migration queries refuse it), so it gets the 404 page, as before.
+  if (shell.viewingAs && !shell.viewingAs.acting && !shell.teammateView) notFound();
   if (!can(current.permissions, 'migrations.manage')) notFound();
 
   const detail = await loadMigration(api, current.organizationId, migrationId, workspaceId);

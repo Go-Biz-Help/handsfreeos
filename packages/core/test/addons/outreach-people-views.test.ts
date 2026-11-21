@@ -1,6 +1,7 @@
 /**
  * People's views and Find people's cards (docs/outreach.md, decision 128): one list of everyone with a view for each
- * kind, each one of the lists HandsFreeOS keeps, and a card for each way new people are found, with the week's line.
+ * kind, each one of the lists HandsFreeOS keeps (In your hands too, decision 182), and a card for each way new people are
+ * found, with the week's line.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -26,6 +27,8 @@ describe('People’s views', () => {
       'in_play',
       'fits',
       'talking',
+      // In your hands (decision 182).
+      'hands',
       'friends',
       'requests',
       'sent',

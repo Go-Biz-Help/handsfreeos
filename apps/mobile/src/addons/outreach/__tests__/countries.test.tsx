@@ -173,12 +173,16 @@ const AUTOMATION: AutomationOutput = {
     linkedin: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
     instagram: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
     alignable: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
+    threads: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
+    x: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
   },
   fresh: {
     facebook: { on: false, from: null, until: null, days: 14 },
     linkedin: { on: false, from: null, until: null, days: 14 },
     instagram: { on: false, from: null, until: null, days: 14 },
     alignable: { on: false, from: null, until: null, days: 14 },
+    threads: { on: false, from: null, until: null, days: 14 },
+    x: { on: false, from: null, until: null, days: 14 },
   },
   userId: ME,
   name: 'Dana Reyes',
@@ -231,6 +235,9 @@ describe('The countries on Team, and their lists on You', () => {
     await render(
       <SettingsPartBody part="team" automation={AUTOMATION} {...p} manages business={BUSINESS} />,
     );
+    // A row that says what it reaches, opened with Change (decision 170, part 2).
+    expect(screen.queryByTestId('settings-countries')).toBeNull();
+    await fireEvent.press(screen.getByTestId('settings-countries-row-toggle'));
     const part = screen.getByTestId('settings-countries');
     expect(within(part).getByText('Which countries to reach')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('settings-countries-only'));
@@ -257,6 +264,10 @@ describe('The countries on Team, and their lists on You', () => {
         onCountries={onCountries}
       />,
     );
+    expect(screen.getByTestId('settings-countries-row-about')).toHaveTextContent(
+      /Only United States/,
+    );
+    await fireEvent.press(screen.getByTestId('settings-countries-row-toggle'));
     expect(screen.getByTestId('settings-country-list-unsure')).toHaveTextContent(/2/);
     await fireEvent.press(screen.getByTestId('settings-country-list-skipped'));
     expect(onCountries).toHaveBeenCalledWith('skipped');
@@ -297,6 +308,8 @@ const person = (n: number, over: Partial<CountryRow> = {}): CountryRow => ({
   country: 'CA',
   countryName: 'Canada',
   how: 'seen',
+  unsure: false,
+  whyUnsure: null,
   reason: ['Lives in Toronto, Ontario'],
   why: null,
   skippedByYou: false,
@@ -340,18 +353,43 @@ describe('The lists the country setting makes', () => {
       'unsure',
       COUNTS({
         people: [
-          person(1, { how: 'unknown', country: null, countryName: null, why: 'Too little.' }),
+          person(1, {
+            how: 'unknown',
+            country: null,
+            countryName: null,
+            unsure: true,
+            whyUnsure:
+              'Nothing on their profile or from their mutual friends says where they live.',
+            why: 'Too little.',
+          }),
+          person(2, {
+            how: 'friends',
+            country: 'AU',
+            countryName: 'Australia',
+            unsure: true,
+            whyUnsure: 'It could be Australia or United States, and the AI isn’t sure which.',
+          }),
         ],
       }),
     );
     await render(el);
     expect(screen.getByTestId('screen-title')).toHaveTextContent('Not sure where they live');
     expect(screen.getByTestId('countries-note')).toHaveTextContent(
-      'Their profile and their friends don’t agree, or there’s too little to go on. Nobody here is reached until you pick.',
+      /The AI can’t tell where these people live.*Nobody here is reached until you pick\./,
     );
-    const row = screen.getByTestId('country-row');
+    const [row, split] = screen.getAllByTestId('country-row') as [
+      ReturnType<typeof screen.getByTestId>,
+      ReturnType<typeof screen.getByTestId>,
+    ];
     expect(within(row).getByText('Couldn’t tell')).toBeTruthy();
+    expect(within(row).getByTestId('country-why-unsure')).toHaveTextContent(/^Nothing on their/);
     expect(within(row).getByText('Too little.')).toBeTruthy();
+    // A look the AI wasn't sure of is its best guess, never shown as worked out (decision 169).
+    expect(within(split).getByText('Best guess, not sure')).toBeTruthy();
+    expect(within(split).queryByText('Worked out from their profile and friends')).toBeNull();
+    expect(within(split).getByTestId('country-why-unsure')).toHaveTextContent(
+      'It could be Australia or United States, and the AI isn’t sure which.',
+    );
     await fireEvent.press(within(row).getByLabelText('Sam Example 1'));
     expect(props.onOpen).toHaveBeenCalledWith('https://www.facebook.com/sam.example.1');
     await fireEvent.press(within(row).getByTestId('country-let-through'));

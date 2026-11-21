@@ -27,6 +27,8 @@ const SHAPES: readonly RegExp[] = [
   /^you(?: replied to|:) (.+)$/di,
   /^(.+?) replied to (?:you|(.+))$/di,
   /^(.+?) and \d+ others?$/di,
+  // A post's buttons, by what they do: "React with Like to [2 words]'s post", "Like [2 words]'s post".
+  /^(?:(?:like|unlike|react|remove|change|comment|share|send|with|to|from|on)\s+)+(.+?)['’]s (?:post|photo|video|reel|comment)$/di,
   /^(.+?)['’]s (?:profile|profile picture|cover photo|post|photo|story)$/di,
   /^(.+?) (?:accepted your friend request|sent you a friend request|reacted to your (?:post|comment|photo|video|message)|commented on your (?:post|photo|video)|mentioned you in a (?:comment|post)|replied to your comment|shared your post|posted in|invited you to join|is typing)(.*)$/di,
   /^(?:comment as|reply as|follow|unfollow|add friend|cancel request|message|invite) (.+)$/di,
@@ -79,6 +81,8 @@ export const FACEBOOK_OUTLINE: OutlineSite = {
   queryKept: QUERY_KEPT,
   queryDropped: QUERY_DROPPED,
   isTopBar: (element) => element.getAttribute('role') === 'banner',
+  // Facebook's own marks on a post's buttons (its Like's, decision 138), and whether one is pressed.
+  alsoKept: ['data-ad-rendering-role', 'aria-pressed'],
 };
 
 /** Facebook's outliner: the network's own words in a link kept, names and numbers turned into {1}, {2}… */

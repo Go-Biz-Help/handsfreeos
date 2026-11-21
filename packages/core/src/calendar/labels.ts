@@ -51,7 +51,12 @@ export function inferLabels(config: CalendarConfig): CalendarLabels {
     ['group', config.capacity.seats > 1],
     ...(none ? [resource] : []),
     ['collective', !none && (config.team.assignment === 'collective' || config.team.crewSize > 1)],
-    ['dispatch', config.territory.routing === 'zip' || config.buffers.travelMinutes > 0],
+    [
+      'dispatch',
+      config.territory.routing === 'zip' ||
+        config.buffers.travelMinutes > 0 ||
+        config.buffers.driveBetween,
+    ],
     ['round_robin', ROTATING.has(config.team.assignment) && people >= 2],
     ...(none ? [] : [resource]),
     ['service', config.services.mode !== 'none'],

@@ -9,11 +9,32 @@
 import { isClock, parseClock } from '../../calendar/engine/zoned';
 import type { ContentNetwork } from './networks';
 
-/** The networks it writes posts for (part 8); posting through the extension comes in parts 9 and 10. */
-export const POSTING_NETWORKS = ['instagram', 'facebook', 'linkedin'] as const;
+/**
+ * The networks it writes posts for (part 8; Threads and X from decision 41); posting through the extension comes in
+ * parts 9 and 10.
+ */
+export const POSTING_NETWORKS = ['instagram', 'facebook', 'linkedin', 'threads', 'x'] as const;
 export type PostingNetwork = (typeof POSTING_NETWORKS)[number];
 export const isPostingNetwork = (n: unknown): n is PostingNetwork =>
   typeof n === 'string' && (POSTING_NETWORKS as readonly string[]).includes(n);
+
+/**
+ * The shapes of the pictures the AI makes, width to height, each 1080 wide. Instagram's have their own shape (the
+ * owner, 15 Nov: "the system is still creating non 1:1 images for instagram", then "apparently 3:4 is the default
+ * for instagram now"); every other network's are the 4:5 portrait. Each page of a carousel is the same shape, as
+ * Instagram wants.
+ */
+export const PICTURE_SHAPES = ['4:5', '3:4', '1:1'] as const;
+export type PictureShape = (typeof PICTURE_SHAPES)[number];
+export const PICTURE_SIZES: Readonly<Record<PictureShape, { width: number; height: number }>> = {
+  '4:5': { width: 1080, height: 1350 },
+  '3:4': { width: 1080, height: 1440 },
+  '1:1': { width: 1080, height: 1080 },
+};
+/** Instagram's shape: its profile grid and feed show 3:4 whole. */
+export const INSTAGRAM_PICTURE_SHAPE: PictureShape = '3:4';
+export const pictureShapeOf = (network: string): PictureShape =>
+  network === 'instagram' ? INSTAGRAM_PICTURE_SHAPE : '4:5';
 
 /** What a post is: a picture, a carousel of slides, a video, or words alone (Facebook and LinkedIn only). */
 export const CONTENT_FORMATS = ['photo', 'carousel', 'video', 'text'] as const;
@@ -82,8 +103,11 @@ export function placesLeft(
  * an OK'd post to the business's reading computer once its time comes.
  */
 export const POSTING = {
-  /** The networks the extension posts on: Facebook and LinkedIn (part 9), and Instagram (part 10). */
-  networks: ['facebook', 'linkedin', 'instagram'] as readonly PostingNetwork[],
+  /**
+   * The networks the extension posts on: Facebook and LinkedIn (part 9), Instagram (part 10), and Threads and X
+   * (decision 41).
+   */
+  networks: ['facebook', 'linkedin', 'instagram', 'threads', 'x'] as readonly PostingNetwork[],
   /**
    * A post the computer took to put up that hasn't said how it went after this is marked as didn't post, and never
    * tried again on its own: it may have gone up.
@@ -91,36 +115,176 @@ export const POSTING = {
   postingForMs: 20 * 60_000,
   /** An OK'd post still waiting this long after its time is marked as didn't post: the posting computer wasn't on. */
   lateMs: 24 * 3_600_000,
-  /** The most characters each network takes in a post, hashtags and all. */
-  textMost: { instagram: 2_200, facebook: 60_000, linkedin: 3_000 } as Readonly<
-    Record<PostingNetwork, number>
-  >,
+  /**
+   * The most characters each network takes in a post, hashtags and all: X's 280 is what a free account may post
+   * (decision 41).
+   */
+  textMost: {
+    instagram: 2_200,
+    facebook: 60_000,
+    linkedin: 3_000,
+    threads: 500,
+    x: 280,
+  } as Readonly<Record<PostingNetwork, number>>,
+  /**
+   * Redo (the owner, 15 Nov): posts that came out wrong or didn't go up, picked on the Calendar, go up again one at a
+   * time on each network, this far apart, so a network never sees a burst of them. Any number may be picked (the
+   * owner's OK of the design, 15 Nov: no 30 cap); the screens send them this many at a time.
+   */
+  redoEveryMs: 30 * 60_000,
+  redoMost: 500,
 } as const;
 
 /**
- * The words as they go up: the post's words, then a blank line and its hashtags, each with its #. Kept within what
- * the network takes, cutting the words (never a hashtag in half) when they'd run over.
+ * Check if it posted (the owner, 15 Nov): the reading computer looks on the network for a post that didn't post, by its
+ * first words, as a person would. Once on its own this long after one that may have gone up is marked as didn't post
+ * (Facebook can still be publishing when the extension gives up), and whenever a person asks. A look handed out is put
+ * off this long, so one never answered is simply asked again.
+ */
+export const LOOK = {
+  afterFailMs: 10 * 60_000,
+  takenMs: 30 * 60_000,
+} as const;
+
+/**
+ * Picking many posts on the Calendar (the owner, 15 Nov): a picking command takes up to `most` posts at a time (the
+ * screens send more in turns), and a pick across any date lists up to `listMost`.
+ */
+export const PICKING = { most: 500, listMost: 2_000 } as const;
+
+/** Whether a post can be looked for, or marked as posted by hand: it didn't post. */
+export const canLook = (c: { state: ContentState; network: string }): boolean =>
+  c.state === 'failed' && isPostingNetwork(c.network) && POSTING.networks.includes(c.network);
+
+/**
+ * Whether a post waiting to go up can be redone by being written again (the owner, 15 Nov): a draft or OK'd one, not
+ * hidden. The AI writes it over in new words, and its OK is taken back.
+ */
+export const canRewrite = (c: {
+  state: ContentState;
+  network: string;
+  hidden?: boolean;
+}): boolean =>
+  (c.state === 'draft' || c.state === 'ready') && !c.hidden && isPostingNetwork(c.network);
+
+/** Posts written again from Redo are written this far apart, so the AI isn't asked for them all at once. */
+export const REWRITE_GAP_MS = 20_000;
+
+/** Whether a post can be redone: it went up (it goes up again) or didn't go up (it's tried again). */
+export const canRedo = (c: { state: ContentState; network: string }): boolean =>
+  (c.state === 'posted' || c.state === 'failed') &&
+  isPostingNetwork(c.network) &&
+  POSTING.networks.includes(c.network);
+
+/**
+ * When each redone post goes, in the order given: the first on each network now, the next on that network
+ * `POSTING.redoEveryMs` later, and so on, so the networks each get theirs one at a time.
+ */
+export function redoTimes(networks: readonly string[], now: number): number[] {
+  const seen = new Map<string, number>();
+  return networks.map((n) => {
+    const k = seen.get(n) ?? 0;
+    seen.set(n, k + 1);
+    return now + k * POSTING.redoEveryMs;
+  });
+}
+
+/**
+ * Threads and X (decision 41): short posts, a picture about half the time, and now and then a chain of posts for a
+ * longer tip (the first post, then up to 4 more under it, each within the network's characters). The first carries
+ * the picture and the tags: one topic tag on Threads, 1 or 2 hashtags on X.
+ */
+export const SHORT_NETWORKS = ['threads', 'x'] as const satisfies readonly PostingNetwork[];
+export type ShortNetwork = (typeof SHORT_NETWORKS)[number];
+export const isShortNetwork = (n: unknown): n is ShortNetwork =>
+  typeof n === 'string' && (SHORT_NETWORKS as readonly string[]).includes(n);
+
+export const SHORT_POSTS = {
+  /** The most posts under the first in a chain. */
+  chainMost: 4,
+  /** The most tags a post carries: Threads takes one topic. */
+  tagsMost: { threads: 1, x: 2 } as Readonly<Record<ShortNetwork, number>>,
+  /** Posts a week to suggest when the person turns one on (they start off). */
+  suggestedPerWeek: 5,
+} as const;
+
+/** The posts under the first that a network takes: none but on Threads and X. */
+export function chainFor(network: ContentNetwork, chain: readonly string[]): string[] {
+  if (!isShortNetwork(network)) return [];
+  const most = POSTING.textMost[network];
+  return chain
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .map((t) => (t.length > most ? `${t.slice(0, most - 1).trimEnd()}…` : t))
+    .slice(0, SHORT_POSTS.chainMost);
+}
+
+/**
+ * The most hashtags a network takes on a post. Instagram takes 5 since December 2025, and a caption with more goes up
+ * without its words: the owner's first Instagram post from HandsFreeOS, with 10, went up with its picture alone
+ * (14 Nov 2026). Threads takes one topic; X, 1 or 2 (decision 41).
+ */
+export const HASHTAGS_MOST: Readonly<Partial<Record<PostingNetwork, number>>> = {
+  instagram: 5,
+  ...SHORT_POSTS.tagsMost,
+};
+
+const tagsLine = (hashtags: readonly string[]) =>
+  hashtags
+    .map((t) => t.replace(/^#+/, '').trim())
+    .filter(Boolean)
+    .map((t) => `#${t}`)
+    .join(' ');
+
+/** Hashtags written into the words themselves. */
+const tagsIn = (words: string): number => words.match(/(^|\s)#[\p{L}\p{N}_]+/gu)?.length ?? 0;
+
+/** The hashtags that go up on the network with these words: as many as it takes, counting any in the words. */
+export function tagsFor(
+  network: PostingNetwork,
+  words: string,
+  hashtags: readonly string[],
+): readonly string[] {
+  const most = HASHTAGS_MOST[network];
+  if (most === undefined) return hashtags;
+  const kept = hashtags.filter((t) => t.replace(/^#+/, '').trim());
+  return kept.slice(0, Math.max(0, most - tagsIn(words)));
+}
+
+/** How long a post's words and tags run as they go up: Threads and X count it (decision 41). */
+export function postLength(words: string, hashtags: readonly string[]): number {
+  const tags = tagsLine(hashtags);
+  return words.trim().length + (tags ? tags.length + 2 : 0);
+}
+
+/**
+ * The words with a blank line between paragraphs (decision 158; the owner, 15 Nov: a Page post "didn’t have line
+ * spaces"). Words with line breaks but no blank line anywhere were written a line to a paragraph, so each break
+ * becomes a blank line. Words with a blank line somewhere keep their spacing as written, short lines stacked on
+ * purpose included. Threads and X keep theirs too: every character counts there.
+ */
+export function withParagraphs(network: string, words: string): string {
+  if (isShortNetwork(network) || !words.includes('\n') || /\n[ \t]*\n/.test(words)) return words;
+  return words.replace(/[ \t]*\n[ \t]*/g, '\n\n');
+}
+
+/**
+ * The words as they go up: the post's words, a blank line between paragraphs (`withParagraphs`), then a blank line
+ * and its hashtags, each with its #, no more of them than the network takes (`HASHTAGS_MOST`). Kept within what the
+ * network takes, cutting the words (never a hashtag in half) when they'd run over.
  */
 export function postText(
   network: PostingNetwork,
   words: string,
   hashtags: readonly string[],
 ): string {
-  const tags = hashtags
-    .map((t) => t.replace(/^#+/, '').trim())
-    .filter(Boolean)
-    .map((t) => `#${t}`)
-    .join(' ');
+  const tags = tagsLine(tagsFor(network, words, hashtags));
   const most = POSTING.textMost[network];
   const tail = tags ? `\n\n${tags}` : '';
   const room = Math.max(0, most - tail.length);
+  const spaced = withParagraphs(network, words.trim());
   const body =
-    words.trim().length > room
-      ? `${words
-          .trim()
-          .slice(0, Math.max(0, room - 1))
-          .trimEnd()}…`
-      : words.trim();
+    spaced.length > room ? `${spaced.slice(0, Math.max(0, room - 1)).trimEnd()}…` : spaced;
   return body ? `${body}${tail}`.slice(0, most) : tags.slice(0, most);
 }
 
@@ -141,6 +305,13 @@ export const CALENDAR = {
   everyDays: 7,
   /** AI picks' hours are at least this far apart (decision 24). */
   windowLeastMinutes: 60,
+  /** What the person tells the AI a post is about, or what to change when it's written again. */
+  askMost: 500,
+  /**
+   * Today's open places show on the Calendar (never filled on its own) while their time is at least this far off, so
+   * a post written there can still be OK'd before it goes (the owner, 15 Nov: a deleted post's place stays).
+   */
+  todayLeadMs: 30 * 60_000,
 } as const;
 
 /** Each network's plan is one of these (decision 21): the AI picks the days and times, or the person does. */
@@ -188,6 +359,16 @@ export function postsAWeek(p: NetworkPlan): number {
   return p.mode === 'mine' ? p.week.reduce((n, d) => n + d.length, 0) : p.perWeek;
 }
 
+/**
+ * The network a post is written for when nobody says: the first with posts in the plan, else Instagram. Write a post
+ * starts on it, and the worker uses it when it's given none.
+ */
+export function firstPlannedNetwork(
+  plan: Readonly<Record<PostingNetwork, NetworkPlan>>,
+): PostingNetwork {
+  return POSTING_NETWORKS.find((n) => postsAWeek(plan[n]) > 0) ?? 'instagram';
+}
+
 const aiPicks = (perWeek: number, time: string): NetworkPlan => ({
   mode: 'ai',
   perWeek,
@@ -201,11 +382,14 @@ const aiPicks = (perWeek: number, time: string): NetworkPlan => ({
 /**
  * The plan until someone changes it: AI picks on each network, 3, 3 and 2 a week (the example the owner picked from on
  * 10 Nov), between 7 AM and 8 PM (decision 24). Switched to I pick, each starts from the days and time it had before.
+ * Threads and X start off, at 0 a week, till the person turns them on (decision 41: 5 a week suggested).
  */
 export const DEFAULT_PLAN: Readonly<Record<PostingNetwork, NetworkPlan>> = {
   instagram: aiPicks(3, '09:00'),
   facebook: aiPicks(3, '12:00'),
   linkedin: aiPicks(2, '08:00'),
+  threads: aiPicks(0, '10:00'),
+  x: aiPicks(0, '11:00'),
 };
 
 const clamp = (n: unknown, low: number, high: number, fallback: number): number =>
@@ -262,9 +446,14 @@ export function planOf(raw: unknown): Record<PostingNetwork, NetworkPlan> {
   return out;
 }
 
-/** The format a network can take: Instagram always needs a picture or a video. */
+/**
+ * The format a network can take: Instagram always needs a picture or a video; Threads and X take one picture, never a
+ * carousel of slides (decision 41).
+ */
 export function formatFor(network: ContentNetwork, format: ContentFormat): ContentFormat {
-  return network === 'instagram' && format === 'text' ? 'photo' : format;
+  if (network === 'instagram' && format === 'text') return 'photo';
+  if (isShortNetwork(network) && format === 'carousel') return 'photo';
+  return format;
 }
 
 /** Whether a format shows pictures (a video's cover is the network's to pick). */
@@ -283,6 +472,9 @@ export interface ReadyCheck {
   readonly facebookWhere: readonly FacebookWhere[];
   /** The business's Facebook Page's link, when it has one (Settings → Posting). */
   readonly facebookPage?: string | null;
+  /** Threads and X (decision 41): its tags and the posts under it, which must fit what the network takes. */
+  readonly hashtags?: readonly string[];
+  readonly chain?: readonly string[];
 }
 
 /**
@@ -291,6 +483,15 @@ export interface ReadyCheck {
  */
 export function stillNeeds(c: ReadyCheck): string | null {
   if (!c.words.trim() && c.format === 'text') return 'It has no words yet. Write them first.';
+  if (isShortNetwork(c.network)) {
+    const most = POSTING.textMost[c.network];
+    const name = c.network === 'x' ? 'X' : 'Threads';
+    if (postLength(c.words, c.hashtags ?? []) > most)
+      return `Its words and tags run past the ${most} characters ${name} takes. Shorten them first.`;
+    const long = (c.chain ?? []).findIndex((t) => t.trim().length > most);
+    if (long >= 0)
+      return `Post ${long + 2} in its chain runs past the ${most} characters ${name} takes. Shorten it first.`;
+  }
   if (c.format === 'carousel' && c.slides.length < 2 && c.fileIds.length < 2)
     return 'A carousel needs at least 2 slides. Add slides or pictures first.';
   if (hasPictures(c.format) && c.fileIds.length === 0)

@@ -763,9 +763,7 @@ describe('your own LinkedIn profile, asked from Get ready', () => {
     const { hfos, sent } = fakeHfos();
     const end = await onLinkedIn({ kind: 'profile_read' }, jobWith(tab, hfos).job);
     expect(end).toMatchObject({ failed: true });
-    expect(end.line).toBe(
-      'LinkedIn didn’t open your own profile. Check you’re signed in to LinkedIn in this browser, then ask again.',
-    );
+    expect(end.line).toBe('LinkedIn didn’t open your own profile. Ask again in a few minutes.');
     expect(sent).toEqual([]);
   });
 

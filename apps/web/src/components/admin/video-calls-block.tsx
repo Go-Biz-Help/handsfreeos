@@ -9,8 +9,8 @@ type Choice = 'on' | 'off';
 
 /**
  * Whether this business has HandsFreeOS video calls (docs/video-calls.md): its Online places can make them, and
- * appointments set to one show Join. Staff who manage add-ons turn them on for test businesses until every business
- * gets them (the owner's 16a). It counts from the next appointment booked.
+ * appointments set to one show Join. Every business has them since 20261027028400 (the owner's 16a); staff who manage
+ * add-ons can turn one business off. It counts from the next appointment booked.
  */
 export function VideoCallsBlock({
   workspaceId,

@@ -26,6 +26,7 @@
  * It's in `development`: offered nowhere, and installable only where HandsFreeOS staff hand it out to try.
  */
 import { defineAddon } from '../manifest';
+import { ADDON_TRIAL_DAYS } from '../billing';
 import { CONTRACTOR_LOOK_ALIKES, CONTRACTOR_PLACES } from './ai-places';
 import { ContractorSettingsSchema } from './schemas';
 import { CONTRACTOR_PAGES } from './words';
@@ -544,7 +545,8 @@ export const contractorAddon = defineAddon({
       },
     ],
   },
-  billing: { model: 'free' },
+  // $67 a month for the whole business, after 14 days free (the owner's pick, 2026-11-17).
+  billing: { model: 'paid', monthlyCents: 6700, trialDays: ADDON_TRIAL_DAYS },
   settings: { version: 1, permission: 'contractor.manage', workspace: ContractorSettingsSchema },
   ui: {
     // Its pages in the side menu, which pop out from its one row (the owner's decision, 2026-10-09).

@@ -19,12 +19,19 @@
 import { randomUUID } from 'node:crypto';
 import {
   CALENDAR,
+  canRewrite,
+  firstPlannedNetwork,
   hasPictures,
+  INSTAGRAM_PICTURE_SHAPE,
   isPostingNetwork,
+  PICTURE_SIZES,
+  pictureShapeOf,
   planOf,
   POSTING_NETWORKS,
-  postsAWeek,
+  REWRITE_GAP_MS,
   type ContentFormat,
+  type ContentState,
+  type PictureShape,
   type PostingNetwork,
 } from '@hfos/core/addons/socialcontent/calendar';
 import { movesFor, openSlots as planSlots } from '@hfos/core/addons/socialcontent/schedule';
@@ -57,17 +64,25 @@ import {
   type WrittenPost,
 } from '@hfos/core/addons/socialcontent/posts-ai';
 import type { AiContent } from '@hfos/ai';
-import type { ContentPicturedInput } from '@hfos/core/addons/socialcontent/content-shapes';
+import {
+  ContentRewriteManyInput,
+  type ContentPicturedInput,
+} from '@hfos/core/addons/socialcontent/content-shapes';
+import { SOCIALCONTENT_WORDS as W } from '@hfos/core/addons/socialcontent/words';
 import {
   CHECKS,
   checkedPictureCheck,
   fitsGraphic,
+  designProblems,
   fixAsk,
   graphicDue,
   graphicPromptFor,
+  photoFixAsk,
   PICTURE_CHECK_SCHEMA,
+  PICTURE_CHECK_VERSION,
   PICTURE_CHECK_SYSTEM,
   PictureCheckAnswer,
+  graphicToCheck,
   pageToCheck,
   pictureCheckPrompt,
   withCutWords,
@@ -102,12 +117,13 @@ import { asWorker, rows, sql } from '@hfos/db/client';
 import sharp from 'sharp';
 import { z } from 'zod';
 import { AiAskError, askStructured } from '../../ai/ask';
+import { readFileBytes } from '../../files/read';
 import { assertInWorkspace } from '../../handlers/file-removed';
 import { chargeUsage } from '../../money/wallet';
 import { PictureError } from '../../pictures';
 import { scheduleAddonJob } from '../queue';
 import { businessText, listsAllFilled, listsHere, offerIsLive, requireLiveOffer } from './business';
-import { drawDesign, PICTURE_HEIGHT, PICTURE_WIDTH, type Drawn } from './draw';
+import { drawDesign, type Drawn } from './draw';
 import { aiRefusal, suggestIdeas } from './notes';
 import { everResearched, queueResearch, researchNow } from './research';
 import { aboutOf, creatorPosts, ideasBefore, postsBefore, topicOf, type PostSeen } from './variety';
@@ -115,9 +131,11 @@ import type { AddonJobHandler, AddonScopeContext, AddonWorkerAction } from '../t
 
 export const CALENDAR_JOB = 'socialcontent.calendar';
 export const PICTURES_JOB = 'socialcontent.pictures';
+export const REWRITE_JOB = 'socialcontent.rewrite';
 export const TIMES_JOB = 'socialcontent.times';
 export const WRITE_ACTION = 'socialcontent.content.write';
 export const REWRITE_ACTION = 'socialcontent.content.rewrite';
+export const REWRITE_MANY_ACTION = 'socialcontent.content.rewrite_many';
 export const FILL_ACTION = 'socialcontent.calendar.fill';
 export const PICTURE_ACTION = 'socialcontent.content.picture';
 
@@ -299,6 +317,7 @@ async function keep(
         words: post.words,
         hashtags: post.hashtags,
         slides: post.slides,
+        chain: post.chain,
         script: post.script,
         picture: post.picture,
         pictureWay: post.pictureWay,
@@ -355,6 +374,8 @@ const emptyPost = () =>
 const WriteInputShape = z
   .object({
     network: z.enum(POSTING_NETWORKS).optional(),
+    /** Several at once (the owner, 14 Nov): a post for each, about the same thing, each written to fit its network. */
+    networks: z.array(z.enum(POSTING_NETWORKS)).min(1).max(POSTING_NETWORKS.length).optional(),
     ideaId: z.uuid().optional(),
     ask: z.string().trim().max(POST_LIMITS.ask).optional(),
     postAt: z.iso.datetime().optional(),
@@ -366,64 +387,133 @@ export const writePostNow: AddonWorkerAction<z.output<typeof WriteInputShape>> =
   ai: {
     tool: 'socialcontent_write_own_post',
     description:
-      'Have the AI write one of the business’s own posts for Instagram, Facebook or LinkedIn, from a content idea (ideaId), or from a few words of what it should be about (ask), using the Playbook and what HandsFreeOS knows about the business. It goes on the next open day in the plan for that network unless postAt is given, and waits for an OK; its picture is made on its own when the AI makes it. Refused until the business’s main offer is live.',
+      'Have the AI write one of the business’s own posts for Instagram, Facebook, LinkedIn, Threads or X (network), or one for each of several networks about the same thing (networks), each written to fit its network: from a content idea (ideaId), or from a few words of what it should be about (ask), using the Playbook and what HandsFreeOS knows about the business. With neither, the AI picks what to write about on its own, the way Fill the calendar does. Each goes on the next open day in the plan for its network unless postAt is given, and waits for an OK; its picture is made on its own when the AI makes it. Refused until the business’s main offer is live.',
     autonomy: 'auto',
     keywords: ['write a post', 'social post', 'caption', 'content calendar'],
   },
   input: WriteInputShape,
   async run(ctx, input) {
     await requireLiveOffer(ctx);
-    const idea = input.ideaId ? await ideaOf(ctx, input.ideaId) : null;
+    const chosen = input.ideaId ? await ideaOf(ctx, input.ideaId) : null;
     const here = await hereOf(ctx);
-    const network: PostingNetwork =
-      input.network ??
-      (idea?.network && isPostingNetwork(idea.network) ? idea.network : null) ??
-      POSTING_NETWORKS.find((n) => postsAWeek(here.plan[n]) > 0) ??
-      'instagram';
-    if (!idea && !input.ask && !here.playbook)
+    const asked = [
+      ...new Set([...(input.network ? [input.network] : []), ...(input.networks ?? [])]),
+    ];
+    const networks: readonly PostingNetwork[] = asked.length
+      ? asked
+      : [
+          (chosen?.network && isPostingNetwork(chosen.network) ? chosen.network : null) ??
+            firstPlannedNetwork(here.plan),
+        ];
+    const first = networks[0]!;
+    const seen = await postsBefore(ctx);
+    // No idea and no direction (AI on its own, the owner, 14 Nov): planned the way Fill the calendar plans each post,
+    // once, so every network's post is about the same thing.
+    const planned = chosen || input.ask ? null : await planOne(ctx, first, seen);
+    const idea = chosen ?? planned?.idea ?? null;
+    // With no Playbook yet, a line from the lists is enough once they're all filled, as when filling (decision 32).
+    const fromLists =
+      !idea && !input.ask && !here.playbook && planned?.topic ? await listsAllFilled(ctx) : false;
+    if (!idea && !input.ask && !here.playbook && !fromLists)
       throw HfosError.rule(
         'socialcontent_nothing_to_write_from',
         409,
         'Say what the post should be about, or pick an idea under Ideas to write it from.',
       );
-    const kind = kindOf(idea);
-    const seen = await postsBefore(ctx);
-    let post: WrittenPost | null;
-    try {
-      post = await writeOne(ctx, {
-        network,
-        playbook: here.playbook,
-        idea: ideaForAi(idea),
-        ask: input.ask ?? null,
-        before: null,
-        ...kind,
-        recent: recentFor(seen),
-        // What the person asked for says how to show it; otherwise it takes the next look (decision 39).
-        look: input.ask ? null : nextLook(seen, network, !!ctx.pictures),
-        examples: examplesFor(
-          [aboutOf(kind.topic, idea), input.ask ?? ''].join(' '),
-          await creatorPosts(ctx),
-        ),
-      });
-    } catch (e) {
-      throw e instanceof AiAskError ? aiRefusal(e) : e;
-    }
-    if (!post) throw emptyPost();
-    const open = (await openSlots(ctx, here)).filter((s) => s.network === network);
-    const postAt = input.postAt ? new Date(input.postAt).getTime() : (open[0]?.at ?? null);
-    // Written into one of the plan's open places (Write one), it's the AI's time; any other time is the person's.
-    const placedBy = postAt === null || open.some((s) => s.at === postAt) ? 'ai' : 'person';
-    const postId = await keep(ctx, post, {
-      network,
-      ideaId: idea?.id ?? null,
-      postAt,
-      askedBy: ctx.userId,
-      placedBy,
-      topic: kind.topic,
+    const kind = planned ? { angle: planned.angle, topic: planned.topic } : kindOf(idea);
+    const business = await businessText(ctx);
+    const examples = examplesFor(
+      [aboutOf(kind.topic, idea), input.ask ?? ''].join(' '),
+      await creatorPosts(ctx),
+    );
+    // Each network's post is written for it, all at once: its own length, tags and formats (Instagram never words
+    // alone, Threads and X short) come from its rules in the writer's prompt and checkedPost.
+    const tries = await Promise.allSettled(
+      networks.map((network) =>
+        writeOne(ctx, {
+          business,
+          network,
+          playbook: here.playbook,
+          idea: ideaForAi(idea),
+          ask: input.ask ?? null,
+          before: null,
+          ...kind,
+          recent: recentFor(seen),
+          // What the person asked for says how to show it; otherwise it takes the next look (decision 39).
+          look: input.ask
+            ? null
+            : planned && network === first
+              ? planned.look
+              : nextLook(seen, network, !!ctx.pictures),
+          examples,
+        }),
+      ),
+    );
+    const done = networks.flatMap((network, i) => {
+      const t = tries[i]!;
+      if (t.status === 'rejected') {
+        ctx.log.warn({ network, err: t.reason }, 'a post for one network wasn’t written');
+        return [];
+      }
+      return t.value ? [{ network, post: t.value }] : [];
     });
-    return { postId, postAt: postAt ? new Date(postAt).toISOString() : null };
+    if (!done.length) {
+      const failed = tries.find((t) => t.status === 'rejected');
+      if (failed)
+        throw failed.reason instanceof AiAskError ? aiRefusal(failed.reason) : failed.reason;
+      throw emptyPost();
+    }
+    const slots = await openSlots(ctx, here);
+    const kept: { postId: string; postAt: number | null }[] = [];
+    for (const { network, post } of done) {
+      const open = slots.filter((s) => s.network === network);
+      const postAt = input.postAt ? new Date(input.postAt).getTime() : (open[0]?.at ?? null);
+      // Written into one of the plan's open places (Write one), it's the AI's time; any other time is the person's.
+      const placedBy = postAt === null || open.some((s) => s.at === postAt) ? 'ai' : 'person';
+      const postId = await keep(ctx, post, {
+        network,
+        ideaId: idea?.id ?? null,
+        postAt,
+        askedBy: ctx.userId,
+        placedBy,
+        topic: kind.topic,
+      });
+      kept.push({ postId, postAt });
+    }
+    const at = kept[0]!.postAt;
+    return {
+      postId: kept[0]!.postId,
+      postAt: at ? new Date(at).toISOString() : null,
+      postIds: kept.map((k) => k.postId),
+      // The networks whose post the AI didn't write this time.
+      missed: networks.filter((n) => !done.some((d) => d.network === n)),
+    };
   },
 };
+
+/**
+ * What AI on its own writes from (the owner, 14 Nov): one post planned the way Fill the calendar plans each, so it
+ * takes the kind the weekly mix needs next and a waiting idea of that kind, or the next line from the lists, and the
+ * next look (decisions 34 to 39).
+ */
+async function planOne(
+  ctx: AddonScopeContext,
+  network: PostingNetwork,
+  seen: readonly PostSeen[],
+): Promise<(PlannedWrite<{ network: PostingNetwork }> & { idea: IdeaRow | null }) | null> {
+  const ideas = await ideasToUse(ctx);
+  // Waiting ideas' topics count as taken, so a post written from the lists isn't about one of them.
+  const reserved = (await ideasBefore(ctx)).map((i) => ({ angle: null, topic: i.topic }));
+  const [p] = planWrites({
+    slots: [{ network }],
+    before: [...reserved, ...seen],
+    ideas: ideas.map(ideaToPlan),
+    lists: await listsHere(ctx),
+    photos: !!ctx.pictures,
+  });
+  if (!p) return null;
+  return { ...p, idea: p.ideaId ? (ideas.find((i) => i.id === p.ideaId) ?? null) : null };
+}
 
 const RewriteInput = z
   .object({ postId: z.uuid(), ask: z.string().trim().max(POST_LIMITS.ask).optional() })
@@ -441,66 +531,178 @@ export const rewritePostNow: AddonWorkerAction<z.output<typeof RewriteInput>> = 
   input: RewriteInput,
   async run(ctx, input) {
     await requireLiveOffer(ctx);
-    const [was] = await asWorker(ctx.db, ctx.scope, (tx) =>
-      rows<{
-        network: string;
-        format: ContentFormat;
-        words: string;
-        idea_id: string | null;
-        state: string;
-        angle: string | null;
-        topic_list: string | null;
-        topic: string | null;
-      }>(
-        tx,
-        sql`select c.network, c.format, c.words, c.idea_id, c.state, c.angle, c.topic_list, c.topic
+    return { postId: await rewriteOne(ctx, input.postId, input.ask ?? null, ctx.userId) };
+  },
+};
+
+/**
+ * Writes one post again: the same kind about the same topic, in new words, or with what to change. It takes the OK
+ * back. Refused for one that went up or is going up, or isn't there anymore.
+ */
+async function rewriteOne(
+  ctx: AddonScopeContext,
+  postId: string,
+  ask: string | null,
+  askedBy: string | null,
+): Promise<string> {
+  const [was] = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{
+      network: string;
+      format: ContentFormat;
+      words: string;
+      idea_id: string | null;
+      state: string;
+      angle: string | null;
+      topic_list: string | null;
+      topic: string | null;
+    }>(
+      tx,
+      sql`select c.network, c.format, c.words, c.idea_id, c.state, c.angle, c.topic_list, c.topic
             from addon_socialcontent.content c
             join app.custom_records r on r.id = c.record_id and r.archived_at is null
-            where c.record_id = ${input.postId}::uuid and c.workspace_id = ${ctx.scope.workspaceId}`,
+            where c.record_id = ${postId}::uuid and c.workspace_id = ${ctx.scope.workspaceId}`,
+    ),
+  );
+  if (!was || !isPostingNetwork(was.network))
+    throw HfosError.notFound(
+      'That post isn’t there anymore. Refresh the page to see the ones there are.',
+    );
+  if (was.state === 'posted' || was.state === 'posting')
+    throw HfosError.rule(
+      'socialcontent_post_posted',
+      409,
+      'That post already went up, so it can’t be written again here.',
+    );
+  const here = await hereOf(ctx);
+  const idea = was.idea_id ? await ideaOf(ctx, was.idea_id).catch(() => null) : null;
+  // Written again, it stays the same kind about the same topic (decisions 34 and 36), in new words.
+  const topic = topicOf(was.topic_list, was.topic);
+  let post: WrittenPost | null;
+  try {
+    post = await writeOne(ctx, {
+      network: was.network,
+      playbook: here.playbook,
+      idea: ideaForAi(idea),
+      ask,
+      before: { words: was.words, format: was.format },
+      angle: isAngle(was.angle) ? was.angle : null,
+      topic,
+      recent: recentFor(await postsBefore(ctx)),
+      examples: examplesFor(
+        [aboutOf(topic, idea), ask ?? '', was.words.slice(0, 300)].join(' '),
+        await creatorPosts(ctx),
+      ),
+    });
+  } catch (e) {
+    throw e instanceof AiAskError ? aiRefusal(e) : e;
+  }
+  if (!post) throw emptyPost();
+  await keep(ctx, post, { network: was.network, postId, askedBy, topic });
+  return postId;
+}
+
+/**
+ * Redo on picked posts waiting to go up (the owner, 15 Nov): each is queued to be written again by the AI
+ * (`socialcontent.rewrite`), `REWRITE_GAP_MS` apart, so a month of posts doesn't ask the AI all at once and the
+ * person needn't keep the page open. Each takes its OK back once it's written. Posts that went up, or didn't post,
+ * are redone by `socialcontent.content.redo` instead; hidden ones are left until they're shown again.
+ */
+export const rewriteManyNow: AddonWorkerAction<z.output<typeof ContentRewriteManyInput>> = {
+  permission: 'socialcontent.use',
+  ai: {
+    tool: 'socialcontent_rewrite_own_posts',
+    description:
+      'Have the AI write several of the business’s own posts waiting to go up (drafts or OK’d ones, not hidden) again, in new words: the Calendar’s Redo on picked posts. They’re written in the background a few at a time, over a few minutes; each takes its OK back, so it waits for an OK again. Says which it couldn’t write again and why. Posts that went up or didn’t post are redone with socialcontent_redo_own_posts instead.',
+    // It writes drafts again, as Write it again does, and reaches nobody.
+    autonomy: 'auto',
+    keywords: ['rewrite posts', 'redo posts', 'write these again'],
+  },
+  input: ContentRewriteManyInput,
+  async run(ctx, input) {
+    await requireLiveOffer(ctx);
+    const ids = [...new Set(input.postIds)];
+    const found = await asWorker(ctx.db, ctx.scope, (tx) =>
+      rows<{ id: string; title: string; network: string; state: ContentState; hidden: boolean }>(
+        tx,
+        sql`select c.record_id as id, r.name as title, c.network, c.state, c.hidden_at is not null as hidden
+            from addon_socialcontent.content c
+            join app.custom_records r on r.id = c.record_id and r.archived_at is null
+            where c.workspace_id = ${ctx.scope.workspaceId} and c.record_id = any(${`{${ids.join(',')}}`}::uuid[])`,
       ),
     );
-    if (!was || !isPostingNetwork(was.network))
-      throw HfosError.notFound(
-        'That post isn’t there anymore. Refresh the page to see the ones there are.',
-      );
-    if (was.state === 'posted' || was.state === 'posting')
-      throw HfosError.rule(
-        'socialcontent_post_posted',
-        409,
-        'That post already went up, so it can’t be written again here.',
-      );
-    const here = await hereOf(ctx);
-    const idea = was.idea_id ? await ideaOf(ctx, was.idea_id).catch(() => null) : null;
-    // Written again, it stays the same kind about the same topic (decisions 34 and 36), in new words.
-    const topic = topicOf(was.topic_list, was.topic);
-    let post: WrittenPost | null;
-    try {
-      post = await writeOne(ctx, {
-        network: was.network,
-        playbook: here.playbook,
-        idea: ideaForAi(idea),
-        ask: input.ask ?? null,
-        before: { words: was.words, format: was.format },
-        angle: isAngle(was.angle) ? was.angle : null,
-        topic,
-        recent: recentFor(await postsBefore(ctx)),
-        examples: examplesFor(
-          [aboutOf(topic, idea), input.ask ?? '', was.words.slice(0, 300)].join(' '),
-          await creatorPosts(ctx),
-        ),
-      });
-    } catch (e) {
-      throw e instanceof AiAskError ? aiRefusal(e) : e;
+    const byId = new Map(found.map((f) => [f.id, f]));
+    const notAsked: { postId: string; title: string; why: string }[] = [];
+    const go: string[] = [];
+    for (const id of ids) {
+      const c = byId.get(id);
+      if (!c) notAsked.push({ postId: id, title: '', why: W.picking.rewriteWhy.gone });
+      else if (canRewrite(c)) go.push(id);
+      else
+        notAsked.push({
+          postId: id,
+          title: c.title,
+          why:
+            c.hidden || c.state === 'skipped'
+              ? W.picking.rewriteWhy.hidden
+              : c.state === 'failed'
+                ? W.picking.rewriteWhy.failed
+                : c.state === 'posted' || c.state === 'posting'
+                  ? W.picking.rewriteWhy.up
+                  : W.picking.rewriteWhy.network,
+        });
     }
-    if (!post) throw emptyPost();
-    await keep(ctx, post, {
-      network: was.network,
-      postId: input.postId,
-      askedBy: ctx.userId,
-      topic,
+    const now = Date.now();
+    await asWorker(ctx.db, ctx.scope, async (tx) => {
+      for (const [i, postId] of go.entries())
+        await scheduleAddonJob(
+          tx,
+          { id: ctx.manifest.id, generation: ctx.generation },
+          {
+            kind: REWRITE_JOB,
+            dedupeKey: `${REWRITE_JOB}:${postId}`,
+            runAt: new Date(now + i * REWRITE_GAP_MS),
+            payload: { postId, askedBy: ctx.userId },
+            workspaceId: ctx.scope.workspaceId,
+            organizationId: ctx.scope.organizationId,
+          },
+        );
     });
-    return { postId: input.postId };
+    return { asked: go.length, notAsked };
   },
+};
+
+/**
+ * `socialcontent.rewrite`: one post Redo asked to be written again. One that went up, is hidden or is gone since is
+ * left as it is; with the main offer no longer live it waits for nothing. What the AI couldn't write is logged, not
+ * tried again: the person sees the old words still and can press Write it again.
+ */
+export const runRewrite: AddonJobHandler = async (ctx) => {
+  const postId = String(ctx.job.payload['postId'] ?? '');
+  const askedBy =
+    typeof ctx.job.payload['askedBy'] === 'string' ? ctx.job.payload['askedBy'] : null;
+  const [c] = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{ network: string; state: ContentState; hidden: boolean }>(
+      tx,
+      sql`select c.network, c.state, c.hidden_at is not null as hidden
+          from addon_socialcontent.content c
+          join app.custom_records r on r.id = c.record_id and r.archived_at is null
+          where c.record_id = ${postId}::uuid and c.workspace_id = ${ctx.scope.workspaceId}`,
+    ),
+  );
+  if (!c || !canRewrite(c)) return;
+  if (!(await offerIsLive(ctx))) {
+    ctx.log.info(
+      { postId },
+      'a post Redo asked for isn’t written again: the main offer isn’t live',
+    );
+    return;
+  }
+  try {
+    await rewriteOne(ctx, postId, null, askedBy);
+  } catch (e) {
+    if (!(e instanceof HfosError)) throw e;
+    ctx.log.warn({ err: e, postId }, 'a post Redo asked for couldn’t be written again');
+  }
 };
 
 // ------------------------------------------------------------------------------------------------ the calendar
@@ -705,6 +907,7 @@ async function writePlanned(
       fact: !!idea?.source_url,
       format: post.format,
       photo: post.pictureWay === 'photo',
+      network: p.slot.network,
     });
     written++;
   }
@@ -976,11 +1179,13 @@ async function keepPicture(
   return fileId;
 }
 
-/** A photo or graphic OpenAI made for a post, cut to the 4:5 portrait every network shows whole. */
+/** A photo or graphic OpenAI made for a post, cut to its network's shape: Instagram's own (3:4), else 4:5. */
 interface MadePhoto {
   readonly bytes: Buffer;
   /** What it shows, for the design AI. */
   readonly shows: string;
+  /** What OpenAI was asked it shows, to ask again when the check finds a mistake in it. */
+  readonly scene: string;
 }
 
 /** The business's last designs, most recent first: the next one starts with a different layout (decision 39). */
@@ -1073,25 +1278,37 @@ async function askDesign(
   return design;
 }
 
+/** A picture as the check is shown it: one with a photo in it (a JPEG, `Drawn`) is looked at whole. */
+interface ToCheck {
+  readonly bytes: Buffer;
+  readonly photo: boolean;
+}
+
 /**
  * Claude looks at the pictures beside the words they should say (decision 40). Null when it couldn't be asked: the
  * check never stops a drawn picture, but an OpenAI graphic is kept only when it passed.
  */
 async function checkPictures(
   ctx: AddonScopeContext,
-  pictures: readonly Buffer[],
+  pictures: readonly ToCheck[],
   pages: readonly PageToCheck[],
 ): Promise<PictureCheck | null> {
   try {
     const images: AiContent[] = [];
-    for (const bytes of pictures)
+    for (const { bytes, photo } of pictures)
       images.push({
         type: 'image',
         mediaType: 'image/jpeg',
         data: (
           await sharp(bytes)
-            .resize(CHECKS.width, CHECKS.height, { fit: 'cover' })
-            .jpeg({ quality: 82 })
+            // Whole, in its own shape: Instagram's isn't cut to 4:5 for the check. A page with a photo at full size,
+            // so a thing bent out of shape shows (the owner, 17 Nov); the others smaller, enough to read every word.
+            .resize(
+              photo ? CHECKS.photoWidth : CHECKS.width,
+              photo ? CHECKS.photoHeight : CHECKS.height,
+              { fit: 'inside', withoutEnlargement: true },
+            )
+            .jpeg({ quality: photo ? 90 : 82 })
             .toBuffer()
         ).toString('base64'),
       });
@@ -1102,7 +1319,8 @@ async function checkPictures(
       ],
       schema: PICTURE_CHECK_SCHEMA,
       zod: PictureCheckAnswer,
-      maxTokens: 1500,
+      // Room for what it went over in each photo too (photoLooked).
+      maxTokens: 2500,
       usage: { source: 'addon', addonId: ctx.manifest.id },
     });
     return checkedPictureCheck(value, pictures.length);
@@ -1114,8 +1332,11 @@ async function checkPictures(
 }
 
 /**
- * Draws a design and has it checked (decision 40); one that fails is designed once more with its problems to fix,
- * and the one with fewer problems is kept.
+ * Draws a design and has it checked (decision 40); one that fails is tried up to twice more (`CHECKS.retries`), and
+ * the one with the fewest problems is kept. A problem in the words or the layout is designed again with the problems
+ * to fix; a mistake in the photo itself, like a blank screen in someone's hand or words showing through from it (the
+ * owner, 15 and 16 Nov), has the photo made again, at its 9¢, told what to avoid. When the photo can't be made again,
+ * the one before stays.
  */
 async function drawChecked(
   ctx: AddonScopeContext,
@@ -1127,33 +1348,78 @@ async function drawChecked(
   first: Design,
   photo: MadePhoto | null,
 ): Promise<{ design: Design; pictures: Drawn[]; check: PictureCheck | null }> {
-  const drawn = async (d: Design) => {
-    const pictures = await drawDesign(d, photo?.bytes ?? null);
+  const shape = pictureShapeOf(p.network);
+  const drawn = async (d: Design, under: MadePhoto | null) => {
+    const pictures = await drawDesign(d, under?.bytes ?? null, shape);
     const check = withCutWords(
       await checkPictures(
         ctx,
-        pictures.map((x) => x.bytes),
+        pictures.map((x) => ({ bytes: x.bytes, photo: x.mimeType === 'image/jpeg' })),
         d.pages.map(pageToCheck),
       ),
       pictures.map((x) => !!x.cut),
     );
     return { design: d, pictures, check };
   };
-  const one = await drawn(first);
-  if (!one.check || one.check.passes) return one;
-  ctx.log.info(
-    { postId, problems: one.check.problems },
-    'a design failed its check; designing it again',
-  );
-  try {
-    const two = await drawn(
-      await askDesign(ctx, here, business, postId, p, fixAsk(one.check, ask), photo?.shows ?? null),
+  let last = await drawn(first, photo);
+  let best = last;
+  let under = photo;
+  for (let tried = 0; tried < CHECKS.retries && last.check && !last.check.passes; tried++) {
+    const failed: PictureCheck = last.check;
+    const photoWrong = under !== null && !!failed.photo?.length;
+    ctx.log.info(
+      { postId, problems: failed.problems, photo: photoWrong, tried: tried + 1 },
+      photoWrong
+        ? 'a picture’s photo failed its check; making the photo again'
+        : 'a design failed its check; designing it again',
     );
-    return !two.check || two.check.problems.length <= one.check.problems.length ? two : one;
-  } catch (e) {
-    if (!(e instanceof AiAskError) && !(e instanceof PictureError)) throw e;
-    return one;
+    try {
+      let again = under;
+      if (photoWrong && under)
+        try {
+          again = {
+            ...under,
+            bytes: await openAiPicture(
+              ctx,
+              postId,
+              p.title,
+              photoPromptFor(under.scene, photoFixAsk(failed.photo ?? [], ask), shape),
+              'Photo-style picture, made again after its check',
+              shape,
+            ),
+          };
+        } catch (e) {
+          if (!(e instanceof PictureError)) throw e;
+          ctx.log.warn(
+            { err: e, postId },
+            'the photo couldn’t be made again; the one before stays',
+          );
+        }
+      // Only a photo's mistakes: the same design goes over the new photo.
+      const design =
+        photoWrong && !designProblems(failed).length
+          ? last.design
+          : await askDesign(
+              ctx,
+              here,
+              business,
+              postId,
+              p,
+              // Without a photo, every problem is the design's to fix.
+              fixAsk(under ? failed : { passes: false, problems: failed.problems }, ask),
+              again?.shows ?? null,
+            );
+      if (design === last.design && again === under) break;
+      last = await drawn(design, again);
+      under = again;
+      if (!last.check || !best.check || last.check.problems.length <= best.check.problems.length)
+        best = last;
+    } catch (e) {
+      if (!(e instanceof AiAskError) && !(e instanceof PictureError)) throw e;
+      break;
+    }
   }
+  return best;
 }
 
 async function keepPictures(
@@ -1186,6 +1452,7 @@ async function openAiPicture(
   title: string,
   prompt: string,
   what: string,
+  shape: PictureShape,
 ): Promise<Buffer> {
   const maker = ctx.pictures;
   if (!maker)
@@ -1197,7 +1464,7 @@ async function openAiPicture(
     walletRoom(tx, ctx.scope.workspaceId, 'ai', (m, e) => ctx.log.error({ err: e }, m)),
   );
   if (!room.allowed) throw new PictureError(WALLET_REFUSALS.ai, false);
-  const made = await maker.make(prompt);
+  const made = await maker.make(prompt, { square: shape === '1:1' });
   if (made.model !== maker.model)
     ctx.log.warn(
       { postId, model: maker.model, backup: made.model },
@@ -1210,8 +1477,9 @@ async function openAiPicture(
     // What OpenAI really counted, kept beside the 9¢ so the price can be checked against it (owner's pick, 11 Nov).
     meta: { postId, model: made.model, ...(made.usage ? { openAi: made.usage } : {}) },
   });
+  const size = PICTURE_SIZES[shape];
   return sharp(made.bytes)
-    .resize(PICTURE_WIDTH, PICTURE_HEIGHT, { fit: 'cover', position: 'attention' })
+    .resize(size.width, size.height, { fit: 'cover', position: 'attention' })
     .jpeg({ quality: 92 })
     .toBuffer();
 }
@@ -1233,7 +1501,7 @@ async function tryGraphic(
   ask: string | null,
 ): Promise<{
   readonly picture: Drawn | null;
-  readonly graphic: GraphicTry & { problems?: string[] };
+  readonly graphic: GraphicTry & { problems?: string[]; photo?: string[] };
 }> {
   const page = design.pages[0]!;
   let bytes: Buffer;
@@ -1242,8 +1510,15 @@ async function tryGraphic(
       ctx,
       postId,
       p.title,
-      graphicPromptFor({ shows: photoShows(p, prompt), page, colors: design, ask }),
+      graphicPromptFor({
+        shows: photoShows(p, prompt),
+        page,
+        colors: design,
+        ask,
+        shape: pictureShapeOf(p.network),
+      }),
       'OpenAI graphic',
+      pictureShapeOf(p.network),
     );
   } catch (e) {
     if (e instanceof PictureError && !e.retryable && !e.refused) throw e;
@@ -1254,11 +1529,7 @@ async function tryGraphic(
     );
     return { picture: null, graphic: { tried: true, passed: false } };
   }
-  const check = await checkPictures(
-    ctx,
-    [bytes],
-    [{ words: [page.kicker, page.heading].filter((w): w is string => !!w) }],
-  );
+  const check = await checkPictures(ctx, [{ bytes, photo: true }], [graphicToCheck(page)]);
   if (check?.passes)
     return { picture: { bytes, mimeType: 'image/jpeg' }, graphic: { tried: true, passed: true } };
   ctx.log.info(
@@ -1267,7 +1538,12 @@ async function tryGraphic(
   );
   return {
     picture: null,
-    graphic: { tried: true, passed: false, ...(check ? { problems: check.problems } : {}) },
+    graphic: {
+      tried: true,
+      passed: false,
+      ...(check ? { problems: check.problems } : {}),
+      ...(check?.photo?.length ? { photo: check.photo } : {}),
+    },
   };
 }
 
@@ -1279,10 +1555,156 @@ function pictureFailure(e: unknown): string {
 }
 
 /**
+ * Posts not up yet whose AI pictures were made before they'd be made now, each queued to have them made again, the
+ * way it had them (designed or photo), keeping its words:
+ *
+ * - Instagram's not in its shape (the owner, 15 Nov: "fix that and then redo all instagram images");
+ * - photo-style ones on any network made before the check looked for a photo's mistakes, like a blank screen in
+ *   someone's hand (the owner, 15 Nov), so their photos are made again under it;
+ * - photo-style ones made under that first check that still failed it, made again under the stricter one (the
+ *   owner's pick, 16 Nov);
+ * - photo-style ones that passed an older check, checked again under this one first (`recheck`), and made again only
+ *   when they fail it (the owner, 17 Nov: a laptop bent out of shape passed check 3).
+ *
+ * A picture made since says its shape and its check in its design, so this finds nothing once they're done. It runs
+ * after any post's pictures are made, with the weekly read, and when the add-on comes on. Hidden posts wait until
+ * they're shown again; people's own pictures are left alone.
+ */
+export async function remakeLeft(ctx: AddonScopeContext, exceptPostId: string | null = null) {
+  const left = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{ id: string; way: 'design' | 'photo'; recheck: boolean }>(
+      tx,
+      sql`select c.record_id as id, c.picture_way as way,
+            (c.picture_way = 'photo'
+              and (c.network <> 'instagram'
+                or coalesce(c.design ->> 'shape', '4:5') = ${INSTAGRAM_PICTURE_SHAPE})
+              and coalesce((c.design ->> 'checked')::int, 1) >= 2
+              and coalesce(c.design -> 'check' ->> 'passes', 'true') <> 'false') as recheck
+          from addon_socialcontent.content c
+          join app.custom_records r on r.id = c.record_id and r.archived_at is null
+          where c.workspace_id = ${ctx.scope.workspaceId}
+            and c.state in ('draft', 'ready', 'failed') and c.hidden_at is null
+            and c.picture_way in ('design', 'photo') and c.picture_state = 'made'
+            and c.format in ('photo', 'carousel')
+            and ((c.network = 'instagram'
+                and coalesce(c.design ->> 'shape', '4:5') <> ${INSTAGRAM_PICTURE_SHAPE})
+              or (c.picture_way = 'photo'
+                and coalesce((c.design ->> 'checked')::int, 1) < ${PICTURE_CHECK_VERSION}))
+            and c.record_id <> ${exceptPostId ?? '00000000-0000-0000-0000-000000000000'}::uuid
+          order by c.post_at nulls last
+          limit 50`,
+    ),
+  );
+  for (const [i, l] of left.entries())
+    await asWorker(ctx.db, ctx.scope, (tx) =>
+      scheduleAddonJob(
+        tx,
+        { id: ctx.manifest.id, generation: ctx.generation },
+        {
+          kind: PICTURES_JOB,
+          dedupeKey: `${PICTURES_JOB}:${l.id}`,
+          // A little apart, so a month of posts doesn't ask the AI all at once.
+          runAt: new Date(Date.now() + i * REWRITE_GAP_MS),
+          payload: {
+            postId: l.id,
+            way: l.way,
+            prompt: null,
+            ask: null,
+            ...(l.recheck ? { recheck: true } : {}),
+          },
+          workspaceId: ctx.scope.workspaceId,
+          organizationId: ctx.scope.organizationId,
+        },
+      ),
+    );
+  if (left.length)
+    ctx.log.info({ posts: left.length }, 'pictures made before queued to be made again');
+}
+
+/** The most a kept picture may be to be checked again: a drawn page is well under 2 MB. */
+const KEPT_PICTURE_MOST = 20 * 1024 * 1024;
+
+type Pictured = (
+  input: Omit<z.input<typeof ContentPicturedInput>, 'workspaceId' | 'postId'>,
+) => Promise<unknown>;
+
+/** A kept photo post's pictures that failed the check again, to be made again. */
+interface Rechecked {
+  /** What the check found; null when a picture had gone, so there was nothing whole to check. */
+  readonly check: PictureCheck | null;
+  /** The design they were drawn from, kept when only the photo was wrong; null for OpenAI's whole graphic. */
+  readonly design: Design | null;
+}
+
+/**
+ * A photo post's pictures kept under an older check, checked again under this one (the owner, 17 Nov: a laptop bent
+ * out of shape passed check 3). Null when they pass, now marked checked under it, or when the check couldn't be asked
+ * (the next catch-up tries again). Otherwise what failed and the design they were drawn from, to make them again.
+ */
+async function recheckKept(
+  ctx: AddonScopeContext,
+  postId: string,
+  pictured: Pictured,
+): Promise<Rechecked | null> {
+  const [c] = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{ design: Record<string, unknown> | null; file_ids: string[] }>(
+      tx,
+      sql`select c.design, c.file_ids from addon_socialcontent.content c
+          where c.record_id = ${postId}::uuid and c.workspace_id = ${ctx.scope.workspaceId}
+            and c.picture_state = 'made'`,
+    ),
+  );
+  // Already being made again, or failed: nothing kept to check.
+  if (!c) return null;
+  const stored = c.design as (Partial<Design> & { graphic?: GraphicTry }) | null;
+  const pages = stored?.pages ?? [];
+  const graphic = stored?.graphic?.passed === true;
+  const gone: Rechecked = { check: null, design: null };
+  if (!stored || !pages.length || !c.file_ids.length) return gone;
+  const pictures: ToCheck[] = [];
+  for (const id of c.file_ids) {
+    const f = await readFileBytes(ctx, ctx.scope, id, KEPT_PICTURE_MOST);
+    if (!f.ok) return gone;
+    pictures.push({ bytes: f.bytes, photo: f.mimeType === 'image/jpeg' });
+  }
+  const toCheck = graphic ? [graphicToCheck(pages[0]!)] : pages.map(pageToCheck);
+  if (toCheck.length !== pictures.length) return gone;
+  const check = await checkPictures(ctx, pictures, toCheck);
+  if (!check) return null;
+  if (check.passes) {
+    await pictured({
+      state: 'made',
+      fileIds: c.file_ids,
+      design: { ...c.design, check, checked: PICTURE_CHECK_VERSION },
+    });
+    return null;
+  }
+  ctx.log.info(
+    { postId, problems: check.problems },
+    'a picture kept under an older check failed this one; making it again',
+  );
+  return {
+    check,
+    design: graphic
+      ? null
+      : {
+          style: stored.style!,
+          font: stored.font!,
+          background: stored.background!,
+          text: stored.text!,
+          accent: stored.accent!,
+          photo: stored.photo === true,
+          pages,
+        },
+  };
+}
+
+/**
  * `socialcontent.pictures`: one post's AI-made pictures. The design comes first (its words); a photo post's single
  * picture is then OpenAI's whole graphic when one is due and passes the check (decision 40), else a photo OpenAI
  * makes with the words drawn over it (decision 39); a designed one is drawn. Every drawn picture is checked, and
- * designed once more when it fails.
+ * designed once more when it fails. With `recheck`, a photo post's kept pictures are checked again first, and made
+ * again only when they fail (`recheckKept`).
  */
 export const runPictures: AddonJobHandler = async (ctx) => {
   const postId = String(ctx.job.payload['postId'] ?? '');
@@ -1303,7 +1725,7 @@ export const runPictures: AddonJobHandler = async (ctx) => {
   if (asked !== 'photo' && asked !== 'design') return;
   // Without OpenAI's image model here, a photo-style picture is designed instead.
   let way: 'design' | 'photo' = asked === 'photo' && !ctx.pictures ? 'design' : asked;
-  const pictured = (input: Omit<z.input<typeof ContentPicturedInput>, 'workspaceId' | 'postId'>) =>
+  const pictured: Pictured = (input) =>
     executeCommand(
       ctx.db,
       contentPictured,
@@ -1311,16 +1733,39 @@ export const runPictures: AddonJobHandler = async (ctx) => {
       ctx.actor,
       ctx.meta,
     );
+  let rechecked: Rechecked | null = null;
+  if (ctx.job.payload['recheck'] === true && way === 'photo') {
+    rechecked = await recheckKept(ctx, postId, pictured);
+    if (!rechecked) return;
+  }
+  // What a re-check found: the design's problems for the designer, the photo's for the image model. When only the
+  // photo was wrong, the same design goes over a new one.
+  const fixing = rechecked?.check ?? null;
+  const askNow = fixing && designProblems(fixing).length ? fixAsk(fixing, ask) : ask;
+  const avoid = fixing?.photo ?? [];
+  const keptDesign = fixing && !designProblems(fixing).length ? (rechecked?.design ?? null) : null;
   await pictured({ state: 'making', way });
   try {
     const here = await hereOf(ctx);
     const business = await businessText(ctx);
     const shows = way === 'photo' ? (p.picture ?? photoShows(p, prompt)) : null;
-    let design = await askDesign(ctx, here, business, postId, p, ask, shows);
-    let graphic: (GraphicTry & { problems?: string[] }) | null = null;
-    if (way === 'photo' && p.format !== 'carousel' && fitsGraphic(design.pages[0]!)) {
+    let design = keptDesign ?? (await askDesign(ctx, here, business, postId, p, askNow, shows));
+    let graphic: (GraphicTry & { problems?: string[]; photo?: string[] }) | null = null;
+    if (
+      !keptDesign &&
+      way === 'photo' &&
+      p.format !== 'carousel' &&
+      fitsGraphic(design.pages[0]!)
+    ) {
       if (graphicDue(await graphicsBefore(ctx, postId))) {
-        const tried = await tryGraphic(ctx, postId, p, design, prompt, ask);
+        const tried = await tryGraphic(
+          ctx,
+          postId,
+          p,
+          design,
+          prompt,
+          avoid.length ? photoFixAsk(avoid, askNow) : askNow,
+        );
         graphic = tried.graphic;
         if (tried.picture) {
           const fileIds = await keepPictures(ctx, postId, p, [tried.picture]);
@@ -1328,8 +1773,14 @@ export const runPictures: AddonJobHandler = async (ctx) => {
             state: 'made',
             way,
             fileIds,
-            design: { ...design, graphic } as unknown as Record<string, unknown>,
+            design: {
+              ...design,
+              graphic,
+              shape: pictureShapeOf(p.network),
+              checked: PICTURE_CHECK_VERSION,
+            } as unknown as Record<string, unknown>,
           });
+          await remakeLeft(ctx, postId);
           return;
         }
       } else graphic = { tried: false, passed: false };
@@ -1339,15 +1790,26 @@ export const runPictures: AddonJobHandler = async (ctx) => {
     let photo: MadePhoto | null = null;
     if (way === 'photo')
       try {
+        const scene = photoShows(p, prompt);
         photo = {
           bytes: await openAiPicture(
             ctx,
             postId,
             p.title,
-            photoPromptFor(photoShows(p, prompt), ask),
+            // A graphic that failed for a mistake in its photo, or a kept photo that failed a re-check: the photo is
+            // told to avoid it.
+            photoPromptFor(
+              scene,
+              [...avoid, ...(graphic?.photo ?? [])].length
+                ? photoFixAsk([...avoid, ...(graphic?.photo ?? [])], askNow)
+                : askNow,
+              pictureShapeOf(p.network),
+            ),
             'Photo-style picture',
+            pictureShapeOf(p.network),
           ),
           shows: shows ?? '',
+          scene,
         };
       } catch (e) {
         const again =
@@ -1359,9 +1821,9 @@ export const runPictures: AddonJobHandler = async (ctx) => {
           'the photo couldn’t be made; the picture is designed instead',
         );
         way = 'design';
-        design = await askDesign(ctx, here, business, postId, p, ask, null);
+        design = await askDesign(ctx, here, business, postId, p, askNow, null);
       }
-    const done = await drawChecked(ctx, here, business, postId, p, ask, design, photo);
+    const done = await drawChecked(ctx, here, business, postId, p, askNow, design, photo);
     const fileIds = await keepPictures(ctx, postId, p, done.pictures);
     await pictured({
       state: 'made',
@@ -1371,8 +1833,11 @@ export const runPictures: AddonJobHandler = async (ctx) => {
         ...done.design,
         ...(done.check ? { check: done.check } : {}),
         ...(graphic ? { graphic } : {}),
+        shape: pictureShapeOf(p.network),
+        checked: PICTURE_CHECK_VERSION,
       } as unknown as Record<string, unknown>,
     });
+    await remakeLeft(ctx, postId);
   } catch (e) {
     const retryable =
       (e instanceof PictureError && e.retryable) || (e instanceof AiAskError && e.retryable);

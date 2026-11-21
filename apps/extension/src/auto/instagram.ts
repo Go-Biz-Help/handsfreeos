@@ -58,7 +58,7 @@ import { buttonFor } from '@hfos/core/addons/outreach/helper';
 import type { ProblemHelper } from '@hfos/core/problem-report';
 import { haltAsk } from '../asks/run';
 import { follow, loadSettings } from '../hfos/follow';
-import { feed, keptFor, onBeat, type Kept } from '../hfos/live';
+import { feed, jobKind, keptFor, onBeat, outcomeKind, type Kept } from '../hfos/live';
 import type { Drafts, TodayList, TodayListItem } from '../hfos/messages';
 import { isNoting, noteNeed, takeNote } from '../hfos/noting';
 import { clearRetried, handsOver, retryAfterUpdate } from './retry';
@@ -74,6 +74,8 @@ import { searchInstagram } from '../jobs/instagram/partner-search';
 import { lookForFollowBacks } from '../jobs/instagram/follow-backs';
 import { saveFollowers } from '../jobs/instagram/people';
 import { readLikeYours } from '../jobs/instagram/like-yours';
+import { NO_RESEARCH, researchRuns } from '../jobs/comment-research';
+import { readCommentsForResearch } from '../jobs/instagram/comment-research';
 import { readPostPeople } from '../jobs/instagram/post-people';
 import { lookAtTagsAndPlaces } from '../jobs/instagram/posts';
 import { unfollowOnItsOwn } from '../jobs/instagram/unfollow';
@@ -96,7 +98,7 @@ import {
   draftComment,
   isCommentWork,
   sendComment,
-  type CommentRunner,
+  type LookingRunner,
 } from './comments';
 import { DAILY_CHATS } from './daily';
 import { AWAY_AGAIN_MS, awayEnd, isNotAway, PutOff, waitingFor, waitingWords } from './on-screen';
@@ -164,7 +166,9 @@ export const INSTAGRAM_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'
  * Alignable's are). From 0.95.0 (decision 92) who liked and commented on the good posts the hashtags found
  * (`post_people`), and last the people found by topic checked for good fits (`found_checks`). From 0.101.0 the week's
  * helpful post asked for after the warm leads (`weekly_post`, decision 109). From 0.102.0 accounts like the business's
- * after the hashtags (`like_yours`, decision 110): searched for, and one read, its posts and its followers.
+ * after the hashtags (`like_yours`, decision 110): searched for, and one read, its posts and its followers. From
+ * 0.140.0 HandsFreeOS's own comment research after the day's finding (`comment_research`, decision 166), in batches
+ * through the day: only for whoever of HandsFreeOS's staff started one, and nothing for anyone else.
  */
 export const INSTAGRAM_DAILY = [
   'requests',
@@ -179,6 +183,7 @@ export const INSTAGRAM_DAILY = [
   'weekly_post',
   'post_people',
   'found_checks',
+  'comment_research',
   'profile',
 ] as const satisfies readonly (DailyJob | OwnDailyJob)[];
 type InstagramDaily = (typeof INSTAGRAM_DAILY)[number];
@@ -196,6 +201,7 @@ const DAILY_DOING: Readonly<Record<InstagramDaily, string>> = {
   weekly_post: 'Asking for this week’s helpful post for Instagram…',
   post_people: 'Reading who liked and commented on good posts on Instagram…',
   found_checks: 'Checking the people found on Instagram for good fits…',
+  comment_research: 'Reading comments under public posts for HandsFreeOS’s comment research…',
   profile: 'Reading your Instagram profile, as it does on the 1st of each month…',
 };
 const DAILY_NAMES: Readonly<Record<InstagramDaily, string>> = {
@@ -211,6 +217,7 @@ const DAILY_NAMES: Readonly<Record<InstagramDaily, string>> = {
   weekly_post: 'This week’s helpful post',
   post_people: 'Who liked and commented',
   found_checks: 'Check the people found',
+  comment_research: 'Comment research',
   profile: 'Read my profile',
 };
 
@@ -218,8 +225,6 @@ const DAILY_NAMES: Readonly<Record<InstagramDaily, string>> = {
 export const INSTAGRAM_GAP_MS = { least: 3 * 60_000, most: 8 * 60_000 } as const;
 /** While Instagram draws what a press opened. */
 const SETTLE_MS = 2_000;
-/** A gap longer than this closes its window until the next step. */
-const KEEP_WINDOW_MS = 5 * 60_000;
 /** After something went wrong, or Instagram asked them to sign in, it tries again this much later. */
 const AGAIN_MS = 15 * 60_000;
 /** While noting is off, it looks again this often. */
@@ -335,7 +340,7 @@ function wantOf(profileUrl: string | null): ProfileRef | null {
  * What a comment's send (./comments.ts, decision 92) borrows: this window's tab, and a look at the page it opened for
  * Instagram's warning or its sign-in.
  */
-const commenting: CommentRunner = {
+const commenting: LookingRunner = {
   platform: PLATFORM,
   tab,
   async onPage(businessId) {
@@ -762,9 +767,9 @@ async function visit(item: TodayListItem, businessId: string, likes: number): Pr
   }
   if (!liked) {
     await missed(item, businessId);
-    return { done: true, line: visitLine(item.name, PLATFORM, 0) };
+    return { done: true, line: visitLine(item.name, PLATFORM, 0, item.keepWarm?.hi === true) };
   }
-  return { done: true, line: visitLine(item.name, PLATFORM, liked) };
+  return { done: true, line: visitLine(item.name, PLATFORM, liked, item.keepWarm?.hi === true) };
 }
 
 /** A follow, with their account's own Follow (or Follow Back), then their account read again to see it went. */
@@ -1005,7 +1010,9 @@ async function bringInChat(
  * on a good post is drafted from the post (decision 92).
  */
 async function draftMessage(item: TodayListItem, businessId: string): Promise<Outcome> {
-  if (item.kind === 'comment') return draftComment(item, businessId);
+  // The post is looked at first (decision 166): its picture, or frames of its video, go with the draft.
+  if (item.kind === 'comment')
+    return draftComment(item, businessId, { runner: commenting, them: wantOf(item.profileUrl) });
   if (item.kind === 'reply' || item.kind === 'partner_reply') {
     const stopped = await bringInChat(item, businessId);
     if (stopped) return stopped;
@@ -1306,6 +1313,8 @@ export async function runInstagramDaily(kind: InstagramDaily, job: Job): Promise
       return readPostPeople(reporting(job, kind));
     case 'found_checks':
       return checkFound(job, { platform: PLATFORM, read: readThemOnInstagram });
+    case 'comment_research':
+      return readCommentsForResearch(job);
     case 'profile':
       return readProfileOnItsOwn(job, PLATFORM, (j) => instagramProfileRead(j));
   }
@@ -1438,6 +1447,15 @@ async function go(): Promise<void> {
   }
   const passOver = putOff.passOver(away);
   let daily = choices.collect ? nextInstagramDaily(state, passOver, at) : null;
+  // HandsFreeOS's own comment research (decision 166) is only for whoever of its staff started one: asked without a
+  // word once its turn comes, and for anyone else it's done for the day before a line of it is ever shown.
+  if (
+    daily === 'comment_research' &&
+    !(await researchRuns(answer as Hfos, to.businessId, PLATFORM))
+  ) {
+    state = await setState({ daily: { ...state.daily, comment_research: NO_RESEARCH } });
+    daily = nextInstagramDaily(state, passOver, at);
+  }
   // Short of good fits once the day's reading is done (decision 126, answer 6a): it finds people again, with the next
   // search words, and checks them.
   if (
@@ -1482,7 +1500,7 @@ async function go(): Promise<void> {
       return soon();
     }
     await setState({ readLast: true });
-    void feed('job', `${NAME}: ${line}`);
+    void feed(jobKind(end), `${NAME}: ${line}`);
     if (before.do === 'save' && before.first && end.failed) {
       await closeWindow();
       await say(
@@ -1505,7 +1523,7 @@ async function go(): Promise<void> {
     const line = `${DAILY_NAMES[daily]}: ${end.line}`;
     await say(line, { readLast: true });
     if (end.away) putOff.off(daily);
-    else void feed('job', `${NAME}: ${line}`);
+    else void feed(jobKind(end), `${NAME}: ${line}`);
     return soon();
   }
 
@@ -1659,7 +1677,7 @@ async function workNext(
   if (need) void noteNeed(need);
   // A step tried again that it found done already is cleared (decision 145).
   if (work.do === 'step') void clearRetried(item, outcome, businessId);
-  void feed(outcome.done ? 'done' : 'passed', `${NAME}: ${outcome.line}`);
+  void feed(outcomeKind(outcome), `${NAME}: ${outcome.line}`);
   if (stopAsked) {
     await closeWindow();
     return goAt(null);
@@ -1675,7 +1693,6 @@ async function workNext(
       random: at.random,
     }),
   );
-  if (gap > KEEP_WINDOW_MS) await closeWindow();
   await goAt(Date.now() + gap);
 }
 
@@ -1760,6 +1777,8 @@ export async function instagramTick(): Promise<void> {
     );
     await goAt(Date.now() + AGAIN_MS).catch(() => undefined);
   } finally {
+    // Its tab closes the moment the go's work is done; the next step opens a fresh one (decision 171).
+    if (tab.tabId !== null) await closeWindow().catch(() => undefined);
     busy = false;
     if (again) {
       again = false;
