@@ -26,7 +26,7 @@ import {
   type FeedSearchQuery,
 } from '@hfos/core/addons/realestate/feed';
 import { ConnectionRefused, type ConnectionTried } from '../../connections';
-import { feedJson, httpsUrl, num, obj, str } from './http';
+import { feedJson, httpsUrl, num, obj, safeFeedFetch, str } from './http';
 import {
   FeedUnreachable,
   FeedUnsupported,
@@ -253,7 +253,8 @@ export interface ResoOptions {
 }
 
 export function createResoFeed(opts: ResoOptions): ListingFeed {
-  const fetchImpl = opts.fetch ?? fetch;
+  // The address is the business's own typing: only ever through the safe fetcher, unless a test hands one in.
+  const fetchImpl = opts.fetch ?? safeFeedFetch();
   const base = opts.serviceUrl.replace(/\/+$/, '').replace(/\/Property$/i, '');
   const words = { supplier: opts.label, refused: opts.refused };
   return {
@@ -332,7 +333,7 @@ const RESO_REFUSED =
 export function resoFromFields(
   fields: Readonly<Record<string, string>>,
   cacheKey: string,
-  fetchImpl: FeedFetch = fetch,
+  fetchImpl: FeedFetch = safeFeedFetch(),
 ): ListingFeed {
   const { serviceUrl, accessToken, clientId, clientSecret, tokenUrl, mls } = fields;
   return createResoFeed({
@@ -377,7 +378,7 @@ export function resoFieldsProblem(fields: Readonly<Record<string, string>>): str
 export async function tryResoFields(
   fields: Readonly<Record<string, string>>,
   signal: AbortSignal,
-  fetchImpl: FeedFetch = fetch,
+  fetchImpl: FeedFetch = safeFeedFetch(),
 ): Promise<ConnectionTried> {
   const problem = resoFieldsProblem(fields);
   if (problem) throw new ConnectionRefused(problem);

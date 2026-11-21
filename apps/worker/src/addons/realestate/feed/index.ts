@@ -20,6 +20,7 @@ import {
 import type { AddonScopeContext } from '../../types';
 import { anypropFromFields, tryAnypropFields } from './anyprop';
 import { createRepliersFeed, tryRepliersKey } from './repliers';
+import { safeFeedFetch } from './http';
 import { forgetToken, resoFromFields, tryResoFields } from './reso';
 import { createStandinFeed, tryStandin } from './standin';
 import { FeedUnsupported, type FeedFetch, type FeedPage, type ListingFeed } from './types';
@@ -43,7 +44,8 @@ export function feedOf(
     case 'anyprop':
       return anypropFromFields(connection.secret, connection.id, fetchImpl);
     case 'reso':
-      return resoFromFields(connection.secret, connection.id, fetchImpl);
+      // The business typed this address in: through the safe fetcher (feed/http.ts), never plain fetch.
+      return resoFromFields(connection.secret, connection.id, opts.fetch ?? safeFeedFetch());
     default:
       throw new FeedUnsupported('HandsFreeOS can’t read that listing supplier yet.');
   }
