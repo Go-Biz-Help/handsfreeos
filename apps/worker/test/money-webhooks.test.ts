@@ -517,6 +517,17 @@ describe('what the routes do with an event they take', () => {
   });
 
   it('records a plan’s cycle against the plan the provider named', async () => {
+    // A business that charges sales tax: the plan is taxable (the default), and the provider bills its bare price.
+    const taxed = (rateBp: number) =>
+      rows(
+        admin(),
+        sql`update app.workspaces
+            set settings = settings || jsonb_build_object('money', coalesce(settings->'money', '{}'::jsonb)
+              || jsonb_build_object('tax', coalesce(settings->'money'->'tax', '{}'::jsonb)
+                || jsonb_build_object('rateBp', ${rateBp}::int)))
+            where id = ${w.workspaceId}`,
+      );
+    await taxed(825);
     const started = (await run(w, subscriptionStart, {
       workspaceId: w.workspaceId,
       personId: w.person.id,
@@ -575,6 +586,15 @@ describe('what the routes do with an event they take', () => {
           where id = ${started.subscriptionId}`,
     );
     expect(row).toMatchObject({ status: 'active', failed_cycles: 0 });
+    // The cycle's invoice is for what was charged, so it is paid in full: no tax on top, nothing left to chase.
+    const cycles = await rows<{ status: string; total: number; tax: number; balance: number }>(
+      admin(),
+      sql`select status::text as status, total_cents::float8 as total, tax_cents::float8 as tax,
+            balance_cents::float8 as balance
+          from app.invoices where subscription_id = ${started.subscriptionId}::uuid`,
+    );
+    expect(cycles).toEqual([{ status: 'paid', total: 2_900, tax: 0, balance: 0 }]);
+    await taxed(0);
   });
 
   it('disconnects the account when the seller revokes us at the provider', async () => {
