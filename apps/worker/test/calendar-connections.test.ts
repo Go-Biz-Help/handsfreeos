@@ -19,6 +19,7 @@ import {
   meetingConnectionDisconnect,
   meetingConnectionCheckSettings,
   appointmentAttachTranscript,
+  attendeeSetAttendance,
   callSuggestionDecide,
   callSuggestionList,
   meetingConnectionList,
@@ -1223,6 +1224,71 @@ describe('connecting Zoom', () => {
     expect(after.items.map((i) => i.status)).toEqual(['approved', 'dismissed']);
     const tasks = await rows(admin(), sql`select 1 from app.tasks where person_id = ${person!.id}`);
     expect(tasks).toHaveLength(1);
+  });
+
+  it('sends the follow-up after the end of the session marked the customer attended', async () => {
+    const call = await book('Quote follow-up call', at(-6, 15), at(-6, 16), [tech.id], {
+      kind: 'virtual',
+      video: 'zoom',
+      record: true,
+    });
+    const [person] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.people (workspace_id, first_name, last_name, email)
+          values (${workspaceId}, 'Blake', 'Burr', ${`blake-${randomUUID().slice(0, 8)}@example.com`})
+          returning id`,
+    );
+    const [seat] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.appointment_attendees (workspace_id, appointment_id, person_id, status)
+          values (${workspaceId}, ${call}, ${person!.id}, 'booked') returning id`,
+    );
+    await executeCommand(
+      s.db,
+      appointmentAttachTranscript,
+      {
+        workspaceId,
+        appointmentId: call,
+        provider: 'zoom',
+        externalId: 'review-attended',
+        body: 'Priya: I’ll send you the quote by Friday.\nBlake: Great, thanks.',
+      },
+      systemActor(scope()),
+      meta(),
+    );
+    await drain();
+    // As attendance.close does ten minutes after the session: they opened their Join link.
+    await executeCommand(
+      s.db,
+      attendeeSetAttendance,
+      { workspaceId, attendeeId: seat!.id, attendance: 'attended' },
+      systemActor(scope()),
+      meta(),
+    );
+
+    const review = await executeQuery(
+      api(),
+      callSuggestionList,
+      { workspaceId, appointmentId: call },
+      actor(tech),
+      meta(),
+    );
+    const email = review.items.find((i) => i.kind === 'follow_up')!;
+    const out = await executeCommand(
+      api(),
+      callSuggestionDecide,
+      { workspaceId, suggestionId: email.id, decision: 'approve' },
+      actor(tech),
+      meta(),
+    );
+    expect(out.output.conversationId).not.toBeNull();
+    const sent = await rows<{ person_id: string; subject: string | null }>(
+      admin(),
+      sql`select c.person_id, m.subject from app.messages m
+          join app.conversations c on c.id = m.conversation_id
+          where m.conversation_id = ${out.output.conversationId}`,
+    );
+    expect(sent).toEqual([{ person_id: person!.id, subject: 'Thanks for the call' }]);
   });
 
   it('suggests a recorded call’s task, rather than adding it, while Add tasks from what you say is off', async () => {
