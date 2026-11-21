@@ -18,6 +18,16 @@ export interface SmsSegments {
   readonly perSegment: number;
 }
 
+/**
+ * How many segments a text the business sends costs. The worker sends its plain form (`plainSmsText`), as Twilio's
+ * Smart Encoding would anyway, so a curly apostrophe from a phone's keyboard doesn't turn a one-segment text into a
+ * two-segment Unicode one. Counting the text as typed charged the business for segments it never sent. A text
+ * coming in is counted as it arrived, with `smsSegments`.
+ */
+export function sentSmsSegments(text: string): SmsSegments {
+  return smsSegments(plainSmsText(text));
+}
+
 export function smsSegments(text: string): SmsSegments {
   let units = 0;
   let gsm = true;
@@ -36,6 +46,37 @@ export function smsSegments(text: string): SmsSegments {
   }
   const segments = units === 0 ? 0 : units <= 160 ? 1 : Math.ceil(units / 153);
   return { encoding: 'gsm7', units, segments, perSegment: segments > 1 ? 153 : 160 };
+}
+
+/** A character class from code points, so no invisible characters sit in the source. */
+const charClass = (...codes: number[]) => new RegExp(`[${String.fromCodePoint(...codes)}]`, 'g');
+/** ‘ ’ ‚ ‛ ′ */
+const SINGLE_QUOTES = charClass(0x2018, 0x2019, 0x201a, 0x201b, 0x2032);
+/** “ ” „ ‟ ″ */
+const DOUBLE_QUOTES = charClass(0x201c, 0x201d, 0x201e, 0x201f, 0x2033);
+/** Figure dash, en dash, em dash, horizontal bar, minus sign. */
+const DASHES = charClass(0x2012, 0x2013, 0x2014, 0x2015, 0x2212);
+const ELLIPSIS = charClass(0x2026);
+/** No-break, en, em, figure, thin, hair and narrow no-break spaces. */
+const ODD_SPACES = charClass(0x00a0, 0x2002, 0x2003, 0x2007, 0x2009, 0x200a, 0x202f);
+/** Zero-width space, non-joiner and joiner, word joiner, byte-order mark. */
+const INVISIBLE = charClass(0x200b, 0x200c, 0x200d, 0x2060, 0xfeff);
+
+/**
+ * The plain form of a text: curly quotes, long dashes, ellipses and odd spaces become plain ones and
+ * invisible characters go, so it stays in the cheaper GSM-7 encoding. The worker sends this form, and the
+ * length check counts it.
+ */
+export function plainSmsText(text: string): string {
+  return text
+    .replace(SINGLE_QUOTES, "'")
+    .replace(DOUBLE_QUOTES, '"')
+    .replace(DASHES, '-')
+    .replace(ELLIPSIS, '...')
+    .replace(ODD_SPACES, ' ')
+    .replace(INVISIBLE, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .trim();
 }
 
 export type SmsKeyword = 'stop' | 'start' | 'help';

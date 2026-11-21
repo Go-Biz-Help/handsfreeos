@@ -18,6 +18,7 @@ import {
   phoneNumberActivate,
   phoneNumberFail,
   phoneNumberMarkReleased,
+  plainSmsText,
   rcsSending,
   registrationUpdateStatus,
   scheduleJob,
@@ -595,7 +596,9 @@ export const onMessageQueued: EventHandler = async (ctx) => {
       from: number.e164,
       messagingServiceSid: account.messagingServiceSid,
       to: conv.counterpart,
-      body: rich ? rich.smsText : (m.bodyText ?? ''),
+      // The plain form, as the segments were counted (`sentSmsSegments`): a curly apostrophe would otherwise send,
+      // and cost, a one-segment text as two Unicode ones where Twilio's Smart Encoding doesn't step in.
+      body: plainSmsText(rich ? rich.smsText : (m.bodyText ?? '')),
       mediaUrls: pictures,
       statusCallbackUrl: webhookUrls(ctx.publicUrl).smsStatusUrl,
       rcsFirst,

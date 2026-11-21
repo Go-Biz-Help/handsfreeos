@@ -75,7 +75,14 @@ import {
   RCS_LIMITS,
   replyChoices,
 } from '../messaging/rcs';
-import { confirmWord, messagePreview, smsKeyword, smsSegments, yesWord } from '../messaging/sms';
+import {
+  confirmWord,
+  messagePreview,
+  smsKeyword,
+  sentSmsSegments,
+  smsSegments,
+  yesWord,
+} from '../messaging/sms';
 import {
   isSocialChannel,
   SOCIAL_CHANNEL_NAMES,
@@ -1477,7 +1484,7 @@ export const messageSend = defineCommand({
     const rich = input.rich ? await richFor(ctx, messageId, input.body, input.rich, media) : null;
     const now = new Date();
     // A rich text is counted by its plain face: that is what a phone without RCS is sent, segment by segment.
-    const segments = smsSegments(rich ? rich.smsText : input.body).segments;
+    const segments = sentSmsSegments(rich ? rich.smsText : input.body).segments;
     const preview = messagePreview(input.body, media.length);
     const to = formatPhone(conv.counterpart);
     if (created)

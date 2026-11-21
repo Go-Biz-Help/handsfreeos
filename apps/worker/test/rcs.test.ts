@@ -390,6 +390,17 @@ describe('texts go RCS first', () => {
     expect(read).toBeTruthy();
   });
 
+  it('sends the plain form of what was typed, as its segments were counted', async () => {
+    const { messageId } = await send({
+      personId: mikeId,
+      body: 'We’re on the way — see you soon…',
+    });
+    await drain();
+    expect(fake.sent.at(-1)!.body).toBe("We're on the way - see you soon...");
+    // What the business wrote stays as they wrote it in the thread.
+    expect((await messageRow(messageId)).bodyText).toBe('We’re on the way — see you soon…');
+  });
+
   it('sends buttons as a content template whose text fallback lists the choices', async () => {
     const { messageId } = await send({
       personId: mikeId,
