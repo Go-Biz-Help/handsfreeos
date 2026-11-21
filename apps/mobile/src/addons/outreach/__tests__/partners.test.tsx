@@ -257,6 +257,7 @@ describe('a partner’s steps on Today', () => {
       requestsHeld: null,
       profileOwn: null,
       goal: null,
+      oneOnOnes: null,
       retryAt: null,
     };
     await render(

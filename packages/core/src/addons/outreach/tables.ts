@@ -37,6 +37,7 @@ import type {
 } from './automation';
 import type { EngagementKind, HelpfulState } from './helpful';
 import type { ReferralState } from './referrals';
+import type { CallHow } from './calls';
 import type { TallyKind } from './tallies';
 import type { KeptTime, TimeBooking, TimeOfferState } from './meeting-times';
 import type { AutopilotState } from './autopilot';
@@ -725,6 +726,39 @@ export const referAsks = addonOutreach.table(
   (t) => [
     unique().on(t.workspaceId, t.id),
     unique().on(t.workspaceId, t.userId, t.profileId),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * A networking call with someone the person chats with (decision 187, ./calls.ts): booked through their networking call
+ * link (`how` link) or on their Networking calendar under that person's name (`name`). The prep note pushed before it
+ * is kept with the call's time then (`preppedFor`), so a call moved later gets a new one.
+ */
+export const calls = addonOutreach.table(
+  'calls',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').notNull(),
+    appointmentId: uuid('appointment_id').notNull(),
+    personId: uuid('person_id'),
+    how: text('how').notNull().$type<CallHow>(),
+    prep: text('prep'),
+    preppedAt: ts('prepped_at'),
+    preppedFor: ts('prepped_for'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.appointmentId, t.userId),
     foreignKey({
       columns: [t.workspaceId, t.profileId],
       foreignColumns: [profiles.workspaceId, profiles.id],

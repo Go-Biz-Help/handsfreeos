@@ -184,6 +184,8 @@ export const outreachAddon = defineAddon({
       'outreach.autopilot.listed',
       'outreach.autopilot.answered',
       'outreach.comment_research.changed',
+      'outreach.call.noted',
+      'outreach.call.prepped',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts), and
@@ -218,6 +220,7 @@ export const outreachAddon = defineAddon({
     // after two, and the ask found pushes too (decision 185).
     // Someone coming into a person's hands, and a reply seen, arm the ask about them (decision 182, ./hands.ts); a
     // customer given back to the AI in Contacts is given back here too.
+    // A networking call booked, or moved, arms its prep push half an hour before (decision 187, ./calls.ts).
     consumes: [
       'outreach.download.saved',
       'outreach.chats.collected',
@@ -249,6 +252,7 @@ export const outreachAddon = defineAddon({
       'outreach.friend.accepted',
       'outreach.lead.wanted',
       'appointment.completed',
+      'appointment.rescheduled',
       'outreach.like_yours.found',
       'outreach.times.check',
       'outreach.comment_research.changed',
@@ -282,6 +286,7 @@ export const outreachAddon = defineAddon({
     'outreach.sum_comment_research',
     'outreach.find_referral',
     'outreach.refer_ask',
+    'outreach.call_prep',
     'outreach.hands_ask',
   ],
   // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
@@ -294,6 +299,7 @@ export const outreachAddon = defineAddon({
     'asks',
     'automation',
     'autopilot_people',
+    'calls',
     'checks',
     'comment_research',
     'comment_samples',

@@ -44,6 +44,7 @@
  */
 import type { ReferAsk, Referral } from '@hfos/core/addons/outreach/referrals';
 import { freshWords, underAPost, wheelsWords } from '@hfos/core/addons/outreach/automation';
+import { CALL_WORDS } from '@hfos/core/addons/outreach/calls';
 import { KNOWS_WORDS } from '@hfos/core/addons/outreach/knows';
 import { TIME_WORDS } from '@hfos/core/addons/outreach/meeting-times';
 import { clockWords } from '@hfos/core/addons/outreach/live';
@@ -142,6 +143,7 @@ const KIND_BADGE = {
   reply: 'pending',
   demo_reminder: 'accent',
   rebook: 'pending',
+  thank_you: 'ok',
   birthday: 'accent',
   new_job: 'accent',
   comment: 'accent',
@@ -259,6 +261,12 @@ export function TodayView({
         working={networks.map((n) => n.platform)}
         canManage={canManage}
       />
+      {/* The week's 1-on-1s and last week's (decision 187): none from a server before it. */}
+      {today.oneOnOnes ? (
+        <p className="mb-4 text-[13px] text-text-2" data-testid="today-one-on-ones">
+          {CALL_WORDS.week(today.oneOnOnes.week, today.oneOnOnes.lastWeek)}
+        </p>
+      ) : null}
       {headsUp ? (
         <Card className="mb-4 p-4" data-testid="today-heads-up">
           <h2 className="text-[15px] font-semibold">{W.headsUp}</h2>

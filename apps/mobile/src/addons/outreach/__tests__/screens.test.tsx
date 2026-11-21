@@ -251,6 +251,7 @@ describe('Today on the phone', () => {
       requestsHeld: null,
       profileOwn: null,
       goal: null,
+      oneOnOnes: null,
       retryAt: null,
     };
     await render(
@@ -307,6 +308,7 @@ describe('Today on the phone', () => {
       requestsHeld: null,
       profileOwn: null,
       goal: null,
+      oneOnOnes: null,
       retryAt: null,
     };
     const onOk = jest.fn();
@@ -391,6 +393,7 @@ describe('Today on the phone', () => {
       requestsHeld: null,
       profileOwn: null,
       goal: null,
+      oneOnOnes: null,
       retryAt: null,
     };
     await render(
@@ -435,6 +438,7 @@ describe('Today on the phone', () => {
       requestsHeld: null,
       profileOwn: null,
       goal: null,
+      oneOnOnes: null,
       retryAt: null,
     };
     const helpful: HelpfulListOutput = {
@@ -511,6 +515,7 @@ describe('Today on the phone', () => {
       requestsHeld: null,
       profileOwn: null,
       goal: null,
+      oneOnOnes: null,
       retryAt: null,
     };
     const referral: Referral = {
@@ -640,6 +645,7 @@ describe('Today on the phone', () => {
       requestsHeld: null,
       profileOwn: null,
       goal: null,
+      oneOnOnes: null,
       retryAt: null,
     };
     const helpful: HelpfulListOutput = {
@@ -719,6 +725,7 @@ describe('Today on the phone', () => {
       requestsHeld: null,
       profileOwn: null,
       goal: null,
+      oneOnOnes: null,
       retryAt: null,
     };
     const helpful: HelpfulListOutput = {
@@ -793,6 +800,7 @@ const todayOf = (items: TodayItem[], partners: TodayItem[] = []): TodayOutput =>
   requestsHeld: null,
   profileOwn: null,
   goal: null,
+  oneOnOnes: null,
   retryAt: null,
 });
 

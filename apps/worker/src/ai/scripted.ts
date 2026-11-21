@@ -2220,6 +2220,22 @@ function scriptedAboutYou(message: string) {
   return { about: [now === '(empty)' ? '' : now, said.join(' ')].filter(Boolean).join('\n\n') };
 }
 
+/**
+ * A networking call's prep note (decision 187): what their facts say they do, the first person they know to refer
+ * them to, and no question of its own.
+ */
+function scriptedCallPrep(message: string) {
+  const facts = unquote(/<facts>\n?([\s\S]*?)\n?<\/facts>/.exec(message)?.[1] ?? '');
+  const work = /What they do: ([^.\n]+)/.exec(facts)?.[1]?.trim();
+  const people = unquote(/<people>\n?([\s\S]*?)\n?<\/people>/.exec(message)?.[1] ?? '');
+  return {
+    about: work ? `They do ${work}.` : 'Not sure what they do yet: ask.',
+    talked: null,
+    refer: /^1\. /m.test(people) ? [{ pick: 1, why: 'could use what they do' }] : [],
+    ask: null,
+  };
+}
+
 /** The ask after two (decision 185): the playbook's starting words, filled in plainly. */
 function scriptedReferAsk(message: string) {
   const name = unquote(/<person>([\s\S]*?)<\/person>/.exec(message)?.[1] ?? 'them').trim();
@@ -2610,6 +2626,7 @@ export const OUTREACH_RULES: readonly ScriptRule[] = [
   },
   { when: /Write the note asking them back\.$/, json: (message) => scriptedReferAsk(message) },
   { when: /Write their About you\.$/, json: (message) => scriptedAboutYou(message) },
+  { when: /Write the call prep note\.$/, json: (message) => scriptedCallPrep(message) },
   { when: /Could this person be a customer\?$/, json: (message) => scriptedFitCheck(message) },
   {
     when: /Could this person send the business its customers\?$/,

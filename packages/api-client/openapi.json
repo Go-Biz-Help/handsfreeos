@@ -101360,6 +101360,7 @@
                       "reply",
                       "demo_reminder",
                       "rebook",
+                      "thank_you",
                       "birthday",
                       "new_job",
                       "partner_ask",
@@ -101528,6 +101529,7 @@
                         "reply",
                         "demo_reminder",
                         "rebook",
+                        "thank_you",
                         "birthday",
                         "new_job",
                         "partner_ask",
@@ -104185,6 +104187,7 @@
                                   "reply",
                                   "demo_reminder",
                                   "rebook",
+                                  "thank_you",
                                   "birthday",
                                   "new_job",
                                   "comment",
@@ -104662,6 +104665,7 @@
                                         "reply",
                                         "demo_reminder",
                                         "rebook",
+                                        "thank_you",
                                         "birthday",
                                         "new_job",
                                         "comment",
@@ -105422,6 +105426,7 @@
                                             "reply",
                                             "demo_reminder",
                                             "rebook",
+                                            "thank_you",
                                             "birthday",
                                             "new_job",
                                             "comment",
@@ -106043,6 +106048,7 @@
                                   "reply",
                                   "demo_reminder",
                                   "rebook",
+                                  "thank_you",
                                   "birthday",
                                   "new_job",
                                   "comment",
@@ -106364,6 +106370,7 @@
                                         "reply",
                                         "demo_reminder",
                                         "rebook",
+                                        "thank_you",
                                         "birthday",
                                         "new_job",
                                         "comment",
@@ -106725,6 +106732,7 @@
                                         "reply",
                                         "demo_reminder",
                                         "rebook",
+                                        "thank_you",
                                         "birthday",
                                         "new_job",
                                         "comment",
@@ -107082,6 +107090,7 @@
                                         "reply",
                                         "demo_reminder",
                                         "rebook",
+                                        "thank_you",
                                         "birthday",
                                         "new_job",
                                         "comment",
@@ -240848,6 +240857,7 @@
                       "reply",
                       "demo_reminder",
                       "rebook",
+                      "thank_you",
                       "birthday",
                       "new_job",
                       "warm_lead",
@@ -241010,6 +241020,7 @@
                               "reply",
                               "demo_reminder",
                               "rebook",
+                              "thank_you",
                               "birthday",
                               "new_job",
                               "warm_lead",
@@ -241345,6 +241356,7 @@
                               "reply",
                               "demo_reminder",
                               "rebook",
+                              "thank_you",
                               "birthday",
                               "new_job",
                               "warm_lead",
@@ -241748,6 +241760,7 @@
                           "reply",
                           "demo_reminder",
                           "rebook",
+                          "thank_you",
                           "birthday",
                           "new_job",
                           "warm_lead",
@@ -241785,6 +241798,7 @@
                           "reply",
                           "demo_reminder",
                           "rebook",
+                          "thank_you",
                           "birthday",
                           "new_job",
                           "partner_ask",
@@ -242201,6 +242215,34 @@
                         }
                       ]
                     },
+                    "oneOnOnes": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "week": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "lastWeek": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "week",
+                            "lastWeek"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "retryAt": {
                       "default": null,
                       "anyOf": [
@@ -242234,6 +242276,7 @@
                     "requestsHeld",
                     "profileOwn",
                     "goal",
+                    "oneOnOnes",
                     "retryAt"
                   ],
                   "additionalProperties": false
@@ -245494,6 +245537,7 @@
                               "reply",
                               "demo_reminder",
                               "rebook",
+                              "thank_you",
                               "birthday",
                               "new_job",
                               "warm_lead",
@@ -245651,6 +245695,7 @@
                               "reply",
                               "demo_reminder",
                               "rebook",
+                              "thank_you",
                               "birthday",
                               "new_job",
                               "partner_ask",
@@ -248018,6 +248063,7 @@
                                                   "reply",
                                                   "demo_reminder",
                                                   "rebook",
+                                                  "thank_you",
                                                   "birthday",
                                                   "new_job",
                                                   "comment",
@@ -248249,6 +248295,7 @@
                                       "reply",
                                       "demo_reminder",
                                       "rebook",
+                                      "thank_you",
                                       "birthday",
                                       "new_job",
                                       "partner_ask",
@@ -248510,6 +248557,7 @@
                                       "reply",
                                       "demo_reminder",
                                       "rebook",
+                                      "thank_you",
                                       "birthday",
                                       "new_job",
                                       "partner_ask",
@@ -249453,6 +249501,7 @@
                                           "reply",
                                           "demo_reminder",
                                           "rebook",
+                                          "thank_you",
                                           "birthday",
                                           "new_job",
                                           "comment",

@@ -74,6 +74,7 @@ import {
 } from '../today';
 import { FIELD_CHECK_SINCE, POST_FRESH_DAYS } from '../posts';
 import { LIST_RETRY_STEPS, needWhyWords, REQUEST_PRESSED_WHY, RETRIED_WHY } from '../waiting-words';
+import { CALL_THANKS_DAYS, CALL_WORDS } from '../calls';
 import { NEW_JOB_DAYS, OCCASION_WORDS, type OccasionKind } from '../occasions';
 import { commentSendsOn, foundByTopicOn, ownSuggestions } from '../profile-parts';
 import {
@@ -145,6 +146,7 @@ import { readinessFor } from './readiness';
 import { groupFitOf } from './group-checks';
 import { sendsToday } from './sends';
 import { heldAmong } from './in-hands';
+import { oneOnOnesOf, oneOnOnesShown } from './calls';
 import { postParts } from '../sends';
 import { requestsPauseOf } from './request-pause';
 import { slowsNow, startOfToday, warningOf } from './tidy';
@@ -1479,6 +1481,67 @@ export async function todayFor(
     followLeft -= Math.min(demoed.length, followLeft);
   }
 
+  // After a networking call (decision 187, ../calls.ts): a thank-you, for a few days after it ended, unless the person
+  // wrote to them since it began, or skipped it. Anyone owed a reply gets the reply instead. It always waits for the
+  // person's OK (the owner's 5a), on the follow-ups' limit after the demos'.
+  if (followLeft > 0) {
+    const zone = await workspaceTimezone(ctx.tx, ws);
+    const listedNow = new Set(items.map((i) => i.profileId).filter(Boolean));
+    const called = await rows<{
+      id: string;
+      name: string;
+      url: string;
+      chat_id: string | null;
+      thread_key: string | null;
+      summary: string | null;
+      next_step: string | null;
+      starts_at: Date | string;
+    }>(
+      ctx.tx,
+      sql`select distinct on (p.id) p.id, p.name, p.url, c.id as chat_id, c.thread_key, c.summary, c.next_step,
+              a.starts_at
+            from addon_outreach.calls k
+            join addon_outreach.profiles p on p.id = k.profile_id
+            join app.appointments a on a.id = k.appointment_id and a.bin_item_id is null
+            ${latestChat('p')}
+            where k.workspace_id = ${ws} and k.user_id = ${me}
+              and p.platform = ${input.platform} and ${contactable('p')} and not ${isClient('p')}
+              and a.status in ('scheduled', 'completed')
+              and a.ends_at <= ${nowAt}::timestamptz
+              and a.ends_at >= ${ago(CALL_THANKS_DAYS)}::timestamptz
+              and not exists (select 1 from app.appointment_attendees aa
+                where aa.appointment_id = a.id and aa.person_id = k.person_id
+                  and aa.status in ('cancelled', 'no_show'))
+              and not exists (select 1 from addon_outreach.touches t
+                where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message' and t.at >= a.starts_at)
+              and not exists (select 1 from addon_outreach.sends s
+                where s.profile_id = p.id and s.user_id = ${me} and s.kind = 'thank_you'
+                  and s.state = 'skipped' and s.done_at >= a.starts_at)
+              and (c.id is null or c.last_from_me or c.last_at <= a.starts_at)
+              and not exists (select 1 from addon_outreach.replies r
+                where r.profile_id = p.id and r.user_id = ${me} and r.seen_at > a.starts_at
+                  and not exists (select 1 from addon_outreach.touches t
+                    where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message' and t.at > r.seen_at))
+            order by p.id, a.starts_at desc`,
+    );
+    const thanks = called.filter((p) => !listedNow.has(p.id)).slice(0, followLeft);
+    for (const p of thanks)
+      items.push(
+        item({
+          kind: 'thank_you',
+          name: p.name,
+          profileId: p.id,
+          profileUrl: p.url,
+          chatId: p.chat_id,
+          threadKey: p.thread_key,
+          why: [CALL_WORDS.thanksWhy(demoWhen(p.starts_at, intlTimeZone(zone)))],
+          summary: p.summary,
+          nextStep: p.next_step,
+        }),
+      );
+    followLeft -= thanks.length;
+  }
+
   // A birthday today, or a new job lately (decision 108, ../occasions.ts): what the person's computer read on
   // Facebook's Birthdays page or LinkedIn's Catch up, for someone they've chatted with or the AI found a fit for a
   // playbook. Not for a client, Don't pitch, Never contact or Not a fit, nor once the person wrote to them since it
@@ -2300,6 +2363,8 @@ export async function todayFor(
     ),
     facts,
   };
+  // The person's 1-on-1s this week and last (decision 187, the owner's 6a), the same on every network's list.
+  const callWeeks = await oneOnOnesOf(ctx.tx, ws, me, new Date(now));
   const list = {
     limits,
     items: ready ? listedItems : listedItems.filter((i) => i.kind === 'reply'),
@@ -2325,6 +2390,9 @@ export async function todayFor(
     requestsHeld,
     profileOwn,
     goal,
+    oneOnOnes: oneOnOnesShown(callWeeks)
+      ? { week: callWeeks.week, lastWeek: callWeeks.lastWeek }
+      : null,
     retryAt: drafted.retryAt(input.platform),
   };
   return { list, most };

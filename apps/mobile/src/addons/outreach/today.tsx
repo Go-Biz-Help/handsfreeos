@@ -5,6 +5,7 @@ import {
   type WheelsListOutput,
 } from '@hfos/core/addons/outreach/automation';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
+import { CALL_WORDS } from '@hfos/core/addons/outreach/calls';
 import {
   helpfulOn,
   requestsAgainWords,
@@ -444,6 +445,12 @@ export function TodayBody({
       ) : null}
       {/* Short of today's first messages, why, and what to try (decision 126): none from a server before it. */}
       {list.goal ? <GoalNote platform={platform} goal={list.goal} onTry={onGoalTry} /> : null}
+      {/* The week's 1-on-1s and last week's (decision 187): none from a server before it. */}
+      {list.oneOnOnes ? (
+        <Text className="text-[13px] leading-[18px] text-text-2" testID="today-one-on-ones">
+          {CALL_WORDS.week(list.oneOnOnes.week, list.oneOnOnes.lastWeek)}
+        </Text>
+      ) : null}
       {/* Their profile, read on its own on the 1st: what the AI suggests waits for their OK (decision 99). */}
       {list.profileOwn ? (
         <View className="gap-2 rounded-menu bg-card-2 px-3 py-2.5" testID="today-profile-own">
@@ -671,10 +678,10 @@ function ItemCard({
   // A comment or a group reply drafted to wait (decisions 92 and 114): it goes under the post; skipping it puts the
   // post aside.
   const comment = underAPost(item.kind) && item.send !== null;
-  // It waits for an OK of its own, said under it: a comment's, another time after a no-show (decision 106), and a
-  // birthday or new-job note (decision 108).
+  // It waits for an OK of its own, said under it: a comment's, another time after a no-show (decision 106), a
+  // birthday or new-job note (decision 108), and a thank-you after a call (decision 187).
   const alone =
-    (comment || item.kind === 'rebook' || isOccasionKind(item.kind)) &&
+    (comment || item.kind === 'rebook' || item.kind === 'thank_you' || isOccasionKind(item.kind)) &&
     item.send?.state === 'waiting'
       ? oneByOneWords(item.send)
       : null;

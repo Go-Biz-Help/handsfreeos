@@ -5081,6 +5081,35 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         anything, and press **Save** (`user_about.set`), so nothing about them is kept that they didn't see. Counted
         as 'about_you' AI use on the business they were in (migration 031600).
       - The Assistant does the same by asking the questions itself and saving the words (`update_my_account`).
+187.  **Networking calls: a prep note before, a thank-you after, and a weekly count** (Chris, 18 Nov 2026, local
+      networking's extras 7b and 7c: "a prep note before each networking call and a thank-you after", "a weekly count
+      of 1-on-1s"; then part 4's picks 5a and 6a on 20 Nov: "a push 30 minutes before each networking call with the
+      note, and the thank-you waits on Today for your OK", "a line on Today and a Monday push with last week's
+      number"). Builds on decisions 173 and 178:
+      - **Which calls**: one booked through the person's networking call link, which now carries a `ref` for whoever
+        it went to (`callRef` in core's `demos.ts`, prefix `sn-`; the worker's `callLinkFor` in `times.ts`, for the
+        wrap-up, a yes to a call and the ask after two); or one on their Networking calendar (or, with none picked,
+        their own calendar that isn't their Lead calendar) under the name of exactly one person they chat with. Two of
+        the same name is nobody's. Each is kept once a booking and person (`outreach.call.note`, table
+        `addon_outreach.calls`, migration 031700).
+      - **The prep note** (the worker's `outreach.call_prep`, half an hour before; `calls.ts` in core and the worker):
+        the AI says what they do and where, what the chat was about, up to three people the person chats with who
+        they could refer them to (someone who might need what they do, or who serves the same customers), and one
+        question to ask. It only names people on the list it was given, and never invents a fact. With no AI, the
+        note says what's known of their work and asks who their best customer is. It's pushed to the person's phone
+        ("Call with Dana in 30 minutes") and kept with the call's time (`outreach.call.prepped`). A call moved gets its
+        push at the new time; a cancelled one gets none; each time pushes once.
+      - **The thank-you** is on Today after the call (kind `thank_you`, **Thank them for the call**), for 3 days
+        after it ends, on the follow-ups' limit after the demo reminders. It goes away once the person writes to
+        them, skips it, or they're owed a reply (the reply comes first). The AI drafts it short and warm, about the
+        call, with nothing about the business, and it **always waits for the person's OK, under Autopilot too** (5a;
+        `goesAsItIs`, and its own `needsYou`). Like a demo's messages, it leaves the conversation where it was.
+      - **One-on-ones** (6a): Today shows "One-on-ones: 2 this week, 3 last week." (`outreach.today`'s `oneOnOnes`,
+        on the web and the phone) once the person has a Networking calendar or a networking call lately. A 1-on-1 is
+        a networking call kept for them, or anything they hosted on their Networking calendar, that wasn't cancelled
+        or missed and has started; weeks start on Monday in the business's time zone. **Monday's morning push** also
+        says last week's number beside the week before, to whoever had one in the last 5 weeks.
+      - No extension change: the extension drafts and sends the thank-you as it does the day's other messages.
 
 ## Rules worth knowing before changing anything
 
@@ -5973,8 +6002,8 @@ Alignable, the business's found checks a day, results by hashtag, phrase and kin
 never checked after two weeks came with decision 116, the comment Like and Alignable's likers from guessed markup too.
 
 Local networking (decisions 177 to 180 are the first three of four parts, from the owner's picks of 18 Nov 2026) still
-to come: the About you interview, a prep note before each networking call and a thank-you after, a weekly count of
-1-on-1s, and local Facebook events (part 4; its referrals are decision 185). Referrals are done for the person only on
+to come: local Facebook events (part 4; its referrals are decision 185, the About you interview 186, and networking
+calls' prep notes, thank-yous and weekly count 187). Referrals are done for the person only on
 Facebook: on the other networks, and for someone the person talks with on another network than the post's, they wait
 on Today. Today's ordering is the only place near people go first; the Pipeline and the lists don't sort by distance
 yet.

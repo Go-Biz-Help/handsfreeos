@@ -277,6 +277,8 @@ describe('messages on their own', () => {
       // After a demo (decision 106): the reminder the day before, and another time after a no-show.
       'demo_reminder',
       'rebook',
+      // A thank-you after a networking call (decision 187), which always waits for an OK.
+      'thank_you',
       // A birthday or a new job (decision 108), which always waits for an OK.
       'birthday',
       'new_job',

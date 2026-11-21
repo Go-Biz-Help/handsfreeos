@@ -93,7 +93,7 @@ type PostRow = {
   usable: boolean;
 };
 
-type CandidateRow = {
+export type CandidateRow = {
   id: string;
   name: string;
   intro: string[];
@@ -111,7 +111,7 @@ type CandidateRow = {
  * Someone the AI picks from, as it's told of them: what they do, where, and whom they serve (decision 177), so it sees
  * they work where the post asks; never a line that names a group (decision 157).
  */
-function candidateOf(row: CandidateRow, groups: readonly string[]): ReferCandidate {
+export function candidateOf(row: CandidateRow, groups: readonly string[]): ReferCandidate {
   const said = (row.recent ?? [])
     .filter((m) => !m.fromMe && m.text.trim())
     .slice(-REFER_SAID_MOST)
@@ -479,6 +479,7 @@ export async function referAskJob(ctx: AddonJobContext): Promise<JobResult> {
     ctx,
     userId,
     await leadLinkFor(ctx, userId, details?.link),
+    profileId,
   );
   const groups = found.groups;
   const usage = { source: 'addon' as const, addonId: ctx.manifest.id };

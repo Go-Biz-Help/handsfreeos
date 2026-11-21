@@ -35,6 +35,7 @@ import { CHECK_PARTNERS_JOB, checkPartnersJob, partnerLooked } from './partners'
 import { countriesWanted, GUESS_COUNTRIES_JOB, guessCountriesJob } from './countries';
 import { downloadSaved, READ_CHATS_JOB, readChatsJob } from './chats';
 import { appointmentBooked } from './demos';
+import { CALL_PREP_JOB, callBooked, callPrepJob, callRescheduled } from './calls';
 import { appointmentCompleted, leadWanted } from './leads';
 import {
   CHECK_GROUPS_JOB,
@@ -223,7 +224,9 @@ export const outreachAddonWorker: AddonWorkerModule = {
     'outreach.friends.saved': countriesWanted,
     // Someone accepting the person's friend request pushes to their phone, when they switched that on (./alerts.ts).
     'outreach.friend.accepted': requestAccepted,
-    'appointment.booked': appointmentBooked,
+    // A networking call booked, or moved, has its prep push half an hour before it (./calls.ts, decision 187).
+    'appointment.booked': both(appointmentBooked, callBooked),
+    'appointment.rescheduled': callRescheduled,
     // A Facebook warning pushes to the person's phone, and what the extension tells the app keeps the feed's
     // pruning armed (./live.ts).
     'outreach.warning.seen': warningSeen,
@@ -273,6 +276,7 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [CHECK_POSTS_JOB]: checkPostsJob,
     [FIND_REFERRAL_JOB]: findReferralJob,
     [REFER_ASK_JOB]: referAskJob,
+    [CALL_PREP_JOB]: callPrepJob,
     [CHECK_PEOPLE_JOB]: checkPeopleJob,
     [CHECK_PARTNERS_JOB]: checkPartnersJob,
     [CHECK_GROUPS_JOB]: checkGroupsJob,

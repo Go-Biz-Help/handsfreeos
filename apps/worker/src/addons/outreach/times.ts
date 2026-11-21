@@ -23,6 +23,7 @@ import {
   type OpenTime,
   type TimeKind,
 } from '@hfos/core/addons/outreach/meeting-times';
+import { callRef, demoLink as withBookingRef } from '@hfos/core/addons/outreach/demos';
 import { timesKeep } from '@hfos/core/addons/outreach/ops/meeting-times';
 import {
   addDays,
@@ -205,14 +206,20 @@ export async function leadLinkFor(
  * (decision 178); else their own calendar, the oldest one they own that's on, public and isn't the demo page, on the
  * business's booking site. Its link has no demo ref, so a call booked on it never counts as a demo. Null when there's
  * none, or the booking site is off: the call's ask then goes with no link.
+ *
+ * For someone in particular it carries a networking call `ref` (decision 187): the call they book through it is known
+ * to be with them, for the prep push before it and the thank-you after.
  */
 export async function callLinkFor(
   ctx: AddonScopeContext,
   userId: string,
   demoLink: string | null | undefined,
+  profileId?: string | null,
 ): Promise<string | null> {
+  const withRef = (link: string) =>
+    profileId ? (withBookingRef(link, callRef(userId, profileId)) ?? link) : link;
   const picked = await pickedCalendar(ctx, userId, 'networking');
-  if (picked) return pageLink(ctx, picked, demoLink);
+  if (picked) return withRef(pageLink(ctx, picked, demoLink));
   const demo = bookingPageOf(demoLink);
   const ws = ctx.scope.workspaceId;
   const [own] = await asWorker(ctx.db, ctx.scope, (tx) =>
@@ -228,7 +235,7 @@ export async function callLinkFor(
           limit 1`,
     ),
   );
-  return own ? pageLink(ctx, own, demoLink) : null;
+  return own ? withRef(pageLink(ctx, own, demoLink)) : null;
 }
 
 /** The times a draft offers, in words. */
