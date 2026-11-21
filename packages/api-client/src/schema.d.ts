@@ -10587,7 +10587,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Start connecting a Stripe or Square account to be paid into. Returns a one-time state; the browser signs in at the provider through the worker. A business can have several accounts connected at once.
+         * Start connecting a Stripe, Square or PayPal account to be paid into. Returns a one-time state; the browser signs in at the provider through the worker. A business can have several accounts connected at once. PayPal takes one-time payments only (invoices, pay links and deposits), never plans.
          * @description Risk level 2. Requires money.manage. Emits payment_connection.connect_started.
          */
         post: operations["command_payment_connection_connect"];
@@ -44539,6 +44539,8 @@ export interface operations {
                                 prefix?: string;
                             };
                         };
+                        /** @default true */
+                        payLater?: boolean;
                         /** @default {} */
                         reminders?: {
                             /**
@@ -44574,6 +44576,8 @@ export interface operations {
                          * @enum {string}
                          */
                         terms?: "due_on_receipt" | "net_7" | "net_14" | "net_30";
+                        /** @default true */
+                        venmo?: boolean;
                     };
                     /** Format: uuid */
                     workspaceId: string;
@@ -44633,6 +44637,8 @@ export interface operations {
                                     prefix: string;
                                 };
                             };
+                            /** @default true */
+                            payLater: boolean;
                             reminders: {
                                 /**
                                  * @default [
@@ -44666,6 +44672,8 @@ export interface operations {
                              * @enum {string}
                              */
                             terms: "due_on_receipt" | "net_7" | "net_14" | "net_30";
+                            /** @default true */
+                            venmo: boolean;
                         };
                         /** Format: uuid */
                         workspaceId: string;
@@ -45460,7 +45468,7 @@ export interface operations {
                          * @default later
                          * @enum {string}
                          */
-                        payWith?: "stripe" | "square" | "later";
+                        payWith?: "stripe" | "square" | "paypal" | "later";
                         /** @default  */
                         reviewLink?: string;
                         /**
@@ -45806,7 +45814,7 @@ export interface operations {
                          * @default later
                          * @enum {string}
                          */
-                        payWith?: "stripe" | "square" | "later";
+                        payWith?: "stripe" | "square" | "paypal" | "later";
                         /** @default  */
                         reviewLink?: string;
                         /**
@@ -54559,7 +54567,7 @@ export interface operations {
                     environment?: "live" | "test";
                     label?: string | null;
                     /** @enum {string} */
-                    provider: "stripe" | "square";
+                    provider: "stripe" | "square" | "paypal";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -85067,7 +85075,7 @@ export interface operations {
                             /** Format: uuid */
                             invoiceId: string;
                             /** @enum {string} */
-                            method: "card" | "ach" | "cash" | "check" | "other" | "card_outside";
+                            method: "card" | "ach" | "cash" | "check" | "other" | "card_outside" | "paypal" | "venmo";
                             netCents: number | null;
                             note: string | null;
                             paidThrough: string | null;
@@ -87584,6 +87592,8 @@ export interface operations {
                                     prefix: string;
                                 };
                             };
+                            /** @default true */
+                            payLater: boolean;
                             reminders: {
                                 /**
                                  * @default [
@@ -87617,6 +87627,8 @@ export interface operations {
                              * @enum {string}
                              */
                             terms: "due_on_receipt" | "net_7" | "net_14" | "net_30";
+                            /** @default true */
+                            venmo: boolean;
                         };
                     };
                 };
@@ -88173,7 +88185,7 @@ export interface operations {
                              * @default later
                              * @enum {string}
                              */
-                            payWith: "stripe" | "square" | "later";
+                            payWith: "stripe" | "square" | "paypal" | "later";
                             /** @default  */
                             reviewLink: string;
                             /**
@@ -88495,7 +88507,7 @@ export interface operations {
                              * @default later
                              * @enum {string}
                              */
-                            payWith: "stripe" | "square" | "later";
+                            payWith: "stripe" | "square" | "paypal" | "later";
                             /** @default  */
                             reviewLink: string;
                             /**
@@ -88777,7 +88789,7 @@ export interface operations {
                                 broken: boolean;
                                 checking: boolean;
                                 needsInfo: boolean;
-                                provider: ("stripe" | "square") | null;
+                                provider: ("stripe" | "square" | "paypal") | null;
                             };
                             phones: number;
                             priceList: {
@@ -95572,7 +95584,7 @@ export interface operations {
                     invoiceId?: string;
                     /** @default 25 */
                     limit?: number;
-                    method?: ("card" | "ach" | "cash" | "check" | "other" | "card_outside")[];
+                    method?: ("card" | "ach" | "cash" | "check" | "other" | "card_outside" | "paypal" | "venmo")[];
                     /** Format: uuid */
                     personId?: string;
                     /** Format: date-time */
@@ -95609,7 +95621,7 @@ export interface operations {
                             invoiceId: string;
                             invoiceNumber: string | null;
                             /** @enum {string} */
-                            method: "card" | "ach" | "cash" | "check" | "other" | "card_outside";
+                            method: "card" | "ach" | "cash" | "check" | "other" | "card_outside" | "paypal" | "venmo";
                             netCents: number | null;
                             note: string | null;
                             paidThrough: string | null;

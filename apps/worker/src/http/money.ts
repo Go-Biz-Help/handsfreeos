@@ -84,13 +84,12 @@ import {
 } from '../money/links';
 import { publicLookOf } from '../look/public';
 import { publicOrigin } from '../hosting/origin';
-import { paymentKindOf, WEBHOOK_MAX_BYTES } from '../money/webhook-events';
 import {
-  accountFor,
-  paymentConnectionUsable,
-  WEBHOOK_SECRET_SETTING,
-  type PaymentConnectionRow,
-} from '../payments/index';
+  paymentKindOf,
+  WEBHOOK_MAX_BYTES,
+  WEBHOOK_SIGNATURE_HEADERS,
+} from '../money/webhook-events';
+import { accountFor, paymentConnectionUsable, WEBHOOK_SECRET_SETTING } from '../payments/index';
 import {
   declineWording,
   isPaymentProvider,
@@ -99,10 +98,16 @@ import {
   PaymentError,
   type PaymentCapabilities,
   type PaymentMethodKind,
-  type PaymentProviderName,
   type PaymentResult,
   type PaymentState,
 } from '../payments/provider';
+import {
+  accountOfStarted,
+  payableAccounts,
+  payPalButtonsOf,
+  type PayableAccount,
+  type PayableAccounts,
+} from '../payments/payable';
 import { systemActor, type TenantScope } from '../services';
 import { type PublicBusiness } from './booking';
 import { header, parseBody, recordDelivery, type HttpDeps } from './common';
@@ -238,7 +243,8 @@ const PlanCardBody = z.object({
 const PayBody = z.object({
   /** One per Pay press: a retried or doubled submit takes the payment once. */
   clientId: z.string().trim().min(8).max(64),
-  method: z.enum(['card', 'ach']).default('card'),
+  /** `paypal`: PayPal's button was pressed, so the business's PayPal account takes it (PayPal plan, part 4). */
+  method: z.enum(['card', 'ach', 'paypal']).default('card'),
   /** Square: the Web Payments token the browser minted. */
   sourceToken: z.string().trim().min(1).max(4_000).nullable().default(null),
   /** Stripe, second phase: the intent the browser has just confirmed, read back from the provider. */
@@ -432,67 +438,25 @@ type PublicRefund = {
   refundedAt: string | null;
 };
 
-/** What the account behind this invoice can take, and the public keys the browser needs to use it. */
-interface PaySession {
-  readonly provider: PaymentProviderName;
-  readonly flow: 'client_confirm' | 'server_charge';
-  /** Stripe's `pk_…`, Square's application id. Public, and safe on a customer's page. */
-  readonly publishableKey: string;
-  /** Stripe: the connected account the Elements session belongs to. Square: the merchant. */
-  readonly accountId: string;
-  /** Square: the location the Web Payments SDK charges at. */
-  readonly locationId: string | null;
-}
-
-interface PayableAccount {
-  readonly connection: PaymentConnectionRow;
-  readonly session: PaySession;
-  readonly methods: readonly PaymentMethodKind[];
-}
-
 /**
  * The account an invoice is paid into: the one it names, else the business's default. Deliberately strict —
  * only a connection that is signed in and usable can take money, and anything else reads to the customer as
  * "we can't take a payment right now", never as a provider error.
  */
-async function payableAccount(
+async function payableAccountsFor(
   deps: HttpDeps,
   tx: Tx,
   workspaceId: string,
   invoice: InvoiceRow,
   settings: MoneySettings,
-): Promise<PayableAccount | null> {
+): Promise<PayableAccounts> {
   // Paid outside HandsFreeOS: the business takes it itself and records it by hand.
-  if (invoice.pay_outside) return null;
+  if (invoice.pay_outside) return { main: null, payPal: null };
   const list = await tx
     .select()
     .from(paymentConnections)
     .where(eq(paymentConnections.workspaceId, workspaceId));
-  const chosen = invoice.connection_id
-    ? list.find((c) => c.id === invoice.connection_id)
-    : (list.find((c) => c.isDefault && paymentConnectionUsable(c)) ??
-      list.find((c) => paymentConnectionUsable(c)));
-  if (!chosen || !paymentConnectionUsable(chosen)) return null;
-  if (!isPaymentProvider(chosen.provider)) return null;
-  const provider = deps.payments.providers[chosen.provider];
-  if (!provider?.configured) return null;
-  const caps = (chosen.capabilities ?? {}) as Partial<PaymentCapabilities>;
-  const methods: PaymentMethodKind[] = [];
-  // Bank transfer leads: it is the cheap rail, and the business can switch it off.
-  if (settings.bankTransfer && caps.bankTransfer === true) methods.push('ach');
-  if (caps.card === true) methods.push('card');
-  if (!methods.length) return null;
-  return {
-    connection: chosen,
-    methods,
-    session: {
-      provider: chosen.provider,
-      flow: provider.flow,
-      publishableKey: provider.publishableKey,
-      accountId: chosen.externalAccountId ?? '',
-      locationId: chosen.locationId,
-    },
-  };
+  return payableAccounts(deps.payments, list, invoice.connection_id, settings);
 }
 
 async function invoiceView(deps: HttpDeps, scope: TenantScope, invoiceId: string) {
@@ -525,10 +489,11 @@ async function invoiceView(deps: HttpDeps, scope: TenantScope, invoiceId: string
           order by rf.refunded_at, rf.id`,
     );
     const owed = Number(row.balance_cents);
-    const account =
+    const accounts =
       row.status === 'void' || owed <= 0
-        ? null
-        : await payableAccount(deps, tx, scope.workspaceId, row, settings);
+        ? { main: null, payPal: null }
+        : await payableAccountsFor(deps, tx, scope.workspaceId, row, settings);
+    const account = accounts.main ?? accounts.payPal;
     return {
       state: state as string,
       business: await businessOf(tx, scope.workspaceId, deps.storageUrl),
@@ -595,6 +560,8 @@ async function invoiceView(deps: HttpDeps, scope: TenantScope, invoiceId: string
         methods: account?.methods ?? [],
         /** Public keys only: never a secret key, and never Square's access token. */
         session: account?.session ?? null,
+        /** PayPal's buttons, beside the fields above or on their own when PayPal is the account. */
+        payPal: payPalButtonsOf(deps.payments, accounts.payPal, settings),
       },
     };
   });
@@ -652,11 +619,13 @@ async function planAccount(
     .select()
     .from(paymentConnections)
     .where(eq(paymentConnections.workspaceId, workspaceId));
+  // PayPal takes one-time payments only (pick 4a), so it is never where a plan's card is saved.
+  const billable = (c: (typeof list)[number]) =>
+    paymentConnectionUsable(c) && c.provider !== 'paypal';
   const chosen = plan.connection_id
     ? list.find((c) => c.id === plan.connection_id)
-    : (list.find((c) => c.isDefault && paymentConnectionUsable(c)) ??
-      list.find((c) => paymentConnectionUsable(c)));
-  if (!chosen || !paymentConnectionUsable(chosen)) return null;
+    : (list.find((c) => c.isDefault && billable(c)) ?? list.find((c) => billable(c)));
+  if (!chosen || !billable(chosen)) return null;
   if (!isPaymentProvider(chosen.provider)) return null;
   const provider = deps.payments.providers[chosen.provider];
   if (!provider?.configured) return null;
@@ -1221,7 +1190,10 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
               } satisfies PayRepeat,
             };
           const settings = await loadMoneySettings(tx, scope.workspaceId);
-          const account = await payableAccount(deps, tx, scope.workspaceId, row, settings);
+          const accounts = await payableAccountsFor(deps, tx, scope.workspaceId, row, settings);
+          // PayPal's button was pressed: its account takes it, whichever account the invoice names.
+          let account =
+            body.method === 'paypal' ? accounts.payPal : (accounts.main ?? accounts.payPal);
           if (!account) throw row.pay_outside ? paidOutside() : cannotTakePayment();
           // Second phase: the intent must be one we prepared for **this** invoice. Holding the link proves
           // nothing about a payment id typed into the body, so its own row is what proves it.
@@ -1230,10 +1202,11 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
               amount_cents: number;
               method: string;
               idempotency_key: string | null;
+              connection_id: string | null;
             }>(
               tx,
               sql`select p.amount_cents::float8 as amount_cents, p.method::text as method,
-                    p.idempotency_key
+                    p.idempotency_key, p.connection_id
                   from app.payments p
                   where p.invoice_id = ${row.id}
                     and p.provider_payment_id = ${body.providerPaymentId}
@@ -1245,6 +1218,8 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
                 409,
                 'We couldn’t find that payment. Start it again from this page.',
               );
+            // Read back through the account it was started in: PayPal's, when its button started it.
+            account = accountOfStarted(accounts, started.connection_id) ?? account;
             return {
               kind: 'take',
               take: {
@@ -1415,15 +1390,14 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
       (_req, body, done) => done(null, body),
     );
 
-    for (const name of ['stripe', 'square'] as const)
+    for (const name of ['stripe', 'square', 'paypal'] as const)
       hooks.post(`/webhooks/${name}`, { bodyLimit: WEBHOOK_MAX_BYTES }, async (req, reply) => {
         const provider = deps.payments.providers[name];
         const rawBody = typeof req.body === 'string' ? req.body : '';
         const url = `${deps.publicUrl}${req.url}`;
-        const headers: Record<string, string | undefined> = {
-          'stripe-signature': header(req, 'stripe-signature'),
-          'x-square-hmacsha256-signature': header(req, 'x-square-hmacsha256-signature'),
-        };
+        const headers: Record<string, string | undefined> = Object.fromEntries(
+          WEBHOOK_SIGNATURE_HEADERS.map((h) => [h, header(req, h)]),
+        );
         // Not a forgery: with no secret to check against nothing can pass, and the log and the provider's own
         // delivery page say which setting is missing. "Invalid signature" hid that from Stripe for nine days.
         if (provider?.configured && !provider.webhooks.configured) {
@@ -1439,7 +1413,7 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
             );
         }
         // The provider's own scheme, over the exact bytes and the URL they were signed against.
-        if (!provider?.configured || !provider.webhooks.verify({ rawBody, headers, url })) {
+        if (!provider?.configured || !(await provider.webhooks.verify({ rawBody, headers, url }))) {
           deps.log.warn({ provider: name }, 'rejected an unsigned or mis-signed payment webhook');
           return reply.code(403).type('text/plain').send('Invalid signature');
         }

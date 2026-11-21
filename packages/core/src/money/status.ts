@@ -87,7 +87,17 @@ export type RefundStatus = (typeof REFUND_STATUSES)[number];
  * cheques, a card taken on the business's own machine (`card_outside`: Chase QuickAccept, a Clover) and anything
  * else are recorded by a person, not a provider.
  */
-export const PAYMENT_METHODS = ['card', 'ach', 'cash', 'check', 'other', 'card_outside'] as const;
+export const PAYMENT_METHODS = [
+  'card',
+  'ach',
+  'cash',
+  'check',
+  'other',
+  'card_outside',
+  // Through the business's PayPal account: the customer's PayPal, or Venmo. A card through PayPal is `card`.
+  'paypal',
+  'venmo',
+] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 /**

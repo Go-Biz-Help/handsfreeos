@@ -13,14 +13,20 @@
  * (components/money/provider-fields.tsx), or with the stand-in a page to go to, which sends the customer back to
  * `/hold/<token>`. Either way phase two names what the provider did, and the worker reads the answer back from
  * the provider rather than trusting anything in this page.
+ *
+ * PayPal's buttons sit under the card box when the business has PayPal connected (or alone, when PayPal is the
+ * calendar's account). They hold the deposit the same way a card is held: PayPal sets the money aside, and it is
+ * taken only once the time is confirmed.
  */
 import { ChevronLeft, CircleAlert, CreditCard, Landmark, Lock } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { PayPalButtons, type PayPalStart } from '@/components/money/paypal-buttons';
 import {
   canShowProviderFields,
   ProviderFields,
   type ProviderAnswer,
   type ProviderFieldsHandle,
+  type ProviderMethod,
   type ProviderSession,
 } from '@/components/money/provider-fields';
 import { Button } from '@/components/ui/button';
@@ -38,7 +44,12 @@ import { dayShort, lengthLabel, money, timeOf, timeRange, joinNames, dayLong } f
 import { callPhrase } from './public-shell';
 import { zoneWords } from './viewer-zone';
 
-const METHODS: Record<PayMethod, { label: string; note: string; icon: typeof Landmark }> = {
+/** The ways to pay through the card box: PayPal has buttons of its own. */
+type CardMethod = Exclude<PayMethod, 'paypal'>;
+const cardMethodsOf = (methods: readonly PayMethod[]): CardMethod[] =>
+  methods.filter((m): m is CardMethod => m !== 'paypal');
+
+const METHODS: Record<CardMethod, { label: string; note: string; icon: typeof Landmark }> = {
   ach: { label: 'Bank transfer', note: 'Takes 1 to 3 business days.', icon: Landmark },
   card: {
     label: 'Card',
@@ -67,7 +78,10 @@ export function recallPress(token: string): { clientId: string; method: PayMetho
     const raw = sessionStorage.getItem(pressKey(token));
     const parsed = raw ? (JSON.parse(raw) as { clientId?: string; method?: string }) : null;
     return parsed?.clientId
-      ? { clientId: parsed.clientId, method: parsed.method === 'ach' ? 'ach' : 'card' }
+      ? {
+          clientId: parsed.clientId,
+          method: parsed.method === 'ach' || parsed.method === 'paypal' ? parsed.method : 'card',
+        }
       : null;
   } catch {
     return null;
@@ -165,7 +179,9 @@ export function DepositStep({
   stepLabel?: string;
   notice?: string | null;
 }) {
-  const [method, setMethod] = useState<PayMethod>(hold.pay.methods[0] ?? 'card');
+  const cardMethods = cardMethodsOf(hold.pay.methods);
+  const payPal = hold.pay.payPal ?? null;
+  const [method, setMethod] = useState<CardMethod>(cardMethods[0] ?? 'card');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // On the business's own site: the provider's page, opened in a tab of its own (it refuses to be shown inside
@@ -219,7 +235,7 @@ export function DepositStep({
   }
 
   /** Back to the ways to pay, maybe with the other one picked. Nothing was taken: the press is dropped. */
-  function leaveFields(next: PayMethod | null) {
+  function leaveFields(next: CardMethod | null) {
     forgetPress(hold.holdToken);
     setFields(null);
     setFieldsReady(false);
@@ -227,8 +243,64 @@ export function DepositStep({
     if (next) setMethod(next);
   }
 
+  /**
+   * A press of one of PayPal's buttons: phase one for PayPal's account, which answers with the order PayPal's
+   * window approves (or, with the stand-in, the page to go to). Null when there is nothing to open, and the page
+   * already says why.
+   */
+  async function startPayPal(): Promise<PayPalStart> {
+    if (busy || !hold.pay.canPay) return null;
+    setError(null);
+    const press = { clientId: newClientId(), method: 'paypal' as const };
+    rememberPress(hold.holdToken, press);
+    try {
+      const answer = await payDeposit(hold.holdToken, { ...press, website: '' });
+      if (answer.stage === 'recorded') {
+        landed(answer);
+        return null;
+      }
+      if (answer.payment.hostedUrl && embedded) {
+        const tab = window.open(answer.payment.hostedUrl, '_blank');
+        if (tab) tab.opener = null;
+        setPayTab({ url: answer.payment.hostedUrl, opened: !!tab });
+        return null;
+      }
+      if (answer.payment.hostedUrl) return { hostedUrl: answer.payment.hostedUrl };
+      if (answer.payment.providerPaymentId) return { orderId: answer.payment.providerPaymentId };
+      forgetPress(hold.holdToken);
+      setError(
+        `We couldn’t open PayPal just now. Try again in a minute, or ${callPhrase(hold.business)}.`,
+      );
+      return null;
+    } catch (e) {
+      forgetPress(hold.holdToken);
+      setError(e instanceof ApiError ? e.message : 'Something went wrong. Please try again.');
+      return null;
+    }
+  }
+
+  /** PayPal's window approved the order: phase two holds the money there and confirms the time. */
+  async function approvedPayPal(orderId: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      const answer = await payDeposit(hold.holdToken, {
+        clientId: recallPress(hold.holdToken)?.clientId ?? newClientId(),
+        method: 'paypal',
+        providerPaymentId: orderId,
+        website: '',
+      });
+      if (answer.stage === 'recorded') landed(answer);
+      else setBusy(false);
+    } catch (e) {
+      forgetPress(hold.holdToken);
+      setBusy(false);
+      setError(e instanceof ApiError ? e.message : 'Something went wrong. Please try again.');
+    }
+  }
+
   async function pay() {
-    if (busy || !hold.pay.canPay) return;
+    if (busy || !hold.pay.canPay || !cardMethods.length) return;
     setBusy(true);
     setError(null);
     const press = { clientId: newClientId(), method };
@@ -257,7 +329,8 @@ export function DepositStep({
           clientSecret: answer.payment.clientSecret,
           providerPaymentId: answer.payment.providerPaymentId,
           amountCents: answer.payment.amountCents,
-          method: answer.payment.method,
+          // The card box's own press: never PayPal, whose buttons start a payment of their own.
+          method: answer.payment.method as ProviderMethod,
           returnUrl: answer.payment.returnUrl,
         };
         if (canShowProviderFields(session)) {
@@ -328,6 +401,34 @@ export function DepositStep({
         {d.dueAfterCents > 0 ? <Row k="Due after the visit" v={money(d.dueAfterCents)} /> : null}
       </div>
 
+      {!fields && hold.pay.canPay && payPal ? (
+        // PayPal first, the way express buttons sit above a card form; the card box follows under "or".
+        <div className="flex flex-col gap-2.5">
+          <PayPalButtons
+            config={payPal}
+            disabled={busy || !!payTab}
+            start={startPayPal}
+            approved={(orderId) => void approvedPayPal(orderId)}
+            cancelled={() => {
+              forgetPress(hold.holdToken);
+              setError('Payment cancelled — nothing was charged.');
+            }}
+            failed={(message) => {
+              forgetPress(hold.holdToken);
+              setError(message);
+            }}
+          />
+          {cardMethods.length ? (
+            <p
+              className="flex items-center gap-3 text-xs font-medium text-text-3 before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border"
+              aria-hidden
+            >
+              or
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       {fields ? (
         <div className="flex flex-col gap-2" data-testid="deposit-fields">
           <div className="flex min-h-6 items-center justify-between gap-2">
@@ -335,7 +436,7 @@ export function DepositStep({
               {fields.method === 'ach' ? 'Pay by bank transfer' : 'Pay by card'}
             </h2>
             {(() => {
-              const other = hold.pay.methods.find((m) => m !== fields.method) ?? null;
+              const other = cardMethods.find((m) => m !== fields.method) ?? null;
               return (
                 <button
                   type="button"
@@ -357,9 +458,9 @@ export function DepositStep({
             onReady={setFieldsReady}
           />
         </div>
-      ) : hold.pay.methods.length > 1 ? (
+      ) : cardMethods.length > 1 ? (
         <div role="radiogroup" aria-label="How to pay" className="flex flex-col gap-2">
-          {hold.pay.methods.map((m) => {
+          {cardMethods.map((m) => {
             const Icon = METHODS[m].icon;
             return (
               <button
@@ -426,25 +527,29 @@ export function DepositStep({
       ) : null}
 
       <div className="sticky bottom-0 z-10 -mx-4 mt-auto flex flex-col gap-2 border-t border-border bg-card px-4 py-2.5 md:static md:mx-0 md:mt-2 md:border-0 md:bg-transparent md:p-0">
-        <Button
-          type="button"
-          size="lg"
-          className="w-full"
-          loading={busy}
-          // Once the payment page is open in its own tab, paying happens there (Open it again reopens it).
-          disabled={!hold.pay.canPay || !!payTab || (!!fields && !fieldsReady)}
-          onClick={() => void (fields ? confirmFields() : pay())}
-          data-testid="pay-deposit"
-        >
-          <Lock size={16} aria-hidden />
-          Hold my time and pay {money(d.amountCents)}
-        </Button>
+        {fields || cardMethods.length || !payPal ? (
+          <Button
+            type="button"
+            size="lg"
+            className="w-full"
+            loading={busy}
+            // Once the payment page is open in its own tab, paying happens there (Open it again reopens it).
+            disabled={!hold.pay.canPay || !!payTab || (!!fields && !fieldsReady)}
+            onClick={() => void (fields ? confirmFields() : pay())}
+            data-testid="pay-deposit"
+          >
+            <Lock size={16} aria-hidden />
+            Hold my time and pay {money(d.amountCents)}
+          </Button>
+        ) : null}
         <p className="text-center text-xs text-text-3">
-          {method === 'card'
-            ? 'Your card is held, not charged, until the time is confirmed. If the time goes while you’re typing, nothing is taken.'
-            : 'A bank transfer can’t be held the way a card can. If the time goes, we send the whole amount back at once.'}
+          {!fields && !cardMethods.length && payPal
+            ? 'PayPal only holds the money until the time is confirmed. If the time goes while you’re paying, nothing is taken.'
+            : method === 'card'
+              ? 'Your card is held, not charged, until the time is confirmed. If the time goes while you’re typing, nothing is taken.'
+              : 'A bank transfer can’t be held the way a card can. If the time goes, we send the whole amount back at once.'}
         </p>
-        {fields ? null : (
+        {fields || !cardMethods.length ? null : (
           <p className="text-center text-xs text-text-3">
             Your card details go straight to our payment provider. {hold.business.name} never sees
             them.

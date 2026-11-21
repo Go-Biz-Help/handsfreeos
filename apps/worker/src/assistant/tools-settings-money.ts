@@ -27,6 +27,7 @@ import {
   type MoneySettings,
   type ProductKind,
   type TeammateConfig,
+  PAYMENT_PROVIDER_NAMES,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext } from './runtime';
@@ -124,6 +125,8 @@ function nextMoneySettings(now: MoneySettings, args: Args): MoneySettings {
       amountCents: depositDollars === undefined ? now.deposit.amountCents : cents(depositDollars),
     },
     bankTransfer: bool(args['offerBankTransfer']) ?? now.bankTransfer,
+    venmo: bool(args['offerVenmo']) ?? now.venmo,
+    payLater: bool(args['offerPayLater']) ?? now.payLater,
     reminders: {
       ...now.reminders,
       beforeDueDays: dayListOf(args['remindBeforeDueDays']) ?? now.reminders.beforeDueDays,
@@ -214,6 +217,12 @@ function moneyChanges(now: MoneySettings, next: MoneySettings): Field[] {
       value: next.bankTransfer
         ? 'Offered, and shown first'
         : 'Not offered: customers see card only',
+    });
+  // One row for PayPal's two extra buttons keeps every change on a card of ten.
+  if (next.venmo !== now.venmo || next.payLater !== now.payLater)
+    fields.push({
+      label: 'Beside the PayPal button',
+      value: `Venmo ${next.venmo ? 'shown' : 'not shown'} · Pay Later ${next.payLater ? 'shown' : 'not shown'}`,
     });
   if (reminderWords(next) !== reminderWords(now))
     fields.push({ label: 'Invoice reminders', value: reminderWords(next) });
@@ -581,7 +590,7 @@ interface Connection {
   liveSubscriptions: number;
 }
 
-const PROVIDER_NAMES: Record<string, string> = { stripe: 'Stripe', square: 'Square' };
+const PROVIDER_NAMES: Readonly<Record<string, string>> = PAYMENT_PROVIDER_NAMES;
 const providerOf = (c: Connection) => PROVIDER_NAMES[c.provider] ?? c.provider;
 /** "Stripe · Main shop", the way the account's own row on Settings → Payments names it. */
 const accountName = (c: Connection) =>

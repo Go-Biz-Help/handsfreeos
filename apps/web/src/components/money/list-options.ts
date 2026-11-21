@@ -4,7 +4,10 @@
  * Deliberately not a client module: the pages are Server Components, and a value imported across the
  * `'use client'` boundary arrives as a reference rather than the array or function itself.
  */
-import { PAYMENT_METHOD_LABELS } from '@hfos/core';
+import {
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_PROVIDER_LABELS as PAYMENT_PROVIDER_NAMES,
+} from '@hfos/core';
 import type {
   EstimateListBody,
   InvoiceListBody,
@@ -12,6 +15,7 @@ import type {
   PaymentListBody,
   SubscriptionListBody,
 } from '@/lib/api/types';
+import { publicEnv } from '@/lib/env';
 
 /** What a list is filtered by. Everything lives in the address bar, so a filtered list is a link. */
 export interface MoneyFilters {
@@ -53,8 +57,7 @@ export function readFilters(
 export function accountLabel(
   c: Pick<PaymentConnectionRow, 'provider' | 'label' | 'displayName' | 'environment'>,
 ): string {
-  const provider =
-    c.provider === 'stripe' ? 'Stripe' : c.provider === 'square' ? 'Square' : c.provider;
+  const provider = PAYMENT_PROVIDER_NAMES[c.provider] ?? c.provider;
   const name = c.label ?? c.displayName;
   return `${name ? `${provider} · ${name}` : provider}${c.environment === 'live' ? '' : ' (test)'}`;
 }
@@ -140,6 +143,13 @@ export const PAYMENT_METHOD_CHOICES: readonly FilterChoice[] = [
   { value: 'card', label: PAYMENT_METHOD_LABELS.card },
   { value: 'card_outside', label: PAYMENT_METHOD_LABELS.card_outside },
   { value: 'ach', label: PAYMENT_METHOD_LABELS.ach },
+  // Offered once Connect PayPal is open, as on Settings → Payments.
+  ...(publicEnv.payPalEnabled
+    ? [
+        { value: 'paypal', label: PAYMENT_METHOD_LABELS.paypal },
+        { value: 'venmo', label: PAYMENT_METHOD_LABELS.venmo },
+      ]
+    : []),
   { value: 'cash', label: PAYMENT_METHOD_LABELS.cash },
   { value: 'check', label: PAYMENT_METHOD_LABELS.check },
   { value: 'other', label: PAYMENT_METHOD_LABELS.other },

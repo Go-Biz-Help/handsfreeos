@@ -80,6 +80,8 @@ export const PAYMENT_METHOD_WORDS: Readonly<Record<PaymentMethod, string>> = {
   other: 'another way',
   // What the customer reads on their receipt: it was a card, whichever machine took it.
   card_outside: 'card',
+  paypal: 'PayPal',
+  venmo: 'Venmo',
 };
 
 /** On a button or in a list: "Bank transfer". */
@@ -90,6 +92,8 @@ export const PAYMENT_METHOD_LABELS: Readonly<Record<PaymentMethod, string>> = {
   check: 'Check',
   other: 'Other',
   card_outside: 'Card (other machine)',
+  paypal: 'PayPal',
+  venmo: 'Venmo',
 };
 
 export const TERMS_WORDS: Readonly<Record<PaymentTerms, string>> = {
@@ -108,6 +112,11 @@ export const PAYMENTS_PAGE_WORDS = {
   squareRenews: 'Square signs you out every 30 days. HandsFreeOS renews it each week.',
   bankTransfer:
     'About 1% of the payment, capped at $5, and it takes 1 to 3 business days. It shows first because it costs you the least.',
+  payPal:
+    'Customers pay with their PayPal account or a card through PayPal. Shown whenever a PayPal account is connected.',
+  venmo: 'A Venmo button beside the PayPal button, for customers in the US who use Venmo.',
+  payLater:
+    'PayPal’s Pay Later button: the customer pays PayPal back in parts, and you get the whole amount at once.',
   noSurcharge:
     'Nothing is ever added to what the customer owes for paying by card. Surcharging is banned in four states and needs 30 days’ notice to your bank, so HandsFreeOS doesn’t do it.',
   numbering: 'Numbers run in order, per business. A voided number is kept and never used again.',
