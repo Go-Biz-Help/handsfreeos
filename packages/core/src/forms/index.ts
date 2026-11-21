@@ -22,3 +22,4 @@ export * from './booking';
 export * from './address';
 export * from './texting-box';
 export * from './quantities';
+export * from './uploads';

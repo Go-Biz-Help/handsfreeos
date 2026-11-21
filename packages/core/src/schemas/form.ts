@@ -5,6 +5,7 @@
  */
 import { z } from 'zod';
 import { FORM_MODES, SLIDES_MAX_BYTES } from '../forms/definition';
+import { QuestionId } from '../forms/ids';
 import { FormOpList } from '../forms/ops';
 import { LINK_REF } from './calendar';
 import { isoDateTime, uuid } from './common';
@@ -222,6 +223,42 @@ export const FormSaveAnswersOutput = z.object({
   calculations: z.record(z.string(), z.number()),
   /** What is still wrong, so a page can show it beside the question. */
   problems: z.array(z.object({ questionId: z.string(), message: z.string() })),
+});
+
+/**
+ * A customer adding a file to a file question while they fill the form in (product sellers, 5a): its place is
+ * reserved on the answer sheet, the worker hands their browser a one-time link to put it there, and
+ * `form_response.upload_confirm` checks what arrived. Only the sheet's own key reserves or confirms one.
+ */
+export const FormUploadBeginInput = z.object({
+  workspaceId: uuid,
+  responseId: uuid,
+  token: z.string().max(200).optional(),
+  questionId: QuestionId,
+  name: z.string().trim().min(1).max(200),
+  mimeType: z.string().trim().min(1).max(120),
+  sizeBytes: z.int().min(0).max(1_000_000_000),
+});
+export const FormUploadBeginOutput = z.object({
+  fileId: uuid,
+  bucket: z.string(),
+  objectPath: z.string(),
+});
+export const FormUploadConfirmInput = z.object({
+  workspaceId: uuid,
+  responseId: uuid,
+  token: z.string().max(200).optional(),
+  fileId: uuid,
+});
+export const FormUploadConfirmOutput = z.object({
+  fileId: uuid,
+  /** False when what arrived wasn't something the question takes; it's removed, and `refusal` says why. */
+  accepted: z.boolean(),
+  refusal: z.object({ rule: z.string(), message: z.string() }).nullable(),
+  name: z.string(),
+  /** What Storage measured, which is what the answer keeps. */
+  bytes: z.int(),
+  mimeType: z.string(),
 });
 
 export const FormSubmitInput = z.object({
@@ -453,6 +490,17 @@ export const FormResponseGetOutput = z.object({
     }),
   ),
   calculations: z.record(z.string(), z.number()),
+  /** The files they sent with it (file questions), wherever they are now: on the customer, or on the form. */
+  files: z.array(
+    z.object({
+      fileId: uuid,
+      name: z.string(),
+      sizeBytes: z.number().nullable(),
+      mimeType: z.string().nullable(),
+      bucket: z.string(),
+      objectPath: z.string(),
+    }),
+  ),
 });
 
 /** A page of finished answer sheets for a spreadsheet: every answer in words, under stable columns. */

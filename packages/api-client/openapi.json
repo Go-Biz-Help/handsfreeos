@@ -58824,7 +58824,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires records.write. Emits form.submitted, person.created, person.updated, appointment.booked, lead.created, task.created, invoice.created, workflow.enrol_requested. Can wait on a phone with no signal.",
+        "description": "Risk level 2. Requires records.write. Emits form.submitted, person.created, person.updated, appointment.booked, lead.created, task.created, invoice.created, workflow.enrol_requested, file.received, file.deleted. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -58994,7 +58994,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires forms.manage. Emits form.response_deleted.",
+        "description": "Risk level 2. Requires forms.manage. Emits form.response_deleted, file.deleted.",
         "requestBody": {
           "required": true,
           "content": {
@@ -201766,12 +201766,56 @@
                       "additionalProperties": {
                         "type": "number"
                       }
+                    },
+                    "files": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "fileId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "sizeBytes": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "mimeType": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "bucket": {
+                            "type": "string"
+                          },
+                          "objectPath": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "fileId",
+                          "name",
+                          "sizeBytes",
+                          "mimeType",
+                          "bucket",
+                          "objectPath"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
                     "response",
                     "answers",
-                    "calculations"
+                    "calculations",
+                    "files"
                   ],
                   "additionalProperties": false
                 }

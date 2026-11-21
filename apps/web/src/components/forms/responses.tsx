@@ -1,5 +1,5 @@
 'use client';
-import { ChevronRight, Loader2, Trash2 } from 'lucide-react';
+import { ChevronRight, FileText, Loader2, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -8,6 +8,52 @@ import { Card } from '@/components/ui/card';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { FormResponseGetOut, FormResponseRow } from '@/lib/api/types';
+import { supabaseBrowser } from '@/lib/supabase/client';
+
+type SentFile = FormResponseGetOut['files'][number];
+
+/** Opens a file they sent, in a new tab, from a five-minute link. */
+async function openSentFile(file: SentFile) {
+  const { data, error } = await supabaseBrowser()
+    .storage.from(file.bucket)
+    .createSignedUrl(file.objectPath, 300, { download: file.name });
+  if (error || !data) {
+    toast.error('That file couldn’t be opened. Try again in a minute.');
+    return;
+  }
+  window.open(data.signedUrl, '_blank', 'noopener');
+}
+
+/** The files one answer holds, each one a button that opens it; a file deleted since says so. */
+function SentFiles({ value, files }: { value: unknown; files: readonly SentFile[] }) {
+  const sent = Array.isArray(value) ? (value as { fileId?: string; name?: string }[]) : [];
+  if (!sent.length) return <span className="text-text-3">No files</span>;
+  return (
+    <span className="mt-1 flex flex-col gap-1.5">
+      {sent.map((f, i) => {
+        const file = files.find((x) => x.fileId === f.fileId);
+        return file ? (
+          <button
+            key={f.fileId ?? i}
+            type="button"
+            onClick={() => void openSentFile(file)}
+            className="flex items-center gap-2 rounded-control border border-border px-2.5 py-2 text-left text-[13.5px] transition-colors hover:bg-card-2"
+            data-testid="response-file"
+          >
+            <FileText className="h-4 w-4 shrink-0 text-text-2" strokeWidth={1.75} />
+            <span className="min-w-0 flex-1 truncate font-medium text-accent-text">
+              {file.name}
+            </span>
+          </button>
+        ) : (
+          <span key={f.fileId ?? i} className="text-[13px] text-text-3">
+            {f.name ?? 'A file'} (deleted)
+          </span>
+        );
+      })}
+    </span>
+  );
+}
 
 /** Who answered, and what one person said, with the questions worded as they read at the time. */
 export function FormResponses({
@@ -154,9 +200,13 @@ export function FormResponses({
                   <div key={answer.questionId}>
                     <dt className="text-[12.5px] text-text-3">{answer.questionTitle}</dt>
                     <dd className="text-[14px] text-text">
-                      {answer.labels.length
-                        ? answer.labels.join(', ')
-                        : (answer.text ?? JSON.stringify(answer.value))}
+                      {answer.questionType === 'file' ? (
+                        <SentFiles value={answer.value} files={open.files} />
+                      ) : answer.labels.length ? (
+                        answer.labels.join(', ')
+                      ) : (
+                        (answer.text ?? JSON.stringify(answer.value))
+                      )}
                     </dd>
                   </div>
                 ))}
