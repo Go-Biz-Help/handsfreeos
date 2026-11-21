@@ -9,7 +9,8 @@ import { rows, sql } from '@hfos/db/client';
 import { workspaceMemberships } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { executeCommand, registry, type CommandDef } from '../../src/server';
+import { autopilotList } from '../../src/addons/outreach/ops/autopilot';
+import { executeCommand, executeQuery, registry, type CommandDef } from '../../src/server';
 import {
   AUTOMATION_DEFAULTS,
   autopilotOver,
@@ -222,26 +223,29 @@ describe('Autopilot in a business', () => {
     runAs(u, ws, 'outreach.automation.save', {
       settings: { ...AUTOMATION_DEFAULTS, warmUp: false, autopilot },
     });
-  /** The day's list made for `u`, as the worker makes it, on their behalf. */
-  const plan = async (u = owner) => {
+  /** The worker, acting for `u`. */
+  const worker = async (u: TestUser) => {
     const [w] = await rows<{ organization_id: string }>(
       testDbs().admin.db,
       sql`select organization_id from app.workspaces where id = ${ws}`,
     );
-    return executeCommand(
+    return {
+      type: 'system' as const,
+      workspaceId: ws,
+      organizationId: w!.organization_id,
+      addon: { id: outreachAddon.id, name: outreachAddon.name, version: outreachAddon.version },
+      onBehalfOf: u.id,
+    };
+  };
+  /** The day's list made for `u`, as the worker makes it, on their behalf. */
+  const plan = async (u = owner) =>
+    executeCommand(
       testDbs().worker.db,
       registry.command('outreach.autopilot.plan') as CommandDef,
       { workspaceId: ws },
-      {
-        type: 'system',
-        workspaceId: ws,
-        organizationId: w!.organization_id,
-        addon: { id: outreachAddon.id, name: outreachAddon.name, version: outreachAddon.version },
-        onBehalfOf: u.id,
-      },
+      await worker(u),
       { correlationId: randomUUID(), channel: 'test' },
     ).then((r) => r.output as { day: string | null; made: boolean; waiting: number });
-  };
   const list = () => runAs(owner, ws, 'outreach.autopilot', {});
   const answer = (said: string, profileIds?: string[]) =>
     runAs(owner, ws, 'outreach.autopilot.answer', {
@@ -313,6 +317,18 @@ describe('Autopilot in a business', () => {
     expect(await names()).toEqual(['Dana Reyes', 'Sam Lee']);
     // Not today and Put back name who; OK alone means everyone waiting.
     expect(await refused(answer('not_today'))).toBe('outreach_autopilot_who');
+  });
+
+  it('lets the mid-day reminder read the list for the person, so it can tell them who still waits', async () => {
+    // Casey was put back and still waits. The reminder job reads the list as the worker, on the person's behalf.
+    const read = await executeQuery(
+      testDbs().worker.db,
+      autopilotList,
+      { workspaceId: ws },
+      await worker(owner),
+      { correlationId: randomUUID(), channel: 'test' },
+    );
+    expect(read).toMatchObject({ on: true, made: true, waiting: 1 });
   });
 
   it('puts the person’s own picks back when it’s off, and their whole list', async () => {
