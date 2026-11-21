@@ -44,6 +44,11 @@ export const WalletGetOutput = z.strictObject({
   /** Why the top-up is bigger than usual, and how to make it stop. Null when it is not. */
   escalation: z.string().nullable(),
   /**
+   * The plan is still in its free trial, when nothing tops the balance up on its own (the owner's call, 21 Nov):
+   * a free trial charges nothing. A person can still top up by hand.
+   */
+  inTrial: z.boolean(),
+  /**
    * The daily AI limit the business set, and what its AI has come to since midnight where it is, priced as it's
    * charged. Shown whatever the stage: a business HandsFreeOS covers has a limit too.
    */

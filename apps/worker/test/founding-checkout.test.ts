@@ -10,6 +10,7 @@
  */
 import { createHash, randomUUID } from 'node:crypto';
 import {
+  balanceHeadline,
   billingStatus,
   executeCommand,
   executeQuery,
@@ -19,6 +20,7 @@ import {
   foundingSetRenewing,
   foundingStartCheckout,
   organizationCreate,
+  walletGet,
   type HumanActor,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
@@ -1262,6 +1264,10 @@ describe('a spot bought with a code', () => {
       await drain();
       expect(await topUps()).toBe(topUpsBefore);
       expect(s.payments.fake.platformCharges()).toHaveLength(charged);
+      // And Billing & Usage doesn't promise one.
+      const shown = await executeQuery(api(), walletGet, { workspaceId }, actor(owner), meta());
+      expect(shown.inTrial).toBe(true);
+      expect(balanceHeadline(shown).headline).toBe('Running low: top-ups start after your trial');
 
       // One email, set for three days before the trial ends.
       const queued = await rows<{ run_at: Date; payload: { grantId: string; endsAt: string } }>(

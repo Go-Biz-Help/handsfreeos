@@ -106845,6 +106845,7 @@ export interface operations {
                         cardRequested: boolean;
                         escalation: string | null;
                         floorCents: number;
+                        inTrial: boolean;
                         maxTopupCents: number;
                         opened: boolean;
                         overdraftCents: number;

@@ -201159,6 +201159,9 @@
                         "null"
                       ]
                     },
+                    "inTrial": {
+                      "type": "boolean"
+                    },
                     "aiDailyLimitCents": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -201185,6 +201188,7 @@
                     "spentThisMonthCents",
                     "pendingTopUpCents",
                     "escalation",
+                    "inTrial",
                     "aiDailyLimitCents",
                     "aiSpentTodayCents"
                   ],
