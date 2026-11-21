@@ -83429,6 +83429,7 @@ export interface operations {
                         selfServe: boolean;
                         /** @enum {string} */
                         status: "pending" | "open" | "paid" | "expired" | "failed";
+                        trialEndsAt: string | null;
                         url: string | null;
                         /** Format: uuid */
                         workspaceId: string;

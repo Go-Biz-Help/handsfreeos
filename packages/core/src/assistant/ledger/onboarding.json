@@ -1,7 +1,7 @@
 {
   "area": "onboarding",
   "title": "Onboarding and getting set up",
-  "checkedOn": "2026-11-20",
+  "checkedOn": "2026-11-21",
   "files": {
     "apps/mobile/src/app/app/index.tsx": "73fbf8b3712b",
     "apps/mobile/src/app/app/w/[workspaceId]/email-setup.tsx": "281bc322da7c",
@@ -23,7 +23,7 @@
     "apps/mobile/src/onboarding-setup/use-onboarding-setup.ts": "9f7b55950621",
     "apps/mobile/src/onboarding-setup/words.ts": "2f69e31d6d18",
     "apps/mobile/src/onboarding/use-getting-started.ts": "e53c6c94e50d",
-    "apps/web/src/app/founding/checkout/[id]/page.tsx": "97ce650e2e79",
+    "apps/web/src/app/founding/checkout/[id]/page.tsx": "d69df8611fd2",
     "apps/web/src/app/onboarding/[workspaceId]/email/page.tsx": "5f93ae3bf250",
     "apps/web/src/app/onboarding/[workspaceId]/layout.tsx": "c2c282561bb5",
     "apps/web/src/app/onboarding/[workspaceId]/page.tsx": "edcad14ee841",
@@ -43,7 +43,7 @@
     "apps/web/src/components/calendars/weekly-hours.tsx": "86cab98e3be1",
     "apps/web/src/components/email-setup/email-setup-flow.tsx": "f915f0e5b2f0",
     "apps/web/src/components/email-setup/screens.tsx": "7c9827e63072",
-    "apps/web/src/components/founding/checkout-status.tsx": "4a625aae0ff9",
+    "apps/web/src/components/founding/checkout-status.tsx": "4b7a8ee5c68e",
     "apps/web/src/components/founding/pick-plan.tsx": "2473ab3f4140",
     "apps/web/src/components/home/phone-app-dialog.tsx": "7082b1060829",
     "apps/web/src/components/import/import-progress.tsx": "7e4630e2d20c",
@@ -253,51 +253,51 @@
       "by": "signing out is the person’s"
     },
     {
-      "path": "Founding checkout → paid note",
+      "path": "Founding checkout → paid note / free trial is on",
       "kind": "see",
-      "file": "apps/web/src/components/founding/checkout-status.tsx:119",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:123",
       "covered": "yes",
       "by": "get_settings usage → founding (founding.mine)"
     },
     {
       "path": "Founding checkout → Carry on setting up / Open your workspace",
       "kind": "do",
-      "file": "apps/web/src/components/founding/checkout-status.tsx:133",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:141",
       "covered": "yes",
       "by": "the places map: Set up your business, from Home (onb-7)"
     },
     {
       "path": "Founding checkout → stranded, finishing",
       "kind": "see",
-      "file": "apps/web/src/components/founding/checkout-status.tsx:159",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:168",
       "covered": "never",
       "by": "founding.checkout_status is NOT_FOR_THE_ASSISTANT"
     },
     {
       "path": "Founding checkout → expired / failed → Pick your spot",
       "kind": "do",
-      "file": "apps/web/src/components/founding/checkout-status.tsx:174",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:183",
       "covered": "person",
       "by": "paying is the person’s"
     },
     {
       "path": "Founding checkout → slow, preparing, confirming",
       "kind": "see",
-      "file": "apps/web/src/components/founding/checkout-status.tsx:198",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:207",
       "covered": "never",
       "by": "founding.checkout_status is NOT_FOR_THE_ASSISTANT"
     },
     {
       "path": "Founding checkout → cancelled → Go back to paying / Pick a different spot",
       "kind": "do",
-      "file": "apps/web/src/components/founding/checkout-status.tsx:221",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:230",
       "covered": "person",
       "by": "paying is the person’s"
     },
     {
       "path": "Founding checkout → leaving for Stripe → Go now",
       "kind": "do",
-      "file": "apps/web/src/components/founding/checkout-status.tsx:249",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:258",
       "covered": "person",
       "by": "paying on Stripe’s page"
     },

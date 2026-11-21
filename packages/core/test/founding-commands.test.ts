@@ -867,7 +867,12 @@ describe('a spot the business buys itself (20261027012700)', () => {
       human(owner),
       meta(),
     );
-    expect(status).toMatchObject({ selfServe: true, seatActive: true, billing: 'monthly' });
+    expect(status).toMatchObject({
+      selfServe: true,
+      seatActive: true,
+      billing: 'monthly',
+      trialEndsAt: null,
+    });
 
     const [grant] = await rows<{ id: string }>(
       admin(),
@@ -901,6 +906,32 @@ describe('a spot the business buys itself (20261027012700)', () => {
       meta(),
     );
     expect(after.paidThrough).toBe(new Date(next!.at).toISOString());
+  });
+
+  it('says a free trial is on, never paid, once its page has kept the card (20261027027000)', async () => {
+    await admin().execute(
+      sql`update platform.founding_offers set trial_days = 14 where id = ${MONTHLY}`,
+    );
+    const started = await buy(owner);
+    // A trial's page charges nothing: Stripe says nothing was paid, and keeps the card.
+    expect((await recordPaid(started.checkoutId, 0)).outcome).toBe('activated');
+    const status = await executeQuery(
+      api(),
+      foundingCheckoutStatus,
+      { checkoutId: started.checkoutId },
+      human(owner),
+      meta(),
+    );
+    expect(status).toMatchObject({ seatActive: true, renewal: false, amountCents: 9700 });
+    const mine = await executeQuery(
+      api(),
+      foundingMine,
+      { workspaceId: wsId },
+      human(owner),
+      meta(),
+    );
+    expect(status.trialEndsAt).not.toBeNull();
+    expect(status.trialEndsAt).toBe(mine.trialEndsAt);
   });
 
   it('lets a business made while spots are on sale in once it has paid', async () => {

@@ -562,7 +562,19 @@ export const foundingCheckoutStatus = defineQuery({
       billing: 'once' | 'yearly' | 'monthly';
       paid_through: Date | string | null;
       self_serve: boolean;
-    }>(ctx.tx, sql`select * from private.founding_checkout_status(${input.checkoutId}::uuid)`);
+      trial_ends_at: Date | string | null;
+    }>(
+      ctx.tx,
+      // A trial's page charges nothing (20261027027000). Its spot turns on with `trial_ends_at` in the same step that
+      // marks the checkout paid, so once the seat is on, the plan says whether this page was a trial. The trial is
+      // over when it ends, or once its first charge is paid, as founding.mine reads it.
+      sql`select s.*,
+            case when s.seat_active and not s.renewal
+                       and p.trial_ends_at > now() and p.renewal_count = 0
+                 then p.trial_ends_at end as trial_ends_at
+          from private.founding_checkout_status(${input.checkoutId}::uuid) s
+          left join app.workspace_plans p on p.workspace_id = s.workspace_id`,
+    );
     if (!c)
       throw HfosError.notFound(
         'We can’t find that payment. Sign in with the account that started it, or ask us for a new link.',
@@ -582,6 +594,7 @@ export const foundingCheckoutStatus = defineQuery({
       billing: c.billing,
       paidThrough: iso(c.paid_through),
       selfServe: c.self_serve,
+      trialEndsAt: iso(c.trial_ends_at),
     };
   },
 });
