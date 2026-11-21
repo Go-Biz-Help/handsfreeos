@@ -200,7 +200,12 @@ interface Read {
   readonly tz: string;
   readonly writerId: string;
   readonly writer: string | null;
-  readonly newest: Date;
+  /**
+   * When the newest message read was written, as the database has it, to the microsecond. A `Date` holds only
+   * milliseconds, so a mark kept as one fell just before its own message, and the next read took that message for
+   * new again: a task the team had since done came back.
+   */
+  readonly newest: string;
   readonly lines: Line[];
   readonly open: string[];
 }
@@ -219,27 +224,25 @@ export const conversationTasksJob: JobHandler = async (ctx) => {
       business: string;
       tz: string | null;
       settings: Record<string, unknown> | null;
-      read_through: Date | string | null;
+      read_through: string | null;
     }>(
       tx,
       sql`select c.channel::text as channel, c.person_id, w.name as business, w.timezone as tz, w.settings,
             (select nullif(btrim(concat_ws(' ', p.first_name, p.last_name)), '') from app.people p
                where p.id = c.person_id) as customer,
-            r.read_through
+            r.read_through::text as read_through
           from app.conversations c join app.workspaces w on w.id = c.workspace_id
           left join app.conversation_task_reads r on r.conversation_id = c.id
           where c.id = ${conversationId} and c.workspace_id = ${scope.workspaceId}`,
     );
     if (!c || !automationSettingsOf(c.settings).switches.aiTasks) return null;
-    const since = c.read_through
-      ? new Date(c.read_through)
-      : new Date(Math.max(0, now - FIRST_READ_MS));
-    const fresh = await rows<{ id: string; created_at: Date | string; sent_by: string }>(
+    const since = c.read_through ?? new Date(Math.max(0, now - FIRST_READ_MS)).toISOString();
+    const fresh = await rows<{ id: string; at: string; sent_by: string }>(
       tx,
-      sql`select id, created_at, sent_by from app.messages
+      sql`select id, created_at::text as at, sent_by from app.messages
           where conversation_id = ${conversationId} and workspace_id = ${scope.workspaceId}
             and direction = 'outbound' and sent_by is not null
-            and created_at > ${since.toISOString()}::timestamptz
+            and created_at > ${since}::timestamptz
             and created_at <= ${new Date(now).toISOString()}::timestamptz
           order by created_at`,
     );
@@ -299,7 +302,7 @@ export const conversationTasksJob: JobHandler = async (ctx) => {
       tz,
       writerId: last.sent_by,
       writer: writer?.name ?? null,
-      newest: new Date(last.created_at),
+      newest: last.at,
       lines,
       open: await openTasksOf(tx, scope.workspaceId, c.person_id, tz),
     };
@@ -345,12 +348,12 @@ export const conversationTasksJob: JobHandler = async (ctx) => {
           values (${conversationId}, ${scope.workspaceId}, '-infinity'::timestamptz)
           on conflict (conversation_id) do nothing`,
     );
-    const [mark] = await rows<{ read_through: Date | string }>(
+    const [mark] = await rows<{ read: boolean }>(
       tx,
-      sql`select read_through from app.conversation_task_reads
+      sql`select read_through >= ${read.newest}::timestamptz as read from app.conversation_task_reads
           where conversation_id = ${conversationId} for update`,
     );
-    if (mark && new Date(mark.read_through).getTime() >= read.newest.getTime()) return;
+    if (mark?.read) return;
     const seen = new Set(read.open.map((t) => t.replace(/ \(due [^)]*\)$/, '').toLowerCase()));
     let made = 0;
     for (const t of tasks) {
@@ -377,7 +380,7 @@ export const conversationTasksJob: JobHandler = async (ctx) => {
     }
     await tx.execute(
       sql`update app.conversation_task_reads
-          set read_through = ${read.newest.toISOString()}::timestamptz, tasks = tasks + ${made},
+          set read_through = ${read.newest}::timestamptz, tasks = tasks + ${made},
             updated_at = now()
           where conversation_id = ${conversationId}`,
     );

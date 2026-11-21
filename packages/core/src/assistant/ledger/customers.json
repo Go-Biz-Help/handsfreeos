@@ -75,7 +75,7 @@
     "apps/web/src/components/import/import-progress.tsx": "7e4630e2d20c",
     "apps/web/src/components/import/import-wizard.tsx": "e3a7f56dff11",
     "apps/web/src/components/inbox/conversations-card.tsx": "f83a51270af2",
-    "apps/web/src/components/inbox/message-sheet.tsx": "a156995e028d",
+    "apps/web/src/components/inbox/message-sheet.tsx": "b8a8610c66f7",
     "apps/web/src/components/partners/partner-card.tsx": "b27e21964bf3",
     "apps/web/src/components/pipeline/attention-banner.tsx": "c47471f7ab30",
     "apps/web/src/components/pipeline/lead-detail.tsx": "008861551277",

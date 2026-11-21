@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 import {
   assistantToolByName,
   companyCreate,
+  conversationOpen,
   customRecordCreate,
   customRecordTypeCreate,
   estimateCreate,
@@ -451,6 +452,8 @@ describe('texting another of their numbers', () => {
       body: 'Running late',
     });
     expect(field(card, 'To')).toBe('Jo Park · (512) 555-0177 · Work');
+    // A first text to it has no conversation for Edit to open, and Edit must never open their main number's instead.
+    expect(card).toMatchObject({ conversationId: null, editable: false });
     // Their main number is the usual text.
     const main = await prepare('send_text', { personId: jo, to: '512-555-0170', body: 'Hi' });
     expect(field(main.card, 'To')).toBe('Jo Park · (512) 555-0170');
@@ -469,6 +472,20 @@ describe('texting another of their numbers', () => {
     expect(card.title).toBe('Email Jo?');
     expect(field(card, 'To')).toBe('Jo Park · jo@work.test · Work');
     expect(card.warnings).toEqual([]);
+    // Edit writes where the card says: nowhere yet for a first email to it, then in that address's own conversation.
+    expect(card).toMatchObject({ conversationId: null, editable: false });
+    const lane = await run(
+      conversationOpen,
+      { workspaceId, personId: jo, channel: 'email', to: 'jo@work.test' },
+      dale,
+    );
+    const next = await prepare('send_email', {
+      personId: jo,
+      to: 'jo@work.test',
+      subject: 'Your heater',
+      body: 'It’s in.',
+    });
+    expect(next.card).toMatchObject({ conversationId: lane.conversationId, editable: true });
     // Their main email is the usual one.
     const main = await prepare('send_email', {
       personId: jo,

@@ -70,7 +70,7 @@
     "apps/web/src/components/inbox/mail-card.tsx": "58e4e0c6c664",
     "apps/web/src/components/inbox/media-viewer.tsx": "eea9b3e6a2d4",
     "apps/web/src/components/inbox/message-log.tsx": "dc5c93220d39",
-    "apps/web/src/components/inbox/message-sheet.tsx": "a156995e028d",
+    "apps/web/src/components/inbox/message-sheet.tsx": "b8a8610c66f7",
     "apps/web/src/components/inbox/new-message-dialog.tsx": "78cc4578cab4",
     "apps/web/src/components/inbox/rich-editor.tsx": "c594a4e0ed14",
     "apps/web/src/components/inbox/rich-message.tsx": "2197f796284c",
@@ -1477,7 +1477,7 @@
     {
       "path": "Context → message sheet, Open whole conversation",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/message-sheet.tsx:231",
+      "file": "apps/web/src/components/inbox/message-sheet.tsx:241",
       "covered": "yes",
       "by": "get_conversation"
     },

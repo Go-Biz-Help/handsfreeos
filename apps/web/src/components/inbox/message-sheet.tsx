@@ -26,6 +26,7 @@ export function MessageSheet({
   person,
   channel = 'sms',
   to,
+  conversationId,
   open,
   onOpenChange,
   onEditPerson,
@@ -44,6 +45,11 @@ export function MessageSheet({
   channel?: Channel;
   /** Another of their numbers or emails to use instead of the main one (0103); left out, the main one. */
   to?: string | null;
+  /**
+   * The conversation to write in, when it's already known (the Assistant's Edit): it may be with another of their
+   * numbers or emails. Left out, theirs on this channel is opened.
+   */
+  conversationId?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Opens the customer's edit dialog (offered when their email address bounced). */
@@ -62,11 +68,13 @@ export function MessageSheet({
     setState(null);
     void (async () => {
       try {
-        const opened = unwrap(
-          await apiBrowser().POST('/v1/commands/conversation.open', {
-            body: { workspaceId, personId: person.id, channel, ...(to ? { to } : {}) },
-          }),
-        );
+        const opened = conversationId
+          ? { conversationId }
+          : unwrap(
+              await apiBrowser().POST('/v1/commands/conversation.open', {
+                body: { workspaceId, personId: person.id, channel, ...(to ? { to } : {}) },
+              }),
+            );
         const ref = { workspaceId, conversationId: opened.conversationId };
         const [data, thread, email] = await Promise.all([
           apiBrowser().POST('/v1/queries/conversation.get', { body: ref }).then(unwrap),
@@ -85,15 +93,17 @@ export function MessageSheet({
     return () => {
       cancelled = true;
     };
-  }, [open, workspaceId, person.id, channel, to]);
+  }, [open, workspaceId, person.id, channel, to, conversationId]);
 
   const loaded = state && 'data' in state ? state : null;
   const heading = `${channel === 'email' ? 'Email' : 'Text'} ${person.fullName}`;
   const defaultFrom = loaded?.email?.addresses.find((a) => a.id === loaded.email?.fromAddressId);
+  // Who it's with: a known conversation's own number or address, which may not be their main one.
+  const known = conversationId ? loaded?.data.conversation : null;
   const sub =
     channel === 'email'
-      ? `${to ?? person.email ?? ''}${defaultFrom ? ` · from ${defaultFrom.address}` : ''}`
-      : `${to ? formatPhone(normalizePhone(to) ?? to) : (person.phone ?? '')}${loaded?.data.fromNumber ? ` · from ${loaded.data.fromNumber}` : ''}`;
+      ? `${known?.counterpart ?? to ?? person.email ?? ''}${defaultFrom ? ` · from ${defaultFrom.address}` : ''}`
+      : `${known ? known.counterpartDisplay : to ? formatPhone(normalizePhone(to) ?? to) : (person.phone ?? '')}${loaded?.data.fromNumber ? ` · from ${loaded.data.fromNumber}` : ''}`;
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent title={heading} hideHeader className="overflow-hidden p-0 sm:p-0">
