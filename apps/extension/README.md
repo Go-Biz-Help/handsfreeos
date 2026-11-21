@@ -597,7 +597,7 @@ extension in within a couple of seconds; a wrong one, or **That wasn’t me**, s
   prompt, so a list of three let a stranger in one tap in three. The prompt never shows words the caller sent: the
   browser is one of a few names (`extensionBrowserName`), anything else "your browser". After a refused prompt (a
   wrong number, or That wasn’t me) the email gets no new one for half an hour, and five an hour at most, counted in
-  the database (`private.extension_sign_in_wait`, 20261027032200). Phones on an older build get no numbers to pick
+  the database (`private.extension_sign_in_wait`, 20261027032500). Phones on an older build get no numbers to pick
   from until they update.
 
 - **The background holds the secret** (`src/hfos/prompt.ts`). Starting (`POST /public/extension-sign-in/start` on the
