@@ -5,7 +5,9 @@ import { api, ownerWithSite } from './booking-helpers';
  * Sizes and colors on a product (docs/selling-products.md): the business gives its T-shirt the shirt sizes with a
  * bump on the big ones, and a quote picks Adult 2XL from the catalogue at that size's price.
  */
-test('a T-shirt gets its sizes in Settings, and a quote picks one at its price', async ({ page }) => {
+test('a T-shirt gets its sizes in Settings, and a quote picks one at its price', async ({
+  page,
+}) => {
   test.setTimeout(150_000);
   const owner = await ownerWithSite(page, 'product-options', 'Crafts-n-Things');
 
