@@ -482,7 +482,7 @@ If you see `MaxClientsInSessionMode` or `max clients reached in session mode` in
 Change a role's password in any of these cases:
 
 - It may have leaked.
-- You restored a backup (backups do not keep these passwords).
+- You restored a backup after a break-in. After any other restore, set the same passwords again instead (step 8 of "Restoring a daily backup").
 - You are setting up a new or copied project. The first migration creates both roles with local development passwords that are written in the repository. Those must never stay in place on a hosted project.
 
 Postgres keeps one password per role. So there is a short gap between changing the password and restarting the app, and new connections fail during it. Do this at a quiet time. Connections that are already open keep working; only new sign-ins need the new password. Do one role at a time. The steps below change `hfos_worker`. For the API, use `hfos_api`, `handsfreeos-api`, `DATABASE_URL` and `HFOS_API_DB_PASSWORD` instead.
@@ -1213,24 +1213,110 @@ Before you start: sign in with your first account and add a lead to a pipeline i
 ### Backups
 
 - The Pro plan backs up the database every day and keeps the last 7 days. The backups are under **Database** → **Backups**, on the **Scheduled backups** tab. Direct link: `https://supabase.com/dashboard/project/ybupfghakoszfcxhyrby/database/backups/scheduled`.
-- Backups do not include Storage files, only the rows that point to them. A backup cannot bring back a deleted photo or recording.
-- Backups do not keep the `hfos_api` and `hfos_worker` passwords.
+- Backups do not include Storage files, only the rows that point to them. A backup cannot bring back a deleted photo or recording. Twilio's copy of each call recording and voicemail is deleted once the worker has stored it, so the copy in Storage is the only one.
+- Backups do not keep the `hfos_api`, `hfos_worker` and `hfos_sync` passwords.
 - No backup holds the worker's `WORKER_ENCRYPTION_KEY`. Without it, the clients' Twilio credentials in a restored database cannot be opened. Keep the key in your password manager.
-- Deleting the project deletes its backups.
+- Deleting the project deletes its backups. So does anyone who gets into the Supabase account. Only a copy kept outside Supabase ("Keeping your own copy") survives that.
+- A restore puts the whole project back, for every business. When only some records are lost, copy them back from a separate project instead ("Bringing back only what was lost").
 - Point-in-time recovery restores the database to any moment, losing at most about 2 minutes of data. It is an add-on that costs about $100 a month for 7 days. It also needs at least the Small compute size (about $15 a month); the project is on Micro now (about $10 a month). For HandsFreeOS alone, that adds roughly $105 a month. The organization's Pro plan fee stays the same. Point-in-time recovery replaces the daily backups. Turn it on in **Project Settings** → **Add-ons** once clients depend on their data.
 
 #### Restoring a daily backup
 
-1. Open `https://supabase.com/dashboard/project/ybupfghakoszfcxhyrby/database/backups/scheduled`.
-2. On the backup you want, click its restore button.
-3. Read the **Restore from backup** dialog. Every change made after that backup is lost.
-4. Click **Restore**.
+A restore puts the whole project back to the moment of the backup. Every business loses what changed after it, and the project is offline while it runs. If only one business lost records, use "Bringing back only what was lost" instead.
+
+Supabase asks for two things around a restore that the dashboard doesn't do for you. The sync service's replication slot must be dropped first (steps 1 to 3). The three app roles come back with no password, so nothing can sign in until you set them again (step 8). That pause is useful: the worker can't send anything until you've looked at step 7.
+
+1. Write down the time of the backup you will restore, from the list at `https://supabase.com/dashboard/project/ybupfghakoszfcxhyrby/database/backups/scheduled`.
+2. Stop the sync service. Find its machine ID first:
+
+   ```bash
+   fly status --app handsfreeos-sync
+   ```
+
+   Then stop that machine:
+
+   ```bash
+   fly machine stop <service machine ID> --app handsfreeos-sync
+   ```
+
+3. In a new SQL Editor query, drop its slot:
+
+   ```sql
+   select pg_drop_replication_slot(slot_name) from pg_replication_slots where slot_name like 'hfos_sync_%';
+   ```
+
+   You should see one row for each slot dropped. If Postgres says the slot is active, the service is still running: repeat step 2.
+
+4. Back on the backups list, click the restore button on the backup from step 1.
+5. Read the **Restore from backup** dialog. Every change made after that backup is lost.
+6. Click **Restore**.
 
    You should see the dashboard report that the project is restoring. The project is offline until the restore finishes.
 
-5. Give both roles new passwords, one at a time, with the steps in "Change an app role password". The apps cannot sign in until you do.
+7. Check what the worker would do again. Jobs that ran between the backup and now are waiting again, and the worker runs them as soon as it can sign in. Booking reminders for visits that have passed, and payment reminders that are too late, skip themselves. Other messages could go out a second time. In a new SQL Editor query, run:
 
-   You should see `worker started` in the worker's log, and your data when you sign in at `https://app.handsfreeos.com`.
+   ```sql
+   select kind, count(*) from app.scheduled_jobs where status = 'pending' and run_at <= now() group by kind order by 2 desc;
+   ```
+
+   ```sql
+   select event_type, count(*) from app.outbox where status = 'pending' group by event_type order by 2 desc;
+   ```
+
+   You should see mostly housekeeping, such as `wallet.sweep`, `sync_window.sweep`, `registration.check` and `addon.deliver`, which are safe to run again. If anything that messages customers shows up in numbers, such as `push.send` or a follow-up, get help before step 8.
+
+8. Set the three passwords again. After a mistake, use the same passwords as before, from the password manager entries "hfos_api database password", "hfos_worker database password" and "hfos_sync database password". Fly then needs no change. Run each line with its password in place of the placeholder:
+
+   ```sql
+   alter role hfos_api with password '<hfos_api password>';
+   ```
+
+   ```sql
+   alter role hfos_worker with password '<hfos_worker password>';
+   ```
+
+   ```sql
+   alter role hfos_sync with password '<hfos_sync password>';
+   ```
+
+   If the restore follows a break-in, make new passwords instead, one role at a time: "Change an app role password" for the first two, and "Rotating the sync service's secrets" for `hfos_sync`.
+
+   Afterwards, delete the saved queries, as in steps 16 and 17 of "Change an app role password".
+
+9. Start the sync service again:
+
+   ```bash
+   fly machine start <service machine ID> --app handsfreeos-sync
+   ```
+
+10. Wait for its new copy:
+
+    ```bash
+    fly ssh console --app handsfreeos-sync -g app -C "node /config/status.mjs --wait 900"
+    ```
+
+    You should see a new slot (`hfos_sync_2_…` or later), `first copy done`, and `Healthy.` Phones need nothing: they catch up on their own.
+
+11. Check the apps:
+
+    ```bash
+    fly logs --app handsfreeos-worker
+    ```
+
+    You should see `worker started` and no `password authentication failed` lines. Then sign in at `https://app.handsfreeos.com` and open **Contacts**; you should see your customers as they were at the backup. If either app still can't sign in after 2 minutes, restart it with `fly apps restart handsfreeos-worker` or `fly apps restart handsfreeos-api`.
+
+#### Bringing back only what was lost
+
+When one business loses records, for example by deleting them for good, emptying the Deleted bin or a bad import, bring back just those records. Everyone else keeps their work.
+
+1. Open `https://supabase.com/dashboard/project/ybupfghakoszfcxhyrby/database/backups/restore-to-new-project`.
+2. On a backup from before the loss, click **Restore**.
+3. Read the cost the dialog shows. The new project is billed by the hour at the same size as this one, about 1.5¢ an hour on Micro, until you delete it. Confirm.
+
+   You should see a new project in the dashboard once the copy is done. It holds the database only, with no Storage files. No app signs in to it, so it sends nothing.
+
+4. Get help to copy the missing records back. Claude can read both projects with the Supabase connector, list what is missing, and prepare the copy for you to approve. Nothing is copied by hand in the dashboard.
+5. When you are done, delete the new project: open it, then **Project Settings** → **General** → **Delete project**. It costs money until you do.
 
 #### Keeping your own copy
 
