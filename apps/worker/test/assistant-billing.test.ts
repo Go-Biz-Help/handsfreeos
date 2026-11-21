@@ -585,6 +585,26 @@ describe('an estimate, written by asking', () => {
       expect(result['writtenAt']).toEqual(expect.any(String));
       expect(result).not.toHaveProperty('paidAt');
     });
+
+    it('bills the rest after that deposit, and nothing on it twice', async () => {
+      const { estimate: e } = await estimate(estimateId);
+      await expect(
+        prepare('manage_estimate', { estimateId, action: 'make_invoice', bill: 'deposit_only' }),
+      ).rejects.toThrow(/deposit is already on a draft invoice/);
+      const rest = e.totals.totalCents - e.depositCents;
+      const p = await prepare('manage_estimate', { estimateId, action: 'make_invoice' });
+      expect(field(p.card, 'It bills')).toBe(
+        `The rest · ${money(rest)}, after the ${money(e.depositCents)} deposit on a draft invoice`,
+      );
+      const done = await p.confirm();
+      expect((await invoice(idOf(done.href))).invoice).toMatchObject({
+        purpose: 'balance',
+        totals: expect.objectContaining({ totalCents: rest }),
+      });
+      await expect(
+        prepare('manage_estimate', { estimateId, action: 'make_invoice' }),
+      ).rejects.toThrow(/already invoiced on a draft invoice, so it isn’t billed twice/);
+    });
   });
 
   it('voids one that went out, saying it can’t be undone', async () => {

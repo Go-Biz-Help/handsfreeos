@@ -4747,7 +4747,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Turn an estimate into an invoice. The lines are copied as they were agreed and the deposit is carried through as what to ask for first; ask for the deposit on its own and it is raised as a one-line deposit invoice instead.
+         * Turn an estimate into an invoice. The lines are copied as they were agreed and the deposit is carried through as what to ask for first; ask for the deposit on its own and it is raised as a one-line deposit invoice instead. Once the deposit is invoiced on its own, the whole job is billed as the rest: one line, the total less the deposit. Nothing is billed twice: an estimate already invoiced, or whose deposit is, is refused.
          * @description Risk level 2. Requires money.bill. Emits estimate.converted.
          */
         post: operations["command_estimate_convert"];
